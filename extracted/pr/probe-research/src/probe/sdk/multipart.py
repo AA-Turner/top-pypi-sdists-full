@@ -302,7 +302,6 @@ def build_op(
     kind: str | None,
     content_type: str | None,
     meta: dict | None,
-    notes: str | None,
     span_id: str | None,
     step_index: int | None,
     allow_copy: bool = True,
@@ -345,7 +344,6 @@ def build_op(
         "content_type": content_type,
         "kind": kind,
         "meta": meta,
-        "notes": notes,
         "span_id": span_id,
         "step_index": step_index,
     }
@@ -635,7 +633,8 @@ def _create(client: Any, upload: dict) -> dict:
         "content_hash": upload["blob"],
         "size_bytes": upload["size_bytes"],
         "content_type": upload.get("content_type"),
-        "notes": upload.get("notes"),
+        # No `notes`: an op an older client queued may carry one, and files no
+        # longer carry notes, so it is left behind rather than sent.
     }
     if _anchor_of(upload) == Anchor.RUN.value:
         # A run's alone: every other door forbids them (`extra=forbid`).
@@ -990,7 +989,6 @@ def upload_now(
     kind: str | None,
     content_type: str | None,
     meta: dict | None,
-    notes: str | None,
     span_id: str | None,
     step_index: int | None,
     anchor: str = Anchor.RUN.value,
@@ -1030,7 +1028,6 @@ def upload_now(
             "content_type": content_type,
             "kind": kind,
             "meta": meta,
-            "notes": notes,
             "span_id": span_id,
             "step_index": step_index,
         },

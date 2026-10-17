@@ -156,6 +156,21 @@ def _camera_control(value: Any) -> dict | None:
     return validate_camera_control(value)
 
 
+#: ``UnifiedConfig.from_dict``'s default: a stored definition, where every message is authored.
+ALL_AUTHORED: Any = object()
+
+
+def _system_fields(si: Any) -> tuple[Any, ...]:
+    """The system instruction's authored string fields, as one comparable snapshot."""
+    return (
+        si.base_instruction or "",
+        si.intro or "",
+        si.outro or "",
+        list(si.prepend_sections or []),
+        list(si.append_sections or []),
+    )
+
+
 @dataclass
 class UnifiedConfig:
     """
@@ -205,6 +220,14 @@ class UnifiedConfig:
     # Transient OpenAI Responses cache-routing key, derived per provider loop.
     # It is deliberately omitted from ``to_storage_dict``.
     prompt_cache_key: str | None = None
+
+    # The agent's LONG CACHE setting (agent.definition.settings.extended_prompt_cache):
+    # keep the stable prefix cached longer than the provider default. Anthropic: the
+    # system and template marks carry ``ttl: "1h"``; OpenAI: ``prompt_cache_retention:
+    # "24h"`` on the models that take it; every other wire says it is a no-op
+    # (providers/cache_marks.py). Research: common-docs projects/agent-evaluation/
+    # research/provider-caching.md.
+    extended_prompt_cache: bool | None = None
 
     @property
     def routing_offering_id(self) -> str | None:
@@ -660,12 +683,22 @@ class UnifiedConfig:
         return str(self.system_instruction)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "UnifiedConfig":
+    def from_dict(
+        cls, data: dict[str, Any], *, authored_message_count: Any = ALL_AUTHORED
+    ) -> "UnifiedConfig":
         """
         Create UnifiedConfig from dictionary (e.g., from API).
 
-        Extracts system/developer messages from messages list and places them
-        in system_instruction field.
+        Extracts every AUTHORED system/developer message from the messages list, in order, and
+        places their text, joined by a blank line, in the system_instruction field (after an
+        explicit ``system_instruction``, when one is given). No system message is dropped.
+
+        ``authored_message_count`` is a client-carried door's ``template_message_count``, passed
+        raw: N = only the leading N wire messages are the author's, so a system message among
+        them joins the system instruction and a later one is history (data, kept in place, never
+        filled); ``0`` = no message is authored; ``None`` (an older client that sends no count) =
+        the system messages before the first non-system message are its system prompt. Not
+        passed (a stored definition: every message is authored) lifts them all.
         """
         # Provider-native field aliases. Each model's controls JSONB declares
         # control names verbatim from the provider's API — so the agent's
@@ -715,12 +748,15 @@ class UnifiedConfig:
                 color="yellow",
             )
 
-        # Parse messages and extract system instruction
+        # Parse messages and extract system instruction. Every AUTHORED system/developer
+        # message is lifted, in order, joined by a blank line (the parts of one message join with
+        # nothing); a history one stays in place. None is ever dropped.
         messages_data = data.get("messages", [])
         parsed_messages = []
-        extracted_system_text = ""
+        extracted_system_parts: list[str] = []
+        seen_turn = False
 
-        for msg_data in messages_data:
+        for index, msg_data in enumerate(messages_data):
             # Convert to UnifiedMessage if needed
             if isinstance(msg_data, dict):
                 msg = UnifiedMessage.from_dict(msg_data)
@@ -734,23 +770,49 @@ class UnifiedConfig:
                 )
                 continue
 
-            # Extract system/developer messages to system_instruction
-            if msg.role in (Role.SYSTEM, Role.DEVELOPER, "system", "developer"):
-                # Extract text content from first system/developer message
-                if not extracted_system_text and msg.content:
-                    for content in msg.content:
-                        if isinstance(content, TextContent):
-                            extracted_system_text += content.text
+            is_system = msg.role in (Role.SYSTEM, Role.DEVELOPER, "system", "developer")
+            if authored_message_count is ALL_AUTHORED:
+                authored = True
+            elif authored_message_count is None:
+                authored = not seen_turn  # an older client: its leading system prompt only
+            else:
+                authored = index < authored_message_count
+            if not is_system:
+                seen_turn = True
+            # Extract AUTHORED system/developer messages to system_instruction
+            if is_system and authored:
+                # Lift the text of every system/developer message, in order.
+                text = "".join(
+                    content.text for content in (msg.content or []) if isinstance(content, TextContent)
+                )
+                if text:
+                    extracted_system_parts.append(text)
                 # Don't add to parsed_messages - system goes to system_instruction
             else:
-                # Regular message - add to list
+                # Regular message, or a history system message (data, kept in place)
                 parsed_messages.append(msg)
 
+        extracted_system_text = "\n\n".join(extracted_system_parts)
         # Priority: explicit system_instruction > extracted from messages
         # Use 'is not None' check so dict values (including potentially empty ones)
         # are preserved rather than being swallowed by falsy coalescing.
         explicit_si = data.get("system_instruction")
-        if explicit_si is not None:
+        if explicit_si is not None and extracted_system_text:
+            # Both: the authored system messages join AFTER the explicit instruction, in
+            # order, and are filled with it under the rule. Never dropped.
+            import copy
+
+            joined = SystemInstruction.from_value(
+                dict(explicit_si) if isinstance(explicit_si, dict) else explicit_si
+            )
+            if joined is explicit_si:
+                joined = copy.copy(explicit_si)
+            base = joined.base_instruction or ""
+            joined.base_instruction = (
+                f"{base}\n\n{extracted_system_text}" if base.strip() else extracted_system_text
+            )
+            system_instruction = joined
+        elif explicit_si is not None:
             system_instruction = explicit_si
         elif extracted_system_text:
             system_instruction = extracted_system_text
@@ -1244,6 +1306,11 @@ class UnifiedConfig:
                 and is never filled, escaped or section-evaluated (THE USER-INPUT LAW).
                 ``None`` = every message is authored (a door that fills before any other
                 message joins the config, e.g. the saved-agent door).
+
+        Filled from the template ONCE: every call restarts each authored part from its authored
+        template (a forced re-apply, a clone given new values, authored text added later), so
+        text a value brought in — or the escape produced — is never filled. A part changed after
+        its fill cannot restart and raises ``VariableRefillError``; the call is never ignored.
         """
         # Tripwire: a picklist reference envelope must have been resolved to text by
         # resolve_picklist_references() upstream. If one reaches here, a code path skipped
@@ -1274,23 +1341,71 @@ class UnifiedConfig:
             blocks = dict(self.prompt_block_texts)
 
         if self.system_instruction is not None:
-            system_template = getattr(self.system_instruction, "_authored_template", None)
+            si = self.system_instruction
+            # Every AUTHORED string field of the instruction, each against its own first-seen
+            # template, under the one rule: base, intro, outro and every prepend/append section.
+            # A refill restarts every field from that template (never from filled text).
+            from matrx_ai.config.template_substitution import restart_point
+
+            restart_point(si, _system_fields(si), "the system instruction")
+            system_template = getattr(si, "_authored_template", None)
             if system_template is None:
-                system_template = self.system_instruction.base_instruction or ""
-                self.system_instruction._authored_template = system_template
-            self.system_instruction.base_instruction = substitute_authored(
-                self.system_instruction.base_instruction or "",
-                system_template,
-                variables,
-                # ONE render for system and messages (THE prompt door): None -> "",
-                # structured values -> JSON, never Python repr.
-                prompt_safe_value,
-                unescape=True,
-                blocks=blocks,
-            )
+                system_template = si.base_instruction or ""
+                si._authored_template = system_template
+            field_templates = getattr(si, "_authored_fields", None)
+            if field_templates is None:
+                field_templates = {
+                    "intro": si.intro or "",
+                    "outro": si.outro or "",
+                    "prepend_sections": list(si.prepend_sections or []),
+                    "append_sections": list(si.append_sections or []),
+                }
+                si._authored_fields = field_templates
+            si.base_instruction = system_template
+            si.intro = field_templates["intro"]
+            si.outro = field_templates["outro"]
+            si.prepend_sections = list(field_templates["prepend_sections"])
+            si.append_sections = list(field_templates["append_sections"])
+
+            def fill(text: Any, template: Any) -> Any:
+                if not isinstance(text, str):
+                    return text
+                template = template if isinstance(template, str) else text
+                return substitute_authored(
+                    template,
+                    template,
+                    variables,
+                    # ONE render for system and messages (THE prompt door): None -> "",
+                    # structured values -> JSON, never Python repr.
+                    prompt_safe_value,
+                    unescape=True,
+                    blocks=blocks,
+                )
+
+            def fill_list(items: list[Any], templates: list[Any]) -> list[Any]:
+                return [
+                    fill(item, templates[i] if i < len(templates) else None)
+                    for i, item in enumerate(items or [])
+                ]
+
+            si.base_instruction = fill(si.base_instruction or "", system_template)
+            si.intro = fill(si.intro or "", field_templates["intro"])
+            si.outro = fill(si.outro or "", field_templates["outro"])
+            si.prepend_sections = fill_list(si.prepend_sections, field_templates["prepend_sections"])
+            si.append_sections = fill_list(si.append_sections, field_templates["append_sections"])
+            from matrx_ai.config.template_substitution import FILLED_ATTR
+
+            setattr(si, FILLED_ATTR, _system_fields(si))
 
         # Replace in the authored messages only
+        from matrx_ai.config.cache_marks import snapshot_signatures, stamp_template_messages
+
+        authored = list(self.messages) if template_messages is None else list(template_messages)
+        before = snapshot_signatures(authored)
         self.messages.replace_variables(variables, blocks=blocks, only=template_messages)
+        # The template cache mark goes at the end of the authored messages the fill left
+        # unchanged (config/cache_marks.py) — stamped here, the one place that knows.
+        stamp_template_messages(authored, before)
 
     def apply_overrides(self, overrides: LLMParams) -> None:
         """Apply typed config overrides from the API layer.

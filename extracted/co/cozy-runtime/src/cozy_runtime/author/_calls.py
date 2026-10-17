@@ -17,6 +17,7 @@ from typing import Any, Concatenate, ParamSpec, TypeVar, cast, overload
 
 import msgspec
 
+from cozy_runtime import _application_json as application_json
 from cozy_runtime import canonical_json
 from cozy_runtime.author._artifacts import ModelArtifact
 from cozy_runtime.author._assets import Asset, Assets, Tree, asset_dec_hook
@@ -37,9 +38,10 @@ from cozy_runtime.author._executor_requests import (
 )
 from cozy_runtime.author._memo import MemoDependency, Memoize, memo_policy
 from cozy_runtime.author._memo import declare as declare_memo
-from cozy_runtime.author._model_defaults import DefaultLadder, model_components, model_defaults
+from cozy_runtime.author._model import Model
+from cozy_runtime.author._model_defaults import model_components, model_defaults
 from cozy_runtime.author._services import Telemetry, _progress_scope, _ProgressScope
-from cozy_runtime import _application_json as application_json
+from cozy_runtime.author._weights import Weights
 
 _LOG = logging.getLogger(__name__)
 
@@ -66,7 +68,7 @@ class _Export:
     module: str
     name: str
     memoize: Memoize | None = None
-    defaults: Mapping[str, DefaultLadder] = field(default_factory=dict)
+    defaults: Mapping[str, str] = field(default_factory=dict)
     components: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
 
@@ -78,7 +80,7 @@ def invocable[**P, R](
     memoize: bool | Memoize = False,
     memo_version: str | None = None,
     memo_dependencies: tuple[MemoDependency, ...] = (),
-    defaults: Mapping[str, Sequence[Mapping[str, str | int]]] | None = None,
+    defaults: Mapping[str, str] | None = None,
     components: Mapping[str, Sequence[str]] | None = None,
 ) -> Callable[P, PendingCall[R]]: ...
 
@@ -89,7 +91,7 @@ def invocable[**P, R](
     memoize: bool | Memoize = False,
     memo_version: str | None = None,
     memo_dependencies: tuple[MemoDependency, ...] = (),
-    defaults: Mapping[str, Sequence[Mapping[str, str | int]]] | None = None,
+    defaults: Mapping[str, str] | None = None,
     components: Mapping[str, Sequence[str]] | None = None,
 ) -> Callable[[Callable[Concatenate[Context, P], Awaitable[R]]], Callable[P, PendingCall[R]]]: ...
 
@@ -101,7 +103,7 @@ def invocable[**P, R](
     memoize: bool | Memoize = False,
     memo_version: str | None = None,
     memo_dependencies: tuple[MemoDependency, ...] = (),
-    defaults: Mapping[str, Sequence[Mapping[str, str | int]]] | None = None,
+    defaults: Mapping[str, str] | None = None,
     components: Mapping[str, Sequence[str]] | None = None,
 ) -> (
     Callable[P, PendingCall[R]]
@@ -139,9 +141,7 @@ def invocable[**P, R](
         raise ConformanceError(
             "an invocable must be a module-level async function", code="invocable_signature"
         )
-    declare_memo(
-        fn, memoize=policy is not None, version=memo_version, dependencies=memo_dependencies
-    )
+    declare_memo(fn, version=memo_version, dependencies=memo_dependencies)
     export = _Export(
         fn,
         fn.__module__,
@@ -248,6 +248,9 @@ class _CallType:
     served_fields: frozenset[str] | None = None
     #: Why the serving Runtime cannot serve this operation; "" when it can.
     unavailable: str = ""
+    #: A callable bound from its own code: its model slots, which a direct caller passes
+    #: beside its request fields and the call carries as `{payload, models}`.
+    models: frozenset[str] | None = None
 
 
 RUNTIME_UPDATE = (
@@ -389,14 +392,18 @@ class _Broker:
             raise CapabilityError(binding.unavailable, code="child_capability_unavailable")
         if len(self.calls) >= MAX_ACTIVE_CALLS:
             raise CapabilityError("active package call bound exceeded", code="child_fanout")
+        if binding.models is not None:
+            slots = binding.models
+            arguments = {
+                "payload": {k: v for k, v in arguments.items() if k not in slots},
+                "models": {k: v for k, v in arguments.items() if k in slots},
+            }
         if self.next_index > MAX_CALL_INDEX:
             raise CapabilityError("package call index is exhausted", code="child_index_exhausted")
         try:
 
             def asset_value(value: object) -> object:
-                from cozy_runtime.author._model import Model
-
-                if isinstance(value, Model):
+                if isinstance(value, (Model, Weights)):
                     raise CapabilityError(
                         "managed model calls require a retained ModelArtifact from conversion "
                         "or derivation; an injected Model belongs to this attempt. Retain it "

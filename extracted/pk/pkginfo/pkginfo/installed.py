@@ -26,26 +26,40 @@ class Installed(Distribution):
     def read(self):
         opj = os.path.join
         if self.package is not None:
-            package = self.package.__package__
-            if package in ('', None):
-                package = self.package.__name__
-            egg_pattern = '%s*.egg-info' % package
-            dist_pattern = '%s*.dist-info' % package
+            bases = []
+            for base in (self.package.__package__, self.package_name):
+                if base not in ('', None) and base not in bases:
+                    bases.append(base)
+            # Bound at the '<name>-<version>' boundary:  don't let a
+            # package whose name is a prefix of another package's name
+            # match that other package's metadata (LP #1974172 / GH #9).
+            egg_patterns, dist_patterns = [], []
+            for base in bases:
+                egg_patterns.append('%s-[0-9]*.egg-info' % base)
+                dist_patterns.append('%s-[0-9]*.dist-info' % base)
+            for base in bases:
+                # version-less egg-info file / directory, e.g. from a
+                # development or legacy install ('funny.egg-info')
+                egg_patterns.append('%s.egg-info' % base)
+            candidates = []
+            def _add_candidate(where):
+                candidates.extend(glob.glob(where))
             pkg_file = getattr(self.package, '__file__', None)
             if pkg_file is not None:
-                candidates = []
-                def _add_candidate(where):
-                    candidates.extend(glob.glob(where))
                 for entry in sys.path:
                     if pkg_file.startswith(entry):
-                        _add_candidate(opj(entry, 'EGG-INFO')) # egg?
-                        _add_candidate(opj(entry, egg_pattern))
-                        _add_candidate(opj(entry, dist_pattern))
+                        _add_candidate(opj(entry, 'EGG-INFO'))  # egg?
+                        for pattern in egg_patterns:
+                            _add_candidate(opj(entry, pattern))
+                        for pattern in dist_patterns:
+                            _add_candidate(opj(entry, pattern))
                 dir, name = os.path.split(self.package.__file__)
-                _add_candidate(opj(dir, egg_pattern))
-                _add_candidate(opj(dir, '..', egg_pattern))
-                _add_candidate(opj(dir, dist_pattern))
-                _add_candidate(opj(dir, '..', dist_pattern))
+                for egg_pattern in egg_patterns:
+                    _add_candidate(opj(dir, egg_pattern))
+                    _add_candidate(opj(dir, '..', egg_pattern))
+                for dist_pattern in dist_patterns:
+                    _add_candidate(opj(dir, dist_pattern))
+                    _add_candidate(opj(dir, '..', dist_pattern))
                 for candidate in candidates:
                     if os.path.isdir(candidate):
                         if candidate.lower().endswith("egg-info"):

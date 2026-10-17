@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,30 +15,49 @@
 #
 # ****************************************************************************
 
+"""GCOVR HTML report interface."""
+
 from ...data_model.container import CoverageContainer
 from ...formats.base import BaseHandler
+from ...logging import LOGGER
 from ...options import (
     GcovrConfigOption,
     OutputOrDefault,
     check_input_file,
 )
 
-
 THEMES = (
-    "green",
-    "blue",
-    "github.blue",
     "github.green",
     "github.dark-green",
+    "github.blue",
     "github.dark-blue",
+    "boost.green",
+    "boost.blue",
+    # Deprecated legacy names
+    "green",
+    "blue",
+    "default.green",
+    "default.blue",
 )
+OPTION_GROUP_NAME = "GCOVR HTML options"
+OPTION_GROUP = OPTION_GROUP_NAME.casefold().replace(" ", "_")
 
 
 class HtmlHandler(BaseHandler):
     """Class to handle HTML format."""
 
     @classmethod
+    def get_option_group(cls) -> dict[str, str]:
+        """Get the description of the option group."""
+        return {
+            "key": OPTION_GROUP,
+            "name": OPTION_GROUP_NAME,
+            "description": "Options for GCOVR HTML reports with different themes.",
+        }
+
+    @classmethod
     def get_options(cls) -> list[GcovrConfigOption | str]:
+        """Get the report options."""
         return [
             # Global options needed for report
             "show_calls",
@@ -57,7 +74,7 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html",
                 ["--html"],
-                group="output_options",
+                group=OPTION_GROUP,
                 metavar="OUTPUT",
                 help="Generate a HTML report. OUTPUT is optional and defaults to --output.",
                 nargs="?",
@@ -68,7 +85,7 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html_details",
                 ["--html-details"],
-                group="output_options",
+                group=OPTION_GROUP,
                 metavar="OUTPUT",
                 help=(
                     "Add annotated source code reports to the HTML report. "
@@ -83,7 +100,7 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html_nested",
                 ["--html-nested"],
-                group="output_options",
+                group=OPTION_GROUP,
                 metavar="OUTPUT",
                 help=(
                     "Add annotated source code reports to the HTML report. "
@@ -100,7 +117,7 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html_single_page",
                 ["--html-single-page"],
-                group="output_options",
+                group=OPTION_GROUP,
                 help=(
                     "Use one single html output file containing all data in the "
                     "specified mode. If mode is 'js-enabled' (default) and javascript "
@@ -112,14 +129,14 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html_static_report",
                 ["--html-static-report"],
-                group="output_options",
+                group=OPTION_GROUP,
                 help="Create a static report without javascript.",
                 action="store_true",
             ),
             GcovrConfigOption(
                 "html_self_contained",
                 ["--html-self-contained"],
-                group="output_options",
+                group=OPTION_GROUP,
                 help=(
                     "Control whether the HTML report bundles resources like CSS styles. "
                     "Self-contained reports can be sent via email, "
@@ -135,7 +152,7 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html_block_ids",
                 ["--html-block-ids"],
-                group="output_options",
+                group=OPTION_GROUP,
                 help=(
                     "Add the block ids to the HTML report for debugging the branch coverage."
                 ),
@@ -144,7 +161,7 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html_template_dir",
                 ["--html-template-dir"],
-                group="output_options",
+                group=OPTION_GROUP,
                 metavar="OUTPUT",
                 help=(
                     "Override the default Jinja2 template directory for the HTML report."
@@ -153,7 +170,7 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html_syntax_highlighting",
                 ["--html-syntax-highlighting", "--html-details-syntax-highlighting"],
-                group="output_options",
+                group=OPTION_GROUP,
                 help="Use syntax highlighting in HTML source page. Enabled by default.",
                 action="store_const",
                 default=True,
@@ -163,12 +180,14 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html_theme",
                 ["--html-theme"],
-                group="output_options",
+                group=OPTION_GROUP,
                 type=str,
                 choices=THEMES,
                 metavar="THEME",
                 help=(
-                    "Override the default color theme for the HTML report. "
+                    "Override the default theme for the HTML report. "
+                    "The themes green, blue, default.green and default.blue are "
+                    "deprecated and shall be replaced with github.green or github.blue. "
                     "Default is {default!s}."
                 ),
                 default=THEMES[0],
@@ -176,7 +195,7 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html_css",
                 ["--html-css"],
-                group="output_options",
+                group=OPTION_GROUP,
                 type=check_input_file,
                 metavar="CSS",
                 help="Override the default style sheet for the HTML report.",
@@ -185,7 +204,7 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html_title",
                 ["--html-title"],
-                group="output_options",
+                group=OPTION_GROUP,
                 metavar="TITLE",
                 help="Use TITLE as title for the HTML report. Default is '{default!s}'.",
                 default="GCC Code Coverage Report",
@@ -193,7 +212,7 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html_tab_size",
                 ["--html-tab-size"],
-                group="output_options",
+                group=OPTION_GROUP,
                 help="Used spaces for a tab in a source file. Default is {default!s}",
                 type=int,
                 default=4,
@@ -201,7 +220,7 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html_relative_anchors",
                 ["--html-absolute-paths"],
-                group="output_options",
+                group=OPTION_GROUP,
                 help=(
                     "Use absolute paths to link the --html-details reports. "
                     "Defaults to relative links."
@@ -211,7 +230,7 @@ class HtmlHandler(BaseHandler):
             GcovrConfigOption(
                 "html_encoding",
                 ["--html-encoding"],
-                group="output_options",
+                group=OPTION_GROUP,
                 help=(
                     "Override the declared HTML report encoding. "
                     "Defaults to {default!s}. "
@@ -222,13 +241,29 @@ class HtmlHandler(BaseHandler):
         ]
 
     def validate_options(self) -> None:
+        """Validate options."""
+        html_theme = str(self.options.html_theme)
+        if "." not in html_theme or html_theme.startswith("default."):
+            new_name = f"github.{html_theme.split('.', maxsplit=1)[-1]}"
+            LOGGER.warning(
+                "Deprecated theme name %s used, replace with %s. "
+                "This will be an error in a next release.",
+                html_theme,
+                new_name,
+            )
+            self.options.html_theme = new_name
+
+        if self.options.html_title == "":
+            msg = "An empty --html-title= is not allowed."
+            raise RuntimeError(msg)
+
         if self.options.html_tab_size < 1:
-            raise RuntimeError("Value of --html-tab-size should be greater 0.")
+            msg = "Value of --html-tab-size should be greater 0."
+            raise RuntimeError(msg)
 
         if self.options.html_details and self.options.html_nested:
-            raise RuntimeError(
-                "--html-details and --html-nested can not be used together."
-            )
+            msg = "--html-details and --html-nested can not be used together."
+            raise RuntimeError(msg)
 
         html_output = None
         if self.options.html and self.options.html.value:
@@ -241,44 +276,52 @@ class HtmlHandler(BaseHandler):
             html_output = self.options.output.value
 
         if self.options.html_details and not html_output:
-            raise RuntimeError(
-                "a named output must be given, if the option --html-details is used."
-            )
+            msg = "a named output must be given, if the option --html-details is used."
+            raise RuntimeError(msg)
 
         if self.options.html_nested and not html_output:
-            raise RuntimeError(
-                "a named output must be given, if the option --html-nested is used."
-            )
+            msg = "a named output must be given, if the option --html-nested is used."
+            raise RuntimeError(msg)
 
         if (
             html_output == "-"
             and not self.options.html_single_page
             and (self.options.html_details or self.options.html_nested)
         ):
-            raise RuntimeError(
+            msg = (
                 "detailed reports can only be printed to STDOUT as --html-single-page."
             )
+            raise RuntimeError(msg)
 
         if self.options.html_single_page and not (
             self.options.html_details or self.options.html_nested
         ):
-            raise RuntimeError(
-                "option --html-details or --html-nested is needed, if the option --html-single-page is used."
-            )
+            msg = "option --html-details or --html-nested is needed, if the option --html-single-page is used."
+            raise RuntimeError(msg)
 
         if self.options.html_self_contained is False and not html_output:
-            raise RuntimeError(
-                "can only disable --html-self-contained when a named output is given."
-            )
+            msg = "can only disable --html-self-contained when a named output is given."
+            raise RuntimeError(msg)
 
         if (
             self.options.html_self_contained is False
             and html_output == "-"
             and not self.options.html_single_page
         ):
-            raise RuntimeError("only self contained reports can be printed to STDOUT")
+            msg = "only self contained reports can be printed to STDOUT"
+            raise RuntimeError(msg)
+
+        if self.options.html_theme.startswith("boost") and (
+            self.options.html_single_page or self.options.html_static_report
+        ):
+            msg = "Boost theme is not compatible with --html-single-page or --html-static-report"
+            raise RuntimeError(msg)
 
     def write_report(self, covdata: CoverageContainer, output_file: str) -> None:
-        from .write import write_report  # pylint: disable=import-outside-toplevel # Lazy loading is intended here
+        """Write report."""
+        # Lazy loading is intended here
+        from .write import (  # pylint: disable=import-outside-toplevel  # noqa: PLC0415
+            write_report,
+        )
 
         write_report(covdata, output_file, self.options)

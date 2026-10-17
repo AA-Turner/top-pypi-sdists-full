@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import socket
-import threading
 import time
 import typing
 from pathlib import Path
@@ -14,18 +12,15 @@ from cozy_runtime.author import (
     ConformanceError,
     Invocation,
     ModelArtifact,
+    Weights,
     attempt,
     describe,
     script_app,
 )
-from cozy_runtime.author._model import _derive_model
-from cozy_runtime.author._script_types import _ScriptSource
 from cozy_runtime.internal.discovery import discover
-from cozy_runtime.internal.executor import Executor
-from cozy_runtime.internal.executor_commands import JobBudget, RunJob
-from cozy_runtime.internal.seam import Channel
 from cpu_script import cpu
 from native_weights import NativeExecution
+from session import session
 from test_weights_resume_native import _committed
 
 
@@ -194,10 +189,10 @@ def test_plain_main_uses_real_native_weights_and_returns_artifact(
     (tmp_path / (module + ".py")).write_text(
         cpu(
             "# /// script\n# [tool.cozy.weights]\n# checkpoint = 2048\n# ///\n"
-            "from cozy_runtime.author import Context, Model, ModelArtifact, Telemetry\n"
+            "from cozy_runtime.author import Context, ModelArtifact, Telemetry, Weights\n"
             "from tensorfs.derived import Derivation, Target\n"
             f"def main({'ctx: Context, ' if with_context else ''}*, "
-            "source: Model[object], tel: Telemetry) -> ModelArtifact:\n"
+            "source: Weights, tel: Telemetry) -> ModelArtifact:\n"
             '    tel.log("inheriting")\n'
             "    with ctx.tensorfs_source(source) as capability:\n"
             "        view = capability.inspect()\n"
@@ -226,7 +221,7 @@ def test_plain_main_uses_real_native_weights_and_returns_artifact(
             "script-weights",
             tmp_path / "out",
             time.monotonic() + 10,
-            models={"source": _derive_model(_ScriptSource, source)},
+            sources={"source": Weights(source)},
             tensorfs_source=host.client.source,
             tensorfs_output=host.client.open_output,
             tensorfs_adopt=host.client.adopt_model,
@@ -270,6 +265,7 @@ def test_plain_main_saves_and_returns_real_media(
         "def main(*, source): pass",
         "def main(*, source: unknown()): pass",
         "def main(*, source: Model = None): pass",
+        "def main(*, source: Model[object]): pass",
         "def main(*, source: int): pass",
         "def main(ctx: int): pass",
         "def main(ctx: unknown()): pass",
@@ -322,10 +318,10 @@ def test_script_asset_bound_folds_constant_arithmetic(
         ),
     ],
 )
-def test_script_job_failure_reply_carries_its_cause_and_traceback(
+def test_script_failure_reply_carries_its_cause_and_traceback(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, body: str, code: str, frame: str
 ) -> None:
-    """A raising job script reaches the reply with its frames."""
+    """A raising script reaches the reply with its frames."""
     script = f"failing_script_{code}"
     project = tmp_path / "project"
     project.mkdir()
@@ -335,34 +331,8 @@ def test_script_job_failure_reply_carries_its_cause_and_traceback(
     )
     (project / f"{script}.py").write_text(cpu(body))
     monkeypatch.syspath_prepend(str(project))
-    found = discover(project)
-    left, right = socket.socketpair()
-    with left, right:
-        peer = Channel(right)
-
-        def drain() -> None:
-            while peer.recv() is not None:
-                pass
-
-        reader = threading.Thread(target=drain, daemon=True)
-        reader.start()
-        executor = Executor(Channel(left), tmp_path)
-        executor.discovered = found
-        executor.surface_names = {surface.name: surface for surface in found.surfaces}
-        reply = executor.run_job(
-            RunJob(
-                job="main",
-                request_id=script,
-                payload={},
-                deadline_s=10,
-                spool=str(tmp_path / "spool"),
-                application="",
-                package_interface="",
-                budget=JobBudget(gpu_count=0),
-            )
-        )
-        left.shutdown(socket.SHUT_WR)
-        reader.join(timeout=5)
+    with session(tmp_path, discover(project)) as host:
+        reply = host.run("main", {}, tmp_path / script)
     outcome = reply["outcome"]
     assert (outcome["terminal"], outcome["code"]) == ("failed", code), outcome
     assert f'{script}.py", line' in outcome["traceback"] and frame in outcome["traceback"]

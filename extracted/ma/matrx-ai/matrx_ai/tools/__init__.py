@@ -7,7 +7,7 @@ Public API:
     ToolContext               — Everything a tool needs about its execution environment
     ToolResult                — Structured result from any tool execution
     ToolError                 — Rich error with traceback + suggested action
-    ToolType                  — LOCAL | EXTERNAL_MCP | AGENT | EXTERNAL_HANDLER
+    ToolType                  — LOCAL | EXTERNAL_MCP | AGENT | EXTERNAL_HANDLER | CATALOG
     CxToolCallRecord          — Pydantic model for the cx_tool_call DB row
     GuardrailEngine           — Centralized safety checks
     ToolStreamManager         — Streaming updates during tool execution
@@ -25,6 +25,12 @@ External tool integration (for apps consuming the ai package):
 
 from ._db_log import TRACE_TAGS_CONTEXT_KEY
 from .agent_tool import execute_agent_tool, register_agent_as_tool
+from .catalog_seam import (
+    configure_catalog_executor,
+    configure_lazy_tool_resolver,
+    resolve_lazy_tools,
+    strip_ui_keywords,
+)
 from .db_hints import (
     DbErrorFacts,
     build_hint,
@@ -107,6 +113,11 @@ __all__ = [
     "spec_display_name",
     "merge_request_tools",
     "ToolMergeError",
+    # Catalog Tools (source_kind='catalog'): one host executor, lazy resolve per request
+    "configure_catalog_executor",
+    "configure_lazy_tool_resolver",
+    "resolve_lazy_tools",
+    "strip_ui_keywords",
     # Agent-facing DB error hints (shared by any tool with a table/column vocabulary)
     "DbErrorFacts",
     "build_hint",

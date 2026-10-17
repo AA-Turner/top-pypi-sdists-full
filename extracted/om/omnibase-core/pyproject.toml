@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omnibase_core"
-version = "0.47.44"
+version = "0.47.45"
 description = "ONEX Core Framework - Base classes and essential implementations"
 authors = [
     {name = "OmniNode.ai", email = "contact@omninode.ai"}
@@ -86,6 +86,16 @@ check-github-token-env-reads = "omnibase_core.validation.validator_github_token_
 # OMN-20918 (OCC retirement S8): the imperative contract guard moved from onex_change_control;
 # reads the caller's own allowlist and refuses one that gains a path against the merge base.
 check-imperative-contracts = "omnibase_core.handlers.handler_imperative_contract_guard_cli:main"
+# OMN-19998: refuse a dependency on a repository at the same or a higher layer of
+# the declared order, through any channel; every repository runs it via
+# .github/workflows/dependency-direction.yml and the pre-commit hook.
+check-dependency-direction = "omnibase_core.handlers.handler_dependency_direction_cli:main"
+# OMN-19998: version drift at source. Refuse a floor raise on a sibling registry
+# package ahead of the registry consumers that install it, and a job the merge
+# queue runs that pull request CI skips; every repository runs both via
+# .github/workflows/version-drift.yml and the pre-commit hooks.
+check-version-floor-consumers = "omnibase_core.handlers.handler_version_floor_consumers_cli:main"
+check-merge-queue-parity = "omnibase_core.handlers.handler_merge_queue_parity_cli:main"
 # OMN-14401: reject config/registry YAML files declaring duplicate ids over a
 # non-unique key (checked registries are config-as-data via a manifest file).
 check-duplicate-registry-ids = "omnibase_core.validation.validator_duplicate_config_ids:main"
@@ -413,7 +423,6 @@ ignore = [
 "scripts/check_dep_provenance.py" = ["T201"]  # CLI output for dep-provenance gate (OMN-13873/OMN-13877)
 "scripts/ci/check_import_ratchet.py" = ["T201"]  # CLI output for import-layering growth-ratchet gate (OMN-14340)
 "scripts/ci/check_occ_companion_merged.py" = ["T201"]  # CLI verdict/annotation output for the OCC companion-merged gate (OMN-15222)
-"scripts/ci/occ_preflight_wait.py" = ["T201"]  # CLI verdict/annotation output for the occ-preflight bounded wait (OMN-17864)
 "scripts/ci/canonical_handler_shape.py" = ["T201", "BLE001"]  # CLI output + fail-closed catches for canonical handler-shape ratchet gate (OMN-14355)
 "scripts/ci/rsd_provenance_stamp.py" = ["T201"]  # CLI output for RSD provenance-stamp gate (OMN-15011)
 "scripts/hooks/prepush_override_grant.py" = ["T201"]  # CLI output for the single-use pre-push override grant (OMN-16480, ported by OMN-17159)

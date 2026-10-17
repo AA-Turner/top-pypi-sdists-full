@@ -1,4 +1,4 @@
-"""Message FLAGS — prefill, cache boundary, example (typed-messages FEATURE.md, Flag row).
+"""Message FLAGS — prefill, example (typed-messages FEATURE.md, Flag row).
 
 Each test names the real use: a support-reply drafter whose system prompt is
 cached, whose two example exchanges are few-shot turns, and whose reply must
@@ -38,7 +38,7 @@ def _msg(role: str, text: str, **flags: bool) -> UnifiedMessage:
 def _drafter(prefill: bool = True) -> list[UnifiedMessage]:
     msgs = [
         _msg("user", "Order arrived two days late and the box was crushed.", example=True),
-        _msg("assistant", "Dear Priya, I'm sorry your order arrived late and damaged...", example=True, cache_boundary=True),
+        _msg("assistant", "Dear Priya, I'm sorry your order arrived late and damaged...", example=True),
         _msg("user", CUSTOMER),
     ]
     if prefill:
@@ -64,14 +64,20 @@ def test_unknown_flag_is_refused_not_carried() -> None:
 
 
 def test_false_flag_means_absent() -> None:
-    assert parse_flags({"example": False, "cache_boundary": True}) == {"cache_boundary": True}
+    assert parse_flags({"example": False, "prefill": True}) == {"prefill": True}
+
+
+def test_retired_cache_boundary_flag_is_refused() -> None:
+    # Retired 2026-10-16: the platform places every cache mark (config/cache_marks.py).
+    with pytest.raises(InvalidMessageFlags):
+        parse_flags({"cache_boundary": True})
 
 
 def test_placement_rules() -> None:
-    system = {"role": "system", "content": [{"type": "text", "text": "You draft support replies."}], "flags": {"cache_boundary": True}}
+    system = {"role": "system", "content": [{"type": "text", "text": "You draft support replies."}]}
     user = {"role": "user", "content": [{"type": "text", "text": CUSTOMER}]}
     prefill = {"role": "assistant", "content": [{"type": "text", "text": "Dear"}], "flags": {"prefill": True}}
-    validate_message_flags([system, user, prefill])  # cache boundary on system is fine
+    validate_message_flags([system, user, prefill])
 
     with pytest.raises(InvalidMessageFlags, match="not the last message"):
         validate_message_flags([system, prefill, user])
@@ -110,42 +116,40 @@ def test_user_input_lands_before_a_trailing_prefill() -> None:
 
 
 def test_native_prefill_is_kept_on_the_wire() -> None:
-    plan = plan_message_flags(_drafter(), supports_prefill=True, cache_boundary_support="breakpoint", model_label="claude-haiku-4-5")
+    plan = plan_message_flags(_drafter(), supports_prefill=True, model_label="claude-haiku-4-5")
     assert plan.prefill_mode == "native" and plan.prefill_text == "Dear"
     assert len(plan.wire_messages) == 4
-    assert plan.examples == 2 and plan.cache_boundaries == 1 and plan.notes == []
+    assert plan.examples == 2 and plan.notes == []
 
 
 def test_refuse_names_the_model_before_any_spend() -> None:
     with pytest.raises(MessageFlagRefusal, match="claude-sonnet-5 cannot continue a reply from a prefill"):
-        plan_message_flags(_drafter(), supports_prefill=False, cache_boundary_support="breakpoint", model_label="claude-sonnet-5")
+        plan_message_flags(_drafter(), supports_prefill=False, model_label="claude-sonnet-5")
 
 
 def test_convert_asks_for_the_start_and_says_so() -> None:
-    plan = plan_message_flags(_drafter(), supports_prefill=False, cache_boundary_support="automatic", model_label="gpt-5", mode="convert")
+    plan = plan_message_flags(_drafter(), supports_prefill=False, model_label="gpt-5", mode="convert")
     assert plan.prefill_mode == "convert"
     assert len(plan.wire_messages) == 3 and plan.wire_messages[-1].role == "user"
     assert "Begin your reply with exactly" in (plan.convert_instruction or "")
     assert any("asked for, not forced" in n for n in plan.notes)
-    assert any("caches repeated prompt prefixes automatically" in n for n in plan.notes)
 
 
 def test_drop_mode_announces_it() -> None:
-    plan = plan_message_flags(_drafter(), supports_prefill=False, cache_boundary_support="implicit", model_label="gemini-3-pro", mode="drop")
+    plan = plan_message_flags(_drafter(), supports_prefill=False, model_label="gemini-3-pro", mode="drop")
     assert plan.prefill_mode == "drop" and len(plan.wire_messages) == 3
     assert any("was not sent" in n for n in plan.notes)
-    assert any("implicitly" in n for n in plan.notes)
 
 
 def test_a_consumed_prefill_never_reaches_a_wire_again() -> None:
     history = _drafter() + [_msg("assistant", "Dear Sam, a replacement is on its way."), _msg("user", "Thanks! Can it ship express?")]
-    plan = plan_message_flags(history, supports_prefill=False, cache_boundary_support="breakpoint", model_label="claude-sonnet-5")
+    plan = plan_message_flags(history, supports_prefill=False, model_label="claude-sonnet-5")
     assert plan.prefill_mode is None
     assert all(not flags_of(m).get("prefill") for m in plan.wire_messages)
 
 
 def test_native_reply_is_stored_whole() -> None:
-    plan = plan_message_flags(_drafter(), supports_prefill=True, cache_boundary_support="breakpoint", model_label="claude-haiku-4-5")
+    plan = plan_message_flags(_drafter(), supports_prefill=True, model_label="claude-haiku-4-5")
     reply = UnifiedMessage(role="assistant", content=[TextContent(text=" Sam, I'm sorry about the cracked protector.")])
     record = apply_prefill_to_reply([reply], plan)
     assert reply.content[0].text.startswith("Dear Sam")
@@ -154,7 +158,7 @@ def test_native_reply_is_stored_whole() -> None:
 
 
 def test_converted_reply_records_whether_it_complied() -> None:
-    plan = plan_message_flags(_drafter(), supports_prefill=False, cache_boundary_support="breakpoint", model_label="claude-sonnet-5", mode="convert")
+    plan = plan_message_flags(_drafter(), supports_prefill=False, model_label="claude-sonnet-5", mode="convert")
     ok = UnifiedMessage(role="assistant", content=[TextContent(text="Dear Sam, sorry about that.")])
     assert apply_prefill_to_reply([ok], plan)["starts_with_prefill"] is True
     off = UnifiedMessage(role="assistant", content=[TextContent(text="Hi Sam, sorry about that.")])
@@ -177,15 +181,6 @@ def _breakpoints(request: dict) -> int:
     return n
 
 
-def test_cache_boundary_puts_a_breakpoint_on_that_messages_last_block() -> None:
-    request = _anthropic(_drafter(prefill=False))
-    example_answer = request["messages"][1]
-    assert example_answer["role"] == "assistant"
-    assert example_answer["content"][-1]["cache_control"] == {"type": "ephemeral"}
-    # the unflagged first example carries none
-    assert "cache_control" not in request["messages"][0]["content"][-1]
-
-
 def test_trailing_prefill_is_sent_as_the_prefill_without_trailing_space() -> None:
     request = _anthropic(_drafter(prefill=True))
     last = request["messages"][-1]
@@ -200,23 +195,11 @@ def test_unflagged_terminal_assistant_is_still_refused() -> None:
         _anthropic([_msg("user", CUSTOMER), _msg("assistant", "Dear")])
 
 
-def test_breakpoints_never_exceed_four() -> None:
-    msgs = []
-    for i in range(5):
-        msgs.append(_msg("user", f"Example complaint {i}", example=True, cache_boundary=True))
-        msgs.append(_msg("assistant", f"Dear customer {i}, ...", example=True))
-    msgs.append(_msg("user", CUSTOMER))
-    request = _anthropic(msgs)
-    assert _breakpoints(request) == 4
-    # the LATEST boundary survives
-    assert request["messages"][8]["content"][-1].get("cache_control") == {"type": "ephemeral"}
-
-
 def test_refusal_is_not_retried_and_keeps_its_sentence() -> None:
     from matrx_ai.providers.errors import classify_internal_error
 
     try:
-        plan_message_flags(_drafter(), supports_prefill=False, cache_boundary_support="breakpoint", model_label="claude-sonnet-5")
+        plan_message_flags(_drafter(), supports_prefill=False, model_label="claude-sonnet-5")
     except MessageFlagRefusal as exc:
         classified = classify_internal_error(exc, "anthropic")
     assert classified is not None and classified.is_retryable is False

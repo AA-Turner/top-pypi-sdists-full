@@ -84,7 +84,7 @@ class ToolCorpus(StrEnum):
     `files` is workspace files (scripts, datasets, configs, protocols -- the
     index does not separate those); `documents` is those PLUS indexed GitHub
     docs. `notes` spans two backend corpora on purpose: the team's shared note
-    and the notes hanging off projects, experiments, runs and groups. A hit on
+    and the notes hanging off projects, experiments and runs. A hit on
     an entity's note comes back AS that entity, so you can open it."""
 
     # One value, not the former assets/procedures pair: both mapped to the same
@@ -344,8 +344,6 @@ class NoteCatalogKind(StrEnum):
     PROJECT = "project"
     EXPERIMENT = "experiment"
     RUN = "run"
-    GROUP = "group"
-    ARTIFACT = "artifact"
     SUB_NOTE = "sub_note"
 
 

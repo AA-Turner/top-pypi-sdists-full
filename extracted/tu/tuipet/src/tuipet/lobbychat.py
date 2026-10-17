@@ -57,7 +57,7 @@ OFFLINE_ID = -1
 # on Joel's live screen it read as a run-off).  WHOLE WORDS ONLY, <= 38 cells;
 # ↑↓ pick lives on the strip below, so the LCD line doesn't repeat it.  These
 # are also the "default status" sentinels _text_lobby rewrites in place.
-HINTS_OPEN = "ENTER chat · TAB ranks · ESC leave"
+HINTS_OPEN = "ENTER send/act · TAB ranks · ESC leave"
 
 
 def _fit(s, w):
@@ -259,6 +259,9 @@ class ChatMixin:
         room = str(getattr(s, "room", None) or "") if s else ""
         right = (f"▲{self.scroll} back" if self.scroll
                  else (f"/{room}" if room else ""))
+        from . import tournament
+        if not right and tournament.holiday_season():
+            right = tournament.holiday_season().title()
         mw = w - ROSTW
         t.append(_fit(marquee(me_line, mw, mq), mw) if cell_len(me_line) > mw
                  else _fit(me_line, mw), style=INK_B)

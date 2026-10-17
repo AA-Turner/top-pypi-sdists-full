@@ -65,11 +65,9 @@ def resolution_key(handoff_id: str, pending_call_id: str) -> str:
 # Pending-call abandonment window — the SINGLE source of truth (S5 §6). No new
 # constant is introduced; a per-tool override rides tools.max_client_wait_seconds.
 def _default_expires_at(now: datetime, max_wait_seconds: int | None) -> datetime:
-    from matrx_ai.tools.executor import DELEGATED_CALL_ABANDON_AFTER_SECONDS
+    from matrx_ai.tools.knobs import delegated_call_abandon_seconds
 
-    return now + timedelta(
-        seconds=max_wait_seconds or DELEGATED_CALL_ABANDON_AFTER_SECONDS
-    )
+    return now + timedelta(seconds=max_wait_seconds or delegated_call_abandon_seconds())
 
 
 @dataclass(frozen=True, slots=True)

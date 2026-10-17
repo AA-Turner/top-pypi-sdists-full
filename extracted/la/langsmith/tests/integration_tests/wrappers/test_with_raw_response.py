@@ -39,10 +39,7 @@ def test_chat_with_raw_response_sync():
 
         # Verify we can access headers
         assert raw_response.headers is not None
-        assert (
-            "content-type" in raw_response.headers
-            or "Content-Type" in raw_response.headers
-        )
+        assert "content-type" in raw_response.headers or "Content-Type" in raw_response.headers
 
         # Verify we can parse the response
         parsed = raw_response.parse()
@@ -54,9 +51,7 @@ def test_chat_with_raw_response_sync():
     # Verify the trace has proper parsed output, not stringified APIResponse
     assert collect.run is not None
     outputs = collect.run.outputs
-    assert "output" not in outputs or not str(outputs.get("output", "")).startswith(
-        "<APIResponse"
-    )
+    assert "output" not in outputs or not str(outputs.get("output", "")).startswith("<APIResponse")
     # Should have proper chat completion structure
     assert "choices" in outputs
     assert isinstance(outputs["choices"], list)
@@ -70,9 +65,7 @@ async def test_chat_with_raw_response_async():
 
     mock_session = mock.MagicMock()
     ls_client = langsmith.Client(session=mock_session)
-    patched_client = wrap_openai(
-        openai.AsyncClient(), tracing_extra={"client": ls_client}
-    )
+    patched_client = wrap_openai(openai.AsyncClient(), tracing_extra={"client": ls_client})
 
     messages = [{"role": "user", "content": "Say 'foo'"}]
 
@@ -97,10 +90,7 @@ async def test_chat_with_raw_response_async():
 
         # Verify we can access headers
         assert raw_response.headers is not None
-        assert (
-            "content-type" in raw_response.headers
-            or "Content-Type" in raw_response.headers
-        )
+        assert "content-type" in raw_response.headers or "Content-Type" in raw_response.headers
 
         # Verify we can parse the response
         parsed = raw_response.parse()
@@ -112,9 +102,7 @@ async def test_chat_with_raw_response_async():
     # Verify the trace has proper parsed output, not stringified APIResponse
     assert collect.run is not None
     outputs = collect.run.outputs
-    assert "output" not in outputs or not str(outputs.get("output", "")).startswith(
-        "<APIResponse"
-    )
+    assert "output" not in outputs or not str(outputs.get("output", "")).startswith("<APIResponse")
     # Should have proper chat completion structure
     assert "choices" in outputs
     assert isinstance(outputs["choices"], list)
@@ -149,10 +137,7 @@ def test_responses_with_raw_response_sync():
 
         # Verify we can access headers
         assert raw_response.headers is not None
-        assert (
-            "content-type" in raw_response.headers
-            or "Content-Type" in raw_response.headers
-        )
+        assert "content-type" in raw_response.headers or "Content-Type" in raw_response.headers
 
         # Verify we can parse the response
         parsed = raw_response.parse()
@@ -164,9 +149,7 @@ def test_responses_with_raw_response_sync():
     # Verify the trace has proper parsed output, not stringified APIResponse
     assert collect.run is not None
     outputs = collect.run.outputs
-    assert "output" not in outputs or not str(outputs.get("output", "")).startswith(
-        "<APIResponse"
-    )
+    assert "output" not in outputs or not str(outputs.get("output", "")).startswith("<APIResponse")
     # Should have proper Responses API structure
     assert "model" in outputs
     assert "output" in outputs
@@ -180,9 +163,7 @@ async def test_responses_with_raw_response_async():
 
     mock_session = mock.MagicMock()
     ls_client = langsmith.Client(session=mock_session)
-    patched_client = wrap_openai(
-        openai.AsyncClient(), tracing_extra={"client": ls_client}
-    )
+    patched_client = wrap_openai(openai.AsyncClient(), tracing_extra={"client": ls_client})
 
     class Collector:
         def __init__(self):
@@ -203,10 +184,7 @@ async def test_responses_with_raw_response_async():
 
         # Verify we can access headers
         assert raw_response.headers is not None
-        assert (
-            "content-type" in raw_response.headers
-            or "Content-Type" in raw_response.headers
-        )
+        assert "content-type" in raw_response.headers or "Content-Type" in raw_response.headers
 
         # Verify we can parse the response
         parsed = raw_response.parse()
@@ -218,9 +196,7 @@ async def test_responses_with_raw_response_async():
     # Verify the trace has proper parsed output, not stringified APIResponse
     assert collect.run is not None
     outputs = collect.run.outputs
-    assert "output" not in outputs or not str(outputs.get("output", "")).startswith(
-        "<APIResponse"
-    )
+    assert "output" not in outputs or not str(outputs.get("output", "")).startswith("<APIResponse")
     # Should have proper Responses API structure
     assert "model" in outputs
     assert "output" in outputs

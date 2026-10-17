@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytrilogy
-Version: 0.3.392
+Version: 0.3.397
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -16,6 +16,9 @@ Requires-Dist: vl-convert-python ; extra == 'analysis'
 Requires-Dist: sqlalchemy-bigquery ; extra == 'bigquery'
 Requires-Dist: rich ; extra == 'cli'
 Requires-Dist: plotext<6 ; extra == 'cli'
+Requires-Dist: fastapi ; extra == 'mcp'
+Requires-Dist: uvicorn ; extra == 'mcp'
+Requires-Dist: mcp>=2,<3 ; extra == 'mcp'
 Requires-Dist: pymysql ; extra == 'mysql'
 Requires-Dist: pyodbc ; extra == 'odbc'
 Requires-Dist: psycopg2-binary ; extra == 'postgres'
@@ -33,6 +36,7 @@ Provides-Extra: ai
 Provides-Extra: analysis
 Provides-Extra: bigquery
 Provides-Extra: cli
+Provides-Extra: mcp
 Provides-Extra: mysql
 Provides-Extra: odbc
 Provides-Extra: postgres
@@ -130,6 +134,19 @@ trilogy refresh reporting.preql
 # 5. Launch the Studio UI against the live model (opens your browser) to explore + query
 trilogy serve .
 ```
+
+`trilogy serve . --mcp` (install `pytrilogy[mcp]`) also exposes the model to agents
+as an MCP server at `http://localhost:8100/mcp`, with tools to list models, describe
+their fields, read the syntax reference and run queries:
+
+```bash
+claude mcp add --transport http trilogy http://localhost:8100/mcp
+```
+
+`serve` binds to localhost by default, where `/mcp` needs no token (the MCP SDK's
+Host/Origin checks guard it). `--host 0.0.0.0` exposes the server to the network;
+then `/mcp` requires the printed token as an `X-Trilogy-Token` header, since queries
+can run arbitrary SQL.
 
 The snippet fetched in step 3 looks like this — copy/paste it into your
 editor if you'd rather author it by hand:

@@ -99,6 +99,7 @@ class BrandRelationKind(MatrxEntity):
     stance = TextField(null=False, default='associated')
     description = TextField()
     has_sentiment = BooleanField(null=False, default=False)
+    usage = TextField(null=False, default='use')
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "brand_relation_kind"

@@ -1,0 +1,28 @@
+[workspace]
+members = ["crates/*"]
+# Built by `cargo fuzz` with its own profile and `target/`
+exclude = ["fuzz"]
+resolver = "3"
+
+[workspace.package]
+authors = ["Dmitry Dygalo <dmitry@dygalo.dev>"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/Stranger6667/css-inline"
+rust-version = "1.85"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+
+# `cargo build -p profiler --profile profiling`
+[profile.profiling]
+inherits = "release"
+debug = true
+
+# Size-optimized build for the JavaScript and WASM packages: `yarn build` / `yarn build:wasm` in `crates/css-inline-js`
+[profile.release-js]
+inherits = "release"
+lto = true
+opt-level = "z"
+codegen-units = 1

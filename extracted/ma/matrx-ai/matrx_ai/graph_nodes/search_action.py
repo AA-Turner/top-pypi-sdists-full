@@ -28,7 +28,7 @@ class BraveSearchInput(BaseModel):
         default=None,
         ge=1,
         description="Cap `results` (and therefore `urls`) at this many combined "
-        "web+news items, best-ranked first. None returns everything Brave sent.",
+        "web+news items, best-ranked first. None returns everything web search sent.",
     )
     result_pages: int | None = Field(
         default=None,
@@ -44,9 +44,9 @@ class BraveSearchInput(BaseModel):
 
 
 class BraveSearchResultItem(BaseModel):
-    """One raw Brave result (a ``web.results`` or ``news.results`` item).
+    """One raw web search result (a ``web.results`` or ``news.results`` item).
 
-    The Brave Search API item is passed through unmodified — declared fields
+    The web search API item is passed through unmodified — declared fields
     are the ones our consumers read (see
     ``matrx_scraper.search.search.generate_search_text_summary``); the many
     provider-specific keys (``meta_url``, ``profile``, ``thumbnail``, …)
@@ -57,21 +57,21 @@ class BraveSearchResultItem(BaseModel):
     model_config = ConfigDict(
         extra="allow",
         json_schema_extra={
-            "x-contract-dynamic": "raw Brave API item passthrough; consumers read provider keys"
+            "x-contract-dynamic": "raw web search API item passthrough; consumers read provider keys"
         },
     )
 
-    title: str | None = Field(default=None, description="Result headline supplied by Brave.")
+    title: str | None = Field(default=None, description="Result headline supplied by web search.")
     url: str | None = Field(default=None, description="Canonical destination URL for the result.")
     description: str | None = Field(default=None, description="Primary search-result snippet.")
     extra_snippets: list[str] = Field(
         default_factory=list, description="Additional relevant snippets returned for the result."
     )
     age: str | None = Field(
-        default=None, description="Human-readable content age reported by Brave."
+        default=None, description="Human-readable content age reported by web search."
     )
     page_age: str | None = Field(
-        default=None, description="Published or indexed page-age value reported by Brave."
+        default=None, description="Published or indexed page-age value reported by web search."
     )
     language: str | None = Field(
         default=None, description="Detected language code for the result page."

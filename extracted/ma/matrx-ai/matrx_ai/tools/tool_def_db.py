@@ -33,7 +33,9 @@ from matrx_ai.db._registry import get_base
 def _build_manager(base: type) -> Any:
     class _ToolDefManager(base):  # type: ignore[misc,valid-type]
         async def load_all_tools(self) -> Any:
-            return await self.load_items()
+            # Every non-catalog row. Catalog Tools (thousands) are read only
+            # through the catalog search, never whole (CONTRACT §4).
+            return await self.filter_items(source_kind__ne="catalog")
 
         async def get_tool_with_all_related(self, id: str) -> Any:
             return await self.get_item_with_all_related(id)

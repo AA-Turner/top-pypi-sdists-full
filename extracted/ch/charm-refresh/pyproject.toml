@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "charm-refresh"
-version = "3.1.1.8"  # Overriden by poetry-dynamic-versioning
+version = "3.1.1.9"  # Overriden by poetry-dynamic-versioning
 description = "In-place rolling refreshes (upgrades) of stateful charmed applications"
 authors = ["Carl Csaposs <carl.csaposs@canonical.com>"]
 readme = "README.md"

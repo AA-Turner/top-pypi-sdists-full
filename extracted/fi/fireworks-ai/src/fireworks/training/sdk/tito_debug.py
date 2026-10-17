@@ -159,20 +159,27 @@ class TITOLocalDebugSink:
             "sha256": hashlib.sha256(encoded).hexdigest(),
         }
 
-    def _redact(self, value: Any, *, key: str | None = None) -> Any:
-        if key is not None and self._SECRET_KEY.search(key):
+    @classmethod
+    def sanitize(cls, value: Any, *, key: str | None = None, redact_text: bool = False) -> Any:
+        if key is not None and cls._SECRET_KEY.search(key):
             return "<redacted>"
+        if value is None or isinstance(value, (int, float)):
+            return value
         if isinstance(value, Mapping):
             return {
-                str(item_key): self._redact(item_value, key=str(item_key)) for item_key, item_value in value.items()
+                str(item_key): cls.sanitize(item_value, key=str(item_key), redact_text=redact_text)
+                for item_key, item_value in value.items()
             }
         if isinstance(value, (list, tuple)):
-            return [self._redact(item) for item in value]
+            return [cls.sanitize(item, redact_text=redact_text) for item in value]
         if isinstance(value, str):
-            if self.config.redact_text and key is not None and self._TEXT_KEY.match(key):
-                return self._text_digest(value)
-            return self._SECRET_VALUE.sub(lambda match: f"{match.group(1) or match.group(2) or ''}<redacted>", value)
+            if redact_text and key is not None and cls._TEXT_KEY.match(key):
+                return cls._text_digest(value)
+            return cls._SECRET_VALUE.sub(lambda match: f"{match.group(1) or match.group(2) or ''}<redacted>", value)
         return value
+
+    def _redact(self, value: Any, *, key: str | None = None) -> Any:
+        return self.sanitize(value, key=key, redact_text=self.config.redact_text)
 
     def _trajectory_dir(self, trajectory_id: str) -> Path:
         return self.trajectories_dir / _trajectory_storage_key(trajectory_id)

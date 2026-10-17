@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,23 +15,38 @@
 #
 # ****************************************************************************
 
+"""GCOVR Markdown report interface."""
+
 from ...data_model.container import CoverageContainer
 from ...formats.base import BaseHandler
 from ...options import GcovrConfigOption, OutputOrDefault
-
 
 THEMES = (
     "green",
     "blue",
 )
+OPTION_GROUP_NAME = "GCOVR Markdown options"
+OPTION_GROUP = OPTION_GROUP_NAME.casefold().replace(" ", "_")
 
 
 class MarkdownHandler(BaseHandler):
-    """Class to handle markdown format."""
+    """Class to handle Markdown format."""
+
+    @classmethod
+    def get_option_group(cls) -> dict[str, str]:
+        """Get the description of the option group."""
+        return {
+            "key": OPTION_GROUP,
+            "name": OPTION_GROUP_NAME,
+            "description": "Options for GCOVR Markdown reports.",
+        }
 
     @classmethod
     def get_options(cls) -> list[GcovrConfigOption | str]:
+        """Get the report options."""
         return [
+            # JSON option use for validation
+            "json_compare",
             # Global options needed for report
             "medium_threshold",
             "high_threshold",
@@ -45,9 +58,9 @@ class MarkdownHandler(BaseHandler):
             GcovrConfigOption(
                 "markdown",
                 ["--markdown"],
-                group="output_options",
+                group=OPTION_GROUP,
                 metavar="OUTPUT",
-                help="Generate a markdown report. OUTPUT is optional and defaults to --output.",
+                help="Generate a Markdown report. OUTPUT is optional and defaults to --output.",
                 nargs="?",
                 type=OutputOrDefault,
                 default=None,
@@ -56,10 +69,10 @@ class MarkdownHandler(BaseHandler):
             GcovrConfigOption(
                 "markdown_summary",
                 ["--markdown-summary"],
-                group="output_options",
+                group=OPTION_GROUP,
                 metavar="OUTPUT",
                 help=(
-                    "Generate a markdown summary report. "
+                    "Generate a Markdown summary report. "
                     "OUTPUT is optional and defaults to --output."
                 ),
                 nargs="?",
@@ -70,7 +83,7 @@ class MarkdownHandler(BaseHandler):
             GcovrConfigOption(
                 "markdown_theme",
                 ["--markdown-theme"],
-                group="output_options",
+                group=OPTION_GROUP,
                 type=str,
                 choices=THEMES,
                 metavar="THEME",
@@ -83,7 +96,7 @@ class MarkdownHandler(BaseHandler):
             GcovrConfigOption(
                 "markdown_title",
                 ["--markdown-title"],
-                group="output_options",
+                group=OPTION_GROUP,
                 type=str,
                 metavar="TEXT",
                 help=(
@@ -95,12 +108,12 @@ class MarkdownHandler(BaseHandler):
             GcovrConfigOption(
                 "markdown_heading_level",
                 ["--markdown-heading-level"],
-                group="output_options",
+                group=OPTION_GROUP,
                 type=int,
                 metavar="INT",
                 help=(
                     "Override the default heading level of the Markdown report. "
-                    "This is useful if the report is embedded in another markdown file. "
+                    "This is useful if the report is embedded in another Markdown file. "
                     "Default is {default!s}."
                 ),
                 default=1,
@@ -108,7 +121,7 @@ class MarkdownHandler(BaseHandler):
             GcovrConfigOption(
                 "markdown_file_link",
                 ["--markdown-file-link"],
-                group="output_options",
+                group=OPTION_GROUP,
                 type=str,
                 metavar="TEXT",
                 help=(
@@ -119,17 +132,31 @@ class MarkdownHandler(BaseHandler):
         ]
 
     def validate_options(self) -> None:
+        """Validate options."""
+        if self.options.markdown and self.options.json_compare:
+            msg = "A Markdown report is not possible with --json-compare."
+            raise RuntimeError(msg)
+
         if self.options.markdown_heading_level < 1:
-            raise RuntimeError("The markdown heading level must not be less than 0.")
+            msg = "The Markdown heading level must not be less than 0."
+            raise RuntimeError(msg)
 
     def write_report(self, covdata: CoverageContainer, output_file: str) -> None:
-        from .write import write_report  # pylint: disable=import-outside-toplevel # Lazy loading is intended here
+        """Write report."""
+        # Lazy loading is intended here
+        from .write import (  # pylint: disable=import-outside-toplevel  # noqa: PLC0415
+            write_report,
+        )
 
         write_report(covdata, output_file, self.options)
 
     def write_summary_report(
         self, covdata: CoverageContainer, output_file: str
     ) -> None:
-        from .write import write_summary_report  # pylint: disable=import-outside-toplevel # Lazy loading is intended here
+        """Write summary report."""
+        # Lazy loading is intended here
+        from .write import (  # pylint: disable=import-outside-toplevel  # noqa: PLC0415
+            write_summary_report,
+        )
 
         write_summary_report(covdata, output_file, self.options)

@@ -29,7 +29,7 @@ dependencies = []
 requires-python = ">=3.10"
 
 [project.urls]
-homepage = "https://github.com/Stranger6667/css-inline/tree/master/bindings/python"
+homepage = "https://github.com/Stranger6667/css-inline/tree/master/crates/css-inline-python"
 repository = "https://github.com/Stranger6667/css-inline"
 
 [tool.ruff]
@@ -49,4 +49,4 @@ build-backend = "maturin"
 
 [tool.maturin]
 strip = true
-manifest-path = "bindings/python/Cargo.toml"
+manifest-path = "crates/css-inline-python/Cargo.toml"

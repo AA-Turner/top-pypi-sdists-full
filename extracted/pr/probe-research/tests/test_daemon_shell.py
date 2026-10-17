@@ -346,7 +346,6 @@ def test_safe_commands(box: Box, command: str) -> None:
         ("jq --rawfile x /etc/passwd .", "jq --rawfile"),
         ("cat ~/.ssh/id_rsa", "credential"),
         ("cat .env", "credential"),
-        ("cat ../../outside/secret.txt", "outside the working folders"),
         ("cat $(echo x)", "`$`"),
         ("cat `x`", "Backticks"),
         ("echo hi > out.txt", "writes output to a file"),
@@ -355,7 +354,6 @@ def test_safe_commands(box: Box, command: str) -> None:
         ("bash -c 'ls'", "runs another command"),
         ("X=1 ls", "environment variable"),
         ("ls *", "glob"),
-        ("cd /", "outside the working folders"),
         ("cat ~", "outside the working folders"),
         ("probe run list > out.txt", "never redirected"),
         ("python train.py", "`python` isn't on the safe list"),
@@ -389,7 +387,7 @@ def test_safe_commands(box: Box, command: str) -> None:
         ("sed -i s/a/b/ file.txt", "sed"),
         ("sed -n 1p -ewout", "not an option"),
         # redirects
-        ("cat < ../../outside/secret.txt", "outside the working folders"),
+        ("sed -n 1p < ../../outside/secret.txt", "outside the working folders"),  # not a read program
         ("ls &> out.txt", "writes output to a file"),
         ("ls >&out.txt", "only 2>&1-style"),
         ("ls >| out.txt", "writes output to a file"),
@@ -425,15 +423,15 @@ def test_safe_commands(box: Box, command: str) -> None:
         ("jq --slurpfile x /etc/passwd .", "jq --slurpfile"),
         ("jq 'import \"a\" as $a; .' data.json", "import"),
         ("jq --debug-trace .", "isn't on the safe list"),
-        ("jq . ../../outside/secret.txt", "outside the working folders"),
-        ("cat -f/etc/passwd", "outside the working folders"),
-        ("grep --file=/etc/passwd x file.txt", "outside the working folders"),
+        # an attached value is a path too (a file outside is read: hidden asks)
+        ("cat -f../../outside/.hidden/x", "outside the working folders, and .hidden is hidden"),
+        ("grep --file=../../outside/.hidden/p x file.txt", "outside the working folders, and .hidden is hidden"),
+        ("sed -n 1p ../../outside/secret.txt", "outside the working folders"),  # not a read program
         ("cd", "exactly one folder"),
         ("cd -", "exactly one folder"),
         ("cd -P nested", "exactly one folder"),
         ("cd nested file.txt", "exactly one folder"),
-        ("cd ~", "outside the working folders"),
-        ("cd nested && cat ../../../outside/secret.txt", "outside the working folders"),
+        ("cd nested && sed -n 1p ../../../outside/secret.txt", "outside the working folders"),
         # git
         ("git log --no-textconv --no-ext-diff --output=out.txt", "writes to a file"),
         ("git log --no-textconv --no-ext-diff --out=out.txt", "writes to a file"),
@@ -469,24 +467,37 @@ def test_probe_command_is_handed_back(box: Box) -> None:
 
 
 def test_symlink_inside_pointing_outside(box: Box) -> None:
+    """A link is checked as the path it resolves to. Outside the working folders a
+    read program reads it (D1, 2026-10-15), anything else asks, and a hidden target
+    asks of both."""
     (box.work / "link").symlink_to(box.outside / "secret.txt")
     (box.work / "-link").symlink_to(box.outside / "secret.txt")
     (box.work / "outdir").symlink_to(box.outside)
     (box.work / "dangling").symlink_to(box.outside / "not-yet")
+    (box.outside / ".hidden").mkdir()
+    (box.outside / ".hidden" / "f").write_text("x\n")
+    (box.work / "hid").symlink_to(box.outside / ".hidden" / "f")
+    (box.work / "hiddir").symlink_to(box.outside / ".hidden")
+    for command in ["cat link", "cat -- -link", "cat file.txt -link", "cat outdir/secret.txt", "ls outdir",
+                    "ls -l dangling", "cd outdir && cat secret.txt", "wc -l < link"]:
+        assert box.safe(command), command
     for command in [
-        "cat link",
-        "cat -- -link",
-        "cat file.txt -link",  # a tool that stops reading options early opens it
-        "cat outdir/secret.txt",
-        "ls outdir",
-        "cat dangling",
-        "cd outdir && cat secret.txt",
-        "wc -l < link",
+        "cat dangling",  # what a content reader reads outside must be a file that is there
+        "sed -n 1p link",
+        "sed -n 1p < link",
+        "base64 -d link",
+        "git -C outdir status",
+        "cat hid",
+        "cat file.txt hid",
+        "ls hiddir",
+        "cd hiddir && cat f",
+        "wc -l < hid",
     ]:
         verdict = box.verdict(command)
         assert not verdict.safe, command
         assert "outside the working folders" in verdict.reason, (command, verdict.reason)
-    assert box.verdict("cat link").reason == "It reads link: outside the working folders."
+    assert box.verdict("sed -n 1p link").reason == "It reads link: outside the working folders."
+    assert box.verdict("cat hid").reason == "It reads hid: outside the working folders, and .hidden is hidden."
 
 
 def test_hidden_folders_and_the_harness_files(box: Box) -> None:
@@ -532,7 +543,7 @@ def test_a_harness_home_moved_by_its_variable_keeps_its_instruction_file_readabl
 ) -> None:
     """`$KIMI_CODE_HOME/AGENTS.md` is Kimi Code's own instructions wherever the
     variable puts its home -- that one file, nothing else there."""
-    moved = box.outside / "kimi-home"
+    moved = box.outside / ".kimi-home"  # hidden: any other file outside is read anyway (D1)
     moved.mkdir()
     (moved / "AGENTS.md").write_text("x\n")
     (moved / "config.toml").write_text("x\n")
@@ -562,24 +573,28 @@ def test_credential_shapes_inside_the_folder(box: Box, monkeypatch) -> None:
 
 def test_home_is_never_a_working_folder(box: Box) -> None:
     # The session started in ~ (E6: every session here did). ~ is not a root, so
-    # commands that read the current folder by themselves ask; named paths inside
-    # the working folder still run.
+    # commands that search or walk the current folder by themselves ask; named
+    # paths inside the working folder still run.
     at_home = {"cwd": box.home}
-    for command in ["ls", "rg foo", "find -name x", "git status"]:
+    for command in ["rg foo", "find -name x", "git status", "du -sh", "ls -R"]:
         verdict = box.verdict(command, **at_home)
         assert not verdict.safe and "current folder" in verdict.reason, (command, verdict.reason)
-    # An option value ls doesn't know lands in ~ and is refused there, not skipped.
-    assert "outside" in box.verdict("ls -w 80", **at_home).reason
+    # A read program reads names and files outside the working folders (D1): ~ itself
+    # is listed, and an option value ls doesn't know lands in ~ and is checked there...
+    assert box.safe("ls", **at_home) and box.safe("ls -w 80", **at_home)
     (box.home / "notes.txt").write_text("x\n")
-    assert "outside" in box.verdict("cat notes.txt", **at_home).reason
+    assert box.safe("cat notes.txt", **at_home)
+    # ...but a walk that word may hand its value to walks ~ instead (`ls -R -w 80`).
+    assert "current folder" in box.verdict("ls -R -w 80", **at_home).reason
+    assert "outside" in box.verdict("sed -n 1p notes.txt", **at_home).reason  # not a read program
     assert box.safe("cat ~/proj/file.txt", **at_home)
     assert box.safe("ls ~/proj", **at_home)
     assert box.safe("cd ~/proj && ls", **at_home)
     assert box.safe("cd proj && rg hello", **at_home)
     # After `;` the cd may have failed, so ~ is still a possible current folder.
-    assert not box.safe("cd ~/proj; ls", **at_home)
+    assert not box.safe("cd ~/proj; rg hello", **at_home)
     # A working folder given as ~ or / counts for nothing.
-    verdict = classify("cat ~/x", workdirs=[box.home, Path("/")], home=box.home, cwd=box.work)
+    verdict = classify("sed -n 1p ~/x", workdirs=[box.home, Path("/")], home=box.home, cwd=box.work)
     assert "outside" in verdict.reason
 
 
@@ -681,6 +696,16 @@ def test_note_heredoc_runs_with_the_body_unchanged(box: Box, notes: Path) -> Non
 # --- Part 3: run() ---------------------------------------------------------
 
 
+@pytest.mark.parametrize("command", ["diff -l a.txt b.txt", "diff -ul a.txt b.txt", "diff --paginate a.txt b.txt",
+                                     "diff --pag a.txt b.txt"])
+def test_diff_paginate_asks(tmp_path: Path, command: str) -> None:
+    """`diff -l` passes its output through `pr`, found on PATH: a repo's own `pr` would run."""
+    for name in ("a.txt", "b.txt"):
+        (tmp_path / name).write_text("x\n")
+    verdict = classify(command, workdirs=[tmp_path], home=tmp_path / "home", cwd=tmp_path)
+    assert not verdict.safe and "pr" in verdict.reason, (command, verdict)
+
+
 def test_run_environment_is_minimal(tmp_path: Path, monkeypatch) -> None:
     marker = tmp_path / "bash_env_ran"
     rc = tmp_path / "rc.sh"
@@ -702,7 +727,8 @@ def test_run_environment_is_minimal(tmp_path: Path, monkeypatch) -> None:
     assert "SOME_PARENT_VAR" not in env and "BASH_ENV" not in env
     assert not marker.exists()
     expected = {
-        "PATH", "HOME", "LANG", "LC_ALL", "TERM", "NO_COLOR", "PAGER", "GIT_PAGER",
+        "PATH", "HOME", "LANG", "LC_ALL", "TERM", "NO_COLOR", "PYTHONSAFEPATH", "PYTHONDONTWRITEBYTECODE", "PAGER",
+        "GIT_PAGER",
         "GIT_TERMINAL_PROMPT", "GIT_CONFIG_NOSYSTEM", "GIT_OPTIONAL_LOCKS", "GIT_CONFIG_COUNT",
         "PROBE_CONFIG_PATH", "PROBE_TELEMETRY",  # a `probe` started here has no key
     }  # fmt: skip
@@ -928,6 +954,16 @@ def test_the_whole_word_braces_still_passes(box: Box) -> None:
     [
         ("grep -r foo .", "every file under the folder"),  # reads every file below, keys included
         ("grep --directories recurse foo .", "every file under the folder"),
+        # GNU grep takes any unambiguous start of `recurse`, after an abbreviated option too,
+        # and with no name walks the current folder; BSD grep takes any case.
+        ("grep -d rec foo", "every file under the folder"),
+        ("grep -drec foo", "every file under the folder"),
+        ("grep -nd rec foo", "every file under the folder"),
+        ("grep --dir rec foo", "every file under the folder"),
+        ("grep --dir=rec foo", "every file under the folder"),
+        ("grep --directories=recurs foo", "every file under the folder"),
+        ("grep -d RECURSE foo .", "every file under the folder"),
+        ("grep -d dereference-recurse foo", "every file under the folder"),  # ugrep's
         ("rg -u foo", "ignored"),  # .env and keys are usually ignored
         ("rg --no-ignore foo", "ignored"),
         ("git show --no-textconv --no-ext-diff HEAD:.env", "credentials"),  # a secret file, from history
@@ -946,7 +982,8 @@ def test_recursive_and_history_readers_that_reach_secrets_ask(box: Box, command:
 def test_ordinary_history_reads_still_pass(box: Box) -> None:
     for command in ["git show --no-textconv --no-ext-diff HEAD:file.txt",
                     "git log --no-textconv --no-ext-diff origin/main..HEAD",
-                    "rg -n hello nested", "diff file.txt data.json"]:
+                    "rg -n hello nested", "diff file.txt data.json",
+                    "grep -d skip hello file.txt nested", "grep --directories=read hello file.txt"]:
         verdict = box.verdict(command)
         assert verdict.safe, (command, verdict.reason)
 
@@ -1049,6 +1086,7 @@ def test_run_stops_the_group_when_its_watch_says_so(tmp_path: Path, monkeypatch)
     result = asyncio.run(run(f"sleep 30 & echo $! > {pidfile}; wait", cwd=tmp_path, timeout_s=20, watch=watch))
     assert time.monotonic() - started < 10 and calls["n"] >= 1
     assert result.stopped == "the switch moved" and result.exit_code is None and not result.timed_out
+    assert result.started, "stopped while it ran: it did run"
     assert _wait_dead(int(pidfile.read_text())), "the background child survived"
 
 
@@ -1182,6 +1220,7 @@ def test_a_stop_before_the_launch_starts_nothing(tmp_path: Path) -> None:
     marker = tmp_path / "ran"
     result = asyncio.run(run(f"touch {marker}", cwd=tmp_path, watch=lambda: "the switch moved"))
     assert result.stopped == "the switch moved" and result.exit_code is None
+    assert result.started is False, "nothing ran: `_run_shell_write` logs it not run"
     assert not marker.exists()
 
 
@@ -1523,18 +1562,18 @@ _DIGEST_OPTION = "isn't on the safe list: of its options only"
         ("du -s0 nested", "NUL"),
         ("du --null nested", "NUL"),
         ("du --nu nested", "NUL"),
-        # the file-argument checks `cat` gets
-        ("shasum ../../outside/secret.txt", "outside the working folders"),
-        ("shasum -a 256 ../../outside/secret.txt", "outside the working folders"),
-        ("sha256sum file.txt ../../outside/secret.txt", "outside the working folders"),
-        ("sha256sum < ../../outside/secret.txt", "outside the working folders"),
-        ("shasum -a/etc/passwd file.txt", "outside the working folders"),
-        ("du ../../outside", "outside the working folders"),
-        ("du -sh ..", "outside the working folders"),
-        ("du -sh nested/../..", "outside the working folders"),
-        ("du -sh ~", "outside the working folders"),
-        ("du -sh /", "outside the working folders"),
-        ("du -d 1 nested ../../outside", "outside the working folders"),
+        # the file-argument checks `cat` gets (a file outside is read: D1, the read-anywhere tables)
+        ("shasum ../../outside/.hidden/x", "outside the working folders, and .hidden is hidden"),
+        ("sha256sum file.txt ~/.zsh_history", "history"),
+        ("sha256sum < ~/.zsh_history", "history"),
+        ("shasum -a../../outside/.hidden/x file.txt", "outside the working folders, and .hidden is hidden"),
+        ("du ../../outside/.hidden", "outside the working folders, and .hidden is hidden"),
+        # a walk through $HOME or / (its hidden folders, history, ~/Library, /proc)
+        ("du -sh ..", "a walk of it goes through your home folder"),
+        ("du -sh nested/../..", "a walk of it goes through your home folder"),
+        ("du -sh ~", "a walk of it goes through your home folder"),
+        ("du -sh /", "a walk of it goes through"),
+        ("du -d 1 nested ~", "a walk of it goes through your home folder"),
     ],
 )
 def test_digests_and_du_ask(box: Box, command: str, why: str) -> None:
@@ -1612,3 +1651,548 @@ def test_a_digest_program_inside_the_folder_is_not_run(box: Box, monkeypatch) ->
     monkeypatch.setenv("PATH", f"{fake.parent}{os.pathsep}{os.environ['PATH']}")
     verdict = box.verdict("sha256sum file.txt")
     assert not verdict.safe and "inside the working folders" in verdict.reason
+
+
+# --- Reads anywhere (D1, 2026-10-15) ---------------------------------------------------------------
+#
+# A read program (cat head tail nl wc stat ls find du diff grep rg cut paste sort uniq tr tac numfmt
+# jq, the digests, gzip as a reader) and `cd` may name a file or folder outside the working folders:
+# most of the 53 commands one pi researcher's daemon held in 14 days were reads of other
+# repositories. Outside, these still ask: a hidden name, ~/Library, a folder a content reader would
+# read whole, a walk for names through $HOME or a credential place. Everywhere: credentials, shell
+# history, a process's own files, /dev, Probe's key and state, `off` paths.
+
+
+@pytest.fixture
+def reads(box: Box) -> Box:
+    import gzip
+
+    out = box.outside
+    (out / "dir" / "sub").mkdir(parents=True)
+    (out / "dir" / "notes.md").write_text("# notes\n")
+    (out / "a.txt").write_text("a\n")
+    (out / "b.txt").write_text("b\n")
+    (out / ".hidden").mkdir()
+    (out / ".hidden" / "f").write_text("x\n")
+    (out / ".env").write_text("K=1\n")
+    (out / "key.pem").write_text("k\n")
+    for path in (out / "a.gz", box.work / "x.gz"):
+        with gzip.open(path, "wt") as handle:
+            handle.write("line\n")
+    (box.home / ".zsh_history").write_text("export TOKEN=x\n")
+    (box.home / "Library" / "Cookies").mkdir(parents=True)
+    (box.home / "Library" / "Cookies" / "Cookies.binarycookies").write_text("c\n")
+    (box.home / ".ssh").mkdir()
+    (box.home / ".ssh" / "id_rsa").write_text("k\n")
+    (out / "keys").symlink_to(box.home / ".ssh")
+    (out / "key").symlink_to(box.home / ".ssh" / "id_rsa")
+    (out / "lib").symlink_to(box.home / "Library")
+    (out / "rootlink").symlink_to("/")
+    (out / "x.json").write_text("{}\n")
+    (out / "Client.PEM").write_text("k\n")
+    os.link(box.home / ".ssh" / "id_rsa", out / "key-alias")  # the same file under a second name
+    (out / "twice.gz").write_bytes((out / "a.gz").read_bytes())
+    os.link(out / "twice.gz", out / "twice-too.gz")
+    (box.work / "Server.PEM").write_text("k\n")
+    os.mkfifo(out / "x.fifo")
+    return box
+
+
+def _at(box: Box, command: str) -> str:
+    return command.format(out=box.outside, home=box.home)
+
+
+@pytest.mark.parametrize("command", [
+    # the plan's rows
+    "cat {out}/a.txt",
+    "head -20 {out}/x.json",
+    "ls -la {out}/dir",
+    "find {out}/dir -maxdepth 2 -name '*.md'",
+    "du -sh {out}/dir",
+    "stat {out}/a.txt",
+    "gzip -cd {out}/a.gz | head -5",
+    "gzip -l x.gz",
+    "wc -l {out}/a.txt {out}/b.txt",
+    "cd {out} && cat a.txt",
+    # asked before reads ran anywhere
+    "cat ../../outside/secret.txt",
+    "cat < ../../outside/secret.txt",
+    "jq . ../../outside/secret.txt",
+    "cd nested && cat ../../../outside/secret.txt",
+    "grep --file=/etc/passwd x file.txt",  # an option's value: a file outside, read
+    "shasum ../../outside/secret.txt",
+    "shasum -a 256 ../../outside/secret.txt",
+    "sha256sum file.txt ../../outside/secret.txt",
+    "sha256sum < ../../outside/secret.txt",
+    "du ../../outside",
+    "du -d 1 nested ../../outside",
+    "cd /",
+    "cd ~",
+    # every read program, given a file or folder outside
+    "tail -n 5 {out}/a.txt", "nl {out}/a.txt", "cut -d, -f1 {out}/a.txt", "paste {out}/a.txt {out}/b.txt",
+    "sort {out}/a.txt | uniq -c", "uniq {out}/a.txt", "grep -n a {out}/a.txt", "rg -n a {out}/a.txt",
+    "diff {out}/a.txt {out}/b.txt", "md5sum {out}/a.txt", "cksum {out}/a.txt", "jq . {out}/a.txt",
+    "ls {out}", "ls -R {out}/dir", "ls -laR {out}/dir", "find {out}/dir -type f",
+    "find {out}/dir -newer {out}/a.txt", "find -H {out}/dir -name x", "du -a {out}/dir", "stat {out}/dir",
+    "cat {out}/dir/../a.txt", "cat -n -- {out}/a.txt",
+    "gunzip -c {out}/a.gz", "gzip --stdout --decompress {out}/a.gz", "gzip --to-st --dec {out}/a.gz",
+    "gzip -dc -- {out}/a.gz", "gzip -t x.gz", "gzip -lv x.gz", "gzip -cdq < x.gz", "cat x.gz | gzip -cd",
+    "gunzip -l {out}/a.gz",
+    "find /etc -maxdepth 1 -name '*.conf'", "ls /run", "stat {out}/x.fifo", "ls -l {out}/x.fifo",
+    "ls -l {out}/key-alias", "stat {out}/twice.gz",  # names and metadata: not what the file holds
+    "find -H {out}/dir -printf '%f\\n'", "find -P -O2 -- {out}/dir -name x", "find -- {out}/dir",
+    # the current folder outside: its names and metadata, not a search of it
+    "cd {out} && ls", "cd {out} && ls -la dir", "cd {out} && find . -name x", "cd {out} && du -sh",
+    "cd {out}/dir && du -sh sub", "cd {out}/dir && find -name x",
+    # an abbreviated option may take the next word, so the current folder is read too: here, a fine one
+    "cd {out} && ls -laR --ig {out}/dir", "cd {out} && du --time dir",
+    "cd ~ && ls --ig /tmp", "cd ~ && ls -la --hid x",  # ls without -R reads only the names in $HOME
+])
+def test_a_read_program_reads_outside_the_working_folders(reads: Box, command: str) -> None:
+    verdict = reads.verdict(_at(reads, command))
+    assert verdict == Verdict(True, ""), (command, verdict)
+
+
+@pytest.mark.parametrize(("command", "why"), [
+    # a tree's contents outside: a content reader would read every file in it
+    ("rg pattern {out}/dir", "every file in it"),
+    ("rg --files {out}/dir", "every file in it"),
+    ("cat {out}/dir", "every file in it"),
+    ("cat ~", "every file in it"),
+    ("grep -rn x {out}", "every file under the folder"),
+    ("cd {out} && rg x", "current folder"),
+    ("cd {out}; rg x", "current folder"),
+    ("cd ~ && grep --dir rec TOKEN", "every file under the folder"),  # walks the current folder
+    ("cd {out} && grep -d rec x", "every file under the folder"),
+    # gzip as anything but a reader, or reading a name the check never saw
+    ("gzip -d x.gz", "only as a reader"),
+    ("gunzip x.gz", "only as a reader"),
+    ("gzip x.gz", "only as a reader"),
+    ("gzip -c x.gz", "only as a reader"),  # compresses: bytes the scrubber can't read
+    ("gzip -k -d x.gz", "isn't on the safe list"),
+    ("gunzip -ck x.gz", "isn't on the safe list"),
+    ("gzip -cdf x.gz", "isn't on the safe list"),
+    ("gzip -cdr {out}", "isn't on the safe list"),
+    ("gzip --recursive -cd {out}", "isn't on the safe list"),
+    ("gzip --rec -cd {out}", "isn't on the safe list"),
+    ("gzip -S .x -cd x.gz", "isn't on the safe list"),
+    ("gzip --suffix=.x -cd x.gz", "isn't on the safe list"),
+    ("gzip --stdout=x -d x.gz", "isn't on the safe list"),
+    ("gzip -cd9 x.gz", "isn't on the safe list"),
+    ("gzip -cd {out}/a", "names no file"),  # gzip would read {out}/a.gz in its place
+    ("gzip -cd x", "names no file"),
+    ("gzip -l {out}/dir", "names no file"),
+    ("gzip -cd -- -r", "names no file"),
+    # hidden names outside
+    ("cat {out}/.hidden/f", ".hidden is hidden"),
+    ("cat -- {out}/.hidden/f", ".hidden is hidden"),
+    ("cat {out}/dir/../.hidden/f", ".hidden is hidden"),
+    ("cd {out}/.hidden && cat f", ".hidden is hidden"),
+    ("cd {out} && cat .hidden/f", ".hidden is hidden"),
+    ("ls {out}/.hidden", ".hidden is hidden"),
+    ("find {out}/.hidden -name x", ".hidden is hidden"),
+    ("cat < {out}/.hidden/f", ".hidden is hidden"),
+    ("cat -f{out}/.hidden/f", ".hidden is hidden"),
+    ("grep --file={out}/.hidden/f x file.txt", ".hidden is hidden"),
+    ("cat ~/.bashrc", ".bashrc is hidden"),
+    # shell and REPL history, wherever it is
+    ("cat ~/.zsh_history", "history"),
+    ("tail -n 50 ~/.bash_history", "history"),
+    ("head ~/.python_history", "history"),
+    ("grep -n TOKEN ~/.zsh_history", "history"),
+    ("cat < ~/.zsh_history", "history"),
+    ("cd ~ && cat .zsh_history", "history"),
+    ("wc -l ~/.ZSH_HISTORY", "history"),  # macOS's disks ignore case
+    ("cat .psql_history", "history"),  # inside a working folder too
+    ("git show --no-textconv --no-ext-diff HEAD:.zsh_history", "credentials"),
+    # macOS's app data
+    ("ls ~/Library/Cookies", "~/Library"),
+    ("cat ~/Library/Cookies/Cookies.binarycookies", "~/Library"),
+    ("cd ~/Library && ls", "~/Library"),
+    ("cd ~ && ls Library/Cookies", "~/Library"),
+    ("ls ~/library/cookies", "~/Library"),
+    ("ls ~/LIBRARY", "~/Library"),
+    ("ls {out}/lib/Cookies", "~/Library"),  # a folder outside linked into it
+    ("cat /System/Volumes/Data{home}/Library/Cookies/Cookies.binarycookies", "~/Library"),
+    # a process's own files, devices, a container's secrets
+    ("cat /proc/./123/environ", "(/proc)"),
+    ("cd /proc && cat 123/environ", "(/proc)"),
+    ("cd /proc && cd self && cat environ", "(/proc)"),
+    ("cat /proc/kcore", "(/proc)"),  # [review 4] all of /proc and /sys, as /dev
+    ("cat /proc/cpuinfo", "(/proc)"),
+    ("ls /proc", "(/proc)"),
+    ("cat /sys/kernel/notes", "(/sys)"),
+    ("cat /PROC/kcore", "(/proc)"),
+    ("cat /dev/stdin", "a device (/dev)"),
+    ("wc -l < /dev/stdin", "a device (/dev)"),
+    ("ls /dev", "a device (/dev)"),
+    ("cd /dev && cat stdin", "a device (/dev)"),
+    ("cat /run/secrets/token", "a container's secrets"),
+    ("cat /var/run/secrets/kubernetes.io/serviceaccount/token", "a container's secrets"),
+    ("cat /run/user/1000/containers/auth.json", "a user's runtime files"),
+    ("cat /etc/ssh/ssh_host_ed25519_key", "SSH keys"),  # a daemon run as root reads them
+    ("head /etc/shadow", "password hashes"),
+    # [review 2] macOS's second spellings: /private/etc is /etc, /System/Volumes/Data/x is /x
+    ("cat /private/etc/ssh/ssh_host_ed25519_key", "SSH keys"),
+    ("cat /System/Volumes/Data/private/etc/ssh/ssh_host_ed25519_key", "SSH keys"),
+    ("cat /System/Volumes/Data/etc/shadow", "password hashes"),
+    ("cat /PRIVATE/ETC/SSH/ssh_host_rsa_key", "SSH keys"),
+    ("cat /private/var/run/secrets/token", "a container's secrets"),
+    ("cat /System/Volumes/Data/dev/stdin", "a device (/dev)"),
+    ("cd /private/etc && cat ssh/ssh_host_rsa_key", "SSH keys"),
+    ("cat /System/Volumes/Data{home}/.zsh_history", "history"),
+    # a walk for names through $HOME, / or a credential place
+    ("find ~ -name x", "goes through your home folder"),
+    ("find / -name x", "goes through your home folder"),
+    ("find {home}/.. -name x", "goes through your home folder"),
+    ("find {out}/rootlink -name x", "a walk of it goes through"),  # a folder outside linked to /
+    ("du -sh /", "a walk of it goes through"),
+    ("ls -R ~", "goes through your home folder"),
+    ("ls -R /", "a walk of it goes through"),
+    ("cd ~ && find . -name x", "goes through your home folder"),
+    ("cd ~ && du -sh", "goes through your home folder"),
+    ("cd ~ && du --max 1", "goes through your home folder"),  # an abbreviated option's value
+    ("cd ~ && ls -R --sort size", "goes through your home folder"),
+    # [review 7] an abbreviated option takes the next word, and the tool walks the current folder
+    ("cd ~ && ls -laR --ig /tmp", "goes through your home folder"),
+    ("cd ~ && ls -laR --ig {out}/dir", "goes through your home folder"),
+    ("cd ~ && ls -R --hid {out}/dir", "goes through your home folder"),
+    ("cd ~ && ls -R --ignor {out}/dir", "goes through your home folder"),
+    ("cd ~ && du --time {out}/dir", "goes through your home folder"),
+    ("cd ~ && du -s --block 1K {out}/dir", "goes through your home folder"),
+    ("cd ~ && ls -laR --ignore=/tmp", "goes through your home folder"),
+    ("cd ~ && du --time ~/Library", "~/Library"),  # `du --time` takes no value: the name is checked too
+    # [review 6] find's start folders past its leading options and `--`
+    ("find -- / -name x", "goes through your home folder"),
+    ("find -H -- / -name x", "goes through your home folder"),
+    ("find -P -O3 -D tree -- ~ -name x", "goes through your home folder"),
+    ("find -- ~", "goes through your home folder"),
+    ("find -sx / -name x", "goes through your home folder"),  # BSD's flags, in a cluster
+    ("find -d ~", "goes through your home folder"),
+    ("find -f / -name x", "goes through your home folder"),  # BSD's -f PATH
+    ("find -sf ~ -name x", "goes through your home folder"),
+    ("find -f/ -name x", "goes through your home folder"),
+    ("cd ~ && find -fstype nfs -name x", "goes through your home folder"),  # GNU's test, BSD's -f stype
+    ("cd ~ && find -false", "goes through your home folder"),
+    ("find -- {out}/.hidden", ".hidden is hidden"),
+    # symlinks followed out
+    ("ls -R -L {out}/dir", "ls -R -L"),
+    ("ls -lRL nested", "ls -R -L"),
+    ("ls --recursive --dereference {out}/dir", "ls -R -L"),
+    ("find -L {out}/dir -name x", "follows symlinks"),
+    ("find {out}/dir -follow -name x", "follows symlinks"),
+    ("find -HL {out}/dir -name x", "follows symlinks"),  # BSD reads the cluster as -H -L
+    ("find -sL {out}/dir", "follows symlinks"),
+    ("du -L {out}/dir", "symlinks"),
+    ("rg -L x {out}/a.txt", "symlinks"),
+    # not a read program, or shell the check can't vouch for
+    ("sed -n 1p {out}/a.txt", "outside the working folders"),
+    ("sed -n 1p < {out}/a.txt", "outside the working folders"),
+    ("base64 -d {out}/a.txt", "outside the working folders"),
+    ("git -C {out} status", "outside the working folders"),
+    ("cat {out}/*.txt", "glob"),
+    ("/bin/cat {out}/a.txt", "by its path"),
+    ("cat ~nobody/x", "~name"),
+    ("head -c 5 {out}/a.txt", "scrubber"),
+    ("cat {out}/a.txt | base64", "scrubber"),
+    ("rg -e -- --hidden x {out}/a.txt", "hidden files"),
+    # credential-shaped names: asked, as inside
+    ("cat {out}/.env", "credential"),
+    ("head {out}/key.pem", "credential"),
+    # [review 1] in any case: macOS's disks read client.PEM as client.pem
+    ("cat {out}/Client.PEM", "credential"),
+    ("cat ~/Downloads/client.PEM", "credential"),
+    ("head {out}/server.Key", "credential"),
+    ("cat {out}/ID_RSA", "credential"),
+    ("cat {out}/Id_Ed25519.pub", "credential"),
+    ("cat {out}/.ENV", "credential"),
+    ("cat {out}/.Env.local", "credential"),
+    ("cat {out}/.NETRC", "credential"),
+    ("cat Server.PEM", "credential"),  # inside the working folders too
+    ("sha256sum {out}/Client.PEM", "credential"),
+    ("cat < {out}/Client.PEM", "credential"),
+    ("git show --no-textconv --no-ext-diff HEAD:keys/Server.PEM", "credentials"),
+    ("cat {out}/.Bash_History", "history"),
+    # [review 3] a second name for a file (a hard link) may be a credential's
+    ("cat {out}/key-alias", "hard links"),
+    ("head -5 {out}/key-alias", "hard links"),
+    ("sha256sum {out}/key-alias", "hard links"),
+    ("cat < {out}/key-alias", "hard links"),
+    ("gzip -cd {out}/twice.gz", "hard links"),
+    ("cd {out} && cat key-alias", "hard links"),
+    # [review 4] what a content reader reads outside must be an ordinary file that is there
+    ("cat {out}/x.fifo", "not an ordinary file"),
+    ("wc -l {out}/x.fifo", "not an ordinary file"),
+    ("cat < {out}/x.fifo", "not an ordinary file"),
+    ("cd {out} && head x.fifo", "not an ordinary file"),
+    ("cat {out}/missing.txt", "no file there"),
+    ("cat -f/etc/passwd", "no file there"),  # an attached value's every tail is a name
+    ("rg x /api/v1/users nested", "no file there"),  # a pattern that looks like a path
+])
+def test_what_still_asks_outside_the_working_folders(reads: Box, command: str, why: str) -> None:
+    verdict = reads.verdict(_at(reads, command))
+    assert not verdict.safe and not verdict.refused, (command, verdict)
+    assert why in verdict.reason, (command, verdict.reason)
+
+
+@pytest.mark.parametrize("command", [
+    "cat ~/.ssh/id_rsa",
+    "ls ~/.ssh",
+    "cat ~/.config/probe/config.json",
+    "cat {out}/keys/id_rsa",  # a folder outside linked into ~/.ssh
+    "ls {out}/keys",
+    "cd {out}/keys && cat id_rsa",
+    "find {out}/keys -name x",
+    "cat {out}/key",  # a file outside linked to a key
+    "cat < {out}/key",
+    "cat ~/.SSH/id_rsa",  # macOS's disks ignore case
+    "cat /proc/123/environ",
+    "cat /proc/self/environ",
+    "head /dev/fd/0",
+])
+def test_credentials_and_probes_own_files_stay_refused_outside(reads: Box, command: str) -> None:
+    verdict = reads.verdict(_at(reads, command), protected=[reads.home / ".config" / "probe"])
+    assert not verdict.safe and verdict.refused, (command, verdict)
+
+
+def test_an_off_path_outside_the_working_folders_is_refused(reads: Box) -> None:
+    private = reads.outside / "private"
+    private.mkdir()
+    (private / "k.txt").write_text("x\n")
+
+    def off(path: str) -> bool:
+        return path == str(private) or path.startswith(str(private) + "/")
+
+    def holds_private(tree: str) -> bool:
+        return Path(tree) in (private, *private.parents)
+
+    for command in [f"cat {private}/k.txt", f"ls {private}", f"cd {private} && ls", f"cat < {private}/k.txt",
+                    f"cd {reads.outside} && cat private/k.txt", f"gzip -l {private}/k.txt"]:
+        verdict = reads.verdict(command, hidden=off)
+        assert not verdict.safe and verdict.refused, (command, verdict)
+    assert reads.safe(f"cat {reads.outside}/a.txt", hidden=off)  # control
+    out = reads.outside
+    for command in [f"find {out} -name x", f"du -sh {out}", f"ls -R {out}", f"cd {out} && du -sh",
+                    # [review 5] a tree named past find's leading options, or by an abbreviation
+                    f"find -H {out} -printf '%f\\n'", f"find -P -O2 -D tree {out} -name x", f"find -- {out}",
+                    f"find -H -- {out}", f"ls --rec {out}", f"ls --recursive {out}", f"cd {out} && ls -laR --ig {out}/dir",
+                    f"cd {out} && du --max 1", f"cd {out} && find -fstype nfs"]:
+        assert reads.safe(command), command  # control
+        verdict = reads.verdict(command, off_inside=holds_private)
+        assert not verdict.safe and verdict.refused, (command, verdict)
+    for command in [f"cd {out} && grep --dir rec x", f"grep -d rec x {out}", f"diff --rec {out} {out}/dir"]:
+        verdict = reads.verdict(command, off_inside=holds_private)  # asked anywhere, refused here in every mode
+        assert not verdict.safe and verdict.refused, (command, verdict)
+
+
+@pytest.mark.skipif(not LINUX, reason="zcat, tac and /proc run at once on Linux only")
+def test_linux_readers_read_outside_too(reads: Box) -> None:
+    for command in ["zcat {out}/a.gz", "zcat -l {out}/a.gz", "zcat < {out}/a.gz", "tac {out}/a.txt"]:
+        assert reads.safe(_at(reads, command)), command
+    for command, why in [("zcat {out}/a", "names no file"), ("zcat -r {out}", "isn't on the safe list"),
+                         ("zcat -f {out}/a.txt", "isn't on the safe list"), ("zcat {out}/twice.gz", "hard links"),
+                         ("cat /proc/net/tcp", "(/proc)"), ("cat /proc/../proc/kcore", "(/proc)")]:
+        verdict = reads.verdict(_at(reads, command))
+        assert not verdict.safe and why in verdict.reason, (command, verdict.reason)
+
+
+def test_bsd_shapes_ask_where_their_tools_read_more(reads: Box, monkeypatch) -> None:
+    """macOS's ls reads -I as a flag (GNU's takes a pattern), and its zcat reads NAME.Z."""
+    from probe.daemon import shell
+
+    monkeypatch.setattr(shell, "_LINUX", True)
+    assert reads.safe("ls -I ~/Library/Cookies")  # GNU ls: a pattern, and the current folder is listed
+    monkeypatch.setattr(shell, "_LINUX", False)
+    assert "~/Library" in reads.verdict("ls -I ~/Library/Cookies").reason
+    assert reads.safe("ls -I nested")  # a name it lists, inside
+    assert "isn't on the safe list" in reads.verdict(_at(reads, "zcat {out}/a.gz")).reason
+
+
+def test_the_second_path_macos_has_to_its_data_is_checked_too(reads: Box, monkeypatch, tmp_path: Path) -> None:
+    """/System/Volumes/Data/Users/x is /Users/x on macOS, and realpath keeps it as
+    written; /private/etc is /etc. Stood in for by folders here, as `_MACOS_ALIASES`."""
+    from probe.daemon import shell
+
+    data = tmp_path / "sys" / "volumes" / "data"  # stands in for /System/Volumes/Data
+    private = tmp_path / "private"  # its /private/outside stands in for /private/etc
+    state = reads.outside / "state"  # a protected folder there, as Probe's state can be
+    monkeypatch.setattr(shell, "_MACOS_ALIASES", ((str(data).casefold(), ""),
+                                                  (str(private / "outside").casefold(), str(reads.outside).casefold())))
+    alias = Path(f"{data}{reads.home}")
+    (alias / "Library" / "Cookies").mkdir(parents=True)
+    (alias / ".ssh").mkdir()
+    (alias / ".ssh" / "id_rsa").write_text("k\n")
+    (private / "outside" / "state").mkdir(parents=True)
+    (private / "outside" / "state" / "key").write_text("k\n")
+    for command, why in [(f"ls {alias}/Library/Cookies", "~/Library"),
+                         (f"find {data} -name x", "goes through your home folder"),
+                         (f"find {data.parent} -name x", "goes through your home folder"),  # above the firmlink
+                         (f"du -sh {alias}", "goes through your home folder"),
+                         (f"find {private} -name x", f"goes through {state}")]:  # above /private/etc
+        verdict = reads.verdict(command, protected=[state])
+        assert not verdict.safe and why in verdict.reason, (command, verdict.reason)
+    for command in [f"cd {alias} && cat .ssh/id_rsa", f"cat {private}/outside/state/key",
+                    f"cd {private}/outside && cat state/key", f"cat {str(private).upper()}/OUTSIDE/STATE/key"]:
+        assert reads.verdict(command, protected=[state]).refused, command
+    assert reads.safe(f"ls {data}")  # the folder's own names
+
+
+def test_the_read_tool_and_the_reader_stay_in_the_working_folders(reads: Box) -> None:
+    """`read_refusal` (the daemon's file reader, and the reader's) is not widened."""
+    from probe.daemon.shell import read_refusal
+
+    refused = read_refusal(str(reads.outside / "a.txt"), workdirs=[reads.work], home=reads.home, cwd=reads.work)
+    assert refused is not None and "outside the working folders" in refused[0]
+    assert read_refusal("file.txt", workdirs=[reads.work], home=reads.home, cwd=reads.work) is None
+
+
+# --- Review round 2 (Codex, diff 2ad12cce7..c9ba2562a): each failed on the code before it --------
+
+
+@pytest.fixture
+def odd_files(reads: Box) -> Box:
+    """Inside the working folder: a pipe, and one file under two names (a hard link)."""
+    os.mkfifo(reads.work / "pipe")
+    (reads.work / "twin-a.txt").write_text("x\n")
+    os.link(reads.work / "twin-a.txt", reads.work / "twin-b.txt")
+    return reads
+
+
+@pytest.mark.parametrize(("command", "why"), [
+    # [2] a content read of a file with a second name, or of something no ordinary file, asks inside too
+    ("cat twin-a.txt", "hard links"),
+    ("head -5 twin-b.txt", "hard links"),
+    ("grep -n x twin-a.txt", "hard links"),
+    ("rg x twin-a.txt", "hard links"),
+    ("jq . twin-a.txt", "hard links"),
+    ("sha256sum twin-a.txt", "hard links"),
+    ("diff twin-a.txt file.txt", "hard links"),
+    ("cat < twin-a.txt", "hard links"),
+    ("sed -n 1p twin-a.txt", "hard links"),  # not a read program: inside, still a content read
+    ("base64 -d twin-a.txt", "hard links"),
+    ("cd nested && cat ../twin-a.txt", "hard links"),
+    ("cat pipe", "not an ordinary file"),
+    ("wc -l pipe", "not an ordinary file"),
+    ("cat < pipe", "not an ordinary file"),
+    ("sed -n 1p < pipe", "not an ordinary file"),
+    ("tail -n 1 ./pipe", "not an ordinary file"),
+    # [4] a short cluster ending in a value letter takes the next word: ls walks the current folder
+    ("cd ~ && ls -RaI {out}/dir", "goes through your home folder"),  # GNU: -I {out}/dir is a pattern
+    ("cd ~ && ls -RI {out}/dir", "goes through your home folder"),
+    ("cd ~ && ls -lRw {out}/dir", "goes through your home folder"),  # -w COLS
+    ("cd ~ && ls -RT {out}/dir", "goes through your home folder"),  # -T COLS
+    ("cd ~ && ls -RD {out}/dir", "goes through your home folder"),  # BSD's -D FORMAT
+    ("cd ~ && du -sd {out}/dir", "goes through your home folder"),  # -d DEPTH
+    ("cd ~ && du -shI {out}/dir", "goes through your home folder"),  # BSD's -I MASK
+    ("cd ~ && du -sB {out}/dir", "goes through your home folder"),
+])
+def test_review_round_2_asks(odd_files: Box, command: str, why: str) -> None:
+    verdict = odd_files.verdict(_at(odd_files, command))
+    assert not verdict.safe and not verdict.refused, (command, verdict)
+    assert why in verdict.reason, (command, verdict.reason)
+
+
+@pytest.mark.parametrize("command", [
+    # names and metadata of the same files run, and so do ordinary content reads inside
+    "ls -l pipe twin-a.txt", "stat twin-a.txt", "find . -name 'twin-*'", "du -a .", "cat file.txt",
+    "rg hello nested", "cat ./not-there.txt",  # inside, a missing name is the tool's own error, as before
+    # [4] a real name stays a name: the value is attached, or the option is spelled with its value
+    "cd {out} && ls -RaI {out}/dir", "cd ~ && du -d 1 {out}/dir", "cd ~ && du -sd1 {out}/dir",
+    "cd ~ && ls -RaIx {out}/dir",
+    # [1] a `cd` in a pipeline moves nothing: find walks the working folder, not $HOME
+    "cd ~ | find . -name x", "cd ~ |& ls -R", "echo x | cd ~ && find . -name x",
+])
+def test_review_round_2_still_runs(odd_files: Box, command: str) -> None:
+    verdict = odd_files.verdict(_at(odd_files, command))
+    assert verdict == Verdict(True, ""), (command, verdict)
+
+
+def test_a_cd_in_a_pipeline_leaves_the_off_tree_check_where_the_search_runs(reads: Box) -> None:
+    """[1] `cd /x | rg -I KEY .`: bash runs each side of a pipe in a subshell, so rg
+    searches the working folder, and the `.probe.config` tree check must look there."""
+    secret = reads.work / "secret"
+    secret.mkdir()
+
+    def holds_secret(tree: str) -> bool:
+        return Path(tree).resolve() in (secret, *secret.parents)
+
+    for command in ["cd /does-not-exist | rg -I TOKEN .", "cd /does-not-exist | rg TOKEN .", "cd nested | rg x .",
+                    "cd {out} |& rg x .", "echo x | cd {out} && rg -I x .", "cd /does-not-exist | grep -rh x .",
+                    "cd /does-not-exist | find . -name x", "cd /does-not-exist | ls -R",
+                    # `rg -I` / `grep -h` print no file names: checked from every folder it may be in
+                    "cd nested && rg -I x .", "cd nested && rg --no-filename x .", "cd nested && grep -rh x ."]:
+        verdict = reads.verdict(_at(reads, command), off_inside=holds_secret)
+        assert not verdict.safe and verdict.refused, (command, verdict)
+    for command in ["cd nested && rg x .", "rg -n x nested", "cd nested && rg -I x ../file.txt"]:  # controls
+        assert reads.safe(command, off_inside=holds_secret), command
+
+
+# --- Review round 3 (delta c9ba2562a..ba14077df): each failed on the code before it -----------------
+
+
+def test_a_lastpipe_cd_adds_its_folder_to_where_later_parts_may_run(reads: Box) -> None:
+    """[1] Under `shopt -s lastpipe` the last part of a pipeline runs in this shell, so
+    `true | cd X; rg -I KEY .` may search X (`bash -c 'shopt -s lastpipe; true | cd
+    /tmp; pwd'` prints /tmp). Started in a folder holding no `off` path, it is
+    refused in every mode when X holds one: X joins the folders, never the only one."""
+    secret = reads.work / "secret"
+    secret.mkdir()
+
+    def holds_secret(tree: str) -> bool:
+        return Path(tree).resolve() in (secret, *secret.parents)
+
+    nested = {"cwd": reads.work / "nested", "off_inside": holds_secret}
+    for command in ["shopt -s lastpipe; true | cd ../secret; rg -I TOKEN .",
+                    "shopt -s lastpipe; true | cd ../secret; rg TOKEN .", "shopt -s lastpipe;true|cd ../secret;rg x .",
+                    "shopt -s lastpipe; echo | cd ../secret && find . -name x",
+                    "shopt -s lastpipe; true | cd ../secret\nls -R"]:
+        verdict = reads.verdict(command, **nested)
+        assert not verdict.safe and verdict.refused, (command, verdict)
+    for command in ["rg x .", "cd ../secret | rg x ."]:  # controls: nested holds no off path; rg runs there
+        verdict = reads.verdict(command, **nested)
+        assert not verdict.refused, (command, verdict)
+
+
+def test_a_semicolon_stuck_to_a_word_still_ends_the_command(reads: Box) -> None:
+    """[2] `cd /o;rg -I T .`: the folder is /o, not `/o;`, for the `off` file names a
+    command's words reach and for `rg -I` / `grep -h`."""
+    from probe.daemon.exclusions import command_bases, drops_file_names
+
+    work = str(reads.work)
+    assert command_bases("cd /o;rg -I T .", work) == [work, "/o"]
+    assert command_bases("cd /o; rg -I T .", work) == [work, "/o"]
+    assert drops_file_names("cd /o;rg -I T .") and drops_file_names("true;grep -nh x f") \
+        and drops_file_names("x|rg --no-filename y")
+    assert not drops_file_names("cd /o;du -sh .")
+    secret = reads.work / "secret"
+    secret.mkdir()
+    (secret / "k.txt").write_text("x\n")
+
+    def off(path: str) -> bool:
+        return path.startswith(str(secret) + "/")
+
+    nested = {"cwd": reads.work / "nested", "hidden": off}
+    for command in ["cd ../secret;python3 -c 'print(open(\"k.txt\").read())'",
+                    "cd ../secret;vim k.txt", "cd ../secret&&python3 -c 'open(\"k.txt\")'"]:
+        verdict = reads.verdict(command, **nested)
+        assert not verdict.safe and verdict.refused, (command, verdict)
+
+
+def test_a_cluster_walk_of_the_current_folder_is_checked_whatever_tmp_holds(reads: Box, monkeypatch) -> None:
+    """[4] `cd ~ && ls -RaI /tmp`: GNU ls takes /tmp as -I's pattern and walks $HOME.
+    With $HOME (and Probe's config) away from /tmp, a walk of /tmp itself holds
+    nothing private, so only the walk of $HOME can make this ask."""
+    import tempfile
+
+    home = Path(tempfile.mkdtemp(prefix="probe-shell-home-", dir="/var/tmp"))  # not under /tmp
+    try:
+        (home / "proj").mkdir()
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+        monkeypatch.delenv("PROBE_CONFIG_PATH", raising=False)
+        away = Box(home=home, work=home / "proj", outside=reads.outside)
+        assert away.safe("ls -R /tmp") and away.safe("ls -Ra /tmp")  # control: /tmp's walk itself runs
+        for command in ["cd ~ && ls -RaI /tmp", "cd ~ && ls -RI /tmp", "cd ~ && du -sd /tmp"]:
+            verdict = away.verdict(command)
+            assert not verdict.safe and "goes through your home folder" in verdict.reason, (command, verdict)
+    finally:
+        shutil.rmtree(home, ignore_errors=True)

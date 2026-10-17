@@ -82,7 +82,7 @@ pub use sssr::{
 };
 pub use stereo_validation::{
     StereoCompleteness, StereoError, StereoErrorKind, stereo_centers, stereo_completeness,
-    validate_stereo,
+    substituent_signatures_distinct, validate_stereo,
 };
 pub use stereo2d::{
     StereoAssignment2D, apply_stereo_from_2d, assign_ez_from_2d, assign_stereo_from_2d,
@@ -91,6 +91,7 @@ pub use stereo2d::{
 pub use stereo2d_ez_direction::{
     EzDirectionDiagnostic, EzDirectionRejectionReason, apply_ez_directions_from_2d,
     apply_ez_directions_from_2d_ex, apply_ez_directions_from_2d_with_diagnostics,
+    apply_ez_directions_from_3d,
 };
 pub use stereo2d_local::{
     StereoDiagnostic, StereoRejectionReason, apply_ctab_local_parity_from_wedges_with_diagnostics,

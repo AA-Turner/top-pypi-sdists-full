@@ -4,7 +4,7 @@ requires = [ "setuptools>=61" ]
 
 [project]
 name = "supervision"
-version = "0.30.9"
+version = "0.31.0"
 description = "A set of easy-to-use utils that will come in handy in any Computer Vision project"
 readme = "README.md"
 keywords = [
@@ -38,6 +38,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Multimedia :: Graphics",
   "Topic :: Multimedia :: Video",
   "Topic :: Scientific/Engineering",
@@ -71,6 +72,7 @@ urls.Repository = "https://github.com/roboflow/supervision"
 [dependency-groups]
 dev = [
   "docutils!=0.21",
+  "faster-coco-eval>=1.8",
   "ipywidgets>=8.1.1",
   "jupytext>=1.16.1",
   "nbconvert>=7.14.2",
@@ -193,6 +195,11 @@ skip = "*.ipynb"
 count = true
 quiet-level = 3
 
+[tool.docformatter]
+recursive = true
+wrap-summaries = 88
+wrap-descriptions = 88
+
 [tool.mypy]
 mypy_path = "src"
 explicit_package_bases = true
@@ -202,6 +209,20 @@ warn_unused_ignores = true
 strict = true
 overrides = [
   { module = [ "examples.*", "tests.*" ], ignore_errors = true },
+  { module = [
+    "tests",
+    "tests.assets.*",
+    "tests.classification.*",
+    "tests.conftest",
+    "tests.cv2.*",
+    "tests.depth.*",
+    "tests.draw.*",
+    "tests.geometry.*",
+    "tests.helpers",
+    "tests.test_public_api",
+    "tests.test_validate_deprecations",
+    "tests.validators.*",
+  ], ignore_errors = false },
   { module = [ "supervision._cv2" ], warn_unused_ignores = false },
 ]
 

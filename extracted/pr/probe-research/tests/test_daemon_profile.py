@@ -222,6 +222,70 @@ def test_what_instrument_code_and_the_researcher_notices_name_is_allowed(tmp_pat
     assert _guard(tmp_path, command) is None
 
 
+@pytest.mark.parametrize("command", ["probe outbox status --verbose", "probe run check r1", "probe sync",
+                                     "probe artifact download --run r1 --checkpoint best -o ckpt",
+                                     "probe daemon status", "probe whoami", "probe context list",
+                                     "probe wandb discover ./wandb", "probe wandb key status"])
+def test_what_probes_own_messages_send_the_agent_to_is_allowed(tmp_path, command):
+    """The CLI's outbox banner says "see `probe outbox status`" on every command,
+    and the guard refused it (2026-10-16); the SDK's capture warning names
+    `probe run check`, an offline run `probe sync`, `instrument-code`
+    `probe artifact download`. The rest are this machine's diagnostics."""
+    assert _guard(tmp_path, command) is None
+
+
+@pytest.mark.parametrize("command,matched", [("probe outbox discard op1", "probe outbox"),
+                                             ("probe outbox retry op1", "probe outbox"),
+                                             ("probe context use other-team", "probe context"),
+                                             ("probe wandb key set k", "probe wandb key set"),
+                                             ("probe daemon override x", "probe daemon"),
+                                             ("probe artifact list --run r1", "probe artifact list")])
+def test_the_rest_of_those_groups_stays_refused(tmp_path, command, matched):
+    assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY.format(matched=matched)
+
+
+def test_a_read_groups_write_is_a_write_the_researcher_can_direct(tmp_path):
+    """`shared add` uploads: read as a read, `--directed` could never run it."""
+    assert _guard(tmp_path, "probe shared add results.csv") == session_marker.DAEMON_PROFILE_DENY_WRITE.format(
+        matched="probe shared add")
+    assert _guard(tmp_path, "probe shared add results.csv --directed") is None
+
+
+#: `probe` commands the daemon plugin's skills name that the guard refuses, each
+#: with why that is right. Anything else they name must run.
+SKILL_NAMES_REFUSED = {
+    # A write: its refusal names `--directed` and `probe ask --writer`.
+    "probe edge add",
+    # Where the researcher turns the daemon on or off.
+    "probe wizard",
+}
+
+
+def test_every_probe_command_the_daemon_skills_name_is_allowed():
+    import re
+    import shlex
+
+    skills = Path(__file__).resolve().parents[1] / "plugins" / "probe-research-daemon" / "agent-skills"
+    named = refused = 0
+    for path in sorted(skills.rglob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        spans = re.findall(r"`(probe [^`]+)`", text)
+        spans += [line.strip() for line in text.splitlines() if line.strip().startswith("probe ")]
+        for span in spans:
+            try:
+                args = shlex.split(span, comments=True)[1:]
+            except ValueError:
+                args = span.split()[1:]
+            if session_marker.HELP_FLAG in args:
+                continue
+            named += 1
+            allowed, matched = session_marker.daemon_profile_allows(args)
+            if not allowed:
+                refused += 1
+                assert matched in SKILL_NAMES_REFUSED, f"{path.relative_to(skills)}: `{span}` is refused"
+    assert named > 20 and refused, "the scan found the skills' commands"
+
+
 def test_probe_version_is_the_experiment_versions_group_not_the_version_check(tmp_path):
     """`probe version create` mints an experiment version; the guard allowed it as
     if it printed the CLI's version (live T13 on the released plugin 0.111.2)."""

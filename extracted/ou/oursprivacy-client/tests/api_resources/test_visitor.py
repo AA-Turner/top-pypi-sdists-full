@@ -21,7 +21,7 @@ class TestVisitor:
     @parametrize
     def test_method_upsert(self, client: OursPrivacy) -> None:
         visitor = client.visitor.upsert(
-            token="x",
+            token="P",
             user_properties={},
         )
         assert_matches_type(VisitorUpsertResponse, visitor, path=["response"])
@@ -30,7 +30,7 @@ class TestVisitor:
     @parametrize
     def test_method_upsert_with_all_params(self, client: OursPrivacy) -> None:
         visitor = client.visitor.upsert(
-            token="x",
+            token="P",
             user_properties={
                 "_ef_transaction_id": "_ef_transaction_id",
                 "ad_id": "ad_id",
@@ -62,10 +62,12 @@ class TestVisitor:
                 "gbraid": "gbraid",
                 "gclid": "gclid",
                 "gender": "gender",
+                "graid": "graid",
+                "grclid": "grclid",
                 "im_ref": "im_ref",
                 "ip": "ip",
                 "irclickid": "irclickid",
-                "is_bot": "is_bot",
+                "is_bot": "string",
                 "job_title": "job_title",
                 "last_name": "last_name",
                 "li_fat_id": "li_fat_id",
@@ -73,7 +75,7 @@ class TestVisitor:
                 "ndclid": "ndclid",
                 "ob_click_id": "ob_click_id",
                 "oppref": "oppref",
-                "phone_number": "phone_number",
+                "phone_number": "string",
                 "qclid": "qclid",
                 "rdt_cid": "rdt_cid",
                 "referrer": "referrer",
@@ -95,7 +97,7 @@ class TestVisitor:
                 "viant_click_id": "viant_click_id",
                 "viant_impression_id": "viant_impression_id",
                 "wbraid": "wbraid",
-                "zip": "zip",
+                "zip": "string",
             },
             default_properties={
                 "_ef_transaction_id": "_ef_transaction_id",
@@ -132,12 +134,14 @@ class TestVisitor:
                 "gad_source": "gad_source",
                 "gbraid": "gbraid",
                 "gclid": "gclid",
+                "graid": "graid",
+                "grclid": "grclid",
                 "host": "host",
                 "iframe": True,
                 "im_ref": "im_ref",
                 "ip": "ip",
                 "irclickid": "irclickid",
-                "is_bot": "is_bot",
+                "is_bot": "string",
                 "li_fat_id": "li_fat_id",
                 "msclkid": "msclkid",
                 "ndclid": "ndclid",
@@ -177,13 +181,13 @@ class TestVisitor:
                 "wbraid": "wbraid",
                 "webview": True,
             },
-            email="x",
-            external_id="x",
+            email="P",
+            external_id="P",
             identity_context={
                 "ip": "ip",
                 "user_agent": "userAgent",
             },
-            user_id="x",
+            user_id="P",
         )
         assert_matches_type(VisitorUpsertResponse, visitor, path=["response"])
 
@@ -191,7 +195,7 @@ class TestVisitor:
     @parametrize
     def test_raw_response_upsert(self, client: OursPrivacy) -> None:
         response = client.visitor.with_raw_response.upsert(
-            token="x",
+            token="P",
             user_properties={},
         )
 
@@ -204,7 +208,7 @@ class TestVisitor:
     @parametrize
     def test_streaming_response_upsert(self, client: OursPrivacy) -> None:
         with client.visitor.with_streaming_response.upsert(
-            token="x",
+            token="P",
             user_properties={},
         ) as response:
             assert not response.is_closed
@@ -225,7 +229,7 @@ class TestAsyncVisitor:
     @parametrize
     async def test_method_upsert(self, async_client: AsyncOursPrivacy) -> None:
         visitor = await async_client.visitor.upsert(
-            token="x",
+            token="P",
             user_properties={},
         )
         assert_matches_type(VisitorUpsertResponse, visitor, path=["response"])
@@ -234,7 +238,7 @@ class TestAsyncVisitor:
     @parametrize
     async def test_method_upsert_with_all_params(self, async_client: AsyncOursPrivacy) -> None:
         visitor = await async_client.visitor.upsert(
-            token="x",
+            token="P",
             user_properties={
                 "_ef_transaction_id": "_ef_transaction_id",
                 "ad_id": "ad_id",
@@ -266,10 +270,12 @@ class TestAsyncVisitor:
                 "gbraid": "gbraid",
                 "gclid": "gclid",
                 "gender": "gender",
+                "graid": "graid",
+                "grclid": "grclid",
                 "im_ref": "im_ref",
                 "ip": "ip",
                 "irclickid": "irclickid",
-                "is_bot": "is_bot",
+                "is_bot": "string",
                 "job_title": "job_title",
                 "last_name": "last_name",
                 "li_fat_id": "li_fat_id",
@@ -277,7 +283,7 @@ class TestAsyncVisitor:
                 "ndclid": "ndclid",
                 "ob_click_id": "ob_click_id",
                 "oppref": "oppref",
-                "phone_number": "phone_number",
+                "phone_number": "string",
                 "qclid": "qclid",
                 "rdt_cid": "rdt_cid",
                 "referrer": "referrer",
@@ -299,7 +305,7 @@ class TestAsyncVisitor:
                 "viant_click_id": "viant_click_id",
                 "viant_impression_id": "viant_impression_id",
                 "wbraid": "wbraid",
-                "zip": "zip",
+                "zip": "string",
             },
             default_properties={
                 "_ef_transaction_id": "_ef_transaction_id",
@@ -336,12 +342,14 @@ class TestAsyncVisitor:
                 "gad_source": "gad_source",
                 "gbraid": "gbraid",
                 "gclid": "gclid",
+                "graid": "graid",
+                "grclid": "grclid",
                 "host": "host",
                 "iframe": True,
                 "im_ref": "im_ref",
                 "ip": "ip",
                 "irclickid": "irclickid",
-                "is_bot": "is_bot",
+                "is_bot": "string",
                 "li_fat_id": "li_fat_id",
                 "msclkid": "msclkid",
                 "ndclid": "ndclid",
@@ -381,13 +389,13 @@ class TestAsyncVisitor:
                 "wbraid": "wbraid",
                 "webview": True,
             },
-            email="x",
-            external_id="x",
+            email="P",
+            external_id="P",
             identity_context={
                 "ip": "ip",
                 "user_agent": "userAgent",
             },
-            user_id="x",
+            user_id="P",
         )
         assert_matches_type(VisitorUpsertResponse, visitor, path=["response"])
 
@@ -395,7 +403,7 @@ class TestAsyncVisitor:
     @parametrize
     async def test_raw_response_upsert(self, async_client: AsyncOursPrivacy) -> None:
         response = await async_client.visitor.with_raw_response.upsert(
-            token="x",
+            token="P",
             user_properties={},
         )
 
@@ -408,7 +416,7 @@ class TestAsyncVisitor:
     @parametrize
     async def test_streaming_response_upsert(self, async_client: AsyncOursPrivacy) -> None:
         async with async_client.visitor.with_streaming_response.upsert(
-            token="x",
+            token="P",
             user_properties={},
         ) as response:
             assert not response.is_closed

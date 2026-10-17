@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024 Manfred Moitzi
+# Copyright (c) 2019-2026 Manfred Moitzi
 # License: MIT License
 from __future__ import annotations
 from typing import Sequence, Optional, Union, TYPE_CHECKING, Iterator
@@ -400,14 +400,39 @@ class DXFPolygon(DXFGraphic):
         )
         dxf.extrusion = ocs.new_extrusion
         if self.pattern:
-            # todo: non-uniform scaling
-            # take the scaling factor of the x-axis
-            factor = ocs.transform_length((self.dxf.pattern_scale, 0, 0))
-            angle = ocs.transform_deg_angle(self.dxf.pattern_angle)
             # todo: non-uniform pattern scaling is not supported
-            self.pattern.scale(factor, angle)
-            self.dxf.pattern_scale = factor
-            self.dxf.pattern_angle = angle
+            
+            # scale pattern relative to current state:
+            # self.dxf.pattern_scale is already applied to the pattern!
+            relative_factor = ocs.transform_length((1, 0, 0))
+
+            # rotation relative to current state:
+            rotation_angle = ocs.transform_deg_angle(0)
+
+            # Capture the original base points before scaling/rotating the
+            # pattern. Pattern.scale() applies only the linear part (scale and
+            # rotation) of the transformation to the base points, it never
+            # translates them, so the pattern phase drifts relative to the
+            # boundary under any translation (issue #1402).
+            original_base_points = [line.base_point for line in self.pattern.lines]
+            self.pattern.scale(relative_factor, rotation_angle)
+
+            # Translate the base points by mapping each original base point once
+            # with the full transformation, exactly like a boundary path vertex
+            # (see PolylinePath.transform). Mapping the original point with the
+            # full affine transform avoids double-applying the linear part that
+            # Pattern.scale() already handled.
+            for line, base_point in zip(self.pattern.lines, original_base_points):
+                line.base_point = ocs.transform_vertex(
+                    Vec3(base_point.x, base_point.y, elevation)
+                ).vec2
+
+            # The pattern_scale factor has to be applied to the base pattern to get the
+            # final scaling. This is important for CAD applications, not for the rendering
+            # of the pattern itself.
+            self.dxf.pattern_scale *= relative_factor
+            # update absolute pattern rotation angle
+            self.dxf.pattern_angle += rotation_angle
         self.post_transform(m)
         return self
 
@@ -448,9 +473,10 @@ class DXFPolygon(DXFGraphic):
                 return
 
     @abc.abstractmethod
-    def set_solid_fill(self, color: int = 7, style: int = 1, rgb: Optional[RGB] = None):
-        ...
-    
+    def set_solid_fill(
+        self, color: int = 7, style: int = 1, rgb: Optional[RGB] = None
+    ): ...
+
     def audit(self, auditor: Auditor) -> None:
         super().audit(auditor)
         if not self.is_alive:
@@ -458,6 +484,6 @@ class DXFPolygon(DXFGraphic):
         if not self.paths.is_valid():
             auditor.fixed_error(
                 code=AuditError.INVALID_HATCH_BOUNDARY_PATH,
-                message=f"Deleted entity {str(self)} containing invalid boundary paths."
+                message=f"Deleted entity {str(self)} containing invalid boundary paths.",
             )
             auditor.trash(self)

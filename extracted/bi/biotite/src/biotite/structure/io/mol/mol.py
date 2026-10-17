@@ -2,6 +2,8 @@
 # under the 3-Clause BSD License. Please see 'LICENSE.rst' for further
 # information.
 
+from __future__ import annotations
+
 __name__ = "biotite.structure.io.mol"
 __author__ = "Patrick Kunzmann"
 __all__ = ["MOLFile"]
@@ -51,7 +53,7 @@ class MOLFile(TextFile):
     --------
 
     >>> from os.path import join
-    >>> mol_file = MOLFile.read(join(path_to_structures, "molecules", "TYR.sdf"))
+    >>> mol_file = MOLFile.read(join(path_to_structure_data, "molecules", "TYR.sdf"))
     >>> atom_array = mol_file.get_structure()
     >>> print(atom_array)
                 0             N         1.320    0.952    1.428
@@ -87,7 +89,7 @@ class MOLFile(TextFile):
         self._header: Header | None = None
 
     @classmethod
-    def read(cls, file: str | PathLike[str] | IO[str]) -> "MOLFile":
+    def read(cls, file: str | PathLike[str] | IO[str]) -> MOLFile:
         mol_file = super().read(file)
         mol_file._header = None
         return mol_file

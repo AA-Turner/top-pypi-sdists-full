@@ -105,19 +105,19 @@ def commit(
     other order would claim a version for a body it does not have, which is a
     silent wrong merge.
 
+    THE DOCUMENT GOES FIRST when this call writes it (a checkout), for the same
+    reason: a crash after the meta but before the document would pair the OLD
+    file with the NEW version, and the next push would send text the server
+    erased since (a summary's `erased_since_checkout`) as if it were fresh.
+    Document first, a crash anywhere leaves an old version beside newer text,
+    which the server refuses or merges.
+
     THE STAMP FOLLOWS THE DOCUMENT, never the base. It answers "whose text is in
     the file", so writing it while leaving another credential's document in place
     is how one tenant's note becomes labelled as another's -- and the next push
     then reads that label as permission and sends it. Stamping only when this
     call also writes the document keeps the label and the bytes in step.
     """
-    where.base.parent.mkdir(parents=True, exist_ok=True)
-    write_text_atomic(where.base, body, mode=0o600)
-    write_text_atomic(
-        where.meta,
-        json.dumps({"version": version, "owner": where.owner, **(extra or {})}, indent=2),
-        mode=0o600,
-    )
     if write_document:
         where.document.parent.mkdir(parents=True, exist_ok=True)
         # 0600 like the other two. This is the team's private prose and the
@@ -125,6 +125,13 @@ def commit(
         # document world-readable on exactly the hosts where that matters.
         write_text_atomic(where.document, body, mode=0o600)
         write_text_atomic(where.stamp, where.owner, mode=0o600)
+    where.base.parent.mkdir(parents=True, exist_ok=True)
+    write_text_atomic(where.base, body, mode=0o600)
+    write_text_atomic(
+        where.meta,
+        json.dumps({"version": version, "owner": where.owner, **(extra or {})}, indent=2),
+        mode=0o600,
+    )
 
 
 def stamp_matches(where: Paths, stamp: str | None) -> bool:

@@ -296,6 +296,13 @@ def test_new_file_added_during_resume_stays_unreviewed_until_next_delta(scoped_h
     assert h.drain().delivered == 1
 
 
+def _manifest_line(h, path: str) -> str:
+    """The importer's line about a file, which stays in the manifest the project's
+    writer reads: files carry no notes, so it is never uploaded."""
+    with h.coverage().writer() as coverage:
+        return json.loads(coverage.rows_for([path])[path]["manifest"])["notes"]
+
+
 def test_same_stat_rewrite_requires_review_and_does_not_reuse_old_manifest(scoped_harness):
     h = scoped_harness
     h.run()
@@ -312,7 +319,8 @@ def test_same_stat_rewrite_requires_review_and_does_not_reuse_old_manifest(scope
     assert h.manifested == [("a.py", "value = 1\n"), ("a.py", "value = 2\n")]
     assert h.drain().delivered == 1
     assert [call[2] for call in h.remote.calls] == [b"value = 1\n", b"value = 2\n"]
-    assert h.remote.calls[-1][3]["notes"] == "value = 2"
+    assert _manifest_line(h, "a.py") == "value = 2"
+    assert "notes" not in h.remote.calls[-1][3]
 
 
 @pytest.mark.parametrize("selection", [False, True])
@@ -511,7 +519,8 @@ def test_unbound_old_unit_manifest_is_regenerated_without_reclassification(scope
     h.failed_model = False
     h.run()
     h.drain()
-    assert len(h.classified) == 1 and h.remote.calls[-1][3]["notes"] == "value = 1"
+    assert len(h.classified) == 1 and _manifest_line(h, "a.py") == "value = 1"
+    assert "notes" not in h.remote.calls[-1][3]
 
 
 def test_staging_pressure_retains_manifest_and_retries_without_another_model(
@@ -657,3 +666,50 @@ def test_moved_folder_headless_hint_requires_explicit_source_id_to_adopt(scoped_
     h.run(source_id=original.source_id)
     assert h.coverage().source_id == original.source_id
     assert h.report()["delivered"] == ["a.py"] and len(h.classified) == 2
+
+
+def test_rows_the_classifier_leaves_out_never_upload_and_stay_settled(scoped_harness):
+    """A product's source beside the research (a monorepo's web app) is left out
+    by the classifier with a why: nothing is manifested or uploaded for it, it
+    reads `excluded` rather than `new`, and the next run neither re-classifies
+    nor re-uploads it. Before `left_out`, every row had to land in a project."""
+    h = scoped_harness
+    (h.folder / "apps" / "web").mkdir(parents=True)
+    (h.folder / "apps" / "web" / "Gemfile").write_text("gem 'rails'\n")
+    (h.folder / "apps" / "web" / "show.tsx").write_text("export {}\n")
+    # A type the classifier READS: it once got a unit, a manifest agent and an
+    # upload to project None while the report said `excluded`.
+    (h.folder / "apps" / "web" / "package.json").write_text("{}\n")
+
+    def classify(folder, evidence, **kwargs):
+        h.calls.append("classify")
+        paths = sorted(str(Path(f.path).relative_to(folder)) for f in evidence.files)
+        h.classified.append(paths)
+        return plans.Plan(
+            [plans.ProjectSpec("project")],
+            [plans.Assignment("a.py", "project")],
+            left_out=[plans.LeftOut("apps/web", "Rails + React product app")],
+        ), "", None
+
+    h.monkeypatch.setattr(runner, "classify", classify)
+    excluded = ["apps/web/Gemfile", "apps/web/package.json", "apps/web/show.tsx"]
+    lines = h.run()
+    assert h.manifested == [("a.py", "value = 1\n")]
+    assert h.report()["excluded"] == excluded
+    assert any("3 files left out as not research" in line for line in lines)
+    assert any("apps/web  (3 files)  Rails + React product app" in line for line in lines)
+    assert h.drain().delivered == 1
+    assert [call[1] for call in h.remote.calls] == ["a.py"]
+
+    # A product's code changes daily; editing it must not reopen the import.
+    (h.folder / "apps" / "web" / "show.tsx").write_text("export const x = 1\n")
+    lines = h.run()
+    assert len(h.classified) == 1, "left-out files were classified again"
+    assert h.manifested == [("a.py", "value = 1\n")], "a left-out file got a manifest"
+    assert h.report()["excluded"] == excluded
+    assert h.outcome == telemetry.BackfillOutcome.SUCCESS
+    assert any("`--review-excluded`" in line for line in lines)
+    assert h.drain().delivered == 0 and [c[1] for c in h.remote.calls] == ["a.py"]
+
+    h.run(review_excluded=True)
+    assert h.classified[-1] == excluded, "--review-excluded did not classify them again"

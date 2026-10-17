@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: rsconnect_python
-Version: 1.31.1
+Version: 1.32.0
 Summary: The Posit Connect command-line interface.
 Author: Posit, PBC
 Author-email: Posit, PBC <rsconnect@posit.co>
@@ -29,7 +29,8 @@ Requires-Dist: typing-extensions>=4.8.0
 Requires-Dist: pip>=10.0.0
 Requires-Dist: uv>=0.9.0
 Requires-Dist: semver>=2.0.0,<4.0.0
-Requires-Dist: pyjwt>=2.4.0
+Requires-Dist: pyjwt>=2.4.0 ; python_full_version < '3.9'
+Requires-Dist: pyjwt>=2.15.0 ; python_full_version >= '3.9'
 Requires-Dist: click>=8.0.0
 Requires-Dist: packaging>=20.0
 Requires-Dist: toml>=0.10 ; python_full_version < '3.11'

@@ -55,6 +55,8 @@ from local_operator.analytics.model import (
     ToolCallStats,
     UsageAggregate,
 )
+from local_operator.i18n.keys import tui_small as copy
+from local_operator.i18n.text import tr
 from local_operator.session.channel_spend import (
     BASIS_BILLED,
     BASIS_ESTIMATED,
@@ -93,6 +95,11 @@ from local_operator.tui.widgets.analytics_panel import (
     section_header,
     semantic_style,
 )
+
+#: The slice's catalogued copy, resolved at each render point. This module holds
+#: no copy CONSTANT, so it registers no locale refresher (text.py: only
+#: constants re-materialise when the active locale moves).
+_t = tr("tui.small")
 
 #: The ledger's tool-shaped component columns, biggest-first for the child rows
 #: of the Tool surface section. These are the ONLY tool-shaped numbers recorded:
@@ -676,7 +683,7 @@ def _timing_rows(timings: dict[str, TimingSummary], width: int) -> list[Text]:
         if timing is None or not timing.samples or scale <= 0:
             # No bar at all: a zero-width bar beside a real one implies a
             # measured zero, and an absent sample is not a fast one.
-            row.append("unknown (0 samples)", style=dim)
+            row.append(_t(copy.timing_no_samples()), style=dim)
             row.truncate(width, overflow="crop")
             lines.append(row)
             continue
@@ -1077,7 +1084,7 @@ def _draw_spend_channels(body: _Body, runtime: SessionDiagnostics) -> bool:
         )
         notes = list(_row_note_candidates(row))
         if str(row.get("channel") or "") == "other":
-            notes.append("not itemised")
+            notes.append(_t(copy.spend_channel_not_itemised()))
         _spend_row(
             body,
             _channel_row_label(row),
@@ -2497,7 +2504,7 @@ class SessionScreen(ModalScreen[None]):
         # The rule is sized to the measured card rather than a hardcoded 140
         # cropped by the widget, matching AnalyticsScreen.
         return Text(
-            "Session diagnostics\n" + "─" * max(1, self._card_width()),
+            _t(copy.session_panel_diagnostics_heading()) + "─" * max(1, self._card_width()),
             no_wrap=True,
             overflow="crop",
         )
@@ -2548,7 +2555,10 @@ class SessionScreen(ModalScreen[None]):
         scroll = getattr(self, "_scroll", None)
         hint = getattr(self, "_hint", None)
         if scroll is not None and hint is not None and hint.is_mounted:
-            hint.update(self._back_hint() + (" · ↑↓ scroll" if scroll.max_scroll_y > 0 else ""))
+            hint.update(
+                self._back_hint()
+                + (_t(copy.panels_scroll_hint()) if scroll.max_scroll_y > 0 else "")
+            )
 
     def action_dismiss_screen(self) -> None:
         self.invalidate()

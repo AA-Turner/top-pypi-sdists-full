@@ -112,9 +112,8 @@ impl<'a> ProtoStreamReader<'a> {
 
     fn new_zstd_compressed(data: &'a mut ResponseData) -> Result<Self, StatsigErr> {
         let stream_borrower = StreamBorrower::new(data);
-        let zstd_decompressor = zstd::stream::read::Decoder::new(stream_borrower).map_err(|e| {
-            StatsigErr::ProtobufParseError("ZstdDecompressorInit".to_string(), e.to_string())
-        })?;
+        let zstd_decompressor = zstd::stream::read::Decoder::new(stream_borrower)
+            .map_err(|e| read_error("ZstdDecompressorInit", e))?;
 
         Ok(Self {
             source: ProtoStreamSource::Zstd(Box::new(zstd_decompressor)),
@@ -157,10 +156,7 @@ impl<'a, R: Read> ProtoStreamReader<'a, R> {
                     self.buf.extend_from_slice(&self.scratch[..n]);
                 }
                 Err(e) => {
-                    return Err(StatsigErr::ProtobufParseError(
-                        read_error_label.to_string(),
-                        e.to_string(),
-                    ));
+                    return Err(read_error(read_error_label, e));
                 }
             }
         }
@@ -194,12 +190,10 @@ impl<'a, R: Read> ProtoStreamReader<'a, R> {
                     ));
                 }
                 Err(_) => {
-                    let read_len = self.source.read(&mut self.scratch).map_err(|e| {
-                        StatsigErr::ProtobufParseError(
-                            "ReadLengthDelimiter".to_string(),
-                            e.to_string(),
-                        )
-                    })?;
+                    let read_len = self
+                        .source
+                        .read(&mut self.scratch)
+                        .map_err(|e| read_error("ReadLengthDelimiter", e))?;
 
                     if read_len == 0 {
                         return Err(StatsigErr::ProtobufParseError(
@@ -281,5 +275,18 @@ impl<'a> StreamBorrower<'a> {
 impl<'a> std::io::Read for StreamBorrower<'a> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.stream.read(buf)
+    }
+}
+
+fn read_error(label: &str, error: std::io::Error) -> StatsigErr {
+    use std::io::ErrorKind;
+    match error.kind() {
+        ErrorKind::ConnectionReset
+        | ErrorKind::ConnectionAborted
+        | ErrorKind::NotConnected
+        | ErrorKind::BrokenPipe
+        | ErrorKind::TimedOut
+        | ErrorKind::WouldBlock => StatsigErr::SerializationError(error.to_string()),
+        _ => StatsigErr::ProtobufParseError(label.to_string(), error.to_string()),
     }
 }

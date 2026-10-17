@@ -9,8 +9,15 @@
 # This file IS the allowlist. There is no inline suppression marker: an exception
 # is a change to this file, which every repository running the hook sees.
 # path_classes are ordered and the first match wins; the last class is SOURCE.
-# A path joins VENDOR_DEFAULT only by being named in `files`, never by a glob, so
-# a new file cannot silently join the one class that tolerates model ids.
+#
+# OMN-21147 (operator ruling 2026-10-15): a model id belongs in a contract
+# overlay, never in a repository. No class tolerates one: the VENDOR_DEFAULT
+# class of named files is gone, and tests, examples and launch files refuse
+# model ids (M), private and lab-subnet hosts (E-LAN) and lab deployment facts
+# (D) like source does. A test declares its own fixture ids. HISTORICAL records
+# and this guard's own corpus scan nothing; DOC is prose and refuses retired
+# values only. Pre-existing findings sit in each repository's shrink-only
+# baseline.
 
 schema_version: 1
 
@@ -23,6 +30,11 @@ path_classes:
       - "**/receipts/**"
       - "benchmarks/**/results/**"
       - "**/*.captured"
+      # The work ledger is append-only state history: it is never rewritten, so
+      # a retired value a past row quotes stays (OMN-21147, operator ruling
+      # 2026-10-15).
+      - "**/ROLLING_WORK_LEDGER.md"
+      - "**/ROLLING_WORK_LEDGER_*.md"
     families: []
 
   - name: GUARD
@@ -32,6 +44,9 @@ path_classes:
       # The baseline holds paths and hashes only; a path naming a model family
       # must not make the baseline a finding of itself.
       - "config/hardcoded_model_config_baseline.yaml"
+      # The private denylist is the list of retired values this guard refuses, so
+      # it names them by construction.
+      - "vocabularies/hardcoded_model_config_lab_denylist.yaml"
     families: []
 
   - name: EXAMPLE
@@ -40,39 +55,21 @@ path_classes:
       - "**/*.example.json"
       - "**/.env.example"
       - "**/examples/config-overlays/**"
-    families: [R]
+    families: [M, E-LAN, D, R]
 
-  # Review decision 1 (2026-09-23): public, vendor-published endpoints and model
-  # ids stay in these named package default files so the local customer path
-  # works with a provider key alone. A private or lab host and a retired lab
-  # value are still refused here.
-  - name: VENDOR_DEFAULT
-    files:
-      - "src/omnimarket/configs/bifrost_delegation.yaml"
-      - "src/omnimarket/inference/openrouter_models.py"
-      - "src/omniintelligence/adapters/plan_reviewer_z_ai_client.py"
-      - "src/omniintelligence/adapters/plan_reviewer_gemini_client.py"
-      # Team decision 2026-10-13: onboarding sets up every OpenRouter key on one
-      # vendor-published model named in the script, so a developer never picks
-      # or types a model id (omniclaude).
-      - "plugins/onex/skills/_bin/lab-onboarding.sh"
-    families: [E-LAN, R]
-
-  # Review decision 2 (2026-09-23): the files that start a model server name the
-  # model they serve. Only retired lab values are refused there.
+  # A file that starts a model server takes the model it serves from an
+  # overlay, like any other configuration (OMN-21147). It may name an endpoint.
   - name: LAUNCH
     globs:
       - "deploy/systemd/*.service"
       - "k8s/**"
-    families: [R]
+    families: [M, E-LAN, D, R]
 
   - name: DOC
     globs:
       - "**/*.md"
       - "**/*.mdx"
       - "**/*.rst"
-      - "docs/**"
-      - "app/(marketing)/**"
     families: [R]
 
   - name: TEST
@@ -88,16 +85,16 @@ path_classes:
       - "**/*.test.tsx"
       - "**/*.spec.ts"
       - "**/*.stories.tsx"
-    families: [R, E-LAN]
+    families: [M, E-LAN, D, R]
 
   - name: SOURCE
     globs:
       - "**"
-    families: [M, E, E-LAN, R, L]
+    families: [M, E, E-LAN, D, R, L]
 
 # Family M: the plan's P1 model-family regex, applied case-insensitively.
 model_id_pattern: >-
-  qwen[0-9]|qwen-|qwen2|qwen3|deepseek-(v|r|coder|chat)|glm-[0-9]|gpt-oss|gpt-4|gpt-5|gpt-3\.5|o[134]-mini|claude-(opus|sonnet|haiku|3|4|5)|gemini-[0-9]|llama-?[0-9]|llama3|mistral-|nemotron|phi-[0-9]|codestral|devstral|text-embedding-|nomic-embed|bge-|gte-qwen|kimi-k|minimax-m
+  qwen[0-9]|qwen-|qwen2|qwen3|deepseek-(v|r|coder|chat)|glm-[0-9]|gpt-4|gpt-5|gpt-3\.5|o[134]-mini|claude-(opus|sonnet|haiku|3|4|5)|gemini-[0-9]|llama-?[0-9]|llama3|mistral-|nemotron|phi-[0-9]|codestral|devstral|text-embedding-|nomic-embed|bge-|gte-qwen|kimi-k|minimax-m
 
 # Family E: a URL literal whose path ends in one of these, or a URL-valued
 # literal assigned to one of these keys, or a URL default of an environment read.
@@ -112,8 +109,9 @@ endpoint_keys:
   - default_url
   - api_base
 
-# Family E-LAN: an RFC 1918 host inside a URL is detected in code; this pattern
-# adds any literal on our own lab subnet, with or without a scheme or a port.
+# Family E-LAN: an RFC 1918 address in a literal, inside a URL or bare, is
+# detected in code; this pattern adds any literal on our own lab subnet, with or
+# without a scheme or a port.
 lab_subnet_pattern: '(?<![\d.])192\.168\.86\.\d{1,3}(?![\d])'
 
 # Family R: exact retired lab strings (plan section 2.2). Matched in comments
@@ -123,6 +121,13 @@ lab_subnet_pattern: '(?<![\d.])192\.168\.86\.\d{1,3}(?![\d])'
 # from the operator's private vocabulary
 # (vocabularies/hardcoded_model_config_lab_denylist.yaml under the workspace
 # config root) when it is present, and runs these shape rules without it.
+# Family D: lab deployment facts, a lab host name or a lab port. The public
+# policy spells none: the loader reads them from the operator's private
+# vocabulary (lab_host_names, lab_ports in the denylist file named above). A run
+# without that vocabulary does not judge D baseline entries.
+lab_host_names: []
+lab_ports: []
+
 retired_values:
   - "local-ds-v4-flash"
   - "deepseek-v4-flash"

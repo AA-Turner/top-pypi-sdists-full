@@ -677,52 +677,45 @@ class RunCache:
                 "Failed to update post-hook metadata for '{}': {}", node.unique_id, str(e)
             )
 
-    def _post_hooks_reference_target_table(
+    def _hook_references_target_table(
         self,
         node: ModelOrSnapshotOrTestOrSeedNode,
-        post_hooks: t.List[t.Any],
-        context: t.Dict[str, t.Any],
+        rendered_sql: str,
     ) -> bool:
-        """Check if any post-hook references the target table.
+        """Check if a rendered post-hook references the target table.
 
         Args:
             node: The node being executed
-            post_hooks: List of post-hook configurations
-            context: Jinja rendering context (contains 'this')
+            rendered_sql: The hook SQL after Jinja rendering
 
         Returns:
-            True if any hook references the target table, False otherwise
+            True if the hook references the target table (or this can't be determined),
+            False otherwise
         """
-        if not post_hooks:
-            return False
-
         try:
             target_parts = [part.name for part in self._node_to_table(node).parts]
         except Exception as e:
             events.fire_debug_event("Could not resolve target table for post-hooks: {}", str(e))
             return True
 
-        for hook in post_hooks:
-            try:
-                hook_sql = hook.sql if hasattr(hook, "sql") else str(hook)
-                rendered_sql = get_rendered(hook_sql, context)
-                statements = sqlglot.parse(rendered_sql, dialect=self.dialect)
-            except Exception as e:
-                events.fire_debug_event("Could not check post-hook for table reference: {}", str(e))
-                return True
+        try:
+            statements = sqlglot.parse(rendered_sql, dialect=self.dialect)
+        except Exception as e:
+            events.fire_debug_event("Could not check post-hook for table reference: {}", str(e))
+            return True
 
-            for statement in statements:
-                if statement is None:
-                    continue
-                for table in statement.find_all(exp.Table):
-                    normalized = normalize_identifiers(table.copy(), dialect=self.dialect)
-                    reference_parts = [part.name for part in normalized.parts]
-                    if (
-                        reference_parts
-                        and len(reference_parts) <= len(target_parts)
-                        and reference_parts == target_parts[-len(reference_parts) :]
-                    ):
-                        return True
+        for statement in statements:
+            if statement is None:
+                continue
+            for table in statement.find_all(exp.Table):
+                normalized = normalize_identifiers(table.copy(), dialect=self.dialect)
+                reference_parts = [part.name for part in normalized.parts]
+                if (
+                    reference_parts
+                    and len(reference_parts) <= len(target_parts)
+                    and reference_parts == target_parts[-len(reference_parts) :]
+                ):
+                    return True
 
         return False
 
@@ -1338,12 +1331,7 @@ class RunCache:
             pre_hook_last_modified = None
             post_hooks = getattr(node.config, "post_hook", [])
 
-            # Only fetch the pre-hook timestamp from the warehouse if the metadata
-            # may need updating, i.e. post-hooks reference the target table
-            references_target_table = self._post_hooks_reference_target_table(
-                node, post_hooks, context
-            )
-            if references_target_table:
+            if post_hooks:
                 try:
                     _, pre_hook_last_modified = self._get_target_table_type_and_last_modified_epoch(
                         node
@@ -1354,7 +1342,20 @@ class RunCache:
                         node.unique_id,
                     )
 
-            self._run_hooks(post_hooks, context)
+            # Hooks are rendered and executed one at a time, so a hook's rendering sees the
+            # effects of the hooks before it. Each hook is rendered exactly once, and the
+            # rendered SQL is kept to check for target table references afterwards.
+            rendered_sqls = []
+            for hook in post_hooks:
+                rendered_sql = get_rendered(hook.sql, context)
+                rendered_sqls.append(rendered_sql)
+                self._execute_hook(hook, rendered_sql)
+
+            references_target_table = any(
+                self._hook_references_target_table(node, rendered_sql)
+                for rendered_sql in rendered_sqls
+            )
+
             self._commit_if_open()
             self._adapter.post_model_hook(context_config, hook_ctx)
 
@@ -1416,11 +1417,13 @@ class RunCache:
         )
         return skip_update, warn_on_skip
 
+    def _execute_hook(self, hook: t.Any, rendered_sql: str) -> None:
+        if rendered_sql.strip():
+            self._adapter.execute(rendered_sql, auto_begin=hook.transaction)
+
     def _run_hooks(self, hooks: t.List[t.Any], context: t.Dict[str, t.Any]) -> None:
         for hook in hooks:
-            rendered_sql = get_rendered(hook.sql, context)
-            if rendered_sql.strip():
-                self._adapter.execute(rendered_sql, auto_begin=hook.transaction)
+            self._execute_hook(hook, get_rendered(hook.sql, context))
 
     def _try_clone(self, node: ModelOrSnapshotNode) -> bool:
         if self._dev_cloner is None or self.is_write_only:

@@ -49,6 +49,7 @@ AGENT_TOOL_DIR_NAMES = frozenset(
         ".github",
         ".vscode",
         ".opencode",
+        ".goose",
         *antigravity.ANTIGRAVITY_CONFIG_DIR_NAMES,
         codex.CODEX_DIR_NAME,
         grok.TOOL_DIR_NAME,
@@ -214,10 +215,12 @@ def scan_repository(root: Path, root_names: Iterable[str]) -> RepositoryScan:
 #: configured here, so a repository whose only Cursor artifact is
 #: ``hooks.json`` still activates the Cursor rules.
 _TOOL_EVIDENCE = {
+    "goose": (".goose", (("recipes", True),)),
     "pi": (
         ".pi",
         (
             ("settings.json", False),
+            ("mcp.json", False),
             ("skills", True),
             ("prompts", True),
             ("extensions", True),
@@ -473,6 +476,7 @@ def tool_types(
 
     found: Set[str] = set()
     checks = (
+        ("goose", tool_marker("goose")),
         ("pi", tool_marker("pi")),
         ("cursor", tool_marker("cursor") or legacy_cursor()),
         (

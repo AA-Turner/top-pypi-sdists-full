@@ -33,6 +33,7 @@ from matrx_ai.agents.cache import AgentCache
 from matrx_ai.agents.definition import Agent
 from matrx_ai.config import LLMParams, UnifiedConfig
 from matrx_ai.config.message_config import UnifiedMessage
+from matrx_ai.prompt_blocks.errors import PromptBlockError
 
 
 async def _load_unified_config(conversation_id: str) -> UnifiedConfig:
@@ -182,6 +183,9 @@ class ConversationResolver:
                 is_version=responder_is_version,
                 variables=dict(responder_variables or {}),
             )
+            # Always filled before the config leaves the Agent (no values still
+            # means defaults, escapes, sections and blocks).
+            await responder.run_first_turn_pass()
             config = deepcopy(responder.config)
             # THE TURN CARRIES THE MARKER TOO. The row is the primary record
             # that this conversation is mandate-held; this is the second layer,
@@ -595,6 +599,8 @@ class AgentConfigResolver:
             agent = await Agent.from_id(
                 agent_id, variables=variables, config_overrides=overrides, source=source
             )
+        except PromptBlockError:
+            raise  # a missing declared block refuses the run BY NAME, never as "not found"
         except Exception as exc:
             vcprint(
                 f"[AgentConfigResolver] Load failed for {agent_id!r}: {exc}",
@@ -605,6 +611,10 @@ class AgentConfigResolver:
                 detail=f"Agent not found: {agent_id}",
             ) from exc
 
+        # A door that hands back a bare config can never run the pass later, so
+        # it runs here, always — even with no values (defaults, ``{{!x}}``,
+        # sections, prompt blocks) — BEFORE the caller appends typed input.
+        await agent.run_first_turn_pass()
         return agent.config
 
     @staticmethod
@@ -629,6 +639,8 @@ class AgentConfigResolver:
             agent = await Agent.from_id(
                 agent_id, variables=variables, config_overrides=overrides, source=source
             )
+        except PromptBlockError:
+            raise  # a missing declared block refuses the run BY NAME, never as "not found"
         except Exception as exc:
             vcprint(
                 f"[AgentConfigResolver] Load failed for {agent_id!r}: {exc}",
@@ -639,6 +651,10 @@ class AgentConfigResolver:
                 detail=f"Agent not found: {agent_id}",
             ) from exc
 
+        # A door that hands back a bare config can never run the pass later, so
+        # it runs here, always — even with no values (defaults, ``{{!x}}``,
+        # sections, prompt blocks) — BEFORE the caller appends typed input.
+        await agent.run_first_turn_pass()
         return agent.config, agent.context_policies, agent.auto_context_disabled
 
     @staticmethod

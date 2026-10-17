@@ -22,6 +22,9 @@ class SelkiesSupervisor:
     address: str = "0.0.0.0"
     port: int = 8080
     rtc_config_path: str = "/tmp/rtc.json"
+    # Clipboard sync between the viewer and the remote display. Off for the
+    # browser fleet; a Cloud Computer (a person's own machine) turns it on.
+    enable_clipboard: bool = False
     _process: subprocess.Popen[bytes] | None = field(default=None, init=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
     startup_timeout_seconds: float = 8.0
@@ -43,7 +46,7 @@ class SelkiesSupervisor:
                     "--enable_basic_auth=false",
                     "--encoder=x264enc",
                     "--enable_resize=false",
-                    "--enable_clipboard=false",
+                    f"--enable_clipboard={'true' if self.enable_clipboard else 'false'}",
                     f"--rtc_config_json={self.rtc_config_path}",
                 ],
                 stdin=subprocess.DEVNULL,

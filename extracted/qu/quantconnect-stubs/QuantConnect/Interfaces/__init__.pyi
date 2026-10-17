@@ -5,7 +5,6 @@ import datetime
 import typing
 import warnings
 
-import Common.Util
 import QuantConnect
 import QuantConnect.Algorithm.Framework.Alphas
 import QuantConnect.Algorithm.Framework.Alphas.Analysis
@@ -30,6 +29,7 @@ import QuantConnect.Securities.Future
 import QuantConnect.Securities.Option
 import QuantConnect.Statistics
 import QuantConnect.Storage
+import QuantConnect.Util
 import System
 import System.Collections.Concurrent
 import System.Collections.Generic
@@ -439,7 +439,7 @@ class IExtendedDictionary(typing.Generic[QuantConnect_Interfaces_IExtendedDictio
         """Removes all keys and values from the IExtendedDictionary{TKey, TValue}."""
         ...
 
-    def copy(self) -> typing.Any:
+    def copy(self) -> typing.Dict[QuantConnect_Interfaces_IExtendedDictionary_TKey, QuantConnect_Interfaces_IExtendedDictionary_TValue]:
         """
         Creates a shallow copy of the IExtendedDictionary{TKey, TValue}.
         
@@ -448,7 +448,7 @@ class IExtendedDictionary(typing.Generic[QuantConnect_Interfaces_IExtendedDictio
         ...
 
     @overload
-    def fromkeys(self, sequence: typing.List[QuantConnect_Interfaces_IExtendedDictionary_TKey]) -> typing.Any:
+    def fromkeys(self, sequence: typing.List[QuantConnect_Interfaces_IExtendedDictionary_TKey]) -> typing.Dict[QuantConnect_Interfaces_IExtendedDictionary_TKey, QuantConnect_Interfaces_IExtendedDictionary_TValue]:
         """
         Creates a new dictionary from the given sequence of elements.
         
@@ -458,7 +458,7 @@ class IExtendedDictionary(typing.Generic[QuantConnect_Interfaces_IExtendedDictio
         ...
 
     @overload
-    def fromkeys(self, sequence: typing.List[QuantConnect_Interfaces_IExtendedDictionary_TKey], value: QuantConnect_Interfaces_IExtendedDictionary_TValue) -> typing.Any:
+    def fromkeys(self, sequence: typing.List[QuantConnect_Interfaces_IExtendedDictionary_TKey], value: QuantConnect_Interfaces_IExtendedDictionary_TValue) -> typing.Dict[QuantConnect_Interfaces_IExtendedDictionary_TKey, QuantConnect_Interfaces_IExtendedDictionary_TValue]:
         """
         Creates a new dictionary from the given sequence of elements with a value provided by the user.
         
@@ -492,7 +492,7 @@ class IExtendedDictionary(typing.Generic[QuantConnect_Interfaces_IExtendedDictio
         """
         ...
 
-    def items(self) -> typing.Any:
+    def items(self) -> typing.List[typing.Tuple[QuantConnect_Interfaces_IExtendedDictionary_TKey, QuantConnect_Interfaces_IExtendedDictionary_TValue]]:
         """
         Returns a view object that displays a list of dictionary's (key, value) tuple pairs.
         
@@ -500,7 +500,7 @@ class IExtendedDictionary(typing.Generic[QuantConnect_Interfaces_IExtendedDictio
         """
         ...
 
-    def keys(self) -> typing.Any:
+    def keys(self) -> typing.List[QuantConnect_Interfaces_IExtendedDictionary_TKey]:
         """
         Returns a view object that displays a list of all the keys in the dictionary
         
@@ -532,7 +532,7 @@ class IExtendedDictionary(typing.Generic[QuantConnect_Interfaces_IExtendedDictio
         """
         ...
 
-    def popitem(self) -> typing.Any:
+    def popitem(self) -> typing.Tuple[QuantConnect_Interfaces_IExtendedDictionary_TKey, QuantConnect_Interfaces_IExtendedDictionary_TValue]:
         """
         Returns and removes an arbitrary element (key, value) pair from the dictionary.
         
@@ -574,7 +574,7 @@ class IExtendedDictionary(typing.Generic[QuantConnect_Interfaces_IExtendedDictio
         """
         ...
 
-    def values(self) -> typing.Any:
+    def values(self) -> typing.List[QuantConnect_Interfaces_IExtendedDictionary_TValue]:
         """
         Returns a view object that displays a list of all the values in the dictionary.
         
@@ -2046,7 +2046,7 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
 
     @property
     @abc.abstractmethod
-    def deployment_details(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+    def deployment_details(self) -> QuantConnect.Util.ReadOnlyExtendedDictionary[str, str]:
         """
         Gets a read-only view of the deployment details shared by the brokerage, data queue handler or any other component,
         for example account information. Usually empty when not running in live mode
@@ -2237,7 +2237,7 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
         """
         ...
 
-    def get_parameters(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+    def get_parameters(self) -> QuantConnect.Util.ReadOnlyExtendedDictionary[str, str]:
         """Gets a read-only dictionary with all current parameters"""
         ...
 
@@ -2522,7 +2522,7 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
         """
         ...
 
-    def set_deployment_details(self, deployment_details: Common.Util.ReadOnlyExtendedDictionary[str, str]) -> None:
+    def set_deployment_details(self, deployment_details: QuantConnect.Util.ReadOnlyExtendedDictionary[str, str]) -> None:
         """
         Sets the deployment details read-only view
         

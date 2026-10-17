@@ -2,7 +2,7 @@
 
 [project]
 name = "pact-python"
-version = "4.0.0"
+version = "4.1.0"
 description = "Tool for creating and verifying consumer-driven contracts using the Pact framework."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -44,7 +44,6 @@ dependencies = [
   "pact-python-ffi~=0.5.0",
   "typing-extensions~=4.0 ; python_version < '3.13'",
   # External dependencies
-  "yarl~=1.0",
 ]
 
   [project.urls]
@@ -58,7 +57,7 @@ dependencies = [
 # Linting and formatting tools use a more narrow specification to ensure
 # developper consistency. All other dependencies are as above.
 dev = [
-  "ruff==0.17.0",
+  "ruff==0.17.1",
   { include-group = "docs" },
   { include-group = "example" },
   { include-group = "test" },
@@ -133,6 +132,16 @@ build-backend = "hatchling.build"
   [tool.hatch]
     [tool.hatch.build]
     packages = ["src/pact"]
+
+      [tool.hatch.build.hooks.version]
+      path = "src/pact/__version__.py"
+      template = """\
+# Generated at build time from the project version. Do not edit.
+__version__ = version = {version!r}
+__version_tuple__ = version_tuple = tuple(
+    int(part) if part.isdigit() else part for part in __version__.split(".")
+)
+"""
 
     [tool.hatch.envs]
       [tool.hatch.envs.default]

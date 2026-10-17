@@ -51,6 +51,7 @@ from radboy.Unified.BACKUP import *
 import holidays
 from pandas.tseries.offsets import BusinessDay,CustomBusinessDay
 from pandas.tseries.holiday import USFederalHolidayCalendar,Holiday
+import pyotp
 
 try:
     import pyperclip
@@ -24123,3 +24124,283 @@ def list_dates_within_include_weekends():
         return ','.join(dsl)
     except Exception as e:
         print(e)
+
+def authenticatorTools_short_view(self,data:list,printToScreen=True,num=None):
+        xtext=[]
+        ct=len(data)
+        ii=''
+        #template text
+        #{Fore.cyan}{i.}{Fore.light_steel_blue} ={Fore.sea_green_1a}'{i.}{Style.reset}'
+        for xnum,i in enumerate(data):
+            msg=f"{i}"
+            xtext.append(std_colorize(msg,xnum,ct))
+
+        if printToScreen:
+            print('\n'.join(xtext))
+        return '\n'.join(xtext)
+
+def authenticatorTools_StoreForCDP(self,item):
+    try:
+        with Session(ENGINE) as session:
+            log=session.query(self.Model).filter(self.primaryKey(self.Model)==self.primaryKey(item)).first()
+            keys={
+           
+            }
+            htext=[]
+            cta=len(keys)
+            for num,k in enumerate(keys):
+                htext.append(std_colorize(f"Field {k} = '{keys[k]}'",num,cta))
+            htext='\n'.join(htext)
+            while True:
+                try:
+                    print(htext)
+                    which=Control(func=FormBuilderMkText,ptext=f"Which {Fore.light_blue}index {Fore.light_yellow}for{Fore.light_red} field{Fore.light_yellow} do you wish to return?",helpText=f"index integer for field starting at 0:\n{htext}",data="integer")
+                    if which is None:
+                        return
+                    elif which in ['NAN','NaN',None,'None','d','']:
+                        return
+                    else:
+                        self.StoreInCB(ncb_text=str(tuple(keys.values())[which]))
+                    return
+                except Exception as e:
+                    print(e)
+
+    except Exception as e:
+        print(e)
+        return item
+    pass
+
+def s2cb_authenticatorTools(self,menu=False,short=True):
+        with Session(ENGINE) as session:
+            filt=abstract_filter(self.Model)
+
+            core={
+                'limit':{
+                'default':None,
+                'type':"integer"
+                },
+                'offset':{
+                'default':None,
+                'type':'integer,'
+                }
+            }
+            fd=FormBuilder(data=core,passThruText="limit your results.")
+            if fd is None:
+                print("exited early")
+                return
+            if filt is not None:
+                query=session.query(self.Model).filter(filt)
+            else:
+                query=session.query(self.Model)
+            
+            
+            orderedQuery=orderQuery(query,self.Model.dtoe)
+            limited=limitOffset(orderedQuery,limit=fd['limit'],offset=fd['offset'])
+            results=limited.all()
+            if short:
+                htext=self.short_view(self=self,data=results,printToScreen=False)
+            else:
+                htext=self.long_view(data=results,printToScreen=False)
+
+            if menu:
+                #next update
+                cta=len(results)
+                gotoNext=None
+                for num,log in enumerate(results):
+                    if log == None:
+                        continue
+                    while True:
+                        if log is None:
+                            gotoNext=True
+                            break
+                        
+                        cmds=['edit=ed/edit/e','delete=rm/del/delete/remove','save2cb=s2cb/clipbd/memo']
+                        try:
+                            if short:
+                                l=self.short_view(self=self,data=[log,],printToScreen=False,num=num)
+                            else:
+                                l=self.long_view(self=self,data=[log,],printToScreen=False,num=num)
+                            doWhat=Control(func=FormBuilderMkText,ptext=f"{l}\n[{cmds}]?",helpText=f"{l}\n{cmds}",data="string")
+                            if doWhat in ['NaN',None]:
+                                return
+                            elif doWhat.lower() in ['d','']:
+                                gotoNext=True
+                                break
+                            elif doWhat.lower() in [i.lower() for i in 'edit=ed/edit/e'.split('=')[-1].split("/")]:
+                                log=self.edit_id(log)
+
+                                continue
+                            elif doWhat.lower() in [i.lower() for i in 'save2cb=s2cb/clipbd/memo'.split('=')[-1].split("/")]:
+                                log=authenticatorTools_StoreForCDP(self,log)
+                                continue
+                            elif doWhat.lower() in [i.lower() for i in 'delete=rm/del/delete/remove'.split('=')[-1].split("/")]:
+                                log=self.delete_id(log)
+                                continue
+                            else:
+                                gotoNext=True
+                                break
+                            if gotoNext:
+                                gotoNext=False
+                                break
+                        except Exception as e:
+                            print(e)
+                            gotoNext=True
+                            break
+            else:
+                print(htext)    
+
+#show all
+def show_totpa():
+    try:
+        with Session(ENGINE) as session:
+            custom=Control(ptext="Only Use Secret Code[True,d], or Customer [False]",helpText="Boolean/Yes/No",data="boolean")
+            if custom in BooleanAnswers.NONE:
+                return
+            elif custom in ['d',True,]:
+                custom=True
+            elif custom in [False]:
+                custom=False
+
+            query=session.query(AuthenticatorTools).filter(AuthenticatorTools.TYPE.icontains("TOTP"))
+            search=Control(ptext="Search",helpText="search name,issuer",data="string")
+            if search in BooleanAnswers.NONE:
+                return
+            if search not in ['d','']:
+                query=query.filter(
+                    or_(
+                        and_(AuthenticatorTools.issuer.icontains(search),
+                            AuthenticatorTools.name.icontains(search)
+                            ),
+                        or_(
+                        AuthenticatorTools.issuer.icontains(search),
+                        AuthenticatorTools.name.icontains(search)
+                        )
+
+                    )
+                )
+            
+            query=query.all()
+            if query in [None,]:
+                return
+            cta=len(query)
+            for num, i in enumerate(query):
+                if custom:
+                    totp=pyotp.TOTP(i.secret_code)
+                else:
+                    totp=pyotp.TOTP(i.secret_code,interval=i.interval,digits=i.digits_integer,issuer=i.issuer,name=i.name,digest=i.algorithm_digest)
+                msg=f"""
+{Fore.light_red}NAME{Fore.cyan}={Fore.light_green}"{i.name}" {Fore.light_red}ISSUER{Fore.cyan}={Fore.light_green}"{i.issuer}" {Fore.light_red}OTP{Fore.cyan}={Fore.light_green}"{totp.now()}" DLMTD="{Entry.cfmt(Entry,totp.now())}"""
+                print(std_colorize(msg,num,cta))
+
+    except Exception as e:
+        print(e)
+
+def show_cotpa():
+    #print("My Code exists, but is not currently being used, so it is not implemented. Review the File preloader_func.py def show_cotpa() to enable this functionality when it finally reaches use")
+    try:
+        with Session(ENGINE) as session:
+            custom=Control(ptext="Only Use Secret Code[True,d], or Customer [False]",helpText="Boolean/Yes/No",data="boolean")
+            if custom in BooleanAnswers.NONE:
+                return
+            elif custom in ['d',True,]:
+                custom=True
+            elif custom in [False]:
+                custom=False
+
+            query=session.query(AuthenticatorTools).filter(AuthenticatorTools.TYPE.icontains("COTP"))
+            search=Control(ptext="Search",helpText="search name,issuer",data="string")
+            if search in BooleanAnswers.NONE:
+                return
+            if search not in ['d','']:
+                query=query.filter(
+                    or_(
+                        and_(AuthenticatorTools.issuer.icontains(search),
+                            AuthenticatorTools.name.icontains(search)
+                            ),
+                        or_(
+                        AuthenticatorTools.issuer.icontains(search),
+                        AuthenticatorTools.name.icontains(search)
+                        )
+
+                    )
+                )
+            
+            query=query.all()
+            if query in [None,]:
+                return
+            cta=len(query)
+            for num, i in enumerate(query):
+                if custom:
+                    totp=pyotp.HOTP(i.secret_code)
+                else:
+                    totp=pyotp.HOTP(i.secret_code,initial_count=i.counter,digits=i.digits_integer,issuer=i.issuer,name=i.name,digest=i.algorithm_digest)
+                msg=f"""
+{Fore.light_red}NAME{Fore.cyan}={Fore.light_green}"{i.name}" {Fore.light_red}ISSUER{Fore.cyan}={Fore.light_green}"{i.issuer}" {Fore.light_red}OTP{Fore.cyan}={Fore.light_green}"{totp.at(i.counter)}" DLMTD="{Entry.cfmt(Entry,totp.at(i.counter))} {Fore.medium_violet_red}Counter={Fore.sea_green_1a}{i.counter}{Style.reset}"""
+                print(std_colorize(msg,num,cta))
+                increment=Control(ptext="increment counter",helpText="make the counter increase by 1",data="boolean")
+                if increment in BooleanAnswers.NONE:
+                    return
+                elif increment in ['d','']:
+                    continue
+                elif increment in BooleanAnswers.YES:
+                    i.counter+=1
+                    session.commit()
+                    session.refresh(i)
+                else:
+                    continue
+
+    except Exception as e:
+        print(e)
+
+def show_helper():
+    print(f"""
+Counter Based One Time Password
+    TYPE:COTP
+Time Base One Time Password
+    TYPE:TOTP
+        """)
+
+def show_random_string():
+    which=Control(ptext="Random Hex[1], Random Base32[0,d]?",helpText="Boolean/Yes/No",data="boolean")
+    if which in BooleanAnswers.NONE:
+        return
+    elif which in [True,]:
+        m=pyotp.random_hex() 
+    elif which in ['d',False]:
+        m=pyotp.random_base32()
+    print(m)
+    return m
+
+authenticatorTools_menu={
+    str(uuid1()):{
+    "cmds":['authenticatorTools custom',],
+    "exec":lambda self:s2cb_authenticatorTools(self,menu=True,short=True),
+    "desc":"Save to Clipboard custom formats",
+    },
+    str(uuid1()):{
+    "cmds":['totp',],
+    "exec":lambda self:show_totpa(),
+    "desc":"display Time Base One Time Password",
+    },
+    str(uuid1()):{
+    "cmds":['cotp','hotp',],
+    "exec":lambda self:show_cotpa(),
+    "desc":"display Counter Base One Time Password",
+    },
+    str(uuid1()):{
+    "cmds":['helper','helper',],
+    "exec":lambda self:show_helper(),
+    "desc":"helper text data",
+    },
+    str(uuid1()):{
+    "cmds":['rs32','random key 32',],
+    "exec":lambda self:show_random_string(),
+    "desc":"helper text data",
+    }
+
+}
+#bptxt - bill paid text
+
+#TriedToWake
+def authenticatorToolsLogger(Model=AuthenticatorTools,short_view=authenticatorTools_short_view,menu=authenticatorTools_menu):
+    return ModelLogger(Model=AuthenticatorTools,short_view=authenticatorTools_short_view,menu=authenticatorTools_menu)

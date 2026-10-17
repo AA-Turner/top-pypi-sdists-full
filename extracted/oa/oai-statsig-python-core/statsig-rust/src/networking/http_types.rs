@@ -79,8 +79,7 @@ impl RequestArgs {
     }
 
     pub fn populate_headers(&mut self, extra_headers: HashMap<String, String>) {
-        let mut headers = HashMap::new();
-        headers.extend(extra_headers);
+        let mut headers = extra_headers;
 
         headers.insert(
             "STATSIG-CLIENT-TIME".into(),
@@ -248,6 +247,10 @@ impl ResponseData {
         &mut self.stream
     }
 
+    pub(crate) fn shared_bytes(&self) -> Option<&[u8]> {
+        self.shared_bytes.as_deref()
+    }
+
     pub fn get_header_ref(&self, key: &str) -> Option<&String> {
         self.headers.as_ref().and_then(|h| h.get(key))
     }
@@ -306,7 +309,13 @@ impl ResponseData {
             Some(bytes) => serde_json::from_slice(bytes.as_ref()),
             None => serde_json::from_reader(self.stream.as_mut()),
         }
-        .map_err(|e| StatsigErr::JsonParseError(TAG.to_string(), e.to_string()))?;
+        .map_err(|e| {
+            if e.is_io() {
+                StatsigErr::SerializationError(e.to_string())
+            } else {
+                StatsigErr::JsonParseError(TAG.to_string(), e.to_string())
+            }
+        })?;
 
         Ok(result)
     }
@@ -328,7 +337,13 @@ impl ResponseData {
             }
         };
 
-        result.map_err(|e| StatsigErr::JsonParseError(TAG.to_string(), e.to_string()))
+        result.map_err(|e| {
+            if e.is_io() {
+                StatsigErr::SerializationError(e.to_string())
+            } else {
+                StatsigErr::JsonParseError(TAG.to_string(), e.to_string())
+            }
+        })
     }
 
     pub fn read_to_string(&mut self) -> Result<String, StatsigErr> {

@@ -36,6 +36,20 @@ def _daemon_bites_mode(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _no_command_check(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The daemon asks Probe about a shell command before it asks the
+    researcher (`probe.daemon.command_check.ask_probe`, a network call). In the
+    suite that answers nothing, so every held command is asked as before; a
+    test of the check stands its own answer in."""
+    from probe.daemon import command_check
+
+    async def no_answer(**_kw):
+        return None
+
+    monkeypatch.setattr(command_check, "ask_probe", no_answer)
+
+
+@pytest.fixture(autouse=True)
 def _fresh_log_stream_answer() -> None:
     """`logstream.server_accepts` keeps the server's answer for the PROCESS
     (plan item (h)); every test here builds its own fake server, so each one
@@ -620,14 +634,21 @@ _T0 = "2026-01-01T00:00:00Z"
 
 #: `kind_rank` per catalog kind, as app/notes_catalog/service.py's SQL arms
 #: number them: the tiebreak inside one `created_at`, and part of the cursor.
+#: Groups (2) and artifacts (1) no longer carry notes, so no row has either.
 _NOTE_KIND_RANK = {
     "project": 6,
     "experiment": 5,
     "run": 4,
     "sub_note": 3,
-    "group": 2,
-    "artifact": 1,
 }
+
+#: What the server answers a notes write on a file or a sweep group (410): the
+#: carriers were removed, and an installed CLI is told so instead of a 200.
+_FILE_NOTES_GONE = "notes on files were removed; say what a file is in its run's notes"
+_GROUP_NOTES_GONE = "notes on sweep groups were removed; use the experiment's notes"
+#: The fields that make a PATCH a notes write. `force` alone is not one: an
+#: older SDK sends `force: false` on every group PATCH (a generated default).
+_NOTES_WRITES = ("notes", "notes_append", "notes_edit")
 
 _ASCII_LOWER = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
 
@@ -697,6 +718,32 @@ def _series_read_provenance(source_backed: bool, max_points: int | None) -> dict
 def _newest_first(rows: list[dict]) -> list[dict]:
     """`order_by="created_at DESC"`, as app/artifacts/{project,experiment}_router.py do."""
     return sorted(rows, key=lambda r: r.get("created_at") or "", reverse=True)
+
+
+def note_tokens(text: str | None) -> int:
+    """The o200k_base tokens in a note, counted the way research-os counts one
+    (`app/core/tokens.py`: ordinary text, `""` is 0).
+
+    With the vocabulary the package ships (`probe.mcp.budget`), which is the
+    checksummed o200k_base the server's tiktoken loads: the fake must count
+    what the server counts, or a test of the client's pre-send refusal proves
+    nothing about the real wall."""
+    if not text:
+        return 0
+    from probe.mcp.budget import count_tokens
+
+    return count_tokens(text)
+
+
+def token_text(n: int) -> str:
+    """Text of exactly `n` o200k_base tokens and `2n - 1` characters.
+
+    For notes-cap tests, which used to build their bodies as `"x" * (cap + 1)`:
+    under a TOKEN cap that is about cap/8 tokens and passes every over-cap test
+    silently. `"x"` then `" x"` repeated is one token per piece (o200k's
+    pre-tokenizer splits on the space; `test_token_text_has_the_count_it_says`
+    pins it)."""
+    return "" if n <= 0 else "x" + " x" * (n - 1)
 
 
 
@@ -785,28 +832,45 @@ class FakeApp:
     #: False plays a backend that takes the field, ignores it and answers 200,
     #: which is the failure the client's read-back exists to catch.
     stores_notes_append = True
-    #: Character ceiling on a notes document, or None for no ceiling. Set it to
-    #: play a document at MAX_DOCUMENT_NOTES: the real server refuses the append
-    #: with a 422 naming the cap, and refuses it again on every replay. That
+    #: TOKEN ceiling on a project/experiment/run note, or None for the carrier's
+    #: own. Set it to play a document at its cap: the real server refuses the
+    #: write with a 422 naming the cap, and refuses it again on every replay. That
     #: permanence is the point -- a retry queue cannot make a full document
-    #: accept anything, so the fail-open write path must not swallow it.
+    #: accept anything, so the fail-open write path must not swallow it. Build
+    #: the text with `token_text(n)`: `"x" * n` is n/8 tokens.
     notes_cap = None
-    #: The caps the real server enforces (app/core/limits.py): a DOCUMENT for the
-    #: two carriers a reader arrives on, an ANNOTATION for the four that ride on
-    #: a row. Mirrored here because the fake now publishes the headroom the client
-    #: reads, and a fake that made one number up would let a client ship a warning
-    #: that fires at the wrong place.
-    document_notes_cap = 100_000
-    entity_notes_cap = 4_000
+    #: The caps the real server enforces (app/core/limits.py, research-os P2), in
+    #: o200k_base TOKENS: a DOCUMENT for the carriers a reader arrives on, an
+    #: ANNOTATION for a run. Mirrored here because the fake publishes the
+    #: headroom the client reads, and a fake that made one number up would let a
+    #: client ship a warning that fires at the wrong place.
+    document_notes_cap = 30_000
+    entity_notes_cap = 2_000
+    #: The CHARACTER backstop beside each token cap (`MAX_*_NOTES_CHARS`): checked
+    #: first and always, and what `notes_*_chars` / `*_chars` measure now.
+    document_notes_backstop = 150_000
+    entity_notes_backstop = 10_000
     #: Set False to play a backend PREDATING `notes_remaining_chars` /
     #: `notes_limit_chars`: it answers 200 with neither field. The client must
     #: then warn about NOTHING rather than substitute a cap of its own -- that
     #: substitution is the confident-wrong-answer failure the fields exist to end.
     publishes_notes_headroom = True
+    #: Set False to play a backend PREDATING token caps: it publishes only the
+    #: character pair, against the character CAPS it enforced then
+    #: (`LEGACY_NOTES_CAPS`), and its 422s name "N-character" limits. A client
+    #: reading that pair as a fullness would describe the wrong limit on a
+    #: current server, so it must say nothing.
+    publishes_note_tokens = True
+    #: Set False to play a current server that has not COUNTED a note yet (a
+    #: row its backfill has not reached): the token cap is published, the count
+    #: and the room left are null. Fullness is then unknown, never zero.
+    counts_note_tokens = True
+    #: What a backend before token caps enforced, in characters.
+    LEGACY_NOTES_CAPS = {30_000: 100_000, 2_000: 4_000}
     # Set False to model a backend PREDATING research-os 0096: it accepts the
-    # unknown `notes` field on run and group create/PATCH, drops it, and still
-    # answers 2xx -- so the row comes back with NO `notes` key at all, which is
-    # what the SDK's silent-drop warning keys on.
+    # unknown `notes` field on run create/PATCH, drops it, and still answers
+    # 2xx -- so the row comes back with NO `notes` key at all, which is what the
+    # SDK's silent-drop warning keys on.
     stores_entity_notes = True
     # Set False to model a backend PREDATING project-direct runs (0054): the
     # /v1/projects/{id}/runs route 404s FastAPI-style, GET /v1/runs ignores the
@@ -1501,6 +1565,20 @@ class FakeApp:
         self.run_sessions: dict[str, list[dict]] = {}
         #: artifact_id -> AgentSessionOut rows, GET /v1/artifacts/{id}/sessions.
         self.artifact_sessions: dict[str, list[dict]] = {}
+        #: project_id / experiment_id -> rows in NEWEST-first order (as seeded),
+        #: GET /v1/projects/{P}/sessions and GET .../experiments/{E}/sessions:
+        #: `order`, `after` (keyset on session_id) and `limit` as the server
+        #: takes them, `next_after` when a page is followed by more.
+        self.project_sessions: dict[str, list[dict]] = {}
+        self.experiment_sessions: dict[str, list[dict]] = {}
+        #: A server before the paged routes: `order` and `after` ignored, the
+        #: leaf door's oldest-first page with no `next_after` key at all.
+        self.sessions_route_uncursored = False
+        #: (kind, id) -> {"markdown", "version", ..., "versions": [...]}, the
+        #: recorder summary reads (GET …/summary, …/summary/versions[/{v}]);
+        #: `summary_route_absent` makes every one 404 like a server before them.
+        self.summaries: dict[tuple[str, str], dict] = {}
+        self.summary_route_absent = False
         #: project_id -> ProjectReadmeOut, GET /v1/projects/{id}/readme.
         self.project_readmes: dict[str, dict] = {}
         self.metric_points: dict[str, list[dict]] = {}
@@ -1636,7 +1714,7 @@ class FakeApp:
             "version": 0,
             "updated_at": None,
             "updated_by": "",
-            "remaining_chars": 100_000,
+            "remaining_chars": 150_000,
         }
         #: Recorded versions, oldest first -- the fake's history table.
         self.team_note_versions: list[dict] = []
@@ -1700,29 +1778,74 @@ class FakeApp:
         return self._default_workspace_id()
 
     def _notes_cap_for(self, row: dict) -> int | None:
-        """Which cap this response's row is enforced against, or None.
+        """Which carrier cap this response's row is enforced against, or None:
+        `document_notes_cap` or `entity_notes_cap` (see `_notes_budget`).
 
         Keyed on the fake's OWN stores rather than on the request path, because
         the path does not say: `POST /v1/experiments/{id}/groups` returns a group
-        (4k) from an experiment-shaped route (100k), and a prefix table that got
-        that backwards would publish a headroom four times too generous on the
-        one carrier most likely to fill up.
+        (no notes) from an experiment-shaped route, and a prefix table would
+        publish a headroom on a row that carries no document.
         """
         row_id = row.get("id")
         if row_id is None:
             return None
-        if self.notes_cap is not None:
-            # A test playing a document AT its cap sets one number for the whole
-            # fake; honouring it here keeps the published headroom agreeing with
-            # the 422 the append path returns.
-            return self.notes_cap
         if row_id in self.projects or row_id in self.experiments:
             return self.document_notes_cap
-        if row_id in self.runs or row_id in self.trials or row_id in self.groups:
+        if row_id in self.runs or row_id in self.trials:
             return self.entity_notes_cap
-        if any(row_id == a.get("id") for rows in self.artifacts.values() for a in rows):
-            return self.entity_notes_cap
+        # Files and sweep groups carry no notes, so no headroom either.
         return None
+
+    def _notes_budget(self, cap: int, *, override: bool = True) -> tuple[int, int]:
+        """(token cap, character limit) for a carrier whose cap is `cap`.
+
+        A current server: the carrier's token cap (or `notes_cap`, a test playing
+        a document AT its cap -- one number for the whole fake, so the published
+        headroom agrees with the 422; `override=False` for a sub-note, which
+        has always ignored it here) and its character BACKSTOP. A server
+        before token caps (`publishes_note_tokens=False`): no token cap, and
+        the character CAP it enforced then."""
+        if not self.publishes_note_tokens:
+            return 0, self.LEGACY_NOTES_CAPS.get(cap, cap)
+        backstop = (
+            self.entity_notes_backstop if cap == self.entity_notes_cap
+            else self.document_notes_backstop
+        )
+        if override and self.notes_cap is not None:
+            return self.notes_cap, backstop
+        return cap, backstop
+
+    def _note_over_cap(self, text: str | None, cap: int, *, override: bool = True) -> str | None:
+        """The limit a note of `text` is past, as the real 422 names it
+        (`30,000-token`, `150,000-character`), or None when it fits. The
+        character limit first, as `app.core.notes.measure_notes` checks it."""
+        token_cap, char_limit = self._notes_budget(cap, override=override)
+        if len(text or "") > char_limit:
+            return f"{char_limit:,}-character"
+        if token_cap and note_tokens(text) > token_cap:
+            return f"{token_cap:,}-token"
+        return None
+
+    def _notes_numbers(
+        self, text: str | None, cap: int, *, prefix: str = "notes_", override: bool = True
+    ) -> dict:
+        """The fullness the real server publishes for a note of `text`:
+        `notes_limit_tokens` / `notes_tokens` / `notes_remaining_tokens` and the
+        character backstop's `notes_limit_chars` / `notes_remaining_chars`.
+        `prefix=""` is the sub-note and team-note spelling."""
+        token_cap, char_limit = self._notes_budget(cap, override=override)
+        out = {
+            f"{prefix}limit_chars": char_limit,
+            f"{prefix}remaining_chars": max(0, char_limit - len(text or "")),
+        }
+        if self.publishes_note_tokens:
+            tokens = note_tokens(text) if self.counts_note_tokens else None
+            out[f"{prefix}limit_tokens"] = token_cap
+            out[f"{prefix}tokens"] = tokens
+            out[f"{prefix}remaining_tokens"] = (
+                None if tokens is None else max(0, token_cap - tokens)
+            )
+        return out
 
     def _with_notes_headroom(self, response: httpx.Response) -> httpx.Response:
         """Add the headroom fields the real server publishes on entity responses.
@@ -1749,9 +1872,16 @@ class FakeApp:
         if cap is None:
             return response
         payload = dict(row)
-        payload["notes_limit_chars"] = cap
-        if "notes" in row:
-            payload["notes_remaining_chars"] = max(0, cap - len(row["notes"] or ""))
+        numbers = self._notes_numbers(row.get("notes"), cap)
+        if "notes" not in row:
+            # The limits are model defaults the server always sends; the
+            # numbers that describe the document need the document.
+            numbers = {k: v for k, v in numbers.items() if "limit" in k}
+            if self.publishes_note_tokens:
+                numbers["notes_tokens"] = None
+                numbers["notes_remaining_tokens"] = None
+        for key, value in numbers.items():
+            payload.setdefault(key, value)
         # `notes_version` is NOT NULL DEFAULT 0 on every carrier, and entity
         # responses publish it (0130) whether or not a note was ever written.
         payload.setdefault("notes_version", 0)
@@ -1769,23 +1899,39 @@ class FakeApp:
     def _sub_note_meta(self, row: dict, cap: int) -> dict:
         """A sub-note WRITE shape: metadata + headroom, never the body —
         mirroring the server, whose write responses refuse to echo a document
-        a write-scoped caller could not GET."""
+        a write-scoped caller could not GET. `cap` is the carrier's token cap
+        (`_sub_note_cap`); the numbers are `SubNoteWriteOut`'s, unprefixed."""
         return {
             "id": row["id"],
             "title": row["title"],
             "chars": len(row["body"]),
             "notes_version": row["notes_version"],
-            "remaining_chars": max(0, cap - len(row["body"])),
-            "limit_chars": cap,
+            **self._sub_note_numbers(row["body"], cap),
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
         }
+
+    def _sub_note_numbers(self, body: str, cap: int) -> dict:
+        """A sub-note's fullness. Its cap is its carrier's and ignores
+        `notes_cap`, as it always has here."""
+        return self._notes_numbers(body, cap, prefix="", override=False)
+
+    def _sub_note_cap(self, parent_kind: str) -> int:
+        """A sub-note is capped at its carrier's TOKEN cap: a document's under a
+        project or an experiment, a run note's under a run."""
+        if parent_kind in ("project", "experiment"):
+            return self.document_notes_cap
+        return self.entity_notes_cap
+
+    def _sub_note_over_cap(self, text: str, cap: int) -> str | None:
+        return self._note_over_cap(text, cap, override=False)
 
     def _sub_note_list_row(self, row: dict, cap: int) -> dict:
         """A LIST row: `SubNoteListItem` exactly — no `remaining_chars`. The
         real list omits it (the list is for choosing, the write prices), so a
         consumer that grew to read headroom off list rows must fail HERE, not
-        first in production."""
+        first in production. It does carry the token numbers (0367: stored
+        counts, so a list never detoasts)."""
         item = self._sub_note_meta(row, cap)
         del item["remaining_chars"]
         return item
@@ -1797,13 +1943,7 @@ class FakeApp:
             return parent_id in self.projects
         if parent_kind == "experiment":
             return parent_id in self.experiments
-        if parent_kind == "run":
-            return parent_id in self.runs
-        if parent_kind == "group":
-            return parent_id in self.groups
-        return any(
-            parent_id == a.get("id") for rows in self.artifacts.values() for a in rows
-        )
+        return parent_kind == "run" and parent_id in self.runs
 
     @staticmethod
     def _sub_note_title_error(title: str) -> httpx.Response | None:
@@ -1841,13 +1981,15 @@ class FakeApp:
         """The three body verbs on one sub-note; a refusal, or None.
 
         Same separator and refusal shapes as `_apply_notes_write` — including
-        the "notes limit" wording the CLI's cap advice keys on.
+        the "notes limit" wording the CLI's cap advice keys on. `cap` is the
+        carrier's token cap; the limit a refusal names is `_note_over_cap`'s.
         """
         changed = False
         if body.get("body") is not None:
-            if len(body["body"]) > cap:
+            limit = self._sub_note_over_cap(body["body"], cap)
+            if limit is not None:
                 return httpx.Response(
-                    422, json={"detail": f"sub-note body exceeds the {cap}-character limit"}
+                    422, json={"detail": f"sub-note body exceeds the {limit} limit"}
                 )
             if body["body"] != row["body"]:
                 row["body"] = body["body"]
@@ -1861,12 +2003,13 @@ class FakeApp:
             else:
                 separator = "\n\n"
             merged = current + separator + body["body_append"]
-            if len(merged) > cap:
+            limit = self._sub_note_over_cap(merged, cap)
+            if limit is not None:
                 return httpx.Response(
                     422,
                     json={
                         "detail": (
-                            f"appending would exceed the {cap}-character notes limit; "
+                            f"appending would exceed the {limit} notes limit; "
                             "nothing further can be stored until this document is compacted"
                         )
                     },
@@ -1891,9 +2034,10 @@ class FakeApp:
                     },
                 )
             merged = row["body"].replace(edit["old_text"], edit["new_text"])
-            if len(merged) > cap:
+            limit = self._sub_note_over_cap(merged, cap)
+            if limit is not None:
                 return httpx.Response(
-                    422, json={"detail": f"the edit would exceed the {cap}-character notes limit"}
+                    422, json={"detail": f"the edit would exceed the {limit} notes limit"}
                 )
             row["body"] = merged
             changed = True
@@ -1923,8 +2067,11 @@ class FakeApp:
         different HTTP answers to a caller (409 "matched twice, retry with more
         context" versus 422 "the result would not fit"), and a fake that silently
         did nothing let both read as success.
+
+        `cap` is the carrier's TOKEN cap (`document_notes_cap` /
+        `entity_notes_cap`); every refusal names the limit `_note_over_cap`
+        finds, as the server's do ("...the 2,000-token notes limit").
         """
-        cap = self.notes_cap if self.notes_cap is not None else cap
         if not stores:
             return None
         if body.get("notes") is not None:
@@ -1946,6 +2093,19 @@ class FakeApp:
                         }
                     },
                 )
+            limit = self._note_over_cap(body["notes"], cap)
+            if limit is not None:
+                # `notes_over_cap`, the real replace's refusal.
+                subject = "this run note" if cap == self.entity_notes_cap else "these notes"
+                return httpx.Response(
+                    422,
+                    json={
+                        "detail": (
+                            f"{subject} would exceed the {limit} notes limit; "
+                            "compact the document and write it again"
+                        )
+                    },
+                )
             if body["notes"] != (row.get("notes") or ""):
                 row["notes_version"] = head + 1
             row["notes"] = body["notes"]
@@ -1963,12 +2123,13 @@ class FakeApp:
             else:
                 separator = "\n\n"
             merged = current + separator + body["notes_append"]
-            if len(merged) > cap:
+            limit = self._note_over_cap(merged, cap)
+            if limit is not None:
                 return httpx.Response(
                     422,
                     json={
                         "detail": (
-                            f"appending would exceed the {cap}-character notes "
+                            f"appending would exceed the {limit} notes "
                             "limit; nothing further can be stored until this "
                             "document is compacted"
                         )
@@ -1999,13 +2160,32 @@ class FakeApp:
                     },
                 )
             edited = current.replace(old_text, new_text)
-            if len(edited) > cap:
+            limit = self._note_over_cap(edited, cap)
+            if limit is not None:
                 return httpx.Response(
                     422,
-                    json={"detail": f"the edit would exceed the {cap}-character notes limit"},
+                    json={"detail": f"the edit would exceed the {limit} notes limit"},
                 )
             row["notes"] = edited
         return None
+
+    def _team_note_numbers(self, body: str) -> dict:
+        """`TeamNoteOut` / `TeamNoteSyncOut`'s fullness: `tokens` /
+        `limit_tokens` / `remaining_tokens` against the document cap, and
+        `remaining_chars` against the character backstop (no `limit_chars`:
+        the real team-note shapes never carried one)."""
+        numbers = self._notes_numbers(body, self.document_notes_cap, prefix="", override=False)
+        numbers.pop("limit_chars")
+        return numbers
+
+    def _catalog_sizes(self, text: str, cap: int, *, override: bool = True) -> dict:
+        """A catalog row's sizes (`NoteCatalogItem`): `chars` / `limit_chars`
+        (the character backstop) and `tokens` / `limit_tokens` (the cap)."""
+        numbers = self._notes_numbers(text, cap, prefix="", override=override)
+        out = {"chars": len(text), "limit_chars": numbers["limit_chars"]}
+        if "limit_tokens" in numbers:
+            out.update({"tokens": numbers["tokens"], "limit_tokens": numbers["limit_tokens"]})
+        return out
 
     def _notes_catalog(self, include_sub_notes: bool = False) -> dict:
         """`GET /v1/notes`: every non-empty note carrier in the tenant.
@@ -2025,8 +2205,7 @@ class FakeApp:
                     "title": "Team note",
                     "excerpt": body[:280],
                     "ancestors": [],
-                    "chars": len(body),
-                    "limit_chars": self.document_notes_cap,
+                    **self._catalog_sizes(body, self.document_notes_cap, override=False),
                     "created_at": None,
                     "updated_at": self.team_note.get("updated_at"),
                 }
@@ -2036,12 +2215,6 @@ class FakeApp:
         rows += [("experiment", r, self.document_notes_cap) for r in self.experiments.values()]
         rows += [("run", r, self.entity_notes_cap) for r in self.runs.values()]
         rows += [("trial", r, self.entity_notes_cap) for r in self.trials.values()]
-        rows += [("group", r, self.entity_notes_cap) for r in self.groups.values()]
-        rows += [
-            ("artifact", a, self.entity_notes_cap)
-            for anchored in self.artifacts.values()
-            for a in anchored
-        ]
         for kind, row, cap in rows:
             document = row.get("notes") or ""
             if not document.strip():
@@ -2053,8 +2226,7 @@ class FakeApp:
                     "title": row.get("name") or row.get("slug") or "",
                     "excerpt": document[:280],
                     "ancestors": [],
-                    "chars": len(document),
-                    "limit_chars": self.notes_cap if self.notes_cap is not None else cap,
+                    **self._catalog_sizes(document, cap),
                     "created_at": row.get("created_at"),
                     "updated_at": row.get("updated_at"),
                 }
@@ -2065,7 +2237,7 @@ class FakeApp:
             for note in self.sub_notes.values():
                 if not (note["body"] or "").strip():
                     continue
-                cap = 100_000 if note["parent_kind"] in ("project", "experiment") else 4_000
+                cap = self._sub_note_cap(note["parent_kind"])
                 items.append(
                     {
                         "kind": "sub_note",
@@ -2075,8 +2247,7 @@ class FakeApp:
                         "ancestors": [
                             {"kind": note["parent_kind"], "id": note["parent_id"], "title": "P"}
                         ],
-                        "chars": len(note["body"]),
-                        "limit_chars": cap,
+                        **self._catalog_sizes(note["body"], cap, override=False),
                         "created_at": note["created_at"],
                         "updated_at": note["updated_at"],
                     }
@@ -2384,10 +2555,9 @@ class FakeApp:
             return httpx.Response(200, json={**self._experiment_out(row),
                                              "notes_version": row.get("notes_version", 0),
                                              # The headroom, never the text (`ExperimentWritten`).
-                                             "notes_remaining_chars": max(0, (
-                                                 self.notes_cap if self.notes_cap is not None
-                                                 else self.document_notes_cap
-                                             ) - len(row.get("notes") or "")),
+                                             **self._notes_numbers(
+                                                 row.get("notes"), self.document_notes_cap
+                                             ),
                                              "document": echoed})
         if method == "DELETE":
             if params.get("dry_run") == "true":
@@ -2515,6 +2685,96 @@ class FakeApp:
                 200, json={"sessions": rows[:limit], "session_total": len(rows)}
             )
 
+        # An entity's session links, paged: the project route, and the
+        # experiment route the alias rewrote to /v1/experiments/{E}/sessions.
+        m = re.match(r"^/v1/(projects|experiments)/([^/]+)/sessions$", path)
+        if m and method == "GET":
+            plural, entity_id = m.groups()
+            if plural == "projects":
+                if entity_id not in self.projects:
+                    return httpx.Response(404, json={"detail": "project not found"})
+                rows = list(self.project_sessions.get(entity_id, []))
+            else:
+                if entity_id not in self.experiments:
+                    return httpx.Response(404, json={"detail": "experiment not found"})
+                rows = list(self.experiment_sessions.get(entity_id, []))
+            limit = int(request.url.params.get("limit") or 50)
+            if not 1 <= limit <= 50:
+                return httpx.Response(422, json={"detail": "bad limit"})
+            if self.sessions_route_uncursored:
+                # FastAPI ignores a query parameter a route never declared.
+                oldest = list(reversed(rows))
+                return httpx.Response(
+                    200, json={"sessions": oldest[:limit], "session_total": len(rows)}
+                )
+            order = request.url.params.get("order") or "oldest"
+            if order not in ("oldest", "newest"):
+                return httpx.Response(422, json={"detail": "bad order"})
+            # Seeded newest first; the server's `oldest` is the reverse walk.
+            ordered = rows if order == "newest" else list(reversed(rows))
+            after = request.url.params.get("after")
+            if after is not None:
+                ids = [r["session_id"] for r in ordered]
+                if after not in ids:
+                    return httpx.Response(
+                        422,
+                        json={"detail": "`after` must be the session_id of a row of this entity's list"},
+                    )
+                ordered = ordered[ids.index(after) + 1 :]
+            page = ordered[:limit]
+            return httpx.Response(
+                200,
+                json={
+                    "sessions": page,
+                    "session_total": len(rows),
+                    "next_after": page[-1]["session_id"] if len(ordered) > limit else None,
+                },
+            )
+
+        # The recorder summary reads (CONTRACT.md "Summary routes").
+        m = re.match(r"^/v1/(projects|experiments)/([^/]+)/summary(?:/versions(?:/(\d+))?)?$", path)
+        if m and method == "GET":
+            plural, entity_id, version = m.groups()
+            kind = plural[:-1]
+            if self.summary_route_absent:
+                return httpx.Response(404, json={"detail": "Not Found"})
+            if not self._sub_note_parent_exists(kind, entity_id):
+                return httpx.Response(404, json={"detail": f"{kind} not found"})
+            saved = self.summaries.get((kind, entity_id)) or {}
+            versions = sorted(saved.get("versions") or [], key=lambda v: -int(v["version"]))
+            if path.endswith("/summary"):
+                return httpx.Response(200, json={
+                    "markdown": saved.get("markdown", ""),
+                    "version": saved.get("version", 0),
+                    "edited_at": saved.get("edited_at"), "edited_by": saved.get("edited_by"),
+                    "via": saved.get("via"), "session_title": saved.get("session_title"),
+                    "you": "Test User", "today": "2026-10-15",
+                    "mode": saved.get("mode", "recorder"),
+                })
+            if version is not None:
+                row = next((v for v in versions if int(v["version"]) == int(version)), None)
+                if row is None:
+                    return httpx.Response(404, json={"detail": "version not found"})
+                return httpx.Response(200, json={
+                    k: row.get(k)
+                    for k in ("version", "created_at", "created_by", "source", "via", "mode", "markdown")
+                })
+            limit = int(request.url.params.get("limit") or 20)
+            if not 1 <= limit <= 50:
+                return httpx.Response(422, json={"detail": "bad limit"})
+            before = request.url.params.get("before")
+            if before is not None:
+                versions = [v for v in versions if int(v["version"]) < int(before)]
+            page = [
+                {k: v.get(k) for k in ("version", "created_at", "created_by", "source", "via",
+                                       "mode", "session_title", "size_chars")}
+                for v in versions[:limit]
+            ]
+            return httpx.Response(200, json={
+                "versions": page,
+                "next_before": page[-1]["version"] if len(versions) > limit else None,
+            })
+
         m = re.match(r"^/v1/projects/([^/]+)/readme$", path)
         if m and method == "GET":
             pid = m.group(1)
@@ -2590,7 +2850,12 @@ class FakeApp:
             return httpx.Response(200, json=record)
 
         # -- sub-notes (0146) ---------------------------------------------
-        m = re.match(r"^/v1/(projects|experiments|runs|groups|artifacts)/([^/]+)/sub-notes$", path)
+        m = re.match(r"^/v1/(groups|artifacts)/([^/]+)/sub-notes$", path)
+        if m:
+            # Files and sweep groups no longer carry notes: the server's 410.
+            gone = _GROUP_NOTES_GONE if m.group(1) == "groups" else _FILE_NOTES_GONE
+            return httpx.Response(410, json={"detail": gone})
+        m = re.match(r"^/v1/(projects|experiments|runs)/([^/]+)/sub-notes$", path)
         if m:
             if self.sub_notes_route_absent:
                 return httpx.Response(404, json={"detail": "Not Found"})
@@ -2601,7 +2866,7 @@ class FakeApp:
                 # NOT the route-shaped bare "Not Found" the upgrade mapping
                 # keys on.
                 return httpx.Response(404, json={"detail": f"{parent_kind} not found"})
-            cap = 100_000 if parent_kind in ("project", "experiment") else 4_000
+            cap = self._sub_note_cap(parent_kind)
             rows = [r for r in self.sub_notes.values() if r["parent_id"] == parent_id]
             rows.sort(key=lambda r: (r["created_at"], r["id"]))
             if method == "GET":
@@ -2628,9 +2893,10 @@ class FakeApp:
                         },
                     )
                 text = body.get("body") or ""
-                if len(text) > cap:
+                limit = self._sub_note_over_cap(text, cap)
+                if limit is not None:
                     return httpx.Response(
-                        422, json={"detail": f"sub-note body exceeds the {cap}-character limit"}
+                        422, json={"detail": f"sub-note body exceeds the {limit} limit"}
                     )
                 row = {
                     "id": str(uuid.uuid4()),
@@ -2718,7 +2984,7 @@ class FakeApp:
             row = self.sub_notes.get(m.group(1))
             if row is None:
                 return httpx.Response(404, json={"detail": "sub-note not found"})
-            cap = 100_000 if row["parent_kind"] in ("project", "experiment") else 4_000
+            cap = self._sub_note_cap(row["parent_kind"])
             if method == "GET":
                 return httpx.Response(
                     200, json={**self._sub_note_meta(row, cap), "body": row["body"]}
@@ -2844,7 +3110,10 @@ class FakeApp:
         # no-op that mints no version. A fake that skipped the no-op would let a
         # retried reconcile pass here and mint duplicate versions in production.
         if path == "/v1/team-note" and method == "GET":
-            return httpx.Response(200, json=dict(self.team_note))
+            # The fullness is the BODY's, however a test set it.
+            return httpx.Response(
+                200, json={**self.team_note, **self._team_note_numbers(self.team_note["body"])}
+            )
 
         if path == "/v1/team-note/brief" and method == "GET":
             body = self.team_note["body"]
@@ -2874,7 +3143,7 @@ class FakeApp:
                     json={
                         "state": "unchanged",
                         "version": self.team_note["version"],
-                        "remaining_chars": 100_000 - len(current),
+                        **self._team_note_numbers(current),
                         "merged": False,
                     },
                 )
@@ -2897,7 +3166,7 @@ class FakeApp:
                 body = current.rstrip("\n") + "\n\n" + body  # a clean server-side merge
             self.team_note["body"] = body
             self.team_note["version"] += 1
-            self.team_note["remaining_chars"] = 100_000 - len(body)
+            self.team_note.update(self._team_note_numbers(body))
             self.team_note_versions.append(
                 {"version": self.team_note["version"], "body": body}
             )
@@ -2906,7 +3175,7 @@ class FakeApp:
                 json={
                     "state": "applied",
                     "version": self.team_note["version"],
-                    "remaining_chars": self.team_note["remaining_chars"],
+                    **self._team_note_numbers(body),
                     "body": body,
                     "merged": body != payload["body"],
                 },
@@ -2946,26 +3215,27 @@ class FakeApp:
                         },
                     )
                 body = current.replace(old_text, new_text, 1)
-            if len(body) > 100_000:
+            limit = self._note_over_cap(body, self.document_notes_cap, override=False)
+            if limit is not None:
                 return httpx.Response(
                     422,
                     json={
                         "detail": (
-                            "the result would exceed the 100000-character team note limit. "
+                            f"the result would exceed the {limit} team note limit. "
                             "Compact the document first."
                         )
                     },
                 )
             self.team_note["body"] = body
             self.team_note["version"] += 1
-            self.team_note["remaining_chars"] = 100_000 - len(body)
+            self.team_note.update(self._team_note_numbers(body))
             self.team_note_versions.append({"version": self.team_note["version"], "body": body})
             return httpx.Response(
                 200,
                 json={
                     "state": "applied",
                     "version": self.team_note["version"],
-                    "remaining_chars": self.team_note["remaining_chars"],
+                    **self._team_note_numbers(body),
                     "merged": False,
                 },
             )
@@ -3010,7 +3280,7 @@ class FakeApp:
                         json={
                             "body": v["body"],
                             "version": wanted,
-                            "remaining_chars": 100_000 - len(v["body"]),
+                            **self._team_note_numbers(v["body"]),
                         },
                     )
             return httpx.Response(404, json={"detail": "no such version"})
@@ -5011,8 +5281,8 @@ class FakeApp:
                 "spec": body.get("spec", {}),
                 "created_at": "2026-07-15T00:00:00Z",
             }
-            if self.stores_entity_notes:
-                row["notes"] = body.get("notes")
+            # `notes` is accepted and ignored (an installed CLI still sends it):
+            # sweep groups no longer carry notes.
             self.groups[gid] = row
             return httpx.Response(201, json=row)
         if m and method == "GET":
@@ -5027,11 +5297,8 @@ class FakeApp:
             if row is None:
                 return httpx.Response(404, json={"detail": "group not found"})
             if method == "PATCH":
-                refused = self._apply_notes_write(
-                    row, body, self.entity_notes_cap, stores=self.stores_entity_notes
-                )
-                if refused is not None:
-                    return refused
+                if any(body.get(k) is not None for k in _NOTES_WRITES):
+                    return httpx.Response(410, json={"detail": _GROUP_NOTES_GONE})
                 row.update(
                     {
                         k: v
@@ -5102,18 +5369,14 @@ class FakeApp:
                         return httpx.Response(204)
             return httpx.Response(404, json={"detail": "artifact not found"})
         if m and method in ("GET", "PATCH"):
-            # The artifact detail read and its PATCH (name, description, the
-            # notes writes). The notes primitives run through the one shared
-            # implementation, against the 4,000-character annotation cap.
+            # The artifact detail read and its PATCH. Files no longer carry
+            # notes: a notes write is the server's 410.
             row = self._find_artifact(m.group(1))
             if row is None:
                 return httpx.Response(404, json={"detail": "artifact not found"})
             if method == "PATCH":
-                refused = self._apply_notes_write(
-                    row, body, self.entity_notes_cap, stores=self.stores_entity_notes
-                )
-                if refused is not None:
-                    return refused
+                if any(body.get(k) is not None for k in _NOTES_WRITES):
+                    return httpx.Response(410, json={"detail": _FILE_NOTES_GONE})
                 row.update(
                     {
                         key: value

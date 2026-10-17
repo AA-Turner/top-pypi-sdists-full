@@ -4,7 +4,7 @@ Tests for region pixel-to-sky and sky-to-pixel coordinate conversions.
 
 This module covers:
 
-* roundtrip conversions for all pixel and sky region classes through
+* round-trip conversions for all pixel and sky region classes through
   simple, rotated, distorted (SIP), sheared, flipped-parity, and
   generalized (`gwcs.wcs.WCS`) WCS objects, exercising the SVD/Jacobian
   shape conversion (the SIP and gWCS cases in particular force the
@@ -14,11 +14,11 @@ This module covers:
   rectangular) regions
 
 Automatic dispatch uses the Jacobian method for distorted WCS (e.g.,
-SIP) and the offset-based method for non-distorted WCS.
+SIP) and the offset-based method for nondistorted WCS.
 
 The regions rotation-angle convention measures the angle of the
 region's width axis from the longitude (RA) axis (sky regions) or the
-positive ``x`` axis (pixel regions), counterclockwise. This differs
+positive x-axis (pixel regions), counterclockwise. This differs
 from the photutils convention (position angle from North), so for an
 axis-aligned, isotropic WCS the regions sky angle and pixel angle are
 numerically *equal* after conversion (no 90 deg offset).
@@ -27,6 +27,7 @@ numerically *equal* after conversion (no 90 deg offset).
 import astropy.units as u
 import numpy as np
 import pytest
+from astropy.coordinates import SkyCoord
 from astropy.io.fits import Header
 from astropy.tests.helper import assert_quantity_allclose
 from astropy.wcs import WCS
@@ -55,12 +56,12 @@ PIX_CENTER = (10, 10)
 ANGLES_DEG = [0, 30, 60, 135, 200, 315]
 
 # Rotation angles (deg) used for the sheared-WCS and degenerate-shape
-# roundtrip tests.
+# round-trip tests.
 SHEAR_ANGLES_DEG = [0.0, 30.0, 75.0]
 
 # Each case bundles a matching (sky, pixel) region class pair with their
 # construction kwargs. ``size_attrs`` lists the shape attributes
-# compared in roundtrip assertions and ``has_angle`` flags whether the
+# compared in round-trip assertions and ``has_angle`` flags whether the
 # region carries an ``angle`` rotation.
 _REGION_CASES = [
     {'id': 'ellipse',
@@ -214,7 +215,7 @@ def rotated_wcs():
 @pytest.fixture
 def sheared_wcs():
     """
-    A sheared TAN WCS where the pixel x and y axes are 80 deg apart on
+    A sheared TAN WCS where the pixel x- and y-axes are 80 deg apart on
     the sky (10 deg of shear from a perpendicular axis-aligned grid).
     """
     cdelt = 0.1 / 3600
@@ -252,6 +253,40 @@ def flipped_wcs():
     wcs.wcs.crval = [CENTER.ra.deg, CENTER.dec.deg]
     wcs.wcs.cdelt = [-0.1 / 3600, -0.1 / 3600]
     wcs.wcs.ctype = ['RA---TAN', 'DEC--TAN']
+
+    return wcs
+
+
+@pytest.fixture
+def galactic_wcs():
+    """
+    A simple axis-aligned TAN WCS in Galactic coordinates centered on
+    CENTER.
+    """
+    center = CENTER.galactic
+    wcs = WCS(naxis=2)
+    wcs.wcs.crpix = [10.5, 10.5]
+    wcs.wcs.crval = [center.l.deg, center.b.deg]
+    wcs.wcs.cdelt = [-0.1 / 3600, 0.1 / 3600]
+    wcs.wcs.ctype = ['GLON-TAN', 'GLAT-TAN']
+
+    return wcs
+
+
+@pytest.fixture
+def swapped_wcs():
+    """
+    A TAN WCS with the latitude axis first (Dec, RA).
+
+    The CD matrix maps the same sky footprint as ``simple_wcs``, so
+    every conversion must give the same region.
+    """
+    cdelt = 0.1 / 3600
+    wcs = WCS(naxis=2)
+    wcs.wcs.crpix = [10.5, 10.5]
+    wcs.wcs.crval = [CENTER.dec.deg, CENTER.ra.deg]
+    wcs.wcs.cd = [[0.0, cdelt], [-cdelt, 0.0]]
+    wcs.wcs.ctype = ['DEC--TAN', 'RA---TAN']
 
     return wcs
 
@@ -311,9 +346,9 @@ class TestPixelToSky:
             assert getattr(sky, attr) > 0 * u.arcsec
 
 
-class TestRoundtripSkyPixelSky:
+class TestRoundTripSkyPixelSky:
     """
-    A sky -> pixel -> sky roundtrip must recover the original shape
+    A sky -> pixel -> sky round-trip must recover the original shape
     parameters and rotation angle.
     """
 
@@ -343,8 +378,8 @@ class TestRoundtripSkyPixelSky:
     @pytest.mark.parametrize('case', REGION_CASES)
     def test_sip_wcs(self, sip_wcs, case):
         """
-        Roundtrip through a distorted (SIP) WCS, exercising the Jacobian
-        code path.
+        Round-trip through a distorted (SIP) WCS, exercising the
+        Jacobian code path.
         """
         sky = case['sky_cls'](CENTER, **case['sky_kw'])
         sky_rt = sky.to_pixel(sip_wcs).to_sky(sip_wcs)
@@ -356,9 +391,9 @@ class TestRoundtripSkyPixelSky:
                                      atol=1e-3 * u.deg)
 
 
-class TestRoundtripPixelSkyPixel:
+class TestRoundTripPixelSkyPixel:
     """
-    A pixel -> sky -> pixel roundtrip must recover the original center,
+    A pixel -> sky -> pixel round-trip must recover the original center,
     shape parameters, and rotation angle.
     """
 
@@ -400,10 +435,47 @@ class TestRoundtripPixelSkyPixel:
                                      atol=1e-3 * u.deg)
 
 
-@pytest.mark.skipif(not HAS_GWCS, reason='gwcs is required')
-class TestGWCSRoundtrip:
+class TestSwappedAxisWCS:
     """
-    Roundtrip conversions through a generalized WCS (`gwcs.wcs.WCS`).
+    A WCS with the latitude axis first must give the same regions as
+    the equivalent WCS with the longitude axis first.
+
+    A round-trip alone would not catch a Jacobian built from swapped
+    longitude and latitude, because the forward and inverse conversions
+    would share the same error.
+    """
+
+    @pytest.mark.parametrize('case', REGION_CASES)
+    def test_sky_to_pixel(self, simple_wcs, swapped_wcs, case):
+        sky = case['sky_cls'](CENTER, **case['sky_kw'])
+        expected = sky.to_pixel(simple_wcs)
+        pix = sky.to_pixel(swapped_wcs)
+        assert_allclose(pix.center.xy, expected.center.xy, atol=1e-8)
+        for attr in case['size_attrs']:
+            assert_allclose(getattr(pix, attr), getattr(expected, attr),
+                            rtol=1e-9)
+        if case['has_angle']:
+            assert_quantity_allclose(pix.angle, expected.angle,
+                                     atol=1e-6 * u.deg)
+
+    @pytest.mark.parametrize('case', REGION_CASES)
+    def test_pixel_to_sky(self, simple_wcs, swapped_wcs, case):
+        pix = case['pix_cls'](PixCoord(*PIX_CENTER), **case['pix_kw'])
+        expected = pix.to_sky(simple_wcs)
+        sky = pix.to_sky(swapped_wcs)
+        assert sky.center.separation(expected.center).arcsec < 1e-8
+        for attr in case['size_attrs']:
+            assert_quantity_allclose(getattr(sky, attr),
+                                     getattr(expected, attr), rtol=1e-9)
+        if case['has_angle']:
+            assert_quantity_allclose(sky.angle, expected.angle,
+                                     atol=1e-6 * u.deg)
+
+
+@pytest.mark.skipif(not HAS_GWCS, reason='gwcs is required')
+class TestGWCSRoundTrip:
+    """
+    Round-trip conversions through a generalized WCS (`gwcs.wcs.WCS`).
 
     A gWCS has no ``has_distortion`` attribute, so the Jacobian path is
     always used.
@@ -443,7 +515,7 @@ class TestSkyPixelAngleConvention:
 
     The regions convention measures the rotation angle of the region's
     width axis from the longitude (RA) axis (sky regions) or the
-    positive ``x`` axis (pixel regions), counterclockwise. Internally
+    positive x-axis (pixel regions), counterclockwise. Internally
     the WCS helpers use the position-angle (from North) convention; the
     regions shape methods apply a 90 deg offset to bridge the two.
 
@@ -451,8 +523,8 @@ class TestSkyPixelAngleConvention:
     isotropic pixel scale, North = +y), the regions sky angle and pixel
     angle must be numerically equal after conversion. These tests pin
     that convention down so that any future refactor of the internal
-    ``_wcs_helpers`` cannot silently re-introduce a symmetric 90 deg
-    offset bug, which is invisible to roundtrip-only tests because the
+    ``_wcs_helpers`` cannot silently reintroduce a symmetric 90 deg
+    offset bug, which is invisible to round-trip-only tests because the
     offset cancels in sky -> pixel -> sky (and vice versa).
     """
 
@@ -500,10 +572,10 @@ class TestSkyPixelAngleConvention:
         assert abs(diff) < 1e-3
 
 
-class TestShearedWCSRoundtrip:
+class TestShearedWCSRoundTrip:
     """
     Verify that directed regions round-trip exactly through a sheared
-    WCS, where the pixel x and y axes are not perpendicular on the sky.
+    WCS, where the pixel x- and y-axes are not perpendicular on the sky.
     """
 
     @pytest.mark.parametrize('case', DIRECTED_CASES)
@@ -589,7 +661,7 @@ class TestFlippedParityWCS:
     rotation angles are related by a mirror, ``pixel.angle == 360 deg -
     sky.angle`` (mod 360), rather than the identity relation that holds
     for a standard-parity axis-aligned WCS. (Regions measures the angle
-    from the longitude/x axis, so there is no 90 deg offset as in the
+    from the longitude/x-axis, so there is no 90 deg offset as in the
     photutils position-angle convention.)
     """
 
@@ -603,8 +675,8 @@ class TestFlippedParityWCS:
     def test_north_is_minus_y(self, flipped_wcs):
         """
         A sky region whose width axis points North (regions sky angle =
-        90 deg, i.e. along the Dec axis) maps to a pixel region pointing
-        along -y (down), i.e., pixel angle = 270 deg.
+        90 deg, i.e., along the Dec axis) maps to a pixel region
+        pointing along -y (down), i.e., pixel angle = 270 deg.
         """
         sky = EllipseSkyRegion(CENTER, width=200 * u.arcsec,
                                height=100 * u.arcsec, angle=90 * u.deg)
@@ -654,3 +726,195 @@ class TestFlippedParityWCS:
         sky, _ = _build_pair(case, angle_deg * u.deg)
         sky_rt = sky.to_pixel(flipped_wcs).to_sky(flipped_wcs)
         assert abs(_angle_diff_deg(sky_rt.angle, angle_deg * u.deg)) < 2e-5
+
+
+class TestAnnulusIndependentInnerShape:
+    """
+    Tests that an annulus whose inner shape has a different aspect
+    ratio from the outer one converts each shape independently.
+
+    The annuli convert both shapes in one WCS evaluation. Each size must
+    match the conversion of the matching simple region, and the angle
+    is that of the outer shape.
+    """
+
+    @pytest.mark.parametrize('wcs_name', ['sheared_wcs', 'sip_wcs'])
+    def test_elliptical_pixel_to_sky(self, wcs_name, request):
+        wcs = request.getfixturevalue(wcs_name)
+        angle = 45 * u.deg
+        center = PixCoord(*PIX_CENTER)
+        annulus = EllipseAnnulusPixelRegion(center, inner_width=3,
+                                            outer_width=6, inner_height=2.5,
+                                            outer_height=4, angle=angle)
+        outer = EllipsePixelRegion(center, width=6, height=4, angle=angle)
+        inner = EllipsePixelRegion(center, width=3, height=2.5, angle=angle)
+        sky = annulus.to_sky(wcs)
+        sky_outer = outer.to_sky(wcs)
+        sky_inner = inner.to_sky(wcs)
+        assert_quantity_allclose(sky.outer_width, sky_outer.width,
+                                 rtol=1e-12)
+        assert_quantity_allclose(sky.outer_height, sky_outer.height,
+                                 rtol=1e-12)
+        assert_quantity_allclose(sky.inner_width, sky_inner.width,
+                                 rtol=1e-12)
+        assert_quantity_allclose(sky.inner_height, sky_inner.height,
+                                 rtol=1e-12)
+        assert_quantity_allclose(sky.angle, sky_outer.angle,
+                                 atol=1e-10 * u.deg)
+
+    @pytest.mark.parametrize('wcs_name', ['sheared_wcs', 'sip_wcs'])
+    def test_elliptical_sky_to_pixel(self, wcs_name, request):
+        wcs = request.getfixturevalue(wcs_name)
+        angle = 30 * u.deg
+        annulus = EllipseAnnulusSkyRegion(CENTER, inner_width=100 * u.arcsec,
+                                          outer_width=200 * u.arcsec,
+                                          inner_height=75 * u.arcsec,
+                                          outer_height=100 * u.arcsec,
+                                          angle=angle)
+        outer = EllipseSkyRegion(CENTER, width=200 * u.arcsec,
+                                 height=100 * u.arcsec, angle=angle)
+        inner = EllipseSkyRegion(CENTER, width=100 * u.arcsec,
+                                 height=75 * u.arcsec, angle=angle)
+        pix = annulus.to_pixel(wcs)
+        pix_outer = outer.to_pixel(wcs)
+        pix_inner = inner.to_pixel(wcs)
+        assert_allclose(pix.outer_width, pix_outer.width, rtol=1e-12)
+        assert_allclose(pix.outer_height, pix_outer.height, rtol=1e-12)
+        assert_allclose(pix.inner_width, pix_inner.width, rtol=1e-12)
+        assert_allclose(pix.inner_height, pix_inner.height, rtol=1e-12)
+        assert_quantity_allclose(pix.angle, pix_outer.angle,
+                                 atol=1e-10 * u.deg)
+
+    @pytest.mark.parametrize('wcs_name', ['sheared_wcs', 'sip_wcs'])
+    def test_rectangular_pixel_to_sky(self, wcs_name, request):
+        wcs = request.getfixturevalue(wcs_name)
+        angle = 45 * u.deg
+        center = PixCoord(*PIX_CENTER)
+        annulus = RectangleAnnulusPixelRegion(center, inner_width=3,
+                                              outer_width=6,
+                                              inner_height=2.5,
+                                              outer_height=4, angle=angle)
+        outer = RectanglePixelRegion(center, width=6, height=4, angle=angle)
+        inner = RectanglePixelRegion(center, width=3, height=2.5,
+                                     angle=angle)
+        sky = annulus.to_sky(wcs)
+        sky_outer = outer.to_sky(wcs)
+        sky_inner = inner.to_sky(wcs)
+        assert_quantity_allclose(sky.outer_width, sky_outer.width,
+                                 rtol=1e-12)
+        assert_quantity_allclose(sky.outer_height, sky_outer.height,
+                                 rtol=1e-12)
+        assert_quantity_allclose(sky.inner_width, sky_inner.width,
+                                 rtol=1e-12)
+        assert_quantity_allclose(sky.inner_height, sky_inner.height,
+                                 rtol=1e-12)
+        assert_quantity_allclose(sky.angle, sky_outer.angle,
+                                 atol=1e-10 * u.deg)
+
+    @pytest.mark.parametrize('wcs_name', ['sheared_wcs', 'sip_wcs'])
+    def test_rectangular_sky_to_pixel(self, wcs_name, request):
+        wcs = request.getfixturevalue(wcs_name)
+        angle = 30 * u.deg
+        annulus = RectangleAnnulusSkyRegion(CENTER,
+                                            inner_width=100 * u.arcsec,
+                                            outer_width=200 * u.arcsec,
+                                            inner_height=75 * u.arcsec,
+                                            outer_height=100 * u.arcsec,
+                                            angle=angle)
+        outer = RectangleSkyRegion(CENTER, width=200 * u.arcsec,
+                                   height=100 * u.arcsec, angle=angle)
+        inner = RectangleSkyRegion(CENTER, width=100 * u.arcsec,
+                                   height=75 * u.arcsec, angle=angle)
+        pix = annulus.to_pixel(wcs)
+        pix_outer = outer.to_pixel(wcs)
+        pix_inner = inner.to_pixel(wcs)
+        assert_allclose(pix.outer_width, pix_outer.width, rtol=1e-12)
+        assert_allclose(pix.outer_height, pix_outer.height, rtol=1e-12)
+        assert_allclose(pix.inner_width, pix_inner.width, rtol=1e-12)
+        assert_allclose(pix.inner_height, pix_inner.height, rtol=1e-12)
+        assert_quantity_allclose(pix.angle, pix_outer.angle,
+                                 atol=1e-10 * u.deg)
+
+
+def _expected_pixel_angle(wcs, center, angle):
+    """
+    Return the pixel angle (deg, modulo 180) of the width axis of a sky
+    region, found by projecting a point on that axis through the WCS.
+
+    The regions sky angle of the width axis is measured from the
+    longitude axis of the ``center`` frame, so the axis lies at position
+    angle ``angle + 90 deg`` in that frame. A point offset along it is
+    projected with the WCS, which transforms it to the WCS frame.
+    """
+    tip = center.directional_offset_by(angle + 90 * u.deg, 1 * u.arcsec)
+    x0, y0 = wcs.world_to_pixel(center)
+    x1, y1 = wcs.world_to_pixel(tip)
+    return np.rad2deg(np.arctan2(y1 - y0, x1 - x0)) % 180
+
+
+def _frame_mismatch_params():
+    """
+    Return (center, wcs fixture name) pairs whose center frame differs
+    from the WCS celestial frame.
+    """
+    return [pytest.param(CENTER, 'galactic_wcs', id='icrs_on_galactic'),
+            pytest.param(CENTER.galactic, 'simple_wcs',
+                         id='galactic_on_icrs')]
+
+
+class TestRegionFrameDiffersFromWCSFrame:
+    """
+    Regression tests for a sky region whose center frame differs from
+    the WCS celestial frame (issue #712).
+
+    The sky angle is measured in the frame of the region center, so
+    converting to pixels must include the rotation between that frame
+    and the WCS frame.
+    """
+
+    @pytest.mark.parametrize(('center', 'wcs_name'), _frame_mismatch_params())
+    @pytest.mark.parametrize('case', DIRECTED_CASES)
+    @pytest.mark.parametrize('angle_deg', ANGLES_DEG)
+    def test_sky_to_pixel_angle(self, center, wcs_name, case, angle_deg,
+                                request):
+        wcs = request.getfixturevalue(wcs_name)
+        angle = angle_deg * u.deg
+        sky = case['sky_cls'](center, **{**case['sky_kw'], 'angle': angle})
+        pix = sky.to_pixel(wcs)
+        expected = _expected_pixel_angle(wcs, center, angle)
+        diff = (pix.angle.to_value(u.deg) - expected + 90) % 180 - 90
+        assert abs(diff) < 1e-4
+
+    @pytest.mark.parametrize(('center', 'wcs_name'), _frame_mismatch_params())
+    @pytest.mark.parametrize('angle_deg', ANGLES_DEG)
+    def test_text_sky_to_pixel_rotation(self, center, wcs_name, angle_deg,
+                                        request):
+        wcs = request.getfixturevalue(wcs_name)
+        sky = TextSkyRegion(center, 'foo',
+                            visual=RegionVisual(rotation=angle_deg))
+        pix = sky.to_pixel(wcs)
+        expected = _expected_pixel_angle(wcs, center, angle_deg * u.deg)
+        diff = (pix.visual['rotation'] - expected + 90) % 180 - 90
+        assert abs(diff) < 1e-4
+
+    def test_issue_712(self):
+        """
+        An ICRS ellipse projected onto a Galactic WCS centered on it is
+        rotated by the position angle of ICRS North in Galactic
+        coordinates.
+        """
+        center = SkyCoord(0, 0, unit='deg', frame='icrs')
+        region = EllipseSkyRegion(center, width=1 * u.deg,
+                                  height=0.5 * u.deg, angle=0 * u.deg)
+        wcs = WCS(naxis=2)
+        wcs.wcs.crval = [center.galactic.l.deg, center.galactic.b.deg]
+        wcs.wcs.ctype = ['GLON-TAN', 'GLAT-TAN']
+        wcs.wcs.cdelt = [-0.1, 0.1]
+        wcs.wcs.crpix = [25.5, 25.5]
+        wcs.wcs.cunit = ['deg', 'deg']
+        pix = region.to_pixel(wcs)
+        assert_allclose(pix.center.xy, (24.5, 24.5))
+        assert_allclose(pix.width, 10.0, rtol=1e-6)
+        assert_allclose(pix.height, 5.0, rtol=1e-6)
+        assert_quantity_allclose(pix.angle, 23.47980599 * u.deg,
+                                 atol=1e-6 * u.deg)

@@ -280,6 +280,7 @@ def observe_cache_usage(
     system_text: str,
     tool_names: tuple[str, ...] | list[str] | None,
     raw_usage: dict[str, Any] | None,
+    prefix_frozen: bool = False,
 ) -> None:
     """Record one provider call and SCREAM if caching drifted or failed.
 
@@ -289,6 +290,18 @@ def observe_cache_usage(
     """
     if not CACHE_GUARD_ENABLED:
         return
+    if prefix_frozen and conversation_id:
+        try:
+            _observe_across_turns(
+                provider=provider,
+                model=model,
+                conversation_id=conversation_id,
+                request_id=request_id,
+                loop_id=loop_id,
+                system_text=system_text or "",
+            )
+        except Exception as exc:  # noqa: BLE001 — the guard must never break the loop
+            vcprint(f"[cache_guard] cross-turn layer failed (non-fatal): {exc}", color="yellow")
     try:
         _observe(
             provider=provider,
@@ -306,6 +319,152 @@ def observe_cache_usage(
             f"{type(exc).__name__}: {exc}",
             color="yellow",
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Layer 0 — THE CACHE LINE ACROSS TURNS (Arman, 2026-10-16)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# "NOTHING, other than the removal of LARGE tool outputs should ever modify
+# text behind the cache line." Layer 1 compares rounds of ONE request only (its
+# loop key is the request), so a frozen system prompt that changed between two
+# TURNS of one conversation never screamed: the clock in the system channel and
+# the org catalog flipping 8,764 -> 3,676 -> 8,764 chars (conversation 88a134af)
+# both went unseen. This layer remembers the last frozen system text per
+# (provider, conversation) and screams when a LATER request sends different
+# text. Only frozen prompts are compared: a mandate-held conversation re-renders
+# its live Holder by design and is not frozen.
+
+_CONVERSATION_PREFIX: OrderedDict[str, tuple[str, str, str]] = OrderedDict()
+
+
+def _observe_across_turns(
+    *,
+    provider: str,
+    model: str,
+    conversation_id: str,
+    request_id: str | None,
+    loop_id: str | None,
+    system_text: str,
+) -> None:
+    key = f"{provider}:{conversation_id}"
+    this_loop = _loop_key(provider, conversation_id, request_id, loop_id)
+    digest = hashlib.sha256(system_text.encode("utf-8", "replace")).hexdigest()
+    previous = _CONVERSATION_PREFIX.get(key)
+    _CONVERSATION_PREFIX[key] = (this_loop, digest, system_text)
+    _CONVERSATION_PREFIX.move_to_end(key)
+    while len(_CONVERSATION_PREFIX) > _MAX_TRACKED_LOOPS:
+        _CONVERSATION_PREFIX.popitem(last=False)
+    if previous is None:
+        return
+    prev_loop, prev_digest, prev_text = previous
+    if prev_loop == this_loop or prev_digest == digest:
+        return  # same request (Layer 1 owns it) or unchanged
+    scream_cache_line_violation(
+        kind="system_prompt_changed_between_turns",
+        provider=provider,
+        model=model,
+        conversation_id=conversation_id,
+        request_id=request_id,
+        prev_text=prev_text,
+        new_text=system_text,
+        where="matrx_ai.providers.cache_guard.observe_cache_usage",
+    )
+
+
+def scream_cache_line_violation(
+    *,
+    kind: str,
+    conversation_id: str | None,
+    request_id: str | None,
+    prev_text: str,
+    new_text: str,
+    where: str,
+    provider: str = "",
+    model: str = "",
+) -> None:
+    """RED banner + a captured ``system_error`` for text changed behind the cache line.
+
+    One function for every layer that detects it (the cross-turn guard here,
+    the send boundary's frozen-prompt check), so the capture always has the
+    same kind and shape. Never raises.
+    """
+    banner = (
+        f"\n{_BAR}\n"
+        f"🚨🚨🚨  CACHE LINE LAW BROKEN — TEXT BEHIND THE CACHE LINE CHANGED  🚨🚨🚨\n"
+        f"{_BAR}\n"
+        f"kind={kind} conversation={conversation_id} request={request_id}\n"
+        f"provider={provider} model={model}\n"
+        f"Nothing but the removal of LARGE tool outputs may change text behind the\n"
+        f"cache line between turns. Per-turn material belongs in the trailing\n"
+        f"channel (MessageList.attach_turn_context), never in the system prompt.\n"
+        f"\n{_short_diff(prev_text, new_text)}\n"
+        f"{_BAR}\n"
+    )
+    vcprint(banner, color="red", log_level="error")
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    detached_task(
+        _record_cache_line_violation(
+            kind=kind,
+            provider=provider,
+            model=model,
+            conversation_id=conversation_id,
+            request_id=request_id,
+            prev_text=prev_text,
+            new_text=new_text,
+            where=where,
+        ),
+        name="cache_line_violation_capture",
+    )
+
+
+async def _record_cache_line_violation(
+    *,
+    kind: str,
+    provider: str,
+    model: str,
+    conversation_id: str | None,
+    request_id: str | None,
+    prev_text: str,
+    new_text: str,
+    where: str,
+) -> None:
+    try:
+        from matrx_ai._ext import get_ext
+
+        record_error = get_ext("record_error")
+    except Exception:
+        return
+    if record_error is None:
+        return
+    divergence = 0
+    shared = min(len(prev_text), len(new_text))
+    while divergence < shared and prev_text[divergence] == new_text[divergence]:
+        divergence += 1
+    try:
+        pending = record_error(
+            RuntimeError(f"cache line law broken: {kind}"),
+            kind="prompt_cache_line_violation",
+            error_type=kind,
+            error_text="Text behind the prompt-cache line changed between turns",
+            route=where,
+            payload={
+                "provider": provider,
+                "model": model,
+                "conversation_id": conversation_id,
+                "request_id": request_id,
+                "previous_length": len(prev_text),
+                "current_length": len(new_text),
+                "first_divergence": divergence,
+            },
+        )
+        if inspect.isawaitable(pending):
+            await pending
+    except Exception:
+        pass
 
 
 def _observe(

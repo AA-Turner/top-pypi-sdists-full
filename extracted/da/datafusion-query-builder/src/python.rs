@@ -537,8 +537,18 @@ impl PyQuery {
             .map_err(py_err)
     }
 
-    fn with_cte(&self, name: &str, query: PyRef<'_, PyQuery>) -> PyQuery {
-        PyQuery::new(self.inner.clone().with_cte(name, query.inner.clone()))
+    #[pyo3(signature = (name, query, *, materialized=None))]
+    fn with_cte(
+        &self,
+        name: &str,
+        query: PyRef<'_, PyQuery>,
+        materialized: Option<bool>,
+    ) -> PyQuery {
+        PyQuery::new(self.inner.clone().with_cte_materialization(
+            name,
+            query.inner.clone(),
+            materialized,
+        ))
     }
 
     fn with_recursive_cte(&self, name: &str, query: PyRef<'_, PyQuery>) -> PyQuery {

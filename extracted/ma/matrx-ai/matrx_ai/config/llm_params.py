@@ -238,6 +238,8 @@ class LLMParams(BaseModel):
     stop_sequences: list[str] | None = None
     stream: bool | None = None
     store: bool | None = None
+    # LONG CACHE: keep the stable prompt prefix cached longer (config/cache_marks.py).
+    extended_prompt_cache: bool | None = None
     previous_interaction_id: str | None = None
     task: Literal["text_to_video", "image_to_video", "reference_to_video", "edit"] | None = None
     verbosity: Verbosity | None = None

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edk2-pytool-extensions
-Version: 0.31.2
+Version: 0.31.3
 Summary: Python tools supporting UEFI EDK2 firmware development
 Maintainer-email: EDK2 Pytool Maintainers <edk2-pytools@microsoft.com>
 Project-URL: homepage, https://github.com/tianocore/edk2-pytool-extensions
@@ -41,10 +41,10 @@ Requires-Dist: build==1.5.1; extra == "publish"
 Requires-Dist: twine==6.2.0; extra == "publish"
 Provides-Extra: docs
 Requires-Dist: black==26.5.1; extra == "docs"
-Requires-Dist: mkdocs==1.6.1; extra == "docs"
+Requires-Dist: properdocs==1.6.7; extra == "docs"
 Requires-Dist: mkdocs-material==9.7.7; extra == "docs"
-Requires-Dist: mkdocstrings[python]==1.0.6; extra == "docs"
-Requires-Dist: mkdocstrings-python==2.0.5; extra == "docs"
+Requires-Dist: mkdocstrings[python]==1.0.7; extra == "docs"
+Requires-Dist: mkdocstrings-python==2.0.9; extra == "docs"
 Requires-Dist: markdown-include==0.8.1; extra == "docs"
 Requires-Dist: mkdocs-gen-files==0.6.1; extra == "docs"
 Requires-Dist: mkdocs-exclude==1.0.2; extra == "docs"
@@ -225,7 +225,7 @@ following command from the root of the project:
 
 ```cmd
 pip install --upgrade -e .[docs]
-mkdocs serve
+properdocs serve
 ```
 
 The second is located at ```docs/contributor/``` and is documentation for

@@ -50,10 +50,7 @@ def _auth() -> dict:
         if not workspace:
             pytest.skip("Bearer auth also needs LANGSMITH_WORKSPACE_ID")
         return {"headers": {"Authorization": f"Bearer {bearer}", **tenant}}
-    pytest.skip(
-        "Set LANGSMITH_API_KEY or LANGSMITH_SANDBOX_E2E_BEARER to run the "
-        "sandbox SSE end-to-end tests"
-    )
+    pytest.skip("Set LANGSMITH_API_KEY or LANGSMITH_SANDBOX_E2E_BEARER to run the sandbox SSE end-to-end tests")
 
 
 @pytest.fixture(scope="module")
@@ -137,18 +134,14 @@ def test_large_output_survives_the_ack_loop(sandbox, resume_count):
 
 
 def test_streaming_handle_yields_chunks(sandbox):
-    handle = sandbox.run(
-        "for i in $(seq 1 5); do echo line-$i; done", wait=False, timeout=120
-    )
+    handle = sandbox.run("for i in $(seq 1 5); do echo line-$i; done", wait=False, timeout=120)
 
     assert handle.command_id
     assert handle.pid
 
     chunks = [chunk for chunk in handle]
 
-    assert "".join(c.data for c in chunks if c.stream == "stdout") == "".join(
-        f"line-{i}\n" for i in range(1, 6)
-    )
+    assert "".join(c.data for c in chunks if c.stream == "stdout") == "".join(f"line-{i}\n" for i in range(1, 6))
     assert handle.result.exit_code == 0
 
 
@@ -158,9 +151,7 @@ def test_multibyte_output_is_not_split_mid_character(sandbox, resume_count):
     # so chunk boundaries land inside them. The bytes are written as octal
     # escapes because the sandbox's printf does not implement \\u.
     count = 600_000
-    result = sandbox.run(
-        f"for i in $(seq 1 {count}); do printf '\\303\\251'; done", timeout=600
-    )
+    result = sandbox.run(f"for i in $(seq 1 {count}); do printf '\\303\\251'; done", timeout=600)
 
     assert result.exit_code == 0
     assert result.stdout == "é" * count

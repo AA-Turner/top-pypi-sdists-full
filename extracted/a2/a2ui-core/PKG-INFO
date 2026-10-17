@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a2ui-core
-Version: 0.3.0
+Version: 0.4.0
 Summary: A2UI Python SDK - Core Library
 Requires-Python: >=3.10
 Requires-Dist: babel>=2.14.0

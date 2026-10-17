@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse
 import base64
+import ctypes
 from configparser import ConfigParser
 import dataclasses
 from dataclasses import dataclass, field
@@ -9,6 +10,7 @@ from enum import Enum
 import graphlib
 import itertools
 import json
+import lzma
 import os
 from pathlib import Path
 import re
@@ -184,48 +186,61 @@ def sync(bundle: Bundle,
     local_bundle = location.parent / filename
     if local_bundle.exists():
         on_progress(Progress("Deploying local {}".format(bundle_nick)))
-        archive_path = local_bundle
-        archive_is_temporary = False
-    else:
+        extract_bundle(local_bundle, location)
+        return state
+
+    attempt = 1
+    while True:
         if bundle == Bundle.SDK:
             on_progress(Progress(f"Downloading SDK {version} for {machine.identifier}"))
         else:
             on_progress(Progress(f"Downloading {bundle_nick} {version}"))
+        archive_path = download_bundle(url)
         try:
-            with urllib.request.urlopen(url) as response, \
-                    tempfile.NamedTemporaryFile(delete=False) as archive:
-                shutil.copyfileobj(response, archive)
-                archive_path = Path(archive.name)
-                archive_is_temporary = True
             on_progress(Progress(f"Extracting {bundle_nick}"))
-        except urllib.error.HTTPError as e:
-            if e.code == 404:
-                raise BundleNotFoundError(f"missing bundle at {url}") from e
-            raise e
-
-    try:
-        staging_dir = location.parent / f"_{location.name}"
-        if staging_dir.exists():
-            shutil.rmtree(staging_dir)
-        staging_dir.mkdir(parents=True)
-
-        with tarfile.open(archive_path, "r:xz") as tar:
-            tar.extractall(staging_dir)
-
-        suffix_len = len(".frida.in")
-        raw_location = location.as_posix()
-        for f in staging_dir.rglob("*.frida.in"):
-            target = f.parent / f.name[:-suffix_len]
-            f.write_text(f.read_text(encoding="utf-8").replace("@FRIDA_TOOLROOT@", raw_location),
-                         encoding="utf-8")
-            f.rename(target)
-
-        staging_dir.rename(location)
-    finally:
-        if archive_is_temporary:
+            extract_bundle(archive_path, location)
+            break
+        except (EOFError, lzma.LZMAError, tarfile.ReadError):
+            if attempt == BUNDLE_DOWNLOAD_ATTEMPTS:
+                raise
+            on_progress(Progress(f"Retrying truncated {bundle_nick}"))
+            attempt += 1
+        finally:
             archive_path.unlink()
 
     return state
+
+
+def download_bundle(url: str) -> Path:
+    try:
+        with urllib.request.urlopen(url) as response, \
+                tempfile.NamedTemporaryFile(delete=False) as archive:
+            shutil.copyfileobj(response, archive)
+            return Path(archive.name)
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            raise BundleNotFoundError(f"missing bundle at {url}") from e
+        raise e
+
+
+def extract_bundle(archive_path: Path, location: Path):
+    staging_dir = location.parent / f"_{location.name}"
+    if staging_dir.exists():
+        shutil.rmtree(staging_dir)
+    staging_dir.mkdir(parents=True)
+
+    with tarfile.open(archive_path, "r:xz") as tar:
+        tar.extractall(staging_dir)
+
+    suffix_len = len(".frida.in")
+    raw_location = location.as_posix()
+    for f in staging_dir.rglob("*.frida.in"):
+        target = f.parent / f.name[:-suffix_len]
+        f.write_text(f.read_text(encoding="utf-8").replace("@FRIDA_TOOLROOT@", raw_location),
+                     encoding="utf-8")
+        f.rename(target)
+
+    staging_dir.rename(location)
 
 
 def roll(bundle: Bundle,
@@ -592,6 +607,11 @@ class Builder:
                          ],
                          cwd=sourcedir,
                          **meson_kwargs)
+
+        if pkg.job_memory is not None:
+            self._call_meson(["compile", "-j", str(compute_job_count(pkg.job_memory))],
+                             cwd=builddir,
+                             **meson_kwargs)
 
         self._call_meson(["install"],
                          cwd=builddir,
@@ -1024,7 +1044,8 @@ def load_dependency_parameters() -> DependencyParameters:
                                            list(map(parse_option, pkg.get("options", []))),
                                            list(map(parse_dependency, pkg.get("dependencies", []))),
                                            pkg.get("scope"),
-                                           pkg.get("when"))
+                                           pkg.get("when"),
+                                           pkg.get("job_memory"))
 
     p = config["dependencies"]
     return DependencyParameters(p["version"], p["bootstrap_version"], packages)
@@ -1095,6 +1116,31 @@ def parse_dependency(v: Union[str, dict]) -> OptionSpec:
     return DependencySpec(v["id"], v.get("for_machine"), v.get("when"))
 
 
+def compute_job_count(gib_per_job: int) -> int:
+    return max(1, min(os.cpu_count() + 2, query_physical_memory() // (gib_per_job << 30)))
+
+
+def query_physical_memory() -> int:
+    if os.name == "nt":
+        class MEMORYSTATUSEX(ctypes.Structure):
+            _fields_ = [
+                ("dwLength", ctypes.c_uint32),
+                ("dwMemoryLoad", ctypes.c_uint32),
+                ("ullTotalPhys", ctypes.c_uint64),
+                ("ullAvailPhys", ctypes.c_uint64),
+                ("ullTotalPageFile", ctypes.c_uint64),
+                ("ullAvailPageFile", ctypes.c_uint64),
+                ("ullTotalVirtual", ctypes.c_uint64),
+                ("ullAvailVirtual", ctypes.c_uint64),
+                ("ullAvailExtendedVirtual", ctypes.c_uint64),
+            ]
+        status = MEMORYSTATUSEX()
+        status.dwLength = ctypes.sizeof(status)
+        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status))
+        return status.ullTotalPhys
+    return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+
+
 def copy_files(fromdir: Path,
                files: List[Path],
                todir: Path):
@@ -1118,6 +1164,7 @@ class CommandError(Exception):
 DEPS_TOML_PATH = RELENG_DIR / "deps.toml"
 
 BUNDLE_URL = "https://build.frida.re/deps/{version}/{filename}"
+BUNDLE_DOWNLOAD_ATTEMPTS = 3
 
 
 class Bundle(Enum):
@@ -1151,6 +1198,7 @@ class PackageSpec:
     dependencies: List[DependencySpec] = field(default_factory=list)
     scope: Optional[str] = None
     when: Optional[str] = None
+    job_memory: Optional[int] = None
 
 
 @dataclass

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: oursprivacy-client
-Version: 1.31.0
+Version: 1.33.0
 Summary: The official Python library for the ours-privacy API
 Project-URL: Homepage, https://github.com/with-ours/ingest-sdk-python
 Project-URL: Repository, https://github.com/with-ours/ingest-sdk-python
@@ -145,8 +145,8 @@ from ours_privacy import OursPrivacy
 client = OursPrivacy()
 
 response = client.track.event(
-    token="x",
-    event="x",
+    token="P",
+    event="P",
     default_properties={},
 )
 print(response.default_properties)

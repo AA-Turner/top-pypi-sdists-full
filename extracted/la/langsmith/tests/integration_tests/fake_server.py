@@ -55,8 +55,6 @@ async def fake_route(request: Request):
         },
     )
 
-    with tracing_context(
-        parent=request.headers, project_name="Definitely-not-your-grandpas-project"
-    ):
+    with tracing_context(parent=request.headers, project_name="Definitely-not-your-grandpas-project"):
         fake_function_three("foo")
     return {"message": "Fake route response"}

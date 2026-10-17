@@ -241,6 +241,11 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     # 0.254.1's `probe workspace default` to use `probe workspace use`. No client
     # calls it; it goes when 0.254.1 is gone.
     ("PUT", "/v1/workspaces/{}/default"): "retired 410 for CLI 0.254.1 (per-computer workspaces)",
+    # RETIRED with notes on files (plan notes-carriers P1): the PATCH survives
+    # only to answer 410 to a notes write from an older CLI. The files' and sweep
+    # groups' note-history and sub-note routes are out of the schema (410s from
+    # `app/notes/retired_router.py`), so they need no entry here.
+    ("PATCH", "/v1/artifacts/{}"): "retired: files carry no notes (410 for older CLIs)",
     # RETIRING, not unwired. An experiment IS a project now, and the client
     # reads this document at `/v1/projects/{}/notes/versions/{}` -- the same
     # rows, from the address that survives the route cut. The experiment path
@@ -479,17 +484,6 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     (
         "POST",
         "/v1/runs/{}/notes/versions/{}/restore",
-    ): "dashboard notes history restore surface",
-    ("GET", "/v1/groups/{}/notes/versions"): "dashboard notes history surface",
-    (
-        "POST",
-        "/v1/groups/{}/notes/versions/{}/restore",
-    ): "dashboard notes history restore surface",
-    ("GET", "/v1/artifacts/{}/notes/versions"): "dashboard notes history surface",
-    ("GET", "/v1/artifacts/{}/notes/versions/{}"): "dashboard notes history surface",
-    (
-        "POST",
-        "/v1/artifacts/{}/notes/versions/{}/restore",
     ): "dashboard notes history restore surface",
     # Relays bounded, allowlisted blob bytes inline for the dashboard's file viewer.
     # The CLI's door to real bytes is GET /v1/artifacts/{}/download, which IS wired.
@@ -731,10 +725,6 @@ PENDING: dict[Op, str] = {
     ("GET", "/v1/projects/{}/experiments/{}/sharing"): "dashboard Permissions dialog read; no client lane yet",
     ("POST", "/ingest/v1/sessions/{}/{}/media"): "capture tap pasted-image upload (tap, not the SDK)",
     ("GET", "/v1/sessions/{}/media/{}"): "dashboard pasted-image read; no client lane yet",
-    # Surfaced 2026-10-06 by the `dump-openapi` that accompanied the session
-    # trajectory route: the experiment-scoped sessions list exists on the server
-    # but no client lane calls it yet.
-    ("GET", "/v1/projects/{}/experiments/{}/sessions"): "experiment sessions list; no client lane yet",
     # The companion daemon's model gateway (research-os companion-server
     # branch). The daemon that calls it is built on its own branch; when it
     # lands, `test_allowlisted_operations_are_still_unreachable` fails here
@@ -744,6 +734,9 @@ PENDING: dict[Op, str] = {
     # canvas reads: the daemon's ML gate (#2385) shipped on the backend while
     # the checked-in schema sat stale. Same lane and story as `complete` above.
     ("POST", "/v1/companion/classify"): "companion daemon ML gate (#2385); its client ships separately",
+    # The daemon's shell command check (shell approvals F8): the same lane and
+    # story as `classify` above; its client is `probe/daemon/command_check.py`.
+    ("POST", "/v1/companion/command-check"): "companion daemon shell command check; its client ships separately",
     # Surfaced 2026-09-21 by the `dump-openapi` that accompanied the
     # `summary_markdown` retirement (0220), second batch: main landed the
     # workspace/project access routes (#1769) while this branch was out. Newly
@@ -1151,6 +1144,18 @@ CLIENT_AHEAD: dict[Op, str] = {
     # reads as "no alerts", asked again at the next poll. Delete this entry once
     # `make regen` brings the route into schema/openapi.json.
     ("GET", "/v1/sessions/{}/run-alerts"): "daemon run-alert poller; the server route ships in its own PR",
+    # Recorder-written summaries (plan writer-owns-summary, PR B): the SDK's
+    # summary reads and the MCP's `overview.markdown` / `summary_history`
+    # views are built to CONTRACT.md while the server routes land in PR A.
+    # Old-backend guard: `overview.markdown` is left out on a 404; the history
+    # view and the SDK reads surface the 404 as the SDK's NotFoundError.
+    # Delete these once `make regen` brings the routes into schema/openapi.json.
+    ("GET", "/v1/projects/{}/summary"): "recorder summary read; the server route ships in PR A",
+    ("GET", "/v1/projects/{}/summary/versions"): "summary history; the server route ships in PR A",
+    ("GET", "/v1/projects/{}/summary/versions/{}"): "one summary version; the server route ships in PR A",
+    ("GET", "/v1/projects/{}/experiments/{}/summary"): "recorder summary read; the server route ships in PR A",
+    ("GET", "/v1/projects/{}/experiments/{}/summary/versions"): "summary history; the server route ships in PR A",
+    ("GET", "/v1/projects/{}/experiments/{}/summary/versions/{}"): "one summary version; the server route ships in PR A",
     # The data catalog (plan data-catalog, PR D): the SDK and CLI are built to
     # the plan's Interfaces while the server PRs (A, B, C) land beside them.
     # Old-backend guard: every SDK verb (`probe.sdk.catalog`) reads FastAPI's
@@ -1169,6 +1174,19 @@ CLIENT_AHEAD: dict[Op, str] = {
     ("GET", "/v1/catalog/sources"): "data catalog C4 sources list (server PR B)",
     ("GET", "/v1/provenance"): "data catalog C4 walk + methods view (server PR B)",
     ("POST", "/v1/catalog/datasets/uploads"): "data catalog C8 hosting door (server PR C)",
+    # Recorder summaries (plan writer-owns-summary, PR D1): `probe summary` and
+    # `probe visuals` are built to the plan's CONTRACT.md while the server PRs
+    # (A: summary routes, V: visuals routes) land beside them; its reads are
+    # PR B's entries above. Old-backend guard: FastAPI's own 404 reads as
+    # `CapabilityUnavailable("summaries")` (`Client._summary_route`, and
+    # `summary_cli._get_summary` for the read) and the CLI prints it. Delete
+    # each entry once `make regen` brings its route into schema/openapi.json.
+    ("PUT", "/v1/projects/{}/summary"): "recorder summaries (server PR A)",
+    ("PUT", "/v1/projects/{}/experiments/{}/summary"): "recorder summaries (server PR A)",
+    ("GET", "/v1/projects/{}/visuals/options"): "recorder visuals (server PR V)",
+    ("PUT", "/v1/projects/{}/visuals"): "recorder visuals (server PR V)",
+    ("GET", "/v1/projects/{}/experiments/{}/visuals/options"): "recorder visuals (server PR V)",
+    ("PUT", "/v1/projects/{}/experiments/{}/visuals"): "recorder visuals (server PR V)",
 }
 
 _ALLOWED: dict[Op, str] = {**NOT_CLIENT_SURFACE, **PENDING}

@@ -2066,6 +2066,39 @@ def _lineage_metadata(ctx: Any) -> dict[str, Any]:
     return {}
 
 
+class PlatformTenantRequestRefused(PermissionError):
+    """A PERSON's request row was about to be filed in the Matrx System platform tenant."""
+
+    error_type = "platform_tenant_not_for_people"
+
+
+def _refuse_person_request_in_platform_tenant(ctx: Any, user_id: str | None, organization_id: Any) -> None:
+    """Refuse, BEFORE the row exists, a person's request stamped with the platform tenant.
+
+    Matrx System is the platform's own organization; no person works there (Arman,
+    2026-10-10). The runs' own entry refuses a person who names it, but this is the
+    one place a ``chat.user_request`` is born, so it is also the one place that can
+    prove no door — a nested context, a platform-owned agent, a future route —
+    files a person's request there. Headless system work (origin ``system`` /
+    ``scheduled``, minted by ``system_app_context``) is not a person and passes.
+    """
+    from matrx_connect.context.provenance import ATTESTED_ORIGIN_CLASSES
+    from matrx_orm.session.fallback import SYSTEM_ORGANIZATION_ID
+
+    if str(organization_id or "").strip().lower() != SYSTEM_ORGANIZATION_ID:
+        return
+    if not str(user_id or "").strip():
+        return
+    if getattr(ctx, "origin_class", None) not in ATTESTED_ORIGIN_CLASSES:
+        return
+    raise PlatformTenantRequestRefused(
+        f"{PlatformTenantRequestRefused.error_type}: request {getattr(ctx, 'request_id', '?')} "
+        f"started by user {user_id} (origin {getattr(ctx, 'origin_class', None)}) was about to be "
+        "filed in the Matrx System platform tenant. A person's requests are filed in their own "
+        "organization; the run is refused before any row is written."
+    )
+
+
 async def _create_user_request(
     *,
     request_id: str,
@@ -2122,6 +2155,7 @@ async def _create_user_request(
     )
     create_kwargs["created_by"] = user_id
     stamp_org_id(create_kwargs, getattr(ctx, "organization_id", None))
+    _refuse_person_request_in_platform_tenant(ctx, user_id, create_kwargs.get("organization_id"))
 
     # Route through the WriteCoordinator when in a request scope.
     # The row queues alongside the eventual UPDATE-to-completed from

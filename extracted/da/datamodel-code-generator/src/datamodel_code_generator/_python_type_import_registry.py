@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from datamodel_code_generator._python_target_names import (
+    PYTHON_BUILTIN_TYPE_NAMES,
+    is_target_builtin_name,
+    is_target_name,
+)
+
 
 class PythonTypeUnavailableError(ValueError):
     """A known Python type is unavailable for the configured target."""
@@ -13,110 +19,9 @@ class PythonTypeUnavailableError(ValueError):
         self.target_version = target_version
         super().__init__(type_name, target_version)
 
-
-_PYTHON_BUILTIN_TYPE_NAMES = frozenset({
-    "ArithmeticError",
-    "AssertionError",
-    "AttributeError",
-    "BaseException",
-    "BaseExceptionGroup",
-    "BlockingIOError",
-    "BrokenPipeError",
-    "BufferError",
-    "BytesWarning",
-    "ChildProcessError",
-    "ConnectionAbortedError",
-    "ConnectionError",
-    "ConnectionRefusedError",
-    "ConnectionResetError",
-    "DeprecationWarning",
-    "EOFError",
-    "EncodingWarning",
-    "EnvironmentError",
-    "Exception",
-    "ExceptionGroup",
-    "FileExistsError",
-    "FileNotFoundError",
-    "FloatingPointError",
-    "FutureWarning",
-    "GeneratorExit",
-    "IOError",
-    "ImportError",
-    "ImportWarning",
-    "IndentationError",
-    "IndexError",
-    "InterruptedError",
-    "IsADirectoryError",
-    "KeyError",
-    "KeyboardInterrupt",
-    "LookupError",
-    "MemoryError",
-    "ModuleNotFoundError",
-    "NameError",
-    "None",
-    "NotADirectoryError",
-    "NotImplementedError",
-    "OSError",
-    "OverflowError",
-    "PendingDeprecationWarning",
-    "PermissionError",
-    "ProcessLookupError",
-    "PythonFinalizationError",
-    "RecursionError",
-    "ReferenceError",
-    "ResourceWarning",
-    "RuntimeError",
-    "RuntimeWarning",
-    "StopAsyncIteration",
-    "StopIteration",
-    "SyntaxError",
-    "SyntaxWarning",
-    "SystemError",
-    "SystemExit",
-    "TabError",
-    "TimeoutError",
-    "TypeError",
-    "UnboundLocalError",
-    "UnicodeDecodeError",
-    "UnicodeEncodeError",
-    "UnicodeError",
-    "UnicodeTranslateError",
-    "UnicodeWarning",
-    "UserWarning",
-    "ValueError",
-    "Warning",
-    "bool",
-    "bytearray",
-    "bytes",
-    "classmethod",
-    "complex",
-    "dict",
-    "enumerate",
-    "filter",
-    "float",
-    "frozenset",
-    "int",
-    "list",
-    "map",
-    "memoryview",
-    "object",
-    "property",
-    "range",
-    "reversed",
-    "set",
-    "slice",
-    "staticmethod",
-    "str",
-    "super",
-    "tuple",
-    "type",
-    "zip",
-})
-_PYTHON_BUILTIN_TYPE_INTRODUCED_IN: dict[str, tuple[int, int]] = {
-    "BaseExceptionGroup": (3, 11),
-    "ExceptionGroup": (3, 11),
-    "PythonFinalizationError": (3, 13),
-}
+    def __str__(self) -> str:
+        """Name the type and the target that lacks it."""
+        return f"{self.type_name} is unavailable for target Python {'.'.join(map(str, self.target_version))}"
 
 
 _PYTHON_TYPE_IMPORT_PATHS: dict[str, str] = {
@@ -251,6 +156,7 @@ _TARGET_STABLE_PYTHON_TYPE_MODULES: tuple[tuple[str, tuple[str, ...]], ...] = (
             "Never",
             "NewType",
             "NoDefault",
+            "NoExtraItems",
             "NoReturn",
             "NotRequired",
             "Optional",
@@ -289,6 +195,7 @@ _TARGET_STABLE_PYTHON_TYPE_MODULES: tuple[tuple[str, tuple[str, ...]], ...] = (
             "Union",
             "Unpack",
             "ValuesView",
+            "disjoint_base",
             "override",
         ),
     ),
@@ -409,6 +316,7 @@ _TARGET_STABLE_PYTHON_TYPE_INTRODUCED_IN: dict[tuple[str, str], tuple[int, int]]
     ("typing", "LiteralString"): (3, 11),
     ("typing", "Never"): (3, 11),
     ("typing", "NoDefault"): (3, 13),
+    ("typing", "NoExtraItems"): (3, 15),
     ("typing", "NotRequired"): (3, 11),
     ("typing", "ReadOnly"): (3, 13),
     ("typing", "Required"): (3, 11),
@@ -418,6 +326,7 @@ _TARGET_STABLE_PYTHON_TYPE_INTRODUCED_IN: dict[tuple[str, str], tuple[int, int]]
     ("typing", "TypeIs"): (3, 13),
     ("typing", "TypeVarTuple"): (3, 11),
     ("typing", "Unpack"): (3, 11),
+    ("typing", "disjoint_base"): (3, 15),
     ("typing", "override"): (3, 12),
 }
 
@@ -426,6 +335,7 @@ _PYTHON_TYPE_BACKPORTS: dict[str, tuple[tuple[int, int], str]] = {
     "LiteralString": ((3, 11), "typing_extensions"),
     "Never": ((3, 11), "typing_extensions"),
     "NoDefault": ((3, 13), "typing_extensions"),
+    "NoExtraItems": ((3, 15), "typing_extensions"),
     "NotRequired": ((3, 11), "typing_extensions"),
     "ReadOnly": ((3, 13), "typing_extensions"),
     "Required": ((3, 11), "typing_extensions"),
@@ -435,35 +345,42 @@ _PYTHON_TYPE_BACKPORTS: dict[str, tuple[tuple[int, int], str]] = {
     "TypeForm": ((3, 15), "typing_extensions"),
     "TypeVarTuple": ((3, 11), "typing_extensions"),
     "Unpack": ((3, 11), "typing_extensions"),
+    "disjoint_base": ((3, 15), "typing_extensions"),
     "override": ((3, 12), "typing_extensions"),
 }
+
+
+def _is_target_type(module: str, type_name: str, target_version: tuple[int, int]) -> bool:
+    """Return whether the target has a listed type: introduced at or before it and not removed by it."""
+    if module == "builtins":
+        return is_target_builtin_name(type_name, target_version)
+    introduced = _TARGET_STABLE_PYTHON_TYPE_INTRODUCED_IN.get((module, type_name), (3, 10))
+    return is_target_name(module, type_name, introduced, target_version)
 
 
 def is_python_builtin_type_name(type_name: str, target_version: tuple[int, int]) -> bool:
     """Recognize target builtins statically without consulting the host runtime.
 
-    A bare target-newer name remains available for a user-defined symbol. Only an
+    A bare name the target lacks remains available for a user-defined symbol. Only an
     explicit ``builtins.Name`` path proves stdlib intent and is rejected below.
     """
-    if type_name not in _PYTHON_BUILTIN_TYPE_NAMES:
-        return False
-    return target_version >= _PYTHON_BUILTIN_TYPE_INTRODUCED_IN.get(type_name, (3, 10))
+    return type_name in PYTHON_BUILTIN_TYPE_NAMES and is_target_builtin_name(type_name, target_version)
 
 
 @lru_cache(maxsize=256)
 def get_python_type_import_path(type_name: str, target_version: tuple[int, int]) -> str | None:
-    """Return a static import path, distinguishing unknown and target-newer names."""
+    """Return a static import path, distinguishing unknown names and names the target lacks."""
     if (backport := _PYTHON_TYPE_BACKPORTS.get(type_name)) and target_version < backport[0]:
         return f"{backport[1]}.{type_name}"
     if import_path := _PYTHON_TYPE_IMPORT_PATHS.get(type_name):
         module, _, import_name = import_path.rpartition(".")
-        if target_version < _TARGET_STABLE_PYTHON_TYPE_INTRODUCED_IN.get((module, import_name), (3, 10)):
+        if not _is_target_type(module, import_name, target_version):
             raise PythonTypeUnavailableError(type_name, target_version)
         return import_path
     for module, names in _TARGET_STABLE_PYTHON_TYPE_MODULES:
         if type_name not in names:
             continue
-        if target_version < _TARGET_STABLE_PYTHON_TYPE_INTRODUCED_IN.get((module, type_name), (3, 10)):
+        if not _is_target_type(module, type_name, target_version):
             raise PythonTypeUnavailableError(type_name, target_version)
         return f"{module}.{type_name}"
     return None
@@ -475,8 +392,8 @@ def get_qualified_python_type_import_path(qualified_name: str, target_version: t
     module, separator, type_name = qualified_name.rpartition(".")
     if not separator:
         return qualified_name
-    if module == "builtins" and type_name in _PYTHON_BUILTIN_TYPE_NAMES:
-        if target_version < _PYTHON_BUILTIN_TYPE_INTRODUCED_IN.get(type_name, (3, 10)):
+    if module == "builtins" and type_name in PYTHON_BUILTIN_TYPE_NAMES:
+        if not _is_target_type(module, type_name, target_version):
             raise PythonTypeUnavailableError(qualified_name, target_version)
         return qualified_name
     for known_module, names in _TARGET_STABLE_PYTHON_TYPE_MODULES:
@@ -484,22 +401,26 @@ def get_qualified_python_type_import_path(qualified_name: str, target_version: t
             continue
         if (backport := _PYTHON_TYPE_BACKPORTS.get(type_name)) and target_version < backport[0]:
             return f"{backport[1]}.{type_name}"
-        if target_version < _TARGET_STABLE_PYTHON_TYPE_INTRODUCED_IN.get((module, type_name), (3, 10)):
+        if not _is_target_type(module, type_name, target_version):
             raise PythonTypeUnavailableError(qualified_name, target_version)
         return qualified_name
     return qualified_name
 
 
 @lru_cache(maxsize=256)
-def is_known_python_type_path(path: str) -> bool:
-    """Return whether a bare builtin name or a dotted path names a type this registry lists for any target."""
+def is_known_python_type_path(path: str, target_version: tuple[int, int]) -> bool:
+    """Return whether a bare builtin name or a dotted path names a type this registry lists that the target has.
+
+    A name the target lacks is as unknown as a user-defined symbol; a backport module has its names on every target.
+    """
     module, separator, type_name = path.rpartition(".")
     if not separator or module == "builtins":
-        return type_name in _PYTHON_BUILTIN_TYPE_NAMES
-    return (
+        return is_python_builtin_type_name(type_name, target_version)
+    if (backport := _PYTHON_TYPE_BACKPORTS.get(type_name)) is not None and backport[1] == module:
+        return True
+    return _is_target_type(module, type_name, target_version) and (
         any(module == known_module and type_name in names for known_module, names in _TARGET_STABLE_PYTHON_TYPE_MODULES)
         or _PYTHON_TYPE_IMPORT_PATHS.get(type_name) == path
-        or ((backport := _PYTHON_TYPE_BACKPORTS.get(type_name)) is not None and backport[1] == module)
     )
 
 

@@ -69,6 +69,10 @@ if TYPE_CHECKING:  # pragma: no cover
     from .client import Client
     from .run import Run
 
+#: The counts a version's `change.stats` may carry, whole numbers >= 0: the
+#: server's closed list (`app.catalog.datasets.CHANGE_STAT_KEYS`), which refuses
+#: the WHOLE registration over one other key, so the SDK drops it first.
+CHANGE_STAT_KEYS: tuple[str, ...] = ("files", "bytes", "rows", "tokens", "removed")
 #: How long `log_dataset` waits for its registration before it returns a
 #: pending ref (Q9): a slow server must never hold a training loop.
 REGISTER_WAIT_SECONDS = 10.0
@@ -288,11 +292,12 @@ def mixture_parts(parts: Mapping[Any, Any]) -> list[dict]:
 
 def composition_parts(composition: Mapping[Any, Any]) -> list[dict]:
     """`log_dataset(composition=...)` (C10) as the wire's `[{target, rows?, share}]`.
+    A target is a dataset version or a source (`probe.source(...)`'s ref).
 
     Row counts (ints) give shares computed from them; shares (floats summing to
     1 within `SHARE_TOLERANCE`) are sent as given. Never both kinds at once."""
     if not isinstance(composition, Mapping) or not composition:
-        raise CatalogRefused("a composition needs at least one {dataset ref: rows or share}")
+        raise CatalogRefused("a composition needs at least one {dataset or source ref: rows or share}")
     refs = []
     for target in composition:
         ref = ref_of(target)
@@ -1193,6 +1198,37 @@ def reference_spec(prepared: Prepared) -> dict:
     }
 
 
+def _stat_count(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if isinstance(value, float) and (not math.isfinite(value) or value != int(value)):
+        return None
+    return int(value) if value >= 0 else None
+
+
+def change_stats(stats: Mapping[str, Any]) -> dict[str, int]:
+    """The `stats` the server takes: `CHANGE_STAT_KEYS` with whole counts >= 0.
+    Anything else is dropped with one warning per key, so the dataset is still
+    recorded (the server would refuse the whole registration)."""
+    kept: dict[str, int] = {}
+    for key, value in stats.items():
+        count = _stat_count(value)
+        if key in CHANGE_STAT_KEYS and count is not None:
+            kept[key] = count
+            continue
+        why = (
+            f"`{key}` is not a stat Probe keeps (it keeps {', '.join(CHANGE_STAT_KEYS)})"
+            if key not in CHANGE_STAT_KEYS
+            else f"stats[{key!r}] must be a whole number >= 0, not {value!r}"
+        )
+        _warn_once(
+            f"log_dataset:stats:{key}",
+            f"probe: log_dataset: {why}; it was left out and the dataset is recorded without it. "
+            "Put other numbers in `note`.",
+        )
+    return kept
+
+
 def registration_body(
     name: str,
     *,
@@ -1220,7 +1256,9 @@ def registration_body(
     if stats:
         if not isinstance(stats, Mapping):
             raise CatalogRefused("stats must be a mapping of counts, e.g. {'rows': 98796, 'removed': 1204}")
-        change["stats"] = dict(stats)
+        kept = change_stats(stats)
+        if kept:
+            change["stats"] = kept
     if change:
         body["change"] = change
     refs = []

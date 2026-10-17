@@ -22,9 +22,7 @@ EXEC_URL = "https://sandbox-router.example.com/sb-123/execute/stream/start"
 
 def sse_response(httpx_mock: HTTPXMock, *events: tuple[str, object]) -> None:
     """Queue an SSE exec stream for the sandbox's start endpoint."""
-    httpx_mock.add_response(
-        method="POST", url=EXEC_URL, content=sse_bytes(*events), headers=SSE_HEADERS
-    )
+    httpx_mock.add_response(method="POST", url=EXEC_URL, content=sse_bytes(*events), headers=SSE_HEADERS)
 
 
 @pytest.fixture(autouse=True)
@@ -37,9 +35,7 @@ def sse_exec(monkeypatch):
 @pytest.fixture
 async def client():
     """Create an AsyncSandboxClient with retries disabled for test isolation."""
-    async with AsyncSandboxClient(
-        api_endpoint="http://test-server:8080", max_retries=0
-    ) as c:
+    async with AsyncSandboxClient(api_endpoint="http://test-server:8080", max_retries=0) as c:
         yield c
 
 
@@ -167,9 +163,7 @@ class TestAsyncSandboxStatusFields:
         assert sb.status == "ready"
         assert sb.status_message is None
 
-    async def test_dataplane_op_not_gated_on_status(
-        self, client, httpx_mock: HTTPXMock
-    ):
+    async def test_dataplane_op_not_gated_on_status(self, client, httpx_mock: HTTPXMock):
         """The client does not pre-check status: a stopped sandbox still runs;
         the platform resumes it when the dataplane request arrives."""
         sse_response(httpx_mock, started(), ("stdout", out(0, b"ok\n")), exited())
@@ -230,9 +224,7 @@ class TestAsyncSandboxRun:
     """
 
     async def test_run_command_success(self, sandbox, httpx_mock: HTTPXMock):
-        sse_response(
-            httpx_mock, started(), ("stdout", out(0, b"hello world\n")), exited(0)
-        )
+        sse_response(httpx_mock, started(), ("stdout", out(0, b"hello world\n")), exited(0))
 
         result = await sandbox.run("echo hello world")
 
@@ -258,16 +250,12 @@ class TestAsyncSandboxRun:
         """A dial that keeps failing is retried, then reported."""
         import httpx
 
-        httpx_mock.add_exception(
-            httpx.ConnectError("Connection refused"), is_reusable=True
-        )
+        httpx_mock.add_exception(httpx.ConnectError("Connection refused"), is_reusable=True)
 
         with pytest.raises(SandboxConnectionError):
             await sandbox.run("echo hello")
 
-    async def test_run_starting_sandbox_raises_not_ready(
-        self, sandbox, httpx_mock: HTTPXMock
-    ):
+    async def test_run_starting_sandbox_raises_not_ready(self, sandbox, httpx_mock: HTTPXMock):
         """Router startup refusals map to SandboxNotReadyError."""
         httpx_mock.add_response(
             method="POST",
@@ -499,9 +487,7 @@ class TestAsyncSandboxRead:
 class TestAsyncSandboxContextManager:
     """Tests for async sandbox context manager."""
 
-    async def test_auto_delete_on_exit(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_auto_delete_on_exit(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test sandbox is deleted on async context exit."""
         httpx_mock.add_response(
             method="DELETE",
@@ -525,9 +511,7 @@ class TestAsyncSandboxContextManager:
         assert len(requests) == 1
         assert requests[0].method == "DELETE"
 
-    async def test_no_delete_when_auto_delete_false(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_no_delete_when_auto_delete_false(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test sandbox is not deleted when auto_delete is False."""
         sandbox = AsyncSandbox.from_dict(
             data={
@@ -569,7 +553,5 @@ class TestAsyncSandboxService:
 
         result = await sb.service(port=3000, expires_in_seconds=1800)
 
-        client.service.assert_called_once_with(
-            "test-sandbox", 3000, expires_in_seconds=1800, headers=None
-        )
+        client.service.assert_called_once_with("test-sandbox", 3000, expires_in_seconds=1800, headers=None)
         assert result is mock_svc

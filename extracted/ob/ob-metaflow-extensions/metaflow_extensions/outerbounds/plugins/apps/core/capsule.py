@@ -433,6 +433,7 @@ class CapsuleInput:
             "port": cls._marshal_port(app_config),
             "displayName": app_config.get_state("name"),
             "forceUpdate": app_config.get_state("force_upgrade", False),
+            "suspend": bool(app_config.get_state("suspend", False)),
         }
 
     @classmethod
@@ -686,6 +687,14 @@ class CapsuleApi:
             return True
         return False
 
+    def suspend(self, capsule_id: str):
+        url = os.path.join(self._base_url, capsule_id, "suspend")
+        self._wrapped_api_caller(requests.put, url, **self._retry_parameters([], 3))
+
+    def resume(self, capsule_id: str):
+        url = os.path.join(self._base_url, capsule_id, "resume")
+        self._wrapped_api_caller(requests.put, url, **self._retry_parameters([], 3))
+
     def get_workers(self, capsule_id: str) -> List[Dict[str, Any]]:
         _url = os.path.join(self._base_url, capsule_id, "workers")
         response = self._wrapped_api_caller(
@@ -807,7 +816,7 @@ class CapsuleDeployer:
             base_url,
             app_config.get_state("perimeter"),
             logger_fn=logger_fn or partial(print, file=sys.stderr),
-            retry_500s=True
+            retry_500s=True,
             # retry for 5xx because during the capsule deployer might even be used
             # programmatically so any intermittent breakage shouldnt break the overall
             # control flow unless the breakage is severe (maybe over 20s of complete outage)
@@ -866,8 +875,46 @@ class CapsuleDeployer:
     def get(self):
         return self._capsule_api.get(self.identifier)
 
+    def get_after_create(self):
+        """Wait for the cached GET to reflect the accepted POST version."""
+        for attempt in range(10):
+            try:
+                response = self.get()
+            except CapsuleApiException as e:
+                if e.status_code != 404 or attempt == 9:
+                    raise
+                time.sleep(1)
+                continue
+            if response.get("version") == self.current_deployment_instance_version:
+                return response
+            if attempt < 9:
+                time.sleep(1)
+        raise CapsuleConcurrentUpgradeException(
+            self.identifier,
+            expected_version=self.current_deployment_instance_version,
+            actual_version=response.get("version"),
+            modified_by=(response.get("metadata") or {}).get("lastModifiedBy"),
+            modified_at=(response.get("metadata") or {}).get("lastModifiedAt"),
+        )
+
     def get_workers(self):
         return self._capsule_api.get_workers(self.identifier)
+
+    def accepted_suspended_status(self, capsule_response):
+        """Describe an accepted suspended deploy without claiming traffic readiness."""
+        access_info = (capsule_response.get("status") or {}).get("accessInfo") or {}
+        auth_type = self._app_config.get_state("auth", {}).get("type", AuthType.default)
+        return dict(
+            id=self.identifier,
+            auth_type=auth_type,
+            public_url=_format_url_string(access_info.get("outOfClusterURL"), True)
+            or self.url,
+            name=self.name,
+            deployed_version=self.current_deployment_instance_version,
+            deployed_at=datetime.now().isoformat(),
+            accepted=True,
+            readiness_verified=False,
+        )
 
     def _backend_version_mismatch_check(
         self, capsule_response: dict, current_deployment_instance_version: str

@@ -1,5 +1,6 @@
 import re
 import textwrap
+from collections.abc import Iterator
 from enum import Enum
 from typing import Any, cast
 
@@ -17,8 +18,7 @@ PENDING_TRACK_ID = -1
 
 
 class ColorLookup(Enum):
-    """
-    Enumeration class to define strategies for mapping colors to annotations.
+    """Enumeration class to define strategies for mapping colors to annotations.
 
     This enum supports three different lookup strategies:
         - `INDEX`: Colors are determined by the index of the detection within the scene.
@@ -68,8 +68,8 @@ def resolve_color_idx(
         if detections.tracker_id is None:
             raise ValueError(
                 "Could not resolve color by track because "
-                "Detections do not have tracker_id. Did you call "
-                "tracker.update_with_detections(...) before annotating?"
+                "Detections do not have tracker_id. Did you run a tracker's "
+                "update(...) method (e.g. ByteTrackTracker) before annotating?"
             )
         return int(detections.tracker_id[detection_idx])
     raise ValueError(f"Unsupported color lookup strategy: {color_lookup}")
@@ -131,7 +131,8 @@ def resolve_text_background_xyxy(
 
 
 def get_color_by_index(color: Color | ColorPalette, idx: int) -> Color:
-    """Resolve a color-like object to a concrete `Color` for an index."""
+    """Resolve a color-like object to a concrete :class:`~supervision.draw.color.Color`
+    for an index."""
     color_like = cast(Any, color)
     # Accept ColorPalette-like objects without depending on their exact concrete class.
     if callable(getattr(color_like, "by_idx", None)):
@@ -166,10 +167,83 @@ def resolve_color(
     return get_color_by_index(color=color, idx=idx)
 
 
-def wrap_text(text: object, max_line_length: int | None = None) -> list[str]:
+def _resolve_annotator_color(
+    color: Color | ColorPalette,
+    detections: Detections,
+    detection_idx: int,
+    color_lookup: ColorLookup | npt.NDArray[np.int_],
+    custom_color_lookup: ColorLookup | npt.NDArray[np.int_] | None,
+) -> Color:
+    """Resolve a detection's color, letting a per-call lookup override the default.
+
+    Every annotator accepts an optional `custom_color_lookup` on `annotate()` that
+    takes precedence over the lookup it was constructed with. Holding that precedence
+    rule here gives it one definition instead of restating the same conditional at
+    each of the annotators'
+    :func:`~supervision.annotators.utils.resolve_color` call sites.
+
+    Args:
+        color: The annotator's color or palette.
+        detections: The detections being annotated.
+        detection_idx: Index of the detection whose color to resolve.
+        color_lookup: The lookup the annotator was constructed with, used when
+            `custom_color_lookup` is `None`.
+        custom_color_lookup: Per-call lookup override, or `None` to keep
+            `color_lookup`.
+
+    Returns:
+        The resolved color for `detection_idx`.
     """
-    Wrap `text` to the specified maximum line length, respecting existing
-    newlines. Falls back to str() if `text` is not already a string.
+    return resolve_color(
+        color=color,
+        detections=detections,
+        detection_idx=detection_idx,
+        color_lookup=color_lookup
+        if custom_color_lookup is None
+        else custom_color_lookup,
+    )
+
+
+def _iter_resolved_colors(
+    detections: Detections,
+    color: Color | ColorPalette,
+    color_lookup: ColorLookup | npt.NDArray[np.int_],
+    custom_color_lookup: ColorLookup | npt.NDArray[np.int_] | None,
+) -> Iterator[tuple[int, Color]]:
+    """Iterate detections paired with the color each should be drawn in.
+
+    Annotators that draw one shape per detection all open with the same loop: walk
+    `range(len(detections))` and resolve that index's color. Yielding both together
+    keeps the color-precedence arguments, which do not vary across iterations, at the
+    loop header instead of restating them inside every iteration.
+
+    Args:
+        detections: The detections being annotated.
+        color: The annotator's color or palette.
+        color_lookup: The lookup the annotator was constructed with, used when
+            `custom_color_lookup` is `None`.
+        custom_color_lookup: Per-call lookup override, or `None` to keep
+            `color_lookup`.
+
+    Yields:
+        Tuples of `(detection_idx, color)`, in detection order.
+    """
+    for detection_idx in range(len(detections)):
+        yield (
+            detection_idx,
+            _resolve_annotator_color(
+                color=color,
+                detections=detections,
+                detection_idx=detection_idx,
+                color_lookup=color_lookup,
+                custom_color_lookup=custom_color_lookup,
+            ),
+        )
+
+
+def wrap_text(text: object, max_line_length: int | None = None) -> list[str]:
+    """Wrap `text` to the specified maximum line length, respecting existing newlines.
+    Falls back to str() if `text` is not already a string.
 
     Args:
         text: The text (or object) to wrap.
@@ -178,7 +252,6 @@ def wrap_text(text: object, max_line_length: int | None = None) -> list[str]:
     Returns:
         Wrapped lines.
     """
-
     if not text:
         return [""]
 
@@ -213,8 +286,7 @@ def wrap_text(text: object, max_line_length: int | None = None) -> list[str]:
 
 
 def _validate_labels(labels: list[str] | None, detections: Detections) -> None:
-    """
-    Validates that the number of provided labels matches the number of detections.
+    """Validates that the number of provided labels matches the number of detections.
 
     Args:
         labels: A list of labels, one for each detection. Can
@@ -245,8 +317,7 @@ def validate_labels(labels: list[str] | None, detections: Detections) -> None:
 def get_labels_text(
     detections: Detections, custom_labels: list[str] | None
 ) -> list[str]:
-    """
-    Retrieves the text labels for the detections.
+    """Retrieves the text labels for the detections.
 
     If `custom_labels` are provided, they are used. Otherwise, the labels are
     extracted from the `detections` object, prioritizing the 'class_name' field,
@@ -262,7 +333,8 @@ def get_labels_text(
     Raises:
         ValueError: If `class_name` or `class_id` is present but its length
             does not match the number of detections (e.g. `detections.data`
-            was mutated directly, bypassing `Detections` alignment checks).
+            was mutated directly, bypassing
+            :class:`~supervision.detection.core.Detections` alignment checks).
     """
     if custom_labels is not None:
         return custom_labels
@@ -295,11 +367,10 @@ def snap_boxes(
     xyxy: npt.NDArray[np.float32],
     resolution_wh: tuple[int, int],
 ) -> npt.NDArray[np.float32]:
-    """
-    Shifts `label` bounding boxes into the frame so that they are fully contained
-    within the given resolution, prioritizing the top/left edge.
-    Unlike `clip_boxes`, this function does not crop boxes.
-    It moves them entirely if they exceed the frame boundaries.
+    """Shifts `label` bounding boxes into the frame so that they are fully contained
+    within the given resolution, prioritizing the top/left edge. Unlike
+    :func:`~supervision.detection.utils.boxes.clip_boxes`, this function does not crop
+    boxes. It moves them entirely if they exceed the frame boundaries.
 
     Args:
         xyxy: A numpy array of shape `(N, 4)` where each
@@ -432,9 +503,9 @@ class Trace:
     def reset(self) -> None:
         """Restore the trace buffers to their initial empty state.
 
-        Clears the accumulated `frame_id`, `xy`, and `tracker_id` history and
-        rewinds `current_frame_id` to `0`, so the trace can be reused across
-        independent streams without carrying over points from a previous run.
+        Clears the accumulated `frame_id`, `xy`, and `tracker_id` history and rewinds
+        `current_frame_id` to `0`, so the trace can be reused across independent streams
+        without carrying over points from a previous run.
         """
         self.current_frame_id = 0
         self.frame_id = np.array([], dtype=int)
@@ -443,8 +514,7 @@ class Trace:
 
 
 def hex_to_rgba(hex_color: str) -> tuple[int, int, int, int]:
-    """
-    Converts a hex color string (e.g. "#FF00FF" or "#FF00FF80") to an RGBA tuple.
+    """Converts a hex color string (e.g. "#FF00FF" or "#FF00FF80") to an RGBA tuple.
 
     Args:
         hex_color: A hex color string.
@@ -481,8 +551,7 @@ def hex_to_rgba(hex_color: str) -> tuple[int, int, int, int]:
 
 
 def rgba_to_hex(rgba: tuple[int, int, int, int]) -> str:
-    """
-    Converts an RGBA tuple (0-255 each) to a hex color string.
+    """Converts an RGBA tuple (0-255 each) to a hex color string.
 
     Args:
         rgba: RGBA values in range 0-255.
@@ -507,8 +576,7 @@ def rgba_to_hex(rgba: tuple[int, int, int, int]) -> str:
 
 
 def is_valid_hex(hex_color: str) -> bool:
-    """
-    Checks if a given string is a valid hex color.
+    """Checks if a given string is a valid hex color.
 
     Args:
         hex_color: A hex color string with an optional leading "#". Supports
@@ -531,8 +599,7 @@ def is_valid_hex(hex_color: str) -> bool:
 
 
 def calculate_dynamic_kernel_size(x1: int, y1: int, x2: int, y2: int) -> int:
-    """
-    Computes a blur kernel size proportional to the shorter side of a bounding box.
+    """Computes a blur kernel size proportional to the shorter side of a bounding box.
 
     Args:
         x1: Left edge of the bounding box.
@@ -554,8 +621,7 @@ def calculate_dynamic_kernel_size(x1: int, y1: int, x2: int, y2: int) -> int:
 
 
 def calculate_dynamic_pixel_size(x1: int, y1: int, x2: int, y2: int) -> int:
-    """
-    Computes a pixelation size proportional to the shorter side of a bounding box.
+    """Computes a pixelation size proportional to the shorter side of a bounding box.
 
     Args:
         x1: Left edge of the bounding box.

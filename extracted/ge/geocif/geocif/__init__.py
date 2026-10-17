@@ -27,6 +27,6 @@ except ImportError:
 
 __author__ = """Ritvik Sahajpal"""
 __email__ = "ritvik@umd.edu"
-__version__ = "0.4.1084"
+__version__ = "0.4.1087"
 
 __all__ = ["ml", "cid", "viz", "agmet", "fdw_export", "dashboard", "data_prep", "phenology"]

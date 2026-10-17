@@ -29,15 +29,15 @@ from setuptools import Extension, setup
 lzfse_src_path = Path('lzfse/src')
 lzfse_src = [
     *[str(f) for f in lzfse_src_path.glob('*.c') if f != 'lzfse/src/lzfse_main.c'],
-    'pylzfse.c'
+    'pylzfse.c',
 ]
 
 setup(
     ext_modules=[
-            Extension(
-                  'lzfse',
-                  sources=lzfse_src,
-                  include_dirs=[str(lzfse_src_path)],
-            )
+        Extension(
+            'lzfse',
+            sources=lzfse_src,
+            include_dirs=[str(lzfse_src_path)],
+        )
     ]
 )

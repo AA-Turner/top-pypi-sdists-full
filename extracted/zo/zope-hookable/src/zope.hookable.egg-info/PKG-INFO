@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.hookable
-Version: 8.3
+Version: 8.4
 Summary: Zope hookable
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -16,8 +16,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -25,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Provides-Extra: docs
@@ -75,6 +73,14 @@ Documentation is hosted at https://zopehookable.readthedocs.io
 
 Change log
 ==========
+
+8.4 (2026-10-16)
+----------------
+
+- Add support for Python 3.15.
+
+- Drop support for Python 3.10.
+
 
 8.3 (2026-08-20)
 ----------------

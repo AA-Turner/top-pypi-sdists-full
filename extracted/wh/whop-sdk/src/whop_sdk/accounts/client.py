@@ -9,6 +9,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.account import Account
+from ..types.account_search_result import AccountSearchResult
 from .raw_client import AsyncRawAccountsClient, RawAccountsClient
 from .types.delete_accounts_response import DeleteAccountsResponse
 from .types.form_company_accounts_request_business_address import FormCompanyAccountsRequestBusinessAddress
@@ -23,6 +24,9 @@ from .types.list_accounts_request_order import ListAccountsRequestOrder
 from .types.list_accounts_request_status import ListAccountsRequestStatus
 from .types.list_accounts_response import ListAccountsResponse
 from .types.retry_ads_payment_accounts_response import RetryAdsPaymentAccountsResponse
+from .types.search_accounts_request_direction import SearchAccountsRequestDirection
+from .types.search_accounts_request_order import SearchAccountsRequestOrder
+from .types.search_accounts_response import SearchAccountsResponse
 from .types.transfer_ownership_accounts_response import TransferOwnershipAccountsResponse
 from .types.update_accounts_request_banner_image import UpdateAccountsRequestBannerImage
 from .types.update_accounts_request_business_address import UpdateAccountsRequestBusinessAddress
@@ -91,6 +95,7 @@ class AccountsClient:
         volume_min: typing.Optional[float] = None,
         volume_max: typing.Optional[float] = None,
         parent_account_id: typing.Optional[str] = None,
+        owner_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[Account, ListAccountsResponse]:
         """
@@ -137,6 +142,9 @@ class AccountsClient:
         parent_account_id : typing.Optional[str]
             For platforms: the parent account ID whose direct connected accounts to return. Requires `payout:account:read` on the parent account.
 
+        owner_id : typing.Optional[str]
+            Return only accounts owned by this user (`user_...`), the account's `owner`. Cannot be combined with `parent_account_id`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -150,7 +158,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -175,6 +183,7 @@ class AccountsClient:
             volume_min=volume_min,
             volume_max=volume_max,
             parent_account_id=parent_account_id,
+            owner_id=owner_id,
             request_options=request_options,
         )
 
@@ -241,7 +250,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -286,7 +295,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -294,6 +303,81 @@ class AccountsClient:
         """
         _response = self._raw_client.me(include_trading=include_trading, request_options=request_options)
         return _response.data
+
+    def search(
+        self,
+        *,
+        query: str,
+        first: typing.Optional[int] = None,
+        after: typing.Optional[str] = None,
+        last: typing.Optional[int] = None,
+        before: typing.Optional[str] = None,
+        order: typing.Optional[SearchAccountsRequestOrder] = None,
+        direction: typing.Optional[SearchAccountsRequestDirection] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> SyncPager[AccountSearchResult, SearchAccountsResponse]:
+        """
+        Finds accounts by name among the accounts the credential can list. Support searches cover every company and return only the 50 best matches.
+
+        Parameters
+        ----------
+        query : str
+            The account name to search for.
+
+        first : typing.Optional[int]
+            Number of results to return from the start of the range.
+
+        after : typing.Optional[str]
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
+
+        last : typing.Optional[int]
+            Number of results to return from the end of the range.
+
+        before : typing.Optional[str]
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
+
+        order : typing.Optional[SearchAccountsRequestOrder]
+            Sort field. Without it, support searches return the best match first and other searches return the newest account first.
+
+        direction : typing.Optional[SearchAccountsRequestDirection]
+            Sort direction.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SyncPager[AccountSearchResult, SearchAccountsResponse]
+            accounts found
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-10-15-1",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        response = client.accounts.search(
+            query="query",
+        )
+        for item in response:
+            yield item
+        # alternatively, you can paginate page-by-page
+        for page in response.iter_pages():
+            yield page
+        """
+        return self._raw_client.search(
+            query=query,
+            first=first,
+            after=after,
+            last=last,
+            before=before,
+            order=order,
+            direction=direction,
+            request_options=request_options,
+        )
 
     def retrieve(
         self,
@@ -319,14 +403,14 @@ class AccountsClient:
         Returns
         -------
         Account
-            account settling on stablecoin rails
+            account with an individual card application
 
         Examples
         --------
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -359,7 +443,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -420,6 +504,7 @@ class AccountsClient:
         title: typing.Optional[str] = OMIT,
         use_logo_as_opengraph_image_fallback: typing.Optional[bool] = OMIT,
         website: typing.Optional[str] = OMIT,
+        whop_partner_enabled: typing.Optional[bool] = OMIT,
         industry_type: typing.Optional[typing.Any] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Account:
@@ -563,6 +648,9 @@ class AccountsClient:
         website : typing.Optional[str]
             The account's business website, as an `http` or `https` URL of at most 255 characters. Also added to the account's `social_links` as a `website` entry. Pass `null` to clear the website; existing social links are left unchanged.
 
+        whop_partner_enabled : typing.Optional[bool]
+            Set to `true` to turn on Whop Partner mode for the account, so its team can refer businesses and the account is paid partner commission on their sales. Recorded once; `false` is rejected.
+
         industry_type : typing.Optional[typing.Any]
 
         request_options : typing.Optional[RequestOptions]
@@ -578,7 +666,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -632,6 +720,7 @@ class AccountsClient:
             title=title,
             use_logo_as_opengraph_image_fallback=use_logo_as_opengraph_image_fallback,
             website=website,
+            whop_partner_enabled=whop_partner_enabled,
             industry_type=industry_type,
             request_options=request_options,
         )
@@ -714,7 +803,7 @@ class AccountsClient:
         )
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -804,7 +893,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -837,7 +926,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -859,7 +948,7 @@ class AccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> TransferOwnershipAccountsResponse:
         """
-        Transfers ownership of the account to another user, identified by user ID or email address. If the recipient already holds the owner role, ownership moves immediately; otherwise they get an invite and ownership moves when they accept.
+        Transfers ownership of the account to another user, identified by user ID or email address. If the recipient already holds the owner role, ownership moves immediately; otherwise they get an invite and ownership moves when they accept. The Whop CLI and MCP can hand off a business their user owns as a partner (`as_partner: true`) with the `partner:handoff` scope; other OAuth apps cannot transfer ownership.
 
         Parameters
         ----------
@@ -891,7 +980,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -979,6 +1068,7 @@ class AsyncAccountsClient:
         volume_min: typing.Optional[float] = None,
         volume_max: typing.Optional[float] = None,
         parent_account_id: typing.Optional[str] = None,
+        owner_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[Account, ListAccountsResponse]:
         """
@@ -1025,6 +1115,9 @@ class AsyncAccountsClient:
         parent_account_id : typing.Optional[str]
             For platforms: the parent account ID whose direct connected accounts to return. Requires `payout:account:read` on the parent account.
 
+        owner_id : typing.Optional[str]
+            Return only accounts owned by this user (`user_...`), the account's `owner`. Cannot be combined with `parent_account_id`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1040,7 +1133,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1072,6 +1165,7 @@ class AsyncAccountsClient:
             volume_min=volume_min,
             volume_max=volume_max,
             parent_account_id=parent_account_id,
+            owner_id=owner_id,
             request_options=request_options,
         )
 
@@ -1140,7 +1234,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1193,7 +1287,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1207,6 +1301,90 @@ class AsyncAccountsClient:
         """
         _response = await self._raw_client.me(include_trading=include_trading, request_options=request_options)
         return _response.data
+
+    async def search(
+        self,
+        *,
+        query: str,
+        first: typing.Optional[int] = None,
+        after: typing.Optional[str] = None,
+        last: typing.Optional[int] = None,
+        before: typing.Optional[str] = None,
+        order: typing.Optional[SearchAccountsRequestOrder] = None,
+        direction: typing.Optional[SearchAccountsRequestDirection] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncPager[AccountSearchResult, SearchAccountsResponse]:
+        """
+        Finds accounts by name among the accounts the credential can list. Support searches cover every company and return only the 50 best matches.
+
+        Parameters
+        ----------
+        query : str
+            The account name to search for.
+
+        first : typing.Optional[int]
+            Number of results to return from the start of the range.
+
+        after : typing.Optional[str]
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
+
+        last : typing.Optional[int]
+            Number of results to return from the end of the range.
+
+        before : typing.Optional[str]
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
+
+        order : typing.Optional[SearchAccountsRequestOrder]
+            Sort field. Without it, support searches return the best match first and other searches return the newest account first.
+
+        direction : typing.Optional[SearchAccountsRequestDirection]
+            Sort direction.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncPager[AccountSearchResult, SearchAccountsResponse]
+            accounts found
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-10-15-1",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            response = await client.accounts.search(
+                query="query",
+            )
+            async for item in response:
+                yield item
+
+            # alternatively, you can paginate page-by-page
+            async for page in response.iter_pages():
+                yield page
+
+
+        asyncio.run(main())
+        """
+        return await self._raw_client.search(
+            query=query,
+            first=first,
+            after=after,
+            last=last,
+            before=before,
+            order=order,
+            direction=direction,
+            request_options=request_options,
+        )
 
     async def retrieve(
         self,
@@ -1232,7 +1410,7 @@ class AsyncAccountsClient:
         Returns
         -------
         Account
-            account settling on stablecoin rails
+            account with an individual card application
 
         Examples
         --------
@@ -1241,7 +1419,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1286,7 +1464,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1353,6 +1531,7 @@ class AsyncAccountsClient:
         title: typing.Optional[str] = OMIT,
         use_logo_as_opengraph_image_fallback: typing.Optional[bool] = OMIT,
         website: typing.Optional[str] = OMIT,
+        whop_partner_enabled: typing.Optional[bool] = OMIT,
         industry_type: typing.Optional[typing.Any] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Account:
@@ -1496,6 +1675,9 @@ class AsyncAccountsClient:
         website : typing.Optional[str]
             The account's business website, as an `http` or `https` URL of at most 255 characters. Also added to the account's `social_links` as a `website` entry. Pass `null` to clear the website; existing social links are left unchanged.
 
+        whop_partner_enabled : typing.Optional[bool]
+            Set to `true` to turn on Whop Partner mode for the account, so its team can refer businesses and the account is paid partner commission on their sales. Recorded once; `false` is rejected.
+
         industry_type : typing.Optional[typing.Any]
 
         request_options : typing.Optional[RequestOptions]
@@ -1513,7 +1695,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1573,6 +1755,7 @@ class AsyncAccountsClient:
             title=title,
             use_logo_as_opengraph_image_fallback=use_logo_as_opengraph_image_fallback,
             website=website,
+            whop_partner_enabled=whop_partner_enabled,
             industry_type=industry_type,
             request_options=request_options,
         )
@@ -1657,7 +1840,7 @@ class AsyncAccountsClient:
         )
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1755,7 +1938,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1796,7 +1979,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1824,7 +2007,7 @@ class AsyncAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> TransferOwnershipAccountsResponse:
         """
-        Transfers ownership of the account to another user, identified by user ID or email address. If the recipient already holds the owner role, ownership moves immediately; otherwise they get an invite and ownership moves when they accept.
+        Transfers ownership of the account to another user, identified by user ID or email address. If the recipient already holds the owner role, ownership moves immediately; otherwise they get an invite and ownership moves when they accept. The Whop CLI and MCP can hand off a business their user owns as a partner (`as_partner: true`) with the `partner:handoff` scope; other OAuth apps cannot transfer ownership.
 
         Parameters
         ----------
@@ -1858,7 +2041,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

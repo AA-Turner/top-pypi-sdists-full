@@ -66,6 +66,7 @@ from matrx_ai.tools.arg_models import (
     ShellExecuteArgs,
     ShellJobArgs,
     ShellPythonArgs,
+    AdvancedReadArgs,
     SiteDataArgs,
     SkillArgs,
     SqlArgs,
@@ -875,6 +876,9 @@ _MODULE_LOADERS = {
     ),
     "matrx_ai.tools.implementations.site_data": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.site_data"
+    ),
+    "matrx_ai.tools.implementations.advanced_read": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.advanced_read"
     ),
     "matrx_ai.tools.implementations.widgets": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.widgets"
@@ -1820,6 +1824,14 @@ _reg(
     SiteDataArgs,
     "matrx_ai.tools.implementations.site_data",
     "site_data",
+)
+_reg(
+    "advanced_read",
+    "native",
+    None,
+    AdvancedReadArgs,
+    "matrx_ai.tools.implementations.advanced_read",
+    "advanced_read",
 )
 _reg(
     "widget_attach_media",

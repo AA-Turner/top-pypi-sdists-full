@@ -5,7 +5,6 @@ import datetime
 import typing
 import warnings
 
-import Common.Util
 import QuantConnect
 import QuantConnect.Data
 import QuantConnect.Data.Market
@@ -14,6 +13,7 @@ import QuantConnect.Indicators
 import QuantConnect.Interfaces
 import QuantConnect.Orders
 import QuantConnect.Securities
+import QuantConnect.Util
 import System
 import System.Collections.Generic
 import System.IO
@@ -474,7 +474,7 @@ class OptionContract(QuantConnect.Data.Market.BaseContract):
         ...
 
 
-class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], Common.Util.BaseExtendedDictionary[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T], typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T]]):
+class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], QuantConnect.Util.BaseExtendedDictionary[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T, System.Collections.Generic.Dictionary[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T]], typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T]]):
     """Provides a base class for types holding base data instances keyed by symbol"""
 
     @property
@@ -506,8 +506,28 @@ class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], 
         """
         ...
 
+    def __contains__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Determines whether the dictionary contains the specified key
+        
+        :param key: The key to locate in the dictionary
+        :returns: true if the dictionary contains an element with the specified key; otherwise, false.
+        """
+        ...
+
+    @overload
     def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect_Data_Market_DataDictionary_T:
         """Gets or sets the element with the specified key."""
+        ...
+
+    @overload
+    def __getitem__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect_Data_Market_DataDictionary_T:
+        """
+        Gets or sets the value associated with the specified key
+        
+        :param key: The key of the value to get or set
+        :returns: The value associated with the specified key.
+        """
         ...
 
     @overload
@@ -538,8 +558,29 @@ class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T]]:
         ...
 
+    @overload
     def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect_Data_Market_DataDictionary_T) -> None:
         """Gets or sets the element with the specified key."""
+        ...
+
+    @overload
+    def __setitem__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect_Data_Market_DataDictionary_T) -> None:
+        """
+        Gets or sets the value associated with the specified key
+        
+        :param key: The key of the value to get or set
+        :returns: The value associated with the specified key.
+        """
+        ...
+
+    @overload
+    def add(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect_Data_Market_DataDictionary_T) -> None:
+        """
+        Adds an element with the provided key and value to the dictionary
+        
+        :param key: The key of the element to add
+        :param value: The value of the element to add
+        """
         ...
 
     @overload
@@ -563,6 +604,15 @@ class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], 
 
     def clear(self) -> None:
         """Removes all items from the dictionary"""
+        ...
+
+    def contains_key(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Determines whether the dictionary contains the specified key
+        
+        :param key: The key to locate in the dictionary
+        :returns: true if the dictionary contains an element with the specified key; otherwise, false.
+        """
         ...
 
     def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T]]:
@@ -596,12 +646,32 @@ class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], 
         ...
 
     @overload
+    def remove(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Removes the value with the specified key
+        
+        :param key: The key of the element to remove
+        :returns: true if the element was successfully found and removed; otherwise, false.
+        """
+        ...
+
+    @overload
     def remove(self, item: System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T]) -> bool:
         """
         Removes the first occurrence of a specific object from the dictionary
         
         :param item: The key-value pair to remove
         :returns: true if the key-value pair was successfully removed; otherwise, false.
+        """
+        ...
+
+    def try_get_value(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: typing.Optional[QuantConnect_Data_Market_DataDictionary_T]) -> typing.Tuple[bool, QuantConnect_Data_Market_DataDictionary_T]:
+        """
+        Gets the value associated with the specified key
+        
+        :param key: The key whose value to get
+        :param value: When this method returns, the value associated with the specified key
+        :returns: true if the key was found; otherwise, false.
         """
         ...
 

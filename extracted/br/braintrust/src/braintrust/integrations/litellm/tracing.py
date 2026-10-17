@@ -3,11 +3,12 @@
 import logging
 import time
 from collections.abc import AsyncGenerator, Generator
+from dataclasses import dataclass
 from functools import lru_cache
 from types import TracebackType
 from typing import Any
 
-from braintrust.integrations.openai.tracing import _decisions_input, _decisions_output
+from braintrust.integrations.openai.tracing import _decisions_input, _decisions_output, _process_attachments_in_input
 from braintrust.integrations.utils import (
     _extract_audio_output,
     _materialize_attachment,
@@ -26,6 +27,15 @@ from braintrust.util import clean_nones, is_numeric, merge_dicts
 _INSTRUMENTATION = "litellm-auto"
 
 _log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _CompletionStreamChunk:
+    """Keep the provider chunk while snapshotting only fields used for logging."""
+
+    raw: Any
+    metrics: dict[str, Any]
+    choices: list[dict[str, Any]]
 
 
 def start_span(*args, **kwargs):
@@ -143,12 +153,12 @@ def _handle_completion_streaming(
         async def async_gen() -> AsyncGenerator[Any, None]:
             try:
                 first = True
-                all_results: list[dict[str, Any]] = []
+                all_results: list[_CompletionStreamChunk] = []
                 async for item in raw_response:
                     if first:
                         span.log(metrics={"time_to_first_token": time.time() - start_time})
                         first = False
-                    all_results.append(_try_to_dict(item))
+                    all_results.append(_snapshot_completion_stream_chunk(item))
                     yield item
 
                 span.log(**_postprocess_completion_streaming_results(all_results))
@@ -161,12 +171,12 @@ def _handle_completion_streaming(
         def sync_gen() -> Generator[Any, None, None]:
             try:
                 first = True
-                all_results: list[dict[str, Any]] = []
+                all_results: list[_CompletionStreamChunk] = []
                 for item in raw_response:
                     if first:
                         span.log(metrics={"time_to_first_token": time.time() - start_time})
                         first = False
-                    all_results.append(_try_to_dict(item))
+                    all_results.append(_snapshot_completion_stream_chunk(item))
                     yield item
 
                 span.log(**_postprocess_completion_streaming_results(all_results))
@@ -633,61 +643,110 @@ async def _atranscription_wrapper_async(wrapped, instance, args, kwargs):
 # ---------------------------------------------------------------------------
 
 
-def _postprocess_completion_streaming_results(all_results: list[dict[str, Any]]) -> dict[str, Any]:
+def _snapshot_completion_stream_chunk(item: Any) -> _CompletionStreamChunk:
+    """Capture the small subset of a chunk used by aggregation, before yielding it."""
+    usage = _get_field(item, "usage")
+    metrics = _parse_metrics_from_usage(usage) if usage else {}
+
+    choices = []
+    for choice in _get_field(item, "choices", []):
+        delta = _get_field(choice, "delta")
+        delta_snapshot = None
+        if delta:
+            tool_calls = _get_field(delta, "tool_calls")
+            delta_snapshot = {
+                "role": _get_field(delta, "role"),
+                "finish_reason": _get_field(delta, "finish_reason"),
+                "content": _get_field(delta, "content"),
+                "tool_calls": [
+                    {
+                        "id": _get_field(tool_call, "id"),
+                        "type": _get_field(tool_call, "type"),
+                        "function": {
+                            "name": _get_field(_get_field(tool_call, "function"), "name"),
+                            "arguments": _get_field(_get_field(tool_call, "function"), "arguments"),
+                        },
+                    }
+                    for tool_call in tool_calls or []
+                ]
+                if tool_calls is not None
+                else None,
+            }
+
+        choices.append(
+            {
+                "finish_reason": _get_field(choice, "finish_reason"),
+                "text": _get_field(choice, "text"),
+                "delta": delta_snapshot,
+            }
+        )
+
+    return _CompletionStreamChunk(raw=item, metrics=metrics, choices=choices)
+
+
+def _postprocess_completion_streaming_results(all_results: list[_CompletionStreamChunk]) -> dict[str, Any]:
     """Process streaming results to extract final response."""
     role = None
     content = None
     text = None
-    tool_calls: list[Any] | None = None
+    tool_calls: list[dict[str, Any]] = []
     finish_reason = None
     metrics: dict[str, float] = {}
 
     for result in all_results:
-        usage = result.get("usage")
-        if usage:
-            metrics.update(_parse_metrics_from_usage(usage))
+        metrics.update(_get_field(result, "metrics", {}))
 
-        choices = result["choices"]
+        choices = _get_field(result, "choices", [])
         if not choices:
             continue
         choice = choices[0]
-        if choice.get("finish_reason") is not None:
-            finish_reason = choice.get("finish_reason")
-        if choice.get("text") is not None:
-            text = (text or "") + choice.get("text")
+        choice_finish_reason = _get_field(choice, "finish_reason")
+        if choice_finish_reason is not None:
+            finish_reason = choice_finish_reason
+        choice_text = _get_field(choice, "text")
+        if choice_text is not None:
+            text = (text or "") + choice_text
             continue
 
-        delta = choice.get("delta")
+        delta = _get_field(choice, "delta")
         if not delta:
             continue
 
-        if role is None and delta.get("role") is not None:
-            role = delta.get("role")
+        delta_role = _get_field(delta, "role")
+        if role is None and delta_role is not None:
+            role = delta_role
 
-        if delta.get("finish_reason") is not None:
-            finish_reason = delta.get("finish_reason")
+        delta_finish_reason = _get_field(delta, "finish_reason")
+        if delta_finish_reason is not None:
+            finish_reason = delta_finish_reason
 
-        if delta.get("content") is not None:
-            content = (content or "") + delta.get("content")
+        delta_content = _get_field(delta, "content")
+        if delta_content is not None:
+            content = (content or "") + delta_content
 
-        if delta.get("tool_calls") is not None:
-            delta_tool_calls = delta.get("tool_calls")
+        delta_tool_calls = _get_field(delta, "tool_calls")
+        if delta_tool_calls is not None:
             if not delta_tool_calls:
                 continue
             tool_delta = delta_tool_calls[0]
+            function_delta = _get_field(tool_delta, "function")
+            function_arguments = _get_field(function_delta, "arguments")
 
-            # pylint: disable=unsubscriptable-object
-            if not tool_calls or (tool_delta.get("id") and tool_calls[-1]["id"] != tool_delta.get("id")):
-                tool_calls = (tool_calls or []) + [
+            if not tool_calls or (
+                _get_field(tool_delta, "id") and tool_calls[-1]["id"] != _get_field(tool_delta, "id")
+            ):
+                tool_calls.append(
                     {
-                        "id": tool_delta.get("id"),
-                        "type": tool_delta.get("type"),
-                        "function": tool_delta.get("function"),
+                        "id": _get_field(tool_delta, "id"),
+                        "type": _get_field(tool_delta, "type"),
+                        "function": {
+                            "name": _get_field(function_delta, "name"),
+                            "arguments": function_arguments or "",
+                        },
                     }
-                ]
+                )
             else:
-                # pylint: disable=unsubscriptable-object
-                tool_calls[-1]["function"]["arguments"] += delta["tool_calls"][0]["function"]["arguments"]
+                tool_calls[-1]["function"]["arguments"] += function_arguments or ""
 
     if text is not None:
         output = [{"index": 0, "text": text, "logprobs": None, "finish_reason": finish_reason}]
@@ -695,7 +754,7 @@ def _postprocess_completion_streaming_results(all_results: list[dict[str, Any]])
         output = [
             {
                 "index": 0,
-                "message": {"role": role, "content": content, "tool_calls": tool_calls},
+                "message": {"role": role, "content": content, "tool_calls": tool_calls or None},
                 "logprobs": None,
                 "finish_reason": finish_reason,
             }
@@ -753,7 +812,7 @@ def _postprocess_responses_streaming_results(all_results: list[Any]) -> dict[str
                     current_content["annotations"] = []
                 if annotation_index == len(current_content["annotations"]):
                     current_content["annotations"].append({})
-                current_content["annotations"][annotation_index] = _try_to_dict(result.annotation)
+                current_content["annotations"][annotation_index] = result.annotation
 
     return {
         "metrics": metrics,
@@ -862,7 +921,7 @@ def _update_span_payload_from_params(params: dict[str, Any], input_key: str = "i
 
     return merge_dicts(
         span_info_d,
-        {"input": input_data, "metadata": metadata},
+        {"input": _process_attachments_in_input(input_data), "metadata": metadata},
     )
 
 

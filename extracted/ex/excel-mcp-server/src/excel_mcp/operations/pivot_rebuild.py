@@ -15,10 +15,11 @@ from openpyxl.utils.datetime import from_excel
 from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 
+from excel_mcp.config import Limits
 from excel_mcp.errors import InvalidArgumentError
 from excel_mcp.operations.cells import clear_range
 from excel_mcp.operations.pivot import PivotRequest, create_pivot
-from excel_mcp.operations.pivot_cache import REFRESHED_BY
+from excel_mcp.operations.pivot_cache import REFRESHED_BY, cache_value
 from excel_mcp.operations.pivot_definition import (
     PREVIOUS_ITEM,
     SHOW_AS_EXTENSION,
@@ -35,7 +36,7 @@ from excel_mcp.operations.pivot_options import (
     PivotValue,
     ShowAs,
 )
-from excel_mcp.operations.pivot_source import Value
+from excel_mcp.operations.pivot_source import Results, Value
 from excel_mcp.operations.pivot_specs import COMPARES_WITH_ITEM, NEEDS_BASE_FIELD
 from excel_mcp.package import state_of
 from excel_mcp.refs import cell_name
@@ -61,7 +62,8 @@ def rebuild(
     sheet: Worksheet,
     pivot: TableDefinition,
     change: Callable[[PivotRequest], PivotRequest],
-    max_cells: int,
+    limits: Limits,
+    results: Results,
 ) -> TableDefinition:
     """Make the PivotTable again with ``change`` applied to the request that made it."""
     if not can_rebuild(pivot):
@@ -74,7 +76,7 @@ def rebuild(
     pivots = sheet_pivots(sheet)
     position = pivots.index(pivot)
     pivots.remove(pivot)
-    clear_range(sheet, str(area), contents=True, formats=False, max_cells=max_cells)
+    clear_range(sheet, str(area), contents=True, formats=False, max_cells=limits.max_cells)
     source_sheet, reference = source
     create_pivot(
         workbook,
@@ -83,7 +85,8 @@ def rebuild(
         sheet,
         cell_name(area.min_row, area.min_col),
         change(request),
-        max_cells,
+        limits,
+        results,
         copy_of_name=True,
     )
     made = pivots.pop()
@@ -238,7 +241,7 @@ def field_labels(field: CacheField) -> list[Value]:
     """The items of a field as the values they stand for."""
     if field.fieldGroup is not None and field.fieldGroup.groupItems is not None:
         return [item.v for item in field.fieldGroup.groupItems.s]
-    return [getattr(item, "v", None) for item in field.sharedItems._fields]  # pyright: ignore[reportAttributeAccessIssue,reportOptionalMemberAccess]
+    return [cache_value(item) for item in field.sharedItems._fields]  # pyright: ignore[reportAttributeAccessIssue,reportOptionalMemberAccess]
 
 
 def _number_group(ranges: RangePr) -> NumberGroup:

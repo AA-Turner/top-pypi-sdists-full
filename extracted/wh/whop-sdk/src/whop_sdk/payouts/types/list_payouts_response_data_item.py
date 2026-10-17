@@ -20,6 +20,11 @@ class ListPayoutsResponseDataItem(UniversalBaseModel):
     The payout amount in whole currency units, as a decimal string.
     """
 
+    cancelable: bool = pydantic.Field()
+    """
+    Whether `POST /payouts/{id}/cancel` would act on this payout right now: `true` while it is `in_review`, while it is `processing` with nothing yet submitted to the payout provider, or while a submitted payout can still be asked to cancel at the provider. `false` once the money has arrived or the payout has already ended.
+    """
+
     created_at: dt.datetime = pydantic.Field()
     """
     When the payout was created.
@@ -37,7 +42,7 @@ class ListPayoutsResponseDataItem(UniversalBaseModel):
 
     destination_currency: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Currency the funds are delivered in, taken from the payout method when the payout is created. On a stablecoin payout it follows the settlement payout minted alongside it — the `GET /payouts` row carrying this payout's id as `payout_request_id` — and is `null` only when no settlement payout exists.
+    Currency the funds are delivered in, taken from the payout method when the payout is created. On a payout funded by a conversion request it follows the settlement payout minted alongside it — the `GET /payouts` row carrying this payout's id as `payout_request_id` — and is `null` only when no settlement payout exists.
     """
 
     estimated_arrival: typing.Optional[dt.datetime] = pydantic.Field(default=None)
@@ -82,7 +87,7 @@ class ListPayoutsResponseDataItem(UniversalBaseModel):
 
     net_amount: str = pydantic.Field()
     """
-    The planned net for the destination, in the payout currency: amount minus fee_amount minus markup_fee when fee_paid_by is `self`; equal to amount when the platform covers the fees. A payout that ends denied, canceled, or failed delivered nothing — most keep the planned figure and `failure` says where the funds are, but a canceled stablecoin payout can report the settled outcome instead: `amount` carries what stayed in the balance, fees are zero because none were charged, and `net_amount` is 0 because nothing was delivered.
+    The planned net for the destination, in the payout currency: amount minus fee_amount minus markup_fee when fee_paid_by is `self`; equal to amount when the platform covers the fees. A payout that ends denied, canceled, or failed delivered nothing — most keep the planned figure and `failure` says where the funds are, but a canceled payout funded by a conversion request can report the settled outcome instead: `amount` carries what stayed in the balance, fees are zero because none were charged, and `net_amount` is 0 because nothing was delivered.
     """
 
     notes: typing.Optional[str] = pydantic.Field(default=None)
@@ -128,7 +133,7 @@ class ListPayoutsResponseDataItem(UniversalBaseModel):
 
     status_detail: str = pydantic.Field()
     """
-    The finest machine phase under `status` — for example `awaiting_provider_acceptance` vs `in_transit` under `processing`, or the stablecoin conversion phase under `requested`. Informational vocabulary: values can be added without a version bump; `status` is the versioned contract.
+    The finest machine phase under `status` — for example `awaiting_provider_acceptance` vs `in_transit` under `processing`, or the conversion phase under `requested`. Informational vocabulary: values can be added without a version bump; `status` is the versioned contract.
     """
 
     trace_code: typing.Optional[str] = pydantic.Field(default=None)

@@ -93,9 +93,7 @@ def resolve_authorization_provider(app_or_request: Any) -> AuthorizationProvider
     """
     app = getattr(app_or_request, "app", app_or_request)
     provider = getattr(getattr(app, "state", None), "authorization_provider", None)
-    if provider is not None:
-        return provider
-    return _default_authorization_provider()
+    return provider if provider is not None else _default_authorization_provider()
 
 
 def _store_default_role(role_store: Any) -> Optional[str]:
@@ -492,11 +490,15 @@ async def _authenticate_service_account(
     admin_scope_raw = getattr(request.app.state, "admin_scope", None)
     admin_scope = admin_scope_raw if isinstance(admin_scope_raw, str) else None
 
+    scope_mappings = getattr(request.app.state, "scope_mappings", None)
+    if scope_mappings is None:
+        scope_mappings = _default_scope_mappings()
+
     error = await authenticate_service_account_request(
         request,
         token,
         verifier=verifier,
-        scope_mappings=_default_scope_mappings(),
+        scope_mappings=scope_mappings,
         admin_scope=admin_scope,
     )
     if error is not None:

@@ -41,6 +41,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -242,7 +243,26 @@ def _resolve(cards: list[tuple[str, Path, dict]], prefix: str
         term = term[:-5]
     hits = [(p, c) for cid, p, c in cards if _matches(cid, p, term)]
     if not hits:
-        print(f"task: no card matches '{prefix}'", file=sys.stderr)
+        # #436: "no card matches" reads as "does not exist" — but cards
+        # are per-checkout until merged, and a gatekeeper running from
+        # another worktree (or another branch of this one) gets the
+        # bare error with nothing pointing at where the card lives.
+        # #327's history set tells the two states apart.
+        history = _history_ids(Path.cwd())
+        ever = sorted(h for h in history if h.startswith(term))
+        branch = ""
+        proc = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                              capture_output=True, text=True,
+                              encoding="utf-8", errors="replace")
+        if proc.returncode == 0:
+            branch = f" (branch {proc.stdout.strip()})"
+        hint = (f"task: no card matches '{prefix}' in this "
+                f"checkout{branch} — cards are per-checkout until "
+                "merged; it may live on another branch or worktree")
+        if ever:
+            hint += (f"; id(s) {', '.join(ever)} existed in git history "
+                     "but are not in this checkout")
+        print(hint, file=sys.stderr)
         raise SystemExit(2)
     if len(hits) > 1:
         open_cards = [(p, c) for p, c in hits if c.get("status") == "open"]
@@ -252,6 +272,26 @@ def _resolve(cards: list[tuple[str, Path, dict]], prefix: str
         print(f"task: '{prefix}' is ambiguous ({names})", file=sys.stderr)
         raise SystemExit(2)
     return hits[0]
+
+
+def _mint_marker(cid: str, common: Path | None) -> bool:
+    """Claim one id across the CLONE (#435): an O_EXCL marker under the
+    git common dir — the state every sibling worktree of this clone
+    shares, where the per-checkout card scan is blind. Returns False
+    when a sibling minted this id first; the caller re-allocates. No
+    TTL by design (an id, once minted, is spent forever — #327's
+    high-water rule, enforced across worktrees)."""
+    if common is None:
+        return True  # outside a git domain there is nobody to collide with
+    marker_dir = common / "gov-task-minted"
+    marker_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        fd = os.open(marker_dir / f"{cid}.spent",
+                     os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    except FileExistsError:
+        return False
+    os.close(fd)
+    return True
 
 
 def cmd_new(args: argparse.Namespace) -> int:
@@ -273,6 +313,22 @@ def cmd_new(args: argparse.Namespace) -> int:
               "adoption. Re-brief (gov task new) and close in the same "
               "change, or void the card when it retires (gov task void).",
               file=sys.stderr)
+    # #431: an accidental second `task new` with the same brief minted
+    # a silent empty twin — surfaced only at close time. An OPEN card
+    # with the identical title is refused with its id; the escape is
+    # explicit (--force, "yes, a second brief with this exact title").
+    if not getattr(args, "force", False):
+        twins = [(cid, p) for cid, p, c in _load_cards()
+                 if c.get("status") == "open"
+                 and c.get("title", "") == title]
+        if twins:
+            cid, p = twins[0]
+            print(f"task: an open card already carries this exact title: "
+                  f"{cid} ({p.name}) — extend that brief (gov task tick "
+                  f"{cid}) or void it; pass --force to mint a duplicate "
+                  "on purpose", file=sys.stderr)
+            return 2
+
     TASKS_DIR.mkdir(parents=True, exist_ok=True)
     card = {
         "title": title,
@@ -306,6 +362,17 @@ def cmd_new(args: argparse.Namespace) -> int:
                   f"{cid} instead of {local} (sibling branches share the "
                   "sequence; gov task list after a fetch re-checks)",
                   file=sys.stderr)
+        # #435: four sibling worktrees of one clone each computed the
+        # same "next id" and minted four same-id cards — the per-checkout
+        # scan cannot see their uncommitted cards. The claim is an
+        # O_EXCL marker in the SHARED common dir: first mint wins, the
+        # losers re-allocate past the winner.
+        while not _mint_marker(cid, _common_dir_quiet()):
+            print(f"task: {cid} was just minted by a sibling worktree of "
+                  "this clone — bumping", file=sys.stderr)
+            cards = _load_cards()
+            cid = _next_id(cards, root=Path.cwd(),
+                           history=upstream | {cid})
         card["id"] = cid
         path = TASKS_DIR / f"{cid}-{_slugify(title)}.json"
         atomicio.write_text(path, json.dumps(card, indent=2) + "\n")
@@ -404,7 +471,7 @@ def cmd_check(args: argparse.Namespace) -> int:
                     f"{cid}: pins rules@{pinned[:12]} but the project is at "
                     f"rules@{combined[:12]} — the brief is stale after a "
                     f"governance adoption ({path}); if the same brief still "
-                    f"describes the work, advance it: gov task re-pin {cid} "
+                    f"describes the work, advance it: gov task repin {cid} "
                     "--reason <why>; otherwise close or void it")
                 print(f"STALE {cid} {title}")
             else:
@@ -602,7 +669,7 @@ def cmd_repin(args: argparse.Namespace) -> int:
     the actor, the instant and the reason.
     """
     if not args.reason.strip():
-        print("task: re-pin needs --reason (what changed, and why the "
+        print("task: repin needs --reason (what changed, and why the "
               "brief still holds)", file=sys.stderr)
         return 2
     combined, _files = rules_hash()
@@ -714,7 +781,7 @@ def _close_preflight(path: Path, card: dict, combined: str,
     if pinned != combined:
         return (1, f"task: {card['id']} pins rules@{str(pinned)[:12]} but "
                 f"the project is at rules@{combined[:12]} — if this brief "
-                f"still describes the work, advance it (gov task re-pin "
+                f"still describes the work, advance it (gov task repin "
                 f"{card['id']} --reason <why>); otherwise re-brief against "
                 "the adopted rules (gov task check names the stale cards)")
     # #358: the checklist is the contract the card exists to carry, so a
@@ -773,9 +840,16 @@ def cmd_close(args: argparse.Namespace) -> int:
     try:
         proc = subprocess.run(argv, capture_output=True, text=True,
                               encoding="utf-8", errors="replace",
-                              timeout=args.timeout)
+                              timeout=args.timeout or None)
     except subprocess.TimeoutExpired:
-        print(f"task: gate run timed out after {args.timeout}s",
+        # #442: the run was ABANDONED mid-matrix — nothing was judged,
+        # no receipt was written, and the unfinished gates are unknown
+        # (the JSON never arrived). Name the abandonment as such, never
+        # let it read as eleven phantom reds.
+        print(f"task: refusing to close — the gate run hit the "
+              f"{args.timeout}s budget and was abandoned partway; "
+              "nothing was judged and no card changed (re-run with a "
+              "larger --timeout, or the default 0 = unbounded)",
               file=sys.stderr)
         return 1
     run_report = proc.stderr or ""
@@ -793,15 +867,27 @@ def cmd_close(args: argparse.Namespace) -> int:
     # genuinely missing.
     failed = _receipt_failures(records)
     if failed:
-        # A card closes only on an all-green run; a red run changes nothing
-        # on ANY card of the batch (the run itself is already in
-        # .gov/history/gates.jsonl). #395: the refusal names WHICH run it
-        # evaluated — THIS close's own, just recorded — and carries the
-        # runner's report tail, whose per-gate evidence pointers are the
-        # diagnosis (a standalone --gate pass measured a different run).
+        # #420: the refusal partitions WHAT was not green — a FAIL the
+        # tree must answer for reads differently from a SKIP that was
+        # never evaluated, and the old lumped list named them
+        # identically (six names for one failure and five gates a
+        # dependency took down).
+        outcome_by_gate = {g.get("gate"): g.get("outcome")
+                           for g in records if isinstance(g, dict)}
+        hard = [gid for gid in failed if outcome_by_gate.get(gid) != "SKIP"]
+        skips = [gid for gid in failed if outcome_by_gate.get(gid) == "SKIP"]
         print(f"task: refusing to close {len(planned)} card(s) — THIS "
               f"close's own gate run ({args.mode}, just recorded) was not "
-              f"green ({', '.join(failed)})", file=sys.stderr)
+              "green", file=sys.stderr)
+        if hard:
+            print(f"  failed: {', '.join(hard)} — the run report above "
+                  "names each; per-gate evidence: .gov/last-run/<gate>.log",
+                  file=sys.stderr)
+        if skips:
+            print(f"  skipped, not evaluated: {', '.join(skips)} — a close "
+                  "receipt must cover the run with no skips; fix the "
+                  "failed need and re-close (SKIP is not green evidence)",
+                  file=sys.stderr)
         tail = [ln for ln in run_report.splitlines() if ln.strip()]
         for ln in tail[-12:]:
             print(f"  run: {ln}", file=sys.stderr)
@@ -823,6 +909,17 @@ def cmd_close(args: argparse.Namespace) -> int:
         shared = "" if i == 0 else " — the batch's shared run"
         print(f"task: closed {_named(card, path)} with an all-green "
               f"{args.mode} run ({len(records)} gates){shared}")
+        if i == 0:
+            # #423: name the bar, so "green, closed" and a later "receipt
+            # verify: not a full clean green run" for the same receipt are
+            # one readable judgment, not two contradictory verdicts —
+            # close's green means every gate evaluated, none failed or
+            # skipped; receipt verify additionally vetoes a dirty tree
+            # and any non-PASS outcome.
+            print("  green bar: task's own — every selected gate "
+                  "evaluated, none failed or skipped; `gov receipt "
+                  "verify` applies the stricter clean-tree bar and may "
+                  "still decline this receipt")
         _uncommitted_reminder(path)
     return 0
 
@@ -1028,6 +1125,10 @@ def main(argv: list[str] | None = None) -> int:
     p_new.add_argument("--rules", metavar="HASH", default=None,
                        help="require the current rule set to match this "
                        "hash prefix; abort loud on drift")
+    p_new.add_argument("--force", action="store_true",
+                       help="#431: mint even though an open card already "
+                       "carries this exact title (the duplicate is on "
+                       "purpose)")
     p_new.set_defaults(func=cmd_new)
 
     p_check = sub.add_parser("check", help="name stale cards and verify "
@@ -1070,8 +1171,13 @@ def main(argv: list[str] | None = None) -> int:
                               "resolved card's file stem is exactly this")
     p_close.add_argument("--mode", default="all",
                          help="gate mode to run (default: all)")
-    p_close.add_argument("--timeout", type=int, default=600,
-                         help="gate-run timeout in seconds (default 600)")
+    p_close.add_argument("--timeout", type=int, default=0, metavar="S",
+                         help="gate-run timeout in seconds; 0 (the "
+                              "default) waits unbounded — the close run "
+                              "IS the receipt run, and a bounded-by-"
+                              "accident receipt is the worst of both "
+                              "(#442); pass a budget explicitly when you "
+                              "want one")
     p_close.add_argument("--agent", metavar="ID",
                          help="closer identity for the lease check (default: "
                               "$GOV_CALLER, then user@host)")

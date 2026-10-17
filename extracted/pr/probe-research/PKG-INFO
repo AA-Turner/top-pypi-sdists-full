@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.260.1
+Version: 0.266.2
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -187,7 +187,10 @@ use.
 
 Folder imports either review placement before writing or use the explicit
 automatic approval option, and report current-file coverage separately from
-pending delivery. Rerun to resume; use the reported `--source-id`
+pending delivery. The plan can leave out what is not research, such as a
+shipped product's code, tests and assets inside a monorepo; each left-out folder
+is listed with its reason and nothing in it uploads. **Change the plan** brings
+any of it back before approval, and `probe backfill --review-excluded` after. Rerun to resume; use the reported `--source-id`
 when a source folder moves within the same authenticated destination. Changed
 files and unresolved legacy matches require review through `--import-changed`
 or `--import-unverified`. References remain distinguished from uploaded bytes.
@@ -759,7 +762,7 @@ or UUID returned by browse/search; `team-note` addresses the shared team documen
 | experiment | `card` · `record` · `notes` · `summary` · `artifacts` · `lineage` · `groups` · `versions` · `reproduce` · `code` · `inherited` (a fork's source run files; its runs with `view_options={"runs": true}`) |
 | artifact | `card` · `record` · `versions` · `sessions` |
 | project | `card` · `record` · `artifacts` · `notes` · `summary` · `code` · `papers` · `readme` |
-| group | `card` · `record` · `notes` |
+| group | `card` · `record` |
 | trial | `card` · `record` · `trajectory` |
 | session | `card` · `record` · `transcript` |
 | team note | `card` · `record` |
@@ -799,8 +802,8 @@ The continuation request retains those arguments and adds `"cursor":"<next_curso
 `notes` reads operational notes; `summary` reads authored Overview Markdown and
 includes a bounded notes caveat alongside existing status/headline context. An
 excerpt explicitly reports `truncated:false` when complete, or `truncated:true`
-with its detail door. Artifact notes use `view="record", view_options={"field":"notes"}`
-because artifacts have no MCP `notes` view.
+with its detail door. Files and sweep groups carry no notes: what a file is
+lives in its run's notes, what a sweep tested in its experiment's.
 
 Artifacts resolve by NAME, because the reuse check has a name and not an id — and because
 no `GET /v1/artifacts/{id}` route exists. The lookup runs against the SHARED, lab-wide

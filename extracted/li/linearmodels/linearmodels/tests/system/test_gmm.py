@@ -7,6 +7,7 @@ from pandas.testing import assert_frame_equal, assert_series_equal
 import pytest
 
 from linearmodels.iv.covariance import kernel_weight_parzen
+from linearmodels.shared.exceptions import DefaultBandwidthWarning
 from linearmodels.shared.utility import AttrDict
 from linearmodels.system import IV3SLS, IVSystemGMM
 from linearmodels.system.gmm import (
@@ -14,7 +15,13 @@ from linearmodels.system.gmm import (
     HomoskedasticWeightMatrix,
     KernelWeightMatrix,
 )
-from linearmodels.tests.system._utility import generate_3sls_data_v2, simple_gmm
+from linearmodels.tests._utility import warns_if_default_bandwidth
+from linearmodels.tests.system._utility import (
+    generate_3sls_data,
+    generate_3sls_data_v2,
+    simple_gmm,
+    weighted_fit_measures,
+)
 
 params = list(product([1, 2], [True, False]))
 
@@ -200,7 +207,7 @@ def test_no_constant_smoke():
 
 
 def test_unknown_weight_type(data):
-    with pytest.raises(ValueError, match=r"Unknown estimator for weight_type"):
+    with pytest.raises(ValueError, match=r"Unknown weight_type"):
         IVSystemGMM(data.eqns, weight_type="unknown")
 
 
@@ -303,13 +310,41 @@ def test_kernel_equiv(data):
 
 
 def test_kernel_optimal_bandwidth(data):
-    mod = IVSystemGMM(data.eqns, weight_type="kernel")
+    # nobs - 2 was the default until 7.1, and is restored by optimal_bw=False
+    mod = IVSystemGMM(data.eqns, weight_type="kernel", optimal_bw=False)
     res = mod.fit(cov_type="kernel", debiased=True)
     nobs = data.eqns[next(iter(data.eqns.keys()))].dependent.shape[0]
     assert res.weight_config["bandwidth"] == (nobs - 2)
 
     mod = IVSystemGMM(data.eqns, weight_type="kernel", optimal_bw=True)
-    mod.fit(cov_type="kernel", debiased=True)
+    optimal = mod.fit(cov_type="kernel", debiased=True)
+    assert 0 <= optimal.weight_config["bandwidth"] < nobs - 2
+
+    # The default estimates the bandwidth from the data, and warns
+    mod = IVSystemGMM(data.eqns, weight_type="kernel")
+    with pytest.warns(DefaultBandwidthWarning, match=r"7\.1"):
+        default = mod.fit(cov_type="kernel", debiased=True)
+    assert default.weight_config["bandwidth"] == optimal.weight_config["bandwidth"]
+    assert_allclose(default.params, optimal.params)
+
+
+@pytest.mark.parametrize(
+    "options",
+    [{}, {"bandwidth": 5}, {"optimal_bw": False}, {"optimal_bw": True}],
+    ids=["default", "bandwidth", "not_optimal_bw", "optimal_bw"],
+)
+def test_kernel_weights_with_one_step(options):
+    # The first step does not use the weight matrix, so its bandwidth is not
+    # known. It was an AssertionError if the bandwidth was not given
+    eqns = generate_3sls_data_v2(k=2, n=200)
+    with warns_if_default_bandwidth(**options):
+        res = IVSystemGMM(eqns, weight_type="kernel", **options).fit(iter_limit=1)
+    assert res.weight_config["bandwidth"] == options.get("bandwidth")
+    assert res.weight_config["center"] is False
+    robust = IVSystemGMM(eqns, weight_type="robust").fit(iter_limit=1)
+    assert_allclose(res.params, robust.params, rtol=1e-12)
+    assert_allclose(res.w, robust.w, rtol=1e-12)
+    assert_allclose(res.j_stat.stat, robust.j_stat.stat, rtol=1e-10)
 
 
 def test_homoskedastic_weight_direct(weight_data, center, debias):
@@ -397,3 +432,35 @@ def test_fitted(data):
         columns=list(res.equations),
     )
     assert_frame_equal(expected, res.fitted_values)
+
+
+@pytest.mark.parametrize("weight_type", ["robust", "unadjusted"])
+def test_weighted_residuals_and_r2(weight_type):
+    eqns = generate_3sls_data(
+        n=250,
+        k=3,
+        p=3,
+        en=2,
+        instr=3,
+        const=True,
+        rho=0.8,
+        common_exog=False,
+        included_weights=True,
+        output_dict=True,
+    )
+    res = IVSystemGMM(eqns, weight_type=weight_type).fit()
+    rss = tss = 0.0
+    for key, eqn in eqns.items():
+        eq_res = res.equations[key]
+        direct = weighted_fit_measures(eqn, eq_res.params)
+        # The residuals are those of the model and do not use the weights
+        assert_allclose(eq_res.resids, direct.resid.squeeze())
+        assert_allclose(eq_res.wresids, direct.wresid.squeeze())
+        assert_allclose(
+            eq_res.fitted_values + eq_res.resids, eqn["dependent"].squeeze()
+        )
+        assert_allclose(eq_res.resid_ss, direct.rss)
+        assert_allclose(eq_res.rsquared, 1 - direct.rss / direct.tss)
+        rss += direct.rss
+        tss += direct.tss
+    assert_allclose(res.rsquared, 1 - rss / tss)

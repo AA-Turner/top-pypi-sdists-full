@@ -38,9 +38,7 @@ def mock_client() -> Client:
 
 @pytest.fixture(autouse=True)
 def _patch_cached_client(mock_client, monkeypatch):
-    monkeypatch.setattr(
-        "langsmith.run_trees.get_cached_client", lambda **_: mock_client
-    )
+    monkeypatch.setattr("langsmith.run_trees.get_cached_client", lambda **_: mock_client)
 
 
 class FakeSession:
@@ -73,12 +71,8 @@ def _message(
     content = None
     if user is not None or agent is not None or interrupted or turn_complete:
         content = NS(
-            input_transcription=(
-                NS(text=user, finished=user_finished) if user is not None else None
-            ),
-            output_transcription=(
-                NS(text=agent, finished=agent_finished) if agent is not None else None
-            ),
+            input_transcription=(NS(text=user, finished=user_finished) if user is not None else None),
+            output_transcription=(NS(text=agent, finished=agent_finished) if agent is not None else None),
             interrupted=interrupted,
             turn_complete=turn_complete,
         )
@@ -88,9 +82,7 @@ def _message(
         tool_call=tool_call,
         tool_call_cancellation=None,
         usage_metadata=usage,
-        model_dump=lambda: {
-            "server_content": {"audio": b"\x00\x01"} if content else None
-        },
+        model_dump=lambda: {"server_content": {"audio": b"\x00\x01"} if content else None},
     )
 
 
@@ -238,9 +230,7 @@ class TestWrapper:
             _message(agent="sunny.", agent_finished=False),
             _message(turn_complete=True, usage=usage),
         ]
-        async with wrap_gemini_live(
-            FakeSession(messages), model="gemini-live", thread_id="thread-1"
-        ) as session:
+        async with wrap_gemini_live(FakeSession(messages), model="gemini-live", thread_id="thread-1") as session:
             async for _ in session.receive():
                 pass
             trace = session._trace
@@ -282,9 +272,7 @@ class TestWrapper:
             _message(calls=[call]),
             _message(interrupted=True),
         ]
-        async with wrap_gemini_live(
-            FakeSession(messages), is_agent_speaking=lambda: True
-        ) as session:
+        async with wrap_gemini_live(FakeSession(messages), is_agent_speaking=lambda: True) as session:
             async for message in session.receive():
                 if message.tool_call:
                     await session.send_tool_response(function_responses=response)
@@ -295,9 +283,7 @@ class TestWrapper:
         assert tool_runs[0].run_type == "tool"
         assert tool_runs[0].parent_run_id == trace.run.id
         assert tool_runs[0].inputs == {"args": {"city": "Tokyo"}}
-        assert tool_runs[0].outputs == {
-            "response": {"city": "Tokyo", "condition": "sunny"}
-        }
+        assert tool_runs[0].outputs == {"response": {"city": "Tokyo", "condition": "sunny"}}
         tool_metadata = (tool_runs[0].extra or {}).get("metadata") or {}
         assert tool_metadata["function_call_id"] == "call-1"
         interrupted = [child for name, child in created if name == "interrupted"]

@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,18 +15,20 @@
 #
 # ****************************************************************************
 
+"""Handle configuration files."""
+
 # cspell:ignore getpreferredencoding getfixture caplog
 
 from __future__ import annotations
-from argparse import _ArgumentGroup, ArgumentParser, ArgumentTypeError, SUPPRESS
-from inspect import isclass
-from locale import getpreferredencoding
-from typing import Iterable, Any, Callable, TextIO
-from dataclasses import dataclass
+
 import datetime
 import os
 import re
-
+from argparse import SUPPRESS, ArgumentParser, ArgumentTypeError, _ArgumentGroup
+from dataclasses import dataclass
+from inspect import isclass
+from locale import getpreferredencoding
+from typing import Any, Callable, Iterable, TextIO
 
 from . import formats
 from .exceptions import SanityCheckError
@@ -50,42 +50,44 @@ from .timestamps import parse_timestamp
 
 def timestamp(value: str) -> datetime.datetime:
     """Get the current timestamp from a given string."""
-
     try:
         return parse_timestamp(value)
     except ValueError as ex:
-        raise ArgumentTypeError(f"{ex}: {value!r}") from None
+        msg = f"{ex}: {value!r}"
+        raise ArgumentTypeError(msg) from None
 
 
 def source_date_epoch() -> datetime.datetime | None:
-    """Load time from SOURCE_DATE_EPOCH, if it exists.
+    """
+    Load time from SOURCE_DATE_EPOCH, if it exists.
+
     See: <https://reproducible-builds.org/docs/source-date-epoch/>
 
     Examples:
     >>> monkeypatch = getfixture("monkeypatch")
     >>> caplog = getfixture("caplog")
 
-    Example: can be empty
+    Examples, can be empty
     >>> with monkeypatch.context() as mp:
     ...   mp.delenv("SOURCE_DATE_EPOCH", raising=False)
     ...   print(source_date_epoch())
     None
 
-    Example: can contain timestamp
+    Examples, can contain timestamp
     >>> with monkeypatch.context() as mp:
     ...   mp.setenv("SOURCE_DATE_EPOCH", "1677067226")
     ...   print(source_date_epoch())
     2023-02-22 12:00:26+00:00
 
-    Example: can contain invalid timestamp
+    Examples, can contain invalid timestamp
     >>> with monkeypatch.context() as mp:
     ...   mp.setenv("SOURCE_DATE_EPOCH", "not a timestamp")
     ...   print(source_date_epoch())
     None
     >>> for m in caplog.messages: print(m)
     Ignoring invalid environment variable SOURCE_DATE_EPOCH='not a timestamp'
-    """
 
+    """
     ts = os.environ.get("SOURCE_DATE_EPOCH")
 
     if ts:
@@ -104,7 +106,6 @@ def argument_parser_setup(
     parser: ArgumentParser, default_group: _ArgumentGroup
 ) -> None:
     r"""Add all options and groups to the given argparse parser."""
-
     # setup option groups
     groups = {}
     for group_def in GCOVR_CONFIG_OPTION_GROUPS:
@@ -153,7 +154,8 @@ def argument_parser_setup(
             group.add_argument(opt.name, **kwargs)
 
         else:
-            raise SanityCheckError("Unexpected option.")
+            msg = "Unexpected option."
+            raise SanityCheckError(msg)
 
 
 def parse_config_into_dict(
@@ -168,19 +170,21 @@ def parse_config_into_dict(
 
     for cfg_entry in config_entry_source:
         for option in all_options:
-            if option.config_keys is not None:
-                if cfg_entry.key in option.config_keys:
-                    value = _get_value_from_config_entry(cfg_entry, option)
-                    _assign_value_to_dict(
-                        cfg_dict,
-                        value,
-                        option,
-                        cfg_entry_key=cfg_entry.key,
-                        is_single_value=True,
-                    )
-                    break
+            if (option.config_keys is not None) and (
+                cfg_entry.key in option.config_keys
+            ):
+                value = _get_value_from_config_entry(cfg_entry, option)
+                _assign_value_to_dict(
+                    cfg_dict,
+                    value,
+                    option,
+                    cfg_entry_key=cfg_entry.key,
+                    is_single_value=True,
+                )
+                break
         else:
-            raise cfg_entry.error("unknown config option") from None
+            msg = "Unknown config option"
+            raise cfg_entry.error(msg) from None
 
     return cfg_dict
 
@@ -189,7 +193,7 @@ def _get_value_from_config_entry(
     cfg_entry: ConfigEntry,
     option: GcovrConfigOption,
 ) -> Any:
-    def get_boolean(silent_error: bool = False) -> bool | None:
+    def get_boolean(*, silent_error: bool = False) -> bool | None:
         try:
             return cfg_entry.value_as_bool
         except ValueError:
@@ -211,7 +215,8 @@ def _get_value_from_config_entry(
     if use_const is False:
         return option.default
     if use_const is not None:
-        raise SanityCheckError("Unexpected entry type.")
+        msg = "Unexpected entry type."
+        raise SanityCheckError(msg)
 
     # parse the value
     value: object
@@ -220,9 +225,8 @@ def _get_value_from_config_entry(
 
     elif option.type is not None:
         if cfg_entry.filename is None:
-            raise AssertionError(
-                "Conversion function must derive base directory from filename"
-            )
+            msg = "Conversion function must derive base directory from filename"
+            raise AssertionError(msg)
         basedir = os.path.dirname(cfg_entry.filename)
         converter = _get_converter_function(option.type, basedir=basedir)
 
@@ -233,22 +237,17 @@ def _get_value_from_config_entry(
 
     elif option.name == "json_tracefile":  # Special case for patterns
         if cfg_entry.filename is None:
-            raise AssertionError(
-                "Conversion function must derive base directory from filename"
-            )
+            msg = "Conversion function must derive base directory from filename"
+            raise AssertionError(msg)
         basedir = os.path.dirname(cfg_entry.filename)
         value = os.path.join(basedir, cfg_entry.value)
     else:
         value = cfg_entry.value
 
     # verify choices:
-    if option.choices is not None:
-        if value not in option.choices:
-            raise cfg_entry.error(  # pylint: disable=raising-format-tuple
-                "must be one of ({}) but got {!r}",
-                ", ".join(repr(choice) for choice in option.choices),
-                value,
-            )
+    if (option.choices is not None) and (value not in option.choices):
+        msg = f"must be one of ({', '.join(repr(choice) for choice in option.choices)}) but got {value!r}"
+        raise cfg_entry.error(msg)
 
     return value
 
@@ -264,7 +263,6 @@ def _get_converter_function(
     Usually, `option.type` already is that converter function.
     But sometimes, it needs extra arguments that are injected here.
     """
-
     if isclass(option_type) and issubclass(option_type, FilterOption):
         return lambda value: FilterOption(value, basedir)
 
@@ -284,6 +282,7 @@ def _assign_value_to_dict(
     namespace: dict[str, Any],
     value: Any,
     option: GcovrConfigOption,
+    *,
     is_single_value: bool,
     cfg_entry_key: str | None = None,
 ) -> None:
@@ -309,7 +308,8 @@ def _assign_value_to_dict(
         )
         return
 
-    raise AssertionError(f"Unexpected action for {option.name}: {option.action!r}")
+    msg = f"Unexpected action for {option.name}: {option.action!r}"
+    raise AssertionError(msg)
 
 
 def merge_options_and_set_defaults(
@@ -318,7 +318,8 @@ def merge_options_and_set_defaults(
 ) -> Options:
     """Merge all options into the namespace and set the default values for unused options."""
     if not partial_namespaces:
-        raise AssertionError("At least one namespace required")
+        msg = "At least one namespace required"
+        raise AssertionError(msg)
 
     if all_options is None:
         all_options = GCOVR_CONFIG_OPTIONS
@@ -326,7 +327,10 @@ def merge_options_and_set_defaults(
     target = dict[str, Any]()
     for namespace in partial_namespaces:
         for option in all_options:
-            if option.name not in namespace:
+            if option.name not in namespace or (
+                not isinstance(option.action, str)
+                and issubclass(option.action, GcovrDeprecatedConfigOptionAction)
+            ):
                 continue
 
             _assign_value_to_dict(
@@ -358,13 +362,6 @@ class UseSortUncoveredPercentAction(GcovrDeprecatedConfigOptionAction):
 
 GCOVR_CONFIG_OPTION_GROUPS = [
     {
-        "key": "output_options",
-        "name": "Output Options",
-        "description": (
-            "Gcovr prints a text report by default, but can switch to XML or HTML."
-        ),
-    },
-    {
         "key": "filter_options",
         "name": "Filter Options",
         "description": (
@@ -380,29 +377,13 @@ GCOVR_CONFIG_OPTION_GROUPS = [
         ),
     },
     {
-        "key": "gcov_options",
-        "name": "GCOV Options",
+        "key": "output_options",
+        "name": "Output Options",
         "description": (
-            "The 'gcov' tool turns raw coverage files (.gcda and .gcno) "
-            "into .gcov files that are then processed by gcovr. "
-            "The gcno files are generated by the compiler. "
-            "The gcda files are generated when the instrumented program is "
-            "executed."
+            "Gcovr prints a text report by default, but can switch to XML, HTML and other formats."
         ),
     },
-    {
-        "key": "llvm_options",
-        "name": "LLVM Options",
-        "description": (
-            "The 'llvm-profdata' tool turns raw coverage files (.profraw) "
-            "into .profdata files which are then exported by 'llvm-cov' into a JSON string. "
-        ),
-    },
-    {
-        "key": "gcov_llvm_options",
-        "name": "GCOV and LLVM Options",
-        "description": ("Options which are applicable for GCOV and LLVM processing."),
-    },
+    *formats.get_option_groups(),
 ]
 
 
@@ -457,8 +438,8 @@ GCOVR_CONFIG_OPTIONS = [
         ["--config"],
         config=False,
         help=(
-            "Load that configuration file. "
-            "Defaults to gcovr.cfg in the --root directory."
+            "Load that configuration file. Defaults to gcovr.cfg, "
+            "gcovr.toml or pyproject.toml (section tool.gcovr) in the --root directory."
         ),
         type=relative_path,
     ),
@@ -467,7 +448,8 @@ GCOVR_CONFIG_OPTIONS = [
         ["--no-markers"],
         help=(
             "Turn off exclusion markers. Any exclusion markers "
-            "specified in source files will be ignored."
+            "specified in source files will be ignored. "
+            "ATTENTION: This option has no effect when generating reports from JSON tracefile."
         ),
         action="store_false",
     ),
@@ -565,7 +547,7 @@ GCOVR_CONFIG_OPTIONS = [
             "Exit with a status of 2 "
             "if the total line coverage is less than MIN. "
             "Can be ORed with exit status of '--fail-under-branch', "
-            "'--fail-under-decision', and '--fail-under-function' option."
+            "'--fail-under-condition-or-decision' and '--fail-under-function'."
         ),
         default=0.0,
     ),
@@ -578,20 +560,24 @@ GCOVR_CONFIG_OPTIONS = [
             "Exit with a status of 4 "
             "if the total branch coverage is less than MIN. "
             "Can be ORed with exit status of '--fail-under-line', "
-            "'--fail-under-decision', and '--fail-under-function' option."
+            "'--fail-under-condition-or-decision' and '--fail-under-function'."
         ),
         default=0.0,
     ),
     GcovrConfigOption(
-        "fail_under_decision",
-        ["--fail-under-decision"],
+        "fail_under_condition_or_decision",
+        [
+            "--fail-under-condition-or-decision",
+            "--fail-under-condition",
+            "--fail-under-decision",
+        ],
         type=check_percentage,
         metavar="MIN",
         help=(
             "Exit with a status of 8 "
-            "if the total decision coverage is less than MIN. "
+            "if the total condition or decision coverage is less than MIN. "
             "Can be ORed with exit status of '--fail-under-line', "
-            "'--fail-under-branch', and '--fail-under-function' option."
+            "'--fail-under-branch' and '--fail-under-function'."
         ),
         default=0.0,
     ),
@@ -604,7 +590,7 @@ GCOVR_CONFIG_OPTIONS = [
             "Exit with a status of 16 "
             "if the total function coverage is less than MIN. "
             "Can be ORed with exit status of '--fail-under-line', "
-            "'--fail-under-branch', and '--fail-under-decision' option."
+            "'--fail-under-branch' and '--fail-under-condition-or-decision'."
         ),
         default=0.0,
     ),
@@ -632,7 +618,7 @@ GCOVR_CONFIG_OPTIONS = [
         "show_decision",
         ["--decisions"],
         group="output_options",
-        help="Report the decision coverage. For HTML, JSON, and the summary report.",
+        help="Report the decision coverage. For HTML, JSON, SonarQube and the summary report.",
         action="store_true",
     ),
     GcovrConfigOption(
@@ -699,13 +685,13 @@ GCOVR_CONFIG_OPTIONS = [
         help=(
             "Override current time for reproducible reports. "
             "Can use `YYYY-MM-DD hh:mm:ss` or epoch notation. "
-            "Used by HTML, Coveralls, and Cobertura reports. "
+            "Used by HTML, Clover, Cobertura, and Coveralls reports. "
             "Default is taken from environment variable SOURCE_DATE_EPOCH "
             "(see https://reproducible-builds.org/docs/source-date-epoch) "
             "or current time."
         ),
         type=timestamp,
-        default=source_date_epoch() or datetime.datetime.now(),
+        default=source_date_epoch() or datetime.datetime.now(tz=datetime.timezone.utc),
     ),
     GcovrConfigOption(
         "include_search_filter",
@@ -761,7 +747,8 @@ GCOVR_CONFIG_OPTIONS = [
         help=(
             "Exclude directories that match this regex "
             "while searching raw coverage files. "
-            "Can be specified multiple times."
+            "Can be specified multiple times. "
+            "ATTENTION: This option has no effect when generating reports from JSON tracefile."
         ),
         action="append",
         type=NonEmptyFilterOption,
@@ -771,11 +758,11 @@ GCOVR_CONFIG_OPTIONS = [
         "keep_intermediate_files",
         ["-k", "--keep-intermediate-files", "--keep", "--gcov-keep"],
         config="keep-intermediate-files",
-        group="gcov_llvm_options",
+        group="output_options",
         help=(
             "Keep gcov/profdata files after processing. "
             "This applies both to files that were generated by gcovr, "
-            "or were supplied via the --gcov-use-existing-files/--llvm-use-existing-files option. "
+            "or were supplied via the --gcov-use-existing-files/--llvm-use-existing-files option."
         ),
         action="store_true",
     ),
@@ -783,7 +770,7 @@ GCOVR_CONFIG_OPTIONS = [
         "delete_input_files",
         ["-d", "--delete-input-files", "--delete", "--gcov-delete"],
         config="delete-input-files",
-        group="gcov_llvm_options",
+        group="output_options",
         help="Delete gcda/profraw files after processing, used gcno files are never deleted.",
         action="store_true",
     ),
@@ -816,7 +803,7 @@ GCOVR_CONFIG_OPTIONS = [
         "merge_mode_functions",
         ["--merge-mode-functions"],
         metavar="MERGE_MODE",
-        group="gcov_llvm_options",
+        group="output_options",
         choices=(
             "strict",
             "merge-use-line-0",
@@ -837,7 +824,11 @@ GCOVR_CONFIG_OPTIONS = [
         help=(
             "Merge line coverage for same line coming from different functions, "
             "e.g. template instances. The branches, conditions and calls are merged "
-            "accordingly."
+            "accordingly. "
+            "ATTENTION: This option doesn't affect the GCOVR JSON intermediate "
+            "format here still the raw data is reported. If you use a two pass generation "
+            "(1st run: GCOV -> JSON, 2nd run: JSON -> human readable reports), the "
+            "option is only needed in the second run."
         ),
         action="store_true",
     ),
@@ -845,7 +836,10 @@ GCOVR_CONFIG_OPTIONS = [
         "exclude_function_lines",
         ["--exclude-function-lines"],
         group="gcov_options",
-        help="Exclude coverage from lines defining a function.",
+        help=(
+            "Exclude coverage from lines defining a function."
+            "ATTENTION: This option has no effect when generating reports from JSON tracefile."
+        ),
         action="store_true",
     ),
     GcovrConfigOption(
@@ -855,7 +849,8 @@ GCOVR_CONFIG_OPTIONS = [
             "Exclude coverage of functions. If function starts and end "
             "with '/' it is treated as a regular expression. "
             "This option needs at least GCC 14 with a supported version of "
-            "JSON output format."
+            "JSON output format. "
+            "ATTENTION: This option has no effect when generating reports from JSON tracefile."
         ),
         action="append",
         type=str,
@@ -864,7 +859,10 @@ GCOVR_CONFIG_OPTIONS = [
     GcovrConfigOption(
         "exclude_lines_by_pattern",
         ["--exclude-lines-by-pattern"],
-        help="Exclude lines that match this regex. The regex must match the start of the line.",
+        help=(
+            "Exclude lines that match this regex. The regex must match the start of the line."
+            "ATTENTION: This option has no effect when generating reports from JSON tracefile."
+        ),
         action="append",
         type=str,
         default=[],
@@ -872,7 +870,10 @@ GCOVR_CONFIG_OPTIONS = [
     GcovrConfigOption(
         "exclude_branches_by_pattern",
         ["--exclude-branches-by-pattern"],
-        help="Exclude branches that match this regex. The regex must match the start of the line.",
+        help=(
+            "Exclude branches that match this regex. The regex must match the start of the line."
+            "ATTENTION: This option has no effect when generating reports from JSON tracefile."
+        ),
         action="append",
         type=str,
         default=[],
@@ -882,7 +883,9 @@ GCOVR_CONFIG_OPTIONS = [
         ["--exclude-pattern-prefix"],
         help=(
             "Define the regex prefix used in markers / line exclusions "
-            "(i.e ..._EXCL_START, ..._EXCL_START, ..._EXCL_STOP)"
+            "(i.e ..._EXCL_START, ..._EXCL_START, ..._EXCL_STOP). "
+            "ATTENTION: This option has no effect when generating reports from JSON tracefile "
+            "except for the syntax highlighting in the HTML report"
         ),
         type=str,
         default=r"[GL]COVR?",
@@ -890,7 +893,10 @@ GCOVR_CONFIG_OPTIONS = [
     GcovrConfigOption(
         "warn_excluded_lines_with_hits",
         ["--warn-excluded-lines-with-hits"],
-        help="Print a warning if a line excluded by comments has a hit counter != 0.",
+        help=(
+            "Print a warning if a line excluded by comments has a hit counter != 0. "
+            "ATTENTION: This option has no effect when generating reports from JSON tracefile."
+        ),
         action="store_true",
     ),
     GcovrConfigOption(
@@ -899,7 +905,8 @@ GCOVR_CONFIG_OPTIONS = [
         group="gcov_options",
         help=(
             "Include function coverage of compiler internal functions "
-            "(starting with '__' or '_GLOBAL__sub_I_')."
+            "(starting with '__' or '_GLOBAL__sub_I_'). "
+            "ATTENTION: This option has no effect when generating reports from JSON tracefile."
         ),
         action="store_false",
     ),
@@ -909,7 +916,8 @@ GCOVR_CONFIG_OPTIONS = [
         group="gcov_options",
         help=(
             "Remove branch coverage from lines without useful source code "
-            "(often, compiler-generated 'dead' code)."
+            "(often, compiler-generated 'dead' code). "
+            "ATTENTION: This option has no effect when generating reports from JSON tracefile."
         ),
         action="store_true",
     ),
@@ -918,7 +926,10 @@ GCOVR_CONFIG_OPTIONS = [
         ["--exclude-noncode-lines"],
         config="exclude-noncode-lines",
         group="gcov_options",
-        help="Remove coverage from lines which seem to be non-code.",
+        help=(
+            "Remove coverage from lines which seem to be non-code. "
+            "ATTENTION: This option has no effect when generating reports from JSON tracefile."
+        ),
         action="store_true",
         const_negate=False,
     ),
@@ -929,7 +940,8 @@ GCOVR_CONFIG_OPTIONS = [
         help=(
             "For branch coverage, remove branches "
             "that the compiler generates for exception handling. "
-            "This often leads to more 'sensible' coverage reports."
+            "This often leads to more 'sensible' coverage reports. "
+            "ATTENTION: This option has no effect when generating reports from JSON tracefile."
         ),
         action="store_true",
     ),
@@ -948,11 +960,11 @@ GCOVR_CONFIG_OPTIONS = [
 ]
 
 
-CONFIG_HASH_COMMENT = re.compile(r"(?:^|\s+) [#] .* $", re.X)
-CONFIG_SEMICOLON_COMMENT = re.compile(r"(?:^|\s+) [;] .* $", re.X)
+CONFIG_HASH_COMMENT = re.compile(r"(?:^|\s+) [#] .* $", re.VERBOSE)
+CONFIG_SEMICOLON_COMMENT = re.compile(r"(?:^|\s+) [;] .* $", re.VERBOSE)
 
 # kebab-case word, separated from value (rest of line) by "=" with optional space
-CONFIG_KV = re.compile(r"^((?=\w)[\w-]+) \s* = \s* (.*) $", re.X)
+CONFIG_KV = re.compile(r"^((?=\w)[\w-]+) \s* = \s* (.*) $", re.VERBOSE)
 
 # "$" followed by word, open brace, or open parenthesis
 CONFIG_POSSIBLE_VARIABLE = re.compile(r"[$][\w{(]")
@@ -968,7 +980,7 @@ def parse_config_file(
 
     Yields: ConfigEntry
 
-    Example: basic syntax.
+    Examples, basic syntax.
 
     >>> import io
     >>> cfg = u'''
@@ -989,42 +1001,48 @@ def parse_config_file(
     test.cfg: 7: optional = spaces
     """
 
-    def error(pattern: str, *args: object, **kwargs: object) -> SyntaxError:
-        # pylint: disable=cell-var-from-loop
-        message = pattern.format(*args, **kwargs)
-        message += f"\non this line: {line}"
-        return SyntaxError(": ".join([filename, str(lineno), message]))
+    class ConfigSyntaxError(SyntaxError):
+        """Exception for syntax error in the configuration file."""
 
-    for lineno, line in enumerate(open_file, first_lineno):
-        line = line.rstrip()
+        def __init__(self, msg: str) -> None:
+            msg = f"{filename}: {lineno}: {msg}\non this line: {line}"
+            super().__init__(msg)
 
-        # strip (trailing) comments
-        line = CONFIG_HASH_COMMENT.sub("", line)
-
+    for lineno, line in enumerate(
+        [
+            # strip (trailing) comments
+            CONFIG_HASH_COMMENT.sub("", line.rstrip())
+            for line in open_file
+        ],
+        first_lineno,
+    ):
         if CONFIG_SEMICOLON_COMMENT.search(line):
-            raise error("semicolon comment ; ... is reserved")
+            msg = "Semicolon comment ; ... is reserved"
+            raise ConfigSyntaxError(msg)
 
         if line.isspace() or not line:  # skip empty lines
             continue
 
         match = CONFIG_KV.match(line)
         if not match:
-            raise error('expected "key = value" entry')
+            msg = 'Expected "key = value" entry'
+            raise ConfigSyntaxError(msg)
 
         key: str = match.group(1).strip()
         value: str = match.group(2)
 
         if value.startswith('"'):
-            raise error('leading quote " is reserved')
+            msg = 'Leading quote " is reserved'
+            raise ConfigSyntaxError(msg)
         if value.startswith("'"):
-            raise error("leading quote ' is reserved")
+            msg = "Leading quote ' is reserved"
+            raise ConfigSyntaxError(msg)
         if value.endswith("\\"):
-            raise error("trailing backslash \\ is reserved")
+            msg = "Trailing backslash \\ is reserved"
+            raise ConfigSyntaxError(msg)
         if CONFIG_POSSIBLE_VARIABLE.search(value):
-            raise error(
-                "variable substitution syntax ({example}) is reserved",
-                example="${var}, $(var), or $var",
-            )
+            msg = "Variable substitution syntax (${var}, $(var), or $var) is reserved"
+            raise ConfigSyntaxError(msg)
 
         yield ConfigEntry(key, value, filename=filename, lineno=lineno)
 
@@ -1034,12 +1052,11 @@ def config_entries_from_dict(
     filename: str,
 ) -> Iterable[ConfigEntry]:
     r"""
-    Generate config entries from a dictionary
+    Generate config entries from a dictionary.
 
     Yields: ConfigEntry
 
-    Example: basic syntax.
-
+    Examples:
     >>> import io
     >>> cfg = {
     ...     'key': ['value', 'can have multiple values'],
@@ -1052,8 +1069,8 @@ def config_entries_from_dict(
     test.cfg: ??: key = can have multiple values
     test.cfg: ??: another-key = # empty
     test.cfg: ??: optional = spaces
-    """
 
+    """
     for key, value in config.items():
         if isinstance(value, list):
             for inner_value in value:
@@ -1114,7 +1131,8 @@ class ConfigEntry:
             return True
         if value == "no":
             return False
-        raise self.error('boolean option must be "yes" or "no"')
+        msg = 'boolean option must be "yes" or "no"'
+        raise self.error(msg)
 
     def error(self, pattern: str, *args: object, **kwargs: object) -> ValueError:
         r"""
@@ -1129,4 +1147,4 @@ class ConfigEntry:
         lineno = str(self.lineno or "??")
         kwargs.update(key=self.key, value=self.value)
         message = pattern.format(*args, **kwargs)
-        return ValueError(": ".join([filename, lineno, self.key, message]))
+        return ValueError(f"{filename}: {lineno}: {self.key}: {message}")

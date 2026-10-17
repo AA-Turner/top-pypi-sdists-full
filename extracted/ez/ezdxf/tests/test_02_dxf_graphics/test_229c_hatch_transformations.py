@@ -36,9 +36,7 @@ def test_edge_path_transform_interface(m44):
     path.add_ellipse(
         (5, 10), major_axis=(5, 0), ratio=0.2, start_angle=0, end_angle=180
     )
-    spline = path.add_spline(
-        [(1, 1), (2, 2), (3, 3), (4, 4)], degree=3, periodic=1
-    )
+    spline = path.add_spline([(1, 1), (2, 2), (3, 3), (4, 4)], degree=3, periodic=1)
     # the following values do not represent a mathematically valid spline
     spline.control_points = [(1, 1), (2, 2), (3, 3), (4, 4)]
     spline.knot_values = [1, 2, 3, 4, 5, 6]
@@ -93,15 +91,11 @@ def closed_edge_hatch(request):
 
 def test_full_circle_ellipse_edge_rotation(closed_edge_hatch):
     edge = closed_edge_hatch.paths[0].edges[0]
-    assert arc_angle_span_deg(
-        edge.start_angle, edge.end_angle
-    ) == pytest.approx(360)
+    assert arc_angle_span_deg(edge.start_angle, edge.end_angle) == pytest.approx(360)
 
     closed_edge_hatch.transform(Matrix44.z_rotate(math.radians(30)))
     edge2 = closed_edge_hatch.paths[0].edges[0]
-    assert arc_angle_span_deg(
-        edge2.start_angle, edge2.end_angle
-    ) == pytest.approx(360)
+    assert arc_angle_span_deg(edge2.start_angle, edge2.end_angle) == pytest.approx(360)
 
 
 def test_full_circle_edge_scaling():
@@ -181,10 +175,7 @@ def test_wcs_mirror_transformations_of_clockwise_oriented_curves(sx, sy, kind):
 
     expected_path = src_path.transform(m)
     path_of_transformed_hatch = make_path(transformed_hatch)
-    assert (
-        have_close_control_vertices(path_of_transformed_hatch, expected_path)
-        is True
-    )
+    assert have_close_control_vertices(path_of_transformed_hatch, expected_path) is True
 
 
 @pytest.mark.parametrize(
@@ -192,9 +183,7 @@ def test_wcs_mirror_transformations_of_clockwise_oriented_curves(sx, sy, kind):
     [(-1, 1), (1, -1), (-1, -1)],
     ids=["mirror-x", "mirror-y", "mirror-xy"],
 )
-def test_wcs_mirror_transformations_for_all_edge_types(
-    sx, sy, all_edge_types_hatch
-):
+def test_wcs_mirror_transformations_for_all_edge_types(sx, sy, all_edge_types_hatch):
     hatch = all_edge_types_hatch
     src_path = make_path(hatch)
     assert len(src_path) > 1, "expected non empty path"
@@ -204,7 +193,108 @@ def test_wcs_mirror_transformations_for_all_edge_types(
 
     expected_path = src_path.transform(m)
     path_of_transformed_hatch = make_path(transformed_hatch)
-    assert (
-        have_close_control_vertices(path_of_transformed_hatch, expected_path)
-        is True
+    assert have_close_control_vertices(path_of_transformed_hatch, expected_path) is True
+
+
+def test_hatch_pattern_angle_after_hatch_rotation_has_new_absolute_angle():
+    hatch = Hatch()
+    hatch.paths.add_polyline_path([(0, 0), (10, 0), (10, 10), (0, 10)])
+    hatch.set_pattern_fill("ANSI31", scale=1.0, angle=30.0)
+
+    assert hatch.dxf.pattern_angle == 30
+    hatch.transform(Matrix44.z_rotate(math.radians(15)))
+    assert hatch.dxf.pattern_angle == pytest.approx(45)
+
+
+def test_translation_does_not_change_hatch_pattern_angle():
+    hatch = Hatch()
+    hatch.paths.add_polyline_path([(0, 0), (10, 0), (10, 10), (0, 10)])
+    hatch.set_pattern_fill("ANSI31", scale=1.0, angle=30.0)
+
+    assert hatch.dxf.pattern_angle == 30
+    hatch.transform(Matrix44.translate(100, 0, 0))
+    assert hatch.dxf.pattern_angle == pytest.approx(30)
+
+
+def test_pattern_line_angle_after_rotation_has_new_absolute_angle():
+    hatch = Hatch()
+    hatch.paths.add_polyline_path([(0, 0), (10, 0), (10, 10), (0, 10)])
+    hatch.set_pattern_fill("ANSI31", scale=1.0, angle=30.0)
+    pattern_line_angle = hatch.pattern.lines[0].angle
+    # ANSI31 has 45° pattern lines in base configuration at 0° rotation
+    assert pattern_line_angle == 30 + 45
+
+    # rotation 15 degree counter-clockwise
+    hatch.transform(Matrix44.z_rotate(math.radians(15)))
+    assert hatch.pattern.lines[0].angle == pytest.approx(30 + 45 + 15)
+
+
+def test_translation_does_not_change_pattern_line_angle():
+    hatch = Hatch()
+    hatch.paths.add_polyline_path([(0, 0), (10, 0), (10, 10), (0, 10)])
+    hatch.set_pattern_fill("ANSI31", scale=1.0, angle=30.0)
+    pattern_line_angle = hatch.pattern.lines[0].angle
+    # ANSI31 has 45° pattern lines in base configuration at 0° rotation
+    assert pattern_line_angle == 30 + 45
+
+    hatch.transform(Matrix44.translate(100, 0, 0))
+    assert hatch.pattern.lines[0].angle == pytest.approx(pattern_line_angle)
+
+
+def test_translation_moves_pattern_base_point_like_a_boundary_vertex():
+    # Regression test for issue #1402: DXFPolygon.transform() translated the
+    # boundary paths but left the hatch pattern line base points untouched, so
+    # the pattern phase drifted relative to the boundary under any translation.
+    hatch = Hatch()
+    path = hatch.paths.add_polyline_path([(0, 0), (10, 0), (10, 10), (0, 10)])
+    hatch.set_pattern_fill("ANSI31", scale=1.0)
+    # anchor the first pattern line base point at the boundary origin (0, 0)
+    hatch.pattern.lines[0].base_point = Vec2(0, 0)
+
+    offset = Vec2(37.5, 11.0)
+    hatch.transform(Matrix44.translate(offset.x, offset.y, 0))
+
+    # the boundary vertex (0, 0) maps to the translation offset ...
+    vx, vy, _ = path.vertices[0]
+    assert Vec2(vx, vy).isclose(offset)
+    # ... and the pattern base point must move by the same translation
+    assert hatch.pattern.lines[0].base_point.isclose(offset)
+
+
+def test_translation_moves_every_pattern_base_point_by_the_same_offset():
+    # Regression test for issue #1402: every non-zero base point must move by
+    # the same translation as the boundary, keeping the pattern phase locked.
+    hatch = Hatch()
+    hatch.paths.add_polyline_path([(0, 0), (10, 0), (10, 10), (0, 10)])
+    hatch.set_pattern_fill("ANSI31", scale=1.0)
+    # give each pattern line a distinct non-zero base point
+    for index, line in enumerate(hatch.pattern.lines):
+        line.base_point = Vec2(index + 1, 2 * (index + 1))
+    original_base_points = [line.base_point for line in hatch.pattern.lines]
+
+    offset = Vec2(100, 25)
+    hatch.transform(Matrix44.translate(offset.x, offset.y, 0))
+
+    for line, base_point in zip(hatch.pattern.lines, original_base_points):
+        assert line.base_point.isclose(base_point + offset)
+
+
+def test_pattern_base_point_maps_like_boundary_vertex_under_full_transform():
+    # Regression test for issue #1402: a base point coincident with a boundary
+    # vertex must land on the exact same transformed point under a combined
+    # rotation + translation. This guards against double-applying the linear
+    # part that Pattern.scale() already handles.
+    vertices = [(2, 3), (10, 0), (10, 10), (0, 10)]
+    hatch = Hatch()
+    path = hatch.paths.add_polyline_path(vertices)
+    hatch.set_pattern_fill("ANSI31", scale=1.0)
+    hatch.pattern.lines[0].base_point = Vec2(2, 3)  # coincident with vertices[0]
+
+    m = Matrix44.chain(
+        Matrix44.z_rotate(math.radians(37)),
+        Matrix44.translate(37.5, 11.0, 0),
     )
+    hatch.transform(m)
+
+    vx, vy, _ = path.vertices[0]
+    assert hatch.pattern.lines[0].base_point.isclose(Vec2(vx, vy))

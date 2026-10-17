@@ -362,15 +362,11 @@ class TestCacheThreadSafety:
             def write_cache(thread_id):
                 try:
                     for i in range(50):
-                        cache.set(
-                            f"key-{thread_id}-{i}", sample_prompt_commit, mock_refresh
-                        )
+                        cache.set(f"key-{thread_id}-{i}", sample_prompt_commit, mock_refresh)
                 except Exception as e:
                     errors.append(e)
 
-            threads = [
-                threading.Thread(target=write_cache, args=(i,)) for i in range(10)
-            ]
+            threads = [threading.Thread(target=write_cache, args=(i,)) for i in range(10)]
             for t in threads:
                 t.start()
             for t in threads:
@@ -472,9 +468,7 @@ class TestAsyncCache:
             await cache.stop()
 
     @pytest.mark.asyncio
-    async def test_async_refresh_loop_continues_after_500_errors(
-        self, sample_prompt_commit
-    ):
+    async def test_async_refresh_loop_continues_after_500_errors(self, sample_prompt_commit):
         """Test that async refresh loop continues after 500 errors and can recover."""
         call_count = [0]
         updated_commit = ls_schemas.PromptCommit(
@@ -1004,9 +998,7 @@ class TestGlobalSingleton:
 
         finally:
             # Restore original values
-            configure_global_prompt_cache(
-                max_size=initial_max_size, ttl_seconds=initial_ttl
-            )
+            configure_global_prompt_cache(max_size=initial_max_size, ttl_seconds=initial_ttl)
 
     def test_multiple_clients_share_singleton(self, sample_prompt_commit):
         """Test that multiple clients share the same singleton cache."""
@@ -1058,9 +1050,7 @@ class TestGlobalSingleton:
             assert client1._cache is prompt_cache_singleton
         finally:
             # Restore
-            configure_global_prompt_cache(
-                max_size=initial_max_size, ttl_seconds=initial_ttl
-            )
+            configure_global_prompt_cache(max_size=initial_max_size, ttl_seconds=initial_ttl)
 
     def test_shared_metrics_across_clients(self, sample_prompt_commit):
         """Test that metrics are shared across clients using singleton."""
@@ -1203,9 +1193,7 @@ class TestGlobalSingleton:
 
         finally:
             # Restore original values
-            await configure_global_async_prompt_cache(
-                max_size=initial_max_size, ttl_seconds=initial_ttl
-            )
+            await configure_global_async_prompt_cache(max_size=initial_max_size, ttl_seconds=initial_ttl)
             async_prompt_cache_singleton.clear()
             async_prompt_cache_singleton.reset_metrics()
             await async_prompt_cache_singleton.stop()
@@ -1279,9 +1267,7 @@ class TestLazyInitialization:
             assert cache._refresh_thread is None
 
             # Set a value - should trigger lazy start
-            prompt = ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            prompt = ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
             cache.set("test-key", prompt, mock_fetch)
 
             # Thread should now be started
@@ -1296,9 +1282,7 @@ class TestLazyInitialization:
         cache = PromptCache(ttl_seconds=10)
         mock_fetch = MagicMock()
         try:
-            prompt = ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            prompt = ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
             cache.set("test-key", prompt, mock_fetch)
 
             # Thread should be started (lazy start happens on first set)
@@ -1310,15 +1294,11 @@ class TestLazyInitialization:
         """Test that thread doesn't start with infinite TTL (None)."""
 
         def mock_fetch():
-            return ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            return ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
 
         cache = PromptCache(ttl_seconds=None)
         try:
-            prompt = ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            prompt = ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
             cache.set("test-key", prompt, mock_fetch)
 
             # Thread should not start with infinite TTL
@@ -1330,16 +1310,12 @@ class TestLazyInitialization:
         """Test that configure stops existing thread and can restart it."""
 
         def mock_fetch():
-            return ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            return ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
 
         cache = PromptCache(ttl_seconds=10)
         try:
             # Trigger lazy start
-            prompt = ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            prompt = ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
             cache.set("test-key", prompt, mock_fetch)
 
             # Thread should be running
@@ -1365,16 +1341,12 @@ class TestLazyInitialization:
         """Test that shutdown stops the background thread."""
 
         def mock_fetch():
-            return ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            return ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
 
         cache = PromptCache(ttl_seconds=10)
         try:
             # Trigger lazy start
-            prompt = ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            prompt = ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
             cache.set("test-key", prompt, mock_fetch)
 
             # Thread should be running
@@ -1409,9 +1381,7 @@ class TestAsyncLazyInitialization:
         """Test that background task starts on first set when fetch_func is provided."""
 
         async def mock_fetch():
-            return ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            return ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
 
         cache = AsyncPromptCache(ttl_seconds=10)
         try:
@@ -1419,9 +1389,7 @@ class TestAsyncLazyInitialization:
             assert cache._refresh_task is None
 
             # Set a value - should trigger lazy start
-            prompt = ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            prompt = ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
             await cache.aset("test-key", prompt, mock_fetch)
 
             # Task should now be started
@@ -1435,15 +1403,11 @@ class TestAsyncLazyInitialization:
         """Test that task starts even with per-entry fetch_func (lazy start)."""
 
         async def mock_fetch():
-            return ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            return ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
 
         cache = AsyncPromptCache(ttl_seconds=10)
         try:
-            prompt = ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            prompt = ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
             await cache.aset("test-key", prompt, mock_fetch)
 
             # Task should be started (lazy start happens on first set)
@@ -1456,15 +1420,11 @@ class TestAsyncLazyInitialization:
         """Test that task doesn't start with infinite TTL (None)."""
 
         async def mock_fetch():
-            return ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            return ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
 
         cache = AsyncPromptCache(ttl_seconds=None)
         try:
-            prompt = ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            prompt = ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
             await cache.aset("test-key", prompt, mock_fetch)
 
             # Task should not start with infinite TTL
@@ -1477,16 +1437,12 @@ class TestAsyncLazyInitialization:
         """Test that configure stops existing task and can restart it."""
 
         async def mock_fetch():
-            return ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            return ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
 
         cache = AsyncPromptCache(ttl_seconds=10)
         try:
             # Trigger lazy start
-            prompt = ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            prompt = ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
             await cache.aset("test-key", prompt, mock_fetch)
 
             # Task should be running
@@ -1513,16 +1469,12 @@ class TestAsyncLazyInitialization:
         """Test that configure stops the background task like TypeScript."""
 
         async def mock_fetch():
-            return ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            return ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
 
         cache = AsyncPromptCache(ttl_seconds=10)
         try:
             # Trigger task start
-            prompt = ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            prompt = ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
             await cache.aset("test-key", prompt, mock_fetch)
 
             # Task should be running
@@ -1555,16 +1507,12 @@ class TestAsyncLazyInitialization:
         """Test that stop cancels the background task."""
 
         async def mock_fetch():
-            return ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            return ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
 
         cache = AsyncPromptCache(ttl_seconds=10)
         try:
             # Trigger lazy start
-            prompt = ls_schemas.PromptCommit(
-                owner="test", repo="test", commit_hash="abc", manifest={}, examples=[]
-            )
+            prompt = ls_schemas.PromptCommit(owner="test", repo="test", commit_hash="abc", manifest={}, examples=[])
             await cache.aset("test-key", prompt, mock_fetch)
 
             # Task should be running

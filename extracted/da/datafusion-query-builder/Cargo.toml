@@ -1,6 +1,6 @@
 [package]
 name = "datafusion-query-builder"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.85.0"
 description = "Programmatic, injection-safe builder for DataFusion SQL — a typed Rust core with a Python API."
@@ -35,7 +35,7 @@ datafusion-oracle = ["dep:datafusion", "dep:tokio"]
 [dependencies]
 # The dialect-faithful parser: the pydantic `${var}` dollar-brace fork of sqlparser-rs that the
 # DataFusion ecosystem uses. Pinned via the patch below so any transitive `sqlparser 0.62` unifies.
-sqlparser = "0.62"
+sqlparser = { version = "0.62", features = ["visitor"] }
 # abi3 with a 3.9 floor: one wheel per platform works on CPython 3.9+ (forward-compatible stable ABI).
 pyo3 = { version = "0.28", features = ["abi3-py39"], optional = true }
 # `datafusion-oracle` only (see feature above).

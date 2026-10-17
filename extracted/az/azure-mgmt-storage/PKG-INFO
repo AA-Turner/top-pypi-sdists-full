@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-storage
-Version: 25.2.0
+Version: 25.3.0
 Summary: Microsoft Azure Storage Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -86,6 +86,69 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 25.3.0 (2026-10-15)
+
+### Features Added
+
+  - Client `StorageManagementClient` added operation group `blob_access_point_configurations`
+  - Client `StorageManagementClient` added operation group `blob_access_point_connection_tests`
+  - Model `ContainerProperties` added property `blob_access_point_configuration`
+  - Model `NspAccessRuleProperties` added property `service_tags`
+  - Model `StorageAccountProperties` added property `turbo_tier`
+  - Model `StorageAccountPropertiesCreateParameters` added property `turbo_tier`
+  - Model `StorageAccountPropertiesUpdateParameters` added property `turbo_tier`
+  - Model `StorageDataCollaborationPolicyProperties` added property `allow_blob_access_points`
+  - Added model `BlobAccessPointAccessKeyAuthProperties`
+  - Added model `BlobAccessPointAccessKeyAuthPropertiesUpdate`
+  - Added model `BlobAccessPointAzureNetAppFilesSourceProperties`
+  - Added model `BlobAccessPointAzureNetAppFilesSourcePropertiesUpdate`
+  - Added model `BlobAccessPointCommvaultSourceProperties`
+  - Added model `BlobAccessPointCommvaultSourcePropertiesUpdate`
+  - Added model `BlobAccessPointConfiguration`
+  - Added model `BlobAccessPointConfigurationConnection`
+  - Added model `BlobAccessPointConfigurationProperties`
+  - Added model `BlobAccessPointConfigurationPropertiesUpdate`
+  - Added enum `BlobAccessPointConfigurationState`
+  - Added model `BlobAccessPointConfigurationUpdate`
+  - Added model `BlobAccessPointConnectionProperties`
+  - Added model `BlobAccessPointConnectionPropertiesUpdate`
+  - Added model `BlobAccessPointConnectionTestRequest`
+  - Added model `BlobAccessPointConnectionTestResponse`
+  - Added enum `BlobAccessPointConnectionTestStatus`
+  - Added enum `BlobAccessPointConnectionType`
+  - Added model `BlobAccessPointDellOneFsSourceProperties`
+  - Added model `BlobAccessPointDellOneFsSourcePropertiesUpdate`
+  - Added model `BlobAccessPointEndpointConnectionProperties`
+  - Added model `BlobAccessPointEndpointConnectionPropertiesUpdate`
+  - Added model `BlobAccessPointGenericS3SourceProperties`
+  - Added model `BlobAccessPointGenericS3SourcePropertiesUpdate`
+  - Added model `BlobAccessPointNasuniSourceProperties`
+  - Added model `BlobAccessPointNasuniSourcePropertiesUpdate`
+  - Added model `BlobAccessPointNetAppOntapSourceProperties`
+  - Added model `BlobAccessPointNetAppOntapSourcePropertiesUpdate`
+  - Added model `BlobAccessPointPrivateLinkConnectionProperties`
+  - Added model `BlobAccessPointPrivateLinkConnectionPropertiesUpdate`
+  - Added enum `BlobAccessPointPrivateLinkIdType`
+  - Added model `BlobAccessPointProposedConnectionTestRequest`
+  - Added model `BlobAccessPointQumuloSourceProperties`
+  - Added model `BlobAccessPointQumuloSourcePropertiesUpdate`
+  - Added model `BlobAccessPointRemoteAuthProperties`
+  - Added model `BlobAccessPointRemoteAuthPropertiesUpdate`
+  - Added enum `BlobAccessPointRemoteAuthType`
+  - Added model `BlobAccessPointSourceProperties`
+  - Added model `BlobAccessPointSourcePropertiesUpdate`
+  - Added enum `BlobAccessPointSourceType`
+  - Added enum `BlobAccessPointTlsVerification`
+  - Added enum `ContextCacheCheckNameAvailabilityFailureReason`
+  - Added model `ContextCacheCheckNameAvailabilityParameters`
+  - Added model `ContextCacheCheckNameAvailabilityResult`
+  - Added enum `ResourceProvisioningState`
+  - Added model `TurboTier`
+  - Added enum `TurboTierStatus`
+  - Operation group `ContextCachesOperations` added method `check_name_availability`
+  - Added operation group `BlobAccessPointConfigurationsOperations`
+  - Added operation group `BlobAccessPointConnectionTestsOperations`
 
 ## 25.2.0 (2026-09-22)
 

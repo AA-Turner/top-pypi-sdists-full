@@ -153,9 +153,7 @@ def test_feedback_stats_multiple_keys():
 
 
 def test_token_scalars_passed_through():
-    result = _v2_run_to_schema(
-        _make_v2_run(prompt_tokens=10, completion_tokens=20, total_tokens=30)
-    )
+    result = _v2_run_to_schema(_make_v2_run(prompt_tokens=10, completion_tokens=20, total_tokens=30))
     assert result.prompt_tokens == 10
     assert result.completion_tokens == 20
     assert result.total_tokens == 30

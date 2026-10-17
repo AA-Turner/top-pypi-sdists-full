@@ -1,14 +1,120 @@
 # pyright: reportUnknownVariableType=false
 # pyright: reportUnknownArgumentType=false
 # pyright: reportPrivateUsage=false
+import dataclasses
 import json
 import warnings
 from typing import Any
 from unittest import TestCase
 
+import pytest
 from braintrust.bt_json import bt_dumps, bt_safe_deep_copy
-from braintrust.logger import Attachment, ExternalAttachment
-from braintrust.test_helpers import with_memory_logger  # noqa: F401
+from braintrust.logger import Attachment, ExternalAttachment, ReadonlyAttachment
+from braintrust.test_helpers import DataclassAttachment, with_memory_logger  # noqa: F401
+
+
+@dataclasses.dataclass
+class _Payload:
+    value: Any
+
+
+@dataclasses.dataclass
+class _DataclassReadonlyAttachment(ReadonlyAttachment):
+    reference: dict[str, Any]
+
+    def __post_init__(self):
+        super().__init__(self.reference)
+
+
+def test_dataclass_nested_attachments():
+    attachment = Attachment(data=b"data", filename="file.txt", content_type="text/plain")
+    payload = _Payload(
+        {
+            "direct": attachment,
+            "list": [attachment],
+            "tuple": (attachment,),
+            "dataclass": _Payload(attachment),
+            "dataclasses": [_Payload(attachment)],
+        }
+    )
+
+    assert bt_safe_deep_copy(payload) == {
+        "value": {
+            "direct": attachment,
+            "list": [attachment],
+            "tuple": [attachment],
+            "dataclass": {"value": attachment},
+            "dataclasses": [{"value": attachment}],
+        }
+    }
+
+
+@pytest.mark.parametrize(
+    "base_name,placeholder",
+    [("_NoopSpan", "<span>"), ("Experiment", "<experiment>"), ("Dataset", "<dataset>"), ("Logger", "<logger>")],
+)
+def test_dataclass_sdk_object_subclasses_keep_placeholder(base_name, placeholder):
+    from braintrust import logger
+
+    # The `secret` field must never be copied into logged events.
+    obj = dataclasses.make_dataclass(
+        "DataclassObject", [("secret", str, "token")], bases=(getattr(logger, base_name),)
+    )()
+
+    assert bt_safe_deep_copy({"direct": obj, "nested": _Payload([obj])}) == {
+        "direct": placeholder,
+        "nested": {"value": [placeholder]},
+    }
+
+
+def test_dataclass_attachment_subclasses_keep_special_handling():
+    attachment = DataclassAttachment("test-key")
+    reference = {
+        "type": "braintrust_attachment",
+        "key": "readonly-key",
+        "filename": "a.txt",
+        "content_type": "text/plain",
+    }
+    readonly = _DataclassReadonlyAttachment(reference)
+
+    assert bt_safe_deep_copy({"direct": [attachment, readonly], "nested": _Payload([attachment, readonly])}) == {
+        "direct": [attachment, reference],
+        "nested": {"value": [attachment, reference]},
+    }
+
+
+def test_dataclass_cycles_and_depth_share_walker_state():
+    attachment = Attachment(data=b"data", filename="file.txt", content_type="text/plain")
+    payload = _Payload([attachment])
+    payload.value.append(payload)
+
+    # Shared (non-circular) references are copied each time; only true cycles are replaced.
+    assert bt_safe_deep_copy([payload, payload]) == [
+        {"value": [attachment, "<circular reference>"]},
+        {"value": [attachment, "<circular reference>"]},
+    ]
+    assert bt_safe_deep_copy(_Payload([_Payload("leaf")]), max_depth=2) == {"value": ["<max depth exceeded>"]}
+
+
+def test_dataclass_unreadable_field_keeps_readable_fields():
+    @dataclasses.dataclass
+    class Payload:
+        files: list[Any]
+        value: int = 0
+        unset: int = dataclasses.field(init=False)
+
+        def __getattribute__(self, name):
+            if name == "value":
+                raise RuntimeError("Cannot read field")
+            return super().__getattribute__(name)
+
+    attachment = Attachment(data=b"data", filename="file.txt", content_type="text/plain")
+
+    assert bt_safe_deep_copy(Payload([attachment])) == {
+        "files": [attachment],
+        "value": "<non-sanitizable: Payload.value>",
+        "unset": "<non-sanitizable: Payload.unset>",
+    }
 
 
 class TestBTJson(TestCase):
@@ -585,36 +691,6 @@ class TestBTJsonAttachments(TestCase):
             self.assertIs(result["file"], attachment)
         except ImportError:
             self.skipTest("Pydantic not available")
-
-    def test_bt_safe_deep_copy_dataclass_with_attachments(self):
-        """Test that dataclasses with attachments are handled correctly."""
-        from dataclasses import dataclass
-
-        attachment = Attachment(data=b"data", filename="file.txt", content_type="text/plain")
-
-        @dataclass
-        class DataWithAttachment:
-            name: str
-            value: int
-            file: Attachment
-
-        data = DataWithAttachment(name="test", value=42, file=attachment)
-
-        result = bt_safe_deep_copy({"data": data})
-
-        # Dataclasses with Attachment fields are now properly converted by
-        # recursively applying _to_bt_safe to each field instead of using
-        # dataclasses.asdict() which would try to deepcopy the Attachment.
-        self.assertIsInstance(result["data"], dict)
-        self.assertEqual(result["data"]["name"], "test")
-        self.assertEqual(result["data"]["value"], 42)
-        self.assertIs(result["data"]["file"], attachment)
-
-        # Attachments in regular dicts also work fine
-        dict_with_attachment = {"name": "test", "value": 42, "file": attachment}
-        result2 = bt_safe_deep_copy({"data": dict_with_attachment})
-        self.assertIsInstance(result2["data"], dict)
-        self.assertIs(result2["data"]["file"], attachment)
 
     def test_bt_safe_deep_copy_circular_in_pydantic_deferred_to_bt_dumps(self):
         """Test that circular references inside Pydantic model results bypass bt_safe_deep_copy detection.

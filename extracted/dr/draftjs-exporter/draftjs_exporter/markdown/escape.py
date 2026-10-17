@@ -59,7 +59,7 @@ LINE_ENDING = re.compile(r"(\r\n|\r|\n)")
 """Matches a single CommonMark line ending (``\\r\\n``, ``\\r``, or ``\\n``)."""
 
 
-def escape_text(text: str, at_line_start: bool = False) -> str:
+def md_escape_text(text: str, at_line_start: bool = False) -> str:
     r"""Escape Markdown metacharacters in user-controlled text.
 
     Applies CommonMark backslash escapes. Line-start-sensitive characters
@@ -136,22 +136,24 @@ def _escape_underscores(line: str) -> str:
     return UNDERSCORE_RUN.sub(replace, line)
 
 
-def escape_link_destination(url: str) -> str:
+def md_escape_link_destination(url: str | None) -> str:
     """Escape a URL for use as an inline link destination inside ``](…)``.
 
     Backslash-escapes backslashes and parentheses (which would otherwise
     break out of the destination), and percent-encodes ASCII whitespace and
-    control characters, which inline destinations may not contain. URL
-    scheme validation is out of scope: it is the integrator's
-    responsibility (see ``docs/SECURITY.md``).
+    control characters, which inline destinations may not contain. Missing
+    destinations (``None``) are rendered as empty, so links and images
+    without a URL produce ``[…]()`` rather than an error. URL scheme
+    validation is out of scope: it is the integrator's responsibility
+    (see ``docs/SECURITY.md``).
 
     Parameters:
-        url: The URL to escape.
+        url: The URL to escape, or ``None`` when the destination is absent.
 
     Returns:
         The escaped destination.
     """
-    escaped = url.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    escaped = (url or "").replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
     return "".join(
         char if char > " " and char != "\x7f" else f"%{ord(char):02X}"
         for char in escaped

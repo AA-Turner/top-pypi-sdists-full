@@ -1,0 +1,309 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from pathlib import Path
+from sys import version_info
+from typing import TYPE_CHECKING, Any, Generic, Protocol, overload
+
+from typing_extensions import ParamSpec, TypeVar, TypeVarTuple
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sized
+
+
+def bounded[T: Path](value: T) -> T:
+    """Take a bounded type parameter."""
+    return value
+
+
+def constrained[T: (int, str)](value: T) -> T:
+    """Take a constrained type parameter."""
+    return value
+
+
+def variadic[*Ts, **P](*args: *Ts) -> None:
+    """
+    Take variadic type parameters.
+
+    :param args: the values
+    """
+
+
+def forward[**P](call: Callable[P, None], *args: P.args, **kwargs: P.kwargs) -> None:
+    """
+    Call with the arguments it takes.
+
+    :param args: positional
+    :param kwargs: by keyword
+    """
+
+
+class Stack[T]:
+    """A stack."""
+
+    def __init__(self, item: T) -> None:
+        """Make a stack."""
+
+    def peek(self) -> T:
+        """Look at the top."""
+        raise NotImplementedError
+
+
+#: A stack ready to use.
+default_stack: Stack[int] = Stack(0)
+
+
+class Sizes[T: Sized]:
+    """Bound by a type imported only for type checking."""
+
+
+class Unknown[T: Undefined]:  # ruff:ignore[undefined-name]
+    """Bound by a name defined nowhere."""
+
+
+class Rejecting:
+    """Rejects every argument, as a class validating its subscript does."""
+
+    def __class_getitem__(cls, item: object) -> type[Rejecting]:
+        msg = f"cannot take {item}"
+        raise ValueError(msg)
+
+
+class Rejected[T: Rejecting[int]]:
+    """Bound by a subscript that raises."""
+
+
+type Pairs[K] = dict[K, K]
+
+
+def takes_pairs(value: Pairs) -> None:
+    """
+    Take pairs.
+
+    :param value: the pairs
+    """
+
+
+type RejectedAlias = Rejecting[int]
+
+
+def takes_rejected(value: RejectedAlias) -> None:
+    """
+    Take an alias whose value raises.
+
+    :param value: the value
+    """
+
+
+D = TypeVar("D", default=int)
+DP = ParamSpec("DP", default=[int, str])
+# what ``*tuple[int, ...]`` evaluates to, a spelling a default can take only from 3.13 on
+DTs = TypeVarTuple("DTs", default=next(iter(tuple[int, ...])))
+
+
+def relay(*args: DP.args, **kwargs: DP.kwargs) -> None:
+    """
+    Relay the arguments.
+
+    :param args: positional
+    :param kwargs: keyword
+    """
+
+
+class Legacy(Generic[D, DP, *DTs]):
+    """Generic the pre-PEP 695 way."""
+
+    def first(self) -> D:
+        """Return the first."""
+        raise NotImplementedError
+
+
+DPath = TypeVar("DPath", default=Path)
+DPathP = ParamSpec("DPathP", default=[Path])
+DPathTs = TypeVarTuple("DPathTs", default=next(iter(tuple[Path, ...])))
+
+
+class PathDefaults(Generic[DPath, DPathP, *DPathTs]):
+    """Generic over type parameters defaulting to an imported class."""
+
+
+L = TypeVar("L")
+
+
+def loose(value: L) -> L:  # ruff:ignore[non-pep695-generic-function]  # no signature declares L
+    """Use a type variable no signature declares."""
+    return value
+
+
+def plain(value: int) -> int:
+    """Not generic."""
+    return value
+
+
+E = TypeVar("E")
+
+
+class Box(Generic[E]):  # ruff:ignore[non-pep695-generic-class]  # the pre-PEP 695 way is the case under test
+    """Generic the pre-PEP 695 way, with members its subclasses inherit."""
+
+    def get(self, default: E) -> E:
+        """
+        Return the content.
+
+        :param default: returned when empty
+        """
+        raise NotImplementedError
+
+
+class IntBox(Box[int]):
+    """Binds the type parameter of its base."""
+
+
+class Listing[U](Box[list[U]]):
+    """Fills the type parameter of its base with a list of its own type parameter."""
+
+
+class IntListing(Listing[int]):
+    """Picks int for a base that binds the type parameter of its own base."""
+
+
+class IntStack(Stack[int]):
+    """Binds the type parameter of a PEP 695 base."""
+
+
+class Restack[V](Stack[V]):
+    """Passes a type parameter of its own on to its base."""
+
+
+class Pool[T]:
+    """
+    Holds the members its subclasses inherit, one annotated in its body and one overloaded.
+
+    :ivar size: the member count
+    """
+
+    size: T
+
+    @overload
+    def take(self, key: T) -> T: ...
+    @overload
+    def take(self, key: bytes) -> bytes: ...
+    def take(self, key: T | bytes) -> T | bytes:
+        """Take one."""
+        raise NotImplementedError
+
+
+class IntPool(Pool[int]):
+    """
+    Fixes the type parameter of its PEP 695 base to int.
+
+    :ivar size: how many it holds
+    """
+
+
+class Crate(Generic[E]):  # ruff:ignore[non-pep695-generic-class]  # the pre-PEP 695 way is the case under test
+    """
+    Holds the members its subclasses inherit the pre-PEP 695 way.
+
+    :ivar size: the member count
+    """
+
+    size: E
+
+    @overload
+    def take(self, key: E) -> E: ...
+    @overload
+    def take(self, key: bytes) -> bytes: ...
+    def take(self, key: E | bytes) -> E | bytes:
+        """Take one."""
+        raise NotImplementedError
+
+
+class IntCrate(Crate[int]):
+    """
+    Fixes the type parameter of its pre-PEP 695 base to int.
+
+    :ivar size: how many it holds
+    """
+
+
+class Readable(Protocol):
+    """A protocol that is not runtime checkable."""
+
+    def read(self) -> bytes: ...
+
+
+class File(Readable):
+    """Inherits its constructor from a protocol that is not runtime checkable."""
+
+
+class Feed[T](Protocol):
+    """A generic protocol that is not runtime checkable."""
+
+    def pull(self) -> T: ...
+
+
+class IntFeed(Feed[int]):
+    """Gives int to the type parameter of a protocol that is not runtime checkable."""
+
+
+class Sink[T](ABC):
+    """An abstract base class others register with."""
+
+    def put(self) -> T:
+        """Put one."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def close(self) -> None: ...
+
+
+class Registered:
+    """Counts as a subclass of the abstract base class without deriving from it."""
+
+
+Sink.register(Registered)
+
+
+class IntSink(Registered, Sink[int]):
+    """Lists a base registered with its abstract base class before binding the type parameter of that class."""
+
+    def close(self) -> None:
+        """Close it."""
+
+
+class Shelf[T]:
+    """Holds a member overloaded with a type parameter of its own."""
+
+    @overload
+    def take[S: str](self, key: S) -> list[S]: ...
+    @overload
+    def take(self, key: int) -> T: ...
+    def take(self, key: str | int) -> list[str] | T:
+        """Take one."""
+        raise NotImplementedError
+
+
+if version_info >= (4,):
+
+    @overload
+    def pick[K: int](key: K) -> list[K]: ...
+    @overload
+    def pick(key: str) -> str: ...
+
+
+def pick(key: int | str) -> list[int] | str:
+    """Pick one, with overloads behind a version check no interpreter passes, so typing holds no record of them."""
+    raise NotImplementedError
+
+
+class Forwarding:
+    """Forwards its annotations to the object it wraps."""
+
+    @property
+    def __annotations__(self) -> dict[str, Any]:  # ruff:ignore[bad-dunder-method-name]  # the case under test
+        return {}
+
+    def unwrap(self) -> int:
+        """Return the wrapped object."""
+        raise NotImplementedError

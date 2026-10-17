@@ -170,6 +170,18 @@ async def prepare_for_send(
     if stage == STAGE_RESOLVE and conversation_row is not None:
         _run_step(prep, "pin_system_date", lambda: _pin_system_date(config, conversation_row))
 
+    if stage == STAGE_RESOLVE and conversation_row is not None:
+        # AFTER the pin (the stored text carries the pinned date line), BEFORE
+        # anything else reads the prompt: a frozen conversation sends exactly
+        # the prompt its row stores — the cache line law.
+        _run_step(
+            prep,
+            "enforce_frozen_prompt",
+            lambda: _enforce_frozen_prompt(
+                config, conversation_row, conversation_id=conversation_id
+            ),
+        )
+
     if stage == STAGE_RESOLVE:
         # AFTER the pin: it reads the anchor the pin just set.
         _run_step(prep, "announce_live_date", lambda: _announce_live_date(config))
@@ -677,6 +689,62 @@ def _pin_system_date(config: Any, conversation_row: Any) -> None:
             return
     if len(anchor) == 10:
         si.date_anchor = anchor
+
+
+def _enforce_frozen_prompt(
+    config: Any, conversation_row: Any, *, conversation_id: str | None
+) -> None:
+    """THE CACHE LINE LAW at the send boundary (Arman, 2026-10-16).
+
+    "NOTHING, other than the removal of LARGE tool outputs should ever modify
+    text behind the cache line." For a conversation whose prompt is frozen, the
+    row's ``system_instruction`` IS the cached system prefix — it is what turn
+    one sent and what every later turn must send byte for byte. If the config
+    about to be sent renders anything else (an in-process cached config that
+    lost its organization catalog, a decoration added after freezing), this
+    screams (RED banner + ``system_error`` capture, kind
+    ``prompt_cache_line_violation``) and sends the stored prompt instead.
+
+    A mandate-held conversation stores no prompt (its live Holder is re-rendered
+    every turn by design), so there is nothing to compare and this is a no-op.
+    """
+    if not getattr(config, "system_prompt_frozen", False):
+        return
+    stored = getattr(conversation_row, "system_instruction", None)
+    if not isinstance(stored, str) or not stored:
+        return
+    current = getattr(config, "resolved_system_instruction", None) or ""
+    if current == stored:
+        return
+    import re
+
+    from matrx_ai.instructions.core import SystemInstruction
+    from matrx_ai.providers.cache_guard import scream_cache_line_violation
+
+    restored: Any = SystemInstruction.from_value(stored)
+    # The stored text names the date turn one rendered; pin to THAT, not to a
+    # re-derived one (conversation a1740422 sent "2026-10-15" on a prompt
+    # stored with "2026-10-14").
+    stored_date = re.search(r"Current date: (\d{4}-\d{2}-\d{2})", stored[:200])
+    if isinstance(restored, SystemInstruction):
+        restored.date_anchor = (
+            stored_date.group(1)
+            if stored_date
+            else getattr(getattr(config, "system_instruction", None), "date_anchor", None)
+        )
+    if str(restored) != stored:
+        # The stored text does not round-trip through SystemInstruction (a date
+        # line it would re-render): send the stored bytes verbatim.
+        restored = stored
+    scream_cache_line_violation(
+        kind="frozen_prompt_differs_from_row",
+        conversation_id=conversation_id,
+        request_id=None,
+        prev_text=stored,
+        new_text=current,
+        where="matrx_ai.config.send_boundary.prepare_for_send",
+    )
+    config.system_instruction = restored
 
 
 #: The turn-context slot the live date travels in (its own slot, so no other

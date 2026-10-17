@@ -1,4 +1,5 @@
 import binascii
+import ipaddress
 import logging
 import os
 from collections import deque
@@ -38,6 +39,7 @@ from .packet import (
     QuicFrameType,
     QuicHeader,
     QuicPacketType,
+    QuicPreferredAddress,
     QuicProtocolVersion,
     QuicStreamFrame,
     QuicTransportParameters,
@@ -51,8 +53,13 @@ from .packet import (
     push_ack_frame,
     push_quic_transport_parameters,
 )
-from .packet_builder import QuicDeliveryState, QuicPacketBuilder, QuicPacketBuilderStop
-from .recovery import QuicPacketRecovery, QuicPacketSpace
+from .packet_builder import (
+    PACKET_NUMBER_SEND_SIZE,
+    QuicDeliveryState,
+    QuicPacketBuilder,
+    QuicPacketBuilderStop,
+)
+from .recovery import MAX_ACK_RANGES, QuicPacketRecovery, QuicPacketSpace
 from .stream import FinalSizeError, QuicStream, StreamFinishedError
 
 logger = logging.getLogger("quic")
@@ -91,7 +98,7 @@ MAX_PENDING_CRYPTO = 524288  # in bytes
 NetworkAddress = Any
 
 # frame sizes
-ACK_FRAME_CAPACITY = 64  # FIXME: this is arbitrary!
+ACK_FRAME_CAPACITY = 1 + 4 * UINT_VAR_MAX_SIZE  # + ACK ranges
 APPLICATION_CLOSE_FRAME_CAPACITY = 1 + 2 * UINT_VAR_MAX_SIZE  # + reason length
 CONNECTION_LIMIT_FRAME_CAPACITY = 1 + UINT_VAR_MAX_SIZE
 HANDSHAKE_DONE_FRAME_CAPACITY = 1
@@ -204,7 +211,10 @@ class QuicNetworkPath:
         self.bytes_sent: int = 0
         self.is_validated: bool = is_validated
         self.local_challenge_sent: bool = False
+        self.local_challenges: Deque[bytes] = deque(maxlen=MAX_LOCAL_CHALLENGES)
+        self.peer_cid: Optional[QuicConnectionId] = None
         self.remote_challenges: Deque[bytes] = deque()
+        self.validation_deadline: Optional[float] = None
 
     def can_send(self, size: int) -> bool:
         return self.is_validated or (self.bytes_sent + size) <= 3 * self.bytes_received
@@ -287,6 +297,7 @@ class QuicConnection:
         self._is_client = configuration.is_client
 
         self._ack_delay = K_GRANULARITY
+        self._ack_eliciting_sent_since_receipt = False
         self._close_at: Optional[float] = None
         self._close_event: Optional[events.ConnectionTerminated] = None
         self._connect_called = False
@@ -313,7 +324,6 @@ class QuicConnection:
         self._key_update_pending = False
         self._local_ack_delay_exponent = 3
         self._local_active_connection_id_limit = 8
-        self._local_challenges: dict[bytes, QuicNetworkPath] = {}
         self._local_initial_source_connection_id = self._host_cids[0].cid
         self._local_max_data = Limit(
             frame_type=QuicFrameType.MAX_DATA,
@@ -358,6 +368,7 @@ class QuicConnection:
         self._remote_max_stream_data_uni = 0
         self._remote_max_streams_bidi = 0
         self._remote_max_streams_uni = 0
+        self._remote_preferred_address: Optional[QuicPreferredAddress] = None
         self._remote_version_information: Optional[QuicVersionInformation] = None
         self._retry_count = 0
         self._retry_source_connection_id = retry_source_connection_id
@@ -369,7 +380,6 @@ class QuicConnection:
         self._streams_queue: list[QuicStream] = []
         self._streams_blocked_bidi: list[QuicStream] = []
         self._streams_blocked_uni: list[QuicStream] = []
-        self._streams_finished: Set[int] = set()
         self._version: Optional[int] = None
         self._version_negotiated_compatible = False
         self._version_negotiated_incompatible = False
@@ -577,14 +587,21 @@ class QuicConnection:
             self._close_pending = False
             self._close_begin(is_initiator=True, now=now)
         else:
+            # Only pacing holding back this attempt sets the pacing time, so that an
+            # older one cannot stay in the past when something else holds it back,
+            # such as the anti-amplification limit (RFC 9002 section 7.7).
+            self._pacing_at = None
+
             # congestion control
             builder.max_flight_bytes = (
                 self._loss.congestion_window - self._loss.bytes_in_flight
             )
+            # RFC 9002 section 7 only lets probes exceed the congestion window.
+            # Deviate from it for stranded HANDSHAKE data, which would otherwise
+            # deadlock the handshake until the idle timeout.
             if (
-                self._probe_pending
-                and builder.max_flight_bytes < self._max_datagram_size
-            ):
+                self._probe_pending or self._handshake_data_stranded()
+            ) and builder.max_flight_bytes < self._max_datagram_size:
                 builder.max_flight_bytes = self._max_datagram_size
 
             # limit data on un-validated network paths
@@ -601,69 +618,37 @@ class QuicConnection:
             except QuicPacketBuilderStop:
                 pass
 
-        datagrams, packets = builder.flush()
+        ret = self._flush_builder(
+            builder=builder,
+            network_path=network_path,
+            peer_cid=self._peer_cid.cid,
+            now=now,
+        )
 
-        if datagrams:
-            self._packet_number = builder.packet_number
+        if self._handshake_complete and self._state not in END_STATES:
+            # RFC 9000 section 9.6.1 says that once the handshake is confirmed, the
+            # client should validate the server's preferred address.
+            if (
+                self._is_client
+                and self._handshake_confirmed
+                and self._remote_preferred_address is not None
+            ):
+                self._probe_preferred_address()
 
-            # register packets
-            sent_handshake = False
-            for packet in packets:
-                packet.sent_time = now
-                self._loss.on_packet_sent(
-                    packet=packet, space=self._spaces[packet.epoch]
-                )
-                if packet.epoch == tls.Epoch.HANDSHAKE:
-                    sent_handshake = True
+            # Send probing frames on the other paths, which need a connection ID
+            # of their own, see RFC 9000 section 9.5. Without a spare connection
+            # ID, nothing can be sent on a path.
+            for probe_path in self._network_paths[1:]:
+                if probe_path.remote_challenges or not (
+                    probe_path.is_validated or probe_path.local_challenge_sent
+                ):
+                    if probe_path.peer_cid is None and self._peer_cid_available:
+                        probe_path.peer_cid = self._peer_cid_available.pop(0)
+                    if probe_path.peer_cid is not None:
+                        ret += self._send_probing_frames(
+                            network_path=probe_path, now=now
+                        )
 
-                # log packet
-                if self._quic_logger is not None:
-                    self._quic_logger.log_event(
-                        category="transport",
-                        event="packet_sent",
-                        data={
-                            "frames": packet.quic_logger_frames,
-                            "header": {
-                                "packet_number": packet.packet_number,
-                                "packet_type": self._quic_logger.packet_type(
-                                    packet.packet_type
-                                ),
-                                "scid": (
-                                    ""
-                                    if packet.packet_type == QuicPacketType.ONE_RTT
-                                    else dump_cid(self.host_cid)
-                                ),
-                                "dcid": dump_cid(self._peer_cid.cid),
-                            },
-                            "raw": {"length": packet.sent_bytes},
-                        },
-                    )
-
-            # check if we can discard initial keys
-            if sent_handshake and self._is_client:
-                self._discard_epoch(tls.Epoch.INITIAL)
-
-        # return datagrams to send and the destination network address
-        ret = []
-        for datagram in datagrams:
-            payload_length = len(datagram)
-            network_path.bytes_sent += payload_length
-            ret.append((datagram, network_path.addr))
-
-            if self._quic_logger is not None:
-                self._quic_logger.log_event(
-                    category="transport",
-                    event="datagrams_sent",
-                    data={
-                        "count": 1,
-                        "raw": [
-                            {
-                                "length": UDP_HEADER_SIZE + payload_length,
-                                "payload_length": payload_length,
-                            }
-                        ],
-                    },
-                )
         return ret
 
     def get_next_available_stream_id(self, is_unidirectional=False) -> int:
@@ -675,25 +660,50 @@ class QuicConnection:
         else:
             return self._local_next_stream_id_bidi
 
+    def get_peer_address(self) -> Optional[NetworkAddress]:
+        """
+        Return the peer address to which datagrams are currently sent, or `None`
+        if none is known yet.
+
+        This address can change during the connection's lifetime when either
+        endpoint migrates, see RFC 9000 section 9.
+        """
+        if self._network_paths:
+            return self._network_paths[0].addr
+        return None
+
     def get_timer(self) -> Optional[float]:
         """
         Return the time at which the timer should fire or None if no timer is needed.
         """
         timer_at = self._close_at
         if self._state not in END_STATES:
+            if self._network_paths and not self._network_paths[0].is_validated:
+                ack_blocked, probe_blocked = self._amplification_blocked_timers()
+            else:
+                ack_blocked = probe_blocked = False
+
             # ack timer
-            for space in self._loss.spaces:
-                if space.ack_at is not None and space.ack_at < timer_at:
-                    timer_at = space.ack_at
+            if not ack_blocked:
+                for space in self._loss.spaces:
+                    if space.ack_at is not None and space.ack_at < timer_at:
+                        timer_at = space.ack_at
 
             # loss detection timer
-            self._loss_at = self._loss.get_loss_detection_time()
+            self._loss_at = self._loss.get_loss_detection_time(
+                amplification_limited=probe_blocked
+            )
             if self._loss_at is not None and self._loss_at < timer_at:
                 timer_at = self._loss_at
 
             # pacing timer
             if self._pacing_at is not None and self._pacing_at < timer_at:
                 timer_at = self._pacing_at
+
+            # Path validation timer.
+            deadline = self._path_validation_deadline()
+            if deadline is not None and deadline < timer_at:
+                timer_at = deadline
 
         return timer_at
 
@@ -720,6 +730,11 @@ class QuicConnection:
         if self._loss_at is not None and now >= self._loss_at:
             self._logger.debug("Loss detection triggered")
             self._loss.on_loss_detection_timeout(now=now)
+
+        # Path validation timeout.
+        deadline = self._path_validation_deadline()
+        if deadline is not None and now >= deadline:
+            self._abandon_path_validation()
 
     def next_event(self) -> Optional[events.QuicEvent]:
         """
@@ -774,6 +789,20 @@ class QuicConnection:
                     ],
                 },
             )
+
+        # RFC 9000 section 9 requires clients to discard packets from an unknown
+        # server address.
+        if self._is_client and all(path.addr != addr for path in self._network_paths):
+            if self._quic_logger is not None:
+                self._quic_logger.log_event(
+                    category="transport",
+                    event="packet_dropped",
+                    data={
+                        "trigger": "unknown_server_address",
+                        "raw": {"length": payload_length},
+                    },
+                )
+            return
 
         # For anti-amplification purposes, servers need to keep track of the
         # amount of data received on unvalidated network paths. We must count the
@@ -961,6 +990,7 @@ class QuicConnection:
                 if (
                     self._is_client
                     and epoch in (tls.Epoch.HANDSHAKE, tls.Epoch.ONE_RTT)
+                    and self.tls.state == tls.State.CLIENT_EXPECT_SERVER_HELLO
                     and not self._crypto_retransmitted
                 ):
                     self._loss.reschedule_data(now=now, speed_up_handshake=True)
@@ -1087,10 +1117,14 @@ class QuicConnection:
 
             # update idle timeout
             self._close_at = now + self._idle_timeout()
+            self._ack_eliciting_sent_since_receipt = False
 
-            # handle migration
+            # Handle migration. Probing packets must not change the connection ID
+            # used on the active path, as it would then be used to send to more
+            # than one address, see RFC 9000 section 9.5.
             if (
                 not self._is_client
+                and not is_probing
                 and context.host_cid != self.host_cid
                 and epoch == tls.Epoch.ONE_RTT
             ):
@@ -1100,7 +1134,11 @@ class QuicConnection:
                     destination_cid_seq,
                 )
                 self.host_cid = context.host_cid
-                self.change_connection_id()
+
+                # A path with a connection ID reserved for it uses that one once
+                # promoted.
+                if network_path.peer_cid is None:
+                    self.change_connection_id()
 
             # update network path
             if not network_path.is_validated and epoch == tls.Epoch.HANDSHAKE:
@@ -1111,10 +1149,27 @@ class QuicConnection:
             if network_path not in self._network_paths:
                 self._add_network_path(network_path)
             idx = self._network_paths.index(network_path)
-            if idx and not is_probing and packet_number > space.largest_received_packet:
+
+            # Only clients initiate migration (RFC 9000 section 9). A client only
+            # switches to a server address once it has validated it.
+            if (
+                not self._is_client
+                and idx
+                and not is_probing
+                and packet_number > space.largest_received_packet
+            ):
                 self._logger.debug("Network path %s promoted", network_path.addr)
                 self._network_paths.pop(idx)
                 self._network_paths.insert(0, network_path)
+                if network_path.peer_cid is not None:
+                    self._use_reserved_peer_cid(network_path)
+
+                # RFC 9000 section 9.3 requires validating the new peer address. A
+                # challenge sent while the path was probed is not retransmitted, so
+                # validation starts afresh.
+                if not network_path.is_validated:
+                    network_path.local_challenge_sent = False
+                    network_path.validation_deadline = None
 
             # record packet as received
             if not space.discarded:
@@ -1123,6 +1178,13 @@ class QuicConnection:
                     space.largest_received_time = now
                 space.ack_queue.add(packet_number)
                 space.received_packets.add(packet_number)
+
+                # Limit the number of ACK ranges by dropping the oldest one, whose
+                # packets are all rejected as duplicates from now on (RFC 9000
+                # section 13.2.3).
+                if len(space.ack_queue) > MAX_ACK_RANGES:
+                    space.ack_queue.shift()
+
                 if is_ack_eliciting and space.ack_at is None:
                     space.ack_at = now + self._ack_delay
 
@@ -1157,7 +1219,7 @@ class QuicConnection:
         :param stream_id: The stream's ID.
         :param error_code: An error code indicating why the stream is being reset.
         """
-        if self._stream_can_send(stream_id) and stream_id in self._streams_finished:
+        if self._stream_can_send(stream_id) and self._stream_is_discarded(stream_id):
             # The stream finished and its state was discarded, so there is nothing
             # to reset.
             return
@@ -1221,6 +1283,34 @@ class QuicConnection:
         stream.receiver.stop(error_code)
 
     # Private
+
+    def _abandon_path_validation(self) -> None:
+        """
+        Abandon the validation of the active network path and revert to the last
+        validated one.
+
+        https://datatracker.ietf.org/doc/html/rfc9000#section-9.3.2
+        """
+        network_path = self._network_paths[0]
+        self._logger.debug("Network path %s validation abandoned", network_path.addr)
+
+        validated_path = next(
+            (path for path in self._network_paths if path.is_validated), None
+        )
+        if validated_path is None:
+            # Without a validated network path, the connection is closed silently.
+            self._close_event = events.ConnectionTerminated(
+                error_code=QuicErrorCode.NO_VIABLE_PATH,
+                frame_type=QuicFrameType.PADDING,
+                reason_phrase="No validated network path",
+            )
+            self._close_end()
+            return
+
+        self._logger.debug("Network path %s restored", validated_path.addr)
+        self._network_paths.remove(network_path)
+        self._network_paths.remove(validated_path)
+        self._network_paths.insert(0, validated_path)
 
     def _alpn_handler(self, alpn_protocol: str) -> None:
         """
@@ -1286,6 +1376,42 @@ class QuicConnection:
         # Notify the application.
         self._events.append(events.ProtocolNegotiated(alpn_protocol=alpn_protocol))
 
+    def _amplification_blocked_timers(self) -> tuple[bool, bool]:
+        """
+        Return whether the anti-amplification limit leaves no room for an ACK,
+        and whether it leaves no room for a probe, so that their timers are not
+        armed until a datagram is received (RFC 9002 section 6.2.2.1).
+
+        The ACK is sized as a 1-RTT one, as INITIAL and HANDSHAKE ACKs never wait
+        for room: INITIAL packets arrive in datagrams of at least 1200 bytes, which
+        leave room for their ACK, and HANDSHAKE packets validate the client's
+        address.
+        """
+        packet_overhead = (
+            1
+            + len(self._peer_cid.cid)
+            + PACKET_NUMBER_SEND_SIZE
+            + self._cryptos[tls.Epoch.ONE_RTT].aead_tag_size
+        )
+
+        if self._handshake_complete:
+            # Only a path the client migrated to is not validated. A probe on it
+            # carries any due ACK, then a new PATH_CHALLENGE or older data.
+            probe_size = packet_overhead + PATH_CHALLENGE_FRAME_CAPACITY
+            if self._spaces[tls.Epoch.ONE_RTT].ack_at is not None:
+                probe_size += ACK_FRAME_CAPACITY
+        else:
+            # A probe may carry INITIAL data, which needs a full datagram (RFC 9000
+            # section 14.1), and the client keeps sending until its address is
+            # validated (RFC 9002 section 6.2.2.1).
+            probe_size = SMALLEST_MAX_DATAGRAM_SIZE
+
+        network_path = self._network_paths[0]
+        return (
+            not network_path.can_send(packet_overhead + ACK_FRAME_CAPACITY),
+            not network_path.can_send(probe_size),
+        )
+
     def _assert_stream_can_receive(self, frame_type: int, stream_id: int) -> None:
         """
         Check the specified stream can receive data or raises a QuicConnectionError.
@@ -1320,6 +1446,10 @@ class QuicConnection:
             dump_cid(self._peer_cid.cid),
             self._peer_cid.sequence_number,
         )
+
+        # RFC 9000 section 17.4 requires resetting the spin value when changing
+        # the connection ID used on a network path.
+        self._spin_bit = False
 
     def _close_begin(self, is_initiator: bool, now: float) -> None:
         """
@@ -1414,11 +1544,142 @@ class QuicConnection:
         self._logger.debug("Network path %s discovered", network_path.addr)
         return network_path
 
+    def _find_preferred_address(self) -> Optional[NetworkAddress]:
+        """
+        Return the server's preferred address in the same address family and
+        format as the current server address, or `None` if there is none.
+        """
+        assert self._remote_preferred_address is not None
+        addr = self._network_paths[0].addr
+        try:
+            host = ipaddress.ip_address(addr[0])
+        except (TypeError, ValueError):
+            return None
+
+        # Datagram sockets report IPv4 peers of a dual-stack IPv6 socket as
+        # IPv4-mapped addresses, along with a flow info and scope ID.
+        if host.version == 4:
+            preferred = self._remote_preferred_address.ipv4_address
+            host_prefix = ""
+        elif host.ipv4_mapped is not None:
+            host = host.ipv4_mapped
+            preferred = self._remote_preferred_address.ipv4_address
+            host_prefix = "::ffff:"
+        else:
+            preferred = self._remote_preferred_address.ipv6_address
+            host_prefix = ""
+        if preferred is None:
+            return None
+
+        # Refuse addresses which are malformed or could be used for request
+        # forgery, see RFC 9000 section 21.5.6.
+        preferred_host = ipaddress.ip_address(preferred[0])
+        if (
+            preferred[1] == 0
+            or preferred_host.is_multicast
+            or preferred_host == ipaddress.IPv4Address("255.255.255.255")
+            or (preferred_host.is_loopback and not host.is_loopback)
+            or (preferred_host.version == 6 and preferred_host.ipv4_mapped is not None)
+        ):
+            return None
+
+        preferred_addr: NetworkAddress = (host_prefix + preferred[0], preferred[1])
+        if len(addr) == 4:
+            preferred_addr += (0, 0)
+        if preferred_addr == addr:
+            return None
+        return preferred_addr
+
+    def _flush_builder(
+        self,
+        builder: QuicPacketBuilder,
+        network_path: QuicNetworkPath,
+        peer_cid: bytes,
+        now: float,
+    ) -> list[tuple[bytes, NetworkAddress]]:
+        """
+        Register the packets built by `builder` and return the datagrams to send
+        on `network_path`.
+        """
+        datagrams, packets = builder.flush()
+
+        if datagrams:
+            self._packet_number = builder.packet_number
+
+            # register packets
+            sent_handshake = False
+            for packet in packets:
+                packet.sent_time = now
+                self._loss.on_packet_sent(
+                    packet=packet, space=self._spaces[packet.epoch]
+                )
+                if packet.epoch == tls.Epoch.HANDSHAKE:
+                    sent_handshake = True
+
+                # Restart the idle timer on the first ack-eliciting packet sent
+                # since the last one received (RFC 9000 section 10.1).
+                if (
+                    packet.is_ack_eliciting
+                    and not self._ack_eliciting_sent_since_receipt
+                ):
+                    self._close_at = now + self._idle_timeout()
+                    self._ack_eliciting_sent_since_receipt = True
+
+                # log packet
+                if self._quic_logger is not None:
+                    self._quic_logger.log_event(
+                        category="transport",
+                        event="packet_sent",
+                        data={
+                            "frames": packet.quic_logger_frames,
+                            "header": {
+                                "packet_number": packet.packet_number,
+                                "packet_type": self._quic_logger.packet_type(
+                                    packet.packet_type
+                                ),
+                                "scid": (
+                                    ""
+                                    if packet.packet_type == QuicPacketType.ONE_RTT
+                                    else dump_cid(self.host_cid)
+                                ),
+                                "dcid": dump_cid(peer_cid),
+                            },
+                            "raw": {"length": packet.sent_bytes},
+                        },
+                    )
+
+            # check if we can discard initial keys
+            if sent_handshake and self._is_client:
+                self._discard_epoch(tls.Epoch.INITIAL)
+
+        # return datagrams to send and the destination network address
+        ret = []
+        for datagram in datagrams:
+            payload_length = len(datagram)
+            network_path.bytes_sent += payload_length
+            ret.append((datagram, network_path.addr))
+
+            if self._quic_logger is not None:
+                self._quic_logger.log_event(
+                    category="transport",
+                    event="datagrams_sent",
+                    data={
+                        "count": 1,
+                        "raw": [
+                            {
+                                "length": UDP_HEADER_SIZE + payload_length,
+                                "payload_length": payload_length,
+                            }
+                        ],
+                    },
+                )
+        return ret
+
     def _get_or_create_stream(self, frame_type: int, stream_id: int) -> QuicStream:
         """
         Get or create a stream in response to a received frame.
         """
-        if stream_id in self._streams_finished:
+        if self._stream_is_discarded(stream_id):
             # the stream was created, but its state was since discarded
             raise StreamFinishedError
 
@@ -1436,11 +1697,10 @@ class QuicConnection:
             if stream_is_unidirectional(stream_id):
                 max_stream_data_local = self._local_max_stream_data_uni
                 max_stream_data_remote = 0
-                max_streams = self._local_max_streams_uni
             else:
                 max_stream_data_local = self._local_max_stream_data_bidi_remote
                 max_stream_data_remote = self._remote_max_stream_data_bidi_local
-                max_streams = self._local_max_streams_bidi
+            max_streams = self._stream_limit(stream_id)
 
             # check max streams
             stream_count = (stream_id // 4) + 1
@@ -1450,18 +1710,21 @@ class QuicConnection:
                     frame_type=frame_type,
                     reason_phrase="Too many streams open",
                 )
-            elif stream_count > max_streams.used:
-                max_streams.used = stream_count
 
-            # create stream
-            self._logger.debug("Stream %d created by peer" % stream_id)
-            stream = self._streams[stream_id] = QuicStream(
-                stream_id=stream_id,
-                max_stream_data_local=max_stream_data_local,
-                max_stream_data_remote=max_stream_data_remote,
-                writable=not stream_is_unidirectional(stream_id),
-            )
-            self._streams_queue.append(stream)
+            # Opening a stream also opens all lower-numbered streams of the same
+            # type (RFC 9000 section 2.1).
+            for new_stream_id in range(
+                max_streams.used * 4 + stream_id % 4, stream_id + 4, 4
+            ):
+                self._logger.debug("Stream %d created by peer", new_stream_id)
+                stream = self._streams[new_stream_id] = QuicStream(
+                    stream_id=new_stream_id,
+                    max_stream_data_local=max_stream_data_local,
+                    max_stream_data_remote=max_stream_data_remote,
+                    writable=not stream_is_unidirectional(stream_id),
+                )
+                self._streams_queue.append(stream)
+            max_streams.used = stream_count
         return stream
 
     def _get_or_create_stream_for_send(self, stream_id: int) -> QuicStream:
@@ -1472,7 +1735,7 @@ class QuicConnection:
         """
         if not self._stream_can_send(stream_id):
             raise ValueError("Cannot send data on peer-initiated unidirectional stream")
-        if stream_id in self._streams_finished:
+        if self._stream_is_discarded(stream_id):
             raise ValueError("Cannot send data on a finished stream")
 
         stream = self._streams.get(stream_id, None)
@@ -1635,7 +1898,16 @@ class QuicConnection:
         """
         Handle an ACK frame.
         """
-        ack_rangeset, ack_delay_encoded = pull_ack_frame(buf)
+        try:
+            ack_rangeset, ack_delay_encoded = pull_ack_frame(buf)
+        except ValueError as exc:
+            # A negative packet number is a frame encoding error (RFC 9000
+            # section 19.3.1).
+            raise QuicConnectionError(
+                error_code=QuicErrorCode.FRAME_ENCODING_ERROR,
+                frame_type=frame_type,
+                reason_phrase=str(exc),
+            )
         if frame_type == QuicFrameType.ACK_ECN:
             buf.pull_uint_var()
             buf.pull_uint_var()
@@ -2019,6 +2291,13 @@ class QuicConnection:
         if self._peer_cid.sequence_number < self._peer_retire_prior_to:
             change_cid = True
             retire.insert(0, self._peer_cid)
+        for network_path in self._network_paths:
+            if (
+                network_path.peer_cid is not None
+                and network_path.peer_cid.sequence_number < self._peer_retire_prior_to
+            ):
+                retire.append(network_path.peer_cid)
+                network_path.peer_cid = None
 
         # update available CIDs
         self._peer_cid_available = [
@@ -2052,8 +2331,17 @@ class QuicConnection:
         if change_cid:
             self._consume_peer_cid()
 
-        # check number of active connection IDs, including the selected one
-        if 1 + len(self._peer_cid_available) > self._local_active_connection_id_limit:
+        # Check the number of active connection IDs, including the selected one and
+        # those reserved for paths being validated.
+        reserved_count = sum(
+            1
+            for network_path in self._network_paths
+            if network_path.peer_cid is not None
+        )
+        if (
+            1 + len(self._peer_cid_available) + reserved_count
+            > self._local_active_connection_id_limit
+        ):
             raise QuicConnectionError(
                 error_code=QuicErrorCode.CONNECTION_ID_LIMIT_ERROR,
                 frame_type=frame_type,
@@ -2152,16 +2440,26 @@ class QuicConnection:
                 self._quic_logger.encode_path_response_frame(data=data)
             )
 
-        try:
-            network_path = self._local_challenges.pop(data)
-        except KeyError:
-            raise QuicConnectionError(
-                error_code=QuicErrorCode.PROTOCOL_VIOLATION,
-                frame_type=frame_type,
-                reason_phrase="Response does not match challenge",
-            )
+        # A response validates the path its challenge was sent on (RFC 9000 section
+        # 8.2.3). An unknown one is ignored, as its challenge may have been dropped
+        # (RFC 9000 section 19.18).
+        network_path = next(
+            (path for path in self._network_paths if data in path.local_challenges),
+            None,
+        )
+        if network_path is None:
+            return
         self._logger.debug("Network path %s validated by challenge", network_path.addr)
         network_path.is_validated = True
+        network_path.local_challenges.clear()
+
+        # A client switches to the server's preferred address once it is validated,
+        # using the connection ID reserved for it.
+        if self._is_client and network_path.peer_cid is not None:
+            self._logger.debug("Migrating to server address %s", network_path.addr)
+            self._use_reserved_peer_cid(network_path)
+            self._network_paths.remove(network_path)
+            self._network_paths.insert(0, network_path)
 
     def _handle_ping_frame(
         self, context: QuicReceiveContext, frame_type: int, buf: Buffer
@@ -2413,6 +2711,25 @@ class QuicConnection:
                 )
             )
 
+    def _handshake_data_stranded(self) -> bool:
+        """
+        Return whether HANDSHAKE data is waiting to be sent with no loss
+        detection timer armed.
+
+        Before the handshake is confirmed, 1-RTT packets do not arm the PTO
+        (RFC 9002 section 6.2.1) and the peer may be unable to acknowledge them
+        (RFC 9001 section 5.7), so they can fill the congestion window for good.
+
+        This also holds when a server first sends its HANDSHAKE data, but the
+        congestion window then has room for it.
+        """
+        return (
+            not self._handshake_confirmed
+            and self._cryptos[tls.Epoch.HANDSHAKE].send.is_valid()
+            and not self._crypto_streams[tls.Epoch.HANDSHAKE].sender.buffer_is_empty
+            and self._loss.get_loss_detection_time(amplification_limited=False) is None
+        )
+
     def _log_key_retired(self, key_type: str, trigger: str) -> None:
         """
         Log a key retirement.
@@ -2478,6 +2795,21 @@ class QuicConnection:
         if delivery != QuicDeliveryState.ACKED:
             connection_id.was_sent = False
 
+    def _on_path_challenge_delivery(
+        self, delivery: QuicDeliveryState, network_path: QuicNetworkPath
+    ) -> None:
+        """
+        Callback when a PATH_CHALLENGE frame is acknowledged or lost.
+        """
+        # A lost challenge is sent again with new data while the active path is
+        # being validated, see RFC 9000 section 8.2.1.
+        if (
+            delivery != QuicDeliveryState.ACKED
+            and network_path is self._network_paths[0]
+            and not network_path.is_validated
+        ):
+            network_path.local_challenge_sent = False
+
     def _on_ping_delivery(
         self, delivery: QuicDeliveryState, uids: Sequence[int]
     ) -> None:
@@ -2499,6 +2831,18 @@ class QuicConnection:
         """
         if delivery != QuicDeliveryState.ACKED:
             self._retire_connection_ids.append(sequence_number)
+
+    def _path_validation_deadline(self) -> Optional[float]:
+        """
+        Return the time at which the validation of the active network path is
+        abandoned, or `None` if it is not being validated.
+        """
+        if self._state in END_STATES or not self._network_paths:
+            return None
+        network_path = self._network_paths[0]
+        if network_path.is_validated:
+            return None
+        return network_path.validation_deadline
 
     def _payload_received(
         self,
@@ -2588,6 +2932,24 @@ class QuicConnection:
             )
 
         return is_ack_eliciting, bool(is_probing)
+
+    def _probe_preferred_address(self) -> None:
+        """
+        Start validating the server's preferred address.
+
+        https://datatracker.ietf.org/doc/html/rfc9000#section-9.6.1
+        """
+        addr = self._find_preferred_address()
+        self._remote_preferred_address = None
+        if addr is None or not self._peer_cid_available:
+            return
+
+        # Reserve a connection ID for this path, as a connection ID must not be
+        # used to send to more than one destination address.
+        network_path = QuicNetworkPath(addr)
+        network_path.peer_cid = self._peer_cid_available.pop(0)
+        self._add_network_path(network_path)
+        self._logger.debug("Probing server preferred address %s", addr)
 
     def _receive_retry_packet(
         self, header: QuicHeader, packet_without_tag: bytes, now: float
@@ -2851,6 +3213,21 @@ class QuicConnection:
                     frame_type=QuicFrameType.CRYPTO,
                     reason_phrase="retry_source_connection_id does not match",
                 )
+            # RFC 9000 section 18.2 forbids a preferred address when the server
+            # uses a zero-length connection ID.
+            if (
+                self._is_client
+                and quic_transport_parameters.preferred_address is not None
+                and not self._remote_initial_source_connection_id
+            ):
+                raise QuicConnectionError(
+                    error_code=QuicErrorCode.TRANSPORT_PARAMETER_ERROR,
+                    frame_type=QuicFrameType.CRYPTO,
+                    reason_phrase=(
+                        "preferred_address is not allowed "
+                        "with a zero-length connection ID"
+                    ),
+                )
             if (
                 quic_transport_parameters.active_connection_id_limit is not None
                 and quic_transport_parameters.active_connection_id_limit < 2
@@ -2949,6 +3326,19 @@ class QuicConnection:
                 self._peer_cid.stateless_reset_token = (
                     quic_transport_parameters.stateless_reset_token
                 )
+            preferred_address = quic_transport_parameters.preferred_address
+            if self._is_client and preferred_address is not None:
+                # The connection ID in the preferred address has sequence number 1,
+                # and the client may use it on any path.
+                self._peer_cid_available.append(
+                    QuicConnectionId(
+                        cid=preferred_address.connection_id,
+                        sequence_number=1,
+                        stateless_reset_token=preferred_address.stateless_reset_token,
+                    )
+                )
+                self._peer_cid_sequence_numbers.add(1)
+                self._remote_preferred_address = preferred_address
             self._remote_version_information = (
                 quic_transport_parameters.version_information
             )
@@ -2975,6 +3365,67 @@ class QuicConnection:
             value = getattr(quic_transport_parameters, "initial_" + param)
             if value is not None:
                 setattr(self, "_remote_" + param, value)
+
+    def _send_probing_frames(
+        self, network_path: QuicNetworkPath, now: float
+    ) -> list[tuple[bytes, NetworkAddress]]:
+        """
+        Send probing frames on a path being validated, using the connection ID
+        reserved for it.
+
+        Non-probing frames must not be sent to an address before it is validated,
+        see RFC 9000 section 21.5.3.
+        """
+        assert network_path.peer_cid is not None
+        builder = QuicPacketBuilder(
+            host_cid=self.host_cid,
+            is_client=self._is_client,
+            max_datagram_size=self._max_datagram_size,
+            packet_number=self._packet_number,
+            peer_cid=network_path.peer_cid.cid,
+            quic_logger=self._quic_logger,
+            version=self._version,
+        )
+
+        # Probing frames are not limited by congestion control. A client sends its
+        # PATH_CHALLENGE to the server's preferred address without waiting for
+        # data from it. Anything else sent to an address which is not validated is
+        # subject to the anti-amplification limit.
+        if not network_path.is_validated and (
+            network_path.local_challenge_sent or not self._is_client
+        ):
+            builder.max_total_bytes = (
+                network_path.bytes_received * 3 - network_path.bytes_sent
+            )
+
+        try:
+            builder.start_packet(
+                QuicPacketType.ONE_RTT, self._cryptos[tls.Epoch.ONE_RTT]
+            )
+
+            # PATH_CHALLENGE, unless the path is already validated, so a client
+            # does not migrate back to the server's original address (RFC 9000
+            # section 9.6.1).
+            if not (network_path.is_validated or network_path.local_challenge_sent):
+                self._write_path_challenge_frame(
+                    builder=builder, network_path=network_path
+                )
+
+            # PATH_RESPONSE, on the path where the PATH_CHALLENGE was received.
+            while network_path.remote_challenges:
+                self._write_path_response_frame(
+                    builder=builder, challenge=network_path.remote_challenges[0]
+                )
+                network_path.remote_challenges.popleft()
+        except QuicPacketBuilderStop:
+            pass
+
+        return self._flush_builder(
+            builder=builder,
+            network_path=network_path,
+            peer_cid=network_path.peer_cid.cid,
+            now=now,
+        )
 
     def _serialize_transport_parameters(self) -> bytes:
         quic_transport_parameters = QuicTransportParameters(
@@ -3036,6 +3487,27 @@ class QuicConnection:
         return stream_is_client_initiated(
             stream_id
         ) == self._is_client or not stream_is_unidirectional(stream_id)
+
+    def _stream_is_discarded(self, stream_id: int) -> bool:
+        """
+        Return whether the stream was opened and its state since discarded.
+        """
+        if stream_is_client_initiated(stream_id) != self._is_client:
+            is_opened = stream_id // 4 < self._stream_limit(stream_id).used
+        elif stream_is_unidirectional(stream_id):
+            is_opened = stream_id < self._local_next_stream_id_uni
+        else:
+            is_opened = stream_id < self._local_next_stream_id_bidi
+        return is_opened and stream_id not in self._streams
+
+    def _stream_limit(self, stream_id: int) -> Limit:
+        """
+        Return the limit on streams of this type which the peer can open.
+        """
+        if stream_is_unidirectional(stream_id):
+            return self._local_max_streams_uni
+        else:
+            return self._local_max_streams_bidi
 
     def _unblock_streams(self, is_unidirectional: bool) -> None:
         if is_unidirectional:
@@ -3107,16 +3579,24 @@ class QuicConnection:
             )
             self._network_paths.remove(evicted)
             self._logger.debug("Network path %s evicted", evicted.addr)
+            if evicted.peer_cid is not None:
+                self._retire_peer_cid(evicted.peer_cid)
 
         self._network_paths.append(network_path)
 
-    def _add_local_challenge(self, challenge: bytes, network_path: QuicNetworkPath):
-        self._local_challenges[challenge] = network_path
-        while len(self._local_challenges) > MAX_LOCAL_CHALLENGES:
-            # Dictionaries are ordered, so pop the first key until we are below the
-            # limit.
-            key = next(iter(self._local_challenges.keys()))
-            del self._local_challenges[key]
+    def _use_reserved_peer_cid(self, network_path: QuicNetworkPath) -> None:
+        """
+        Switch to the peer connection ID reserved for a network path, retiring the
+        current one.
+        """
+        assert network_path.peer_cid is not None
+        self._retire_peer_cid(self._peer_cid)
+        self._peer_cid = network_path.peer_cid
+        network_path.peer_cid = None
+
+        # RFC 9000 section 17.4 requires resetting the spin value when changing
+        # the connection ID used on a network path.
+        self._spin_bit = False
 
     def _write_application(
         self, builder: QuicPacketBuilder, network_path: QuicNetworkPath, now: float
@@ -3141,21 +3621,31 @@ class QuicConnection:
                     break
             builder.start_packet(packet_type, crypto)
 
-            if self._handshake_complete:
-                # PATH CHALLENGE
-                if not (network_path.is_validated or network_path.local_challenge_sent):
-                    challenge = os.urandom(8)
-                    self._write_path_challenge_frame(
-                        builder=builder, challenge=challenge
-                    )
-                    self._add_local_challenge(
-                        challenge=challenge, network_path=network_path
-                    )
-                    network_path.local_challenge_sent = True
+            # ACK, which a server sends for 0-RTT packets before the handshake
+            # completes (RFC 9000 section 13.2.1), but not in 0-RTT packets.
+            if (
+                packet_type == QuicPacketType.ONE_RTT
+                and space.ack_at is not None
+                and space.ack_at <= now
+            ):
+                self._write_ack_frame(builder=builder, space=space, now=now)
 
-                # ACK
-                if space.ack_at is not None and space.ack_at <= now:
-                    self._write_ack_frame(builder=builder, space=space, now=now)
+            if self._handshake_complete:
+                # PATH_CHALLENGE, while the active path is not validated, which only
+                # happens on a server whose client migrated (RFC 9000 section 9.3).
+                if not (network_path.is_validated or network_path.local_challenge_sent):
+                    self._write_path_challenge_frame(
+                        builder=builder, network_path=network_path
+                    )
+
+                    # RFC 9000 section 8.2.4 recommends abandoning path validation
+                    # after three times the larger of the current PTO and the PTO
+                    # of a new path, which uses the initial RTT.
+                    if network_path.validation_deadline is None:
+                        network_path.validation_deadline = now + 3 * max(
+                            self._loss.get_probe_timeout(),
+                            2 * self._configuration.initial_rtt,
+                        )
 
                 # HANDSHAKE_DONE
                 if self._handshake_done_pending:
@@ -3242,7 +3732,13 @@ class QuicConnection:
                     if stream.is_finished:
                         self._logger.debug("Stream %d discarded", stream.stream_id)
                         self._streams.pop(stream.stream_id)
-                        self._streams_finished.add(stream.stream_id)
+                        if (
+                            stream_is_client_initiated(stream.stream_id)
+                            != self._is_client
+                        ):
+                            # Let the peer open a new stream for each one that
+                            # closes (RFC 9000 section 4.6).
+                            self._stream_limit(stream.stream_id).value += 1
                         discarded.add(stream)
                         continue
 
@@ -3284,7 +3780,10 @@ class QuicConnection:
                 self._streams_queue.extend(sent)
 
             if builder.packet_is_empty:
-                break
+                # Discarded streams may let the peer open new ones, which the next
+                # packet announces with MAX_STREAMS.
+                if not discarded:
+                    break
             else:
                 self._loss._pacer.update_after_send(now=now)
 
@@ -3344,14 +3843,16 @@ class QuicConnection:
             handler=self._on_ack_delivery,
             handler_args=(space, space.largest_received_packet),
         )
-        ranges = push_ack_frame(buf, space.ack_queue, ack_delay_encoded)
+        ranges = push_ack_frame(
+            buf, space.ack_queue, ack_delay_encoded, builder.remaining_buffer_space
+        )
         space.ack_at = None
 
         # log frame
         if self._quic_logger is not None:
             builder.quic_logger_frames.append(
                 self._quic_logger.encode_ack_frame(
-                    ranges=space.ack_queue, delay=ack_delay
+                    ranges=list(space.ack_queue)[-ranges:], delay=ack_delay
                 )
             )
 
@@ -3410,14 +3911,22 @@ class QuicConnection:
         """
         Raise MAX_DATA or MAX_STREAMS if needed.
         """
+        max_data = self._local_max_data
+        if max_data.used * 2 > max_data.value:
+            max_data.value *= 2
+            self._logger.debug("Local %s raised to %d", max_data.name, max_data.value)
+
         for limit in (
             self._local_max_data,
             self._local_max_streams_bidi,
             self._local_max_streams_uni,
         ):
-            if limit.used * 2 > limit.value:
-                limit.value *= 2
-                self._logger.debug("Local %s raised to %d", limit.name, limit.value)
+            if limit is not max_data and (
+                limit.sent - limit.used >= limit.value - limit.sent
+            ):
+                # Batch MAX_STREAMS frames: wait until the peer has fewer streams
+                # left to open (sent - used) than the update would grant (value - sent).
+                continue
             if limit.value != limit.sent:
                 buf = builder.start_frame(
                     limit.frame_type,
@@ -3531,12 +4040,20 @@ class QuicConnection:
             )
 
     def _write_path_challenge_frame(
-        self, builder: QuicPacketBuilder, challenge: bytes
+        self, builder: QuicPacketBuilder, network_path: QuicNetworkPath
     ) -> None:
         buf = builder.start_frame(
-            QuicFrameType.PATH_CHALLENGE, capacity=PATH_CHALLENGE_FRAME_CAPACITY
+            QuicFrameType.PATH_CHALLENGE,
+            capacity=PATH_CHALLENGE_FRAME_CAPACITY,
+            handler=self._on_path_challenge_delivery,
+            handler_args=(network_path,),
         )
+        challenge = os.urandom(8)
         buf.push_bytes(challenge)
+
+        # Record the challenge once the frame is written, see `start_frame`.
+        network_path.local_challenges.append(challenge)
+        network_path.local_challenge_sent = True
 
         # log frame
         if self._quic_logger is not None:

@@ -18,6 +18,46 @@ fn eq(col: &str, val: &str) -> Expr {
 }
 
 #[test]
+fn cte_materialization_directives() {
+    for (setting, directive) in [
+        (None, ""),
+        (Some(true), "MATERIALIZED "),
+        (Some(false), "NOT MATERIALIZED "),
+    ] {
+        let q = Query::table("chosen").with_cte_materialization(
+            "chosen",
+            Query::table("records"),
+            setting,
+        );
+        assert_eq!(
+            validate(&q).unwrap(),
+            format!("WITH chosen AS {directive}(SELECT * FROM records) SELECT * FROM chosen")
+        );
+    }
+    let q = Query::table("chosen")
+        .with_cte_materialization("chosen", Query::table("records"), Some(true))
+        .with_cte("other", Query::table("chosen"));
+    assert_eq!(
+        validate(&q).unwrap(),
+        "WITH chosen AS MATERIALIZED (SELECT * FROM records), other AS (SELECT * FROM chosen) SELECT * FROM chosen"
+    );
+}
+
+#[test]
+fn nested_materialized_ctes_quote_names() {
+    let inner = Query::table("\"a b\"").with_cte_materialization(
+        "\"a b\"",
+        Query::table("records"),
+        Some(false),
+    );
+    let q = Query::table("outer").with_cte_materialization("outer", inner, Some(true));
+    assert_eq!(
+        validate(&q).unwrap(),
+        "WITH outer AS MATERIALIZED (WITH \"a b\" AS NOT MATERIALIZED (SELECT * FROM records) SELECT * FROM \"a b\") SELECT * FROM outer"
+    );
+}
+
+#[test]
 fn red_metrics_query() {
     let q = Query::table("records")
         .filter(eq("kind", "span"))

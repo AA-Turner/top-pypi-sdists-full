@@ -23,17 +23,11 @@ def clear_env_cache():
 @pytest.mark.parametrize("suffix", ["", "/", "/api", "/api/", "/api/v1", "/api/v1/"])
 @pytest.mark.parametrize("explicit", [False, True])
 @pytest.mark.parametrize("async_client", [False, True])
-async def test_endpoint_requests(
-    monkeypatch, httpx_mock: HTTPXMock, host, suffix, explicit, async_client
-):
+async def test_endpoint_requests(monkeypatch, httpx_mock: HTTPXMock, host, suffix, explicit, async_client):
     monkeypatch.setenv("LANGSMITH_ENDPOINT", host + suffix)
     endpoint = host + "/api/v2/sandboxes/" if explicit else None
-    httpx_mock.add_response(
-        url=host + "/api/v2/sandboxes/boxes", json={"sandboxes": []}
-    )
-    httpx_mock.add_response(
-        url=host + "/api/v2/sandboxes/registries", json={"registries": []}
-    )
+    httpx_mock.add_response(url=host + "/api/v2/sandboxes/boxes", json={"sandboxes": []})
+    httpx_mock.add_response(url=host + "/api/v2/sandboxes/registries", json={"registries": []})
     if async_client:
         async with AsyncSandboxClient(api_endpoint=endpoint, api_key="test") as client:
             await client.list_sandboxes()

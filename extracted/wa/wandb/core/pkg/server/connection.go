@@ -14,7 +14,6 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 
-	"github.com/wandb/wandb/core/internal/analytics"
 	"github.com/wandb/wandb/core/internal/api"
 	"github.com/wandb/wandb/core/internal/clients"
 	"github.com/wandb/wandb/core/internal/gql"
@@ -24,6 +23,7 @@ import (
 	"github.com/wandb/wandb/core/internal/runwork"
 	"github.com/wandb/wandb/core/internal/settings"
 	"github.com/wandb/wandb/core/internal/stream"
+	"github.com/wandb/wandb/core/internal/sweeps/scheduler"
 	"github.com/wandb/wandb/core/internal/wbapi"
 
 	"google.golang.org/protobuf/proto"
@@ -37,9 +37,10 @@ const (
 )
 
 type ConnectionParams struct {
-	StreamMux          *stream.StreamMux
-	RunSyncManager     *runsync.RunSyncManager
-	XPUResourceManager *monitor.XPUResourceManager
+	StreamMux            *stream.StreamMux
+	RunSyncManager       *runsync.RunSyncManager
+	SweepSchedBroker     *scheduler.IPCSessionBroker
+	SymonResourceManager *monitor.SymonResourceManager
 
 	ID string
 
@@ -82,8 +83,11 @@ type Connection struct {
 	// runSyncManager implements `wandb sync` operations.
 	runSyncManager *runsync.RunSyncManager
 
-	// xpuResourceManager is used by streams for system accelerator metrics.
-	xpuResourceManager *monitor.XPUResourceManager
+	// sweepSchedBroker implements `wandb sweep-scheduler` sessions.
+	sweepSchedBroker *scheduler.IPCSessionBroker
+
+	// symonResourceManager is used by streams for system metrics.
+	symonResourceManager *monitor.SymonResourceManager
 
 	// id is the unique id for the connection
 	id string
@@ -119,21 +123,22 @@ func NewConnection(
 	connLifetimeCtx, stopConnection := context.WithCancel(serverLifetimeCtx)
 
 	return &Connection{
-		connLifetimeCtx:    connLifetimeCtx,
-		stopConnection:     stopConnection,
-		requestCanceller:   NewRequestCanceller(connLifetimeCtx, slog.Default()),
-		stopServer:         stopServer,
-		streamMux:          params.StreamMux,
-		runSyncManager:     params.RunSyncManager,
-		xpuResourceManager: params.XPUResourceManager,
-		conn:               params.Conn,
-		commit:             params.Commit,
-		id:                 params.ID,
-		inChan:             make(chan *spb.ServerRequest, BufferSize),
-		outChan:            make(chan *spb.ServerResponse, BufferSize),
-		loggerPath:         params.LoggerPath,
-		logLevel:           params.LogLevel,
-		apiManager:         wbapi.NewManager(),
+		connLifetimeCtx:      connLifetimeCtx,
+		stopConnection:       stopConnection,
+		requestCanceller:     NewRequestCanceller(connLifetimeCtx, slog.Default()),
+		stopServer:           stopServer,
+		streamMux:            params.StreamMux,
+		runSyncManager:       params.RunSyncManager,
+		sweepSchedBroker:     params.SweepSchedBroker,
+		symonResourceManager: params.SymonResourceManager,
+		conn:                 params.Conn,
+		commit:               params.Commit,
+		id:                   params.ID,
+		inChan:               make(chan *spb.ServerRequest, BufferSize),
+		outChan:              make(chan *spb.ServerResponse, BufferSize),
+		loggerPath:           params.LoggerPath,
+		logLevel:             params.LogLevel,
+		apiManager:           wbapi.NewManager(),
 	}
 }
 
@@ -364,6 +369,13 @@ func (nc *Connection) handleIncomingRequests() {
 			nc.handleApiCleanup(wg, x.ApiCleanupRequest)
 		case *spb.ServerRequest_ApiRequest:
 			nc.handleApi(wg, msg.RequestId, x.ApiRequest)
+		case *spb.ServerRequest_SweepSchedulerInit:
+			nc.handleSweepSchedulerInit(wg, msg.RequestId, x.SweepSchedulerInit)
+		case *spb.ServerRequest_SweepSchedulerNextTask:
+			nc.handleSweepSchedulerNextTask(
+				wg, msg.RequestId, x.SweepSchedulerNextTask)
+		case *spb.ServerRequest_SweepSchedulerStop:
+			nc.handleSweepSchedulerStop(x.SweepSchedulerStop)
 		case nil:
 			slog.Error(
 				"handleIncomingRequests: ServerRequestType is nil",
@@ -407,7 +419,7 @@ func (nc *Connection) handleInformInit(
 
 	strm := stream.InjectStream(
 		stream.GitCommitHash(nc.commit),
-		nc.xpuResourceManager,
+		nc.symonResourceManager,
 		stream.DebugCorePath(nc.loggerPath),
 		nc.logLevel,
 		s,
@@ -685,43 +697,78 @@ func (nc *Connection) handleSyncStatus(
 	})
 }
 
+// handleSweepSchedulerInit asynchronously starts a sweep scheduler
+//
+// This makes a network call, so it is async.
+func (nc *Connection) handleSweepSchedulerInit(
+	wg *sync.WaitGroup,
+	id string,
+	request *spb.SweepSchedulerClientInitRequest,
+) {
+	wg.Go(func() {
+		ctx, cancel := nc.requestCanceller.Context(id)
+		defer cancel()
+
+		response, err := nc.sweepSchedBroker.InitScheduler(
+			nc.connLifetimeCtx, ctx, request)
+		if err != nil {
+			nc.Respond(&spb.ServerResponse{
+				RequestId: id,
+				ServerResponseType: &spb.ServerResponse_ErrorResponse{
+					ErrorResponse: &spb.ServerErrorResponse{
+						Message: err.Error(),
+					},
+				},
+			})
+			return
+		}
+
+		nc.Respond(&spb.ServerResponse{
+			RequestId: id,
+			ServerResponseType: &spb.ServerResponse_SweepSchedulerInitResponse{
+				SweepSchedulerInitResponse: response,
+			},
+		})
+	})
+}
+
+// handleSweepSchedulerNextTask generates the next scheduler task async
+func (nc *Connection) handleSweepSchedulerNextTask(
+	wg *sync.WaitGroup,
+	id string,
+	request *spb.SweepSchedulerClientNextTaskRequest,
+) {
+	wg.Go(func() {
+		ctx, cancel := nc.requestCanceller.Context(id)
+		defer cancel()
+
+		response := nc.sweepSchedBroker.NextTask(ctx, request)
+		if response == nil {
+			// the client cancelled its poll
+			return
+		}
+
+		nc.Respond(&spb.ServerResponse{
+			RequestId: id,
+			ServerResponseType: &spb.ServerResponse_SweepSchedulerNextTaskResponse{
+				SweepSchedulerNextTaskResponse: response,
+			},
+		})
+	})
+}
+
+// handleSweepSchedulerStop forwards a fire-and-forget stop request.
+func (nc *Connection) handleSweepSchedulerStop(
+	request *spb.SweepSchedulerClientStopRequest,
+) {
+	nc.sweepSchedBroker.Stop(request)
+}
+
 // handleApiInit sets up a new wandbAPI instance.
 func (nc *Connection) handleApiInit(id string, request *spb.ServerApiInitRequest) {
 	s := settings.From(request.GetSettings())
 
-	telemetryProxy := analytics.NewOpenTelemetryProxy(
-		context.Background(),
-		s,
-		"wandb-core",
-	)
-	go func() {
-		<-nc.connLifetimeCtx.Done()
-		if telemetryProxy != nil {
-			shutdownCtx, cancel := context.WithTimeout(
-				context.Background(),
-				2*time.Second,
-			)
-			defer cancel()
-
-			err := telemetryProxy.Shutdown(shutdownCtx)
-			if err != nil {
-				slog.Error(
-					"connection: failed to shut down telemetry proxy",
-					"error",
-					err,
-				)
-			}
-		}
-	}()
-
-	logger := observability.NewCoreLogger(
-		slog.Default(),
-		analytics.NewTelemetryRecorder(
-			telemetryProxy,
-			analytics.NewTelemetryContext(),
-		),
-	)
-	wbapiInstance, err := wbapi.New(s, request.GetServiceName(), logger)
+	wbapiInstance, err := wbapi.New(s, request.GetServiceName())
 	if err != nil {
 		nc.Respond(&spb.ServerResponse{
 			RequestId: id,

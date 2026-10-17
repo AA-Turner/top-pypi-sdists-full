@@ -1,16 +1,18 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lzfse
-Version: 0.4.2
+Version: 0.4.2.post1
 Summary: Python bindings for the LZFSE reference implementation
 Author-email: Yogesh Khatri <yogesh@swiftforensics.com>
 Maintainer-email: m1sta <adamhamdi31@gmail.com>
 License: MIT
+Project-URL: Repository, https://github.com/m1stadev/lzfse
 Project-URL: Bug Tracker, https://github.com/m1stadev/lzfse/issues
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.lzfse
 License-File: COPYING
 License-File: AUTHORS
+Dynamic: license-file
 
 <h1 align="center">
 lzfse      
@@ -29,7 +31,7 @@ lzfse
 </p>
 
 <p align="center">
-Python bindings for the <a href="https://https://github.com/lzfse/lzfse">LZFSE</a> reference implementation.
+Python bindings for the <a href="https://github.com/lzfse/lzfse">LZFSE</a> reference implementation.
 </p>
 
 <p align="center">

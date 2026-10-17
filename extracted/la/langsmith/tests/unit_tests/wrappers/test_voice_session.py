@@ -38,9 +38,7 @@ def _patch_cached_client(mock_client, monkeypatch):
     # Every RunTree built by start_session resolves its client lazily via
     # run_trees.get_cached_client(); point it at the mock so .post()/.patch()
     # enqueue to a fake session instead of the network.
-    monkeypatch.setattr(
-        "langsmith.run_trees.get_cached_client", lambda **_: mock_client
-    )
+    monkeypatch.setattr("langsmith.run_trees.get_cached_client", lambda **_: mock_client)
 
 
 def _session(sample_rate: int = 24_000, **kwargs) -> EventSession:
@@ -115,9 +113,7 @@ class TestAudioBound:
         s.record_agent(570.0, chunk)
         s.record_agent(571.0, chunk)
         s.record_agent(572.0, chunk)
-        monkeypatch.setattr(
-            session_mod, "build_stereo_session_wav", lambda *_, **__: b""
-        )
+        monkeypatch.setattr(session_mod, "build_stereo_session_wav", lambda *_, **__: b"")
 
         s.finalize()
 

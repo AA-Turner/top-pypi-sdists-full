@@ -210,12 +210,7 @@ class ParentSelection:
             pass
 
         # Reaching this step confirms that fitness is a 1D array.
-        fitness_sum = numpy.sum(fitness, dtype=numpy.result_type(fitness.dtype, float))
-        if fitness_sum == 0:
-            self.logger.error("Cannot proceed because the sum of fitness values is zero. Cannot divide by zero.")
-            raise ZeroDivisionError("Cannot proceed because the sum of fitness values is zero. Cannot divide by zero.")
-
-        probs = fitness / fitness_sum
+        probs = self.fitness_selection_probabilities(fitness)
 
         probs_start, probs_end, parents = self.wheel_cumulative_probs(probs=probs.copy(),
                                                                       num_parents=num_parents)
@@ -233,6 +228,124 @@ class ParentSelection:
         parents[:, :] = self.population[parents_indices, :].copy()
 
         return parents, parents_indices
+
+    def fitness_selection_probabilities(self, fitness):
+        """
+        Turn 1D fitness values into the selection probabilities used by
+        roulette wheel and stochastic universal selection.
+
+        Each probability is the fitness divided by the total fitness. When
+        any fitness value is negative, this division would flip the order
+        and favor the worst solutions. So the values are first shifted by
+        the smallest fitness, which makes the worst solution 0 and keeps
+        the better solutions favored. Fitness values that are all zero or
+        above are used as they are.
+
+        Values near the float limits, such as the most negative float that
+        some libraries give an invalid solution, are scaled down before
+        they are shifted or added, so nothing overflows. -inf and NaN get
+        no chance. When any fitness is +inf, those solutions share every
+        chance equally.
+
+        Parameters
+        ----------
+        fitness : numpy.ndarray
+            A 1D array of fitness values, one per solution.
+
+        Returns
+        -------
+        probs : numpy.ndarray
+            The selection probability of each solution.
+
+        Raises
+        ------
+        ZeroDivisionError
+            If every fitness value is zero.
+        ValueError
+            If no fitness value is finite or +inf.
+        """
+        if fitness.dtype == object:
+            # Python integers may be too large for a float, so they keep
+            # exact arithmetic.
+            return self._exact_selection_probabilities(fitness)
+
+        values = numpy.asarray(fitness, dtype=numpy.result_type(fitness.dtype, float))
+        positive_infinite = numpy.isposinf(values)
+        if positive_infinite.any():
+            return positive_infinite / numpy.count_nonzero(positive_infinite)
+        usable = numpy.isfinite(values)
+        if not usable.any():
+            message = "Cannot select parents because no fitness value is finite: every value is -inf or NaN."
+            self.logger.error(message)
+            raise ValueError(message)
+        finite_values = values[usable]
+        lowest = finite_values.min()
+        highest = finite_values.max()
+
+        if lowest >= 0 and usable.all():
+            # An overflow here is expected for values near the float limit
+            # and is handled by the scaled path below, so it is not warned.
+            with numpy.errstate(over="ignore"):
+                total = numpy.sum(values)
+            if numpy.isfinite(total):
+                # The usual case: the fitness divided by the total, exactly
+                # as before.
+                if total == 0:
+                    self.logger.error("Cannot proceed because the sum of fitness values is zero. Cannot divide by zero.")
+                    raise ZeroDivisionError("Cannot proceed because the sum of fitness values is zero. Cannot divide by zero.")
+                return values / total
+
+        # Divide by the largest magnitude first, so every weight lies in the
+        # range 0 to 2 and neither the shift nor the sum can overflow.
+        scale = max(abs(lowest), abs(highest))
+        weights = numpy.zeros_like(values)
+        if lowest < 0:
+            weights[usable] = finite_values / scale - lowest / scale
+        else:
+            weights[usable] = finite_values / scale
+        total = weights.sum()
+        if total == 0:
+            if usable.all() and lowest == 0:
+                self.logger.error("Cannot proceed because the sum of fitness values is zero. Cannot divide by zero.")
+                raise ZeroDivisionError("Cannot proceed because the sum of fitness values is zero. Cannot divide by zero.")
+            # Every usable solution has the same fitness, so each gets the
+            # same chance.
+            weights[usable] = 1.0
+            total = weights.sum()
+        return weights / total
+
+    def _exact_selection_probabilities(self, fitness):
+        """
+        Selection probabilities for an object array of exact numbers, such
+        as Python integers too large for a float.
+
+        Parameters
+        ----------
+        fitness : numpy.ndarray
+            A 1D object array of fitness values.
+
+        Returns
+        -------
+        probs : numpy.ndarray
+            The selection probability of each solution.
+
+        Raises
+        ------
+        ZeroDivisionError
+            If every fitness value is zero.
+        """
+        weights = fitness
+        if numpy.min(fitness) < 0:
+            weights = fitness - numpy.min(fitness)
+            if not numpy.any(weights):
+                # Every solution has the same fitness, so every solution
+                # gets the same chance.
+                return numpy.full(weights.shape[0], 1.0 / weights.shape[0])
+        fitness_sum = numpy.sum(weights)
+        if fitness_sum == 0:
+            self.logger.error("Cannot proceed because the sum of fitness values is zero. Cannot divide by zero.")
+            raise ZeroDivisionError("Cannot proceed because the sum of fitness values is zero. Cannot divide by zero.")
+        return weights / fitness_sum
 
     def wheel_cumulative_probs(self, probs, num_parents):
         """
@@ -319,12 +432,7 @@ class ParentSelection:
             pass
 
         # Reaching this step confirms that fitness is a 1D array.
-        fitness_sum = numpy.sum(fitness, dtype=numpy.result_type(fitness.dtype, float))
-        if fitness_sum == 0:
-            self.logger.error("Cannot proceed because the sum of fitness values is zero. Cannot divide by zero.")
-            raise ZeroDivisionError("Cannot proceed because the sum of fitness values is zero. Cannot divide by zero.")
-
-        probs = fitness / fitness_sum
+        probs = self.fitness_selection_probabilities(fitness)
 
         probs_start, probs_end, parents = self.wheel_cumulative_probs(probs=probs.copy(),
                                                                       num_parents=num_parents)

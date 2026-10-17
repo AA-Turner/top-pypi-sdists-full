@@ -12,10 +12,12 @@ import pytest
 from scipy import stats
 
 import linearmodels
+from linearmodels.shared.covariance import cov_cluster
 from linearmodels.shared.exceptions import missing_warning
 from linearmodels.shared.hypotheses import (
     InapplicableTestStatistic,
     InvalidTestStatistic,
+    NormalTestStatistic,
     WaldTestStatistic,
 )
 from linearmodels.shared.io import add_star, format_wide
@@ -64,6 +66,18 @@ def test_hasconstant():
     assert hc is True
 
 
+def test_hasconstant_more_than_one():
+    x = np.random.randn(100, 3)
+    x[:, 0] = 1
+    x[:, 1] = 1
+    assert has_constant(x) == (True, 0)
+    x[:, 0] = 2
+    x[:, 1] = 3
+    assert has_constant(x) == (True, 0)
+    x[:, 0] = np.random.randn(100)
+    assert has_constant(x) == (True, 1)
+
+
 def test_wald_statistic():
     ts = WaldTestStatistic(1.0, "_NULL_", 1, name="_NAME_")
     assert str(hex(id(ts))) in ts.__repr__()
@@ -73,13 +87,34 @@ def test_wald_statistic():
     assert ts.df_denom is None
     assert ts.dist_name == "chi2(1)"
     assert isinstance(ts.critical_values, dict)
-    assert_allclose(1 - stats.chi2.cdf(1.0, 1), ts.pval)
+    assert_allclose(stats.chi2.sf(1.0, 1), ts.pval)
 
     ts = WaldTestStatistic(1.0, "_NULL_", 1, 1000, name="_NAME_")
     assert ts.df == 1
     assert ts.df_denom == 1000
     assert ts.dist_name == "F(1,1000)"
-    assert_allclose(1 - stats.f.cdf(1.0, 1, 1000), ts.pval)
+    assert_allclose(stats.f.sf(1.0, 1, 1000), ts.pval)
+
+
+@pytest.mark.parametrize(
+    ("stat", "df", "df_denom", "expected"),
+    [
+        (1.0, 1, None, 0.3173105078629141),
+        (100.0, 1, None, 1.523970604832105e-23),
+        (60.0, 3, None, 5.878230727906913e-13),
+        (120.0, 2, 500, 2.720014074486352e-43),
+    ],
+)
+def test_wald_statistic_pval_tail(stat, df, df_denom, expected):
+    # Reference values are pchisq and pf with lower.tail=FALSE in R. 1 - cdf is
+    # not accurate in the tail.
+    ts = WaldTestStatistic(stat, "_NULL_", df, df_denom)
+    assert_allclose(ts.pval, expected, rtol=1e-10)
+
+
+def test_wald_statistic_unnamed():
+    ts = WaldTestStatistic(1.0, "_NULL_", 1)
+    assert str(ts).startswith("H0: _NULL_\nStatistic: 1.0000\n")
 
 
 def test_invalid_test_statistic():
@@ -101,12 +136,116 @@ def test_inapplicable_test_statistic():
     assert "not applicable" in str(ts)
 
 
+def test_normal_test_statistic():
+    ts = NormalTestStatistic(1.5, "_NULL_", name="_NAME_")
+    assert str(hex(id(ts))) in ts.__repr__()
+    assert "_NULL_" in str(ts)
+    assert ts.stat == 1.5
+    assert ts.null == "_NULL_"
+    assert ts.dist_name == "N(0,1)"
+    assert_allclose(ts.pval, 0.1336144025377161, rtol=1e-12)
+    assert isinstance(ts.critical_values, dict)
+
+    ts = NormalTestStatistic(1.5, "_NULL_", name="_NAME_", two_sided=False)
+    assert_allclose(ts.pval, 0.06680720126885807, rtol=1e-12)
+
+
+def test_normal_test_statistic_str():
+    ts = NormalTestStatistic(1.5, "_NULL_", name="_NAME_")
+    expected = (
+        "_NAME_\nH0: _NULL_\nStatistic: 1.5000\nP-value: 0.1336\nDistributed: N(0,1)"
+    )
+    assert str(ts) == expected
+    assert repr(ts) == expected + "\nNormalTestStatistic, id: " + hex(id(ts))
+
+    ts = NormalTestStatistic(1.5, "_NULL_")
+    assert str(ts) == expected.replace("_NAME_\n", "")
+
+
+@pytest.mark.parametrize("stat", [1.5, -1.5])
+def test_normal_test_statistic_sides(stat):
+    two_sided = NormalTestStatistic(stat, "_NULL_")
+    assert_allclose(two_sided.pval, 0.1336144025377161, rtol=1e-12)
+    # One-sided p-value is for the alternative that the statistic is large
+    one_sided = NormalTestStatistic(stat, "_NULL_", two_sided=False)
+    expected = 0.06680720126885807 if stat > 0 else 0.9331927987311419
+    assert_allclose(one_sided.pval, expected, rtol=1e-12)
+
+
+def test_normal_test_statistic_critical_values():
+    # Reference values are qnorm([0.95, 0.975, 0.995]) and
+    # qnorm([0.9, 0.95, 0.99]) from R
+    ts = NormalTestStatistic(0.0, "_NULL_")
+    crit = ts.critical_values
+    assert list(crit) == ["10%", "5%", "1%"]
+    expected = [1.644853626951472, 1.959963984540054, 2.5758293035489]
+    assert_allclose(list(crit.values()), expected, rtol=1e-12)
+
+    ts = NormalTestStatistic(0.0, "_NULL_", two_sided=False)
+    crit = ts.critical_values
+    assert list(crit) == ["10%", "5%", "1%"]
+    expected = [1.281551565544601, 1.644853626951472, 2.326347874040841]
+    assert_allclose(list(crit.values()), expected, rtol=1e-12)
+
+
+def test_normal_test_statistic_tail():
+    # 1 - cdf(z) loses all precision in the tail and is exactly 0 for z > 8.3.
+    # Reference values are 2 * pnorm(-9) and pnorm(-9) from R.
+    ts = NormalTestStatistic(9.0, "_NULL_")
+    assert_allclose(ts.pval, 2.257176811907682e-19, rtol=1e-12)
+    ts = NormalTestStatistic(9.0, "_NULL_", two_sided=False)
+    assert_allclose(ts.pval, 1.128588405953841e-19, rtol=1e-12)
+    ts = NormalTestStatistic(-9.0, "_NULL_", two_sided=False)
+    assert_allclose(ts.pval, 1.0, rtol=1e-12)
+
+
 def test_inv_sqrth():
     x = np.random.randn(1000, 10)
     xpx = x.T @ x
     invsq = inv_sqrth(xpx)
     prod = invsq @ xpx @ invsq - np.eye(10)
     assert_allclose(1 + prod, np.ones((10, 10)))
+
+
+def test_inv_sqrth_of_diagonal_matrix():
+    # Closed form: the entries are the inverse square roots of the diagonal
+    x = np.diag([4.0, 0.25, 9.0])
+    assert_allclose(inv_sqrth(x), np.diag([0.5, 2.0, 1.0 / 3.0]), rtol=1e-14)
+
+
+@pytest.mark.parametrize(
+    "matrix",
+    [np.zeros((2, 2)), np.diag([2.0, 1.0, 0.0]), np.diag([2.0, 1.0, -1.0])],
+    ids=["zeros", "zero eigenvalue", "negative eigenvalue"],
+)
+def test_inv_sqrth_raises_if_not_positive_definite(matrix):
+    # The eigenvalue decomposition does not raise for them, and the result was inf or
+    # NaN, with a RuntimeWarning
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with pytest.raises(np.linalg.LinAlgError, match="not positive definite"):
+            inv_sqrth(matrix)
+
+
+@pytest.mark.parametrize(
+    "eigenvalues",
+    [[-1e-17, 1.0], [0.0, 1.0], [np.nan, 1.0]],
+    ids=["rounding error", "zero", "nan"],
+)
+def test_inv_sqrth_raises_for_the_eigenvalues_that_platforms_return(
+    eigenvalues, monkeypatch
+):
+    # What the decomposition of a singular matrix returns depends on the platform: a
+    # negative eigenvalue that is rounding error on macOS arm64, 0, or NaN where it
+    # does not raise
+    def eigh(x):
+        return np.array(eigenvalues), np.eye(2)
+
+    monkeypatch.setattr(np.linalg, "eigh", eigh)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with pytest.raises(np.linalg.LinAlgError, match="not positive definite"):
+            inv_sqrth(np.eye(2))
 
 
 def test_ensure_unique_column():
@@ -253,3 +392,33 @@ def test_add_star(pvalue):
 
     result = add_star("", pvalue, True)
     assert expected == result
+
+
+def test_cov_cluster():
+    rng = np.random.default_rng(0)
+    z = rng.standard_normal((60, 3))
+    clusters = np.arange(60) % 7
+    expected = np.zeros((3, 3))
+    for group in range(7):
+        total = z[clusters == group].sum(0)
+        expected += np.outer(total, total)
+    assert_allclose(cov_cluster(z, clusters), expected / 60)
+
+
+@pytest.mark.parametrize("dtype", [float, object])
+def test_cov_cluster_missing(dtype):
+    # The scores of the observations with a missing cluster would be left out of the
+    # covariance, apart from the first one
+    z = np.random.default_rng(0).standard_normal((60, 3))
+    clusters = (np.arange(60) % 7).astype(dtype)
+    clusters[[4, 20, 33]] = np.nan
+    with pytest.raises(ValueError, match="missing values"):
+        cov_cluster(z, clusters)
+
+
+def test_cov_cluster_one_cluster():
+    # The scores sum to zero for the estimated parameters, so the covariance of a
+    # single cluster would be zero
+    z = np.random.default_rng(0).standard_normal((60, 3))
+    with pytest.raises(ValueError, match="at least two clusters"):
+        cov_cluster(z, np.zeros(60, dtype=int))

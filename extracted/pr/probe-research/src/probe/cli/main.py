@@ -90,6 +90,7 @@ from ..sdk.artifact_kinds import (
 )
 from ..sdk.filetype import artifact_kind_for, name_with_extension
 from ..sdk.hashing import reference_fields
+from ..sdk.notes import FILE_NOTES_REMOVED, GROUP_NOTES_REMOVED
 from ..sdk.snapshot import (
     DEFAULT_REFERENCE_OVER_BYTES as _SNAPSHOT_REFERENCE_OVER_BYTES,
 )
@@ -108,6 +109,11 @@ class Conn:
     #: different answers now that the default is async, and a plain bool cannot
     #: tell them apart.
     write_mode: bool | None = None
+    #: `--directed` anywhere after `probe` (stripped before the parser runs by
+    #: `write_gate.split_directed`): the researcher asked for this write. The
+    #: commands whose server write records it read it here (`summary push`,
+    #: `visuals set`).
+    directed: bool = False
 
 
 _conn = Conn()
@@ -293,6 +299,19 @@ def _text_value(raw: str | None) -> str | None:
     if raw.startswith("@"):
         return Path(raw[1:]).read_text()
     return raw
+
+
+def _warn_notes_ignored(what: str, removed: str) -> None:
+    """One stderr line saying a removed notes field was dropped, not sent.
+
+    The write itself goes ahead: a script or an agent on an older skill that
+    still passes it must not lose its upload or its group over a field the
+    server no longer keeps. The value is never read (no `@file`, no stdin)."""
+    print(f"warning: {what} is ignored: {removed}", file=sys.stderr)
+
+
+def _warn_file_notes_ignored(what: str) -> None:
+    _warn_notes_ignored(what, FILE_NOTES_REMOVED)
 
 
 #: C1 controls + bidi overrides: the display-manipulation characters JSON
@@ -1675,6 +1694,10 @@ def backfill(
     retry_dead: bool = typer.Option(
         False, "--retry-dead", help="plan files again that failed every attempt on an earlier run"
     ),
+    review_excluded: bool = typer.Option(
+        False, "--review-excluded",
+        help="classify files an earlier plan left out as not research again",
+    ),
     transcripts: bool = typer.Option(
         None,
         "--transcripts/--no-transcripts",
@@ -1781,6 +1804,7 @@ def backfill(
             import_changed=import_changed is True,
             import_unverified=import_unverified is True,
             retry_dead=retry_dead is True,
+            review_excluded=review_excluded is True,
         )
     if lines:
         tui.page(lines) if wizard.interactive() else print("\n".join(lines))
@@ -3870,9 +3894,12 @@ def _run_wizard_action(
         elif caps.agent_rules_installed:
             # Kimi Code's footer shipped after its rules: one catch-up.
             lines += wizard.catch_up_statusline(caps.agent_source)
+        # An update cannot have removed anything: what it does not see stays
+        # as the server last heard (`client_installation.snapshot`).
         lines += _register_local_capabilities(
             doctor_impl.collect(),
             settings=resolve(base_url=base_now),
+            reports_removals=False,
         )
         return lines
 
@@ -5443,12 +5470,18 @@ class _InstallationCompletion:
 
 
 def _register_local_capabilities(
-    caps, *, settings=None, complete: bool = True, alongside=()
+    caps, *, settings=None, complete: bool = True, alongside=(), reports_removals: bool = True
 ) -> list[str]:
     """Lazy wrapper so ordinary CLI startup never imports setup-only SDK work."""
     from probe.cli.client_installation import register
 
-    return register(caps, settings=settings, complete=complete, alongside=alongside)
+    return register(
+        caps,
+        settings=settings,
+        complete=complete,
+        alongside=alongside,
+        reports_removals=reports_removals,
+    )
 
 
 # `probe setup` must keep working: it is printed on the live connect page, in
@@ -5493,6 +5526,12 @@ from .capy_cli import capy_app  # noqa: E402 -- registration, not use
 
 app.add_typer(capy_app, name=CAPY_SOURCE)
 app.command("approvals")(approvals_cmd)
+
+# -- summaries and Metrics-center visuals, kept by the recorder (writer-owns-summary)
+from .summary_cli import summary_app, visuals_app  # noqa: E402 -- registration, not use
+
+app.add_typer(summary_app, name="summary")
+app.add_typer(visuals_app, name="visuals")
 app.command("deny")(deny_cmd)
 app.command("ask")(ask_cmd)
 
@@ -11225,7 +11264,6 @@ def _ping_presign(
     content_type: str | None,
     kind: str | None,
     meta: dict | None,
-    notes: str | None = None,
     span_id: str | None,
     step_index: int | None,
     context: dict | None = None,
@@ -11268,7 +11306,6 @@ def _ping_presign(
                 content_type=content_type,
                 kind=kind,
                 meta=meta,
-                notes=notes,
                 span_id=span_id,
                 step_index=step_index,
             )
@@ -11300,7 +11337,6 @@ def _artifact_enqueue(
     span: str | None,
     content_type: str | None,
     meta: dict | None,
-    notes: str | None = None,
     ping: bool = True,
     require_staged: bool = False,
     in_parts: bool = True,
@@ -11343,7 +11379,6 @@ def _artifact_enqueue(
                 span_id=span,
                 content_type=content_type,
                 meta=meta,
-                notes=notes,
             )
         else:
             if reference:
@@ -11355,13 +11390,6 @@ def _artifact_enqueue(
                 body = {"name": name, "uri": uri, "is_reference": True}
             if content_type:
                 body["content_type"] = content_type
-            if notes:
-                # scrub_text, not default_scrub: `notes` is PROSE, and
-                # default_scrub redacts by KEY name, which never fires on a key
-                # called "notes". The op file outlives the command.
-                from ..sdk.redaction import scrub_text
-
-                body["notes"] = scrub_text(notes)
             # Literal paths, one per anchor: tests/test_parity.py reads call
             # sites statically, and a table lookup hid this one from it while it
             # still named the leaf door. An experiment's reference is queued by
@@ -11394,7 +11422,7 @@ def _artifact_enqueue(
     if run_only and in_parts:
         sent = _artifact_enqueue_multipart(
             client, anchor_id, name, path=path, kind=kind, step=step, span=span,
-            content_type=content_type, meta=meta, notes=notes,
+            content_type=content_type, meta=meta,
         )
         if sent is not None:
             return sent
@@ -11404,7 +11432,7 @@ def _artifact_enqueue(
     # `_enqueue_upload`, not `journal.append_upload`: the journal raises on a full
     # or read-only spool (ENOSPC, flock ENOSYS on Lustre/FUSE), and this call site
     # is exactly the one the http-path guard never covered. It also scrubs
-    # meta/notes before they reach the ops file, where a failed op keeps them.
+    # meta before it reaches the ops file, where a failed op keeps it.
     queued = client._enqueue_upload(
         anchor=anchor.value,
         anchor_id=anchor_id,
@@ -11414,8 +11442,6 @@ def _artifact_enqueue(
         content_type=content_type,
         kind=kind if run_only else None,
         meta=meta if run_only else None,
-        # NOT gated on run_only: notes is accepted at every anchor (0095).
-        notes=notes,
         span_id=span,
         step_index=step,
         run_ref=run_ref,
@@ -11448,7 +11474,6 @@ def _artifact_enqueue(
                 content_type=content_type,
                 kind=kind if run_only else None,
                 meta=meta if run_only else None,
-                notes=notes,
                 span_id=span,
                 step_index=step,
                 context=client.journal.context,
@@ -11469,7 +11494,6 @@ def _artifact_enqueue_multipart(
     span: str | None,
     content_type: str | None,
     meta: dict | None,
-    notes: str | None,
 ) -> dict | None:
     """A run file over the 64 MiB inspection limit, queued in parts.
 
@@ -11486,7 +11510,7 @@ def _artifact_enqueue_multipart(
     caller then uploads synchronously, as for any unstaged file).
     """
     from ..sdk import multipart as _multipart
-    from ..sdk.redaction import default_scrub, scrub_text
+    from ..sdk.redaction import default_scrub, scrub_string
     from ..sdk.run import _NOT_QUEUED
     from ..sdk.secret_gate import CredentialInPath
     from ..sdk.secret_gate import _check_path as _check_upload_path
@@ -11504,8 +11528,7 @@ def _artifact_enqueue_multipart(
         return None  # the single-PUT path refuses it, with its own message
     # What `Run.log_artifact` scrubs before its own multipart door, because the
     # op file outlives the command (a dead-lettered one stays in failed/).
-    name = scrub_text(name)
-    notes = scrub_text(notes) if notes is not None else None
+    name = scrub_string(name)  # see `Client.upload`: a name is a path, not prose
     meta = default_scrub(dict(meta or {}))
     handle = _async_run(client, run_ref)
     reasons: list[str] = []
@@ -11515,7 +11538,7 @@ def _artifact_enqueue_multipart(
 
     handled = handle._maybe_multipart(
         name, path, kind=kind, content_type=content_type, span_id=span, step_index=step,
-        meta=meta, notes=notes, strict=False, sync=False, refused=refused,
+        meta=meta, strict=False, sync=False, refused=refused,
     )
     if handled is _NOT_QUEUED:
         return None
@@ -11571,7 +11594,6 @@ def _artifact_add_async(
     span: str | None,
     content_type: str | None,
     meta: dict | None,
-    notes: str | None = None,
 ) -> bool:
     """Queue an artifact operation and return immediately.
 
@@ -11605,7 +11627,6 @@ def _artifact_add_async(
         span=span,
         content_type=content_type,
         meta=meta,
-        notes=notes,
         # The single-file path REFUSES an unstaged op. An unstaged op records
         # src_path and the drainer reads the live file at delivery, so a bare
         # `probe artifact add ckpt.pt` beside a rotating training loop would
@@ -11735,6 +11756,10 @@ def _drain_colliding_uploads(anchor: Anchor, anchor_id: str | None, name: str) -
 #: generated, not typed, so `"file"` where `"path"` was meant is the realistic
 #: mistake -- and silently ignoring it enqueues nothing while reporting success,
 #: which is the one outcome a bulk importer must never produce.
+#:
+#: `notes` is the one key that is read and dropped: files no longer carry notes,
+#: and a manifest an older skill or importer wrote must still upload its files.
+#: `_artifact_add_manifest` says so once.
 _MANIFEST_KEYS = frozenset(
     {
         "path",
@@ -11936,7 +11961,6 @@ def _plan_manifest_row(
         "span": span,
         "content_type": _manifest_field(row, "content_type", str, "a string"),
         "meta": meta,
-        "notes": _manifest_field(row, "notes", str, "a string"),
     }
 
 
@@ -11970,6 +11994,7 @@ def _artifact_add_manifest(
     failures: dict[int, dict] = {}
     anchors: dict[tuple[Anchor, str], str | None | _AnchorFailure] = {}
     total = 0
+    notes_dropped = False
 
     def fail(lineno: int, message: str) -> None:
         failures[lineno] = {"line": lineno, "error": message}
@@ -11985,6 +12010,9 @@ def _artifact_add_manifest(
             if error is not None:
                 fail(lineno, error)
                 continue
+            if row.get("notes") is not None and not notes_dropped:
+                notes_dropped = True
+                _warn_file_notes_ignored('"notes" in a manifest row')
             try:
                 plan = _plan_manifest_row(
                     row, default_anchor=default_anchor, reference_over=reference_over, config=config
@@ -12090,7 +12118,6 @@ def _artifact_add_anchored_multipart(
     path: str,
     *,
     content_type: str | None,
-    notes: str | None,
     write_mode: bool | None,
 ) -> bool:
     """A file over 64 MiB for a project, experiment, workspace or the team
@@ -12137,7 +12164,6 @@ def _artifact_add_anchored_multipart(
             "kind": None,
             "content_type": content_type,
             "meta": None,
-            "notes": notes,
             "span_id": None,
             "step_index": None,
         }
@@ -12178,7 +12204,7 @@ def artifact_add(
         None,
         "--name",
         help="the file's relative path (defaults to its basename). The file's "
-        "extension is kept whatever you pass — say what the file IS with --notes",
+        "extension is kept whatever you pass — say what the file IS in its run's notes",
     ),
     kind: str = typer.Option(
         None,
@@ -12193,11 +12219,9 @@ def artifact_add(
     span: str = typer.Option(None, "--span", help="associate with a run span UUID"),
     content_type: str = typer.Option(None, "--content-type"),
     meta: list[str] = typer.Option(None, "--meta", metavar="k=v", help="run anchor only"),
-    notes: str = typer.Option(
-        None,
-        "--notes",
-        help="what this file is, what produced it, what it shows — any anchor",
-    ),
+    # HIDDEN AND IGNORED: files no longer carry notes. Kept so a script or an
+    # agent on an older skill still uploads its file; it is told once, on stderr.
+    notes: str = typer.Option(None, "--notes", hidden=True),
     project: str = typer.Option(None, "--project", help="anchor to a project slug (or id:<uuid>)"),
     experiment: str = typer.Option(
         None, "--experiment", help="anchor to an experiment slug (or id:<uuid>)"
@@ -12257,15 +12281,21 @@ def artifact_add(
     checkout goes away.
 
     --from-manifest FILE imports many files in one go. Each line is a JSON object
-    whose keys are these flags: "path", "name", "uri", "notes", "kind", "step",
-    "span", "content_type", "meta", "reference", "hash", "allow_missing", and an
-    anchor ("run"/"project"/"experiment"/"workspace"/"shared"). A row without an
+    whose keys are these flags: "path", "name", "uri", "kind", "step", "span",
+    "content_type", "meta", "reference", "hash", "allow_missing", and an anchor
+    ("run"/"project"/"experiment"/"workspace"/"shared"). A row without an
     anchor uses the one on the command line. Every distinct anchor is resolved
     ONCE. Rows are queued to the outbox and delivered by the drainer, whether or
     not --async is set — that is the point of the verb. A bad row is reported
     with its line number and does not stop the rest; the summary is JSON on
     stdout and the exit code is non-zero if anything failed.
+
+    Say what a file IS, and where it lives, in its run's notes (`probe notes
+    append --run RUN --text ...`). Files no longer carry notes: `--notes` (and a
+    manifest row's "notes") is ignored, with a warning.
     """
+    if notes is not None:
+        _warn_file_notes_ignored("--notes")
     if from_manifest is not None:
         if run is not None or path is not None:
             raise typer.BadParameter(
@@ -12365,7 +12395,6 @@ def artifact_add(
             resolved,
             path,
             content_type=content_type,
-            notes=notes,
             write_mode=write_mode,
         ):
             return
@@ -12439,7 +12468,6 @@ def artifact_add(
                 span=span,
                 content_type=content_type,
                 meta=_kv_pairs(meta) if meta else None,
-                notes=notes,
             ):
                 return
             # Nothing was queued -- staging was refused, or the outbox could not
@@ -12466,7 +12494,6 @@ def artifact_add(
                 span_id=span,
                 content_type=content_type,
                 meta=_kv_pairs(meta) if meta else None,
-                notes=notes,
             )
         upload = (row.get("meta") or {}) if isinstance(row, dict) else {}
         if upload.get("upload") == "failed":
@@ -12493,15 +12520,11 @@ def artifact_add(
             body = {"name": resolved, "is_reference": True, **fields}
             if content_type:
                 body["content_type"] = content_type
-            if notes:
-                body["notes"] = notes
             _print_json(c.create_anchored_reference(anchor, anchor_id, body))
         elif uri is not None:
             body = {"name": resolved, "uri": uri, "is_reference": True}
             if content_type:
                 body["content_type"] = content_type
-            if notes:
-                body["notes"] = notes
             _print_json(c.create_anchored_reference(anchor, anchor_id, body))
         else:
             if not path:
@@ -12513,38 +12536,26 @@ def artifact_add(
                     resolved,
                     path,
                     content_type=content_type,
-                    notes=notes,
                 )
             )
 
 
-@artifact_app.command("set")
+@artifact_app.command("set", hidden=True)
 def artifact_set(
-    artifact_id: str = typer.Argument(..., metavar="{artifact}", help="artifact id (id:<uuid> or the bare uuid)"),
-    notes: str = typer.Option(..., "--notes", help="what this file is, what produced it, what it shows"),
+    artifact_id: str = typer.Argument(None, metavar="{artifact}", help="artifact id"),
+    notes: str = typer.Option(None, "--notes", help="removed: files no longer carry notes"),
 ) -> None:
-    """Give a file that has no notes yet its one-line note.
+    """Removed: a file's one-line note. Files no longer carry notes, and `--notes`
+    was this command's only option, so it is kept only to say so.
 
-    Only an EMPTY note is written here, so nobody's words are replaced; to change
-    notes that already exist, `probe notes checkout --artifact <id>`, edit, and
-    `probe notes push --artifact <id>`, which merges."""
-
-    artifact = artifact_id.removeprefix("id:")
-    with _client() as c:
-        row = c.transport.get(f"/v1/artifacts/{artifact}")
-        current = (row or {}).get("notes") or ""
-        if current.strip():
-            if current.strip() == notes.strip():
-                _print_json({"id": artifact, "notes": current, "unchanged": True})
-                return
-            typer.echo(
-                "this file already has notes; edit them with `probe notes checkout --artifact "
-                f"{artifact}` and `probe notes push --artifact {artifact}`",
-                err=True,
-            )
-            raise typer.Exit(2)
-        base = int((row or {}).get("notes_version") or 0)
-        _print_json(c._replace_notes("artifact", artifact, notes, base_version=base, op_key=uuid.uuid4().hex))
+    Say what a file is, and where it lives, in its run's notes (`probe notes
+    append --run RUN --text ...`). Nothing is sent and it exits 1."""
+    typer.echo(
+        f"error: `probe artifact set` was removed: {FILE_NOTES_REMOVED} "
+        "(`probe notes append --run RUN --text ...`)",
+        err=True,
+    )
+    raise typer.Exit(1)
 
 
 @artifact_app.command("move")
@@ -14281,7 +14292,7 @@ def bundle(run: str = typer.Argument(...)) -> None:
 # Prose is what people write; a fixed filename is the only thing that needed inventing.
 notes_app = typer.Typer(
     no_args_is_help=True,
-    help="notes on any entity (free-text markdown), main note and titled sub-notes",
+    help="notes on a project, experiment or run (free-text markdown), main note and titled sub-notes",
 )
 app.add_typer(notes_app, name="notes")
 
@@ -14380,14 +14391,12 @@ def _entity_notes_row(client: Client, kind: str, entity_id: str) -> dict:
         return client.get_project(entity_id)
     if kind == "experiment":
         # The experiment API's detail: it carries the notes, their version and
-        # the headroom pair (`notes_limit_chars`, `notes_remaining_chars`) the
+        # the headroom (`notes_limit_tokens`, `notes_remaining_tokens`) the
         # read advisory and the over-cap refusal below need (server X21).
         return client.get_experiment(entity_id)
     if kind == "run":
         return client.get_run(entity_id)
-    if kind == "group":
-        return client.get_group(entity_id)
-    return client.transport.get(f"/v1/artifacts/{entity_id}")
+    raise ValueError(f"{kind!r} carries no notes; expected one of {', '.join(_NOTE_TARGETS)}")
 
 
 @notes_app.command("show")
@@ -14395,8 +14404,6 @@ def notes_show(
     project: str = typer.Option(None, "--project", help="project slug (or id:<uuid>)"),
     experiment: str = typer.Option(None, "--experiment", help="experiment slug or id"),
     run: str = typer.Option(None, "--run", help="run slug or id"),
-    group: str = typer.Option(None, "--group", help="group id"),
-    artifact: str = typer.Option(None, "--artifact", help="artifact id"),
     note: str = typer.Option(
         None, "--note", help="print this titled SUB-NOTE instead (title, or id:<uuid>)"
     ),
@@ -14409,12 +14416,7 @@ def notes_show(
     """
     with _client() as c:
         kind, entity_id, label = _note_target(
-            c,
-            project=project,
-            experiment=experiment,
-            run=run,
-            group=group,
-            artifact=artifact,
+            c, project=project, experiment=experiment, run=run
         )
         if note is not None:
             found = _resolve_sub_note_by_title(c, kind, entity_id, note)
@@ -14432,7 +14434,7 @@ def notes_show(
     # a script pipes it. Same channel and same reasoning as the write-path
     # headroom line, which this is the READ half of.
 
-    # A SUB-NOTE spells the headroom pair `remaining_chars`/`limit_chars` while
+    # A SUB-NOTE spells the headroom `remaining_tokens`/`limit_tokens` while
     # the shared reader is written against the entity spelling, so an unadapted
     # sub-note read is silently advisory-free. `_sub_note_row_for_headroom`
     # exists for exactly this and is a no-op on an entity row.
@@ -14449,8 +14451,6 @@ def notes_checkout(
     project: str = typer.Option(None, "--project", help="project slug (or id:<uuid>)"),
     experiment: str = typer.Option(None, "--experiment", help="experiment slug or id"),
     run: str = typer.Option(None, "--run", help="run slug or id"),
-    group: str = typer.Option(None, "--group", help="group id"),
-    artifact: str = typer.Option(None, "--artifact", help="artifact id"),
     note: str = typer.Option(None, "--note", help="a titled SUB-NOTE (title, or id:<uuid>)"),
     steal: bool = typer.Option(
         False, "--steal", help="take the file even though it has unpushed edits"
@@ -14471,7 +14471,7 @@ def notes_checkout(
 
     with _client() as c:
         kind, entity_id, label = _note_target(
-            c, project=project, experiment=experiment, run=run, group=group, artifact=artifact
+            c, project=project, experiment=experiment, run=run
         )
         if note is not None:
             found = _resolve_sub_note_by_title(c, kind, entity_id, note)
@@ -14516,8 +14516,6 @@ def notes_push(
     project: str = typer.Option(None, "--project", help="project slug (or id:<uuid>)"),
     experiment: str = typer.Option(None, "--experiment", help="experiment slug or id"),
     run: str = typer.Option(None, "--run", help="run slug or id"),
-    group: str = typer.Option(None, "--group", help="group id"),
-    artifact: str = typer.Option(None, "--artifact", help="artifact id"),
     note: str = typer.Option(None, "--note", help="a titled SUB-NOTE (title, or id:<uuid>)"),
     force: bool = typer.Option(
         False, "--force", help="replace the server's document without merging"
@@ -14535,7 +14533,7 @@ def notes_push(
 
     with _client() as c:
         kind, entity_id, label = _note_target(
-            c, project=project, experiment=experiment, run=run, group=group, artifact=artifact
+            c, project=project, experiment=experiment, run=run
         )
         settings = resolve(base_url=_conn.base_url)
         if note is not None:
@@ -14634,6 +14632,8 @@ def notes_write(
 # TEAM note (0125), through target flags rather than five parallel verb groups.
 
 #: Every entity that carries notes, and how to resolve one from a CLI flag.
+#: Files (artifacts) and sweep groups stopped carrying notes: what a file is
+#: goes in its run's notes, what a sweep tested in its experiment's.
 #: The TEAM note is not one of them: a session that has its file edits it and
 #: syncs (`probe notes sync`, and the hooks that call it). Only `notes append`
 #: and `notes edit` take `--team`, for a caller with no file, and they reach the
@@ -14645,24 +14645,32 @@ def notes_write(
 #: there is one per rollout, so a 500-rollout run would offer 500 documents for
 #: an observation that belongs once on the run. Agents READ trial notes
 #: (`probe trial get`); people write them in the dashboard.
-_NOTE_TARGETS = ("project", "experiment", "run", "group", "artifact")
+_NOTE_TARGETS = ("project", "experiment", "run")
 
 
 def _sub_note_row_for_headroom(row: object) -> object:
     """Adapt a sub-note write/read response to the entity-notes headroom keys.
 
-    Sub-note responses spell the pair `remaining_chars`/`limit_chars` (the row
-    prices itself); the shared fullness helpers read the entity spelling. A
-    None row (journaled write) passes through — no server saw it, so there is
-    no fullness to adapt.
+    Sub-note responses spell their numbers unprefixed -- `tokens` /
+    `limit_tokens` / `remaining_tokens` and the character backstop's
+    `remaining_chars` / `limit_chars` (the row prices itself); the shared
+    fullness helpers and `_headroom_fields` read the entity spelling. A None
+    row (journaled write) passes through — no server saw it, so there is no
+    fullness to adapt.
     """
+    from ..sdk.notes import UNPREFIXED_KEYS
+
     if not isinstance(row, dict):
         return row
     adapted = dict(row)
-    if "remaining_chars" in adapted and "notes_remaining_chars" not in adapted:
-        adapted["notes_remaining_chars"] = adapted["remaining_chars"]
-    if "limit_chars" in adapted and "notes_limit_chars" not in adapted:
-        adapted["notes_limit_chars"] = adapted["limit_chars"]
+    aliases = {
+        **UNPREFIXED_KEYS,
+        "remaining_chars": "notes_remaining_chars",
+        "limit_chars": "notes_limit_chars",
+    }
+    for key, entity_key in aliases.items():
+        if key in adapted and entity_key not in adapted:
+            adapted[entity_key] = adapted[key]
     return adapted
 
 
@@ -14684,7 +14692,7 @@ def _sub_notes_supported(exc: errors.RosError) -> None:
             "error: the sub-notes route answered a bare 404 — this server may "
             "predate sub-notes (self-hosted needs research-os >= 0.231.0.0; "
             "hosted backends already have them), or the target id may be "
-            "malformed (check `--group`/`--artifact` values)",
+            "malformed",
             file=sys.stderr,
         )
         raise typer.Exit(1) from exc
@@ -14758,8 +14766,6 @@ def _note_target(
     project: str | None,
     experiment: str | None,
     run: str | None,
-    group: str | None,
-    artifact: str | None,
 ) -> tuple[str, str, str]:
     """(kind, id, label) for a notes write. Exactly one target, or the default.
 
@@ -14769,20 +14775,13 @@ def _note_target(
     """
     chosen = [
         (kind, value)
-        for kind, value in (
-            ("experiment", experiment),
-            ("run", run),
-            ("group", group),
-            ("artifact", artifact),
-        )
+        for kind, value in (("experiment", experiment), ("run", run))
         if value is not None
     ]
     if project is not None:
         chosen.append(("project", project))
     if len(chosen) > 1:
-        raise typer.BadParameter(
-            "pass exactly one of --project/--experiment/--run/--group/--artifact"
-        )
+        raise typer.BadParameter("pass exactly one of --project/--experiment/--run")
     if not chosen:
         # No flag at all: the project, which is what `notes` has always meant.
         project_id, label = _notes_project(client, None)
@@ -14794,10 +14793,7 @@ def _note_target(
     if kind == "run":
         # Runs resolve by petname OR id -- the one polymorphic ref in the CLI.
         return "run", refs.resolve_run(client, value).id, value
-    if kind == "experiment":
-        return "experiment", refs.resolve(client, "experiment", value).id, value
-    # Groups and artifacts have no slug form: the server answers a bad id.
-    return kind, value, value
+    return "experiment", refs.resolve(client, "experiment", value).id, value
 
 
 def _headroom_fields(row: object) -> dict[str, int]:
@@ -14811,20 +14807,44 @@ def _headroom_fields(row: object) -> dict[str, int]:
     `stored_chars`, not `chars`. These commands have printed `chars` since they
     shipped and it means the size of the CHUNK the caller sent; the document's
     own length is a different number and must not silently take that key.
-    """
-    from ..sdk.notes import notes_fullness
 
-    fullness = notes_fullness(row)
-    if fullness is None:
+    TWO SETS, each present only when the server published it. The cap is in
+    TOKENS now: `stored_tokens` / `limit_tokens` / `remaining_tokens`, absent
+    for a count the server could not give (or a server older than token caps).
+    `remaining` / `limit` / `stored_chars` keep the CHARACTER meaning they
+    always had, as the server kept `notes_*_chars`: a script reading them goes
+    on parsing, and they now measure the character backstop, not the cap.
+    """
+    from ..sdk.notes import TOKENS_KEY, notes_fullness, notes_limit
+
+    if not isinstance(row, dict):
         return {}
-    remaining, limit = fullness
-    return {"remaining": remaining, "limit": limit, "stored_chars": limit - remaining}
+    fields: dict[str, int] = {}
+    remaining, limit = row.get("notes_remaining_chars"), row.get("notes_limit_chars")
+    if all(isinstance(v, int) and not isinstance(v, bool) for v in (remaining, limit)):
+        fields.update({"remaining": remaining, "limit": limit, "stored_chars": limit - remaining})
+    cap = notes_limit(row)
+    if cap is not None:
+        fields["limit_tokens"] = cap
+    fullness = notes_fullness(row)
+    if fullness is not None:
+        fields["remaining_tokens"] = fullness[0]
+    stored = row.get(TOKENS_KEY)
+    if isinstance(stored, int) and not isinstance(stored, bool):
+        fields["stored_tokens"] = stored
+    return fields
+
+
+#: What a server's 422 says when a note is over its cap (`_notes_write`).
+#: Unit-free on purpose: the number in front of each changed from characters
+#: to tokens (research-os P2) and both spellings are live during a rollout.
+_CAP_REFUSALS = ("notes limit", "sub-note body exceeds the")
 
 
 def _notes_write(kind: str, label: str, write):
     """Run a notes write; on a CAP REFUSAL, add the advice the 422 cannot carry.
 
-    The 422 says "appending would exceed the 4000-character notes limit" and
+    The 422 says "this run note would exceed the 2,000-token notes limit" and
     stops. That is the moment a writer most needs to know what to do, and it is
     the one path that never reaches `_report_notes_headroom` -- the advice rides
     the SUCCESS response, and there is no success. So the wall used to be the
@@ -14832,14 +14852,18 @@ def _notes_write(kind: str, label: str, write):
 
     Matched on the server's own wording rather than on the status code, because
     `Client.write` raises RosError for every 4xx and only this one means "the
-    document is closed until you compact it".
+    document is closed until you compact it". `_CAP_REFUSALS` holds the
+    phrases, which every server says whatever the unit: "notes limit" in the
+    entity 422 (older servers: "the 4000-character notes limit"; current ones:
+    "the 30,000-token notes limit", or the character backstop's) and the
+    sub-note body 422's own sentence.
     """
     from ..sdk.notes import full_note_message
 
     try:
         return write()
     except errors.RosError as exc:
-        if "notes limit" not in str(exc):
+        if not any(phrase in str(exc) for phrase in _CAP_REFUSALS):
             raise
         print(f"error: {exc}", file=sys.stderr)
         for line in textwrap.wrap(full_note_message(kind, label), width=76):
@@ -14851,7 +14875,7 @@ def _report_notes_headroom(row: object, kind: str, label: str) -> None:
     """Say on STDERR that this document is filling up, on the success path.
 
     The piece that would have caught `assignment-modeling`, which sat at 99,992
-    of 100,000 characters while every append was being refused: a cap is only a
+    of its then 100,000-character cap while every append was being refused: a cap is only a
     budget if you can see it coming down. Stderr, beside the "appended to ..."
     line, so it never enters the JSON a script parses.
 
@@ -14871,19 +14895,16 @@ def notes_list(
     project: str = typer.Option(None, "--project", help="project slug (or id:<uuid>)"),
     experiment: str = typer.Option(None, "--experiment", help="experiment slug or id"),
     run: str = typer.Option(None, "--run", help="run slug or id"),
-    group: str = typer.Option(None, "--group", help="group id"),
-    artifact: str = typer.Option(None, "--artifact", help="artifact id"),
 ) -> None:
     """List an entity's titled sub-notes: title, fullness, when. No bodies —
-    `probe notes show --note <title>` reads one."""
+    `probe notes show --note <title>` reads one.
+
+    Fullness is `stored_tokens` of `limit_tokens`, the cap a write is refused
+    at; `stored_tokens` is null when the server has not counted the sub-note.
+    `stored_chars` / `limit` keep their character meaning (the backstop)."""
     with _client() as c:
         kind, entity_id, label = _note_target(
-            c,
-            project=project,
-            experiment=experiment,
-            run=run,
-            group=group,
-            artifact=artifact,
+            c, project=project, experiment=experiment, run=run
         )
         try:
             page = c.list_sub_notes(kind, entity_id)
@@ -14899,6 +14920,8 @@ def notes_list(
                 {
                     "id": row.get("id"),
                     "title": row.get("title"),
+                    "stored_tokens": row.get("tokens"),
+                    "limit_tokens": row.get("limit_tokens"),
                     "stored_chars": row.get("chars"),
                     "limit": row.get("limit_chars"),
                     "updated_at": row.get("updated_at"),
@@ -14918,8 +14941,6 @@ def notes_create(
     project: str = typer.Option(None, "--project", help="project slug (or id:<uuid>)"),
     experiment: str = typer.Option(None, "--experiment", help="experiment slug or id"),
     run: str = typer.Option(None, "--run", help="run slug or id"),
-    group: str = typer.Option(None, "--group", help="group id"),
-    artifact: str = typer.Option(None, "--artifact", help="artifact id"),
 ) -> None:
     """Create a titled sub-note. Duplicate titles are legal (tabs key on id)
     but a title-addressed write to a duplicated title is refused — check
@@ -14929,12 +14950,7 @@ def notes_create(
         body = sys.stdin.read() if file == "-" else Path(file).read_text()
     with _client() as c:
         kind, entity_id, label = _note_target(
-            c,
-            project=project,
-            experiment=experiment,
-            run=run,
-            group=group,
-            artifact=artifact,
+            c, project=project, experiment=experiment, run=run
         )
         try:
             row = _notes_write(
@@ -14976,13 +14992,11 @@ def _note_carrier(
     project: str | None,
     experiment: str | None,
     run: str | None,
-    group: str | None,
-    artifact: str | None,
     note: str | None,
 ) -> tuple[str, str, str | None, str]:
     """(kind, entity id, sub-note id or None, label) for a text-only write."""
     kind, entity_id, label = _note_target(
-        c, project=project, experiment=experiment, run=run, group=group, artifact=artifact
+        c, project=project, experiment=experiment, run=run
     )
     if note is None:
         return kind, entity_id, None, label
@@ -15138,19 +15152,33 @@ def _unconfirmed_reason(exc: errors.RosError) -> _Unconfirmed | None:
 
 
 def _refuse_over_cap(row: object, text: str, kind: str, label: str, *, appending: bool) -> None:
-    """Refuse, before sending, a note the server would refuse for its length.
+    """Refuse, before sending, a note the server would refuse for its size.
 
-    Uses the cap the READ published (`notes_limit_chars`); a server too old to
-    publish it answers for itself."""
-    from ..sdk.notes import full_note_message, notes_fullness
+    Against the limits the READ published, in the order the server checks them:
+    the character backstop (`notes_limit_chars`), then the TOKEN cap
+    (`notes_limit_tokens`), counted with the packaged o200k_base vocabulary and
+    only when the text's bytes could pass it (`tokens_past_cap`). On a server
+    older than token caps `notes_limit_chars` IS the cap and there is no token
+    limit, so the first check alone is that server's rule. A limit the read did
+    not publish, or a text this machine cannot count, is left to the server,
+    which answers for itself."""
+    from ..sdk.notes import full_note_message, notes_limit, tokens_past_cap
 
-    fullness = notes_fullness(row)
-    if fullness is None or len(text) <= fullness[1]:
+    if not isinstance(row, dict):
         return
-    limit = fullness[1]
+    limit, unit, size = 0, "", None
+    backstop = row.get("notes_limit_chars")
+    if isinstance(backstop, int) and not isinstance(backstop, bool) and 0 < backstop < len(text):
+        limit, unit, size = backstop, "character", len(text)
+    else:
+        cap = notes_limit(row)
+        if cap is not None:
+            limit, unit, size = cap, "token", tokens_past_cap(text, cap)
+    if size is None:
+        return
     if appending:
         print(
-            f"error: appending would exceed the {limit:,}-character notes limit; "
+            f"error: appending would exceed the {limit:,}-{unit} notes limit; "
             "nothing was written",
             file=sys.stderr,
         )
@@ -15158,8 +15186,8 @@ def _refuse_over_cap(row: object, text: str, kind: str, label: str, *, appending
             print(f"       {line}", file=sys.stderr)
     else:
         print(
-            f"error: the edit would leave the {kind} note ({label}) at {len(text):,} "
-            f"characters, over its {limit:,}-character limit; nothing was written",
+            f"error: the edit would leave the {kind} note ({label}) at {size:,} "
+            f"{unit}s, over its {limit:,}-{unit} limit; nothing was written",
             file=sys.stderr,
         )
     raise typer.Exit(1)
@@ -15280,8 +15308,7 @@ def _team_only(team: bool, **targets: object) -> None:
     """Refuse `--team` beside an entity flag or `--note`: one note per write."""
     if team and any(value is not None for value in targets.values()):
         raise typer.BadParameter(
-            "--team writes the team note; drop --project/--experiment/--run/--group/"
-            "--artifact/--note"
+            "--team writes the team note; drop --project/--experiment/--run/--note"
         )
 
 
@@ -15353,10 +15380,21 @@ def _write_team_note(
 
 
 def _team_payload(row: dict, **fields: object) -> dict:
+    """A team-note write's JSON. `remaining` keeps its character meaning (the
+    backstop now); the cap is in tokens, and its numbers ride beside it when the
+    server published them (`_headroom_fields`'s keys, same rule)."""
     payload: dict[str, Any] = {"target": "team", "label": _TEAM_LABEL, **fields}
     payload["version"] = row.get("version")
     if isinstance(row.get("remaining_chars"), int):
         payload["remaining"] = row["remaining_chars"]
+    for key, out in (
+        ("tokens", "stored_tokens"),
+        ("limit_tokens", "limit_tokens"),
+        ("remaining_tokens", "remaining_tokens"),
+    ):
+        value = row.get(key)
+        if isinstance(value, int) and not isinstance(value, bool):
+            payload[out] = value
     return payload
 
 
@@ -15380,8 +15418,6 @@ def notes_append(
     project: str = typer.Option(None, "--project", help="project slug (or id:<uuid>)"),
     experiment: str = typer.Option(None, "--experiment", help="experiment slug or id"),
     run: str = typer.Option(None, "--run", help="run slug or id"),
-    group: str = typer.Option(None, "--group", help="group id"),
-    artifact: str = typer.Option(None, "--artifact", help="artifact id"),
     note: str = typer.Option(None, "--note", help="a titled SUB-NOTE (title, or id:<uuid>)"),
     team: bool = typer.Option(False, "--team", help="the TEAM note instead of an entity's"),
 ) -> None:
@@ -15392,10 +15428,7 @@ def notes_append(
     """
     if not text.strip():
         raise typer.BadParameter("--text is empty")
-    _team_only(
-        team, project=project, experiment=experiment, run=run, group=group,
-        artifact=artifact, note=note,
-    )
+    _team_only(team, project=project, experiment=experiment, run=run, note=note)
     if team:
         stored = _stored_form("text", text)
         with _client() as c:
@@ -15415,8 +15448,7 @@ def notes_append(
 
     with _client() as c:
         kind, entity_id, sub_id, label = _note_carrier(
-            c, project=project, experiment=experiment, run=run, group=group,
-            artifact=artifact, note=note,
+            c, project=project, experiment=experiment, run=run, note=note
         )
         row = _rewrite_note(c, kind, entity_id, sub_id, label, change, appending=True)
     print(f"appended to {kind} note ({label})", file=sys.stderr)
@@ -15435,8 +15467,6 @@ def notes_edit(
     project: str = typer.Option(None, "--project", help="project slug (or id:<uuid>)"),
     experiment: str = typer.Option(None, "--experiment", help="experiment slug or id"),
     run: str = typer.Option(None, "--run", help="run slug or id"),
-    group: str = typer.Option(None, "--group", help="group id"),
-    artifact: str = typer.Option(None, "--artifact", help="artifact id"),
     note: str = typer.Option(None, "--note", help="a titled SUB-NOTE (title, or id:<uuid>)"),
     team: bool = typer.Option(False, "--team", help="the TEAM note instead of an entity's"),
 ) -> None:
@@ -15448,10 +15478,7 @@ def notes_edit(
     """
     if not old:
         raise typer.BadParameter("--old is empty")
-    _team_only(
-        team, project=project, experiment=experiment, run=run, group=group,
-        artifact=artifact, note=note,
-    )
+    _team_only(team, project=project, experiment=experiment, run=run, note=note)
     _refuse_scrubbed_old(old)
     if team:
         stored_new = _stored_form("new_text", new)
@@ -15474,8 +15501,7 @@ def notes_edit(
 
     with _client() as c:
         kind, entity_id, sub_id, label = _note_carrier(
-            c, project=project, experiment=experiment, run=run, group=group,
-            artifact=artifact, note=note,
+            c, project=project, experiment=experiment, run=run, note=note
         )
 
         def change(document: str) -> tuple[str, str, str]:
@@ -15506,19 +15532,12 @@ def notes_rename(
     project: str = typer.Option(None, "--project", help="project slug (or id:<uuid>)"),
     experiment: str = typer.Option(None, "--experiment", help="experiment slug or id"),
     run: str = typer.Option(None, "--run", help="run slug or id"),
-    group: str = typer.Option(None, "--group", help="group id"),
-    artifact: str = typer.Option(None, "--artifact", help="artifact id"),
 ) -> None:
     """Rename a sub-note. Records no version — history tracks documents, not
     labels — and it is also how a duplicated title gets un-ambiguous again."""
     with _client() as c:
         kind, entity_id, label = _note_target(
-            c,
-            project=project,
-            experiment=experiment,
-            run=run,
-            group=group,
-            artifact=artifact,
+            c, project=project, experiment=experiment, run=run
         )
         row = _resolve_sub_note_by_title(c, kind, entity_id, note)
         c._rename_sub_note(row["id"], to)
@@ -15532,20 +15551,13 @@ def notes_delete(
     project: str = typer.Option(None, "--project", help="project slug (or id:<uuid>)"),
     experiment: str = typer.Option(None, "--experiment", help="experiment slug or id"),
     run: str = typer.Option(None, "--run", help="run slug or id"),
-    group: str = typer.Option(None, "--group", help="group id"),
-    artifact: str = typer.Option(None, "--artifact", help="artifact id"),
     yes: bool = typer.Option(False, "--yes", help="skip the confirmation prompt"),
 ) -> None:
     """Permanently delete a sub-note AND its version history. Requires a
     credential with the `delete` scope, like every other delete here."""
     with _client() as c:
         kind, entity_id, label = _note_target(
-            c,
-            project=project,
-            experiment=experiment,
-            run=run,
-            group=group,
-            artifact=artifact,
+            c, project=project, experiment=experiment, run=run
         )
         row = _resolve_sub_note_by_title(c, kind, entity_id, note)
         if not yes:
@@ -15585,31 +15597,46 @@ _NOTES_STATUS_MAX_PAGES = 20
 _NOTES_STATUS_PAGE_SIZE = 100
 
 
-def _notes_status_row(item: dict) -> dict | None:
-    """One catalog item as a fullness row, or None if it carries no sizes.
+def _is_count(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
 
-    A backend older than these fields answers without `chars`, and a row with no
-    size cannot be ranked by fullness. Dropped rather than defaulted to zero,
-    which would sort a document of unknown size to the bottom of a report whose
-    whole job is finding the full ones.
+
+def _notes_status_row(item: dict) -> dict | None:
+    """One catalog item as a fullness row, or None if its fullness is unknown.
+
+    Fullness is TOKENS against the token cap (`tokens` / `limit_tokens`), the
+    limit a write is refused at. A row without a token count cannot be ranked:
+    the server has not counted it yet (`tokens: null` until its backfill
+    reaches the row), or the backend predates token caps. Dropped rather than
+    defaulted to zero, which would sort a document of unknown size to the
+    bottom of a report whose whole job is finding the full ones -- and never
+    ranked by its `chars`, which measure the character backstop, not the cap.
+    The caller counts what it dropped and says so.
+
+    `chars` / `limit` / `remaining` keep the character meaning they always had
+    (the backstop now), beside the token numbers.
     """
-    chars, limit = item.get("chars"), item.get("limit_chars")
-    if not isinstance(chars, int) or not isinstance(limit, int) or limit <= 0:
+    tokens, limit = item.get("tokens"), item.get("limit_tokens")
+    if not _is_count(tokens) or not _is_count(limit) or limit <= 0:
         return None
     ancestors = [a.get("title") or "" for a in item.get("ancestors") or []]
-    return {
+    row = {
         "kind": item.get("kind"),
         "id": item.get("id"),
         "title": item.get("title"),
         "path": " / ".join([*ancestors, item.get("title") or ""]),
-        "chars": chars,
-        "limit": limit,
-        "remaining": max(0, limit - chars),
+        "tokens": tokens,
+        "limit_tokens": limit,
+        "remaining_tokens": max(0, limit - tokens),
         # floor, matching probe.sdk.notes: never print 100% for a document that
         # still accepts a write.
-        "percent": math.floor(100 * chars / limit),
+        "percent": math.floor(100 * tokens / limit),
         "updated_at": item.get("updated_at"),
     }
+    chars, limit_chars = item.get("chars"), item.get("limit_chars")
+    if _is_count(chars) and _is_count(limit_chars):
+        row.update({"chars": chars, "limit": limit_chars, "remaining": max(0, limit_chars - chars)})
+    return row
 
 
 @notes_app.command("status")
@@ -15620,21 +15647,24 @@ def notes_status(
 ) -> None:
     """How full every notes document in this team is -- the fullness sweep.
 
-    TENANT-WIDE, and deliberately without the --project/--run/--artifact flags the
-    other `notes` verbs take. One entity's headroom already rides on that entity's
-    own read (`notes_remaining_chars` and `notes_limit_chars` on the project,
-    experiment, run, group and artifact responses), so the question only this
+    TENANT-WIDE, and deliberately without the --project/--experiment/--run flags
+    the other `notes` verbs take. One entity's headroom already rides on that
+    entity's own read (`notes_remaining_tokens` and `notes_limit_tokens` on the
+    project, experiment and run responses), so the question only this
     command can answer is the cross-entity one: WHICH documents are close to
     refusing writes. Answering it used to mean one API fetch per entity, which is
-    why nobody did it -- and why a project sat at 99,992 of 100,000 characters,
-    refusing every append, for a day.
+    why nobody did it -- and why a project sat at 99,992 of its then
+    100,000-character cap, refusing every append, for a day.
 
-    Documents are listed fullest first. Writes are refused AT the cap, not near
-    it, so a document at 100% is one that has already been losing writes.
+    Documents are listed fullest first, in TOKENS against each one's token cap.
+    Writes are refused AT the cap, not near it, so a document at 100% is one
+    that has already been losing writes. A document the server has not counted
+    yet is not ranked, and the summary says how many there were.
     """
     from ..sdk.notes import NOTES_WARN_FRACTION
 
     rows: list[dict] = []
+    unmeasured = 0
     cursor: str | None = None
     truncated = False
     with _client() as c:
@@ -15654,12 +15684,14 @@ def notes_status(
                 row = _notes_status_row(item)
                 if row is not None:
                     rows.append(row)
+                else:
+                    unmeasured += 1
             cursor = page.get("next_cursor")
             if not cursor:
                 break
             truncated = page_number == _NOTES_STATUS_MAX_PAGES - 1
 
-    rows.sort(key=lambda r: (-r["percent"], -r["chars"]))
+    rows.sort(key=lambda r: (-r["percent"], -r["tokens"]))
     warn_at = 100 * (1 - NOTES_WARN_FRACTION)
     near_full = [r for r in rows if r["percent"] >= warn_at]
     shown = [r for r in rows if r["percent"] >= above]
@@ -15667,11 +15699,14 @@ def notes_status(
     for row in shown:
         mark = "!" if row["percent"] >= warn_at else " "
         print(
-            f"{mark} {row['percent']:3d}%  {row['chars']:>7,}/{row['limit']:<7,}  "
+            f"{mark} {row['percent']:3d}%  {row['tokens']:>6,}/{row['limit_tokens']:<6,} tokens  "
             f"{row['kind']:<10} {row['path']}",
             file=sys.stderr,
         )
     summary = f"{len(rows)} notes documents, {len(near_full)} at or above {warn_at:.0f}% full"
+    if unmeasured:
+        # Not "nothing is near full" about documents it could not measure.
+        summary += f"; {unmeasured} not counted in tokens yet, so not ranked"
     if truncated:
         summary += (
             f" -- STOPPED after {_NOTES_STATUS_MAX_PAGES * _NOTES_STATUS_PAGE_SIZE} documents; "
@@ -15681,6 +15716,7 @@ def notes_status(
     _print_json(
         {
             "scanned": len(rows),
+            "unmeasured": unmeasured,
             "truncated": truncated,
             "warn_at_percent": warn_at,
             "near_full": len(near_full),
@@ -16209,18 +16245,21 @@ def group_create(
     spec: str = typer.Option(
         None, "--spec", metavar="JSON|@file", help="e.g. a sweep search space"
     ),
-    notes: str = notes_opt(),
+    # HIDDEN AND IGNORED: sweep groups no longer carry notes. Kept so an agent on
+    # an older skill still creates its group; it is told once, on stderr.
+    notes: str = typer.Option(None, "--notes", hidden=True),
 ) -> None:
     """Create a run group. Pass the printed id to `probe run start --group`.
 
-    Put free text in `--notes`, never in `--name`: the name is part of the
-    group's uniqueness key within the experiment, so a description appended to it
-    mints a SECOND group rather than annotating the one it describes.
+    What the sweep tests goes in the experiment's notes, never in `--name`: the
+    name is part of the group's uniqueness key within the experiment, so a
+    description appended to it mints a SECOND group rather than annotating the
+    one it describes.
     """
+    if notes is not None:
+        _warn_notes_ignored("--notes", GROUP_NOTES_REMOVED)
     with _client() as c:
-        result = c.create_group(
-            experiment_id, name, kind=kind, spec=_json_value(spec), notes=_text_value(notes)
-        )
+        result = c.create_group(experiment_id, name, kind=kind, spec=_json_value(spec))
     _print_json(result)
 
 
@@ -16243,20 +16282,23 @@ def group_set(
     group_id: str = typer.Argument(...),
     name: str = typer.Option(None, "--name"),
     spec: str = typer.Option(None, "--spec", metavar="JSON|@file"),
-    notes: str = notes_opt(),
+    # HIDDEN AND REFUSED: sweep groups no longer carry notes. Refused rather than
+    # ignored, because a `set` whose only job was the note would otherwise exit 0
+    # having written nothing.
+    notes: str = typer.Option(None, "--notes", hidden=True),
 ) -> None:
-    """Update a run group's name, spec and/or notes.
+    """Update a run group's name and/or spec.
 
-    Notes are usually written HERE rather than at create: what a sweep or a
-    campaign was actually testing, and what it concluded, is known once it has
-    run. The spec says what was varied; the notes say what came of it.
+    The spec says what was varied; what it tested and what came of it goes in
+    the experiment's notes.
     """
-    if name is None and spec is None and notes is None:
-        raise typer.BadParameter("pass at least one of --name/--spec/--notes")
+    if notes is not None:
+        typer.echo(f"error: --notes was removed: {GROUP_NOTES_REMOVED}", err=True)
+        raise typer.Exit(1)
+    if name is None and spec is None:
+        raise typer.BadParameter("pass at least one of --name/--spec")
     with _client() as c:
-        result = c.update_group(
-            group_id, name=name, spec=_json_value(spec), notes=_text_value(notes)
-        )
+        result = c.update_group(group_id, name=name, spec=_json_value(spec))
     _print_json(result)
 
 
@@ -16548,6 +16590,7 @@ def main(argv: list[str] | None = None) -> int:
     # session from the harness process before the write gate reads it.
     agent_session.adopt_harness_process_session()
     args, directed = write_gate.split_directed(sys.argv[1:] if argv is None else argv)
+    _conn.directed = directed
     excluded = write_gate.excluded_refusal(args)
     if excluded is not None:
         message, child = excluded
@@ -16673,7 +16716,20 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if code == 0 and not _UNDELIVERED.total:
         _label_status_line(args)
+    if code == 0:
+        _remind_summary(args)
     return code
+
+
+def _remind_summary(args: list[str]) -> None:
+    """The first write of a session landing on a project or experiment whose
+    summary it has not checked out says so, once (`summary_cli.remind`)."""
+    try:
+        from .summary_cli import remind
+
+        remind(args)
+    except (Exception, KeyboardInterrupt):  # noqa: BLE001 -- a reminder
+        pass
 
 
 def _label_session() -> str | None:

@@ -8,7 +8,7 @@ from typing import Any, cast
 import numpy as np
 import numpy.typing as npt
 
-from supervision.config import CLASS_NAME_DATA_FIELD
+from supervision.config import CLASS_NAME_DATA_FIELD, HANDEDNESS_SCORE_DATA_FIELD
 from supervision.detection.core import Detections
 from supervision.detection.utils._typing import (
     _DetectionDataType,
@@ -23,13 +23,19 @@ from supervision.detection.utils.iou_and_nms import (
     OverlapMetric,
     box_non_max_suppression,
 )
-from supervision.utils.internal import warn_deprecated
+from supervision.utils.internal import _to_numpy, warn_deprecated
 from supervision.validators import _validate_keypoints_fields
 
 logger = logging.getLogger(__name__)
 
 Index1D = (
-    int | slice | list[int] | list[bool] | npt.NDArray[np.int_] | npt.NDArray[np.bool_]
+    int
+    | np.integer[Any]
+    | slice
+    | list[int]
+    | list[bool]
+    | npt.NDArray[np.int_]
+    | npt.NDArray[np.bool_]
 )
 Index2D = tuple[Index1D, Index1D]
 _RowIndexInput = int | np.integer[Any] | npt.NDArray[np.generic] | list[Any] | slice
@@ -43,6 +49,64 @@ def _optional_array_equal(
     if first is None or second is None:
         return first is None and second is None
     return np.array_equal(first, second)
+
+
+#: Stable `class_id` assigned to each MediaPipe handedness label. The labels are the
+#: only two values MediaPipe emits, so the mapping is fixed rather than discovered.
+_HAND_CLASS_ID_BY_LABEL: dict[str, int] = {"Left": 0, "Right": 1}
+
+
+def _handedness_pairs(
+    top_categories: Iterable[Any], label_attr: str
+) -> list[tuple[str, float]] | None:
+    """Convert MediaPipe top-1 handedness categories into `(label, score)` pairs.
+
+    Returns `None` as soon as any category is missing a label or a score, so the caller
+    can drop handedness wholesale instead of emitting a partially filled array that
+    would silently mis-align with `xy`.
+    """
+    pairs: list[tuple[str, float]] = []
+    for top in top_categories:
+        label = getattr(top, label_attr, None)
+        score = getattr(top, "score", None)
+        if label is None or score is None:
+            return None
+        pairs.append((str(label), float(score)))
+    return pairs
+
+
+def _tasks_api_handedness(mediapipe_results: Any) -> list[tuple[str, float]] | None:
+    """Read handedness `(label, score)` pairs from a Tasks API `HandLandmarkerResult`.
+
+    The Tasks API exposes `handedness` as one descending-score category list per hand;
+    only the top-1 entry carries the `Left`/`Right` decision.
+    """
+    handedness = getattr(mediapipe_results, "handedness", None)
+    if not handedness or not all(handedness):
+        return None
+    return _handedness_pairs(
+        [categories[0] for categories in handedness], "category_name"
+    )
+
+
+def _legacy_handedness(mediapipe_results: Any) -> list[tuple[str, float]] | None:
+    """Read handedness `(label, score)` pairs from a legacy `Hands` solution result.
+
+    The legacy proto2 solution nests the same top-1 decision one level deeper, under
+    `multi_handedness[i].classification`, and names the label field `label`.
+    """
+    multi_handedness = getattr(mediapipe_results, "multi_handedness", None)
+    if not multi_handedness:
+        return None
+    classifications = [
+        getattr(handedness, "classification", None) for handedness in multi_handedness
+    ]
+    if not all(classifications):
+        return None
+    return _handedness_pairs(
+        [classification[0] for classification in classifications],  # type: ignore[index]
+        "label",
+    )
 
 
 def _normalize_row_index(
@@ -70,16 +134,16 @@ def _normalize_row_index(
 
 @dataclass(init=False)
 class KeyPoints:
-    """
-    The `sv.KeyPoints` class in the Supervision library standardizes results from
-    various keypoint detection and pose estimation models into a consistent format. This
-    class simplifies data manipulation and filtering, providing a uniform API for
+    """The :class:`~supervision.key_points.core.KeyPoints` class standardizes results
+    from various keypoint detection and pose estimation models into a consistent format.
+    This class simplifies data manipulation and filtering, providing a uniform API for
     integration with Supervision [keypoints annotators](/latest/keypoint/annotators).
 
     === "RF-DETR"
 
         [RF-DETR](https://github.com/roboflow/rf-detr) keypoint models return
-        `sv.KeyPoints` directly from `model.predict()` — no additional
+        :class:`~supervision.key_points.core.KeyPoints` directly from
+        `model.predict()` — no additional
         conversion is needed.
 
         ```python
@@ -90,13 +154,15 @@ class KeyPoints:
         image = cv2.imread("<SOURCE_IMAGE_PATH>")
         model = RFDETRKeypointPreview()
 
-        key_points = model.predict(image)
+        # cv2 loads BGR; RF-DETR expects RGB.
+        key_points = model.predict(image[:, :, ::-1])
         ```
 
     === "Ultralytics"
 
-        Use [`sv.KeyPoints.from_ultralytics`](/latest/keypoint/core/#supervision.key_points.core.KeyPoints.from_ultralytics)
-        method, which accepts [YOLOv8-pose](https://docs.ultralytics.com/models/yolov8/), [YOLO11-pose](https://docs.ultralytics.com/models/yolo11/)
+        Use :meth:`~supervision.key_points.core.KeyPoints.from_ultralytics`,
+        which accepts [YOLOv8-pose](https://docs.ultralytics.com/models/yolov8/),
+        [YOLO11-pose](https://docs.ultralytics.com/models/yolo11/)
         [pose](https://docs.ultralytics.com/tasks/pose/) result.
 
         ```python
@@ -113,7 +179,7 @@ class KeyPoints:
 
     === "Inference"
 
-        Use [`sv.KeyPoints.from_inference`](/latest/keypoint/core/#supervision.key_points.core.KeyPoints.from_inference)
+        Use :meth:`~supervision.key_points.core.KeyPoints.from_inference`
         method, which accepts [Inference](https://inference.roboflow.com/) pose result.
 
         ```python
@@ -130,7 +196,7 @@ class KeyPoints:
 
     === "MediaPipe"
 
-        Use [`sv.KeyPoints.from_mediapipe`](/latest/keypoint/core/#supervision.key_points.core.KeyPoints.from_mediapipe)
+        Use :meth:`~supervision.key_points.core.KeyPoints.from_mediapipe`
         method, which accepts [MediaPipe](https://github.com/google-ai-edge/mediapipe)
         pose result.
 
@@ -163,7 +229,7 @@ class KeyPoints:
 
     === "Transformers"
 
-        Use [`sv.KeyPoints.from_transformers`](/latest/keypoint/core/#supervision.key_points.core.KeyPoints.from_transformers)
+        Use :meth:`~supervision.key_points.core.KeyPoints.from_transformers`
         method, which accepts [ViTPose](https://huggingface.co/docs/transformers/en/model_doc/vitpose) result.
 
         ```python
@@ -304,7 +370,10 @@ class KeyPoints:
 
     @property
     def confidence(self) -> npt.NDArray[np.float32] | None:
-        """Deprecated since 0.29.0. Use ``keypoint_confidence`` instead."""
+        """Deprecated since 0.29.0.
+
+        Use ``keypoint_confidence`` instead.
+        """
         warn_deprecated(
             "'KeyPoints.confidence' is deprecated since 0.29.0 and will be "
             "removed in 0.32.0. Use 'KeyPoints.keypoint_confidence' instead."
@@ -320,8 +389,8 @@ class KeyPoints:
         self.keypoint_confidence = value
 
     def __len__(self) -> int:
-        """
-        Returns the number of objects in the `sv.KeyPoints` object.
+        """Returns the number of objects in the
+        :class:`~supervision.key_points.core.KeyPoints` object.
 
         Returns:
             The number of objects.
@@ -349,10 +418,8 @@ class KeyPoints:
             _DetectionDataType,
         ]
     ]:
-        """
-        Iterates over the Keypoint object and yield a tuple of
-        `(xy, keypoint_confidence, class_id, data)` for each object detection.
-        """
+        """Iterates over the Keypoint object and yield a tuple of `(xy,
+        keypoint_confidence, class_id, data)` for each object detection."""
         for i in range(len(self.xy)):
             yield (
                 self.xy[i],
@@ -384,7 +451,8 @@ class KeyPoints:
     @classmethod
     def from_inference(cls, inference_result: Any) -> KeyPoints:
         """
-        Create a `sv.KeyPoints` object from the [Roboflow](https://roboflow.com/)
+        Create a :class:`~supervision.key_points.core.KeyPoints` object from the
+        [Roboflow](https://roboflow.com/)
         API inference result or the [Inference](https://inference.roboflow.com/)
         package results.
 
@@ -393,7 +461,8 @@ class KeyPoints:
                 Roboflow API or Inference package containing predictions with keypoints.
 
         Returns:
-            A `sv.KeyPoints` object containing the keypoint coordinates, class IDs,
+            A :class:`~supervision.key_points.core.KeyPoints` object containing
+            the keypoint coordinates, class IDs,
                 class names, and per-keypoint confidences when supplied by the
                 source result. `detection_confidence` is populated only when every
                 prediction has a non-`None` object confidence; if any prediction
@@ -496,24 +565,28 @@ class KeyPoints:
         cls, mediapipe_results: Any, resolution_wh: tuple[int, int]
     ) -> KeyPoints:
         """
-        Creates a `sv.KeyPoints` instance from a
+        Creates a :class:`~supervision.key_points.core.KeyPoints` instance from a
         [MediaPipe](https://github.com/google-ai-edge/mediapipe)
-        pose landmark detection inference result.
+        pose, face, or hand landmark detection inference result.
 
         Args:
-            mediapipe_results: The output results from Mediapipe. It supports pose
-                and face landmarks from `PoseLandmarker`, `FaceLandmarker` and the
-                legacy ones from `Pose` and `FaceMesh`.
+            mediapipe_results: The output results from Mediapipe. It supports pose,
+                face, and hand landmarks from `PoseLandmarker`, `FaceLandmarker`,
+                `HandLandmarker`, and the legacy ones from `Pose`, `FaceMesh`, and
+                `Hands`.
             resolution_wh: A tuple of the form `(width, height)` representing the
                 resolution of the frame.
 
         Returns:
-            A `sv.KeyPoints` object containing the keypoint coordinates and
+            A :class:`~supervision.key_points.core.KeyPoints` object containing
+            the keypoint coordinates and
                 confidences of each keypoint.
 
         !!! tip
-            Before you start, download model bundles from the
-            [MediaPipe website](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/index#models).
+            Before you start, download model bundles from the MediaPipe website:
+            [pose](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/index#models),
+            [face](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker/index#models),
+            [hand](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker/index#models).
 
         Examples:
             ```python
@@ -569,34 +642,84 @@ class KeyPoints:
                 face_landmarker_result, (image_width, image_height))
             ```
 
+            ```python
+            from supervision import _cv2 as cv2
+            import mediapipe as mp
+            import supervision as sv
+
+            image = cv2.imread("<SOURCE_IMAGE_PATH>")
+            image_height, image_width, _ = image.shape
+            mediapipe_image = mp.Image(
+                image_format=mp.ImageFormat.SRGB,
+                data=cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+
+            options = mp.tasks.vision.HandLandmarkerOptions(
+                base_options=mp.tasks.BaseOptions(
+                    model_asset_path="hand_landmarker.task"
+                ),
+                running_mode=mp.tasks.vision.RunningMode.IMAGE,
+                num_hands=2)
+
+            HandLandmarker = mp.tasks.vision.HandLandmarker
+            with HandLandmarker.create_from_options(options) as landmarker:
+                hand_landmarker_result = landmarker.detect(mediapipe_image)
+
+            key_points = sv.KeyPoints.from_mediapipe(
+                hand_landmarker_result, (image_width, image_height))
+            ```
+
         """
-        if hasattr(mediapipe_results, "pose_landmarks"):
+        landmark_fields = (
+            "pose_landmarks",
+            "face_landmarks",
+            "hand_landmarks",
+            "multi_face_landmarks",
+            "multi_hand_landmarks",
+        )
+
+        # Only pose models populate `visibility` with a real score. Hand and face
+        # landmarks always declare the field but leave it unset, so the legacy
+        # proto2 branches below opt out of reading it.
+        read_landmark_visibility = True
+
+        # Handedness lives beside the landmarks on the original result object, so it
+        # is captured per branch before `results` flattens that structure away. Hand
+        # models are the only ones that report it; it stays `None` everywhere else.
+        handedness_pairs: list[tuple[str, float]] | None = None
+
+        if getattr(mediapipe_results, "pose_landmarks", None) is not None:
             results = mediapipe_results.pose_landmarks
             if not isinstance(mediapipe_results.pose_landmarks, list):
-                if mediapipe_results.pose_landmarks is None:
-                    results = []
-                else:
-                    results = [
-                        [
-                            landmark
-                            for landmark in mediapipe_results.pose_landmarks.landmark
-                        ]
-                    ]
-        elif hasattr(mediapipe_results, "face_landmarks"):
-            results = mediapipe_results.face_landmarks
-        elif hasattr(mediapipe_results, "multi_face_landmarks"):
-            if mediapipe_results.multi_face_landmarks is None:
-                results = []
-            else:
                 results = [
-                    face_landmark.landmark
-                    for face_landmark in mediapipe_results.multi_face_landmarks
+                    [landmark for landmark in mediapipe_results.pose_landmarks.landmark]
                 ]
+        elif getattr(mediapipe_results, "face_landmarks", None) is not None:
+            results = mediapipe_results.face_landmarks
+        elif getattr(mediapipe_results, "hand_landmarks", None) is not None:
+            results = mediapipe_results.hand_landmarks
+            handedness_pairs = _tasks_api_handedness(mediapipe_results)
+        elif getattr(mediapipe_results, "multi_face_landmarks", None) is not None:
+            results = [
+                face_landmark.landmark
+                for face_landmark in mediapipe_results.multi_face_landmarks
+            ]
+            read_landmark_visibility = False
+        elif getattr(mediapipe_results, "multi_hand_landmarks", None) is not None:
+            results = [
+                hand_landmark.landmark
+                for hand_landmark in mediapipe_results.multi_hand_landmarks
+            ]
+            read_landmark_visibility = False
+            handedness_pairs = _legacy_handedness(mediapipe_results)
+        elif any(hasattr(mediapipe_results, field) for field in landmark_fields):
+            # A recognized result object that simply detected nothing: MediaPipe
+            # reports `None` rather than an empty container, so this is not an error.
+            results = []
         else:
             # Reject unsupported MediaPipe-like payloads before landmark parsing.
             raise ValueError(
-                "Unsupported MediaPipe result type. Expected an object with "
-                "pose_landmarks, face_landmarks, or multi_face_landmarks."
+                "Unsupported MediaPipe result type. Expected an object with one "
+                f"of: {', '.join(landmark_fields)}."
             )
 
         if len(results) == 0:
@@ -613,27 +736,60 @@ class KeyPoints:
                     landmark.y * resolution_wh[1],
                 ]
                 prediction_xy.append(keypoint_xy)
-                prediction_confidence.append(landmark.visibility)
+
+                # The Tasks API leaves `visibility` as None when unset and the
+                # legacy proto2 solutions default it to 0.0. Neither is a real
+                # score for hand and face models, so those keypoints are reported
+                # as fully visible instead of as fabricated zero confidence.
+                visibility = getattr(landmark, "visibility", None)
+                if visibility is None or not read_landmark_visibility:
+                    visibility = 1.0
+                prediction_confidence.append(visibility)
 
             xy.append(prediction_xy)
             confidence.append(prediction_confidence)
 
+        # Handedness is all-or-nothing: a count mismatch or an unrecognised label
+        # would misalign `class_id` with `xy`, so both outputs are dropped together
+        # rather than filled with a guessed value for the offending hand.
+        class_id: npt.NDArray[np.int_] | None = None
+        data: _DetectionDataType = {}
+        labels_are_known = handedness_pairs is not None and all(
+            label in _HAND_CLASS_ID_BY_LABEL for label, _ in handedness_pairs
+        )
+        if (
+            handedness_pairs is not None
+            and labels_are_known
+            and len(handedness_pairs) == len(results)
+        ):
+            class_id = np.array(
+                [_HAND_CLASS_ID_BY_LABEL[label] for label, _ in handedness_pairs],
+                dtype=int,
+            )
+            data[HANDEDNESS_SCORE_DATA_FIELD] = np.array(
+                [score for _, score in handedness_pairs], dtype=np.float32
+            )
+
         return cls(
             xy=np.array(xy, dtype=np.float32),
             keypoint_confidence=np.array(confidence, dtype=np.float32),
+            class_id=class_id,
+            data=data,
         )
 
     @classmethod
     def from_ultralytics(cls, ultralytics_results: Any) -> KeyPoints:
         """
-        Creates a `sv.KeyPoints` instance from a
+        Creates a :class:`~supervision.key_points.core.KeyPoints` instance from a
         [YOLOv8](https://github.com/ultralytics/ultralytics) pose inference result.
 
         Args:
-            ultralytics_results: The output Results instance from YOLOv8.
+            ultralytics_results: The output Results instance from YOLOv8,
+                with tensor or NumPy properties (including `Results.numpy()`).
 
         Returns:
-            A `sv.KeyPoints` object containing the keypoint coordinates, class IDs,
+            A :class:`~supervision.key_points.core.KeyPoints` object containing
+            the keypoint coordinates, class IDs,
                 class names, detection confidences, and confidences of each keypoint.
 
         Examples:
@@ -649,18 +805,18 @@ class KeyPoints:
             key_points = sv.KeyPoints.from_ultralytics(result)
             ```
         """
-        if ultralytics_results.keypoints.xy.numel() == 0:
+        xy = _to_numpy(ultralytics_results.keypoints.xy)
+        if xy.size == 0:
             return cls.empty()
 
-        xy = ultralytics_results.keypoints.xy.cpu().numpy()
-        class_id = ultralytics_results.boxes.cls.cpu().numpy().astype(int)
+        class_id = _to_numpy(ultralytics_results.boxes.cls).astype(int)
         class_names = np.array([ultralytics_results.names[i] for i in class_id])
 
         # Models trained with a two-value `kpt_shape` report no per-keypoint
         # visibility, and Ultralytics exposes `keypoints.conf` as `None` for them.
         keypoints_conf = ultralytics_results.keypoints.conf
-        confidence = None if keypoints_conf is None else keypoints_conf.cpu().numpy()
-        detection_confidence = ultralytics_results.boxes.conf.cpu().numpy()
+        confidence = None if keypoints_conf is None else _to_numpy(keypoints_conf)
+        detection_confidence = _to_numpy(ultralytics_results.boxes.conf)
         data: _DetectionDataType = {CLASS_NAME_DATA_FIELD: class_names}
         return cls(
             xy=xy,
@@ -673,14 +829,16 @@ class KeyPoints:
     @classmethod
     def from_yolo_nas(cls, yolo_nas_results: Any) -> KeyPoints:
         """
-        Create a `sv.KeyPoints` instance from a [YOLO-NAS](https://github.com/Deci-AI/super-gradients/blob/master/YOLONAS-POSE.md)
+        Create a :class:`~supervision.key_points.core.KeyPoints` instance from a
+        [YOLO-NAS](https://github.com/Deci-AI/super-gradients/blob/master/YOLONAS-POSE.md)
         pose inference results.
 
         Args:
             yolo_nas_results: The output object from YOLO NAS.
 
         Returns:
-            A `sv.KeyPoints` object containing the keypoint coordinates, class IDs,
+            A :class:`~supervision.key_points.core.KeyPoints` object containing
+            the keypoint coordinates, class IDs,
                 and class names, and confidences of each keypoint.
 
         Examples:
@@ -731,7 +889,7 @@ class KeyPoints:
     @classmethod
     def from_detectron2(cls, detectron2_results: Any) -> KeyPoints:
         """
-        Create a `sv.KeyPoints` object from the
+        Create a :class:`~supervision.key_points.core.KeyPoints` object from the
         [Detectron2](https://github.com/facebookresearch/detectron2) inference result.
 
         Args:
@@ -739,7 +897,8 @@ class KeyPoints:
                 Detectron2 model containing instances with prediction data.
 
         Returns:
-            A `sv.KeyPoints` object containing the keypoint coordinates, class IDs,
+            A :class:`~supervision.key_points.core.KeyPoints` object containing
+            the keypoint coordinates, class IDs,
                 detection confidences, and confidences of each keypoint.
 
         Examples:
@@ -785,7 +944,7 @@ class KeyPoints:
     @classmethod
     def from_transformers(cls, transformers_results: Any) -> KeyPoints:
         """
-        Create a `sv.KeyPoints` object from the
+        Create a :class:`~supervision.key_points.core.KeyPoints` object from the
         [Transformers](https://github.com/huggingface/transformers) inference result.
 
         Args:
@@ -794,9 +953,11 @@ class KeyPoints:
                 detected pose. An empty list means no poses were detected.
 
         Returns:
-            A `sv.KeyPoints` object containing the keypoint coordinates, class IDs,
+            A :class:`~supervision.key_points.core.KeyPoints` object containing
+            the keypoint coordinates, class IDs,
                 class names, and confidences of each keypoint. An empty
-                `transformers_results` returns `KeyPoints.empty()`.
+                `transformers_results` returns
+                :meth:`~supervision.key_points.core.KeyPoints.empty`.
 
         Examples:
             ```python
@@ -877,7 +1038,8 @@ class KeyPoints:
 
         This method selects the **same set of keypoints from every object**, so
         every row of `mask` must contain the same number of `True` values.  The
-        result is a new `KeyPoints` whose keypoint count is that uniform `k`.
+        result is a new :class:`~supervision.key_points.core.KeyPoints` whose
+        keypoint count is that uniform `k`.
 
         This is suitable for use cases such as *"keep only the left-side joints for
         all persons"* — where the selected joint indices are identical across objects.
@@ -898,8 +1060,8 @@ class KeyPoints:
                 stored in a uniform `(n, k, ...)` array.
 
         Returns:
-            A new `KeyPoints` instance containing only the keypoints selected by
-            the mask for each object.
+            A new :class:`~supervision.key_points.core.KeyPoints` instance
+            containing only the keypoints selected by the mask for each object.
 
         Raises:
             ValueError: If `mask.shape[0]` does not match the number of objects, if
@@ -1004,7 +1166,8 @@ class KeyPoints:
             index: Index, indices, slice, or boolean mask selecting key points.
 
         Returns:
-            A new `KeyPoints` instance containing the selected rows or anchors.
+            A new :class:`~supervision.key_points.core.KeyPoints` instance
+            containing the selected rows or anchors.
 
         Example:
             ```pycon
@@ -1070,7 +1233,7 @@ class KeyPoints:
         data_selected = get_data_item(self.data, cast(Any, row_i))
 
         if xy_selected.ndim == 1:
-            xy_selected = xy_selected.reshape(1, 1, 2)
+            xy_selected = xy_selected.reshape(1, 1, self.xy.shape[2])
             if keypoint_confidence_selected is not None:
                 keypoint_confidence_selected = keypoint_confidence_selected.reshape(
                     1, 1
@@ -1112,8 +1275,7 @@ class KeyPoints:
         self,
         index: Index1D | Index2D | str,
     ) -> KeyPoints | npt.NDArray[np.generic] | list[Any] | None:
-        """
-        Get a subset of the KeyPoints object or access an item from its data field.
+        """Get a subset of the KeyPoints object or access an item from its data field.
 
         Supports detection-level (skeleton) filtering, keypoint-level (anchor)
         filtering, combined tuple indexing, and data field access by string key.
@@ -1126,28 +1288,59 @@ class KeyPoints:
             A subset of the KeyPoints object or an item from the data field.
 
         Examples:
-            ```python
-            import supervision as sv
+            ```pycon
+            >>> import numpy as np
+            >>> import supervision as sv
+            >>> key_points = sv.KeyPoints(
+            ...     xy=np.array([
+            ...         [[10, 10], [20, 10], [15, 20]],
+            ...         [[12, 11], [22, 11], [17, 21]],
+            ...         [[100, 100], [110, 100], [105, 110]],
+            ...     ], dtype=float),
+            ...     class_id=np.array([0, 0, 1]),
+            ...     detection_confidence=np.array([0.9, 0.6, 0.8]),
+            ...     keypoint_confidence=np.array(
+            ...         [[0.9, 0.9, 0.2], [0.8, 0.8, 0.1], [0.7, 0.7, 0.2]]
+            ...     ),
+            ...     data={'class_name': np.array(['person', 'person', 'dog'])},
+            ... )
 
-            key_points = sv.KeyPoints(...)
+            Detection-level filtering returns a
+            :class:`~supervision.key_points.core.KeyPoints` subset:
 
-            # detection-level filtering (returns KeyPoints)
-            high_conf = key_points[key_points.detection_confidence > 0.5]
-            class_0 = key_points[key_points.class_id == 0]
+            >>> key_points[key_points.detection_confidence > 0.7].class_id
+            array([0, 1])
+            >>> key_points[key_points.class_id == 0].detection_confidence
+            array([0.9, 0.6])
 
-            # keypoint-level filtering (returns KeyPoints)
-            visible = key_points[key_points.keypoint_confidence > 0.3]
+            Keypoint-level filtering with a 2D boolean mask keeps only the
+            selected anchors. Every skeleton must keep the same number of
+            anchors, otherwise a `ValueError` is raised:
 
-            # indexing
-            first = key_points[0]
-            first_two = key_points[0:2]
-            subset = key_points[[0, 2]]
+            >>> key_points[key_points.keypoint_confidence > 0.3].xy.shape
+            (3, 2, 2)
 
-            # anchor selection (uniform across all skeletons)
-            nose_and_eyes = key_points[:, [0, 1, 2]]
+            Integer, slice, and list indexing:
 
-            # data field access
-            class_names = key_points['class_name']
+            >>> key_points[0].xy
+            array([[[10., 10.],
+                    [20., 10.],
+                    [15., 20.]]])
+            >>> key_points[0:2].xy.shape
+            (2, 3, 2)
+            >>> key_points[[0, 2]].class_id
+            array([0, 1])
+
+            Anchor selection, uniform across all skeletons:
+
+            >>> key_points[:, [0, 1]].xy.shape
+            (3, 2, 2)
+
+            Data field access:
+
+            >>> key_points['class_name']
+            array(['person', 'person', 'dog'], dtype='<U6')
+
             ```
         """
         if isinstance(index, str):
@@ -1155,8 +1348,8 @@ class KeyPoints:
         return self.select(index)
 
     def __setitem__(self, key: str, value: npt.NDArray[np.generic] | list[Any]) -> None:
-        """
-        Set a value in the data dictionary of the `sv.KeyPoints` object.
+        """Set a value in the data dictionary of the
+        :class:`~supervision.key_points.core.KeyPoints` object.
 
         Args:
             key: The key in the data dictionary to set.
@@ -1180,6 +1373,20 @@ class KeyPoints:
                  in key_points.class_id
              ]
             ```
+
+            ```pycon
+            >>> import numpy as np
+            >>> import supervision as sv
+            >>> key_points = sv.KeyPoints(
+            ...     xy=np.array([[[10, 10], [20, 10]], [[100, 100], [110, 100]]]),
+            ...     class_id=np.array([0, 1]),
+            ... )
+            >>> names = {0: 'person', 1: 'dog'}
+            >>> key_points['class_name'] = [names[c] for c in key_points.class_id]
+            >>> key_points['class_name']
+            array(['person', 'dog'], dtype='<U6')
+
+            ```
         """
         if not isinstance(value, (np.ndarray, list)):
             raise TypeError("Value must be a np.ndarray or a list")
@@ -1191,11 +1398,10 @@ class KeyPoints:
 
     @classmethod
     def empty(cls) -> KeyPoints:
-        """
-        Create an empty KeyPoints object with no key points.
+        """Create an empty KeyPoints object with no key points.
 
         Returns:
-            An empty `sv.KeyPoints` object.
+            An empty :class:`~supervision.key_points.core.KeyPoints` object.
 
         Examples:
             ```pycon
@@ -1209,8 +1415,8 @@ class KeyPoints:
         return cls(xy=np.empty((0, 0, 2), dtype=np.float32))
 
     def is_empty(self) -> bool:
-        """
-        Returns `True` if the `KeyPoints` object is considered empty.
+        """Returns `True` if the :class:`~supervision.key_points.core.KeyPoints` object
+        is considered empty.
 
         Returns:
             `True` if the object is empty, `False` otherwise.
@@ -1228,21 +1434,21 @@ class KeyPoints:
 
     @classmethod
     def merge(cls, key_points_list: list[KeyPoints]) -> KeyPoints:
-        """
-        Merge a list of KeyPoints objects into a single KeyPoints object.
+        """Merge a list of KeyPoints objects into a single KeyPoints object.
 
         This method takes a list of KeyPoints objects and combines their
         respective fields (`xy`, `class_id`, `keypoint_confidence`,
         `detection_confidence`, and `visible`) into a single KeyPoints object.
         The `data` dictionaries are merged key-wise, following the same rules
-        as `Detections.merge`.
+        as :meth:`~supervision.detection.core.Detections.merge`.
 
         For example, if merging KeyPoints with 2 and 3 skeletons, this method
         will return a KeyPoints with 5 skeletons (5 entries in `xy`, etc).
 
         !!! Note
 
-            When merging, empty `KeyPoints` objects are ignored.
+            When merging, empty :class:`~supervision.key_points.core.KeyPoints`
+            objects are ignored.
 
         Args:
             key_points_list: A list of KeyPoints objects to merge.
@@ -1370,7 +1576,8 @@ class KeyPoints:
                 `OverlapMetric.IOU`.
 
         Returns:
-            A new `sv.KeyPoints` object after non-maximum suppression.
+            A new :class:`~supervision.key_points.core.KeyPoints` object after
+            non-maximum suppression.
 
         Raises:
             ValueError: If `detection_confidence` is None.
@@ -1386,8 +1593,32 @@ class KeyPoints:
             image = cv2.imread("<SOURCE_IMAGE_PATH>")
             model = RFDETRKeypointPreview()
 
-            key_points = model.predict(image)
+            # cv2 loads BGR; RF-DETR expects RGB.
+            key_points = model.predict(image[:, :, ::-1])
             key_points = key_points.with_nms(threshold=0.5)
+            ```
+
+            Two overlapping skeletons of the same class collapse to the more
+            confident one:
+
+            ```pycon
+            >>> import numpy as np
+            >>> import supervision as sv
+            >>> key_points = sv.KeyPoints(
+            ...     xy=np.array([
+            ...         [[10, 10], [20, 10], [15, 20]],
+            ...         [[12, 11], [22, 11], [17, 21]],
+            ...         [[100, 100], [110, 100], [105, 110]],
+            ...     ], dtype=float),
+            ...     class_id=np.array([0, 0, 1]),
+            ...     detection_confidence=np.array([0.9, 0.6, 0.8]),
+            ... )
+            >>> suppressed = key_points.with_nms(threshold=0.5)
+            >>> suppressed.detection_confidence
+            array([0.9, 0.8])
+            >>> suppressed.class_id
+            array([0, 1])
+
             ```
         """
         if len(self) == 0:
@@ -1450,7 +1681,8 @@ class KeyPoints:
         """Convert a KeyPoints object to a Detections object. This approximates the
         bounding box of the detected object by taking the bounding box that fits all key
         points. Key points that are missing (`[0, 0]`), not finite, or marked not
-        visible via `visible` are left out, as in `with_nms`, and a skeleton with no
+        visible via `visible` are left out, as in
+        :meth:`~supervision.key_points.core.KeyPoints.with_nms`, and a skeleton with no
         other key point is dropped.
 
         Args:

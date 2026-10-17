@@ -20,7 +20,6 @@
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::os::unix::ffi::OsStringExt;
 use std::os::unix::fs::{fchown, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
@@ -309,10 +308,6 @@ pub trait Progress: Send + Sync {
 pub struct Store {
     root: PathBuf,
     progress: Option<std::sync::Arc<dyn Progress>>,
-    /// The optional mounted immutable object cache THIS Store is bound to, read off
-    /// [`REPO_CACHE_BINDING`] when the handle was made. See that constant for why the
-    /// binding is a property of the Store and not an argument of every operation.
-    cache: Option<crate::repo_cache::RepoObjectCache>,
     /// The optional disk budget THIS Store is held to, read off [`DISK_BUDGET`] when the
     /// handle was made. `None` is the default and means every operation behaves exactly as
     /// it did before tfs-064. See that constant.
@@ -332,7 +327,6 @@ impl std::fmt::Debug for Store {
         f.debug_struct("Store")
             .field("root", &self.root)
             .field("observed", &self.progress.is_some())
-            .field("repo_cache", &self.cache.as_ref().map(|c| c.root()))
             .field("disk", &self.disk)
             .field("owned", &self.owner.is_some())
             .finish()
@@ -371,16 +365,10 @@ pub(crate) struct Verified {
 #[derive(Debug)]
 pub struct VerifiedFile {
     file: File,
-    sha256: String,
     len: u64,
 }
 
 impl VerifiedFile {
-    /// The id these bytes were proven to have.
-    pub fn sha256(&self) -> &str {
-        &self.sha256
-    }
-
     /// The length observed on the verified descriptor (`fstat`, never a second `stat`).
     pub fn len(&self) -> u64 {
         self.len
@@ -427,15 +415,6 @@ pub enum Verdict {
     Verified { rehashed: bool },
     Invalidated { why: String },
     CorruptRemoved { why: String },
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Scrub {
-    pub scanned: usize,
-    pub sampled: usize,
-    pub rehashed: usize,
-    pub removed: usize,
-    pub bytes_hashed: u64,
 }
 
 impl Store {
@@ -561,7 +540,6 @@ impl Store {
         Ok(Store {
             root: root.to_path_buf(),
             progress: None,
-            cache: read_repo_cache_binding(root),
             budget: read_disk_budget(root),
             trust: crate::catalog::Trust::of(root),
             disk: crate::disk::filesystem(root),
@@ -665,81 +643,13 @@ impl Store {
         &self.trust
     }
 
-    /// The mounted immutable object cache this Store is bound to, or `None`.
-    ///
-    /// Every production consumer of the cache reads it from HERE and no operation takes one
-    /// as an argument. See [`REPO_CACHE_BINDING`].
-    pub fn repo_cache(&self) -> Option<&crate::repo_cache::RepoObjectCache> {
-        self.cache.as_ref()
-    }
-
-    /// Record (`Some`) or clear (`None`) this Store's cache binding, and return the handle
-    /// that carries the result. DECLARATIVE on purpose: a setup that says nothing about the
-    /// cache is a setup that says the Store has none, so a pod whose volume went away stops
-    /// mirroring instead of quietly keeping a stale binding.
-    ///
-    /// **This touches the cache path exactly zero times.** The path is checked as a STRING
-    /// -- absolute, not the Store and not inside it -- and never stat'd, because a stat on a
-    /// hard NFS mount that has stopped answering blocks forever and setup would then hang on
-    /// the thing that is only allowed to cost latency. Whether the mount is really there is
-    /// answered per object, by the cache itself, as `unavailable`.
-    pub fn bind_repo_cache(self, cache: Option<&Path>) -> Result<Store> {
-        let path = self.root.join(REPO_CACHE_BINDING);
-        let Some(cache) = cache else {
-            match fs::remove_file(&path) {
-                Ok(()) => {}
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => return Err(io("clear repo cache binding", error)),
-            }
-            fsync_dir(&self.root)?;
-            return Ok(Store {
-                cache: None,
-                ..self
-            });
-        };
-        validate_repo_cache_root(cache, &self.root)?;
-        let mut bytes = cache.as_os_str().as_encoded_bytes().to_vec();
-        bytes.push(b'\n');
-        let temp = self.root.join(format!(
-            "tmp/repo-cache.{}.{}",
-            std::process::id(),
-            crate::meta::now_nanos_unique()
-        ));
-        let mut file = OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .mode(0o644)
-            .custom_flags(O_NOFOLLOW)
-            .open(&temp)
-            .map_err(|error| io("open repo cache binding temp", error))?;
-        let written = file
-            .write_all(&bytes)
-            .and_then(|()| file.sync_all())
-            .map_err(|error| io("write repo cache binding", error));
-        drop(file);
-        if let Err(refusal) = written {
-            let _ = fs::remove_file(&temp);
-            return Err(refusal);
-        }
-        if let Err(error) = fs::rename(&temp, &path) {
-            let _ = fs::remove_file(&temp);
-            return Err(io("install repo cache binding", error));
-        }
-        fsync_dir(&self.root)?;
-        Ok(Store {
-            cache: Some(crate::repo_cache::RepoObjectCache::new(cache)),
-            ..self
-        })
-    }
-
     /// The disk budget this Store is held to, or `None`. See [`DISK_BUDGET`].
     pub fn disk_budget(&self) -> Option<u64> {
         self.budget
     }
 
     /// Record (`Some`) or clear (`None`) this Store's disk budget, and return the handle
-    /// that carries the result. DECLARATIVE, exactly like the cache binding: a setup that
-    /// says nothing about the budget is a setup that says the Store has none, so a pod
+    /// that carries the result. DECLARATIVE: a setup that says nothing about the budget is a setup that says the Store has none, so a pod
     /// re-provisioned without one stops enforcing instead of quietly keeping a stale number.
     pub fn bind_disk_budget(self, budget: Option<u64>) -> Result<Store> {
         let path = self.root.join(DISK_BUDGET);
@@ -874,50 +784,6 @@ impl Store {
         )
     }
 
-    /// Prepare the Store for read leases created by a separate unprivileged uid.
-    ///
-    /// TensorFS owns these internal paths and exact modes. Callers request the policy; they do
-    /// not create or chmod Store internals themselves.
-    pub fn prepare_readers(&self) -> Result<()> {
-        for (path, mode) in [
-            (self.root.clone(), 0o755),
-            (self.root.join("repos"), 0o755),
-            (self.root.join("manifests"), 0o755),
-            (self.root.join("blobs"), 0o755),
-            (self.root.join("checkouts"), 0o755),
-            (self.root.join("tmp"), 0o755),
-            (self.root.join("tmp/leases"), 0o1733),
-            (self.root.join("tmp/writers"), 0o755),
-        ] {
-            prepare_reader_dir(&path, mode)?;
-        }
-        let lock_path = self.root.join("tmp/writers/recovery.lock");
-        let lock = OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .read(true)
-            .write(true)
-            .mode(0o666)
-            .custom_flags(O_NOFOLLOW)
-            .open(&lock_path)
-            .map_err(|error| io(format!("open {}", lock_path.display()), error))?;
-        if !lock
-            .metadata()
-            .map_err(|error| io("stat recovery lock", error))?
-            .is_file()
-        {
-            return refuse(
-                Code::NOT_REGULAR_FILE,
-                format!("{} is not a regular file", lock_path.display()),
-            );
-        }
-        lock.set_permissions(fs::Permissions::from_mode(0o666))
-            .map_err(|error| io("chmod recovery lock", error))?;
-        lock.sync_all()
-            .map_err(|error| io("sync recovery lock", error))?;
-        fsync_dir(&self.root.join("tmp/writers"))
-    }
-
     /// Public directory ownership follows the Store owner, not whichever trusted writer
     /// first touches a hash prefix. A privileged broker may write beside the Store owner;
     /// its new directories must not strand that owner behind root-owned 0755 prefixes.
@@ -1009,62 +875,6 @@ impl Store {
                 .map_err(|error| io("assign metadata to Store owner", error))?;
         }
         Ok(())
-    }
-
-    /// Sorted Manifest ids whose CozyTensors runtime closures are verifiably resident.
-    ///
-    /// Ordinary snapshots, incomplete models, malformed Manifests, and corrupt/missing reached
-    /// objects are conservatively absent from the answer.
-    pub fn complete_cozytensors_manifests(&self) -> Result<Vec<String>> {
-        let mut manifests = Vec::new();
-        for first in read_dir(&self.root.join("manifests"))? {
-            if !is_real_dir(&first)? {
-                continue;
-            }
-            for second in read_dir(&first)? {
-                if !is_real_dir(&second)? {
-                    continue;
-                }
-                for path in read_dir(&second)? {
-                    let metadata = match fs::symlink_metadata(&path) {
-                        Ok(metadata) if metadata.is_file() => metadata,
-                        Ok(_) => continue,
-                        Err(error) => return Err(io("stat Manifest candidate", error)),
-                    };
-                    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-                        continue;
-                    };
-                    let Some(digest) = name.strip_suffix(".json") else {
-                        continue;
-                    };
-                    if hex64("Manifest candidate", digest).is_err()
-                        || self.manifest_path(digest) != path
-                    {
-                        continue;
-                    }
-                    let reference = ObjectRef {
-                        sha256: digest.to_string(),
-                        length: metadata.len(),
-                    };
-                    let Ok(manifest) = self.read_manifest(&reference) else {
-                        continue;
-                    };
-                    crate::stats::presence_pass();
-                    let Ok(walk) = crate::checkpoint::walk_cozytensors(self, &manifest) else {
-                        continue;
-                    };
-                    let complete = walk.distinct().into_iter().all(|object| {
-                        self.open_verified(&object.sha256)
-                            .is_ok_and(|file| file.len() == object.length)
-                    });
-                    if complete {
-                        manifests.push(reference.id());
-                    }
-                }
-            }
-        }
-        manifests.sort();
-        Ok(manifests)
     }
 
     /// A malformed id has NO path in this store. `hex[0..2]` panics on a short string, and a
@@ -1578,7 +1388,8 @@ impl Store {
     ) -> Result<Put> {
         let _writer = crate::catalog::WriterGuard::acquire(&self.root)?;
         let verified = self.stream_verified(r, expect, fault, PUT_TEMP)?;
-        self.admit_verified(verified, fault, operation)
+        let tmp = verified.tmp.clone();
+        self.admit_verified(verified, fault, operation).or_else(|refusal| cleanup(&tmp, refusal))
     }
 
     /// Common no-clobber admission after streaming or durable-prefix digest verification.
@@ -1594,10 +1405,9 @@ impl Store {
         fault: &Fault,
         operation: Option<&str>,
     ) -> Result<Put> {
-        let catalog = match crate::catalog::Catalog::open(&self.root) {
-            Ok(catalog) => catalog,
-            Err(refusal) => return cleanup(&verified.tmp, refusal),
-        };
+        // A catalog it cannot open (a full descriptor table) publishes nothing and leaves
+        // the temp to its caller, which may ask again.
+        let catalog = crate::catalog::Catalog::open(&self.root)?;
         let _writer = crate::catalog::WriterGuard::acquire(&self.root)?;
         let object = ObjectRef {
             sha256: verified.sha256.clone(),
@@ -1654,11 +1464,16 @@ impl Store {
         fault.hit("chmod");
         let dst = self.object_path(&verified.sha256);
         let dir = dst.parent().unwrap().to_path_buf();
-        if let Err(error) = self.prepare_owned_directory(&dir) {
-            return cleanup(tmp, error);
+        // No-clobber admission: link() refuses to replace an installed object. Its fanout
+        // directory is made only the first time one is missing.
+        let mut linked = fs::hard_link(tmp, &dst);
+        if linked.as_ref().is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound) {
+            if let Err(error) = self.prepare_owned_directory(&dir) {
+                return cleanup(tmp, error);
+            }
+            linked = fs::hard_link(tmp, &dst);
         }
-        // No-clobber admission: link() refuses to replace an installed object.
-        let admitted = match fs::hard_link(tmp, &dst) {
+        let admitted = match linked {
             Ok(()) => true,
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => false,
             Err(e) => return cleanup(tmp, io(format!("link {}", dst.display()), e)),
@@ -1688,74 +1503,6 @@ impl Store {
     pub fn put_file(&self, src: &Path, expect: Option<&ObjectRef>, fault: &Fault) -> Result<Put> {
         let mut f = File::open(src).map_err(|e| io(format!("open {}", src.display()), e))?;
         self.put_stream(&mut f, expect, fault)
-    }
-
-    /// Copy one exact object between stores through the same verified read and admission
-    /// doors used everywhere else. Store layout never escapes this module: the source is
-    /// opened once through `open_verified`, and the destination hashes, length-checks and
-    /// publishes without clobbering through `put_stream`.
-    pub fn transfer_object(&self, destination: &Store, want: &ObjectRef) -> Result<Put> {
-        // A retried transfer streams NOTHING: the destination's own predicate
-        // (`record_valid` — may these bytes be trusted without hashing them again?, the
-        // same question `FetchPlan::of` asks) answers before any byte moves, so a retried
-        // 99 GB store-to-store materialization is a stat, not a re-copy.
-        if let Ok(rec) = destination.record_valid(&want.sha256) {
-            if rec.length == want.length {
-                return Ok(Put {
-                    obj: want.clone(),
-                    admitted: false,
-                });
-            }
-            return refuse(
-                Code::LENGTH_MISMATCH,
-                format!(
-                    "{} is {} bytes in the destination store, expected {}",
-                    want.id(),
-                    rec.length,
-                    want.length
-                ),
-            );
-        }
-        let mut source = self.open_verified(&want.sha256)?;
-        if source.len() != want.length {
-            return refuse(
-                Code::LENGTH_MISMATCH,
-                format!(
-                    "{} is {} bytes in the source store, expected {}",
-                    want.id(),
-                    source.len(),
-                    want.length
-                ),
-            );
-        }
-        let put = destination.put_stream(&mut source, Some(want), &Fault::default())?;
-        if !put.admitted {
-            let installed = destination.open_verified(&want.sha256)?;
-            if installed.len() != want.length {
-                return refuse(
-                    Code::LENGTH_MISMATCH,
-                    format!(
-                        "{} is {} bytes in the destination store, expected {}",
-                        want.id(),
-                        installed.len(),
-                        want.length
-                    ),
-                );
-            }
-        }
-        Ok(put)
-    }
-
-    pub fn transfer_manifest(&self, destination: &Store, want: &ObjectRef) -> Result<Put> {
-        let manifest = self.read_manifest(want)?;
-        let put = destination.put_manifest(&manifest)?;
-        if put.obj != *want {
-            return refuse(
-                Code::OBJECT_ID_MISMATCH,
-                "transferred manifest identity changed during admission",
-            );
-        }
-        Ok(put)
     }
 
     // ------------------------------------------------------------ records
@@ -1837,7 +1584,7 @@ impl Store {
     /// `open_verified` plus the fact a caller may need to report: whether trusting these
     /// bytes cost a rehash (missing or disagreeing record) rather than a record lookup.
     pub fn open_verified_reporting(&self, hex: &str) -> Result<(VerifiedFile, bool)> {
-        let (verdict, file) = self.verify_pinned(hex, false)?;
+        let (verdict, file) = self.verify_pinned(hex)?;
         let rehashed = !matches!(verdict, Verdict::Verified { rehashed: false });
         match (verdict, file) {
             (Verdict::CorruptRemoved { why }, _) => refuse(
@@ -1850,7 +1597,6 @@ impl Store {
                 Ok((
                     VerifiedFile {
                         file: f,
-                        sha256: hex.to_string(),
                         len,
                     },
                     rehashed,
@@ -1909,19 +1655,9 @@ impl Store {
     /// is missing or any bound fact moved. That rehash is CORRECTNESS, not paranoia, and it
     /// is not optional.
     ///
-    /// PARANOID MODE IS DELETED (owner ruling 2026-08-25). The per-read full-rehash option
-    /// was 16.6x slower, had no consumer, and gave integrity checking a second home.
-    /// `scrub` — the rate-knobbed whole-store sweep — is now the ONLY deliberate
-    /// full-rehash door, and it reaches the forced path through `rehash` below rather than
-    /// through a flag anyone can pass on a read.
+    /// There is no forced full rehash (owner ruling 2026-08-25).
     pub fn verify(&self, hex: &str) -> Result<Verdict> {
-        Ok(self.verify_pinned(hex, false)?.0)
-    }
-
-    /// The scrub's door: rehash this object whatever its record says. Not reachable from
-    /// the read path, the CLI, or the wheel — only from `scrub`.
-    fn rehash(&self, hex: &str) -> Result<Verdict> {
-        Ok(self.verify_pinned(hex, true)?.0)
+        Ok(self.verify_pinned(hex)?.0)
     }
 
     /// Verify through ONE descriptor and hand it back with the verdict.
@@ -1930,19 +1666,18 @@ impl Store {
     /// the fd itself for the rehash — so the pathname is resolved exactly once. The
     /// returned `File` is the object those facts are about; `None` only after corrupt removal,
     /// where there is nothing to hand out.
-    fn verify_pinned(&self, hex: &str, force: bool) -> Result<(Verdict, Option<File>)> {
+    fn verify_pinned(&self, hex: &str) -> Result<(Verdict, Option<File>)> {
         let mut f = self.open_nofollow(hex)?;
         let md = f.metadata().map_err(|e| io("fstat object", e))?;
-        let disagreement = match self.record(hex) {
-            None => Some("no verification record".to_string()),
-            Some(rec) => rec.disagreement(hex, &md),
+        let why = match self.record(hex) {
+            None => "no verification record".to_string(),
+            Some(rec) => match rec.disagreement(hex, &md) {
+                None => return Ok((Verdict::Verified { rehashed: false }, Some(f))),
+                Some(why) => why,
+            },
         };
-        if disagreement.is_none() && !force {
-            return Ok((Verdict::Verified { rehashed: false }, Some(f)));
-        }
         let got = self.hash_fd(&mut f)?;
         if got != hex {
-            let why = disagreement.unwrap_or_else(|| "scrub rehash".to_string());
             // Remove the NAME: whatever is at the path now must stop satisfying reads. The
             // descriptor is dropped with `f` — corrupt bytes are never handed back.
             self.remove_corrupt_blob(hex)?;
@@ -1955,13 +1690,7 @@ impl Store {
         }
         let md = f.metadata().map_err(|e| io("fstat object", e))?;
         self.write_record(&VRecord::of(hex, &md))?;
-        Ok((
-            match disagreement {
-                None => Verdict::Verified { rehashed: true },
-                Some(why) => Verdict::Invalidated { why },
-            },
-            Some(f),
-        ))
+        Ok((Verdict::Invalidated { why }, Some(f)))
     }
 
     pub fn hash_object(&self, hex: &str) -> Result<String> {
@@ -1997,7 +1726,7 @@ impl Store {
         Ok(())
     }
 
-    // ------------------------------------------------------------ scrub / reap
+    // ------------------------------------------------------------ objects / reap
 
     pub fn objects(&self) -> Result<Vec<String>> {
         let mut out = Vec::new();
@@ -2015,44 +1744,6 @@ impl Store {
         }
         out.sort();
         Ok(out)
-    }
-
-    /// ONE knob, and since the 2026-08-25 owner ruling the ONE deliberate full-rehash door.
-    /// `rate` is the fraction of objects rehashed this pass, chosen deterministically from
-    /// (pass, id). Everything else gets its record checked, and a record that disagrees is
-    /// rehashed anyway.
-    pub fn scrub(&self, rate: f64, pass: u64) -> Result<Scrub> {
-        let mut s = Scrub::default();
-        for hex in self.objects()? {
-            s.scanned += 1;
-            let sampled = sample(pass, &hex) < rate;
-            if sampled {
-                s.sampled += 1;
-            }
-            let size = stat(&self.object_path(&hex)).map(|m| m.len()).unwrap_or(0);
-            match if sampled {
-                self.rehash(&hex)?
-            } else {
-                self.verify(&hex)?
-            } {
-                Verdict::Verified { rehashed } => {
-                    if rehashed {
-                        s.rehashed += 1;
-                        s.bytes_hashed += size;
-                    }
-                }
-                Verdict::Invalidated { .. } => {
-                    s.rehashed += 1;
-                    s.bytes_hashed += size;
-                }
-                Verdict::CorruptRemoved { .. } => {
-                    s.rehashed += 1;
-                    s.bytes_hashed += size;
-                    s.removed += 1;
-                }
-            }
-        }
-        Ok(s)
     }
 
     /// Reap the admission temps whose writer is GONE. A temp is scratch by construction:
@@ -2138,61 +1829,8 @@ fn validate_store_root(root: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Where a Store records the cache it is bound to: one absolute path, one line, LOCAL.
-///
-/// **The binding is a property of the Store because the cache is a property of the
-/// deployment, not of any request.** The alternative -- a path threaded through every
-/// caller -- makes a mount point part of a protocol, of a Python signature, and of a spawn
-/// class's environment allowlist, all so that a layer with no other use for the fact can
-/// hand it back to the layer that already had it. Recording it once at setup means
-/// `prepare_model_source`, `fetch` and a restore all find the same cache without anyone
-/// passing one, and the pod's Runtime child never has to learn where the mount is.
-///
-/// **It lives on local disk beside the Store and never in the catalog.** `tensorfs.sqlite`
-/// is a rebuildable projection of repository/manifest/blob files (`Catalog::open` says as
-/// much, and refuses a Store whose catalog is absent as "recovery-only until `tfs store
-/// rebuild`"). A cache binding is not derivable from any of those files, so a rebuild would
-/// drop it silently and mirroring would stop with nothing to see. It is also not on the
-/// cache itself, which under #612 holds immutable Manifest/blob paths and nothing else.
-///
-/// **Reading it can only cost, never refuse.** An absent, unreadable or malformed file is
-/// no binding at all -- not an error -- because a Store that will not open is an
-/// availability failure and cache state is forbidden to cause one. A path that is not a
-/// path refuses at BIND time, where it is a caller's mistake rather than weather.
-pub const REPO_CACHE_BINDING: &str = "repo-cache";
-
-/// The longest binding this reads. `PATH_MAX` with room for the newline; a longer file is
-/// not a mount point.
-const REPO_CACHE_BINDING_MAX: u64 = 4097;
-
-fn validate_repo_cache_root(cache: &Path, store: &Path) -> Result<()> {
-    if !cache.is_absolute() {
-        return refuse(
-            Code::KEY_GRAMMAR,
-            format!("repo cache root {} is not absolute", cache.display()),
-        );
-    }
-    if cache.as_os_str().as_encoded_bytes().len() as u64 >= REPO_CACHE_BINDING_MAX {
-        return refuse(
-            Code::SIZE_CAP,
-            "repo cache root is longer than a filesystem path",
-        );
-    }
-    if cache == store || cache.starts_with(store) || store.starts_with(cache) {
-        return refuse(
-            Code::STORE_ERA,
-            format!(
-                "repo cache root {} overlaps the Store at {}; the cache is never the Store",
-                cache.display(),
-                store.display()
-            ),
-        );
-    }
-    Ok(())
-}
-
 /// Where a Store records the disk budget it is held to: one decimal byte count, one line,
-/// LOCAL, beside the cache binding and for the same reasons (see [`REPO_CACHE_BINDING`]).
+/// LOCAL, never in the catalog, which a rebuild derives from the Store's files alone.
 ///
 /// **The presence of this record is the whole opt-in.** The owner's requirement was that
 /// reclamation must not be default-on -- *"users would be confused if files start
@@ -2212,8 +1850,7 @@ pub const DISK_BUDGET: &str = "disk-budget";
 /// longer file is not a number.
 const DISK_BUDGET_MAX: u64 = 32;
 
-/// Read the budget, or nothing. Like the cache binding, reading can only cost, never
-/// refuse: an absent, unreadable or malformed record is no budget at all, because a Store
+/// Read the budget, or nothing. Reading can only cost, never refuse: an absent, unreadable or malformed record is no budget at all, because a Store
 /// that will not open is an availability failure and a policy record may not cause one. A
 /// number that is not a number refuses at BIND time, where it is a caller's mistake.
 fn read_disk_budget(root: &Path) -> Option<u64> {
@@ -2228,32 +1865,6 @@ fn read_disk_budget(root: &Path) -> Option<u64> {
     let mut bytes = Vec::new();
     file.take(DISK_BUDGET_MAX).read_to_end(&mut bytes).ok()?;
     std::str::from_utf8(&bytes).ok()?.trim().parse::<u64>().ok()
-}
-
-/// Read the binding, or nothing. Weather, never authority -- see [`REPO_CACHE_BINDING`].
-fn read_repo_cache_binding(root: &Path) -> Option<crate::repo_cache::RepoObjectCache> {
-    let path = root.join(REPO_CACHE_BINDING);
-    let file = OpenOptions::new()
-        .read(true)
-        .custom_flags(O_NOFOLLOW)
-        .open(&path)
-        .ok()?;
-    if !file.metadata().ok()?.is_file() {
-        return None;
-    }
-    let mut bytes = Vec::new();
-    file.take(REPO_CACHE_BINDING_MAX)
-        .read_to_end(&mut bytes)
-        .ok()?;
-    while bytes.last().is_some_and(|b| *b == b'\n' || *b == b'\r') {
-        bytes.pop();
-    }
-    if bytes.is_empty() || bytes.contains(&0) {
-        return None;
-    }
-    let cache = PathBuf::from(std::ffi::OsString::from_vec(bytes));
-    validate_repo_cache_root(&cache, root).ok()?;
-    Some(crate::repo_cache::RepoObjectCache::new(cache))
 }
 
 /// Serializes Store creation on one root across threads and processes. A lock on the root
@@ -2276,7 +1887,6 @@ fn open_validated(root: &Path) -> Result<Store> {
     let store = Store {
         root: root.to_path_buf(),
         progress: None,
-        cache: read_repo_cache_binding(root),
         budget: read_disk_budget(root),
         trust: crate::catalog::Trust::of(root),
         disk: crate::disk::filesystem(root),
@@ -2304,27 +1914,6 @@ fn open_real_directory(path: &Path) -> Result<File> {
         );
     }
     Ok(directory)
-}
-
-fn prepare_reader_dir(path: &Path, mode: u32) -> Result<()> {
-    match fs::create_dir(path) {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
-        Err(error) => return Err(io(format!("mkdir {}", path.display()), error)),
-    }
-    let directory = open_real_directory(path)?;
-    directory
-        .set_permissions(fs::Permissions::from_mode(mode))
-        .map_err(|error| io(format!("chmod directory {}", path.display()), error))?;
-    directory
-        .sync_all()
-        .map_err(|error| io(format!("sync directory {}", path.display()), error))
-}
-
-fn is_real_dir(path: &Path) -> Result<bool> {
-    fs::symlink_metadata(path)
-        .map(|metadata| metadata.is_dir() && !metadata.file_type().is_symlink())
-        .map_err(|error| io(format!("stat directory {}", path.display()), error))
 }
 
 // ---------------------------------------------------------------- helpers
@@ -2419,11 +2008,4 @@ pub(crate) fn fsync_entry_dir(root: &Path, dir: &Path) -> Result<()> {
         set.insert(identity);
     }
     Ok(())
-}
-
-/// Deterministic [0,1) sample position for (pass, object) — the one scrub knob's input.
-fn sample(pass: u64, hex: &str) -> f64 {
-    let d = sha256::digest(format!("{pass}:{hex}").as_bytes());
-    let v = u32::from_be_bytes([d[0], d[1], d[2], d[3]]);
-    v as f64 / u32::MAX as f64
 }

@@ -894,6 +894,9 @@ class AiAgentType(sgqlc.types.Enum):
       domain.
     * `MONITORING`: Configures the monitoring agent that recommends
       and creates monitor coverage for the account's assets.
+    * `TEAMMATE`: Configures the domain teammate: when and how it
+      tells people about issues (channels, timing, who to mention,
+      what not to send).
     * `TRIAGE`: Configures automated alert triage: how alerts are
       scored, prioritized, and routed.
     * `TROUBLESHOOTING`: Configures the troubleshooting agent used for
@@ -903,7 +906,15 @@ class AiAgentType(sgqlc.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("CHAT", "GENERAL", "MONITORING", "TRIAGE", "TROUBLESHOOTING", "TUNING")
+    __choices__ = (
+        "CHAT",
+        "GENERAL",
+        "MONITORING",
+        "TEAMMATE",
+        "TRIAGE",
+        "TROUBLESHOOTING",
+        "TUNING",
+    )
 
 
 class AlationConnectionStatus(sgqlc.types.Enum):
@@ -2336,7 +2347,9 @@ class ConversationFilterFieldName(sgqlc.types.Enum):
     * `ACTIVE_DURATION`None
     * `COST`None
     * `DURATION`None
+    * `FEEDBACK_RATING`None
     * `HAS_ERRORS`None
+    * `HAS_FEEDBACK_COMMENT`None
     * `INTENT_CLUSTER`None
     * `QUERY_COST`None
     * `STATUS`None
@@ -2351,7 +2364,9 @@ class ConversationFilterFieldName(sgqlc.types.Enum):
         "ACTIVE_DURATION",
         "COST",
         "DURATION",
+        "FEEDBACK_RATING",
         "HAS_ERRORS",
+        "HAS_FEEDBACK_COMMENT",
         "INTENT_CLUSTER",
         "QUERY_COST",
         "STATUS",
@@ -2419,6 +2434,7 @@ class ConversationSortField(sgqlc.types.Enum):
     * `END_TIME`None
     * `EVAL_SCORE`None
     * `EVAL_SCORES_COUNT`None
+    * `NEGATIVE_FEEDBACK_COUNT`None
     * `START_TIME`None
     * `STATUS`None
     * `TOTAL_TOKENS`None
@@ -2433,6 +2449,7 @@ class ConversationSortField(sgqlc.types.Enum):
         "END_TIME",
         "EVAL_SCORE",
         "EVAL_SCORES_COUNT",
+        "NEGATIVE_FEEDBACK_COUNT",
         "START_TIME",
         "STATUS",
         "TOTAL_TOKENS",
@@ -4938,6 +4955,20 @@ class HasErrorsValue(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("HAS_ERRORS", "OK")
+
+
+class HasFeedbackCommentValue(sgqlc.types.Enum):
+    """Whether a trace's newest end-user feedback carries a comment.
+    A trace with no feedback counts as NO_COMMENT.
+
+    Enumeration Choices:
+
+    * `HAS_COMMENT`None
+    * `NO_COMMENT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("HAS_COMMENT", "NO_COMMENT")
 
 
 ID = sgqlc.types.ID
@@ -9717,6 +9748,25 @@ class TraceBucketSize(sgqlc.types.Enum):
     __choices__ = ("DAY", "HOUR", "MINUTE", "WEEK")
 
 
+class TraceFeedbackRating(sgqlc.types.Enum):
+    """A trace's rating, from its newest end-user feedback.      UNRATED
+    means the trace's newest feedback carries no rating.
+    NO_FEEDBACK means it has no feedback at all, which includes traces
+    newer than     the last feedback collection. A trace is never
+    both.
+
+    Enumeration Choices:
+
+    * `NEGATIVE`None
+    * `NO_FEEDBACK`None
+    * `POSITIVE`None
+    * `UNRATED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("NEGATIVE", "NO_FEEDBACK", "POSITIVE", "UNRATED")
+
+
 class TraceFilterFieldName(sgqlc.types.Enum):
     """Field names for trace filters.
 
@@ -9725,6 +9775,8 @@ class TraceFilterFieldName(sgqlc.types.Enum):
     * `COMPLETION_TOKENS`None
     * `COST`None
     * `DURATION`None
+    * `FEEDBACK_RATING`None
+    * `HAS_FEEDBACK_COMMENT`None
     * `MODEL`None
     * `PROMPT_TOKENS`None
     * `QUERY_COST`None
@@ -9742,6 +9794,8 @@ class TraceFilterFieldName(sgqlc.types.Enum):
         "COMPLETION_TOKENS",
         "COST",
         "DURATION",
+        "FEEDBACK_RATING",
+        "HAS_FEEDBACK_COMMENT",
         "MODEL",
         "PROMPT_TOKENS",
         "QUERY_COST",
@@ -9763,6 +9817,7 @@ class TraceMetricGroup(sgqlc.types.Enum):
     Enumeration Choices:
 
     * `ERRORS`None
+    * `FEEDBACK`None
     * `OVERVIEW`None
     * `TOKENS`None
     * `TRACE_COUNT`None
@@ -9770,7 +9825,7 @@ class TraceMetricGroup(sgqlc.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("ERRORS", "OVERVIEW", "TOKENS", "TRACE_COUNT", "TRACE_LATENCY")
+    __choices__ = ("ERRORS", "FEEDBACK", "OVERVIEW", "TOKENS", "TRACE_COUNT", "TRACE_LATENCY")
 
 
 class TraceRootStatus(sgqlc.types.Enum):
@@ -9834,7 +9889,10 @@ class TraceSortField(sgqlc.types.Enum):
     the price book omits; their cost is unknown and sorts last in both
     directions. Attribution trails execution by about three hours, so
     the freshest traces sort by a lower bound of their query and total
-    cost.
+    cost. FEEDBACK orders by each trace's newest end-user rating:
+    negative, unrated, then positive ascending. Traces with no
+    feedback sort last in both directions. It is Snowflake Cortex
+    only; the ClickHouse backend rejects it.
 
     Enumeration Choices:
 
@@ -9842,6 +9900,7 @@ class TraceSortField(sgqlc.types.Enum):
     * `COST`None
     * `COUNT_LLM_CALLS`None
     * `DURATION_SECONDS`None
+    * `FEEDBACK`None
     * `PROMPT_TOKENS`None
     * `QUERY_COST`None
     * `STATUS`None
@@ -9858,6 +9917,7 @@ class TraceSortField(sgqlc.types.Enum):
         "COST",
         "COUNT_LLM_CALLS",
         "DURATION_SECONDS",
+        "FEEDBACK",
         "PROMPT_TOKENS",
         "QUERY_COST",
         "STATUS",
@@ -9882,6 +9942,9 @@ class TraceTimeSeriesMetric(sgqlc.types.Enum):
     * `LATENCY_P50`None
     * `LATENCY_P95`None
     * `LATENCY_P99`None
+    * `NEGATIVE_FEEDBACK_COUNT`None
+    * `NEGATIVE_FEEDBACK_PERCENTAGE`None
+    * `POSITIVE_FEEDBACK_COUNT`None
     * `PROMPT_TOKENS`None
     * `TOTAL_TOKENS`None
     * `TRACE_COUNT`None
@@ -9897,6 +9960,9 @@ class TraceTimeSeriesMetric(sgqlc.types.Enum):
         "LATENCY_P50",
         "LATENCY_P95",
         "LATENCY_P99",
+        "NEGATIVE_FEEDBACK_COUNT",
+        "NEGATIVE_FEEDBACK_PERCENTAGE",
+        "POSITIVE_FEEDBACK_COUNT",
         "PROMPT_TOKENS",
         "TOTAL_TOKENS",
         "TRACE_COUNT",
@@ -13018,6 +13084,8 @@ class ConversationFiltersInput(sgqlc.types.Input):
         "max_active_duration",
         "cluster_keys",
         "run_uuid",
+        "feedback_ratings",
+        "has_feedback_comment",
     )
     conversation_id_search = sgqlc.types.Field(String, graphql_name="conversationIdSearch")
     """Case-insensitive substring search on conversation_id"""
@@ -13133,6 +13201,26 @@ class ConversationFiltersInput(sgqlc.types.Input):
     incomplete list). startTime/endTime still bound the span scan —
     pass a window generously covering the run's period so boundary
     conversations aggregate completely.
+    """
+
+    feedback_ratings = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(TraceFeedbackRating)),
+        graphql_name="feedbackRatings",
+    )
+    """Filter by end-user feedback (OR logic). A conversation matches a
+    rating when any turn's newest feedback has it. NO_FEEDBACK matches
+    a conversation when no turn has feedback. Only Snowflake Cortex
+    agents have feedback. Not supported on ClickHouse.
+    """
+
+    has_feedback_comment = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(HasFeedbackCommentValue)),
+        graphql_name="hasFeedbackComment",
+    )
+    """Filter by whether any turn's newest end-user feedback carries a
+    comment (OR logic). NO_COMMENT matches a conversation when no turn
+    has a comment, including one with no feedback. Not supported on
+    ClickHouse.
     """
 
 
@@ -15596,7 +15684,11 @@ class GetConversationsInput(sgqlc.types.Input):
     score entries each conversation carries (the length of its
     evalScores array) — ascending puts conversations with no scores
     first, descending puts the most-evaluated conversations first; no
-    extra inputs required.
+    extra inputs required. NEGATIVE_FEEDBACK_COUNT sorts by how many
+    turns' newest end-user feedback is negative. A conversation with
+    feedback but no negative turns sorts as 0. Conversations with no
+    feedback sort last in both directions. Snowflake Cortex agents
+    only; not supported on ClickHouse.
     """
 
     sort_direction = sgqlc.types.Field(TraceSortDirection, graphql_name="sortDirection")
@@ -15995,7 +16087,8 @@ class GetTraceTimeSeriesInput(sgqlc.types.Input):
     OVERVIEW (count + latency + tokens), TRACE_COUNT (total traces +
     change in traces), TRACE_LATENCY (avg/p50/p95/p99), ERRORS (error
     count + error percentage), TOKENS (total/prompt/completion
-    tokens).
+    tokens), FEEDBACK (positive/negative feedback counts + negative
+    feedback percentage).
     """
 
     segment_filter = sgqlc.types.Field("TraceSegmentFilterInput", graphql_name="segmentFilter")
@@ -19941,6 +20034,8 @@ class TraceFiltersInput(sgqlc.types.Input):
         "trace_id",
         "statuses",
         "root_statuses",
+        "feedback_ratings",
+        "has_feedback_comment",
         "search_query",
         "run_uuid",
     )
@@ -20054,6 +20149,23 @@ class TraceFiltersInput(sgqlc.types.Input):
     all. Composes with `statuses` — e.g. rootStatuses=[OK] AND
     statuses=[HAS_ERRORS] surfaces traces that completed cleanly but
     had retried/recovered span errors along the way.
+    """
+
+    feedback_ratings = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(TraceFeedbackRating)),
+        graphql_name="feedbackRatings",
+    )
+    """Filter by the rating of each trace's newest end-user feedback (OR
+    logic). Only Snowflake Cortex agents have feedback. Not supported
+    on ClickHouse.
+    """
+
+    has_feedback_comment = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(HasFeedbackCommentValue)),
+        graphql_name="hasFeedbackComment",
+    )
+    """Filter by whether each trace's newest end-user feedback carries a
+    comment (OR logic). Not supported on ClickHouse.
     """
 
     search_query = sgqlc.types.Field(String, graphql_name="searchQuery")
@@ -24742,6 +24854,37 @@ class AgentEvaluationRunSamplesResult(sgqlc.types.Type):
     may not read it. Only NO_CONTENT_PERMISSION is fixed by a role
     grant.
     """
+
+
+class AgentFeedback(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("feedback_available", "traces")
+    feedback_available = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="feedbackAvailable"
+    )
+    """False when feedback is not collected for this agent. Only
+    Snowflake Cortex agents have it.
+    """
+
+    traces = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TraceFeedback"))),
+        graphql_name="traces",
+    )
+    """The newest feedback per trace. Traces with no feedback are absent."""
+
+
+class AgentFeedbackComments(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("traces", "content_withheld_reason")
+    traces = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TraceFeedbackComment"))),
+        graphql_name="traces",
+    )
+    """One entry per trace with feedback. Empty when content is withheld."""
+
+    content_withheld_reason = sgqlc.types.Field(
+        RawContentWithheldReason, graphql_name="contentWithheldReason"
+    )
 
 
 class AgentGraph(sgqlc.types.Type):
@@ -31525,6 +31668,7 @@ class Conversation(sgqlc.types.Type):
         "eval_scores",
         "intent_cluster",
         "cluster_assignments",
+        "feedback",
     )
     conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
     """Conversation identifier"""
@@ -31603,6 +31747,12 @@ class Conversation(sgqlc.types.Type):
     classification run in the requested clustering scope, ordered
     highest-confidence first. Empty when the conversation is
     unclassified or no clustering scope was requested.
+    """
+
+    feedback = sgqlc.types.Field("ConversationFeedbackCounts", graphql_name="feedback")
+    """End-user feedback counts across the conversation's turns. Null
+    when no turn has feedback. Only Snowflake Cortex agents on
+    Timescale have feedback.
     """
 
 
@@ -32265,6 +32415,25 @@ class ConversationExplanationResult(sgqlc.types.Type):
     """Identifier of the LLM that produced this explanation"""
 
 
+class ConversationFeedbackCounts(sgqlc.types.Type):
+    """Counts of a conversation's turns that have end-user feedback, by
+    their newest feedback.  The rating counts cover only turns with
+    feedback. ``withComment`` overlaps them.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("positive", "negative", "unrated", "with_comment")
+    positive = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="positive")
+
+    negative = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="negative")
+
+    unrated = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="unrated")
+    """Turns whose feedback has no rating"""
+
+    with_comment = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="withComment")
+    """Turns whose newest feedback carries a comment, at any rating"""
+
+
 class ConversationFilter(sgqlc.types.Type):
     """Metadata about a single conversation filter.  Mirrors TraceFilter
     — tells the frontend what filters exist, how to render them
@@ -32377,6 +32546,7 @@ class ConversationMessageV2(sgqlc.types.Type):
     __field_names__ = (
         "message_id",
         "role",
+        "platform_thought_type",
         "content",
         "content_length",
         "content_complete",
@@ -32388,6 +32558,11 @@ class ConversationMessageV2(sgqlc.types.Type):
 
     role = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="role")
     """Message role (user, assistant, tool, …)"""
+
+    platform_thought_type = sgqlc.types.Field(String, graphql_name="platformThoughtType")
+    """The platform's query-thought category, verbatim. Null for other
+    messages.
+    """
 
     content = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="content")
     """Preview content for thread rendering; large messages are truncated"""
@@ -32618,6 +32793,7 @@ class ConversationTurnV2(sgqlc.types.Type):
         "turn_index",
         "user_name",
         "role_name",
+        "platform_conversation_type",
         "system_messages",
         "messages",
         "internal_steps",
@@ -32646,6 +32822,11 @@ class ConversationTurnV2(sgqlc.types.Type):
     """End-user access role supplied by the source platform for this
     turn. Separate from a message's user or assistant role. Null when
     unavailable.
+    """
+
+    platform_conversation_type = sgqlc.types.Field(String, graphql_name="platformConversationType")
+    """Conversation type the source platform reported, verbatim. Null
+    when unavailable.
     """
 
     system_messages = sgqlc.types.Field(
@@ -80787,6 +80968,8 @@ class Query(sgqlc.types.Type):
         "get_llm_price_book",
         "get_llm_price_book_overrides",
         "get_agent_cost",
+        "get_agent_feedback",
+        "get_agent_feedback_comments",
         "get_agent_cost_totals",
         "get_tool_call_time_series",
         "get_top_tools",
@@ -83144,6 +83327,90 @@ class Query(sgqlc.types.Type):
       conversationIds. (default: `false`)
     """
 
+    get_agent_feedback = sgqlc.types.Field(
+        AgentFeedback,
+        graphql_name="getAgentFeedback",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+                (
+                    "trace_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="traceIds",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) End-user feedback (thumbs up or down, and whether a
+    comment was left) on a page of an agent's traces. Collected from
+    the warehouse after each span collection, so it trails the traces
+    by about the same delay.
+
+    Arguments:
+
+    * `agent_name` (`String!`): Agent the traces belong to
+    * `trace_table_mcon` (`String!`): MCON of the table holding the
+      agent's traces
+    * `trace_ids` (`[String!]!`): Hex trace ids, at most 100. Returned
+      lowercase.
+    """
+
+    get_agent_feedback_comments = sgqlc.types.Field(
+        AgentFeedbackComments,
+        graphql_name="getAgentFeedbackComments",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+                (
+                    "trace_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="traceIds",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) The comment and user on each trace's newest end-
+    user feedback, read live from the warehouse. Returns
+    contentWithheldReason instead of the text when the user may not
+    read raw content or the read fails.
+
+    Arguments:
+
+    * `agent_name` (`String!`): Agent the traces belong to
+    * `trace_table_mcon` (`String!`): MCON of the table holding the
+      agent's traces
+    * `trace_ids` (`[String!]!`): Traces to read comments for, at most
+      25
+    """
+
     get_agent_cost_totals = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(AgentCostTotal)),
         graphql_name="getAgentCostTotals",
@@ -83280,8 +83547,7 @@ class Query(sgqlc.types.Type):
     window: min/max bounds for range filters (turns, tokens, duration)
     and available enum values for checkbox filters (status). Used to
     configure slider ranges and populate checkboxes with only the
-    options present in the data. NOTE: stub implementation — returns
-    synthetic data.
+    options present in the data.
 
     Arguments:
 
@@ -83356,9 +83622,7 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) Get conversations grouped by conversation_id. Each
     conversation aggregates one or more agent traces (turns) that
-    share the same conversation_id. NOTE: stub implementation —
-    returns synthetic data until TimescaleDB conversation columns are
-    fully deployed.
+    share the same conversation_id.
 
     Arguments:
 
@@ -115957,6 +116221,62 @@ class TraceExplanationResult(sgqlc.types.Type):
     """Identifier of the LLM that produced this explanation"""
 
 
+class TraceFeedback(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("trace_id", "positive", "has_comment", "submitted_at")
+    trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+    """Hex trace id, lowercase."""
+
+    positive = sgqlc.types.Field(Boolean, graphql_name="positive")
+    """True for thumbs up, false for thumbs down, null if unrated."""
+
+    has_comment = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasComment")
+    """Whether the feedback carries a comment. The text is not returned
+    here.
+    """
+
+    submitted_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="submittedAt")
+    """When the end user gave the feedback."""
+
+
+class TraceFeedbackComment(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("trace_id", "comment", "user_name", "submitted_at")
+    trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+
+    comment = sgqlc.types.Field(String, graphql_name="comment")
+    """Null when the feedback has no comment, or the warehouse no longer
+    returns the feedback event.
+    """
+
+    user_name = sgqlc.types.Field(String, graphql_name="userName")
+    """The user who gave the feedback, as the vendor reports it. Null
+    when the vendor reports no user, or the warehouse no longer
+    returns the feedback event.
+    """
+
+    submitted_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="submittedAt")
+
+
+class TraceFeedbackCounts(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("positive", "negative", "unrated", "with_comment", "negative_percentage")
+    positive = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="positive")
+
+    negative = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="negative")
+
+    unrated = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="unrated")
+    """Traces whose feedback has no rating"""
+
+    with_comment = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="withComment")
+    """Traces whose newest feedback carries a comment, at any rating"""
+
+    negative_percentage = sgqlc.types.Field(Float, graphql_name="negativePercentage")
+    """Percentage of negative among positive and negative traces. Null
+    when no trace has a rating.
+    """
+
+
 class TraceFilter(sgqlc.types.Type):
     """Metadata about a trace filter."""
 
@@ -116169,6 +116489,7 @@ class TraceOverviewMetrics(sgqlc.types.Type):
         "total_completion_tokens",
         "error_count",
         "error_percentage",
+        "feedback",
     )
     total_traces = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTraces")
 
@@ -116198,6 +116519,11 @@ class TraceOverviewMetrics(sgqlc.types.Type):
 
     error_percentage = sgqlc.types.Field(Float, graphql_name="errorPercentage")
 
+    feedback = sgqlc.types.Field(TraceFeedbackCounts, graphql_name="feedback")
+    """Traces by their newest end-user feedback. Null when feedback is
+    not available for the agent.
+    """
+
 
 class TraceOverviewMetricsWithComparison(sgqlc.types.Type):
     __schema__ = schema
@@ -116213,6 +116539,7 @@ class TraceOverviewMetricsWithComparison(sgqlc.types.Type):
         "total_completion_tokens",
         "error_count",
         "error_percentage",
+        "feedback",
         "prev_period",
     )
     total_traces = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTraces")
@@ -116242,6 +116569,11 @@ class TraceOverviewMetricsWithComparison(sgqlc.types.Type):
     error_count = sgqlc.types.Field(Int, graphql_name="errorCount")
 
     error_percentage = sgqlc.types.Field(Float, graphql_name="errorPercentage")
+
+    feedback = sgqlc.types.Field(TraceFeedbackCounts, graphql_name="feedback")
+    """Traces by their newest end-user feedback. Null when feedback is
+    not available for the agent.
+    """
 
     prev_period = sgqlc.types.Field(TraceOverviewMetrics, graphql_name="prevPeriod")
 
@@ -118734,6 +119066,7 @@ class UserAuthorizationOutput(sgqlc.types.Type):
     __field_names__ = (
         "groups",
         "roles",
+        "is_domain_restricted",
         "domain_restrictions",
         "permissions",
         "performance_dashboard_access",
@@ -118750,16 +119083,24 @@ class UserAuthorizationOutput(sgqlc.types.Type):
     )
     """List of roles assigned to this user via their groups"""
 
+    is_domain_restricted = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isDomainRestricted"
+    )
+    """Whether the user's access is limited to specific domains. When
+    true, `domainRestrictions` lists the domains they can access. An
+    empty list then means no domain.
+    """
+
     domain_restrictions = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null("DomainRestriction")),
         graphql_name="domainRestrictions",
     )
-    """Union of all discovered domain restrictions for the user. If
-    empty, user has no restrictions. Note this list may not
-    necessarily match the domain restrictions for a particular
-    permission. This is simply a complete list of all discovered
-    restrictions for the user--always check the restrictions on a
-    permission against its own list of restrictions.
+    """Union of all discovered domain restrictions for the user. If empty
+    and `isDomainRestricted` is false, user has no restrictions. Note
+    this list may not necessarily match the domain restrictions for a
+    particular permission. This is simply a complete list of all
+    discovered restrictions for the user--always check the
+    restrictions on a permission against its own list of restrictions.
     """
 
     permissions = sgqlc.types.Field(

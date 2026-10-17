@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+import wandb
 from wandb.sdk.sweeps.run_state import RunState
 from wandb.sdk.sweeps.sweep_info import SweepInfo
 
@@ -108,6 +110,20 @@ class Optimizer(ABC):
         self._sweep = sweep
         self.validate_sweep_objective()
 
+    def route_library_logs(self, handler: logging.Handler) -> Callable[[], None]:
+        """Send the search library's log records to `handler`.
+
+        Replaces the library's own console output for the scheduler session,
+        so each record reaches the terminal exactly once.
+
+        Args:
+            handler: Receives the library's log records.
+
+        Returns:
+            A function that restores the library's own console output.
+        """
+        return lambda: None
+
     @abstractmethod
     def validate_sweep_objective(self) -> None:
         """Raise if the optimizer's objective disagrees with the sweep's.
@@ -135,9 +151,10 @@ class Optimizer(ABC):
         """Report the latest state and metrics of a run this optimizer proposed.
 
         Called on each poll while the run is in flight, and once more when it
-        reaches a terminal state. The terminal call also happens for runs
-        returned from `prune_runs`, so implementations that finalize a run at
-        prune time must treat it as a no-op rather than raise.
+        reaches a terminal state. A run returned from `prune_runs` keeps
+        getting these calls until the scheduler manages to stop it, so
+        implementations that finalize a run at prune time must treat them as
+        no-ops rather than raise.
 
         Args:
             run_id: The `RunSuggestion.run_id` this optimizer handed out.
@@ -213,16 +230,57 @@ class Optimizer(ABC):
             )
         return metric["name"]
 
+    def metric_names(self) -> list[str]:
+        """Return the sweep's objective metric names, in declaration order.
+
+        A multi-objective sweep names them in `metrics`; a single-objective one
+        in `metric`.
+        """
+        metrics = self._sweep.config.get("metrics")
+        if metrics is not None:
+            return [metric["name"] for metric in metrics if "name" in metric]
+        return [self.metric_key()]
+
+    def metric_goals(self) -> list[str]:
+        """Return the sweep's objective goals, ordered as `metric_names`."""
+        metrics = self._sweep.config.get("metrics")
+        if metrics is None:
+            metrics = [self._sweep.config.get("metric") or {}]
+        return [str(metric.get("goal", "minimize")).lower() for metric in metrics]
+
+    def objective_values(self, metrics: dict[str, Any]) -> list[Any] | None:
+        """Return a run's objective values, or None if any of them is missing.
+
+        Args:
+            metrics: One run's metrics, keyed by metric name.
+        """
+        values = [metrics.get(name) for name in self.metric_names()]
+        if any(value is None for value in values):
+            return None
+        return values
+
     @property
     def sweep_name(self) -> str:
         """The name of the sweep this optimizer searches."""
         return self._sweep.name
 
+    @property
+    def engine(self) -> str:
+        """The search engine named in the sweep's scheduler config.
+
+        Returns:
+            The `scheduler.engine` value, or `wandb` when the sweep
+            does not name one.
+        """
+        scheduler = self._sweep.config.get("scheduler") or {}
+        return str(scheduler.get("engine") or "wandb")
+
     def prune_run(self, run_id: Any, data: RunWithMetrics) -> bool:
         """Return True if the run should be pruned.
 
         Called by the default `prune_runs` for each polled run. Override to
-        stop single runs early; the default prunes nothing.
+        stop single runs early; the default prunes nothing. Returning True is
+        final, as described in `prune_runs`.
 
         Args:
             run_id: The `RunSuggestion.run_id` the optimizer handed out.
@@ -236,8 +294,9 @@ class Optimizer(ABC):
         """Return the optimizer run ids that should be pruned.
 
         Override to decide early stopping as a batch; the default delegates to
-        `prune_run`. An already-returned id may be offered again while its run
-        has not stopped, and implementations must tolerate that.
+        `prune_run`. Returning an id is final: the scheduler keeps trying to
+        stop the run until the backend accepts, and never offers the id
+        again, so implementations should finalize the run's trial here.
 
         Args:
             run_ids: Optimizer run ids to consider for pruning.
@@ -249,6 +308,40 @@ class Optimizer(ABC):
             if self.prune_run(run_id, run)
         ]
 
+    @abstractmethod
+    def has_terminator(self) -> bool:
+        """Whether this optimizer was given a sweep-level terminator."""
+        ...
+
     def should_terminate_sweep(self) -> bool:
         """Return True if the sweep should be terminated."""
         return False
+
+
+def make_optimizer(sweep: SweepInfo) -> Optimizer:
+    """Build the optimizer for the engine a scheduler-enabled sweep names.
+
+    The local scheduler only drives sweeps that opted out of server-side
+    search, which the `scheduler.engine` block records.
+
+    Raises:
+        wandb.Error: If the engine is missing or unsupported, or its
+            configuration can't be loaded.
+    """
+    # Each engine module is imported lazily so a missing engine dependency
+    # only fails sweeps that use it.
+    scheduler_config: dict[str, Any] = sweep.config.get("scheduler") or {}
+    engine: str | None = scheduler_config.get("engine")
+    if engine == "wandb":
+        from wandb.sdk.sweeps.scheduler.wandb import build_wandb_optimizer
+
+        return build_wandb_optimizer(sweep)
+    if engine == "optuna":
+        from wandb.sdk.sweeps.scheduler.optuna import build_optuna_optimizer
+
+        return build_optuna_optimizer(sweep)
+    if engine == "ax":
+        from wandb.sdk.sweeps.scheduler.ax import build_ax_optimizer
+
+        return build_ax_optimizer(sweep)
+    raise wandb.Error(f"Unsupported engine: {engine}")

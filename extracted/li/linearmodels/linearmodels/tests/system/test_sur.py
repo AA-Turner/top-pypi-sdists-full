@@ -1,3 +1,5 @@
+from linearmodels.compat.scipy import csc_array, lil_array
+
 from collections.abc import Mapping
 from itertools import product
 import warnings
@@ -7,11 +9,12 @@ from numpy.testing import assert_allclose
 from pandas import DataFrame, Series, concat
 from pandas.testing import assert_frame_equal, assert_series_equal
 import pytest
-from scipy.sparse import csc_matrix, lil_matrix
 from scipy.sparse.linalg import inv as spinv
 import scipy.stats
+import statsmodels.api as sm
 
 from linearmodels.iv.model import _OLS as OLS
+from linearmodels.shared.exceptions import MissingValueWarning
 from linearmodels.shared.hypotheses import InvalidTestStatistic, WaldTestStatistic
 from linearmodels.shared.utility import AttrDict
 from linearmodels.system._utility import (
@@ -20,7 +23,12 @@ from linearmodels.system._utility import (
     inv_matrix_sqrt,
 )
 from linearmodels.system.model import SUR
-from linearmodels.tests.system._utility import generate_data, simple_sur
+from linearmodels.tests._utility import warns_if_missing
+from linearmodels.tests.system._utility import (
+    generate_data,
+    simple_sur,
+    weighted_fit_measures,
+)
 
 p = [3, [1, 2, 3, 4, 5, 5, 4, 3, 2, 1]]
 const = [True, False]
@@ -37,7 +45,7 @@ def gen_id(param):
     idstr += "-correl" if param[2] != 0 else ""
     idstr += "-common" if param[3] else ""
     idstr += "-weights" if param[4] else ""
-    idstr += "-dist" if param[4] else "-tuple"
+    idstr += "-dist" if param[5] else "-tuple"
     return idstr
 
 
@@ -191,6 +199,31 @@ def test_errors():
     moddata = {"a": {"dependent": np.random.standard_normal((100, 1)), "exog": x}}
     with pytest.raises(ValueError, match=r"Equation `a` regressor array"):
         SUR(moddata)
+
+
+def test_unknown_equation_type_message():
+    with pytest.raises(TypeError, match=r"equations\[a\] was <class 'str'>"):
+        SUR({"a": "absde", "b": 12345})
+
+
+@pytest.mark.parametrize("bad", [0.0, -1.0, np.inf, -np.inf])
+def test_weights_not_strictly_positive(bad):
+    eqns = generate_data(k=2, p=2, included_weights=True)
+    eqns["equ.1"]["weights"] = eqns["equ.1"]["weights"].copy()
+    eqns["equ.1"]["weights"][3] = bad
+    with pytest.raises(
+        ValueError, match=r"weights in equation 'equ.1' must be strictly"
+    ):
+        SUR(eqns)
+
+
+def test_weights_missing_dropped():
+    eqns = generate_data(k=2, p=2, included_weights=True)
+    eqns["equ.1"]["weights"] = eqns["equ.1"]["weights"].copy()
+    eqns["equ.1"]["weights"][3] = np.nan
+    with pytest.warns(MissingValueWarning):
+        mod = SUR(eqns)
+    assert mod._y[0].shape[0] == eqns["equ.0"]["dependent"].shape[0] - 1
 
 
 @pytest.mark.smoke
@@ -686,11 +719,9 @@ def test_fitted(data):
     assert_frame_equal(expected, res.fitted_values)
 
 
-@pytest.mark.filterwarnings(
-    "ignore::linearmodels.shared.exceptions.MissingValueWarning"
-)
 def test_predict(missing_data):
-    mod = SUR(missing_data)
+    with warns_if_missing(missing_data):
+        mod = SUR(missing_data)
     res = mod.fit()
     pred_no_missing = res.predict(equations=missing_data, missing=False, dataframe=True)
     pred_missing = res.predict(equations=missing_data, missing=True, dataframe=True)
@@ -732,11 +763,9 @@ def test_predict(missing_data):
         assert pred[key].shape[0] == nobs
 
 
-@pytest.mark.filterwarnings(
-    "ignore::linearmodels.shared.exceptions.MissingValueWarning"
-)
 def test_predict_error(missing_data):
-    mod = SUR(missing_data)
+    with warns_if_missing(missing_data):
+        mod = SUR(missing_data)
     res = mod.fit()
     with pytest.raises(ValueError, match=r"At least one output must be selected"):
         res.predict(fitted=False, idiosyncratic=False)
@@ -788,6 +817,128 @@ def test_system_r2_direct():
     assert_allclose(ref, res.system_rsquared.berndt, atol=1e-3, rtol=1e-3)
 
 
+@pytest.mark.parametrize("method", ["ols", "gls"])
+def test_weighted_residuals_and_r2(method):
+    eqns = generate_data(k=3, p=3, const=True, rho=0.8, included_weights=True)
+    res = SUR(eqns).fit(method=method)
+    rss = tss = 0.0
+    for key, eqn in eqns.items():
+        eq_res = res.equations[key]
+        direct = weighted_fit_measures(eqn, eq_res.params)
+        # The residuals are those of the model and do not use the weights
+        assert_allclose(eq_res.resids, direct.resid.squeeze())
+        assert_allclose(res.resids[key], direct.resid.squeeze())
+        assert_allclose(
+            eq_res.fitted_values + eq_res.resids, eqn["dependent"].squeeze()
+        )
+        if method == "ols":
+            assert_allclose(eq_res.wresids, direct.wresid.squeeze())
+        assert_allclose(eq_res.resid_ss, direct.rss)
+        assert_allclose(eq_res.total_ss, direct.tss)
+        assert_allclose(eq_res.rsquared, 1 - direct.rss / direct.tss)
+        rss += direct.rss
+        tss += direct.tss
+    assert_allclose(res.resid_ss, rss)
+    assert_allclose(res.rsquared, 1 - rss / tss)
+
+
+@pytest.mark.parametrize("method", ["ols", "gls"])
+def test_weighted_system_r2_single_equation(method):
+    # With one equation and a constant, every measure is the R2 of the equation
+    eqns = generate_data(k=1, p=3, const=True, included_weights=True)
+    res = SUR(eqns).fit(method=method)
+    direct = weighted_fit_measures(eqns["equ.0"], res.params)
+    r2 = 1 - direct.rss / direct.tss
+    assert_allclose(res.rsquared, r2)
+    for name in ("mcelroy", "berndt", "judge", "dhrymes"):
+        assert_allclose(res.system_rsquared[name], r2)
+
+
+@pytest.mark.parametrize("method", ["ols", "gls"])
+def test_weighted_residual_correlation_tests(method):
+    # The tests use the residuals scaled by the weights, which estimate the residual
+    # covariance
+    eqns = generate_data(k=3, p=3, const=True, rho=0.8, included_weights=True)
+    res = SUR(eqns).fit(method=method)
+    wresid = np.column_stack(
+        [
+            weighted_fit_measures(eqn, res.equations[key].params).wresid
+            for key, eqn in eqns.items()
+        ]
+    )
+    nobs = wresid.shape[0]
+    corr = np.corrcoef(wresid.T)
+    assert_allclose(
+        res.breusch_pagan().stat, nobs * (corr[np.tril_indices(3, -1)] ** 2).sum()
+    )
+    sigma = wresid.T @ wresid / nobs
+    lr = nobs * (np.log(np.diag(sigma)).sum() - np.linalg.slogdet(sigma)[1])
+    assert_allclose(res.likelihood_ratio().stat, lr)
+
+
+def test_iterated_gls_cov_uses_final_sigma():
+    eqns = generate_data(k=3, p=3, const=True)
+    res = SUR(eqns).fit(cov_type="unadjusted", iterate=True, iter_limit=500, tol=1e-12)
+    assert res.iterations > 2
+
+    xs = [np.asarray(eqns[key]["exog"]) for key in eqns]
+    nobs = xs[0].shape[0]
+    x = np.zeros((len(xs) * nobs, sum(xi.shape[1] for xi in xs)))
+    col = 0
+    for i, xi in enumerate(xs):
+        x[i * nobs : (i + 1) * nobs, col : col + xi.shape[1]] = xi
+        col += xi.shape[1]
+    sigma_inv = np.linalg.inv(np.asarray(res.sigma))
+    expected = np.linalg.inv(x.T @ np.kron(sigma_inv, np.eye(nobs)) @ x)
+    assert_allclose(res.cov, expected, rtol=1e-6)
+
+
+def test_weighted_gls_robust_covariance_against_wls():
+    # With one equation, GLS is WLS and the robust covariance is HC0
+    rng = np.random.default_rng(20261012)
+    nobs = 200
+    x = np.column_stack([np.ones(nobs), rng.standard_normal((nobs, 2))])
+    y = x @ np.array([1.0, 0.5, -0.3]) + rng.standard_normal(nobs) * (
+        1 + np.abs(x[:, 1])
+    )
+    w = rng.chisquare(5, nobs) / 5
+    ref = sm.WLS(y, x, weights=w / w.mean()).fit(cov_type="HC0")
+    eqns = {"a": {"dependent": y[:, None], "exog": x, "weights": w[:, None]}}
+    for method in ("ols", "gls"):
+        res = SUR(eqns).fit(method=method, cov_type="robust")
+        assert_allclose(res.params, ref.params)
+        assert_allclose(res.std_errors, ref.bse)
+
+
+def scale_by_sqrt_weights(eqns):
+    """The same equations without weights, with the data scaled by sqrt(weights)"""
+    scaled = {}
+    for key, eqn in eqns.items():
+        w = np.sqrt(eqn["weights"] / eqn["weights"].mean())
+        scaled[key] = {k: v * w for k, v in eqn.items() if k != "weights"}
+    return scaled
+
+
+@pytest.mark.parametrize("method", ["ols", "gls"])
+@pytest.mark.parametrize("cov_type", ["unadjusted", "robust", "kernel", "clustered"])
+def test_weighted_covariance_is_covariance_of_scaled_data(method, cov_type):
+    # Weighted estimation is estimation on the data scaled by the square root of the
+    # normalized weights, so the covariance must be the same for every estimator
+    eqns = generate_data(k=3, p=3, const=True, rho=0.8, included_weights=True)
+    nobs = eqns["equ.0"]["dependent"].shape[0]
+    kwargs = {}
+    if cov_type == "kernel":
+        kwargs["bandwidth"] = 3
+    elif cov_type == "clustered":
+        kwargs["clusters"] = np.random.default_rng(0).integers(0, 25, nobs)
+    res = SUR(eqns).fit(method=method, cov_type=cov_type, **kwargs)
+    scaled = SUR(scale_by_sqrt_weights(eqns)).fit(
+        method=method, cov_type=cov_type, **kwargs
+    )
+    assert_allclose(res.params, scaled.params)
+    assert_allclose(res.cov, scaled.cov)
+
+
 def direct_gls(eqns, scale):
     y = []
     x = []
@@ -797,11 +948,11 @@ def direct_gls(eqns, scale):
     y = scale * np.vstack(y)
 
     n, k = x[0].shape
-    _x = lil_matrix((len(x) * n, len(x) * k))
+    _x = lil_array((len(x) * n, len(x) * k))
     for i, val in enumerate(x):
         _x[i * n : (i + 1) * n, i * k : (i + 1) * k] = val
 
-    b = spinv(csc_matrix(_x.T @ _x)) @ (_x.T @ y)
+    b = spinv(csc_array(_x.T @ _x)) @ (_x.T @ y)
     e = y - _x @ b
     e = e.reshape((-1, n)).T
     sigma = e.T @ e / n
@@ -872,7 +1023,7 @@ def test_brequsch_pagan(k):
     assert isinstance(stat, WaldTestStatistic)
     assert_allclose(stat.stat, direct)
     assert stat.df == 3
-    assert_allclose(stat.pval, 1.0 - scipy.stats.chi2(3).cdf(direct))
+    assert_allclose(stat.pval, scipy.stats.chi2(3).sf(direct))
     assert "Residuals are uncorrelated" in stat.null
     assert "Breusch-Pagan" in str(stat)
 
@@ -897,7 +1048,7 @@ def test_likelihood_ratio(k):
     assert isinstance(stat, WaldTestStatistic)
     assert_allclose(stat.stat, direct)
     assert stat.df == 3
-    assert_allclose(stat.pval, 1.0 - scipy.stats.chi2(3).cdf(direct))
+    assert_allclose(stat.pval, scipy.stats.chi2(3).sf(direct))
     assert "Covariance is diagonal" in stat.null
     assert "Likelihood Ratio Test" in str(stat)
 

@@ -1,5 +1,5 @@
 """
-Estimators for systems of equations
+Estimators for systems of equations.
 
 References
 ----------
@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from functools import reduce
 import textwrap
-from typing import Any, Literal, Optional, cast
+from typing import Any, Literal, Optional, TypedDict, cast
 import warnings
 
 from formulaic.utils.context import capture_context
@@ -26,11 +26,27 @@ from numpy.linalg import inv, lstsq, matrix_rank, solve
 from pandas import DataFrame, Index, Series, concat
 
 from linearmodels.iv._utility import IVFormulaParser
+from linearmodels.iv.covariance import KERNEL_LOOKUP
 from linearmodels.iv.data import IVData
-from linearmodels.shared.exceptions import missing_warning
+from linearmodels.iv.gmm import _uses_default_bandwidth, _warn_default_bandwidth
+from linearmodels.shared.alignment import (
+    check_alignment,
+    check_row_alignment,
+    reference_labels,
+    row_labels,
+)
+from linearmodels.shared.exceptions import (
+    check_cov_config,
+    lower_option,
+    missing_warning,
+    unknown_option_error,
+)
 from linearmodels.shared.hypotheses import InvalidTestStatistic, WaldTestStatistic
+from linearmodels.shared.inputs import as_array_like, as_float64
 from linearmodels.shared.linalg import has_constant
+from linearmodels.shared.rsquared import r_squared, total_ss_is_zero
 from linearmodels.shared.utility import AttrDict
+from linearmodels.shared.weights import check_weights, normalize_weights
 from linearmodels.system._utility import (
     LinearConstraint,
     blocked_column_product,
@@ -94,10 +110,53 @@ GMM_COV_EST = {
 }
 
 
+class _WeightConfig(TypedDict, total=False):
+    """The options of the unadjusted and robust weight matrices of IVSystemGMM."""
+
+    center: bool
+    debiased: bool
+
+
+class _KernelWeightConfig(_WeightConfig, total=False):
+    """The options of the kernel weight matrix of IVSystemGMM."""
+
+    kernel: str
+    bandwidth: float | None
+    optimal_bw: bool | None
+
+
+class _GMMCovConfig(TypedDict, total=False):
+    """The options of the unadjusted and robust covariances of IVSystemGMM."""
+
+    debiased: bool
+
+
+class _GMMKernelCovConfig(_GMMCovConfig, total=False):
+    """The options of the kernel covariance of IVSystemGMM."""
+
+    kernel: str
+    bandwidth: float | None
+
+
+_LS_KEYS = {
+    "unadjusted": ("debiased",),
+    "robust": ("debiased",),
+    "kernel": ("debiased", "kernel", "bandwidth"),
+    "clustered": ("debiased", "clusters", "group_debias"),
+}
+_LS_COV_KEYS = {name: _LS_KEYS[cov] for name, cov in COV_TYPES.items()}
+_GMM_COV_KEYS = {
+    name: keys for name, keys in _LS_COV_KEYS.items() if COV_TYPES[name] in GMM_W_EST
+}
+
+# The names in COV_TYPES that IVSystemGMM supports, which excludes "clustered"
+GMM_TYPES = {name: cov for name, cov in COV_TYPES.items() if cov in GMM_W_EST}
+
+
 def _missing_weights(
     weights: Mapping[str, linearmodels.typing.data.ArrayLike | None],
 ) -> None:
-    """Raise warning if missing weighs found"""
+    """Raise warning if missing weights found."""
     missing = [key for key in weights if weights[key] is None]
     if missing:
         msg = "Weights not found for equation labels:\n{}".format(", ".join(missing))
@@ -110,21 +169,21 @@ def _parameters_from_xprod(
     constraints: LinearConstraint | None = None,
 ) -> linearmodels.typing.data.Float64Array:
     r"""
-    Estimate regression parameters from cross produces
+    Estimate regression parameters from cross products.
 
     Parameters
     ----------
     xpx : ndarray
-        Cross product measuring variation in x (nvar by nvar)
+        Cross product measuring variation in x (nvar by nvar).
     xpy : ndarray
-        Cross produce measuring covariation between x and y (nvar by 1)
-    constraints : LinearConstraint
-        Constraints to use in estimation
+        Cross product measuring covariation between x and y (nvar by 1).
+    constraints : LinearConstraint, optional
+        Constraints to use in estimation. The default is no constraints.
 
     Returns
     -------
-    params : ndarray
-        Estimated parameters (nvar by 1)
+    ndarray
+        Estimated parameters (nvar by 1).
 
     Notes
     -----
@@ -150,6 +209,27 @@ def _parameters_from_xprod(
 
 
 class SystemFormulaParser:
+    """
+    Parser for the formulas of a system of equations.
+
+    Parameters
+    ----------
+    formula : str or dict of str to str
+        Either a string with the equations in curly braces, or a dictionary of
+        formulas where each key is an equation label.
+    data : DataFrame
+        Frame containing named variables.
+    weights : dict of str to array_like, optional
+        Weights of the equations, where each key is an equation label. The
+        default is no weights.
+    eval_env : int, optional
+        Depth of the frame, relative to the caller of the parser, used to
+        evaluate the formulas when ``context`` is not given. The default is 2.
+    context : dict of str to object, optional
+        Namespace used to evaluate the formulas. The default is the namespace
+        of the frame at depth ``eval_env``.
+    """
+
     def __init__(
         self,
         formula: Mapping[str, str] | str,
@@ -160,6 +240,12 @@ class SystemFormulaParser:
     ) -> None:
         if not isinstance(formula, (Mapping, str)):
             raise TypeError("formula must be a string or dictionary-like")
+        if weights is not None and not hasattr(weights, "keys"):
+            raise TypeError(
+                "weights must be dictionary-like, such as a dict or a DataFrame, "
+                "where the key of each value is an equation label. "
+                f"Got {type(weights).__name__}."
+            )
         self._formula: Mapping[str, str] | str = formula
         self._data = data
         self._weights = weights
@@ -183,6 +269,9 @@ class SystemFormulaParser:
     def _convert_to_series(
         value: linearmodels.typing.data.ArrayLike, name: str
     ) -> Series:
+        value = as_array_like(value, name)
+        if isinstance(value, np.ndarray):
+            value = as_float64(value, name)
         shape = value.shape
         if len(shape) > 2 or (len(shape) == 2 and min(shape) != 1):
             raise ValueError(f"{name} must be squeezable to 1D.")
@@ -255,16 +344,16 @@ class SystemFormulaParser:
 
     @property
     def formula(self) -> dict[str, str]:
-        """Cleaned version of formula"""
+        """Cleaned version of formula."""
         return self._clean_formula
 
     @property
     def eval_env(self) -> int:
-        """Set or get the eval env depth"""
+        """Set or get the eval env depth."""
         return self._eval_env
 
     @eval_env.setter
-    def eval_env(self, value: int) -> None:
+    def eval_env(self, value: int) -> None:  # numpydoc ignore=GL08
         self._eval_env = value
         self._context = capture_context(self._eval_env)
         # Update parsers for new level
@@ -279,10 +368,12 @@ class SystemFormulaParser:
 
     @property
     def equation_labels(self) -> list[str]:
+        """Labels of the equations."""
         return list(self._parsers.keys())
 
     @property
     def data(self) -> dict[str, dict[str, linearmodels.typing.data.ArrayLike | None]]:
+        """Dependent, exogenous, endogenous, instruments and weights by equation."""
         out: dict[str, dict[str, linearmodels.typing.data.ArrayLike | None]] = {}
         dep = self.dependent
         for key in dep:
@@ -303,18 +394,22 @@ class SystemFormulaParser:
 
     @property
     def dependent(self) -> dict[str, DataFrame | None]:
+        """Dependent variable of each equation."""
         return self._get_variable("dependent")
 
     @property
     def exog(self) -> dict[str, DataFrame | None]:
+        """Exogenous regressors of each equation."""
         return self._get_variable("exog")
 
     @property
     def endog(self) -> dict[str, DataFrame | None]:
+        """Endogenous regressors of each equation."""
         return self._get_variable("endog")
 
     @property
     def instruments(self) -> dict[str, DataFrame | None]:
+        """Instruments of each equation."""
         return self._get_variable("instruments")
 
 
@@ -324,7 +419,7 @@ class _SystemModelBase:
 
     Parameters
     ----------
-    equations : dict
+    equations : dict of str to tuple or dict
         Dictionary-like structure containing dependent, exogenous, endogenous
         and instrumental variables.  Each key is an equations label and must
         be a string. Each value must be either a tuple of the form (dependent,
@@ -338,10 +433,14 @@ class _SystemModelBase:
         can contain either an empty array or `None` to indicate that an
         equation contains no exogenous regressors. Similarly "endog" and
         "instruments" can either be omitted or may contain an empty array (or
-        `None`) if all variables in an equation are exogenous.
-    sigma : array_like
-        Prespecified residual covariance to use in GLS estimation. If not
-        provided, FGLS is implemented based on an estimate of sigma.
+        `None`) if all variables in an equation are exogenous. The variables are
+        array_like, such as lists, NumPy arrays, pandas objects and xarray
+        DataArrays, and a ``TypeError`` that names the variable is raised for
+        complex values or text.
+    sigma : array_like, optional
+        Prespecified residual covariance to use in GLS estimation, with shape
+        (nequations, nequations). If not provided, FGLS is implemented based on an
+        estimate of sigma.
     """
 
     def __init__(
@@ -398,11 +497,13 @@ class _SystemModelBase:
 
     @property
     def formula(self) -> str | dict[str, str] | None:
-        """Set or get the formula used to construct the model"""
+        """Set or get the formula used to construct the model."""
         return self._formula
 
     @formula.setter
-    def formula(self, value: str | dict[str, str] | None) -> None:
+    def formula(
+        self, value: str | dict[str, str] | None
+    ) -> None:  # numpydoc ignore=GL08
         self._formula = value
 
     def _validate_data(self) -> None:
@@ -424,14 +525,16 @@ class _SystemModelBase:
                 endog = IVData(eq_data[2], var_name=endog_name, nobs=dep.shape[0])
                 if endog.shape[1] > 0:
                     current_id += (id(eq_data[2]),)
-                ids.append(current_id)
                 self._endog.append(endog)
 
-                self._instr.append(
-                    IVData(eq_data[3], var_name=instr_name, nobs=dep.shape[0])
-                )
+                instr = IVData(eq_data[3], var_name=instr_name, nobs=dep.shape[0])
+                if instr.shape[1] > 0:
+                    current_id += (id(eq_data[3]),)
+                ids.append(current_id)
+                self._instr.append(instr)
                 if len(eq_data) == 5:
-                    self._weights.append(IVData(eq_data[4]))
+                    weights_name = "weights_" + str(i)
+                    self._weights.append(IVData(eq_data[4], var_name=weights_name))
                 else:
                     dep_shape = self._dependent[-1].shape
                     self._weights.append(IVData(np.ones(dep_shape)))
@@ -449,18 +552,23 @@ class _SystemModelBase:
                 self._endog.append(endog)
                 if "endog" in eq_data:
                     current_id += (id(eq_data["endog"]),)
-                ids.append(current_id)
 
                 instr_values = eq_data.get("instruments", None)
                 instr = IVData(instr_values, var_name=instr_name, nobs=dep.shape[0])
+                if "instruments" in eq_data:
+                    current_id += (id(instr_values),)
+                ids.append(current_id)
                 self._instr.append(instr)
 
                 if "weights" in eq_data:
-                    self._weights.append(IVData(eq_data["weights"]))
+                    weights_name = "weights_" + str(i)
+                    self._weights.append(
+                        IVData(eq_data["weights"], var_name=weights_name)
+                    )
                 else:
                     self._weights.append(IVData(np.ones(dep.shape)))
             else:
-                msg = UNKNOWN_EQ_TYPE.format(key=key, type=type(vars))
+                msg = UNKNOWN_EQ_TYPE.format(key=key, type=type(eq_data))
                 raise TypeError(msg)
         self._has_instruments = False
         for instr in self._instr:
@@ -485,6 +593,7 @@ class _SystemModelBase:
                     "{eq}".format(eq=self._eq_labels[i])
                 )
 
+        self._check_alignment()
         self._drop_missing()
         self._common_exog = len(set(ids)) == 1
         if self._common_exog:
@@ -515,7 +624,8 @@ class _SystemModelBase:
                 "linearmodels.typing.data.Float64Array",
                 w.ndarray,
             )
-            w_arr = w_arr / np.nanmean(w_arr)
+            check_weights(w_arr, f"weights in equation {label!r}")
+            w_arr = normalize_weights(w_arr)
             w_sqrt = np.sqrt(w_arr)
             self._w.append(w_arr)
             self._y.append(y)
@@ -547,7 +657,7 @@ class _SystemModelBase:
                 )
             if matrix_rank(z) < z.shape[1]:
                 raise ValueError(
-                    "Equation {eq} instrument array is full rank".format(eq=label)
+                    "Equation {eq} instrument array is not full rank".format(eq=label)
                 )
 
         for rhs in self._x:
@@ -558,6 +668,66 @@ class _SystemModelBase:
             constant, index=[d.cols[0] for d in self._dependent]
         )
         self._constant_loc = constant_loc
+
+    def _check_alignment(self) -> None:
+        """Check that inputs with labels use the labels of dependent, or the first"""
+        nobs = [dep.shape[0] for dep in self._dependent]
+        for i, label in enumerate(self._eq_labels):
+            if nobs[i] != nobs[0]:
+                raise ValueError(
+                    "All equations must have the same number of observations. "
+                    f"The dependent variable in equation {label!r} has {nobs[i]} "
+                    f"observations, but in equation {self._eq_labels[0]!r} it has "
+                    f"{nobs[0]}."
+                )
+        # The dependent variables of all equations use the same labels
+        reference: Index | None = None
+        reference_name = ""
+        for i, label in enumerate(self._eq_labels):
+            dependent_name = f"dependent in equation {label!r}"
+            expected = row_labels(self._dependent[i])
+            if expected is None:
+                continue
+            if reference is None:
+                reference, reference_name = expected, dependent_name
+            else:
+                check_row_alignment(dependent_name, expected, reference, reference_name)
+        equation_inputs: list[list[tuple[str, object]]] = [
+            [
+                (f"exog in equation {label!r}", self._exog[i]),
+                (f"endog in equation {label!r}", self._endog[i]),
+                (f"instruments in equation {label!r}", self._instr[i]),
+                (f"weights in equation {label!r}", self._weights[i]),
+            ]
+            for i, label in enumerate(self._eq_labels)
+        ]
+        # If no dependent variable has labels, the first input with labels sets them
+        self._labels, self._labels_name = reference_labels(
+            reference,
+            [item for items in equation_inputs for item in items],
+            reference=reference_name,
+        )
+        for i, label in enumerate(self._eq_labels):
+            # The inputs of an equation use the labels of its own dependent variable
+            # if it has labels, and the labels of the system otherwise
+            expected = row_labels(self._dependent[i])
+            if expected is None:
+                check_alignment(
+                    self._labels, equation_inputs[i], reference=self._labels_name
+                )
+            else:
+                check_alignment(
+                    expected,
+                    equation_inputs[i],
+                    reference=f"dependent in equation {label!r}",
+                )
+
+    def _check_clusters(self, config: Mapping[str, Any]) -> None:
+        """Check that clusters with labels use the labels of the system"""
+        labels = None if self._labels is None else self._labels[~self._drop_locs]
+        check_alignment(
+            labels, {"clusters": config.get("clusters")}, reference=self._labels_name
+        )
 
     def _drop_missing(self) -> None:
         k = len(self._dependent)
@@ -573,6 +743,7 @@ class _SystemModelBase:
                     missing |= np.asarray(nulls)
 
         missing_warning(missing, stacklevel=4)
+        self._drop_locs = missing
         if np.any(missing):
             for i in range(k):
                 self._dependent[i].drop(missing)
@@ -604,29 +775,36 @@ class _SystemModelBase:
         eval_env: int = 1,
     ) -> DataFrame:
         """
-        Predict values for additional data
+        Predict values for additional data.
 
         Parameters
         ----------
         params : array_like
-            Model parameters (nvar by 1)
-        equations : dict
+            Model parameters (nvar by 1).
+        equations : dict of str to dict, optional
             Dictionary-like structure containing exogenous and endogenous
             variables.  Each key is an equations label and must
-            match the labels used to fir the model. Each value must be a
+            match the labels used to fit the model. Each value must be a
             dictionary with keys "exog" and "endog". If predictions are not
             required for one of more of the model equations, these keys can
             be omitted.
-        data : DataFrame
+        data : DataFrame, optional
             Values to use when making predictions from a model constructed
-            from a formula
-        eval_env : int
-            Depth to  use when evaluating formulas.
+            from a formula.
+        eval_env : int, optional
+            Depth to use when evaluating formulas. The default is 1.
 
         Returns
         -------
-        predictions : DataFrame
-            Fitted values from supplied data and parameters
+        DataFrame
+            Fitted values from supplied data and parameters, with a column for
+            each equation that has predictions.
+
+        Raises
+        ------
+        ValueError
+            If neither ``equations`` nor ``data`` is provided, or if ``params`` does
+            not have one element for each parameter of the model.
 
         Notes
         -----
@@ -677,12 +855,12 @@ class _SystemModelBase:
                     continue
 
                 if exog is not None:
-                    exog_endog = IVData(exog).pandas
+                    exog_endog = IVData(exog, var_name="exog").pandas
                     if endog is not None:
-                        endog_ivd = IVData(endog)
+                        endog_ivd = IVData(endog, var_name="endog")
                         exog_endog = concat([exog_endog, endog_ivd.pandas], axis=1)
                 else:
-                    exog_endog = IVData(endog).pandas
+                    exog_endog = IVData(endog, var_name="endog").pandas
 
                 fitted = np.asarray(exog_endog) @ b
                 fitted_df = DataFrame(fitted, index=exog_endog.index, columns=[label])
@@ -732,11 +910,12 @@ class _SystemModelBase:
                 self._xhat.append(x)
                 self._wxhat.append(self._wx[i])
             else:
-                delta = lstsq(z, x, rcond=None)[0]
-                xhat = z @ delta
-                self._xhat.append(xhat)
-                w = self._w[i]
-                self._wxhat.append(xhat * np.sqrt(w))
+                # Project the weighted regressors on the weighted instruments so that
+                # the first stage uses the same weights as the second stage
+                wx, wz = self._wx[i], self._wz[i]
+                delta = lstsq(wz, wx, rcond=None)[0]
+                self._xhat.append(z @ delta)
+                self._wxhat.append(wz @ delta)
 
     def _gls_estimate(
         self,
@@ -811,6 +990,15 @@ class _SystemModelBase:
         )
         cov = cov_est.cov
 
+        # eps are the weighted residuals. The residuals do not use the weights
+        loc = 0
+        resids = []
+        for i in range(k):
+            nb = self._x[i].shape[1]
+            resids.append(self._y[i] - self._x[i] @ beta[loc : loc + nb])
+            loc += nb
+        resid = np.hstack(resids)
+
         individual = AttrDict()
         debiased = cov_config.get("debiased", False)
         for i in range(k):
@@ -826,7 +1014,7 @@ class _SystemModelBase:
                 beta,
                 cov,
                 eps,
-                eps,
+                resid,
                 "OLS",
                 cov_type,
                 cov_est,
@@ -838,22 +1026,25 @@ class _SystemModelBase:
             key = self._eq_labels[i]
             individual[key] = stats
 
-        nobs = eps.size
+        # All equations use the same observations
+        nobs = eps.shape[0]
         results = self._common_results(
             beta, cov, "OLS", 0, nobs, cov_type, sigma, individual, debiased
         )
-        results["wresid"] = results.resid
+        results["wresid"] = eps
         results["cov_estimator"] = cov_est
         results["cov_config"] = cov_est.cov_config
         individual = results["individual"]
         r2s = [individual[eq].r2 for eq in individual]
-        results["system_r2"] = self._system_r2(eps, sigma, "ols", False, debiased, r2s)
+        results["system_r2"] = self._system_r2(
+            resid, sigma, "ols", False, debiased, r2s
+        )
 
         return SystemResults(results)
 
     @property
     def has_constant(self) -> Series:
-        """Vector indicating which equations contain constants"""
+        """Vector indicating which equations contain constants."""
         return self._has_constant
 
     def _f_stat(
@@ -909,8 +1100,11 @@ class _SystemModelBase:
         constant: bool,
         total_ss: float,
         *,
-        weight_est: None | (
-            HomoskedasticWeightMatrix | HeteroskedasticWeightMatrix | KernelWeightMatrix
+        weight_est: (
+            HomoskedasticWeightMatrix
+            | HeteroskedasticWeightMatrix
+            | KernelWeightMatrix
+            | None
         ) = None,
     ) -> AttrDict:
         loc = 0
@@ -952,12 +1146,22 @@ class _SystemModelBase:
         stats["wresid"] = e
         stats["nobs"] = nobs
         stats["df_model"] = df
+        # The residuals do not use the weights, but the sum of squares does
+        weighted_resid = resid[:, [i]] * np.sqrt(self._w[i])
         stats["resid"] = resid[:, [i]]
+        stats["weighted_resid"] = weighted_resid
         stats["fitted"] = self._x[i] @ b
-        stats["resid_ss"] = float(np.squeeze(resid[:, [i]].T @ resid[:, [i]]))
+        stats["resid_ss"] = float(np.squeeze(weighted_resid.T @ weighted_resid))
         stats["total_ss"] = total_ss
-        stats["r2"] = 1.0 - stats.resid_ss / stats.total_ss
-        stats["r2a"] = 1.0 - (stats.resid_ss / df_r) / (stats.total_ss / df_c)
+        # The size of the dependent variable, before the mean is removed, which sets
+        # the rounding error in the total sum of squares
+        wy = self._wy[i]
+        y_ss = float(np.squeeze(wy.T @ wy))
+        stats["r2"] = r_squared(stats.resid_ss, stats.total_ss, y_ss, nobs)
+        if np.isnan(stats.r2):
+            stats["r2a"] = np.nan
+        else:
+            stats["r2a"] = 1.0 - (stats.resid_ss / df_r) / (stats.total_ss / df_c)
 
         names = self._param_names[loc : loc + df]
         offset = len(stats.eq_label) + 1
@@ -998,16 +1202,20 @@ class _SystemModelBase:
 
         total_ss = resid_ss = 0.0
         residuals = []
+        weighted_residuals = []
         for key in individual:
             total_ss += individual[key].total_ss
             resid_ss += individual[key].resid_ss
             residuals.append(individual[key].resid)
+            weighted_residuals.append(individual[key].weighted_resid)
         resid = np.hstack(residuals)
 
         results["resid_ss"] = resid_ss
         results["total_ss"] = total_ss
-        results["r2"] = 1.0 - results.resid_ss / results.total_ss
+        y_ss = sum(float(np.squeeze(wy.T @ wy)) for wy in self._wy)
+        results["r2"] = r_squared(results.resid_ss, results.total_ss, y_ss, nobs)
         results["resid"] = resid
+        results["weighted_resid"] = np.hstack(weighted_residuals)
         results["constraints"] = self._constraints
         results["model"] = self
 
@@ -1044,7 +1252,7 @@ class _SystemModelBase:
             for weights in w
         ]
         if method == "ols":
-            est_sigma = np.eye(len(wy))
+            est_sigma: linearmodels.typing.data.Float64Array = np.eye(len(wy))
         else:  # gls
             est_sigma = sigma
             if not full_cov:
@@ -1061,19 +1269,52 @@ class _SystemModelBase:
             xpy[i : (i + 1)] = wi[i].T @ sy
 
         mu = _parameters_from_xprod(xpx, xpy)
-        eps_const = np.hstack([self._y[j] - mu[j] for j in range(k)])
+        # eps are residuals that do not use the weights. The measures use the weighted
+        # residuals of the model and of the regression on a constant
+        eps = eps * np.hstack(wi)
+        eps_const = np.hstack([wi[j] * (self._y[j] - mu[j]) for j in range(k)])
+        # The size of the dependent variables, which sets the rounding error of the
+        # total sums of squares, before the means are removed
+        wy_all = np.hstack([wi[j] * self._y[j] for j in range(k)])
+        y_ss = (wy_all**2).sum(0)
+        # A dependent variable that does not vary has no total sum of squares. This is
+        # found from its weighted mean, since the regression on a constant is GLS, and
+        # its errors are large if the residuals of the equations are collinear, as they
+        # are when a dependent variable does not vary
+        own_ss = np.array(
+            [
+                ((wy[j] - wi[j] * ((w[j] * self._y[j]).sum() / w[j].sum())) ** 2).sum()
+                for j in range(k)
+            ]
+        )
+        varies = np.array(
+            [
+                not total_ss_is_zero(t, s, nobs)
+                for t, s in zip(own_ss, y_ss, strict=True)
+            ]
+        )
+        if not varies.any():
+            return Series(
+                {
+                    "mcelroy": np.nan,
+                    "berndt": np.nan,
+                    "judge": np.nan,
+                    "dhrymes": np.nan,
+                }
+            )
         # Judge
-        judge = 1 - (eps**2).sum() / (eps_const**2).sum()
-        # Dhrymes
+        judge = r_squared((eps**2).sum(), (eps_const**2).sum(), y_ss.sum(), nobs)
+        # Dhrymes. The equations without a total sum of squares have no weight
         tot_eps_const_sq = (eps_const**2).sum(0)
         r2s_arr = np.asarray(r2s)
-        dhrymes = (r2s_arr * tot_eps_const_sq).sum() / tot_eps_const_sq.sum()
+        dhrymes = (r2s_arr[varies] * tot_eps_const_sq[varies]).sum()
+        dhrymes /= tot_eps_const_sq[varies].sum()
 
         # Berndt
         sigma_y = (eps_const.T @ eps_const / nobs) * self._sigma_scale(debiased)
         berndt = np.nan
-        # Avoid division by 0
-        if np.linalg.det(sigma_y) > 0:
+        # Avoid division by 0. The matrix is singular if an equation has no variance
+        if varies.all() and np.linalg.det(sigma_y) > 0:
             berndt = 1 - np.linalg.det(sigma_resid) / np.linalg.det(sigma_y)
 
         mcelroy = np.nan
@@ -1085,7 +1326,8 @@ class _SystemModelBase:
             numerator = (std_eps**2).sum()
             std_eps_const = eps_const @ sigma_m12
             denom = (std_eps_const**2).sum()
-            mcelroy = 1.0 - numerator / denom
+            std_y_ss = ((wy_all @ sigma_m12) ** 2).sum()
+            mcelroy = r_squared(numerator, denom, std_y_ss, nobs)
         r2 = {"mcelroy": mcelroy, "berndt": berndt, "judge": judge, "dhrymes": dhrymes}
         return Series(r2)
 
@@ -1109,9 +1351,12 @@ class _SystemModelBase:
         cov_estimator = COV_EST[cov_type]
         gls_eps = np.reshape(gls_eps, (k, gls_eps.shape[0] // k)).T
         eps = np.reshape(eps, (k, eps.shape[0] // k)).T
+        # The covariance combines the weighted regressors with the residuals, so the
+        # residuals must be weighted as well
+        weps = eps * np.sqrt(np.hstack(self._w))
         cov_est = cov_estimator(
             self._wxhat,
-            eps,
+            weps,
             sigma,
             full_sigma,
             gls=True,
@@ -1150,8 +1395,8 @@ class _SystemModelBase:
             key = self._eq_labels[i]
             individual[key] = stats
 
-        # Populate results dictionary
-        nobs = eps.size
+        # Populate results dictionary. All equations use the same observations
+        nobs = eps.shape[0]
         results = self._common_results(
             beta,
             cov,
@@ -1186,19 +1431,21 @@ class _SystemModelBase:
         if not debiased:
             return 1.0
         nobs = float(self._wx[0].shape[0])
-        scales = np.array([nobs - x.shape[1] for x in self._wx], dtype=np.float64)
+        scales: linearmodels.typing.data.Float64Array = np.array(
+            [nobs - x.shape[1] for x in self._wx], dtype=np.float64
+        )
         scales = cast("linearmodels.typing.data.Float64Array", np.sqrt(nobs / scales))
         return scales[:, None] @ scales[None, :]
 
     @property
     def constraints(self) -> LinearConstraint | None:
         """
-        Model constraints
+        Model constraints.
 
         Returns
         -------
-        cons : {LinearConstraint, None}
-            Constraint object
+        LinearConstraint or None
+            Constraint object, which is None if the model has no constraints.
         """
         return self._constraints
 
@@ -1209,9 +1456,9 @@ class _SystemModelBase:
         Parameters
         ----------
         r : DataFrame
-            Constraint matrix. nconstraints by nparameters
-        q : Series
-            Constraint values (nconstraints).  If not set, set to 0
+            Constraint matrix. nconstraints by nparameters.
+        q : Series, optional
+            Constraint values (nconstraints).  If not set, set to 0.
 
         Notes
         -----
@@ -1229,24 +1476,24 @@ class _SystemModelBase:
         )
 
     def reset_constraints(self) -> None:
-        """Remove all model constraints"""
+        """Remove all model constraints."""
         self._constraints = None
 
     @property
     def param_names(self) -> list[str]:
         """
-        Model parameter names
+        Model parameter names.
 
         Returns
         -------
-        names : list[str]
-            Normalized, unique model parameter names
+        list of str
+            Normalized, unique model parameter names.
         """
         return self._param_names
 
 
 class _LSSystemModelBase(_SystemModelBase):
-    """Base class for least-squares-based system estimators"""
+    """Base class for least-squares-based system estimators."""
 
     def fit(
         self,
@@ -1260,50 +1507,83 @@ class _LSSystemModelBase(_SystemModelBase):
         **cov_config: bool,
     ) -> SystemResults:
         """
-        Estimate model parameters
+        Estimate model parameters.
 
         Parameters
         ----------
-        method : {None, "gls", "ols"}
-            Estimation method.  Default auto selects based on regressors,
-            using OLS only if all regressors are identical. The other two
-            arguments force the use of GLS or OLS.
-        full_cov : bool
+        method : {"ols", "gls"}, optional
+            Estimation method. The names are not case sensitive. If not provided, the
+            method is selected based on the regressors, using OLS only if all
+            regressors are identical and the model has no constraints, and GLS
+            otherwise. The two names force the use of OLS or GLS.
+        full_cov : bool, optional
             Flag indicating whether to utilize information in correlations
-            when estimating the model with GLS
-        iterate : bool
-            Flag indicating to iterate GLS until convergence of iter limit
-            iterations have been completed
-        iter_limit : int
-            Maximum number of iterations for iterative GLS
-        tol : float
-            Tolerance to use when checking for convergence in iterative GLS
-        cov_type : str
-            Name of covariance estimator. Valid options are
+            when estimating the model with GLS. The default is True.
+        iterate : bool, optional
+            Flag indicating to iterate GLS until convergence or until iter_limit
+            iterations have been completed. The default is False.
+        iter_limit : int, optional
+            Maximum number of iterations for iterative GLS. The default is 100.
+        tol : float, optional
+            Tolerance to use when checking for convergence in iterative GLS. The
+            default is 1e-6.
+        cov_type : str, optional
+            Name of covariance estimator to use. The default is "robust". The names
+            are not case sensitive. Supported covariance estimators are:
 
             * "unadjusted", "homoskedastic" - Classic covariance estimator
             * "robust", "heteroskedastic" - Heteroskedasticity robust
               covariance estimator
-            * "kernel" - Allows for heteroskedasticity and autocorrelation
+            * "kernel", "hac" - Allows for heteroskedasticity and autocorrelation
             * "clustered" - Allows for 1 and 2-way clustering of errors
               (Rogers).
 
-        cov_config
-            Additional parameters to pass to covariance estimator. All
-            estimators support debiased which employs a small-sample adjustment
+        **cov_config : dict
+            Additional parameters to pass to the covariance estimator. The keys
+            that are used depend on ``cov_type``. All estimators accept ``debiased``
+            (bool), which employs a small-sample adjustment and is False by
+            default. "kernel" also accepts ``kernel`` (str), the name of the kernel,
+            which is "bartlett" if it is not provided, and ``bandwidth`` (float),
+            which is estimated from the data if it is not provided. The names of the
+            kernels are not case sensitive. "clustered" also
+            accepts ``clusters`` (array_like), the cluster assignment of each
+            observation with one or two columns, and ``group_debias`` (bool), which
+            debiases by the number of groups and is False by default. "unadjusted"
+            and "robust" accept only ``debiased``.
 
         Returns
         -------
-        results : SystemResults
-            Estimation results
+        SystemResults
+            Estimation results.
+
+        Raises
+        ------
+        ValueError
+            If ``method`` is not "ols" or "gls", or if the labels of ``clusters``
+            do not match the labels of the inputs.
+            A key of ``cov_config`` that the covariance estimator that ``cov_type``
+            selects does not accept also raises it. The message names the key and lists
+            the accepted keys. This is checked before the model is estimated. Releases
+            before 7.1 raised the ``TypeError`` of the constructor of the covariance
+            estimator.
+        UnknownOptionError
+            If ``cov_type`` or ``kernel`` is not supported. It is both a
+            ``KeyError`` and a ``ValueError``.
 
         See Also
         --------
         linearmodels.system.covariance.HomoskedasticCovariance
+            Homoskedastic covariance.
         linearmodels.system.covariance.HeteroskedasticCovariance
+            Heteroskedasticity robust covariance.
         linearmodels.system.covariance.KernelCovariance
+            Kernel (HAC) covariance.
         linearmodels.system.covariance.ClusteredCovariance
+            Clustered covariance.
         """
+        cov_type = lower_option(cov_type)
+        check_cov_config(cov_config, cov_type, _LS_COV_KEYS, KERNEL_LOOKUP)
+        self._check_clusters(cov_config)
         if method is None:
             method = (
                 "ols" if (self._common_exog and self._constraints is None) else "gls"
@@ -1317,7 +1597,7 @@ class _LSSystemModelBase(_SystemModelBase):
 
         cov_type = cov_type.lower()
         if cov_type not in COV_TYPES:
-            raise ValueError(f"Unknown cov_type: {cov_type}")
+            raise unknown_option_error("cov_type", cov_type, COV_TYPES)
         cov_type = COV_TYPES[cov_type]
         k = len(self._dependent)
         col_sizes = [0] + [v.shape[1] for v in self._x]
@@ -1349,6 +1629,11 @@ class _LSSystemModelBase(_SystemModelBase):
             delta = float(np.sqrt(np.mean(diff**2)))
             iter_count += 1
 
+        if iterate and self._sigma is None:
+            # The covariance uses the residual covariance at the final estimates
+            # rather than the one from the first step
+            full_sigma = (eps.T @ eps / nobs) * self._sigma_scale(debiased)
+
         sigma_m12 = inv_matrix_sqrt(sigma)
         wy = blocked_column_product(self._wy, sigma_m12)
         wx = blocked_diag_product(self._wx, sigma_m12)
@@ -1374,11 +1659,11 @@ class _LSSystemModelBase(_SystemModelBase):
 
 class IV3SLS(_LSSystemModelBase):
     r"""
-    Three-stage Least Squares (3SLS) Estimator
+    Three-stage Least Squares (3SLS) Estimator.
 
     Parameters
     ----------
-    equations : dict
+    equations : dict of str to tuple or dict
         Dictionary-like structure containing dependent, exogenous, endogenous
         and instrumental variables.  Each key is an equations label and must
         be a string. Each value must be either a tuple of the form (dependent,
@@ -1392,10 +1677,14 @@ class IV3SLS(_LSSystemModelBase):
         can contain either an empty array or `None` to indicate that an
         equation contains no exogenous regressors. Similarly "endog" and
         "instruments" can either be omitted or may contain an empty array (or
-        `None`) if all variables in an equation are exogenous.
-    sigma : array_like
-        Prespecified residual covariance to use in GLS estimation. If not
-        provided, FGLS is implemented based on an estimate of sigma.
+        `None`) if all variables in an equation are exogenous. The variables are
+        array_like, such as lists, NumPy arrays, pandas objects and xarray
+        DataArrays, and a ``TypeError`` that names the variable is raised for
+        complex values or text.
+    sigma : array_like, optional
+        Prespecified residual covariance to use in GLS estimation, with shape
+        (nequations, nequations). If not provided, FGLS is implemented based on an
+        estimate of sigma.
 
     Notes
     -----
@@ -1420,7 +1709,7 @@ class IV3SLS(_LSSystemModelBase):
 
     .. math::
 
-        Y = \left[\begin{array}{x}Y_1 \\ Y_2 \\ \vdots \\ Y_K\end{array}\right]
+        Y = \left[\begin{array}{c}Y_1 \\ Y_2 \\ \vdots \\ Y_K\end{array}\right]
 
     and
 
@@ -1440,7 +1729,7 @@ class IV3SLS(_LSSystemModelBase):
         \hat{\beta}_{IV} & = (X'Z(Z'Z)^{-1}Z'X)^{-1}X'Z(Z'Z)^{-1}Z'Y \\
                          & = (\hat{X}'\hat{X})^{-1}\hat{X}'Y
 
-    where :math:`\hat{X} = Z(Z'Z)^{-1}Z'X` and.  When certain conditions are
+    where :math:`\hat{X} = Z(Z'Z)^{-1}Z'X`.  When certain conditions are
     satisfied, a GLS estimator of the form
 
     .. math::
@@ -1454,6 +1743,29 @@ class IV3SLS(_LSSystemModelBase):
         \Omega = \Sigma \otimes I_N
 
     where :math:`\Sigma` is the covariance matrix of the residuals.
+
+    The weights of an equation, if they are given, must be strictly positive and
+    finite. They are rescaled to have a mean of 1 in the equation. A NaN weight is
+    missing, and its observation is dropped from all of the equations.
+
+    Rows are paired by position, both within an equation and across the
+    equations. An input that carries labels (a pandas Series or DataFrame
+    with an index other than the default 0, 1, ..., n-1, or an xarray
+    DataArray with coordinates) must use the same index, in the same order,
+    as the dependent variable of its equation, so that a value cannot be
+    attached to the wrong observation. The dependent variables that carry
+    labels must also use the same index in every equation. A ``ValueError``
+    is raised if an index differs. Either reindex the input to the index of
+    the dependent variable, or call ``to_numpy()`` to pair its values by
+    position. NumPy arrays and pandas objects with a default index do not
+    carry labels and are always paired by position. If none of the dependent
+    variables carries labels, the inputs that do must use the same index as the
+    first of them that does, in the order ``exog``, ``endog``, ``instruments``
+    and ``weights`` of each equation.
+    The same rule applies to ``clusters`` passed to ``fit``.
+    Dates and time deltas are compared by value, so that the same dates at
+    different resolutions, e.g., ``datetime64[us]`` and ``datetime64[ns]``, are
+    the same labels.
     """
 
     def __init__(
@@ -1477,23 +1789,30 @@ class IV3SLS(_LSSystemModelBase):
         instruments: linearmodels.typing.data.ArrayLike | None = None,
     ) -> IV3SLS:
         """
-        Interface for specification of multivariate IV models
+        Interface for specification of multivariate IV models.
 
         Parameters
         ----------
         dependent : array_like
-            nobs by ndep array of dependent variables
-        exog : array_like
-            nobs by nexog array of exogenous regressors common to all models
-        endog : array_like
-            nobs by nendog array of endogenous regressors common to all models
-        instruments : array_like
-            nobs by ninstr array of instruments to use in all equations
+            Array of dependent variables with shape (nobs, ndep).
+        exog : array_like, optional
+            Array of exogenous regressors common to all models with shape
+            (nobs, nexog).
+        endog : array_like, optional
+            Array of endogenous regressors common to all models with shape
+            (nobs, nendog).
+        instruments : array_like, optional
+            Array of instruments to use in all equations with shape (nobs, ninstr).
 
         Returns
         -------
-        model : IV3SLS
-            Model instance
+        IV3SLS
+            Model instance.
+
+        Raises
+        ------
+        ValueError
+            If neither ``exog`` nor ``endog`` is provided.
 
         Notes
         -----
@@ -1508,9 +1827,10 @@ class IV3SLS(_LSSystemModelBase):
         dependent_ivd = IVData(dependent, var_name="dependent")
         if exog is None and endog is None:
             raise ValueError("At least one of exog or endog must be provided")
-        exog_ivd = IVData(exog, var_name="exog")
-        endog_ivd = IVData(endog, var_name="endog", nobs=dependent.shape[0])
-        instr_ivd = IVData(instruments, var_name="instruments", nobs=dependent.shape[0])
+        nobs = dependent_ivd.shape[0]
+        exog_ivd = IVData(exog, var_name="exog", nobs=nobs)
+        endog_ivd = IVData(endog, var_name="endog", nobs=nobs)
+        instr_ivd = IVData(instruments, var_name="instruments", nobs=nobs)
         for col in dependent_ivd.pandas:
             equations[str(col)] = {
                 # TODO: Bug in pandas-stubs
@@ -1533,29 +1853,33 @@ class IV3SLS(_LSSystemModelBase):
         weights: Mapping[str, linearmodels.typing.data.ArrayLike] | None = None,
     ) -> IV3SLS:
         """
-        Specify a 3SLS using the formula interface
+        Specify a 3SLS using the formula interface.
 
         Parameters
         ----------
-        formula : {str, dict-like}
+        formula : str or dict of str to str
             Either a string or a dictionary of strings where each value in
             the dictionary represents a single equation. See Notes for a
-            description of the accepted syntax
+            description of the accepted syntax.
         data : DataFrame
-            Frame containing named variables
-        sigma : array_like
-            Prespecified residual covariance to use in GLS estimation. If
-            not provided, FGLS is implemented based on an estimate of sigma.
-        weights : dict-like
+            Frame containing named variables.
+        sigma : array_like, optional
+            Prespecified residual covariance to use in GLS estimation, with shape
+            (nequations, nequations). If not provided, FGLS is implemented based on
+            an estimate of sigma.
+        weights : dict of str to array_like, optional
             Dictionary like object (e.g. a DataFrame) containing variable
             weights.  Each entry must have the same number of observations as
             data.  If an equation label is not a key weights, the weights will
-            be set to unity
+            be set to unity.
+            The weights of an equation must be strictly positive and finite. They are
+            rescaled to have a mean of 1 in the equation. A NaN weight is missing, and
+            its observation is dropped from all of the equations.
 
         Returns
         -------
-        model : IV3SLS
-            Model instance
+        IV3SLS
+            Model instance.
 
         Notes
         -----
@@ -1597,19 +1921,22 @@ class IV3SLS(_LSSystemModelBase):
 
 class SUR(_LSSystemModelBase):
     r"""
-    Seemingly unrelated regression estimation (SUR/SURE)
+    Seemingly unrelated regression estimation (SUR/SURE).
 
     Parameters
     ----------
-    equations : dict
+    equations : dict of str to tuple or dict
         Dictionary-like structure containing dependent and exogenous variable
         values.  Each key is an equations label and must be a string. Each
         value must be either a tuple of the form (dependent,
         exog, [weights]) or a dictionary with keys "dependent" and "exog" and
-        the optional key "weights".
-    sigma : array_like
-        Prespecified residual covariance to use in GLS estimation. If not
-        provided, FGLS is implemented based on an estimate of sigma.
+        the optional key "weights". The variables are array_like, such as lists,
+        NumPy arrays, pandas objects and xarray DataArrays, and a ``TypeError``
+        that names the variable is raised for complex values or text.
+    sigma : array_like, optional
+        Prespecified residual covariance to use in GLS estimation, with shape
+        (nequations, nequations). If not provided, FGLS is implemented based on an
+        estimate of sigma.
 
     Notes
     -----
@@ -1634,7 +1961,7 @@ class SUR(_LSSystemModelBase):
 
     .. math::
 
-        Y = \left[\begin{array}{x}Y_1 \\ Y_2 \\ \vdots \\ Y_K\end{array}\right]
+        Y = \left[\begin{array}{c}Y_1 \\ Y_2 \\ \vdots \\ Y_K\end{array}\right]
 
     and
 
@@ -1669,6 +1996,29 @@ class SUR(_LSSystemModelBase):
 
     SUR is a special case of 3SLS where there are no endogenous regressors and
     no instruments.
+
+    The weights of an equation, if they are given, must be strictly positive and
+    finite. They are rescaled to have a mean of 1 in the equation. A NaN weight is
+    missing, and its observation is dropped from all of the equations.
+
+    Rows are paired by position, both within an equation and across the
+    equations. An input that carries labels (a pandas Series or DataFrame
+    with an index other than the default 0, 1, ..., n-1, or an xarray
+    DataArray with coordinates) must use the same index, in the same order,
+    as the dependent variable of its equation, so that a value cannot be
+    attached to the wrong observation. The dependent variables that carry
+    labels must also use the same index in every equation. A ``ValueError``
+    is raised if an index differs. Either reindex the input to the index of
+    the dependent variable, or call ``to_numpy()`` to pair its values by
+    position. NumPy arrays and pandas objects with a default index do not
+    carry labels and are always paired by position. If none of the dependent
+    variables carries labels, the inputs that do must use the same index as the
+    first of them that does, in the order ``exog``, ``endog``, ``instruments``
+    and ``weights`` of each equation.
+    The same rule applies to ``clusters`` passed to ``fit``.
+    Dates and time deltas are compared by value, so that the same dates at
+    different resolutions, e.g., ``datetime64[us]`` and ``datetime64[ns]``, are
+    the same labels.
     """
 
     def __init__(
@@ -1707,19 +2057,20 @@ class SUR(_LSSystemModelBase):
         exog: linearmodels.typing.data.ArrayLike,
     ) -> SUR:
         """
-        Interface for specification of multivariate regression models
+        Interface for specification of multivariate regression models.
 
         Parameters
         ----------
         dependent : array_like
-            nobs by ndep array of dependent variables
+            Array of dependent variables with shape (nobs, ndep).
         exog : array_like
-            nobs by nvar array of exogenous regressors common to all models
+            Array of exogenous regressors common to all models with shape
+            (nobs, nvar).
 
         Returns
         -------
-        model : SUR
-            Model instance
+        SUR
+            Model instance.
 
         Notes
         -----
@@ -1759,29 +2110,33 @@ class SUR(_LSSystemModelBase):
         weights: Mapping[str, linearmodels.typing.data.ArrayLike] | None = None,
     ) -> SUR:
         """
-        Specify a SUR using the formula interface
+        Specify a SUR using the formula interface.
 
         Parameters
         ----------
-        formula : {str, dict[str, str]}
+        formula : str or dict of str to str
             Either a string or a dictionary of strings where each value in
             the dictionary represents a single equation. See Notes for a
-            description of the accepted syntax
+            description of the accepted syntax.
         data : DataFrame
-            Frame containing named variables
-        sigma : array_like
-            Prespecified residual covariance to use in GLS estimation. If
-            not provided, FGLS is implemented based on an estimate of sigma.
-        weights : dict[str, array_like]
+            Frame containing named variables.
+        sigma : array_like, optional
+            Prespecified residual covariance to use in GLS estimation, with shape
+            (nequations, nequations). If not provided, FGLS is implemented based on
+            an estimate of sigma.
+        weights : dict of str to array_like, optional
             Dictionary like object (e.g. a DataFrame) containing variable
             weights.  Each entry must have the same number of observations as
             data.  If an equation label is not a key weights, the weights will
-            be set to unity
+            be set to unity.
+            The weights of an equation must be strictly positive and finite. They are
+            rescaled to have a mean of 1 in the equation. A NaN weight is missing, and
+            its observation is dropped from all of the equations.
 
         Returns
         -------
-        model : SUR
-            Model instance
+        SUR
+            Model instance.
 
         Notes
         -----
@@ -1822,27 +2177,53 @@ class SUR(_LSSystemModelBase):
 
 class IVSystemGMM(_SystemModelBase):
     r"""
-    System Generalized Method of Moments (GMM) estimation of linear IV models
+    System Generalized Method of Moments (GMM) estimation of linear IV models.
 
     Parameters
     ----------
-    equations : dict
+    equations : dict of str to tuple or dict
         Dictionary-like structure containing dependent, exogenous, endogenous
         and instrumental variables.  Each key is an equations label and must
         be a string. Each value must be either a tuple of the form (dependent,
         exog, endog, instrument[, weights]) or a dictionary with keys "dependent",
         "exog".  The dictionary may contain optional keys for "endog",
         "instruments", and "weights". Endogenous and/or Instrument can be empty
-        if all variables in an equation are exogenous.
-    sigma : array_like
-        Prespecified residual covariance to use in GLS estimation. If not
-        provided, FGLS is implemented based on an estimate of sigma. Only used
-        if weight_type is "unadjusted"
-    weight_type : str
-        Name of moment condition weight function to use in the GMM estimation
-    weight_config
+        if all variables in an equation are exogenous. The variables are
+        array_like, such as lists, NumPy arrays, pandas objects and xarray
+        DataArrays, and a ``TypeError`` that names the variable is raised for
+        complex values or text.
+    sigma : array_like, optional
+        Prespecified residual covariance to use in GLS estimation, with shape
+        (nequations, nequations). If not provided, FGLS is implemented based on an
+        estimate of sigma. Only used if weight_type is "unadjusted" or
+        "homoskedastic". A ``UserWarning`` is issued, and sigma is ignored, if it is
+        provided with another weight type.
+    weight_type : str, optional
+        Name of moment condition weight function to use in the GMM estimation. The
+        default is "robust". The names are not case sensitive. The supported weight
+        functions are:
+
+        * "unadjusted", "homoskedastic" - Assume moments are homoskedastic
+        * "robust", "heteroskedastic" - Allow for heteroskedasticity
+        * "kernel", "hac" - Allow for heteroskedasticity and autocorrelation
+
+    **weight_config : dict
         Additional keyword arguments to pass to the moment condition weight
-        function
+        function. All weight types accept ``center`` (bool), whether to center the
+        moment conditions, and ``debiased`` (bool), whether to use small-sample
+        adjustments. Both are False by default. "kernel" also accepts ``kernel``
+        (str), the name of the kernel, which is "bartlett" if it is not provided,
+        ``bandwidth`` (float), and ``optimal_bw`` (bool). The names of the kernels
+        are not case sensitive. See
+        :class:`~linearmodels.system.gmm.HomoskedasticWeightMatrix`,
+        :class:`~linearmodels.system.gmm.HeteroskedasticWeightMatrix` and
+        :class:`~linearmodels.system.gmm.KernelWeightMatrix` for the details.
+
+    Raises
+    ------
+    UnknownOptionError
+        If ``weight_type`` is not supported or ``kernel`` is not a supported
+        kernel. It is both a ``KeyError`` and a ``ValueError``.
 
     Notes
     -----
@@ -1865,7 +2246,7 @@ class IVSystemGMM(_SystemModelBase):
 
     .. math::
 
-        Y = \left[\begin{array}{x}Y_1 \\ Y_2 \\ \vdots \\ Y_K\end{array}\right]
+        Y = \left[\begin{array}{c}Y_1 \\ Y_2 \\ \vdots \\ Y_K\end{array}\right]
 
     and
 
@@ -1892,6 +2273,62 @@ class IVSystemGMM(_SystemModelBase):
         \hat{\beta}_{GMM} & = (X'ZW^{-1}Z'X)^{-1}X'ZW^{-1}Z'Y \\
 
     where :math:`W` is a positive definite weighting matrix.
+
+    The weight matrix is the inverse of an estimate of the covariance of the
+    moment conditions. ``weight_type`` selects the estimator: "unadjusted"
+    ("homoskedastic"), "robust" ("heteroskedastic") or "kernel" (``"hac"``), and
+    ``weight_config`` contains its options. These are ``center`` and
+    ``debiased`` for all of them, and ``kernel``, ``bandwidth`` and
+    ``optimal_bw`` for "kernel".
+
+    The bandwidth of a kernel weight matrix (``weight_type="kernel"``) is
+    ``bandwidth`` if it is given in ``weight_config``, and ``nobs - 2`` if
+    ``optimal_bw`` is ``False``. Otherwise, which is the default and what
+    ``optimal_bw=True`` does, it is estimated from the data, from the
+    residuals that the weight matrix is computed from. These are the residuals
+    of the first step estimates in two-step GMM, which is the default. A
+    bandwidth that is estimated from the data, for the weight matrix or the
+    covariance, needs at least 4 observations with the Bartlett kernel, 5 with
+    the Parzen kernel and 6 with the quadratic spectral kernel. ``fit`` raises a
+    ``ValueError`` for fewer observations, and if the estimated bandwidth is
+    not finite. Pass ``bandwidth`` to use the kernel with fewer observations.
+    See :func:`~linearmodels.iv.covariance.kernel_optimal_bandwidth`. In 7.0
+    and earlier the default was ``nobs - 2``, which is not a consistent
+    estimator of the covariance of the moment conditions, so the estimates,
+    standard errors and J statistic can be different. ``fit`` issues a
+    ``DefaultBandwidthWarning`` (a ``UserWarning``) when it uses the default.
+    To restore the previous behavior, pass ``optimal_bw=False`` or
+    ``bandwidth=nobs - 2``, where ``nobs`` is the number of observations of
+    each equation, in ``weight_config``, for example
+    ``IVSystemGMM(equations, weight_type="kernel", optimal_bw=False)``. Passing
+    ``bandwidth`` or ``optimal_bw`` silences the warning, and
+    ``optimal_bw=True`` selects the bandwidth from the data without it. The
+    kernel covariance of the parameters (``cov_type="kernel"`` in ``fit``) is
+    not affected, since it has always estimated its bandwidth from the data
+    unless ``bandwidth`` is given. See
+    :class:`~linearmodels.system.gmm.KernelWeightMatrix`.
+
+    The weights of an equation, if they are given, must be strictly positive and
+    finite. They are rescaled to have a mean of 1 in the equation. A NaN weight is
+    missing, and its observation is dropped from all of the equations.
+
+    Rows are paired by position, both within an equation and across the
+    equations. An input that carries labels (a pandas Series or DataFrame
+    with an index other than the default 0, 1, ..., n-1, or an xarray
+    DataArray with coordinates) must use the same index, in the same order,
+    as the dependent variable of its equation, so that a value cannot be
+    attached to the wrong observation. The dependent variables that carry
+    labels must also use the same index in every equation. A ``ValueError``
+    is raised if an index differs. Either reindex the input to the index of
+    the dependent variable, or call ``to_numpy()`` to pair its values by
+    position. NumPy arrays and pandas objects with a default index do not
+    carry labels and are always paired by position. If none of the dependent
+    variables carries labels, the inputs that do must use the same index as the
+    first of them that does, in the order ``exog``, ``endog``, ``instruments``
+    and ``weights`` of each equation.
+    Dates and time deltas are compared by value, so that the same dates at
+    different resolutions, e.g., ``datetime64[us]`` and ``datetime64[ns]``, are
+    the same labels.
     """
 
     def __init__(
@@ -1907,11 +2344,12 @@ class IVSystemGMM(_SystemModelBase):
         **weight_config: bool | str | float,
     ) -> None:
         super().__init__(equations, sigma=sigma)
+        weight_type = lower_option(weight_type)
         self._weight_type = weight_type
         self._weight_config = weight_config
 
-        if weight_type not in COV_TYPES:
-            raise ValueError("Unknown estimator for weight_type")
+        if weight_type not in GMM_TYPES:
+            raise unknown_option_error("weight_type", weight_type, GMM_TYPES)
 
         if weight_type not in ("unadjusted", "homoskedastic") and sigma is not None:
             warnings.warn(
@@ -1922,7 +2360,24 @@ class IVSystemGMM(_SystemModelBase):
                 stacklevel=1,
             )
         weight_type = COV_TYPES[weight_type]
-        self._weight_est = GMM_W_EST[weight_type](**weight_config)
+        # Kernel weights without a bandwidth select it from the data. fit warns
+        # about the change of this default, and makes the choice explicit so that
+        # the weight estimator does not warn as well
+        self._default_weight_bandwidth = (
+            weight_type == "kernel" and _uses_default_bandwidth(weight_config)
+        )
+        if self._default_weight_bandwidth:
+            weight_config = {**weight_config, "optimal_bw": True}
+        # Only the kernel weight matrix takes kernel, bandwidth and optimal_bw
+        self._weight_est: HomoskedasticWeightMatrix
+        if weight_type == "kernel":
+            self._weight_est = KernelWeightMatrix(
+                **cast("_KernelWeightConfig", weight_config)
+            )
+        else:
+            self._weight_est = GMM_W_EST[weight_type](
+                **cast("_WeightConfig", weight_config)
+            )
 
     def fit(
         self,
@@ -1931,44 +2386,89 @@ class IVSystemGMM(_SystemModelBase):
         tol: float = 1e-6,
         initial_weight: linearmodels.typing.data.Float64Array | None = None,
         cov_type: str = "robust",
-        **cov_config: bool | float,
+        **cov_config: bool | float | str,
     ) -> GMMSystemResults:
         """
-        Estimate model parameters
+        Estimate model parameters.
 
         Parameters
         ----------
-        iter_limit : int
-            Maximum number of iterations for iterative GLS
-        tol : float
-            Tolerance to use when checking for convergence in iterative GLS
-        initial_weight : ndarray
+        iter_limit : int, optional
+            Maximum number of iterations for iterative GLS. The default is 2.
+        tol : float, optional
+            Tolerance to use when checking for convergence in iterative GLS. The
+            default is 1e-6.
+        initial_weight : ndarray, optional
             Initial weighting matrix to use in the first step. If not
             specified, uses the average outer-product of the set containing
             the exogenous variables and instruments.
-        cov_type : str
-            Name of covariance estimator. Valid options are
+        cov_type : str, optional
+            Name of covariance estimator to use. The default is "robust". The names
+            are not case sensitive. Supported covariance estimators are:
 
             * "unadjusted", "homoskedastic" - Classic covariance estimator
             * "robust", "heteroskedastic" - Heteroskedasticity robust
               covariance estimator
+            * "kernel", "hac" - Heteroskedasticity and autocorrelation
+              robust covariance estimator
 
-        cov_config
-            Additional parameters to pass to covariance estimator. All
-            estimators support debiased which employs a small-sample adjustment
+        **cov_config : dict
+            Additional parameters to pass to the covariance estimator. All
+            estimators accept ``debiased`` (bool), which employs a small-sample
+            adjustment and is False by default. "kernel" also accepts ``kernel``
+            (str), the name of the kernel, which is "bartlett" if it is not
+            provided, and ``bandwidth`` (float), which is estimated from the data
+            if it is not given. The names of the kernels are not case sensitive.
 
         Returns
         -------
         GMMSystemResults
-            Estimation results
+            Estimation results.
+
+        Raises
+        ------
+        UnknownOptionError
+            If ``cov_type`` or ``kernel`` is not supported. It is both a
+            ``KeyError`` and a ``ValueError``.
+        ValueError
+            If a bandwidth is estimated from the data, for the kernel weight
+            matrix or for the kernel covariance, and there are fewer
+            observations than the kernel needs: 4 for the Bartlett kernel, 5
+            for the Parzen kernel and 6 for the quadratic spectral kernel. It
+            is also raised if the estimated bandwidth is not finite. Pass
+            ``bandwidth`` to use the kernel with fewer observations.
+            A key of ``cov_config`` that the covariance estimator that ``cov_type``
+            selects does not accept also raises it. The message names the key and lists
+            the accepted keys. This is checked before the model is estimated. Releases
+            before 7.1 raised the ``TypeError`` of the constructor of the covariance
+            estimator.
+
+        Notes
+        -----
+        If the model has a kernel weight matrix (``weight_type="kernel"``) and
+        neither ``bandwidth`` nor ``optimal_bw`` was given when it was created,
+        the bandwidth of the weight matrix is estimated from the data. In 7.0
+        and earlier it was ``nobs - 2``. ``fit`` issues a
+        ``DefaultBandwidthWarning`` (a ``UserWarning``) once for each call when
+        the model uses the default bandwidth. See the notes of
+        :class:`~linearmodels.system.model.IVSystemGMM` for how to restore the
+        previous bandwidth.
         """
-        if cov_type not in COV_TYPES:
-            raise ValueError(f"Unknown cov_type: {cov_type}")
+        cov_type = lower_option(cov_type)
+        check_cov_config(cov_config, cov_type, _GMM_COV_KEYS, KERNEL_LOOKUP)
+        if cov_type not in GMM_TYPES:
+            raise unknown_option_error("cov_type", cov_type, GMM_TYPES)
         # Parameter estimation
         wx, wy, wz = self._wx, self._wy, self._wz
         k = len(wx)
         nobs = wx[0].shape[0]
         k_total = sum(a.shape[1] for a in wz)
+        if self._default_weight_bandwidth:
+            # Once for each call to fit, however many iterations it needs. The
+            # warning refers to the call to fit
+            _warn_default_bandwidth(
+                weights=True, covariance=False, stacklevel=3, model="IVSystemGMM"
+            )
         if initial_weight is None:
             w = blocked_inner_prod(wz, np.eye(k_total)) / nobs
         else:
@@ -2026,10 +2526,28 @@ class IVSystemGMM(_SystemModelBase):
             iters += 1
 
         cov_type = COV_TYPES[cov_type]
-        cov_est = GMM_COV_EST[cov_type]
-        cov = cov_est(
-            wx, wz, eps, w, sigma=sigma, constraints=self._constraints, **cov_config
-        )
+        # Only the kernel covariance takes kernel and bandwidth
+        cov: GMMHomoskedasticCovariance
+        if cov_type == "kernel":
+            cov = GMMKernelCovariance(
+                wx,
+                wz,
+                eps,
+                w,
+                sigma=sigma,
+                constraints=self._constraints,
+                **cast("_GMMKernelCovConfig", cov_config),
+            )
+        else:
+            cov = GMM_COV_EST[cov_type](
+                wx,
+                wz,
+                eps,
+                w,
+                sigma=sigma,
+                constraints=self._constraints,
+                **cast("_GMMCovConfig", cov_config),
+            )
 
         weps = eps
         _eps = []
@@ -2086,7 +2604,7 @@ class IVSystemGMM(_SystemModelBase):
         sigma: linearmodels.typing.data.Float64Array,
         iter_count: int,
         cov_type: str,
-        cov_config: dict[str, bool | float],
+        cov_config: dict[str, bool | float | str],
         cov_est: GMMHeteroskedasticCovariance | GMMHomoskedasticCovariance,
     ) -> GMMSystemResults:
         """Collect results to return after GLS estimation"""
@@ -2125,8 +2643,8 @@ class IVSystemGMM(_SystemModelBase):
             key = self._eq_labels[i]
             individual[key] = stats
 
-        # Populate results dictionary
-        nobs = eps.size
+        # Populate results dictionary. All equations use the same observations
+        nobs = eps.shape[0]
         results = self._common_results(
             beta, cov, method, iter_count, nobs, cov_type, sigma, individual, debiased
         )
@@ -2160,36 +2678,52 @@ class IVSystemGMM(_SystemModelBase):
         **weight_config: bool | str | float,
     ) -> IVSystemGMM:
         """
-        Specify a 3SLS using the formula interface
+        Specify a system GMM model using the formula interface.
 
         Parameters
         ----------
-        formula : {str, dict-like}
+        formula : str or dict of str to str
             Either a string or a dictionary of strings where each value in
             the dictionary represents a single equation. See Notes for a
-            description of the accepted syntax
+            description of the accepted syntax.
         data : DataFrame
-            Frame containing named variables
-        weights : dict-like
+            Frame containing named variables.
+        weights : dict of str to array_like, optional
             Dictionary like object (e.g. a DataFrame) containing variable
             weights.  Each entry must have the same number of observations as
             data.  If an equation label is not a key weights, the weights will
-            be set to unity
-        weight_type : str
+            be set to unity.
+            The weights of an equation must be strictly positive and finite. They are
+            rescaled to have a mean of 1 in the equation. A NaN weight is missing, and
+            its observation is dropped from all of the equations.
+        weight_type : str, optional
             Name of moment condition weight function to use in the GMM
-            estimation. Valid options are:
+            estimation. The default is "robust". The names are not case sensitive.
+            The supported weight functions are:
 
             * "unadjusted", "homoskedastic" - Assume moments are homoskedastic
             * "robust", "heteroskedastic" - Allow for heteroskedasticity
+            * "kernel", "hac" - Allow for heteroskedasticity and autocorrelation
 
-        weight_config
+        **weight_config : dict
             Additional keyword arguments to pass to the moment condition weight
-            function
+            function. All weight types accept ``center`` (bool) and ``debiased``
+            (bool), which are False by default. "kernel" also accepts ``kernel``
+            (str), the name of the kernel, which is "bartlett" if it is not
+            provided, ``bandwidth`` (float), and ``optimal_bw`` (bool). The names of
+            the kernels are not case sensitive. See the parameters of
+            :class:`~linearmodels.system.model.IVSystemGMM`.
 
         Returns
         -------
-        model : IVSystemGMM
-            Model instance
+        IVSystemGMM
+            Model instance.
+
+        Raises
+        ------
+        UnknownOptionError
+            If ``weight_type`` is not supported or ``kernel`` is not a supported
+            kernel. It is both a ``KeyError`` and a ``ValueError``.
 
         Notes
         -----
@@ -2234,19 +2768,19 @@ class IVSystemGMM(_SystemModelBase):
         weight_mat: linearmodels.typing.data.Float64Array,
     ) -> WaldTestStatistic:
         """
-        J stat and test
+        J stat and test.
 
         Parameters
         ----------
         params : ndarray
-            Estimated model parameters
+            Estimated model parameters.
         weight_mat : ndarray
-            Weighting matrix used in estimation of the parameters
+            Weighting matrix used in estimation of the parameters.
 
         Returns
         -------
-        stat : WaldTestStatistic
-            Test statistic
+        WaldTestStatistic
+            Test statistic.
 
         Notes
         -----

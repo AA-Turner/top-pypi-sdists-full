@@ -2,16 +2,21 @@
 Tests for DSPy integration with Braintrust.
 """
 
+import base64
 import inspect
 import os
 from types import SimpleNamespace
 
 import dspy
 import pytest
-from braintrust import logger
+from braintrust import Attachment, logger
+from braintrust.bt_json import bt_dumps
 from braintrust.integrations.dspy import BraintrustDSpyCallback
+from braintrust.integrations.dspy.tracing import _process_images
+from braintrust.integrations.litellm import patch_litellm
 from braintrust.integrations.test_utils import run_in_subprocess, verify_autoinstrument_script
 from braintrust.test_helpers import init_test_logger
+from pydantic import BaseModel, Field, RootModel, field_serializer, model_serializer
 
 
 PROJECT_NAME = "test-dspy-app"
@@ -22,77 +27,211 @@ MODEL = "openai/gpt-4o-mini"
 LM_KWARGS = {"engine": "litellm"} if "engine" in inspect.signature(dspy.LM.__init__).parameters else {}
 
 
+def test_dspy_image_conversion_preserves_other_model_serializers():
+    class Page(BaseModel):
+        image: dspy.Image
+        redacted_image: dspy.Image
+        number: int
+        secret: str = Field(exclude=True)
+
+        @field_serializer("number")
+        def serialize_number(self, number):
+            return f"page-{number}"
+
+        @field_serializer("redacted_image")
+        def redact_image(self, image):
+            return "[redacted]"
+
+    image = dspy.Image(url="data:image/png;base64,aW1hZ2U=")
+    page = Page(image=image, redacted_image=image, number=2, secret="private")
+    converted = _process_images(page)
+    logged_image = converted["image"].get("image_url", converted["image"])
+    assert isinstance(logged_image["url"], Attachment)
+    assert converted["number"] == "page-2"
+    assert converted["redacted_image"] == "[redacted]"
+    assert "secret" not in converted
+    assert page.image is image
+
+
+@pytest.mark.parametrize("url", ["https://example.com/page.png", "data:image/png;base64,not base64!"])
+def test_dspy_image_conversion_preserves_unmaterialized_images(url):
+    image = dspy.Image(url=url)
+    assert _process_images({"image": image, "url": url}) == {
+        "image": image.model_dump(exclude_none=True),
+        "url": url,
+    }
+    model = RootModel[list[dspy.Image]]([image])
+    assert _process_images(model) == model.model_dump(exclude_none=True)
+
+
+@pytest.mark.vcr(
+    cassette_name="test_dspy_images_materialize_attachments",
+    match_on=["method", "scheme", "host", "port", "path", "query", "body"],
+)
+@pytest.mark.parametrize("model_kind", ["model", "root", "list", "scalar", "dict", "redacted"])
+def test_dspy_images_materialize_attachments(memory_logger, model_kind):
+    """Images stay out of inline logs throughout a real DSPy/LiteLLM call."""
+    image_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=="
+    image_url = f"data:image/png;base64,{image_base64}"
+
+    class Page(BaseModel):
+        number: int
+        image: dspy.Image
+
+    class SerializedPage(BaseModel):
+        page: Page
+        secret: str = Field(default="private", exclude=True)
+        private_notes: str = "serializer-hidden-value"
+
+        @model_serializer(mode="plain")
+        def serialize(self):
+            if model_kind == "list":
+                return [self.page]
+            if model_kind == "dict":
+                return {"visible": self.page}
+            if model_kind == "redacted":
+                return "[redacted]"
+            return self.page.image.url
+
+    # DSPy 2.6 supports direct image fields, but does not expand images nested
+    # in Pydantic fields into message content parts.
+    nested_images = os.environ.get("BRAINTRUST_TEST_PACKAGE_VERSION") != "2.6.0"
+    describe = dspy.Signature(
+        {
+            "image": (dspy.Image, dspy.InputField()),
+            "page": (Page if nested_images else dspy.Image, dspy.InputField()),
+            "answer": (str, dspy.OutputField()),
+        },
+        instructions="Describe the colors in these two page images.",
+    )
+
+    class DescribePages(dspy.Module):
+        def __init__(self):
+            super().__init__()
+            self.predict = dspy.Predict(describe)
+
+        def forward(self, image, page):
+            # The outer module accepts several model shapes, while every case
+            # sends the same request to the provider and reuses its recording.
+            if isinstance(page, RootModel):
+                predictor_page = page.root[0]
+            elif isinstance(page, SerializedPage):
+                predictor_page = page.page
+            else:
+                predictor_page = page
+            result = self.predict(image=image, page=predictor_page if nested_images else predictor_page.image)
+            return dspy.Prediction(answer=result.answer, image=image, page=page)
+
+    patch_litellm()
+    lm = dspy.LM(MODEL, cache=False, **LM_KWARGS)
+    image = dspy.Image(url=image_url)
+    page = Page(number=2, image=dspy.Image(url=image_url))
+    if model_kind == "root":
+        page = RootModel[list[Page]]([page])
+    elif model_kind in ("list", "scalar", "dict", "redacted"):
+        page = SerializedPage(page=page)
+    with dspy.context(lm=lm, callbacks=[BraintrustDSpyCallback()]):
+        result = DescribePages()(image=image, page=page)
+
+    assert result.answer
+    assert result.image is image
+    assert result.page is page
+    assert image.url == image_url
+    spans = {span["span_attributes"]["name"]: span for span in memory_logger.pop()}
+
+    for name in ("dspy.module.DescribePages", "dspy.module.Predict"):
+        span = spans[name]
+        assert span["span_attributes"]["type"] == "task"
+        assert span["metadata"]["module_class"].endswith(name.removeprefix("dspy.module."))
+
+    lm_span = spans["dspy.lm"]
+    assert lm_span["context"]["span_origin"]["instrumentation"]["name"] == "dspy-auto"
+    assert lm_span["span_attributes"].get("type") != "llm"
+    assert lm_span["metadata"]["model"] == MODEL
+    assert lm_span["metadata"]["provider"] == "openai"
+    assert lm_span["output"]
+    metrics = lm_span["metrics"]
+    assert metrics["prompt_tokens"] > 0
+    assert metrics["completion_tokens"] > 0
+    assert metrics["tokens"] == metrics["prompt_tokens"] + metrics["completion_tokens"]
+
+    for name in ("dspy.adapter.format", "dspy.adapter.parse"):
+        span = spans[name]
+        assert span["span_attributes"]["type"] == "task"
+        assert span["metadata"]["adapter_class"].endswith("ChatAdapter")
+        assert "signature" in span["input"]
+    assert "demos" in spans["dspy.adapter.format"]["input"]
+    assert "completion" in spans["dspy.adapter.parse"]["input"]
+    assert isinstance(spans["dspy.adapter.parse"]["output"], dict)
+    span_ids = {span["span_id"] for span in spans.values()}
+    for name in ("dspy.lm", "dspy.adapter.format", "dspy.adapter.parse"):
+        assert spans[name]["span_parents"][0] in span_ids
+
+    def assert_image(value):
+        attachment = value.get("image_url", value)["url"]
+        assert isinstance(attachment, Attachment)
+        assert attachment.data == base64.b64decode(image_base64)
+        assert attachment.reference["content_type"] == "image/png"
+
+    def assert_page(value):
+        if model_kind in ("root", "list"):
+            assert len(value) == 1
+            value = value[0]
+        elif model_kind == "dict":
+            assert set(value) == {"visible"}
+            value = value["visible"]
+        elif model_kind == "scalar":
+            assert isinstance(value, Attachment)
+            assert value.data == base64.b64decode(image_base64)
+            return
+        elif model_kind == "redacted":
+            assert value == "[redacted]"
+            return
+        assert value["number"] == 2
+        assert_image(value["image"])
+
+    for name in ("dspy.module.DescribePages", "dspy.module.Predict"):
+        inputs = spans[name]["input"]
+        inputs = inputs.get("kwargs", inputs)
+        assert_image(inputs["image"])
+        if name == "dspy.module.DescribePages":
+            assert_page(inputs["page"])
+        elif nested_images:
+            assert_image(inputs["page"]["image"])
+            assert inputs["page"]["number"] == 2
+        else:
+            assert_image(inputs["page"])
+    assert_image(spans["dspy.module.DescribePages"]["output"]["image"])
+    assert_page(spans["dspy.module.DescribePages"]["output"]["page"])
+    assert_image(spans["dspy.adapter.format"]["input"]["inputs"]["image"])
+    logged_page = spans["dspy.adapter.format"]["input"]["inputs"]["page"]
+    assert_image(logged_page["image"] if nested_images else logged_page)
+    for messages in (
+        spans["dspy.adapter.format"]["output"],
+        spans["dspy.lm"]["input"]["messages"],
+        spans["Completion"]["input"],
+    ):
+        image_parts = [
+            part
+            for message in messages
+            if isinstance(message["content"], list)
+            for part in message["content"]
+            if part["type"] == "image_url"
+        ]
+        assert len(image_parts) == 2
+        for part in image_parts:
+            assert_image(part)
+    serialized = bt_dumps(spans)
+    assert image_base64 not in serialized
+    assert "CUSTOM-TYPE" not in serialized
+    assert "serializer-hidden-value" not in serialized
+
+
 @pytest.fixture
 def memory_logger():
     init_test_logger(PROJECT_NAME)
     with logger._internal_with_memory_background_logger() as bgl:
         yield bgl
-
-
-@pytest.mark.vcr
-def test_dspy_callback(memory_logger):
-    """Test DSPy callback logs spans correctly."""
-    assert not memory_logger.pop()
-
-    # Configure DSPy with Braintrust callback
-    lm = dspy.LM(MODEL, cache=False, **LM_KWARGS)
-    dspy.configure(lm=lm, callbacks=[BraintrustDSpyCallback()])
-
-    # Use ChainOfThought for a more interesting test
-    cot = dspy.ChainOfThought("question -> answer")
-    result = cot(question="What is 2+2?")
-
-    assert result.answer  # Verify we got a response
-
-    # Check logged spans
-    spans = memory_logger.pop()
-    assert len(spans) >= 4  # Should have module, adapter format, LM, and adapter parse spans
-
-    spans_by_name = {span["span_attributes"]["name"]: span for span in spans}
-
-    module_span = spans_by_name["dspy.module.ChainOfThought"]
-    assert module_span["span_attributes"]["type"] == "task"
-    assert module_span["metadata"]["module_class"].endswith("ChainOfThought")
-
-    lm_span = spans_by_name["dspy.lm"]
-    assert lm_span["context"]["span_origin"]["instrumentation"]["name"] == "dspy-auto"
-    assert lm_span["span_attributes"].get("type") != "llm"
-    assert "metadata" in lm_span
-    assert "model" in lm_span["metadata"]
-    assert MODEL in lm_span["metadata"]["model"]
-    assert lm_span["metadata"]["provider"] == "openai"
-    assert "input" in lm_span
-    assert "output" in lm_span
-    # The latest cassette contains a real OpenAI usage payload. DSPy 2.6's
-    # recorded response predates usage being included.
-    if os.environ.get("BRAINTRUST_TEST_PACKAGE_VERSION") == "latest":
-        assert lm_span["metrics"]["prompt_tokens"] == 170
-        assert lm_span["metrics"]["completion_tokens"] == 47
-        assert lm_span["metrics"]["tokens"] == 217
-
-    format_span = spans_by_name["dspy.adapter.format"]
-    assert format_span["span_attributes"]["type"] == "task"
-    assert format_span["metadata"]["adapter_class"].endswith("ChatAdapter")
-    assert "signature" in format_span["input"]
-    assert "demos" in format_span["input"]
-    assert "inputs" in format_span["input"]
-    assert isinstance(format_span["output"], list)
-
-    parse_span = spans_by_name["dspy.adapter.parse"]
-    assert parse_span["span_attributes"]["type"] == "task"
-    assert parse_span["metadata"]["adapter_class"].endswith("ChatAdapter")
-    assert "signature" in parse_span["input"]
-    assert "completion" in parse_span["input"]
-    assert isinstance(parse_span["output"], dict)
-
-    # Verify spans are nested under the broader DSPy execution
-    span_ids = {span["span_id"] for span in spans}
-    assert lm_span.get("span_parents")
-    assert format_span.get("span_parents")
-    assert parse_span.get("span_parents")
-    assert format_span["span_parents"][0] in span_ids
-    assert lm_span["span_parents"][0] in span_ids
-    assert parse_span["span_parents"][0] in span_ids
 
 
 def test_dspy_callback_ignores_usage_from_previous_lm_call(memory_logger):

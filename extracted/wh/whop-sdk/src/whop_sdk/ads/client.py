@@ -110,7 +110,7 @@ class AdsClient:
             Filter ads by a title or ID substring.
 
         order : typing.Optional[ListAdsRequestOrder]
-            The field to sort by. Defaults to created_at. Stat columns (spend, impressions, …) rank over the stats_from/stats_to window across the whole list, not just the current page. results, cost_per_result and return_on_ad_spend rank by the same Whop pixel-attributed values the response reports.
+            The field to sort by. Defaults to created_at. Stat columns (spend, impressions, …) rank over the stats_from/stats_to window across the whole list, not just the current page. results, cost_per_result and return_on_ad_spend rank by the same Whop pixel-attributed values the response reports, and link_clicks by the same Whop pixel page views.
 
         direction : typing.Optional[ListAdsRequestDirection]
             The sort direction. Defaults to desc.
@@ -158,7 +158,7 @@ class AdsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -298,7 +298,7 @@ class AdsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -372,7 +372,7 @@ class AdsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -412,7 +412,7 @@ class AdsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -522,7 +522,7 @@ class AdsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -593,7 +593,7 @@ class AdsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -632,7 +632,7 @@ class AdsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -665,7 +665,7 @@ class AdsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -743,7 +743,7 @@ class AsyncAdsClient:
             Filter ads by a title or ID substring.
 
         order : typing.Optional[ListAdsRequestOrder]
-            The field to sort by. Defaults to created_at. Stat columns (spend, impressions, …) rank over the stats_from/stats_to window across the whole list, not just the current page. results, cost_per_result and return_on_ad_spend rank by the same Whop pixel-attributed values the response reports.
+            The field to sort by. Defaults to created_at. Stat columns (spend, impressions, …) rank over the stats_from/stats_to window across the whole list, not just the current page. results, cost_per_result and return_on_ad_spend rank by the same Whop pixel-attributed values the response reports, and link_clicks by the same Whop pixel page views.
 
         direction : typing.Optional[ListAdsRequestDirection]
             The sort direction. Defaults to desc.
@@ -793,7 +793,7 @@ class AsyncAdsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -942,7 +942,7 @@ class AsyncAdsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1024,7 +1024,7 @@ class AsyncAdsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1072,7 +1072,7 @@ class AsyncAdsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1190,7 +1190,7 @@ class AsyncAdsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1269,7 +1269,7 @@ class AsyncAdsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1316,7 +1316,7 @@ class AsyncAdsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1357,7 +1357,7 @@ class AsyncAdsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

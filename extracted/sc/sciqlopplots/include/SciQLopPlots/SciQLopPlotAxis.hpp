@@ -65,7 +65,9 @@ public:
 
     virtual ~SciQLopPlotAxisInterface() = default;
 
-    inline virtual void set_range(const SciQLopPlotRange&) noexcept { WARN_ABSTRACT_METHOD; }
+    // A slot, so PySide connects a signal to it on an axis made in C++: as a plain method it
+    // falls back to a dynamic slot, which needs a Python wrapper such an axis does not have.
+    inline Q_SLOT virtual void set_range(const SciQLopPlotRange&) noexcept { WARN_ABSTRACT_METHOD; }
 
     inline void set_range(double start, double stop) noexcept
     {
@@ -272,6 +274,7 @@ class SciQLopPlotDummyAxis : public SciQLopPlotAxisInterface
 {
     Q_OBJECT
     SciQLopPlotRange m_range;
+    bool m_visible = true;
 
 public:
     explicit SciQLopPlotDummyAxis(QObject* parent = nullptr) : SciQLopPlotAxisInterface(parent) { }
@@ -281,6 +284,10 @@ public:
     void set_range(const SciQLopPlotRange& range) noexcept override;
 
     inline SciQLopPlotRange range() const noexcept override { return m_range; }
+
+    // Nothing to draw: a panel hiding the x axes of all its plots but the last asks anyway.
+    inline void set_visible(bool visible) noexcept override { m_visible = visible; }
+    inline bool visible() const noexcept override { return m_visible; }
 };
 
 class SciQLopPlotAxis : public SciQLopPlotAxisInterface

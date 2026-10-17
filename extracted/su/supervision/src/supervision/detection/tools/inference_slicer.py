@@ -30,9 +30,11 @@ from supervision.utils.iterables import create_batches
 class WindowedRasterDataset(Protocol):
     """Structural type for a rasterio-style dataset read window-by-window.
 
-    Matched structurally by `_is_windowed_raster` rather than by import so
-    `rasterio` stays an optional dependency — any object exposing these members
-    works. `rasterio.io.DatasetReader` satisfies this protocol.
+    Matched structurally by
+    :func:`~supervision.detection.tools.inference_slicer._is_windowed_raster`
+    rather than by import so `rasterio`
+    stays an optional dependency — any object exposing these members works.
+    `rasterio.io.DatasetReader` satisfies this protocol.
     """
 
     width: int
@@ -45,8 +47,8 @@ class WindowedRasterDataset(Protocol):
 def _is_windowed_raster(image: object) -> TypeGuard[WindowedRasterDataset]:
     """Duck-type check for a rasterio-style dataset that supports windowed reads.
 
-    Avoids importing rasterio so it remains an optional dependency. numpy arrays
-    and PIL images do not expose this combination of attributes.
+    Avoids importing rasterio so it remains an optional dependency. numpy arrays and PIL
+    images do not expose this combination of attributes.
     """
     return (
         callable(getattr(image, "read", None))
@@ -104,8 +106,7 @@ def move_detections(
 
 
 class InferenceSlicer:
-    """
-    Perform tiled inference on large images by slicing them into overlapping patches.
+    """Perform tiled inference on large images by slicing them into overlapping patches.
 
     This class divides an input image into overlapping slices of configurable size
     and overlap, runs inference on each slice through a user-provided callback, and
@@ -192,7 +193,8 @@ class InferenceSlicer:
         model = RFDETRMedium()
 
         def callback(tile):
-            return model.predict(tile)
+            # Tiles are BGR slices of the image; RF-DETR expects RGB.
+            return model.predict(tile[:, :, ::-1])
 
         slicer = sv.InferenceSlicer(callback, slice_wh=640, overlap_wh=100)
 
@@ -311,8 +313,7 @@ class InferenceSlicer:
         self._raster_read_lock = threading.Lock()
 
     def __call__(self, image: ImageType | WindowedRasterDataset) -> Detections:
-        """
-        Perform tiled inference on the full image and return merged detections.
+        """Perform tiled inference on the full image and return merged detections.
 
         The first slice always runs synchronously so the output type can be
         inspected before committing to a threading strategy. Detections are
@@ -320,12 +321,14 @@ class InferenceSlicer:
         followed by any probe slices, then the remaining slices in source order.
         Empty slices or batches are probed synchronously until the output geometry
         is known. If oriented bounding boxes are detected, all remaining slices are
-        processed sequentially and a ``SupervisionWarnings`` warning is emitted
+        processed sequentially and a
+        :class:`~supervision.utils.internal.SupervisionWarnings` warning is emitted
         once per slicer instance.
 
         Per-slice ``metadata`` is merged leniently: a key survives only when
         every slice carries it with an equal value; otherwise it is dropped and
-        a ``SupervisionWarnings`` warning is emitted once per slicer instance,
+        a :class:`~supervision.utils.internal.SupervisionWarnings` warning is
+        emitted once per slicer instance,
         naming the dropped keys — a key meant to be global (``video_name``,
         ``camera_id``, …) would otherwise vanish silently. The merged
         ``metadata`` dict returned is always freshly built, never the same
@@ -338,8 +341,11 @@ class InferenceSlicer:
         raster dataset has no full in-memory image to give back, so its result
         carries no ``source_image``. Because the stored value is a reference,
         mutating the returned ``metadata["source_image"]`` mutates the caller's
-        own ``image``, and every ``Detections`` derived from the result via
-        ``select()``, ``__getitem__``, or ``with_nms()`` shares that same
+        own ``image``, and every
+        :class:`~supervision.detection.core.Detections` derived from the result via
+        :meth:`~supervision.detection.core.Detections.select`,
+        :meth:`~supervision.detection.core.Detections.__getitem__`, or
+        :meth:`~supervision.detection.core.Detections.with_nms` shares that same
         reference — a long-lived derived result (e.g. held across a video
         processing loop) keeps the full input frame alive.
 
@@ -599,8 +605,8 @@ class InferenceSlicer:
     def _run_callback(
         self, image: ImageType | WindowedRasterDataset, offset: npt.NDArray[Any]
     ) -> Detections:
-        """
-        Run detection callback on a sliced portion of the image and adjust coordinates.
+        """Run detection callback on a sliced portion of the image and adjust
+        coordinates.
 
         Args:
             image: The full image.
@@ -821,8 +827,8 @@ class InferenceSlicer:
         slice_wh: tuple[int, int],
         overlap_wh: tuple[int, int],
     ) -> npt.NDArray[Any]:
-        """
-        Generate bounding boxes defining the coordinates of image slices with overlap.
+        """Generate bounding boxes defining the coordinates of image slices with
+        overlap.
 
         Args:
             resolution_wh: Image resolution `(width, height)`.

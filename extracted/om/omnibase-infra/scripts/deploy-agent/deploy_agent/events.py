@@ -17,6 +17,12 @@ from deploy_agent.tracking_ref import load_tracking_remote_ref_from_env
 TOPIC_REBUILD_REQUESTED = "onex.cmd.deploy.rebuild-requested.v1"
 TOPIC_REBUILD_COMPLETED = "onex.evt.deploy.rebuild-completed.v1"
 TOPIC_REBUILD_REJECTED = "onex.evt.deploy.rebuild-rejected.v1"
+# OMN-21146: a dev lane running behind a followed repository's dev head, past
+# the instance's declared bound (deploy_agent.idle_converge, dev_lane_drift).
+TOPIC_DEV_LANE_DRIFT = "onex.evt.deploy.dev-lane-drift.v1"
+# OMN-19998: a lab instance's heartbeat against the newest dev-* tag of each
+# tag-followed repository, and its alarm when it runs behind that tag too long.
+TOPIC_DEV_TAG_HEARTBEAT = "onex.evt.deploy.dev-tag-heartbeat.v1"
 # Dead-letter target for a command record the agent cannot decode or validate
 # (OMN-16442). Shape follows the org convention onex.dlq.<producer>.<category>.<version>.
 # A record that lands here is one the agent has committed past: it can never be
@@ -650,6 +656,60 @@ class ModelVerifyRecreate(BaseModel):
         return line
 
 
+class EnumOneShotRerunReason(StrEnum):
+    """Why a control-plane one-shot was re-run by a no-deps runtime rebuild."""
+
+    #: The container exists and its running config hash differs from the one
+    #: compose renders now: the one-shot's declaration moved since it last ran.
+    CONFIG_CHANGED = "config_changed"
+    #: No container for the one-shot exists on the lane, so it has never run.
+    NEVER_RAN = "never_ran"
+
+
+class ModelOneShotRerun(BaseModel):
+    """One control-plane one-shot a runtime rebuild re-ran, and how it ended (OMN-19911).
+
+    A runtime rebuild starts its services with ``up -d --no-deps``, and compose
+    never revisits a completed one-shot it was not asked to start. On a lab dev lane on
+    2026-09-28 that left ``redpanda-partition-cap`` on a config hash that
+    predated the change moving the control-plane topic's creation into it, and
+    the writers started against a broker without the topic. The re-run is a
+    mutation the agent decides to perform on a lane, so it is a durable fact on
+    the job record and the terminal event rather than a log line.
+
+    ``exit_code`` is ``None`` until the one-shot has been run, and when compose
+    reports no exit code for it; ``completed`` is true only for a one-shot that
+    exited 0.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    service: str
+    lane: EnumRuntimeLane
+    compose_project: str
+    reason: EnumOneShotRerunReason
+    running_config_hash: str = ""
+    rendered_config_hash: str
+    exit_code: int | None = None
+    completed: bool = False
+
+    def describe(self) -> str:
+        """One-line, log-ready statement of what was re-run and how it ended."""
+        if self.reason == EnumOneShotRerunReason.NEVER_RAN:
+            why = "never ran on this lane"
+        else:
+            why = (
+                f"config hash {self.running_config_hash[:12]} -> "
+                f"{self.rendered_config_hash[:12]}"
+            )
+        if self.completed:
+            outcome = "exited 0"
+        elif self.exit_code is None:
+            outcome = "no exit code recorded"
+        else:
+            outcome = f"did not complete (exit code {self.exit_code})"
+        return f"{self.service} on {self.compose_project} re-run ({why}): {outcome}"
+
+
 #: The build-context repository. ``git_ref`` is always a commit of this one.
 INFRA_REPOSITORY: Final = "omnibase_infra"
 
@@ -765,6 +825,61 @@ class ModelRollbackDeclaration(BaseModel):
                 msg = f"rollback {name} is blank; a rollback must name its {name}"
                 raise ValueError(msg)
         return self
+
+
+class ModelDevLaneDrift(BaseModel):
+    """A dev lane behind a followed repository's dev head (OMN-21146).
+
+    Published to :data:`TOPIC_DEV_LANE_DRIFT` when the lane has lagged the head
+    for the instance's declared ``max_dev_lag_minutes`` (``overdue``), again
+    while it stays overdue, and once with ``overdue`` false and ``lag_seconds``
+    0 when the lane runs the head again. ``behind_since`` is when this agent
+    first saw the lane behind; an agent restart starts it again, so the lag is
+    never overstated.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    instance: str
+    repository: str
+    runtime_container: str
+    #: The running container's image, ``<name>@<image id>``, or ``""`` unread.
+    running_image: str
+    running_ref: str
+    head_ref: str
+    behind_since: datetime | None
+    observed_at: datetime
+    lag_seconds: int = Field(ge=0)
+    max_lag_seconds: int = Field(gt=0)
+    overdue: bool
+
+
+class ModelDevTagHeartbeat(BaseModel):
+    """A lab instance's reading against a repository's newest ``dev-*`` tag (OMN-19998).
+
+    Published to :data:`TOPIC_DEV_TAG_HEARTBEAT` on every
+    ``DEV_TAG_HEARTBEAT_INTERVAL`` and at once when ``alarm`` changes. The lane
+    is behind from ``behind_since``: the cut time of the first tag after the
+    one it runs, or, when the running commit is no dev tag, the first read
+    that saw it off the newest tag. ``alarm`` is set once that is
+    ``alarm_after_seconds`` old. A ref this read could not take is ``None``,
+    and an unread reading never raises the alarm.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    instance: str
+    repository: str
+    runtime_container: str
+    running_ref: str | None
+    newest_tag: str | None
+    newest_tag_sha: str | None
+    newest_tag_cut_at: datetime | None
+    behind_since: datetime | None
+    observed_at: datetime
+    lag_seconds: int = Field(ge=0)
+    alarm_after_seconds: int = Field(gt=0)
+    alarm: bool
 
 
 class ModelRebuildRequested(BaseModel):
@@ -1242,6 +1357,10 @@ class ModelRebuildCompleted(BaseModel):
     # only that the job failed, which is why the same wedge recurred three
     # times across two nights with nothing to distinguish the occurrences.
     verify_recreate: list[ModelVerifyRecreate] = Field(default_factory=list)
+    # OMN-19911: the control-plane one-shots a runtime rebuild re-ran because
+    # their config hash moved (or they never ran), each with its exit code.
+    # Empty is the normal reading and a FACT: nothing needed re-running.
+    oneshot_reruns: list[ModelOneShotRerun] = Field(default_factory=list)
     # OMN-18640: what the deps leg found before it acted -- per core service,
     # the running config hash, the rendered one, and whether convergence was
     # therefore about to replace that container. Empty for a deploy whose deps

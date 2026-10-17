@@ -1,4 +1,5 @@
-use chrono::Utc;
+use super::retry::{INITIALIZATION_DEADLINE, RetryExecutor, RetryPolicy};
+use tokio::sync::Notify;
 
 use super::http2::http2_enabled;
 use super::network_error::NetworkError;
@@ -17,7 +18,7 @@ use crate::{StatsigOptions, log_d, log_i, log_w};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 const NON_RETRY_CODES: [u16; 6] = [
     400, // Bad Request
@@ -44,6 +45,7 @@ pub struct NetworkClient {
     output_policy: crate::output_policy::OutputPolicy,
     headers: HashMap<String, String>,
     is_shutdown: Arc<AtomicBool>,
+    shutdown_notify: Notify,
     ops_stats: Arc<OpsStatsForInstance>,
     net_provider: Weak<dyn NetworkProvider>,
     disable_network: bool,
@@ -111,6 +113,7 @@ impl NetworkClient {
             output_policy,
             headers: headers.unwrap_or_default(),
             is_shutdown: Arc::new(AtomicBool::new(false)),
+            shutdown_notify: Notify::new(),
             net_provider,
             ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
             disable_network,
@@ -128,6 +131,7 @@ impl NetworkClient {
 
     pub fn shutdown(&self) {
         self.is_shutdown.store(true, Ordering::SeqCst);
+        self.shutdown_notify.notify_waiters();
     }
 
     pub async fn get(&self, request_args: RequestArgs) -> Result<Response, NetworkError> {
@@ -135,6 +139,7 @@ impl NetworkClient {
             .await
     }
 
+    #[cfg(test)]
     pub(crate) async fn get_without_redirects(
         &self,
         request_args: RequestArgs,
@@ -143,6 +148,7 @@ impl NetworkClient {
             .await
     }
 
+    #[cfg(test)]
     pub(crate) async fn get_with_response_limit(
         &self,
         request_args: RequestArgs,
@@ -167,6 +173,29 @@ impl NetworkClient {
             .await
     }
 
+    pub(crate) fn retry_executor(&self, policy: RetryPolicy) -> RetryExecutor<'_> {
+        RetryExecutor {
+            policy,
+            deadline: INITIALIZATION_DEADLINE.try_with(|deadline| *deadline).ok(),
+            shutdown: &self.is_shutdown,
+            shutdown_notify: &self.shutdown_notify,
+        }
+    }
+
+    pub(crate) fn log_fallback(&self, group: &'static str, allowed: bool) {
+        self.ops_stats.log(ObservabilityEvent::new_event(
+            MetricType::Increment,
+            if allowed {
+                "state_read.fallback_attempt"
+            } else {
+                "state_read.fallback_suppressed"
+            }
+            .into(),
+            1.0,
+            Some(HashMap::from([("endpoint_group".into(), group.into())])),
+        ));
+    }
+
     async fn make_request(
         &self,
         method: HttpMethod,
@@ -174,23 +203,69 @@ impl NetworkClient {
         max_response_bytes: Option<u64>,
         disable_redirects: bool,
     ) -> Result<Response, NetworkError> {
-        self.output_policy.scope(async {
-        let is_shutdown = if let Some(is_shutdown) = &request_args.is_shutdown {
-            is_shutdown.clone()
-        } else {
-            self.is_shutdown.clone()
-        };
-
-        if self.disable_network {
-            log_d!(TAG, "Network is disabled, not making requests");
-            return Err(NetworkError::DisableNetworkOn(request_args.url));
+        self.prepare_request_args(&mut request_args);
+        let mut executor = self.retry_executor(RetryPolicy {
+            attempts: request_args.retries.saturating_add(1),
+            jitter: false,
+        });
+        if let Some(shutdown) = request_args.is_shutdown.as_ref() {
+            executor.shutdown = shutdown;
         }
+        executor
+            .run(
+                |_, index| {
+                    self.send_request_once(
+                        method.clone(),
+                        &request_args,
+                        max_response_bytes,
+                        disable_redirects,
+                        false,
+                        index,
+                        request_args.retries,
+                    )
+                },
+                |error| matches!(error, NetworkError::RetriesExhausted(..)).then_some(u32::MAX),
+                |_| false,
+                || NetworkError::ShutdownError(request_args.url.clone()),
+            )
+            .await
+    }
 
+    pub(crate) async fn request_once(
+        &self,
+        method: HttpMethod,
+        mut request_args: RequestArgs,
+        max_response_bytes: Option<u64>,
+        disable_redirects: bool,
+        state_read: bool,
+        attempt: u32,
+    ) -> Result<Response, NetworkError> {
+        let retries = request_args.retries;
+        if state_read {
+            request_args.retries = 0;
+        }
+        self.prepare_request_args(&mut request_args);
+        self.send_request_once(
+            method,
+            &request_args,
+            max_response_bytes,
+            disable_redirects,
+            state_read,
+            attempt,
+            retries,
+        )
+        .await
+    }
+
+    fn prepare_request_args(&self, request_args: &mut RequestArgs) {
+        if self.disable_network {
+            return;
+        }
         request_args.populate_headers(self.headers.clone());
 
-        if request_args.disable_file_streaming.is_none() {
-            request_args.disable_file_streaming = Some(self.disable_file_streaming);
-        }
+        request_args
+            .disable_file_streaming
+            .get_or_insert(self.disable_file_streaming);
 
         if request_args.ca_cert_pem.is_none() {
             request_args.ca_cert_pem = self.ca_cert_pem.clone();
@@ -200,202 +275,196 @@ impl NetworkClient {
             request_args.log_event_connection_reuse = true;
         }
 
-        let mut merged_headers = request_args.headers.unwrap_or_default();
-        if !self.headers.is_empty() {
-            merged_headers.extend(self.headers.clone());
-        }
-        merged_headers.insert(
-            "STATSIG-CLIENT-TIME".into(),
-            Utc::now().timestamp_millis().to_string(),
-        );
-        request_args.headers = Some(merged_headers);
-
         // passing down proxy config through request args
         if let Some(proxy_config) = &self.proxy_config {
             request_args.proxy_config = Some(proxy_config.clone());
         }
+    }
 
-        let mut attempt = 0;
+    // Keep the caller's retry budget for logging when state reads set provider retries to zero.
+    #[allow(clippy::too_many_arguments)]
+    async fn send_request_once(
+        &self,
+        method: HttpMethod,
+        request_args: &RequestArgs,
+        max_response_bytes: Option<u64>,
+        disable_redirects: bool,
+        state_read: bool,
+        attempt: u32,
+        retries: u32,
+    ) -> Result<Response, NetworkError> {
+        self.output_policy
+            .scope(async {
+                let is_shutdown = request_args
+                    .is_shutdown
+                    .as_ref()
+                    .unwrap_or(&self.is_shutdown);
 
-        loop {
-            if let Some(key) = request_args.diagnostics_key {
-                self.ops_stats.add_marker(
-                    Marker::new(key, ActionType::Start, Some(StepType::NetworkRequest))
-                        .with_attempt(attempt)
-                        .with_url(request_args.url.clone()),
-                    None,
-                );
-            }
-            if is_shutdown.load(Ordering::SeqCst) {
-                log_i!(TAG, "{}", SHUTDOWN_ERROR);
-                return Err(NetworkError::ShutdownError(request_args.url));
-            }
+                if self.disable_network {
+                    log_d!(TAG, "Network is disabled, not making requests");
+                    return Err(NetworkError::DisableNetworkOn(request_args.url.clone()));
+                }
 
-            let request_start = Instant::now();
-            let (mut response, response_size_limit_exceeded, response_limit_unsupported) =
-                match self.net_provider.upgrade() {
-                    Some(net_provider) if self.http2_enabled => net_provider
+                if let Some(key) = request_args.diagnostics_key {
+                    self.ops_stats.add_marker(
+                        Marker::new(key, ActionType::Start, Some(StepType::NetworkRequest))
+                            .with_attempt(attempt)
+                            .with_url(request_args.url.clone()),
+                        None,
+                    );
+                }
+                if is_shutdown.load(Ordering::SeqCst) {
+                    log_i!(TAG, "{}", SHUTDOWN_ERROR);
+                    return Err(NetworkError::ShutdownError(request_args.url.clone()));
+                }
+
+                let request_start = Instant::now();
+                let (mut response, response_size_limit_exceeded, response_limit_unsupported) =
+                    match self.net_provider.upgrade() {
+                        Some(net_provider) if self.http2_enabled => net_provider
                             .send_http2_preferred(
                                 &method,
-                                &request_args,
+                                request_args,
                                 max_response_bytes,
                                 disable_redirects,
                             )
                             .await
                             .into_parts(),
-                    Some(net_provider) => match (max_response_bytes, disable_redirects) {
-                        (Some(max_response_bytes), _) => net_provider
-                            .send_with_response_limit(&method, &request_args, max_response_bytes)
-                            .await
-                            .into_parts(),
-                        (None, true) => (
-                            net_provider
-                                .send_without_redirects(&method, &request_args)
-                                .await,
-                            false,
-                            false,
-                        ),
-                        (None, false) => (
-                            net_provider.send(&method, &request_args).await,
-                            false,
-                            false,
-                        ),
-                    },
-                    None => {
-                        return Err(NetworkError::RequestFailed(
-                            request_args.url,
-                            None,
-                            "Failed to get a NetworkProvider instance".to_string(),
-                        ));
-                    }
-                };
-
-            let status = response.status_code;
-            let error_message = response
-                .error
-                .clone()
-                .unwrap_or_else(|| get_error_message_for_status(status, response.data.as_mut()));
-
-            let content_type = response
-                .data
-                .as_ref()
-                .and_then(|data| data.get_header_ref("content-type"));
-
-            log_d!(
-                TAG,
-                "Response url({}) status({:?}) content-type({:?})",
-                &request_args.url,
-                response.status_code,
-                content_type
-            );
-
-            let sdk_region_str = response
-                .data
-                .as_ref()
-                .and_then(|data| data.get_header_ref("x-statsig-region").cloned());
-            // Keep existing unlimited request semantics unchanged. Limited blob
-            // requests need body-read failures to enter retry handling instead
-            // of accepting an empty successful response.
-            let success = !response_size_limit_exceeded
-                && !response_limit_unsupported
-                && (200..300).contains(&status.unwrap_or(0))
-                && (max_response_bytes.is_none() || response.error.is_none());
-            if !response_limit_unsupported {
-                let duration_ms = request_start.elapsed().as_millis() as f64;
-                self.log_network_request_latency_to_ob(&request_args, status, success, duration_ms);
-            }
-
-            if let Some(key) = request_args.diagnostics_key {
-                let mut end_marker =
-                    Marker::new(key, ActionType::End, Some(StepType::NetworkRequest))
-                        .with_attempt(attempt)
-                        .with_url(request_args.url.clone())
-                        .with_is_success(success)
-                        .with_content_type(content_type.cloned())
-                        .with_sdk_region(sdk_region_str.map(|s| s.to_owned()));
-
-                if let Some(status_code) = status {
-                    end_marker = end_marker.with_status_code(status_code);
-                }
-
-                let error_map = if !error_message.is_empty() {
-                    let mut map = HashMap::new();
-                    map.insert("name".to_string(), "NetworkError".to_string());
-                    map.insert("message".to_string(), error_message.clone());
-                    let status_string = match status {
-                        Some(code) => code.to_string(),
-                        None => "None".to_string(),
+                        Some(net_provider) => match (max_response_bytes, disable_redirects) {
+                            (Some(max_response_bytes), _) => net_provider
+                                .send_with_response_limit(&method, request_args, max_response_bytes)
+                                .await
+                                .into_parts(),
+                            (None, true) => (
+                                net_provider
+                                    .send_without_redirects(&method, request_args)
+                                    .await,
+                                false,
+                                false,
+                            ),
+                            (None, false) => {
+                                (net_provider.send(&method, request_args).await, false, false)
+                            }
+                        },
+                        None => {
+                            return Err(NetworkError::RequestFailed(
+                                request_args.url.clone(),
+                                None,
+                                "Failed to get a NetworkProvider instance".to_string(),
+                            ));
+                        }
                     };
-                    map.insert("code".to_string(), status_string);
-                    Some(map)
-                } else {
-                    None
-                };
 
-                if let Some(error_map) = error_map {
-                    end_marker = end_marker.with_error(error_map);
+                let status = response.status_code;
+                let error_message = response.error.clone().unwrap_or_else(|| {
+                    get_error_message_for_status(status, response.data.as_mut())
+                });
+
+                let content_type = response
+                    .data
+                    .as_ref()
+                    .and_then(|data| data.get_header_ref("content-type"));
+
+                log_d!(
+                    TAG,
+                    "Response url({}) status({:?}) content-type({:?})",
+                    &request_args.url,
+                    response.status_code,
+                    content_type
+                );
+
+                let sdk_region_str = response
+                    .data
+                    .as_ref()
+                    .and_then(|data| data.get_header_ref("x-statsig-region"));
+                // Keep existing unlimited request semantics unchanged. Limited blob
+                // requests need body-read failures to enter retry handling instead
+                // of accepting an empty successful response.
+                let success = !response_size_limit_exceeded
+                    && !response_limit_unsupported
+                    && (200..300).contains(&status.unwrap_or(0))
+                    && (!(state_read || max_response_bytes.is_some())
+                        || (response.error.is_none() && response.data.is_some()));
+                if !response_limit_unsupported {
+                    let duration_ms = request_start.elapsed().as_millis() as f64;
+                    self.log_network_request_latency_to_ob(
+                        request_args,
+                        status,
+                        success,
+                        duration_ms,
+                    );
                 }
 
-                self.ops_stats.add_marker(end_marker, None);
-            }
+                if let Some(key) = request_args.diagnostics_key {
+                    let mut end_marker =
+                        Marker::new(key, ActionType::End, Some(StepType::NetworkRequest))
+                            .with_attempt(attempt)
+                            .with_url(request_args.url.clone())
+                            .with_is_success(success)
+                            .with_content_type(content_type.cloned())
+                            .with_sdk_region(sdk_region_str.cloned());
 
-            if success {
-                return Ok(response);
-            }
+                    if let Some(status_code) = status {
+                        end_marker = end_marker.with_status_code(status_code);
+                    }
 
-            // A non-2xx response can have an error body larger than the expected blob.
-            // Keep the body bound, but preserve status-based retry behavior for those responses.
-            let limited_response_failure_is_terminal = response_limit_unsupported
-                || (response_size_limit_exceeded
-                    && status.is_none_or(|status| (200..300).contains(&status)));
+                    if !error_message.is_empty() {
+                        end_marker = end_marker.with_error(HashMap::from([
+                            ("name".into(), "NetworkError".into()),
+                            ("message".into(), error_message.clone()),
+                            (
+                                "code".into(),
+                                status.map_or_else(|| "None".into(), |code| code.to_string()),
+                            ),
+                        ]));
+                    }
 
-            if limited_response_failure_is_terminal {
-                let error = NetworkError::RequestNotRetryable(
-                    request_args.url.clone(),
-                    status,
-                    error_message,
-                );
-                self.log_warning(&error, &request_args);
-                return Err(error);
-            }
+                    self.ops_stats.add_marker(end_marker, None);
+                }
 
-            if NON_RETRY_CODES.contains(&status.unwrap_or(0)) {
-                let error = NetworkError::RequestNotRetryable(
-                    request_args.url.clone(),
-                    status,
-                    error_message,
-                );
-                self.log_warning(&error, &request_args);
-                return Err(error);
-            }
+                if success {
+                    return Ok(response);
+                }
 
-            if attempt >= request_args.retries {
+                // A non-2xx response can have an error body larger than the expected blob.
+                // Keep the body bound, but preserve status-based retry behavior for those responses.
+                let limited_response_failure_is_terminal = response_limit_unsupported
+                    || (response_size_limit_exceeded
+                        && status.is_none_or(|status| (200..300).contains(&status)));
+
+                if limited_response_failure_is_terminal
+                    || NON_RETRY_CODES.contains(&status.unwrap_or(0))
+                    || (state_read && status == Some(401))
+                {
+                    let error = NetworkError::RequestNotRetryable(
+                        request_args.url.clone(),
+                        status,
+                        error_message,
+                    );
+                    self.log_warning(&error, request_args);
+                    return Err(error);
+                }
+
                 let error = NetworkError::RetriesExhausted(
                     request_args.url.clone(),
                     status,
-                    attempt + 1,
+                    attempt.saturating_add(1),
                     error_message,
                 );
-                self.log_warning(&error, &request_args);
-                return Err(error);
-            }
-
-            attempt += 1;
-            let backoff_ms = 2_u64.pow(attempt) * 100;
-
-            log_i!(
-                TAG,
-                "Network request failed with status code {} (attempt {}/{}), will retry after {}ms...\n{}",
-                status.map_or("unknown".to_string(), |s| s.to_string()),
-                attempt,
-                request_args.retries + 1,
-                backoff_ms,
-                error_message
-            );
-
-            tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
-        }
-            }).await
+                if attempt >= retries {
+                    self.log_warning(&error, request_args);
+                } else {
+                    log_i!(
+                        TAG,
+                        "Network request failed with status code {} (attempt {}/{}), will retry",
+                        status.map_or_else(|| "unknown".to_string(), |s| s.to_string()),
+                        attempt.saturating_add(1),
+                        retries.saturating_add(1)
+                    );
+                }
+                Err(error)
+            })
+            .await
     }
 
     pub fn mute_network_error_log(mut self) -> Self {
@@ -438,7 +507,7 @@ impl NetworkClient {
 
         let status_code = status
             .map(|code| code.to_string())
-            .unwrap_or("none".to_string());
+            .unwrap_or_else(|| "none".to_string());
         let tags = get_network_request_latency_tags(
             request_args,
             status_code,
@@ -467,7 +536,7 @@ fn get_network_error_extra_tags(
             error
                 .status_code()
                 .map(|code| code.to_string())
-                .unwrap_or("none".to_string()),
+                .unwrap_or_else(|| "none".to_string()),
         ),
     ])
 }
@@ -522,7 +591,7 @@ fn get_error_message_for_status(
     if let Some(data) = data {
         let lossy_str = data.read_to_string().unwrap_or_default();
         if lossy_str.is_ascii() {
-            message = lossy_str.to_string();
+            message = lossy_str;
         }
     }
 
@@ -561,6 +630,10 @@ mod latency_tests;
 #[cfg(test)]
 #[path = "__tests__/network_client_http2_tests.rs"]
 mod http2_tests;
+
+#[cfg(test)]
+#[path = "__tests__/network_client_request_body_tests.rs"]
+mod request_body_tests;
 
 #[cfg(test)]
 mod tests {

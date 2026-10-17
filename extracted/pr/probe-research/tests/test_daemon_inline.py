@@ -562,11 +562,11 @@ def test_the_notice_names_the_read_bridge_only_beside_a_cli_that_has_it(guard, m
 def test_the_notice_fits_a_hook_and_names_files_that_ship():
     """Claude Code saves hook context over ~2 KB to a file and shows a preview
     (verified 2026-10-06): the notice stays well under it, and the files it
-    names are the main agent's track-work and edit-notes, byte for byte."""
+    names are the main agent's track-work, write-summary and edit-notes, byte for byte."""
     long_root = "/home/someone-with-a-long-name/.claude/plugins/cache/probe-research/probe-research-daemon/0.120.0"
     for bridge in (True, False):
-        notice = session_marker.inline_notice(f"{long_root}/inline/track-work/SKILL.md",
-                                              f"{long_root}/inline/edit-notes/SKILL.md", bridge=bridge)
+        notice = session_marker.inline_notice(
+            *(f"{long_root}/inline/{name}" for name in session_marker.INLINE_SKILL_FILES), bridge=bridge)
         assert len(notice) < 1000 and "{" not in notice
     full = AGENT_ROOT / "plugins" / "probe-research" / "agent-skills"
     for name in session_marker.INLINE_SKILL_FILES:

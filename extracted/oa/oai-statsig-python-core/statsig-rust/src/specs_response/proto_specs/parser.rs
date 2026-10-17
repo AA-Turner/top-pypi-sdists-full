@@ -108,6 +108,9 @@ impl<'a> ProtobufParser<'a> {
         reader: &mut ProtoStreamReader<'_, R>,
     ) -> Result<Bytes, StatsigErr> {
         let frame = reader.read_next_delimited_proto().map_err(|e| {
+            if matches!(e, StatsigErr::SerializationError(_)) {
+                return e;
+            }
             let sample = reader.sample_current_buf();
             let parsed_envelopes_count = self.parsed_envelopes_count;
             let err = StatsigErr::ProtobufParseError(

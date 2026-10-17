@@ -1,5 +1,6 @@
-//! Model weights through `ensure` — the Runtime's one download entry — while a REAL loopback
-//! hub and a REAL object server inject faults on chosen routes, objects, asks and bytes.
+//! Model weights through `fetch::whole` — the machine's whole-checkpoint download on the Store's
+//! Fetcher — while a REAL loopback hub and a REAL object server inject faults on chosen
+//! routes, objects, asks and bytes.
 //!
 //! Every proof ends one of two ways: the exact bytes resident, verified, with no `put-` temp
 //! left behind; or a typed refusal. None is bounded by a wall clock. `Watch` fails a test only
@@ -17,13 +18,13 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use tensorfs_core::canon::{self, Value};
 use tensorfs_core::dtype::Dtype;
-use tensorfs_core::ensure::{self, Ensured, Event, Phase, Request};
 use tensorfs_core::err::{Code, Refusal};
 use tensorfs_core::header::{Body, Closure, Header, Part, Tensor};
 use tensorfs_core::ids::{Doc, ObjectRef};
 use tensorfs_core::manifest::{Draft, Entry};
 use tensorfs_core::registry;
 use tensorfs_core::store::Store;
+use tensorfs_core::fetch::{Fetcher, Origin, Priority};
 use tensorfs_core::transport::{Anonymous, PullCancellation, SourcePolicy};
 
 /// The ledger's sampling resolution in these proofs. Every patience the transport derives
@@ -182,6 +183,8 @@ fn enveloped(code: u16, error: &str) -> Fault {
 
 /// Which asks a fault answers: a route (`closure`, `presign`, an object's hex, or `*` for
 /// every object) and the 1-based asks of that route it covers.
+/// `route` is `closure`, `presign`, an object's hex, `*` for any object, or `<hex>@<n>` for an
+/// object asked on a URL from the hub's `n`th presign.
 struct Rule {
     route: String,
     asks: std::ops::RangeInclusive<usize>,
@@ -355,6 +358,7 @@ fn serve(
     let Some(asked) = read_request(&mut socket) else {
         return;
     };
+    let minted = (asked.query.split('&')).find_map(|field| field.strip_prefix("gen="));
     let route = match (asked.method.as_str(), asked.path.as_str()) {
         ("POST", "/v1/tensorfs/closure") => "closure".to_string(),
         ("POST", "/v1/tensorfs/presign") => "presign".to_string(),
@@ -373,7 +377,9 @@ fn serve(
             .rules
             .iter()
             .find(|rule| {
-                (rule.route == route || (object && rule.route == "*")) && rule.asks.contains(&ask)
+                let generation = minted.map(|n| format!("{route}@{n}"));
+                let named = rule.route == route || Some(&rule.route) == generation.as_ref();
+                (named || (object && rule.route == "*")) && rule.asks.contains(&ask)
             })
             .map(|rule| rule.fault.clone());
         ledger.log.push(format!(
@@ -386,7 +392,6 @@ fn serve(
         }
         (ask, fault)
     };
-    let _ = ask;
     if let Some(Fault::Delay(wait)) = fault {
         std::thread::sleep(wait);
     }
@@ -395,11 +400,10 @@ fn serve(
     }
     let body = match route.as_str() {
         "closure" => closure(checkpoint, &asked.body, config),
-        "presign" => presign(&asked.body, base, config.lifetime, config.declared),
+        "presign" => presign(&asked.body, base, config.lifetime, config.declared, ask),
         hex => {
-            let dies: u128 = asked
-                .query
-                .strip_prefix("dies=")
+            let dies: u128 = (asked.query.split('&'))
+                .find_map(|field| field.strip_prefix("dies="))
                 .and_then(|stamp| stamp.parse().ok())
                 .expect("every URL this hub mints carries its death");
             if now_ms() > dies {
@@ -577,7 +581,13 @@ fn closure(checkpoint: &Checkpoint, asked: &[u8], config: &Config) -> Vec<u8> {
     ]))
 }
 
-fn presign(asked: &[u8], base: &str, lifetime: Duration, declared: Option<Duration>) -> Vec<u8> {
+fn presign(
+    asked: &[u8],
+    base: &str,
+    lifetime: Duration,
+    declared: Option<Duration>,
+    generation: usize,
+) -> Vec<u8> {
     let Some(Value::Arr(digests)) = field(asked, "digests") else {
         panic!("a presign names its digests")
     };
@@ -590,7 +600,7 @@ fn presign(asked: &[u8], base: &str, lifetime: Duration, declared: Option<Durati
         .into_iter()
         .map(|digest| {
             let Value::Str(hex) = digest else { panic!() };
-            let url = Value::str(format!("{base}/obj/{hex}?dies={dies}"));
+            let url = Value::str(format!("{base}/obj/{hex}?dies={dies}&gen={generation}"));
             (hex, url)
         })
         .collect();
@@ -604,7 +614,27 @@ fn presign(asked: &[u8], base: &str, lifetime: Duration, declared: Option<Durati
     ]))
 }
 
-// ---------------------------------------------------------------- ensure, watched
+// ---------------------------------------------------------------- the download, watched
+
+/// What a download told its caller: the bytes here and in all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Phase {
+    Fetching,
+}
+
+#[derive(Debug, Clone)]
+struct Event {
+    phase: Phase,
+    bytes_done: u64,
+    bytes_total: u64,
+}
+
+/// A checkpoint made whole.
+#[derive(Debug, Clone)]
+struct Ensured {
+    manifest: ObjectRef,
+    bytes_total: u64,
+}
 
 struct Outcome {
     result: Result<Ensured, Refusal>,
@@ -660,8 +690,9 @@ impl<'a> Run<'a> {
                 allow_local: true,
                 ..Default::default()
             };
-            let on_event = |event: &Event| {
-                if event.phase == Phase::Fetching && event.bytes_total > 0 {
+            let on_progress = |bytes_done: u64, bytes_total: u64| {
+                let event = Event { phase: Phase::Fetching, bytes_done, bytes_total };
+                if event.bytes_total > 0 {
                     let (held, flight) =
                         checkpoint.bodies.iter().fold((0, 0), |(h, f), (hex, b)| {
                             if store.contains(hex) || store.manifest_path(hex).is_file() {
@@ -678,18 +709,23 @@ impl<'a> Run<'a> {
                         ));
                     }
                 }
-                seen.lock().unwrap().push((Instant::now(), event.clone()));
+                seen.lock().unwrap().push((Instant::now(), event));
             };
-            let mut request = Request::new(&store, &hub_base, "acme/model@r1", &Anonymous, &policy);
-            request.lane = "public";
-            request.step = "fault proof";
-            request.cancellation = Some(stop);
-            request.streams = streams;
-            request.sample_seconds = SAMPLE;
-            request.on_event = Some(&on_event);
-            let _ = tx.send(ensure::ensure(&request));
+            let access = Arc::new(tensorfs_core::fetch::Plain { credential: Anonymous, policy });
+            let fetcher = Fetcher::new(&store, streams, sample()).unwrap();
+            let origin = Origin {
+                hub: hub_base,
+                refspec: "acme/model@r1".into(),
+                lane: "public".into(),
+                manifest: checkpoint.manifest.clone(),
+            };
+            let landed = tensorfs_core::fetch::whole(&fetcher, &origin, access, Priority::Now, &stop, &on_progress)
+                .map(|_| Ensured { manifest: checkpoint.manifest.clone(), bytes_total: checkpoint.total() });
+            // Its last handle joins its downloader: nothing it started outlives the answer.
+            drop(fetcher);
+            let _ = tx.send(landed);
         });
-        let mut last = (Instant::now(), None::<(Phase, u64, u32)>);
+        let mut last = (Instant::now(), None::<(Phase, u64)>);
         let result = loop {
             match rx.recv_timeout(sample()) {
                 Ok(result) => break result,
@@ -700,7 +736,7 @@ impl<'a> Run<'a> {
                 .lock()
                 .unwrap()
                 .last()
-                .map(|(_, e)| (e.phase, e.bytes_done, e.attempt));
+                .map(|(_, e)| (e.phase, e.bytes_done));
             if latest != last.1 {
                 last = (Instant::now(), latest);
             } else if last.0.elapsed() > quiet {
@@ -1059,8 +1095,7 @@ fn wrong_bytes_once_are_re_asked_and_wrong_bytes_always_are_a_typed_verdict() {
     );
     let root = store(&temporary("corrupt-always"));
     let outcome = Run::new(&always, &root).ensure();
-    let refusal = assert_refused(&outcome, &always, &root, Code::OBJECT_ID_MISMATCH);
-    assert!(!ensure::resumable(refusal.code));
+    assert_refused(&outcome, &always, &root, Code::OBJECT_ID_MISMATCH);
     assert!(!Store::open(&root).unwrap().contains(&victim));
     assert!(always.asks(&victim) <= tensorfs_core::transport::FETCH_ATTEMPTS as usize);
 }
@@ -1079,8 +1114,7 @@ fn a_link_blip_before_any_object_lands_is_re_attempted_and_only_stillness_stalls
     );
     let root = store(&temporary("blip"));
     // Nothing counts asks: the pull itself asks again and the first attempt lands it all.
-    let ensured = assert_landed(&Run::new(&blip, &root).ensure(), &blip, &root);
-    assert_eq!(ensured.attempts, 1, "{}", blip.log());
+    assert_landed(&Run::new(&blip, &root).ensure(), &blip, &root);
 
     let down = hub(
         Arc::clone(&checkpoint),
@@ -1101,10 +1135,77 @@ fn a_link_blip_before_any_object_lands_is_re_attempted_and_only_stillness_stalls
     );
 }
 
-/// A pull killed mid-object strands its partial temp; the next ensure takes it, because GC,
-/// the only other reaper, never runs while a model is leased.
+/// A stalled object is asked again on a URL minted afresh for as long as anything else moves
+/// into its Store, and no count of restarts refuses it (run 6496 refused one STALLED after two
+/// restarts at 0 B/s while another download moved; asked again 2 s later it landed). With
+/// nothing else moving, one fresh ask that comes to nothing ends it STALLED.
 #[test]
-fn a_killed_pulls_partial_temp_is_reaped_by_the_next_ensure() {
+fn a_stalled_object_is_asked_again_while_anything_else_moves() {
+    let slow = checkpoint(1, 4 << 20, 23);
+    let checkpoint = checkpoint(2, 64 << 10, 22);
+    let victim = blob(&checkpoint, 0);
+    // Silent on the URLs of the first two presigns, answered on the third's.
+    let stuck = || {
+        hub(
+            Arc::clone(&checkpoint),
+            Config {
+                rules: (1..=2)
+                    .map(|n| on(&format!("{victim}@{n}"), 1..=usize::MAX, Fault::Stall(0)))
+                    .collect(),
+                ..Config::default()
+            },
+        )
+    };
+    let alone = stuck();
+    let root = store(&temporary("stuck-alone"));
+    assert_refused(&Run::new(&alone, &root).ensure(), &alone, &root, Code::STALLED);
+    assert_eq!(alone.asks("presign"), 2, "{}", alone.log());
+
+    let moving = hub(
+        slow,
+        Config {
+            rules: vec![on("*", 1..=usize::MAX, Fault::Slow(Duration::from_secs(60)))],
+            ..Config::default()
+        },
+    );
+    let stop = PullCancellation::default();
+    let root = store(&temporary("stuck-beside"));
+    let mut elsewhere = Run::new(&moving, &root);
+    (elsewhere.cancellation, elsewhere.streams) = (Some(stop.clone()), 1);
+    let beside = stuck();
+    let landed = std::thread::scope(|scope| {
+        let elsewhere = scope.spawn(|| elsewhere.ensure());
+        let landed = Run::new(&beside, &root).ensure();
+        stop.cancel();
+        let _ = elsewhere.join();
+        landed
+    });
+    assert_landed(&landed, &beside, &root);
+    assert!(beside.asks("presign") >= 3, "{}", beside.log());
+}
+
+/// The child of `a_killed_downloads_partial_temp_is_reaped_by_the_next`: one download of
+/// `TFS_KILLED_CHILD`'s store from its hub, run until the parent kills it.
+#[test]
+fn a_killed_download_child() {
+    let Ok(spec) = std::env::var("TFS_KILLED_CHILD") else {
+        return;
+    };
+    let (root, base) = spec.split_once('\n').unwrap();
+    let store = Store::open(Path::new(root)).unwrap();
+    let fetcher = Fetcher::new(&store, 4, Duration::from_secs(60)).unwrap();
+    let manifest = std::env::var("TFS_KILLED_MANIFEST").unwrap();
+    let manifest = ObjectRef { sha256: manifest.clone(), length: std::env::var("TFS_KILLED_LENGTH").unwrap().parse().unwrap() };
+    let origin = Origin { hub: base.into(), refspec: "acme/model@r1".into(), lane: "public".into(), manifest };
+    let policy = SourcePolicy { allowed_hosts: vec!["127.0.0.1".into()], allow_local: true, ..Default::default() };
+    let access = Arc::new(tensorfs_core::fetch::Plain { credential: Anonymous, policy });
+    let _ = tensorfs_core::fetch::whole(&fetcher, &origin, access, Priority::Now, &PullCancellation::default(), &|_, _| {});
+}
+
+/// A download killed mid-object strands its partial temp; the next download takes it,
+/// because GC, the only other reaper, never runs while a model is held.
+#[test]
+fn a_killed_downloads_partial_temp_is_reaped_by_the_next() {
     let checkpoint = checkpoint(2, 1 << 20, 21);
     let victim = blob(&checkpoint, 0);
     let stuck = hub(
@@ -1115,18 +1216,13 @@ fn a_killed_pulls_partial_temp_is_reaped_by_the_next_ensure() {
         },
     );
     let root = store(&temporary("killed"));
-    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_tfs"))
-        .args(["ensure", root.to_str().unwrap(), "acme/model@r1"])
-        .args([
-            "--hub",
-            &stuck.base,
-            "--lane",
-            "public",
-            "--sample-seconds",
-            "60",
-        ])
-        .env("TFS_CREDENTIAL", "")
+    let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "a_killed_download_child", "--nocapture"])
+        .env("TFS_KILLED_CHILD", format!("{}\n{}", root.display(), stuck.base))
+        .env("TFS_KILLED_MANIFEST", &checkpoint.manifest.sha256)
+        .env("TFS_KILLED_LENGTH", checkpoint.manifest.length.to_string())
         .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .spawn()
         .unwrap();
     let partial = |root: &Path| {
@@ -1135,10 +1231,7 @@ fn a_killed_pulls_partial_temp_is_reaped_by_the_next_ensure() {
         })
     };
     while !partial(&root) {
-        assert!(
-            child.try_wait().unwrap().is_none(),
-            "tfs ensure exited early"
-        );
+        assert!(child.try_wait().unwrap().is_none(), "the download exited early");
         std::thread::sleep(Duration::from_millis(10));
     }
     child.kill().unwrap();
@@ -1203,38 +1296,6 @@ fn objects_a_flight_holds_survive_the_gc_its_admission_runs() {
         landed.iter().all(|hex| healed.asks(hex) == 0),
         "{}",
         healed.log()
-    );
-}
-
-/// A follower whose leader has not yet written its record (still planning or admitting)
-/// still knows the closure's size: its bar is never 0/0.
-#[test]
-fn a_follower_waiting_on_a_record_less_leader_reports_the_closures_size() {
-    use fs2::FileExt;
-    let checkpoint = checkpoint(2, 64 << 10, 24);
-    let hub = hub(Arc::clone(&checkpoint), Config::default());
-    let root = store(&temporary("record-less-leader"));
-    let flights = root.join("tmp/ensure");
-    std::fs::create_dir_all(&flights).unwrap();
-    let lock = std::fs::File::create(flights.join(format!("{}.lock", checkpoint.manifest.sha256)))
-        .unwrap();
-    lock.lock_exclusive().unwrap();
-    let release = std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_secs(2));
-        drop(lock);
-    });
-    let outcome = Run::new(&hub, &root).ensure();
-    release.join().unwrap();
-    assert_landed(&outcome, &hub, &root);
-    let waiting: Vec<&Event> = outcome
-        .events
-        .iter()
-        .filter(|e| e.phase == Phase::Waiting)
-        .collect();
-    assert!(!waiting.is_empty(), "the follower never waited");
-    assert!(
-        waiting.iter().all(|e| e.bytes_total == checkpoint.total()),
-        "{waiting:?}"
     );
 }
 
@@ -1340,8 +1401,8 @@ fn a_hub_unavailable_through_every_re_ask_is_weather_not_a_verdict() {
         },
     );
     let root = store(&dir);
-    let ensured = assert_landed(&Run::new(&hub, &root).ensure(), &hub, &root);
-    assert!(ensured.attempts >= 2, "{}", hub.log());
+    assert_landed(&Run::new(&hub, &root).ensure(), &hub, &root);
+    assert!(hub.asks("presign") >= 5, "{}", hub.log());
 }
 
 #[test]
@@ -1400,8 +1461,8 @@ fn a_slow_hub_is_waited_for_not_timed_out() {
     );
 }
 
-/// A hub that has not answered is waited for (no timer on a live hub's answer), but the
-/// wait is visible, one Resolving event a tick, and the caller's cancellation ends it.
+/// A hub that has not answered is waited for (no timer on a live hub's answer), and the
+/// caller's cancellation ends the wait at once.
 #[test]
 fn a_hub_that_never_answers_is_a_visible_wait_that_cancellation_ends() {
     let dir = temporary("hub-mute");
@@ -1422,7 +1483,7 @@ fn a_hub_that_never_answers_is_a_visible_wait_that_cancellation_ends() {
     let cancelled: Arc<Mutex<Option<Instant>>> = Arc::default();
     let (cancel, at) = (cancellation.clone(), Arc::clone(&cancelled));
     std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_secs_f64(ensure::EVENT_SECONDS * 3.5));
+        std::thread::sleep(Duration::from_secs_f64(3.5));
         *at.lock().unwrap() = Some(Instant::now());
         cancel.cancel();
     });
@@ -1431,12 +1492,6 @@ fn a_hub_that_never_answers_is_a_visible_wait_that_cancellation_ends() {
     let outcome = run.ensure();
     let waited = cancelled.lock().unwrap().expect("cancelled").elapsed();
     assert!(outcome.result.is_err());
-    let resolving = outcome
-        .events
-        .iter()
-        .filter(|e| e.phase == Phase::Resolving)
-        .count();
-    assert!(resolving >= 3, "{resolving} Resolving events in 3.5 ticks");
     let floor = sample() * tensorfs_core::transport::STILL_SAMPLES;
     assert!(waited < floor, "cancellation took {waited:?}");
 }
@@ -1481,8 +1536,7 @@ fn a_hub_that_never_answers_its_envelope_is_unreachable_never_not_found() {
     );
     let root = store(&dir);
     let outcome = Run::new(&hub, &root).ensure();
-    let refusal = assert_refused(&outcome, &hub, &root, Code::HUB_UNREACHABLE);
-    assert!(ensure::resumable(refusal.code));
+    assert_refused(&outcome, &hub, &root, Code::HUB_UNREACHABLE);
 }
 
 #[test]
@@ -1597,7 +1651,7 @@ fn a_cancelled_pull_resumes_with_a_new_token_and_buys_only_what_is_missing() {
     assert_eq!(temps(&root), Vec::<String>::new());
 
     let second = hub(Arc::clone(&checkpoint), Config::default());
-    let ensured = assert_landed(&Run::new(&second, &root).ensure(), &second, &root);
+    assert_landed(&Run::new(&second, &root).ensure(), &second, &root);
     assert_eq!(second.asks(&stuck), 1);
     for other in checkpoint.blobs.iter().filter(|hex| **hex != stuck) {
         assert_eq!(
@@ -1606,7 +1660,6 @@ fn a_cancelled_pull_resumes_with_a_new_token_and_buys_only_what_is_missing() {
             "a resumed ensure re-bought a resident object"
         );
     }
-    assert!(ensured.bytes_held > 0);
 }
 
 #[test]
@@ -1631,4 +1684,81 @@ fn a_failed_asks_bytes_are_kept_and_the_next_ask_is_for_the_rest() {
         (1 << 20) - (900 << 10),
         "the second ask sent more than the rest"
     );
+}
+
+/// The child of `a_download_under_a_task_cap_keeps_more_requests_than_threads`: one whole
+/// download of `TFS_CAPPED_CHILD`'s store from its hub, inside the parent's task cap.
+#[test]
+fn a_task_capped_child() {
+    let Ok(spec) = std::env::var("TFS_CAPPED_CHILD") else {
+        return;
+    };
+    let fields: Vec<&str> = spec.split('\n').collect();
+    let store = Store::open(Path::new(fields[0])).unwrap();
+    let manifest = ObjectRef { sha256: fields[2].into(), length: fields[3].parse().unwrap() };
+    let fetcher = Fetcher::new(&store, tensorfs_core::transport::PULL_STREAMS, Duration::from_secs(1)).unwrap();
+    let origin = Origin { hub: fields[1].into(), refspec: "acme/model@r1".into(), lane: "public".into(), manifest };
+    let policy = SourcePolicy { allowed_hosts: vec!["127.0.0.1".into()], allow_local: true, ..Default::default() };
+    let access = Arc::new(tensorfs_core::fetch::Plain { credential: Anonymous, policy });
+    tensorfs_core::fetch::whole(&fetcher, &origin, access, Priority::Now, &PullCancellation::default(), &|_, _| {}).unwrap();
+    println!("LANDED");
+}
+
+/// A pod's container caps its tasks (a vast RTX 5060 Ti: `pids.max` 1280). Requests in flight
+/// are tasks, not threads: a download keeps more of them in flight than the cap allows
+/// threads, and lands. On TensorFS 0.9.0 a refused stream thread panicked past the pull's
+/// sampler and the download never returned (TensorD 0.5.30 prepare wedge).
+#[test]
+fn a_download_under_a_task_cap_keeps_more_requests_than_threads() {
+    const TASKS: u64 = 48;
+    let cap = format!("TasksMax={TASKS}");
+    let scope = ["systemd-run", "--user", "--scope", "-q", "-p", cap.as_str()];
+    let usable = std::process::Command::new(scope[0])
+        .args(&scope[1..])
+        .arg("true")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success());
+    if !usable {
+        eprintln!("SKIPPED: no systemd user manager to create a task-limited cgroup");
+        return;
+    }
+    // 251 objects: as many requests in flight as the budget allows.
+    let checkpoint = checkpoint(251, 4096, 9);
+    let hub = hub(Arc::clone(&checkpoint), Config::default());
+    let root = store(&temporary("tasks"));
+    let spec = format!("{}\n{}\n{}\n{}", root.display(), hub.base, checkpoint.manifest.sha256, checkpoint.manifest.length);
+    let mut child = std::process::Command::new(scope[0])
+        .args(&scope[1..])
+        .arg(std::env::current_exe().unwrap())
+        .args(["--exact", "a_task_capped_child", "--nocapture"])
+        .env("TFS_CAPPED_CHILD", spec)
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    // Test harness bound on a wedged download; the product has no such limit.
+    let until = Instant::now() + Duration::from_secs(90);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if Instant::now() > until {
+            let _ = child.kill();
+            panic!("the download never ended under {cap}");
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    };
+    let mut out = String::new();
+    std::io::Read::read_to_string(&mut child.stdout.take().unwrap(), &mut out).unwrap();
+    assert!(status.success() && out.contains("LANDED"), "{out}");
+    let log = std::fs::read_to_string(root.join("logs/transport.log")).unwrap();
+    let walk = log.lines().rfind(|line| line.contains(" walk ")).unwrap();
+    let streams: u64 = walk
+        .split_whitespace()
+        .find_map(|field| field.strip_prefix("streams="))
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(streams > TASKS, "more requests in flight than the cap allows threads: {walk}");
 }

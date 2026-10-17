@@ -191,17 +191,14 @@ def _notes_entity(kind: str, client, app) -> str:
         return app.seed_experiment("e")["id"]
     if kind == "project":
         return client.create_project("p1", kind="general")["id"]
-    if kind == "group":
-        exp = app.seed_experiment("e")
-        return client.create_group(exp["id"], "g")["id"]
     project_id = client.create_project("p1", kind="general")["id"]
     app.seed_experiment("e", project_id=project_id)
     return client.run(project="p1", experiment="e", name="r1").id
 
 
-@pytest.mark.parametrize("kind", ["project", "experiment", "run", "group"])
+@pytest.mark.parametrize("kind", ["project", "experiment", "run"])
 def test_every_notes_view_kind_carries_sub_note_excerpts(kind, client, app):
-    """All four per-kind notes views route through the shared implementation —
+    """All three per-kind notes views route through the shared implementation —
     pinned per kind, because a typo'd kind string in any one of them would
     render as 'no sub-notes' and stay green."""
     entity_id = _notes_entity(kind, client, app)
@@ -238,3 +235,23 @@ def test_a_failed_body_read_says_unavailable_not_empty(client, app, monkeypatch)
 # notes write is synchronous now and a failure RAISES -- see
 # `probe notes push`, which keeps the file and its base on disk so the retry is
 # the same command again.
+
+
+@pytest.mark.parametrize("kind", ["group", "artifact"])
+def test_files_and_sweep_groups_are_not_notes_carriers(kind, client, app):
+    """Files and sweep groups stopped carrying notes: every notes and sub-note
+    door refuses them by name, before a request is made."""
+    assert kind not in client.NOTES_ENTITIES
+    before = len(app.requests)
+    with pytest.raises(errors.RosError, match="carries no notes"):
+        client._replace_notes(kind, "x", "text", base_version=None, op_key="k")
+    for call in (
+        lambda: client.list_sub_notes(kind, "x"),
+        lambda: client._create_sub_note(kind, "x", "Caveats", "body"),
+        lambda: client._write_sub_note_by_title(kind, "x", {"note_title": "Caveats"}),
+    ):
+        with pytest.raises(errors.RosError, match="carries no sub-notes"):
+            call()
+    with pytest.raises(ValueError, match="unknown notes carrier"):
+        client._replace_sub_note_by_title(kind, "x", "Caveats", "body")
+    assert app.requests[before:] == []

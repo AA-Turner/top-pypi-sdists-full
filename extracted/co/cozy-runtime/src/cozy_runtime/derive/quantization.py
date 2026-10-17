@@ -1,4 +1,4 @@
-"""Carrier-free FP8, MXFP8 and INT8 model derivation jobs.
+"""Carrier-free FP8 and INT8 model derivations.
 
 The worker receives one exact TensorFS Manifest capability and returns another through
 TensorFS scoped derivation handles. It receives no Store or filesystem access.
@@ -24,7 +24,6 @@ from tensorfs.derived import Config, DerivedTransaction, Part, SourceInspection,
 from cozy_runtime._cpus import cpus
 from cozy_runtime.author import (
     Context,
-    Model,
     Telemetry,
     UnsupportedInput,
     _numeric,
@@ -37,7 +36,6 @@ from .microscale import (
     Encoded,
     encode_fp8_rowwise,
     encode_int8_convrot256,
-    encode_mxfp8,
     encode_nvfp4,
 )
 
@@ -79,14 +77,6 @@ def _rowwise(
 
 
 _ENCODINGS: dict[str, _Encoding] = {
-    "mxfp8/1": _Encoding(
-        round_trip_bound=2.0**-3,
-        encode=_rowwise(encode_mxfp8),
-        payload="F8_E4M3",
-        data_dtype="f8_e4m3fn",
-        block=32,
-        companions=lambda rows, cols: (("scale", "u8", (rows, cols // 32)),),
-    ),
     "fp8-rowwise/1": _Encoding(
         round_trip_bound=2.0**-3,
         encode=_rowwise(encode_fp8_rowwise),
@@ -125,13 +115,6 @@ _ENCODINGS: dict[str, _Encoding] = {
 #: RNE fp32->bf16 keeps every element within amax * 2^-8 (8-bit significand, half-ulp).
 #: The normalization's own tier-1 bound — enforced on every cut, stats recorded (#695).
 BF16_ROUND_TRIP_BOUND = 2.0**-8
-
-
-class QuantizationSource(Model[object]):
-    """Exact TensorFS Manifest input. The job reads it only through its scoped TensorFS handle."""
-
-    def load(self, loader: Any) -> None:
-        del loader
 
 
 class QuantizationTensor(msgspec.Struct, forbid_unknown_fields=True):
@@ -198,7 +181,6 @@ _ARTIFACT_SPECS = {
     # TensorFS 0.3's exact, vector-backed platform specs. Aliases are display;
     # Tensor always carries the immutable spec identity.
     "fp8-rowwise/1": "sha256:c4be0120fb4548306b134f6ee07eb2545a363bc140a005af1ef6543c790cf890",
-    "mxfp8/1": "sha256:7e9b1ad8f2e5ddd236a4d4303042d632a96eadef4f25d44eb0fb63124cec7cfd",
     "int8-convrot256/1": "sha256:ac25d323baebfdf1fd0ce3fdfd9f26400ce57914fdc442d0ade8cb187aef183f",
     "nvfp4-w4a4/1": "sha256:f2e718c521634876830f9c2647bddfbbccafc744decc88adb345d33d73bf5b1a",
 }
@@ -278,7 +260,7 @@ def prepare_bf16(
 
 
 def column_block(encoding: str | None) -> int:
-    """The column multiple an encoding's tensors need; 32 serves both fp8 encodings."""
+    """The column multiple an encoding's tensors need; 32 is fp8-rowwise's."""
     found = _ENCODINGS.get(encoding or "")
     return found.block if found is not None else 32
 

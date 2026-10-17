@@ -1992,6 +1992,79 @@ class TestFiretitanSamplingClient:
         assert captured["seed"] == 123
         assert captured["logprobs"] is True
 
+    def test_sample_rejects_unprojected_image_chunks(self, native_sdk):
+        prompt = tinker_types.ModelInput(
+            chunks=[
+                tinker_types.EncodedTextChunk(tokens=[10, 20]),
+                tinker_types.ImageChunk(data=b"jpeg-bytes", format="jpeg", expected_tokens=4),
+            ]
+        )
+        client = FiretitanSamplingClient(_make_sampler())
+        try:
+            with pytest.raises(ValueError, match="text token prompts only"):
+                client.sample(
+                    prompt=prompt,
+                    num_samples=1,
+                    sampling_params=native_sdk.SamplingParams(max_tokens=2),
+                ).result(timeout=5)
+        finally:
+            client.close()
+
+    def test_sample_forwards_preprojected_images_and_keeps_expanded_prompt_length(self, native_sdk):
+        expanded = [10, 20, 101, 102, 103, 104]
+        completion_ids = [40, 50]
+        sampler = _make_sampler()
+        captured = {}
+
+        async def _fake_stream(*args, **kwargs):
+            captured.update(kwargs)
+            prompt_rows = [
+                {"logprob": 0.0, "sampling_logprob": None},
+                {"logprob": -0.1, "sampling_logprob": None},
+                {"logprob": -0.2, "sampling_logprob": None},
+                {"logprob": -0.3, "sampling_logprob": None},
+                {"logprob": -0.4, "sampling_logprob": None},
+                {"logprob": -0.5, "sampling_logprob": None},
+            ]
+            completion_rows = [
+                {"logprob": -0.6, "sampling_logprob": -0.61},
+                {"logprob": -0.7, "sampling_logprob": -0.71},
+            ]
+            return {
+                "choices": [
+                    {
+                        "text": "out",
+                        "finish_reason": "stop",
+                        "raw_output": {
+                            "prompt_token_ids": expanded,
+                            "completion_token_ids": expanded + completion_ids,
+                        },
+                        "logprobs": {"content": prompt_rows + completion_rows},
+                    }
+                ]
+            }, ServerMetrics()
+
+        sampler.async_completions_stream = _fake_stream
+        client = FiretitanSamplingClient(sampler)
+        try:
+            response = client.sample(
+                prompt=native_sdk.ModelInput.from_ints([10, 20, 77]),
+                num_samples=1,
+                sampling_params=native_sdk.SamplingParams(max_tokens=2),
+                include_prompt_logprobs=True,
+                images=["data:image/jpeg;base64,anBlZy1ieXRlcw=="],
+            ).result(timeout=5)
+        finally:
+            client.close()
+
+        assert captured["prompt"] == [10, 20, 77]
+        assert captured["prompt"].count(77) == 1
+        assert captured["images"] == ["data:image/jpeg;base64,anBlZy1ieXRlcw=="]
+        assert captured["echo"] is True
+        assert response.sequences[0].tokens == completion_ids
+        assert response.sequences[0].logprobs == [-0.61, -0.71]
+        assert response.prompt_logprobs == [None, -0.1, -0.2, -0.3, -0.4, -0.5]
+
     @pytest.mark.parametrize("ttl", [None, 60, 604800])
     def test_sample_preserves_routing_matrices_in_tinker_compatible_response(self, native_sdk, ttl):
         sampler = _make_sampler()

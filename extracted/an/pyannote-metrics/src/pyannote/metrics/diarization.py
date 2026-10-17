@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# encoding: utf-8
-
 # The MIT License (MIT)
 
 # Copyright (c) 2012- CNRS
@@ -28,24 +25,110 @@
 
 """Metrics for diarization"""
 
-from typing import Optional, Dict, TYPE_CHECKING
-
 import numpy as np
 from pyannote.core import Annotation, Timeline
 from pyannote.core.utils.types import Label
 
-from .base import BaseMetric, f_measure
+from .base import BaseMetric
 from .identification import IdentificationErrorRate
-from .matcher import GreedyMapper
-from .matcher import HungarianMapper
+from .matcher import GreedyMapper, HungarianMapper
 from .types import Details, MetricComponents
 from .utils import UEMSupportMixin
 
-if TYPE_CHECKING:
-    pass
-
 # TODO: can't we put these as class attributes?
 DER_NAME = "diarization error rate"
+
+
+class DiarizationSpeakerCountAccuracy(UEMSupportMixin, BaseMetric):
+    """Fraction of files with the correct number of speakers.
+
+    Each file scores 1 when reference and hypothesis contain the same number
+    of distinct speaker labels, and 0 otherwise. Speaker identities and speech
+    durations do not affect the score. Two empty annotations score 1.
+
+    Pass an optional evaluation map as ``uem`` when calling the metric to
+    count only speakers present in that region. ``abs(metric)`` returns the
+    accuracy over all evaluated files, with each file weighted equally.
+    Before any files have been evaluated, the accuracy is 0.
+    """
+
+    @classmethod
+    def metric_name(cls) -> str:
+        return "diarization speaker count accuracy"
+
+    @classmethod
+    def metric_components(cls) -> MetricComponents:
+        return ["correct", "files"]
+
+    def compute_components(
+        self,
+        reference: Annotation,
+        hypothesis: Annotation,
+        uem: Timeline | None = None,
+        **kwargs,
+    ) -> Details:
+        reference, hypothesis = self.uemify(reference, hypothesis, uem=uem)
+        return {
+            "correct": float(len(reference.labels()) == len(hypothesis.labels())),
+            "files": 1.0,
+        }
+
+    def compute_metric(self, detail: Details) -> float:
+        if detail["files"] == 0:
+            return 0.0
+        return detail["correct"] / detail["files"]
+
+
+class DiarizationSpeakerCountError(UEMSupportMixin, BaseMetric):
+    """Mean absolute speaker count error per file.
+
+    Each file scores ``abs(predicted_num_speakers - expected_num_speakers)``,
+    counting distinct labels in hypothesis and reference. Empty annotations
+    contain zero speakers. The error is expressed in speakers, without
+    normalization by the reference speaker count.
+
+    Pass an optional evaluation map as ``uem`` when calling the metric to
+    count only speakers present in that region. ``abs(metric)`` returns the
+    mean error over all evaluated files, with each file weighted equally.
+    Before any files have been evaluated, the error is 0.
+    """
+
+    @classmethod
+    def metric_name(cls) -> str:
+        return "diarization speaker count error"
+
+    @classmethod
+    def metric_components(cls) -> MetricComponents:
+        return ["error", "files"]
+
+    def compute_components(
+        self,
+        reference: Annotation,
+        hypothesis: Annotation,
+        uem: Timeline | None = None,
+        **kwargs,
+    ) -> Details:
+        reference, hypothesis = self.uemify(reference, hypothesis, uem=uem)
+        return {
+            "error": float(abs(len(hypothesis.labels()) - len(reference.labels()))),
+            "files": 1.0,
+        }
+
+    def compute_metric(self, detail: Details) -> float:
+        if detail["files"] == 0:
+            return 0.0
+        return detail["error"] / detail["files"]
+
+    def report(self, display: bool = False):
+        """Return a report with the mean error in speakers, not percent."""
+        report = super().report(display=False)
+        report[(self.name, "%")] /= 100.0
+        report.columns = report.columns.map(
+            lambda column: (self.name, "") if column == (self.name, "%") else column
+        )
+        if display:
+            print(report.to_string(float_format=lambda value: f"{value:.2f}"))
+        return report
 
 
 class DiarizationErrorRate(IdentificationErrorRate):
@@ -110,8 +193,8 @@ class DiarizationErrorRate(IdentificationErrorRate):
         self,
         reference: Annotation,
         hypothesis: Annotation,
-        uem: Optional[Timeline] = None,
-    ) -> Dict[Label, Label]:
+        uem: Timeline | None = None,
+    ) -> dict[Label, Label]:
         """Optimal label mapping
 
         Parameters
@@ -141,7 +224,7 @@ class DiarizationErrorRate(IdentificationErrorRate):
         self,
         reference: Annotation,
         hypothesis: Annotation,
-        uem: Optional[Timeline] = None,
+        uem: Timeline | None = None,
         **kwargs,
     ) -> Details:
         # crop reference and hypothesis to evaluated regions (uem)
@@ -171,7 +254,7 @@ class DiarizationErrorRate(IdentificationErrorRate):
         # NOTE that collar is set to 0.0 because 'uemify' has already
         # been applied (same reason for setting skip_overlap to False)
         mapped = hypothesis.rename_labels(mapping=mapping)
-        return super(DiarizationErrorRate, self).compute_components(
+        return super().compute_components(
             reference, mapped, uem=uem, collar=0.0, skip_overlap=False, **kwargs
         )
 
@@ -230,17 +313,15 @@ class GreedyDiarizationErrorRate(IdentificationErrorRate):
         return DER_NAME
 
     def __init__(self, collar: float = 0.0, skip_overlap: bool = False, **kwargs):
-        super(GreedyDiarizationErrorRate, self).__init__(
-            collar=collar, skip_overlap=skip_overlap, **kwargs
-        )
+        super().__init__(collar=collar, skip_overlap=skip_overlap, **kwargs)
         self.mapper_ = GreedyMapper()
 
     def greedy_mapping(
         self,
         reference: Annotation,
         hypothesis: Annotation,
-        uem: Optional[Timeline] = None,
-    ) -> Dict[Label, Label]:
+        uem: Timeline | None = None,
+    ) -> dict[Label, Label]:
         """Greedy label mapping
 
         Parameters
@@ -264,7 +345,7 @@ class GreedyDiarizationErrorRate(IdentificationErrorRate):
         self,
         reference: Annotation,
         hypothesis: Annotation,
-        uem: Optional[Timeline] = None,
+        uem: Timeline | None = None,
         **kwargs,
     ) -> Details:
         # crop reference and hypothesis to evaluated regions (uem)
@@ -294,7 +375,7 @@ class GreedyDiarizationErrorRate(IdentificationErrorRate):
         # NOTE that collar is set to 0.0 because 'uemify' has already
         # been applied (same reason for setting skip_overlap to False)
         mapped = hypothesis.rename_labels(mapping=mapping)
-        return super(GreedyDiarizationErrorRate, self).compute_components(
+        return super().compute_components(
             reference, mapped, uem=uem, collar=0.0, skip_overlap=False, **kwargs
         )
 
@@ -389,7 +470,7 @@ class JaccardErrorRate(DiarizationErrorRate):
         self,
         reference: Annotation,
         hypothesis: Annotation,
-        uem: Optional[Timeline] = None,
+        uem: Timeline | None = None,
         **kwargs,
     ) -> Details:
         # crop reference and hypothesis to evaluated regions (uem)
@@ -456,7 +537,9 @@ class JaccardErrorRate(DiarizationErrorRate):
         return detail
 
     def compute_metric(self, detail: Details) -> float:
-        return detail[JER_SPEAKER_ERROR] / detail[JER_SPEAKER_COUNT]
+        if detail[JER_SPEAKER_COUNT] > 0.0:
+            return detail[JER_SPEAKER_ERROR] / detail[JER_SPEAKER_COUNT]
+        return 1.0
 
 
 PURITY_NAME = "purity"
@@ -483,7 +566,7 @@ class DiarizationPurity(UEMSupportMixin, BaseMetric):
         self,
         reference: Annotation,
         hypothesis: Annotation,
-        uem: Optional[Timeline] = None,
+        uem: Timeline | None = None,
         **kwargs,
     ) -> Details:
         detail = self.init_components()
@@ -526,12 +609,10 @@ class DiarizationCoverage(DiarizationPurity):
         self,
         reference: Annotation,
         hypothesis: Annotation,
-        uem: Optional[Timeline] = None,
+        uem: Timeline | None = None,
         **kwargs,
     ) -> Details:
-        return super(DiarizationCoverage, self).compute_components(
-            hypothesis, reference, uem=uem, **kwargs
-        )
+        return super().compute_components(hypothesis, reference, uem=uem, **kwargs)
 
 
 HOMOGENEITY_NAME = "homogeneity"
@@ -562,7 +643,7 @@ class DiarizationHomogeneity(UEMSupportMixin, BaseMetric):
         return [HOMOGENEITY_ENTROPY, HOMOGENEITY_CROSS_ENTROPY]
 
     def __init__(self, collar: float = 0.0, skip_overlap: bool = False, **kwargs):
-        super(DiarizationHomogeneity, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.collar = collar
         self.skip_overlap = skip_overlap
 
@@ -570,7 +651,7 @@ class DiarizationHomogeneity(UEMSupportMixin, BaseMetric):
         self,
         reference: Annotation,
         hypothesis: Annotation,
-        uem: Optional[Timeline] = None,
+        uem: Timeline | None = None,
         **kwargs,
     ) -> Details:
         detail = self.init_components()
@@ -640,9 +721,7 @@ class DiarizationCompleteness(DiarizationHomogeneity):
         self,
         reference: Annotation,
         hypothesis: Annotation,
-        uem: Optional[Timeline] = None,
+        uem: Timeline | None = None,
         **kwargs,
     ) -> Details:
-        return super(DiarizationCompleteness, self).compute_components(
-            hypothesis, reference, uem=uem, **kwargs
-        )
+        return super().compute_components(hypothesis, reference, uem=uem, **kwargs)

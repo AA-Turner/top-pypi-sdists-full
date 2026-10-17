@@ -29,7 +29,7 @@ type RunParams struct {
 
 // RemoteRunParams identifies a run stored on a W&B server.
 type RemoteRunParams struct {
-	// BaseURL is the W&B API base URL (e.g. https://api.wandb.ai).
+	// BaseURL is the W&B API base URL (e.g. https://api.forge.coreweave.com).
 	BaseURL string
 
 	Entity  string
@@ -105,6 +105,11 @@ type Run struct {
 	consoleLogsPane      *ConsoleLogsPane
 	mediaStore           *MediaStore
 	mediaPane            *MediaPane
+
+	// stepTimes maps history steps to wall-clock time. With linkConsole set,
+	// the selected console line and the charts' crosshair follow each other.
+	stepTimes   stepTimeline
+	linkConsole bool
 
 	// Sidebar animation synchronization.
 	animationMu sync.Mutex
@@ -687,6 +692,14 @@ func (r *Run) buildActiveStatus() string {
 		}
 	}
 
+	if r.consoleLogsPane.Active() {
+		if r.linkConsole {
+			parts = append(parts, "linked to charts (l to unlink)")
+		} else {
+			parts = append(parts, "l: link to charts")
+		}
+	}
+
 	// Add focused chart name if a chart is focused.
 	focusedTitle := r.FocusedTitle()
 	if focusedTitle != "" {
@@ -826,9 +839,9 @@ type Layout struct {
 
 // attachFilters restores the filters remembered for the run's wandb
 // directory and keeps them saved.
-func (r *Run) attachFilters(df *dirFilters) {
-	df.bind(&df.Metrics, r.metricsGrid.filter, r.metricsGrid.ApplyFilter)
-	df.bind(&df.SystemMetrics,
+func (r *Run) attachFilters(ds *dirState) {
+	ds.bind(&ds.Metrics, r.metricsGrid.filter, r.metricsGrid.ApplyFilter)
+	ds.bind(&ds.SystemMetrics,
 		r.rightSidebar.metricsGrid.filter, r.rightSidebar.metricsGrid.ApplyFilter)
 }
 

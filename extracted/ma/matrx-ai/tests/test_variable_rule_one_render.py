@@ -113,8 +113,13 @@ DOORS_AUTHORED = "a=[{{a}}] b=[{{b}}] c=[{{c}}] d=[{{d}}] e=[{{e}}]"
     ("client", "expected"),
     [
         ({}, 'a=[DEF-A] b=[] c=[["x", "y"]] d=[DEF-D] e=[{{e}}]'),
-        ({"a": None, "b": None, "c": [], "d": ""}, 'a=[DEF-A] b=[] c=[["x", "y"]] d=[DEF-D] e=[{{e}}]'),
-        ({"a": "CLIENT", "b": "B", "d": "  "}, 'a=[CLIENT] b=[B] c=[["x", "y"]] d=[DEF-D] e=[{{e}}]'),
+        ({"a": None, "b": None, "c": None, "d": None}, 'a=[DEF-A] b=[] c=[["x", "y"]] d=[DEF-D] e=[{{e}}]'),
+        # A person-cleared field ("" or an emptied multi-select []) is honoured as empty (2026-10-16);
+        # None / absent stay "untouched" — the form sends the default for an untouched field.
+        ({"c": []}, 'a=[DEF-A] b=[] c=[] d=[DEF-D] e=[{{e}}]'),
+        ({"a": "", "d": ""}, 'a=[] b=[] c=[["x", "y"]] d=[] e=[{{e}}]'),
+        # Whitespace-only text is the person clearing the field (the screen shows it blank): "".
+        ({"a": "CLIENT", "b": "B", "d": "  "}, 'a=[CLIENT] b=[B] c=[["x", "y"]] d=[] e=[{{e}}]'),
     ],
 )
 def test_w03_programmatic_and_route_doors_compose_identically(client, expected) -> None:
@@ -129,10 +134,16 @@ def test_w03_programmatic_and_route_doors_compose_identically(client, expected) 
     assert _system_and_user(routed) == (expected, expected)
 
 
-def test_w07_an_agent_with_no_variables_still_turns_the_escape_into_braces() -> None:
-    agent = Agent(config=_config("Write {{!name}} and {{other}}."))
+def test_w07_an_agent_with_no_values_still_turns_the_escape_into_braces() -> None:
+    agent = Agent(config=_config("Write {{!name}} and {{other}}."), variable_defaults={"name": AgentVariable(name="name")})
     agent.apply_variables()
     assert _system_and_user(agent.config) == ("Write {{name}} and {{other}}.",) * 2
+
+
+def test_w07_an_undeclared_escape_is_left_as_written() -> None:
+    agent = Agent(config=_config("Write {{!todo}} and {{other}}."))
+    agent.apply_variables()
+    assert _system_and_user(agent.config) == ("Write {{!todo}} and {{other}}.",) * 2
 
 
 def test_w13_a_spaced_token_is_not_a_declared_slot() -> None:

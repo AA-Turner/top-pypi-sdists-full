@@ -184,6 +184,19 @@ def _document_host_script(
 
 
 class DocumentRpcProjectionTests(unittest.TestCase):
+    def test_projects_snapshot_restore_options_outside_native_input(self) -> None:
+        target = {'kind': 'block', 'nodeType': 'paragraph', 'nodeId': 'p1'}
+        method, invoked = build_document_invoke_request('session-1', OPERATION_INDEX['doc.replace'], {
+            'target': target, 'snapshotId': 'original', 'replaceMode': 'contents',
+            'expectedSnapshotId': 'current', 'changeMode': 'direct',
+        })
+        self.assertEqual(method, 'document.invoke')
+        self.assertEqual(invoked, {
+            'sessionId': 'session-1', 'operationId': 'replace',
+            'input': {'target': target, 'snapshotId': 'original'},
+            'options': {'replaceMode': 'contents', 'expectedSnapshotId': 'current', 'changeMode': 'direct'},
+        })
+
     def test_classifies_document_response_timeout_safety(self) -> None:
         self.assertTrue(document_rpc_request_supports_response_timeout(
             GET_TEXT_OPERATION,

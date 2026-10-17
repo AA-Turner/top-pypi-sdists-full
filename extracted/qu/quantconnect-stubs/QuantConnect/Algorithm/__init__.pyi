@@ -4,7 +4,6 @@ import datetime
 import typing
 import warnings
 
-import Common.Util
 import QuantConnect
 import QuantConnect.Algorithm
 import QuantConnect.Algorithm.Framework.Alphas
@@ -42,6 +41,7 @@ import QuantConnect.Securities.IndexOption
 import QuantConnect.Securities.Option
 import QuantConnect.Statistics
 import QuantConnect.Storage
+import QuantConnect.Util
 import System
 import System.Collections.Concurrent
 import System.Collections.Generic
@@ -3121,7 +3121,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def active_securities(self) -> Common.Util.ReadOnlyExtendedDictionary[QuantConnect.Symbol, QuantConnect.Securities.Security]:
+    def active_securities(self) -> QuantConnect.Util.ReadOnlyExtendedDictionary[QuantConnect.Symbol, QuantConnect.Securities.Security]:
         """
         Read-only dictionary containing all active securities. An active security is
         a security that is currently selected by the universe or has holdings or open orders.
@@ -3427,7 +3427,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def deployment_details(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+    def deployment_details(self) -> QuantConnect.Util.ReadOnlyExtendedDictionary[str, str]:
         """
         Gets a read-only view of the deployment details shared by the brokerage, data queue handler or any other component,
         for example account information. Usually empty when not running in live mode
@@ -5391,7 +5391,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def get_parameters(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+    def get_parameters(self) -> QuantConnect.Util.ReadOnlyExtendedDictionary[str, str]:
         """Gets a read-only dictionary with all current parameters"""
         ...
 
@@ -7240,7 +7240,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def set_deployment_details(self, deployment_details: Common.Util.ReadOnlyExtendedDictionary[str, str]) -> None:
+    def set_deployment_details(self, deployment_details: QuantConnect.Util.ReadOnlyExtendedDictionary[str, str]) -> None:
         """
         Sets the deployment details read-only view. Can only be set once, it's shared by the engine
         

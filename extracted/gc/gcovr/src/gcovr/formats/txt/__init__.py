@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,65 +15,64 @@
 #
 # ****************************************************************************
 
+"""GCOVR classic text report interface."""
+
 from ...data_model.container import CoverageContainer
 from ...formats.base import BaseHandler
 from ...options import (
     GcovrConfigOption,
-    GcovrDeprecatedConfigOptionAction,
     OutputOrDefault,
 )
 
-
-class UseBranchMetricAction(GcovrDeprecatedConfigOptionAction):
-    """Argparse action for mapping deprecated option to new option."""
-
-    option = "--txt-metric"
-    config = "txt-metric"
-    value = "branch"
+OPTION_GROUP_NAME = "GCOVR text options"
+OPTION_GROUP = OPTION_GROUP_NAME.casefold().replace(" ", "_")
 
 
 class TxtHandler(BaseHandler):
     """Class to handle text format."""
 
     @classmethod
+    def get_option_group(cls) -> dict[str, str]:
+        """Get the description of the option group."""
+        return {
+            "key": OPTION_GROUP,
+            "name": OPTION_GROUP_NAME,
+            "description": "Options for GCOVR classic text reports.",
+        }
+
+    @classmethod
     def get_options(cls) -> list[GcovrConfigOption | str]:
+        """Get the report options."""
         return [
             # Global options needed for report
             "show_calls",
             "show_decision",  # Only for summary report
+            "json_compare",  # Only for validation of options
             # Local options
             GcovrConfigOption(
-                "txt_metric",
+                "txt_metrics",
                 ["--txt-metric"],
-                config="txt-metric",
-                group="output_options",
-                help=("The metric type to report. Default is '{default!s}'."),
-                choices=("line", "branch", "decision"),
-                default="line",
-            ),
-            GcovrConfigOption(
-                "txt_metric",
-                ["-b", "--txt-branches", "--branches"],
-                config="txt-branch",
-                group="output_options",
+                config="txt-metrics",
+                group=OPTION_GROUP,
                 help=(
-                    "Deprecated, please use '--txt-metric branch' instead."
-                    "Report the branch coverage instead of the line coverage in text report."
+                    "The metric type to report. If option is given multiple times the "
+                    "reports are printed in the given order. Default is 'line'."
                 ),
-                nargs=0,
-                action=UseBranchMetricAction,
+                choices=("line", "branch", "condition", "decision"),
+                action="append",
             ),
             GcovrConfigOption(
                 "txt_report_covered",
                 ["--txt-report-covered"],
                 config="txt-covered",
+                group=OPTION_GROUP,
                 help="Report the covered lines instead of the uncovered.",
                 action="store_true",
             ),
             GcovrConfigOption(
                 "txt",
                 ["--txt"],
-                group="output_options",
+                group=OPTION_GROUP,
                 metavar="OUTPUT",
                 help="Generate a text report. OUTPUT is optional and defaults to --output.",
                 nargs="?",
@@ -86,7 +83,7 @@ class TxtHandler(BaseHandler):
             GcovrConfigOption(
                 "txt_summary",
                 ["-s", "--txt-summary", "--print-summary"],
-                group="output_options",
+                group=OPTION_GROUP,
                 help=(
                     "Print a small report to stdout "
                     "with line & function & branch percentage coverage "
@@ -97,14 +94,32 @@ class TxtHandler(BaseHandler):
             ),
         ]
 
+    def validate_options(self) -> None:
+        """Validate options."""
+        if (self.options.txt_metrics is not None) and (
+            len(self.options.txt_metrics) > 1 and self.options.json_compare
+        ):
+            msg = (
+                "A txt report with several metrics is not possible with --json-compare."
+            )
+            raise RuntimeError(msg)
+
     def write_report(self, covdata: CoverageContainer, output_file: str) -> None:
-        from .write import write_report  # pylint: disable=import-outside-toplevel # Lazy loading is intended here
+        """Write report."""
+        # Lazy loading is intended here
+        from .write import (  # pylint: disable=import-outside-toplevel  # noqa: PLC0415
+            write_report,
+        )
 
         write_report(covdata, output_file, self.options)
 
     def write_summary_report(
         self, covdata: CoverageContainer, output_file: str
     ) -> None:
-        from .write import write_summary_report  # pylint: disable=import-outside-toplevel # Lazy loading is intended here
+        """Write summary report."""
+        # Lazy loading is intended here
+        from .write import (  # pylint: disable=import-outside-toplevel  # noqa: PLC0415
+            write_summary_report,
+        )
 
         write_summary_report(covdata, output_file, self.options)

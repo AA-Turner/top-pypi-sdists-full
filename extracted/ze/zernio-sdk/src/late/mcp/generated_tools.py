@@ -6442,9 +6442,11 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Delete a campaign
 
-        Deletes a campaign along with all of its ad sets and ads, including a campaign that never got any ads.
+        Deletes a campaign on its platform, including a campaign that never got any ads.
 
-        Locally, all Ad documents for this campaign are marked
+        Only the campaign itself is sent to the platform. Meta, Google, TikTok, LinkedIn
+        and X delete it; OpenAI, Reddit and Pinterest have no campaign delete and archive
+        it instead (see below). Locally, all Ad documents for this campaign are marked
         `status: cancelled`.
 
         **Empty campaigns.** A campaign with zero ads has no local Ad documents
@@ -6452,13 +6454,10 @@ def register_generated_tools(mcp, _get_client):
         404. That state is produced by the two-step create flow (campaign, then
         ads via `existingCampaignId`) whenever Meta rejects the ad step. To
         delete such a shell, send `accountId` in the body or the query string:
-        we skip the local lookup entirely and forward the delete to Meta, or to
-        X when `accountId` is an X or X Ads connection. On X the ad account comes
-        from the synced campaign, which wins over `adAccountId`; when the campaign
-        was never synced, send `adAccountId` too. Before deleting, Zernio asks X
-        whether the campaign still holds undeleted line items (ads not synced
-        yet); if it does the answer is 409 `invalid_field_value` on `campaignId`
-        and nothing is deleted. ...
+        we skip the local lookup entirely and forward the delete to the platform
+        of that connection. Google, TikTok, LinkedIn, Pinterest and Reddit take the
+        ad account from the synced campaign (OpenAI needs none); when the campaign
+        was never synced (or is synced under several ad accounts) the answer is ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
 
@@ -8794,6 +8793,13 @@ def register_generated_tools(mcp, _get_client):
         rf_prediction_id: str | None = None,
         promotion: str | None = None,
         creative_features: dict[str, Any] | None = None,
+        catalog_format: Literal[
+            "single_image",
+            "carousel_images_multi_items",
+            "carousel_images_single_item",
+            "carousel_slideshows",
+        ]
+        | None = None,
         multi_advertiser: Literal["OPT_IN", "OPT_OUT"] | None = None,
         ai_disclosure: Literal["OPT_IN", "OPT_OUT"] | None = None,
         validate_only: bool | None = None,
@@ -9009,7 +9015,8 @@ def register_generated_tools(mcp, _get_client):
         - `lead_conversion`: OUTCOME_LEADS optimizing website pixel leads. Same pixel and event fields, but with a leads-class event such as LEAD, SUBMIT_APPLICATION, SCHEDULE or CONTACT (or `promotedObject.customConversionId` to optimise against a Custom Conversion instead). Meta gates conversion events by objective, so leads-class events are rejected under `conversions`.
         - `lead_generation`: OUTCOME_LEADS with instant forms. Requires `leadGenFormId`. `promotedObject.pageId` is optional and auto-filled from the connected Page.
         - `app_promotion`: requires `promotedObject.applicationId` and `promotedObject.objectStoreUrl`.
-        - `catalog_sales`: Advantage+ catalog ads, for example vehicle inventory. Requires `promotedObject.productSetId`, `promotedObject.pixelId` and `promotedObject.customEventType`. Builds a catalog TEMPLATE creative from the copy fields, which may carry template tags like {{product.name}} or {{vehicle.make}}. No imageUrl or video is sent; Meta renders the visuals per catalog item. Discover catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets. Single shape only, no creatives[], adSetId, dynamicCreative or placementAssets.
+        - `catalog_sales`: Advantage+ catalog ads, for example vehicle inventory. Requires `promotedObject.productSetId`, `promotedObject.pixelId` and `promotedObject.customEventType`. Builds a catalog TEMPLATE creative from the copy fields, which may carry template tags like {{product.name}} or {{vehicle.make}}. No imageUrl or video is sent; Meta renders the visuals per catalog item. Discover catalogs via GET /v1/ads/catalogs and product sets via GET /v1/ads/catalogs/{catalogId}/product-sets. Single shape only, no creatives[], dynamicCreative, placementAssets, existingCreativeId or carouselCards; an imageUrl or video sent with it is ignored and not uploaded. Works with `existingCampaignId`, and with `adSetId` to add a catalog ad to an existing ad set (then only `promotedObject.productSetId` is required; pixel and event stay on the ad set). Pick the format with `catalogFormat`.
+        - `traffic` with `promotedObject.productSetId`: a catalog ad without a pixel (OUTCOME_TRAFFIC, `optimizationGoal` LINK_CLICKS by default or LANDING_PAGE_VIEWS). The product set goes on the template creative only, never on the ad set's promoted_object, and no `pixelId` or `customEventType` is needed. Same creative rules as `catalog_sales`.
         - `page_likes`: Page Likes conversion location under OUTCOME_ENGAGEMENT (destination_type ON_PAGE, optimization PAGE_LIKES). `promotedObject.pageId` is optional and auto-filled from the connected Page. The creative CTA is fixed to LIKE_PAGE targeting that Page; headline / body / linkUrl / callToAction / imageUrl / video are all optional (Meta derives the link and the Like button from the Page).
         - `page_visits`: Meta's "Page visits and followers" under OUTCOME_TRAFFIC (destination_type FACEBOOK_PAGE, optimization PROFILE_VISIT). `promotedObject.pageId` is optional and auto-filled from the connected Page, and `linkUrl` defaults to the Page. Meta enables Profile Visit ads per ad account: one it has not enabled is refused with Meta's "This account isn't eligible to use Profile Visit ads yet".
 
@@ -9036,7 +9043,8 @@ def register_generated_tools(mcp, _get_client):
                 buying_type: Meta only. Defaults to AUCTION and is explicitly sent on new campaigns, including validateOnly. Reusing existingCampaignId does not change the campaign. RESERVED = Reach & Frequency: requires `rfPredictionId` (a RESERVED prediction from /v1/ads/rf-predictions + /reserve). Budget, schedule and pricing come from the reservation, so budgetAmount/budgetType are not required and bid fields are ignored. Only the plain single-ad shape (no creatives[], adSetId, existingCampaignId or dynamicCreative).
                 rf_prediction_id: Meta only. The RESERVED prediction id the R&F ad set runs on (reserving mints a new id, so pass that one). Requires buyingType RESERVED.
                 promotion: Not supported. Meta validates creative_sourcing_spec.promotion_metadata_spec on the create call and then discards it, so a Promotion set through the Marketing API never reaches the creative. Any object is rejected with 400 invalid_field_value. Send null or omit the field, and set the Promotion on the ad in Ads Manager. Verified on 2026-09-11 across Graph v19.0 to v25.0 and every write path.
-                creative_features: Meta only. Applied to each new creative, including standalone and attach shapes. With creatives[], these are defaults; an item replaces the whole feature map, including an empty map. auto_promotion_tag is an Advantage+ enhancement, not the Ads Manager Promotion setting.
+                creative_features: Meta only. Applied to each new creative, including standalone, attach and catalog template shapes. With creatives[], these are defaults; an item replaces the whole feature map, including an empty map. auto_promotion_tag is an Advantage+ enhancement, not the Ads Manager Promotion setting. On catalog ads, the catalog enhancements are keys of this same map, for example `{ "product_extensions": "OPT_OUT", "media_type_automation": "OPT_OUT", "standard_enhancements_catalog": "OPT_OUT", "multi_creative_post_carousel": "OPT_OUT" }`.
+                catalog_format: Meta catalog template creatives only (goal `catalog_sales`, goal `traffic` with `promotedObject.productSetId`, or `adSetId` with `promotedObject.productSetId`); a 400 otherwise. Sent as `object_story_spec.template_data.format_option`. `force_single_link` is never sent with it (Meta rejects the pair, subcode 1443051). `single_image` also sends `format_transformation_spec` with `carousel` and `da_collection` set to `data_source: ["none"]`, so Meta keeps the single image instead of turning it into a carousel or collection. `carousel_images_single_item` also sends `template_data.multi_share_end_card: false`, which Meta requires for that format (subcode 1443167). Omit it to let Meta pick the format.
                 multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there.
                 ai_disclosure: Meta only. Meta's "Ad includes media created or edited with AI" disclosure, the checkbox in Ads Manager, stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`. OPT_IN checks it, OPT_OUT explicitly declares no AI media, omitted leaves Meta's default. Applied to each new creative, including standalone, creatives[] and attach shapes, and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision.
                 validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, all-image placementAssets with per-rule copy, existing video.id or existingCreativeId; other media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI's own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.
@@ -9413,6 +9421,7 @@ def register_generated_tools(mcp, _get_client):
                 rf_prediction_id=rf_prediction_id,
                 promotion=promotion,
                 creative_features=creative_features,
+                catalog_format=catalog_format,
                 multi_advertiser=multi_advertiser,
                 ai_disclosure=ai_disclosure,
                 validate_only=validate_only,
@@ -10071,6 +10080,7 @@ def register_generated_tools(mcp, _get_client):
         video_url: str | None = None,
         video_base64: str | None = None,
         filename: str | None = None,
+        name: str | None = None,
         async_: bool = False,
     ) -> str:
         """Upload an ad video
@@ -10100,7 +10110,8 @@ def register_generated_tools(mcp, _get_client):
             ad_account_id: Platform ad account id (Meta act_<n>, Google customer id, LinkedIn account id, ...). (required)
             video_url: Public https URL of the video; downloaded server-side (SSRF-guarded) before chunked upload. Provide exactly one of videoUrl or videoBase64.
             video_base64: Raw base64 video bytes, or a full data URL (the data:video/...;base64, prefix is stripped). Capped by Vercel's body limit (~4.5 MB payload). Provide exactly one of videoUrl or videoBase64.
-            filename: Optional filename shown alongside the upload session. Applied only when uploading via videoBase64.
+            filename: Optional file name, sent to Meta as the video's name and title so it shows and is searchable in the Ads Manager media library. Applies to both videoUrl and videoBase64. Without it (and without name), a videoUrl upload is named after the last path segment of the URL.
+            name: Optional video name shown in the Ads Manager media library. Takes precedence over filename.
             async_: true: answer 202 once Meta accepts the upload instead of waiting for processing. Poll GET /v1/ads/videos/{videoId} or subscribe to ad.video.processed."""
         client = _get_client()
         try:
@@ -10110,6 +10121,7 @@ def register_generated_tools(mcp, _get_client):
                 video_url=video_url,
                 video_base64=video_base64,
                 filename=filename,
+                name=name,
                 async_=async_,
             )
             return _format_response(response)
@@ -16373,7 +16385,7 @@ def register_generated_tools(mcp, _get_client):
         `comment.received` webhook, which ...
 
         Args:
-            post_id: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. LinkedIn third-party posts accept full activity URN or numeric ID. On Facebook, a comment ID is also accepted here and returns that comment's replies, kept for backwards compatibility; prefer the `commentId` query parameter, which also works on Instagram. (required)
+            post_id: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. On LinkedIn, pass the post id exactly as the feed returns it (urn:li:share:<id> or urn:li:ugcPost:<id>). A bare number is read as an activity id (urn:li:activity:<n>, the number in a linkedin.com/feed/update URL); a share or ugcPost number passed bare returns an empty list. On Facebook, a comment ID is also accepted here and returns that comment's replies, kept for backwards compatibility; prefer the `commentId` query parameter, which also works on Instagram. (required)
             account_id: (required)
             subreddit: (Reddit only) Subreddit name
             limit: Maximum number of comments to return
@@ -16432,7 +16444,7 @@ def register_generated_tools(mcp, _get_client):
         inconclusive rather than as proof ...
 
         Args:
-            post_id: Zernio post ID or platform-specific post ID. LinkedIn third-party posts accept full activity URN or numeric ID. (required)
+            post_id: Zernio post ID or platform-specific post ID. On LinkedIn, pass the post id exactly as the feed returns it (urn:li:share:<id> or urn:li:ugcPost:<id>); a bare number is read as an activity id (urn:li:activity:<n>). (required)
             account_id: (required)
             message: (required)
             attachment_url: (Facebook only) URL of an image to attach, publishing a photo comment alongside the text. The URL must be publicly accessible so Meta can fetch it. Returns 400 for other platforms.
@@ -16473,7 +16485,7 @@ def register_generated_tools(mcp, _get_client):
         Requires accountId and commentId query parameters.
 
         Args:
-            post_id: Zernio post ID or platform-specific post ID. LinkedIn third-party posts accept full activity URN or numeric ID. (required)
+            post_id: Zernio post ID or platform-specific post ID. On LinkedIn, pass the post id exactly as the feed returns it (urn:li:share:<id> or urn:li:ugcPost:<id>); a bare number is read as an activity id (urn:li:activity:<n>). (required)
             account_id: (required)
             comment_id: For LinkedIn, accepts either the numeric comment ID or the composite comment URN returned by the comments listing (e.g. urn:li:comment:(threadUrn,id)) (required)"""
         client = _get_client()
@@ -19527,6 +19539,9 @@ def register_generated_tools(mcp, _get_client):
         signup: Literal["hosted"] | None = None,
         brand_name: str | None = None,
         primary_color: str | None = None,
+        welcome: bool = False,
+        welcome_theme: str | None = None,
+        logo_url: str | None = None,
         language: Literal["en", "es", "pt-BR"] | None = None,
     ) -> str:
         """Get OAuth connect URL
@@ -19675,7 +19690,7 @@ def register_generated_tools(mcp, _get_client):
 
         | Platform | `posting` | `analytics` | `comments` | `messaging` | `ads` | Always requested |
         |---|---|---|---|---|---|---|
-        | facebook | `pages_manage_posts` | `read_insights`, `pages_read_user_content` | `pages_manage_engagement`, `pages_read_user_content` | (in the always-requested set) | `ads_management`, `ads_read`, `leads_retrieval`, `pages_manage_ads`, `instagram_basic`, `business_management` | `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`, `pages_messaging` |
+        | facebook | `pages_manage_posts` | `read_insights`, `pages_read_user_content` | `pages_manage_engagement`, `pages_read_user_content` | `pages_messaging` | `ads_management`, `ads_read`, `leads_retrieval`, `pages_manage_ads`, `instagram_basic`, `business_management` | `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata` |
         | instagram (Instagram Login) | `instagram_business_content_publish` | `instagram_business_manage_insights` | `instagram_business_manage_comments` | `instagram_business_manage_messages` | none | `instagram_business_basic` |
         | instagram (`loginMethod=facebook_login`) | `instagram_content_publish` | `instagram_manage_insights` | `instagram_manage_comments` | `instagram_manage_messages` | `ads_management`, `ads_read`, `leads_retrieval`, `pages_manage_ads` | `instagram_basic`, `pages_show_list`, `pages_read_engagement`, `business_management`, `pages_messaging`, `pages_manage_metadata` |
         | linkedin | `w_member_social`, `w_organization_social`, `r_organization_social`, `r_organization_followers` | `r_member_postAnalytics`, `r_member_profileAnalytics`, `rw_organization_admin`, `r_organization_social`, `r_organization_followers` | `w_member_social`, `w_member_social_feed`, `w_organization_social`, `w_organization_social_feed`, `r_organization_social`, `r_organization_social_feed` | none | `r_ads`, `rw_ads`, `r_ads_reporting`, `r_marketing_leadgen_automation`, `rw_conversions` | `openid`, `profile`, `email`, `r_basicprofile`, `rw_organization_admin` |
@@ -19727,8 +19742,11 @@ def register_generated_tools(mcp, _get_client):
         called out by name ("choose it in Meta's list, no code will be asked"), coexistence and standard signups
         get their explainer video, and a step-by-step follow-along checklist stays visible while Meta's popup is
         open. Skin it with `brandName`, `primaryColor` and `language` below.
-                brand_name: Hosted signup page only (`signup=hosted`, WhatsApp): name shown in the page title ("Connect your WhatsApp number to <brandName>") instead of Zernio. The Zernio logo stays: the page is co-branded, not white-label. Trimmed; 1 to 60 characters. Rejected with 400 `INVALID_FIELD_VALUE` without `signup=hosted`. Stored on the signup session at issue time, so the page URL cannot change it.
-                primary_color: Hosted signup page only (`signup=hosted`, WhatsApp): hex colour (`#RRGGBB`) for the primary button and step accents. Validated server-side; anything else is a 400 `INVALID_FIELD_VALUE`. Rejected without `signup=hosted`.
+                brand_name: Your product name, for the two branded pages. With `signup=hosted` (WhatsApp) it replaces Zernio in the page title ("Connect your WhatsApp number to <brandName>"). With `welcome=true` it fills the heading ("<brandName> wants to connect to your <platform>"); without it the screen shows Zernio and the Zernio mark. Both pages keep a Zernio mark: they are co-branded, not white-label. Trimmed; 1 to 60 characters. Rejected with 400 `INVALID_FIELD_VALUE` without `signup=hosted` or `welcome=true`. Sealed into the page link at issue time, so editing the URL cannot change it.
+                primary_color: Hex colour (`#RRGGBB`) for the primary button on the hosted WhatsApp signup page (`signup=hosted`) or the welcome screen (`welcome=true`). Validated server-side; anything else is a 400 `INVALID_FIELD_VALUE`. Rejected without one of the two.
+                welcome: Any platform. When `true`, `authUrl` points to a Zernio-hosted welcome screen that shows your brand next to the platform ("<brandName> wants to connect to your <platform>") with a Continue button; Continue sends the user to the platform's own authorization screen and the rest of the flow is unchanged. `brandName`, `logoUrl`, `primaryColor` and `welcomeTheme` are optional and default to Zernio's own name, mark and look. The link is valid for 30 minutes, after which the page asks the user to start again. The brand also carries to the account and channel pickers Zernio shows after authorization, and when you pass no `redirect_url` the flow ends on a branded Zernio-hosted page saying whether the account connected, instead of the Zernio dashboard. Cannot be combined with `headless=true` or `signup=hosted` (400 `INVALID_FIELD_VALUE`). The platform's authorization screen still names the Zernio app.
+                welcome_theme: Welcome screen only (`welcome=true`): a URL-encoded JSON object that restyles and rewords the screen. All keys are optional. Copy: `heading` (up to 120 characters), `trustLine` and `consentLine` (up to 200 each), `buttonLabel` (up to 30); each may contain the placeholders `{brand}` and `{platform}`. Style: `primaryColor`, `pageColor`, `cardColor` and `textColor` as `#RRGGBB`, `cornerRadius` as an integer from 0 to 24 (pixels), `font` as `sans`, `serif` or `mono`. A `primaryColor` here wins over the `primaryColor` parameter. Unknown keys, invalid JSON or an invalid value are a 400 `INVALID_FIELD_VALUE`. Rejected without `welcome=true`. Example: `{"heading":"Link your {platform} to {brand}","cardColor":"#FFF7ED","cornerRadius":12}`.
+                logo_url: Welcome screen only (`welcome=true`): https URL of your logo, shown in a square tile, so use a square image. Without it the tile shows the first letter of `brandName`, or the Zernio mark when there is no `brandName` either. Rejected with 400 `INVALID_FIELD_VALUE` without `welcome=true`.
                 language: Hosted signup page only (`signup=hosted`, WhatsApp): language of the page and its follow-along guide. Explainer videos stay in English. Default `en`. Rejected without `signup=hosted`."""
         client = _get_client()
         try:
@@ -19747,6 +19765,9 @@ def register_generated_tools(mcp, _get_client):
                 signup=signup,
                 brand_name=brand_name,
                 primary_color=primary_color,
+                welcome=welcome,
+                welcome_theme=welcome_theme,
+                logo_url=logo_url,
                 language=language,
             )
             return _format_response(response)
@@ -26196,6 +26217,7 @@ def register_generated_tools(mcp, _get_client):
         to: str | None = None,
         status_code: int | None = None,
         api_key_id: str | None = None,
+        profile_id: str | None = None,
         include_read_receipts: bool = False,
     ) -> str:
         """List activity logs
@@ -26222,6 +26244,7 @@ def register_generated_tools(mcp, _get_client):
                 to: Precise end instant (ISO 8601)
                 status_code: Filter by exact HTTP status code (api_request logs)
                 api_key_id: Filter by the API key that made the request (api_request logs)
+                profile_id: Filter by profile: every log type carries the profile it belongs to, and an API request log carries the profileId the call named
                 include_read_receipts: Include message.read / message.delivered events (hidden by default for messaging logs)"""
         client = _get_client()
         try:
@@ -26241,6 +26264,7 @@ def register_generated_tools(mcp, _get_client):
                 to=to,
                 status_code=status_code,
                 api_key_id=api_key_id,
+                profile_id=profile_id,
                 include_read_receipts=include_read_receipts,
             )
             return _format_response(response)
@@ -30203,7 +30227,7 @@ def register_generated_tools(mcp, _get_client):
             tags: Array of keyword tags (max 500 characters combined for YouTube)
             category_id: YouTube video category ID
             privacy_status: Video privacy setting
-            thumbnail_url: Public URL of a custom thumbnail image (JPEG, PNG, or GIF, max 50 MB, recommended 1280x720). Works on any video you own, including existing videos not published through Zernio. The channel must be verified (phone verification) to set custom thumbnails. If the thumbnail cannot be set (YouTube refuses it, for example a channel without the custom-thumbnail permission or a video not owned by the connected channel, or the image URL cannot be fetched or is not a supported format or size), the request answers 400 with the reason and no field is updated. A temporary YouTube or network failure answers 500 and can be retried.
+            thumbnail_url: Public URL of a custom thumbnail image (JPEG, PNG, or GIF, max 50 MB, recommended 1280x720). Works on any video you own, including existing videos not published through Zernio. The channel must be verified (phone verification) to set custom thumbnails. If the thumbnail cannot be set (YouTube refuses it, for example a channel without the custom-thumbnail permission or a video not owned by the connected channel, or the image URL cannot be fetched or is not a supported format or size), the request answers 400 with the reason and no field is updated. A YouTube thumbnail rate limit (uploadRateLimitExceeded) answers 429; retry later, not immediately, because retries keep the channel over its limit. Any other temporary YouTube or network failure answers 500 and can be retried.
             made_for_kids: COPPA compliance flag. Set true for child-directed content (restricts comments, notifications, ad targeting).
             contains_synthetic_media: AI-generated content disclosure. Set true if the video contains synthetic content that could be mistaken for real. YouTube may add a label.
             playlist_id: YouTube playlist ID to add the video to (e.g. 'PLxxxxxxxxxxxxx'). Use GET /v1/accounts/{id}/youtube-playlists to list available playlists. Only playlists owned by the channel are supported."""

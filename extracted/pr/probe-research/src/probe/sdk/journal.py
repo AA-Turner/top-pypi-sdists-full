@@ -102,10 +102,11 @@ from .secret_gate import (
     check_upload,
     read_source,
     redact_quick_bytes,
+    refuse_rewrite,
     safe_snapshot_file as snapshot_file,
     strict_policy,
 )
-from .redaction import default_scrub, scrub_text
+from .redaction import default_scrub, scrub_string, scrub_text
 from .stamp_scrub import scrub_body, scrub_envelope, scrub_op
 
 log = logging.getLogger(__name__)
@@ -1487,6 +1488,10 @@ class Journal:
             "blob": (op.get("upload") or {}).get("blob"),
             "size_bytes": (op.get("upload") or {}).get("size_bytes"),
             "staged": bool((op.get("upload") or {}).get("staged")),
+            # The name the request froze, as a receipt reports the delivered
+            # one: a caller can tell a request that went out under a name it
+            # never meant from one still in flight under the right name.
+            "name": (op.get("upload") or {}).get("name") or (op.get("body") or {}).get("name"),
             "error": error,
         }
 
@@ -1577,7 +1582,12 @@ class Journal:
         fields["src_path"] = os.path.abspath(fields["src_path"])
         request = {
             "kind": "upload",
-            "fields": fields,
+            # `notes` stays in the DIGESTED request as an always-empty slot: a
+            # correlation recorded before files stopped carrying notes was
+            # digested with `"notes": null`, and re-enqueueing it must replay,
+            # not fail as "a different immutable request". The queued upload
+            # (`fields`) carries none.
+            "fields": {**fields, "notes": None},
             "context": self.context,
             "attribution": self.attribution,
             "expected_content_hash": expected_content_hash,
@@ -2315,7 +2325,6 @@ class Journal:
         content_type: str | None = None,
         kind: str | None = None,
         meta: dict | None = None,
-        notes: str | None = None,
         span_id: str | None = None,
         step_index: int | None = None,
         run_ref: str | None = None,
@@ -2324,8 +2333,13 @@ class Journal:
         expected_content_hash: str | None = None,
         blocking: bool = True,
         defer_scan: bool = False,
+        verbatim: bool = False,
     ) -> dict:
         """Queue a byte upload; returns ``{op_id, blob, size_bytes}``.
+
+        ``verbatim`` (a checkpoint's files): a credential the gate would mask
+        refuses the upload instead -- here, or as a dead letter when the scan
+        is deferred -- so the stored file is never a rewritten copy.
 
         ``blocking=False`` marks an upload that must NOT hold its run's close,
         exactly like ``append_http``'s flag: `Run.finish` still drains it first,
@@ -2367,8 +2381,8 @@ class Journal:
         only then queues it. ``blob`` comes back None and ``waiting`` True.
         """
         meta = default_scrub(meta)
-        notes = scrub_text(notes) if notes is not None else None
-        name = scrub_text(name)
+        # `scrub_string`, not `scrub_text`: see `Client.upload`.
+        name = scrub_string(name)
         if correlation is not None:
             queue = (
                 self
@@ -2385,7 +2399,6 @@ class Journal:
                 content_type=content_type,
                 kind=kind,
                 meta=meta,
-                notes=notes,
                 span_id=span_id,
                 step_index=step_index,
                 run_ref=run_ref,
@@ -2401,11 +2414,12 @@ class Journal:
             "content_type": content_type,
             "kind": kind,
             "meta": meta,
-            "notes": notes,
             "span_id": span_id,
             "step_index": step_index,
             "src_path": os.path.abspath(src_path),
         }
+        if verbatim:
+            upload["verbatim"] = True
         # The strict policy keeps the full scan on the caller's thread, where it
         # always was (`read_upload_redacted`); only the quick check waits.
         if stage and defer_scan and not strict_policy():
@@ -2447,7 +2461,7 @@ class Journal:
                 stage = False
         if stage:
             staging = self.blobs_dir / f".staging-{op['op_id']}"
-            snapshot_file(src_path, staging)
+            snapshot_file(src_path, staging, verbatim=verbatim)
             if inline_hash:
                 digest, size_bytes = fingerprint(str(staging))
             final = (
@@ -2729,6 +2743,8 @@ class Journal:
             prepared.unlink(missing_ok=True)  # a half-made promotion; start over
             try:
                 clean, result = redact_quick_bytes(raw)
+                if (op.get("upload") or {}).get("verbatim"):
+                    refuse_rewrite(result)
             except CredentialBlocked as exc:
                 self._dead_letter_waiting(op_id, op, str(exc))
                 return 0
@@ -2751,7 +2767,9 @@ class Journal:
             # last, and published under the append lock like any other: whether
             # it still exists is only knowable there.
             try:
-                clean, _ = redact_quick_bytes(raw)
+                clean, result = redact_quick_bytes(raw)
+                if (op.get("upload") or {}).get("verbatim"):
+                    refuse_rewrite(result)
             except CredentialBlocked as exc:
                 self._dead_letter_waiting(op_id, op, str(exc))
                 return 0
@@ -3370,6 +3388,75 @@ class Journal:
         if moved:
             self.gc_blobs()
         return moved + children_moved
+
+    def discard_request(self, correlation: str, *, timeout: float = 5.0) -> dict:
+        """Tombstone one receipt request wherever it waits -- queued,
+        dead-lettered, or an intent whose op never landed -- so neither a
+        drain nor a retry sends it again. A delivered request is left as it
+        is. Returns the state afterwards.
+
+        Taken under the drain lock, so no pass is mid-way through the op; when
+        another drain holds it past ``timeout`` nothing moves and the state
+        still says where the request waits. One file is moved by name, nothing
+        is recounted, and blobs are left for the next drain to collect:
+        `discard_failed` re-reads every dead letter and then all of the queue
+        in `gc_blobs`, which made a repair of 1,200 requests take 166 s under
+        the append lock."""
+        waiting = {"queued", "pending", "failed"}
+        state = self.delivery_state(correlation)
+        if state["state"] not in waiting:
+            return state
+        handle = self.drain_lock.open("a+")
+        try:
+            if not _take_drain_lock(handle, wait_for_lock=True, timeout=timeout):
+                return state
+            key = self._correlation_key(correlation)
+            with self._correlation_lock(key):
+                state = self.delivery_state(correlation)
+                if state["state"] not in waiting:
+                    return state
+                op = self._read_record(self.intents_dir / f"{key}.json")["op"]
+                filename = op["queue_filename"]
+                target = self.dir / "discarded"
+                with file_lock(self.append_lock):
+                    target.mkdir(parents=True, exist_ok=True, mode=0o700)
+                    source = next(
+                        (
+                            directory / filename
+                            for directory in (self.ops_dir, self.failed_dir)
+                            if (directory / filename).exists()
+                        ),
+                        None,
+                    )
+                    if source is None:
+                        # Pending: the intent committed and its op did not. The
+                        # tombstone is what keeps `recover_intents` from
+                        # restoring it.
+                        write_text_atomic(
+                            target / filename, json.dumps(op, indent=2) + "\n", mode=0o600
+                        )
+                    else:
+                        os.replace(source, target / filename)
+                        fsync_directory(source.parent)
+                        self._scan_forget(filename)
+                    fsync_directory(target)
+                    # A delta, as an append writes one: a recount re-reads every
+                    # queued op, per request. A dead letter's count is the
+                    # drain's to rewrite, like every other status number.
+                    if source is not None and source.parent == self.ops_dir:
+                        self._write_status_locked(
+                            recount=False,
+                            pending_delta=-1,
+                            pending_bytes_delta=-int((op.get("upload") or {}).get("size_bytes") or 0),
+                        )
+                    elif source is not None:
+                        self._record_dead_letters()
+                return self.delivery_state(correlation)
+        finally:
+            try:
+                oscompat.flock(handle.fileno(), oscompat.LOCK_UN)
+            finally:
+                handle.close()
 
     def discard_held(self, *, credential: str | None = None) -> int:
         """Move to ``discarded/`` the PENDING ops, in this queue and the ones
@@ -4420,8 +4507,9 @@ def _upload_fallback_request(op: dict) -> tuple[str, dict] | None:
             "upload": "failed",
             "upload_error": op.get("last_error"),
         },
-        "notes": upload.get("notes"),
     }
+    # No `notes`, though an op an older client queued may carry one: files no
+    # longer carry notes, so it is dropped here and in the upload replay (`_execute`).
     return f"/v1/runs/{anchor_id}/artifacts", {k: v for k, v in body.items() if v is not None}
 
 
@@ -6002,9 +6090,8 @@ def _execute(
             content_type=upload.get("content_type"),
             kind=upload.get("kind"),
             meta=upload.get("meta"),
-            # .get, not ["notes"]: a journal written by an older CLI has no such
-            # key, and the drainer must replay those ops rather than KeyError.
-            notes=upload.get("notes"),
+            # An op an older client queued may carry `notes`: it is dropped, not
+            # sent (files no longer carry notes), and the op replays as usual.
             span_id=upload.get("span_id"),
             step_index=upload.get("step_index"),
         )

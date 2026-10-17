@@ -57,9 +57,7 @@ def test_run_tree_default_uuidv7_and_start_time_match() -> None:
 
 
 def test_run_tree_explicit_start_time_matches_id() -> None:
-    fixed_start = datetime.datetime(
-        2024, 6, 7, 8, 9, 10, 123000, tzinfo=datetime.timezone.utc
-    )
+    fixed_start = datetime.datetime(2024, 6, 7, 8, 9, 10, 123000, tzinfo=datetime.timezone.utc)
     rt = RunTree(name="test", run_type="chain", inputs={}, start_time=fixed_start)
 
     assert rt.id.version == 7
@@ -70,9 +68,7 @@ def test_run_tree_explicit_start_time_matches_id() -> None:
 
 def test_post_and_patch_include_run_type_and_start_time() -> None:
     client = MagicMock(spec=Client)
-    fixed_start = datetime.datetime(
-        2024, 6, 7, 8, 9, 10, 123000, tzinfo=datetime.timezone.utc
-    )
+    fixed_start = datetime.datetime(2024, 6, 7, 8, 9, 10, 123000, tzinfo=datetime.timezone.utc)
     rt = RunTree(
         name="post-patch-test",
         run_type="llm",
@@ -107,9 +103,7 @@ def test_compute_run_id_for_secondary_replica() -> None:
     with pytest.raises(ValueError, match="project_name"):
         compute_run_id_for_secondary_replica(original, "")
     with pytest.raises(ValueError, match="UUID v7"):
-        compute_run_id_for_secondary_replica(
-            "12345678-1234-4234-8234-123456789abc", "replica-project"
-        )
+        compute_run_id_for_secondary_replica("12345678-1234-4234-8234-123456789abc", "replica-project")
 
 
 def test_internal_replica_remapping_accepts_non_uuid7() -> None:

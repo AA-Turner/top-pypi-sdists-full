@@ -106,6 +106,11 @@ class Account(UniversalBaseModel):
     Account promotional description.
     """
 
+    direct_reports_count: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    How many team members report to the business directly, with no manager above them. Present on single-account reads.
+    """
+
     dispute_fighter_enabled: bool = pydantic.Field()
     """
     Whether Whop assembles and files dispute evidence for this account. Enabling it opts the account into the success fee charged on disputes it wins.
@@ -277,11 +282,6 @@ class Account(UniversalBaseModel):
     """
 
     social_links: typing.List[AccountSocialLink]
-    stablecoin_rails: bool = pydantic.Field()
-    """
-    Whether the account settles on stablecoin rails — its balance is held on-chain as USDT and paid out over crypto, rather than as fiat cash.
-    """
-
     status: typing.Optional[str] = pydantic.Field(default=None)
     """
     Whether the account can operate on Whop: `active` or `suspended`. Computed on `list`, `retrieve`, `me`, and `suspend`; `null` otherwise.
@@ -354,6 +354,11 @@ class Account(UniversalBaseModel):
     Account identity verification status for the `individual` (KYC) and `business` (KYB) profiles. Each is `null` until created, otherwise a `status` of `not_started`, `pending`, `manual_review`, `approved`, or `rejected`.
     """
 
+    volume_l30d_usd: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    Volume through the account in the last 30 days (GMV from paid receipts), normalized to USD. Computed only on `list` for callers with `stats:read` on the account; `null` otherwise.
+    """
+
     volume_usd: typing.Optional[float] = pydantic.Field(default=None)
     """
     Lifetime volume through the account — sales plus transfers received — normalized to USD. Computed only on `list` for callers with `stats:read` on the account; `null` otherwise.
@@ -367,6 +372,11 @@ class Account(UniversalBaseModel):
     website: typing.Optional[str] = pydantic.Field(default=None)
     """
     The account's business website URL, or `null` if none has been provided. Setting it also adds a `website` entry to `social_links`.
+    """
+
+    whop_partner_enabled_at: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    When the account turned on Whop Partner mode, as an ISO 8601 timestamp. Present on single-account reads and update responses; `null` until the account turns Whop Partner mode on by sending `whop_partner_enabled: true` on update.
     """
 
     if IS_PYDANTIC_V2:

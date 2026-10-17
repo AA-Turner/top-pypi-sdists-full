@@ -127,6 +127,16 @@ def skip_paid_pre_step(kind: str, detail: str) -> bool:
     return True
 
 
+def note_capture(note: str) -> None:
+    """Record a fact about how the request was shaped on an active capture (no-op otherwise).
+
+    The Model view returns these beside the request, so a conversion the wire shows (e.g. a
+    history system message sent as a marked note) is said in words, not left to be spotted."""
+    slot = _capture_var.get()
+    if slot is not None:
+        slot.notes.append(note)
+
+
 #: Hosts whose calls cost money. A capture run must never reach one except through the
 #: capture hook that stops the main request. Matched as a host suffix.
 PAID_PROVIDER_HOST_SUFFIXES: tuple[str, ...] = (
@@ -403,6 +413,7 @@ __all__ = [
     "capture_local_request",
     "capture_wire_request",
     "capturing_provider_request",
+    "note_capture",
     "guard_paid_send",
     "install_genai_capture",
     "install_paid_send_guard",

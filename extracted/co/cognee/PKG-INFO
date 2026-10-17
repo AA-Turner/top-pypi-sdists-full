@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cognee
-Version: 1.6.4
+Version: 1.6.5
 Summary: Cognee - is a library for enriching LLM context with a semantic layer for better understanding and reasoning.
 Project-URL: Homepage, https://www.cognee.ai
 Project-URL: Repository, https://github.com/topoteretes/cognee
@@ -23,11 +23,11 @@ Requires-Dist: aiosqlite<1.0.0,>=0.20.0
 Requires-Dist: alembic<2,>=1.13.3
 Requires-Dist: cbor2>=5.8.0
 Requires-Dist: cryptography<51,>=43.0.0
-Requires-Dist: datamodel-code-generator>=0.54.0
+Requires-Dist: datamodel-code-generator>=0.56.0
 Requires-Dist: dateparser<2,>=1.2
 Requires-Dist: diskcache>=5.6.3
 Requires-Dist: dlt[sqlalchemy]<1.31,>=1.9.0
-Requires-Dist: enola-cli==0.4.26
+Requires-Dist: enola-cli==0.4.30
 Requires-Dist: fakeredis[lua]>=2.32.0
 Requires-Dist: fastapi-users[sqlalchemy]>=15.0.2
 Requires-Dist: fastapi<1.0.0,>=0.116.2
@@ -43,7 +43,7 @@ Requires-Dist: ladybug==0.19.0; sys_platform != 'darwin' or ('Darwin Kernel Vers
 Requires-Dist: lancedb<0.40.0,>=0.39.0
 Requires-Dist: langdetect>=1.0.9
 Requires-Dist: limits<6,>=4.4.1
-Requires-Dist: litellm<1.97.0,>=1.83.7
+Requires-Dist: litellm<2.0.0,>=1.102.2
 Requires-Dist: nbformat<6.0.0,>=5.7.0
 Requires-Dist: networkx<4,>=3.4.2
 Requires-Dist: numpy<=4.0.0,>=1.26.4
@@ -58,7 +58,6 @@ Requires-Dist: pylance<12.1.0,>=12.0.0
 Requires-Dist: pympler<2.0.0,>=1.1
 Requires-Dist: pypdf<7.0.0,>=6.6.2
 Requires-Dist: python-dotenv<2.0.0,>=1.0.1
-Requires-Dist: python-magic-bin<0.5; platform_system == 'Windows'
 Requires-Dist: python-multipart<1.0.0,>=0.0.22
 Requires-Dist: rdflib<7.2.0,>=7.1.4
 Requires-Dist: sqlalchemy<3.0.0,>=2.0.39
@@ -75,7 +74,7 @@ Provides-Extra: anthropic
 Requires-Dist: anthropic>=0.27; extra == 'anthropic'
 Provides-Extra: api
 Provides-Extra: aws
-Requires-Dist: s3fs[boto3]==2025.3.2; extra == 'aws'
+Requires-Dist: s3fs[boto3]==2026.9.0; extra == 'aws'
 Provides-Extra: azure
 Requires-Dist: azure-identity<2,>=1.15.0; extra == 'azure'
 Provides-Extra: baml
@@ -132,6 +131,10 @@ Provides-Extra: gmail
 Requires-Dist: google-api-python-client<3,>=2.100.0; extra == 'gmail'
 Requires-Dist: google-auth-oauthlib<2,>=1.1.0; extra == 'gmail'
 Requires-Dist: google-auth<3,>=2.23.0; extra == 'gmail'
+Provides-Extra: google-calendar
+Requires-Dist: google-api-python-client<3,>=2.100.0; extra == 'google-calendar'
+Requires-Dist: google-auth-oauthlib<2,>=1.1.0; extra == 'google-calendar'
+Requires-Dist: google-auth<3,>=2.23.0; extra == 'google-calendar'
 Provides-Extra: google-drive
 Requires-Dist: google-api-python-client<3,>=2.100.0; extra == 'google-drive'
 Requires-Dist: google-auth-oauthlib<2,>=1.1.0; extra == 'google-drive'

@@ -137,9 +137,7 @@ def test_str_methods_return_plaintext_value_and_keep_the_marker(secret, method, 
         (lambda s: s.format_map({}), LangSmithSecret),
     ],
 )
-def test_operators_return_plaintext_value_and_keep_the_marker(
-    secret, op, expected_type
-):
+def test_operators_return_plaintext_value_and_keep_the_marker(secret, op, expected_type):
     assert op(secret) == op(PLAINTEXT), "value must match plain str"
     assert type(op(secret)) is expected_type
 

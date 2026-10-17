@@ -55,7 +55,6 @@ def _op(tmp_path, anchor: str, anchor_id: str | None, **kw) -> dict:
         kind=None,
         content_type=None,
         meta=None,
-        notes="what it is",
         span_id=None,
         step_index=None,
         **kw,
@@ -72,7 +71,7 @@ def test_an_anchored_op_names_its_anchor_and_rides_no_run(tmp_path, anchor, anch
     assert op["run_ref"] is None, "no run's barrier waits on it"
     assert op["lane"] == f"multipart:{op['op_id']}" and op["blocking"] is False
     upload, state = multipart._fields(op)
-    assert state["stage_mode"] == "hardlink" and upload["notes"] == "what it is"
+    assert state["stage_mode"] == "hardlink" and "notes" not in upload
 
 
 def test_a_run_op_is_built_exactly_as_before(tmp_path) -> None:
@@ -84,7 +83,6 @@ def test_a_run_op_is_built_exactly_as_before(tmp_path) -> None:
         kind=None,
         content_type=None,
         meta={"step": 1},
-        notes=None,
         span_id=None,
         step_index=7,
     )
@@ -156,6 +154,8 @@ def test_every_anchor_reaches_its_own_doors(upload, door) -> None:
 
 
 def test_only_a_run_sends_a_runs_fields() -> None:
+    """...and neither sends `notes`, which an op an older client queued may
+    still carry: files no longer carry notes."""
     sent: list[dict] = []
 
     class _Body(_Recorder):
@@ -167,8 +167,9 @@ def test_only_a_run_sends_a_runs_fields() -> None:
               "meta": {"k": 1}, "span_id": "s", "step_index": 3, "notes": "n"}
     multipart._create(_Body(), {**common, "anchor": "project", "anchor_id": "X"})
     multipart._create(_Body(), {**common, "anchor": "run", "anchor_id": "R"})
-    assert set(sent[0]) == {"name", "content_hash", "size_bytes", "notes"}
+    assert set(sent[0]) == {"name", "content_hash", "size_bytes"}
     assert {"kind", "meta", "span_id", "step_index"} <= set(sent[1])
+    assert "notes" not in sent[1]
 
 
 def test_the_anchor_vocabulary_is_the_clients() -> None:

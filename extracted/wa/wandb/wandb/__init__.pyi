@@ -99,7 +99,7 @@ if TYPE_CHECKING:
     import wandb
     from wandb.plot import CustomChart
 
-__version__: str = "0.30.0"
+__version__: str = "0.31.0"
 
 run: Run | None
 config: wandb_config.Config
@@ -246,7 +246,7 @@ def init(
     be tracked as a run in W&B.
 
     `wandb.init()` spawns a new background process to log data to a run, and it
-    also syncs data to https://wandb.ai by default, so you can see your results
+    also syncs data to https://forge.coreweave.com/wandb by default, so you can see your results
     in real-time. When you're done logging data, call `run.finish()` to
     end the run, or use the run as a context manager to call it automatically:
 
@@ -534,7 +534,7 @@ def log(
     The previous code snippet saves the loss and accuracy to the run's
     history and updates the summary values for these metrics.
 
-    Visualize logged data in a workspace at [wandb.ai](https://wandb.ai),
+    Visualize logged data in a workspace at [CoreWeave Forge](https://forge.coreweave.com/wandb),
     or locally on a [self-hosted instance](https://docs.wandb.ai/platform/hosting)
     of the W&B app, or export data to visualize and explore locally, such as in a
     Jupyter notebook, with the [Public API](https://docs.wandb.ai/models/track/public-api-guide).
@@ -909,6 +909,7 @@ def agent(
     count: int | None = None,
     forward_signals: bool = False,
     term_timeout: int | None = None,
+    max_consecutive_failed_runs: int | None = None,
 ) -> None:
     """Start one or more sweep agents.
 
@@ -932,6 +933,8 @@ def agent(
         count: The number of sweep config trials to try.
         forward_signals: Whether to forward signals the agent receives
             to the child processes. Only supported by CLI agent.
+        max_consecutive_failed_runs: Shut the agent down once this many runs
+            have failed back to back.
     """
     ...
 

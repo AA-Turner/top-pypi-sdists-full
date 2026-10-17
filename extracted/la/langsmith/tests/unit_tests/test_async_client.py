@@ -334,9 +334,7 @@ async def test_create_feedback_forwards_trace_id(
     mock_httpx_client.request.return_value = response
 
     client = AsyncClient(api_url="http://localhost:1984", api_key="test")
-    await client.create_feedback(
-        run_id, key="quality", score=1, trace_id=trace_id, session_id=uuid4()
-    )
+    await client.create_feedback(run_id, key="quality", score=1, trace_id=trace_id, session_id=uuid4())
 
     call = mock_httpx_client.request.call_args
     assert call.args[0] == "POST"
@@ -392,9 +390,7 @@ async def test_create_feedback_retries_on_not_found(
         api_key="test",
         retry_config={"max_retries": 2},
     )
-    feedback = await client.create_feedback(
-        run_id, key="quality", trace_id=trace_id, session_id=uuid4()
-    )
+    feedback = await client.create_feedback(run_id, key="quality", trace_id=trace_id, session_id=uuid4())
 
     # A 404 (run not yet ingested) is retried, unlike other 4xx.
     assert mock_httpx_client.request.call_count == 2
@@ -463,9 +459,7 @@ async def test_async_create_feedback_requires_session_id_on_smithdb(
     mock_httpx_client = AsyncMock()
     mock_client_cls.return_value = mock_httpx_client
     client = AsyncClient(api_url="http://localhost:1984", api_key="test-api-key")
-    client._info = ls_schemas.LangSmithInfo(
-        instance_flags={"ch_query_enabled": False, "sdb_query_enabled": True}
-    )
+    client._info = ls_schemas.LangSmithInfo(instance_flags={"ch_query_enabled": False, "sdb_query_enabled": True})
 
     with pytest.raises(ValueError, match="session_id must be provided"):
         await client.create_feedback(uuid4(), key="quality")
@@ -633,9 +627,7 @@ async def test_async_create_feedback_warns_when_session_id_missing(
     with warnings.catch_warnings():
         warnings.simplefilter("error", ls_utils.LangSmithWarning)
         # No warning when session_id is provided
-        await client.create_feedback(
-            run_id=uuid.uuid4(), key="test_key", session_id=uuid.uuid4()
-        )
+        await client.create_feedback(run_id=uuid.uuid4(), key="test_key", session_id=uuid.uuid4())
 
 
 @mock.patch("langsmith.async_client.httpx.AsyncClient")
@@ -736,9 +728,7 @@ async def test__create_commit_tags(mock_client_cls: mock.Mock) -> None:
                 "total": 1,
             }
         elif "/commits/" in url and method == "POST":
-            response.json.return_value = {
-                "commit": {"commit_hash": "new_commit_123", "id": "1"}
-            }
+            response.json.return_value = {"commit": {"commit_hash": "new_commit_123", "id": "1"}}
         elif "/repos/" in url and "/tags" in url and method == "POST":
             response.json.return_value = {}
         else:
@@ -762,9 +752,7 @@ async def test__create_commit_tags(mock_client_cls: mock.Mock) -> None:
     await client._create_commit_tags("test-owner/test-repo", commit_id, tags)
 
     post_calls = [
-        call
-        for call in mock_httpx_client.request.call_args_list
-        if call[0][0] == "POST" and "/repos/" in str(call)
+        call for call in mock_httpx_client.request.call_args_list if call[0][0] == "POST" and "/repos/" in str(call)
     ]
     assert len(post_calls) == 3
 
@@ -780,9 +768,7 @@ async def test__create_commit_tags(mock_client_cls: mock.Mock) -> None:
     await client._create_commit_tags("owner/repo", "commit123", [])
 
     post_calls = [
-        call
-        for call in mock_httpx_client.request.call_args_list
-        if call[0][0] == "POST" and "/repos/" in str(call)
+        call for call in mock_httpx_client.request.call_args_list if call[0][0] == "POST" and "/repos/" in str(call)
     ]
     assert len(post_calls) == 0
 
@@ -817,9 +803,7 @@ async def test__create_commit_tags(mock_client_cls: mock.Mock) -> None:
                 tag_post_calls = [
                     call
                     for call in mock_httpx_client.request.call_args_list
-                    if call[0][0] == "POST"
-                    and "/repos/" in str(call)
-                    and "/tags" in str(call)
+                    if call[0][0] == "POST" and "/repos/" in str(call) and "/tags" in str(call)
                 ]
                 assert len(tag_post_calls) == 2
 
@@ -849,9 +833,7 @@ async def test__create_commit_tags(mock_client_cls: mock.Mock) -> None:
                 tag_post_calls = [
                     call
                     for call in mock_httpx_client.request.call_args_list
-                    if call[0][0] == "POST"
-                    and "/repos/" in str(call)
-                    and "/tags" in str(call)
+                    if call[0][0] == "POST" and "/repos/" in str(call) and "/tags" in str(call)
                 ]
                 assert len(tag_post_calls) == 0
 
@@ -859,9 +841,7 @@ async def test__create_commit_tags(mock_client_cls: mock.Mock) -> None:
 @pytest.mark.asyncio
 @patch.object(AsyncClient, "_prompt_exists", return_value=True)
 @patch.object(AsyncClient, "create_commit", new_callable=AsyncMock)
-async def test_push_prompt_forwards_commit_tags(
-    mock_create_commit: AsyncMock, mock_prompt_exists: AsyncMock
-) -> None:
+async def test_push_prompt_forwards_commit_tags(mock_create_commit: AsyncMock, mock_prompt_exists: AsyncMock) -> None:
     client = AsyncClient(
         api_url="http://localhost:1984",
         api_key="test_api_key",
@@ -945,9 +925,7 @@ async def test_async_client_info_falls_back_on_error(
 
 @mock.patch("langsmith.async_client.httpx.AsyncClient")
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "version,expect_warning", [("0.15.9", True), ("0.16.0", False)]
-)
+@pytest.mark.parametrize("version,expect_warning", [("0.15.9", True), ("0.16.0", False)])
 async def test_async_client_resource_version_check(
     mock_client_cls: mock.Mock,
     version: str,
@@ -975,9 +953,7 @@ async def test_async_client_resource_version_check(
         _ = client.runs
         assert len(client._version_check_tasks) == 1, "runs did not schedule a check"
         _ = client.threads
-        assert len(client._version_check_tasks) == 1, (
-            "same min version must be checked once"
-        )
+        assert len(client._version_check_tasks) == 1, "same min version must be checked once"
         await asyncio.gather(*client._version_check_tasks)
 
     version_warnings = [r for r in caplog.records if r.name == _VERSION_LOGGER]

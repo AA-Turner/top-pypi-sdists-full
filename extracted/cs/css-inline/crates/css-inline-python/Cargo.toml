@@ -1,0 +1,35 @@
+[package]
+name = "css-inline-python"
+version = "0.23.0"
+authors.workspace = true
+edition = "2024"
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+include = ["src/lib.rs", "README.md", "CHANGELOG.md", "build.rs"]
+readme = "README.md"
+
+[lib]
+name = "css_inline"
+crate-type = ["cdylib"]
+
+[build-dependencies]
+built = { version = "0.8.0", features = ["cargo-lock", "chrono"] }
+
+[dependencies]
+pyo3 = { version = "0.29.0", features = ["extension-module", "abi3-py310"] }
+pyo3-built = "0.6"
+rayon = "1"
+url = "2"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.css-inline]
+path = "../css-inline"
+version = "*"
+default-features = false
+features = ["stylesheet-cache"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.css-inline]
+path = "../css-inline"
+version = "*"
+default-features = false
+features = ["http", "file", "stylesheet-cache"]

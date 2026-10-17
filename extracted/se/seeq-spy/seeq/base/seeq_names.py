@@ -347,6 +347,7 @@ class SeeqNames:
         
         class Schemas:
             materialized_tables = 'materialized_tables'
+            temporary_tables = 'pg_temp'
         
     
     class Models:
@@ -753,6 +754,7 @@ class SeeqNames:
         agents = 'Agents'
         custom_agents = 'CustomAgents'
         applications = 'Applications'
+        environments = 'Environments'
         approval_flows = 'ApprovalFlows'
         approval_flow_steps = 'ApprovalFlowSteps'
         approval_flow_assignments = 'ApprovalFlowAssignments'
@@ -838,6 +840,7 @@ class SeeqNames:
         report_update_channel = 'report-update'
         journal_update_channel = 'journal-update'
         signal_monitor = 'signal-monitor'
+        job_status = 'job-status'
         table_materializer_channel = 'table-materializer'
         context = 'context'
     
@@ -848,6 +851,7 @@ class SeeqNames:
         agents = '/agents'
         custom_agents = '/custom-agents'
         applications = '/applications'
+        environments = '/environments'
         approval_flows = '/approval-flows'
         audit = '/audit'
         auth = '/auth'
@@ -1105,6 +1109,9 @@ class SeeqNames:
         custom_agent_has_automation_report = 'custom agent has automation report'
         custom_agent_contains_version_history = 'custom agent contains version history'
         custom_agent_contains_workflow = 'custom agent contains workflow'
+        skill_contains_version_history = 'skill contains version history'
+        add_on_has_environment = 'add-on has environment'
+        environment_runs_as_application = 'environment runs as application'
         model_container_contains_version_history = 'model container contains version history'
         model_container_contains_model = 'model container contains model'
     
@@ -1168,7 +1175,9 @@ class SeeqNames:
         agent = 'Agent'
         custom_agent = 'CustomAgent'
         agent_workflow = 'AgentWorkflow'
+        environment = 'Environment'
         model_container = 'ModelContainer'
+        skill = 'Skill'
         analysis = 'Analysis'
         topic = 'Topic'
         vantage = 'Vantage'
@@ -1307,6 +1316,7 @@ class SeeqNames:
         oidc_issuer = 'Oidc Issuer'
         oidc_jwt_key_set = 'Oidc JWT Key Set'
         oidc_audience = 'Oidc Audience'
+        oidc_application_username_claim = 'Oidc Application Username Claim'
         username_password_compatible = 'Username/Password Compatible'
         username_human_readable = 'Username Human Readable'
         expect_duplicates_during_indexing = 'Expect Duplicates During Indexing'
@@ -1354,6 +1364,9 @@ class SeeqNames:
         custom_agent_automation_schedule_timezone = 'customAgentAutomationScheduleTimezone'
         custom_agent_icon = 'customAgentIcon'
         custom_agent_icon_color = 'customAgentIconColor'
+        skill_short_id = 'skillShortId'
+        skill_chat_id = 'skillChatId'
+        skill_migrated_from_genai_disk_skill_id = 'skillMigratedFromGenaiDiskSkillId'
         stale_metadata = 'Stale Metadata'
         interpolation_method = 'Interpolation Method'
         source_maximum_interpolation = 'Source Maximum Interpolation'
@@ -1627,6 +1640,7 @@ class SeeqNames:
         organization_user_group_id = 'User Group ID'
         source = 'Source'
         application_id = 'Application ID'
+        application_username_prefix = 'service_principal_'
         workbook_state = 'workbookState'
     
 

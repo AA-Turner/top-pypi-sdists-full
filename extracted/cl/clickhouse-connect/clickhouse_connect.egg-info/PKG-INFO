@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clickhouse-connect
-Version: 1.10.1
+Version: 1.11.0
 Summary: ClickHouse Database Core Driver for Python, Pandas, and Superset
 Home-page: https://github.com/ClickHouse/clickhouse-connect
 Author: ClickHouse Inc.
@@ -14,7 +14,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.10,<3.15
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.10,<3.16
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: certifi
@@ -38,7 +39,8 @@ Requires-Dist: pandas<4,>=2; extra == "pandas"
 Provides-Extra: polars
 Requires-Dist: polars>=1.0; extra == "polars"
 Provides-Extra: arrow
-Requires-Dist: pyarrow>=22.0; python_version >= "3.14" and extra == "arrow"
+Requires-Dist: pyarrow>=26.0; python_version >= "3.15" and extra == "arrow"
+Requires-Dist: pyarrow>=22.0; (python_version >= "3.14" and python_version < "3.15") and extra == "arrow"
 Requires-Dist: pyarrow; python_version < "3.14" and extra == "arrow"
 Provides-Extra: orjson
 Requires-Dist: orjson; extra == "orjson"

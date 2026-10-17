@@ -9,6 +9,7 @@ stream/acquisition/allocator accounting are CPU fixtures; no CUDA context is inv
 from __future__ import annotations
 
 import hashlib
+import inspect
 import sys
 from types import MethodType
 from typing import Any
@@ -21,10 +22,12 @@ from cozy_runtime.internal.executor import Executor
 from cozy_runtime.internal.executor_commands import Activate, Load
 from cozy_runtime.internal.weights import (
     Component,
+    Journal,
     Region,
     Views,
     WeightResidency,
     Weights,
+    journaling,
 )
 from test_request_isolation import MODULE, _serve
 
@@ -173,6 +176,35 @@ def test_a_block_that_fails_after_changing_state_runs_again_from_it(
     assert trace["acquired"] == trace["released"] == 3
 
 
+class Root(torch.nn.Module):  # type: ignore[misc,name-defined]
+    """A component whose own call reaches its block before any op of its own, then computes
+    on (SeedVR2's DiT)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.block = StatefulBlock("counter")
+
+    def forward(self, value: Any, *, pixel_values: Any = None) -> Any:
+        return self.block(value) + 1
+
+
+def test_a_components_call_keeps_its_signature_and_journals_beside_its_blocks(
+    monkeypatch: Any,
+) -> None:
+    """Run 9207: Transformers' `generate` checks its kwargs against `inspect.signature(
+    model.forward)`, which the call's recovery hid. Run 9210: the call's first journal and its
+    first block's held the same ops, and the block's exit took the call's out of the mode."""
+    root = Root()
+    weights, _region, trace = wrapped(root.block, monkeypatch, root=root)
+    assert inspect.signature(root.forward) == inspect.signature(Root.forward.__get__(root))
+    value = torch.tensor([[0.25, -0.5]])
+    with weights.recovering(), torch.inference_mode():
+        first, second = root(value), root(value)
+    effects = trace["residency"].components["model"].effects
+    assert effects is not None and not effects.writes
+    assert torch.equal(first, value + 2) and torch.equal(second, value + 3)
+
+
 def test_a_python_attribute_is_the_one_state_a_replay_does_not_put_back(monkeypatch: Any) -> None:
     """A counter kept as a plain Python attribute is not seen: the replay advances it once
     more. The call still succeeds, which is the owner's rule."""
@@ -259,6 +291,33 @@ def test_a_failed_op_recovers_without_replaying_its_python_forward(
     assert module.calls == 1 and failed.calls == 2
     assert trace["acquired"] == trace["released"] == 1
     assert len(trace["room"]) == 1 and not trace["residency"].poisoned
+
+
+def test_a_group_gpus_block_in_its_call_runs_its_ops_in_the_calls_one_mode(
+    monkeypatch: Any,
+) -> None:
+    """One GPU of a group in a call (an H3 DiT forward is ~5.5k ops): its block opens no
+    dispatch layer of its own beside the call's recovery and journal (three Python layers
+    cost +29 us per op). An op that fails runs again in place, never the block, and the
+    call's journal puts back what the block wrote."""
+    module = StatefulBlock("buffer")
+    weights, _region, trace = wrapped(module, monkeypatch)
+    weights.grouped = True
+    layers: list[int] = []
+    module.linear.register_forward_pre_hook(
+        lambda *_: layers.append(torch._C._len_torch_dispatch_stack())
+    )
+    failed = FailAfterOp(torch.ops.aten.linear.default)
+    value = torch.tensor([[0.25, -0.5]])
+    call = Journal()
+    with failed, weights.recovering(), journaling(torch, call), torch.inference_mode():
+        actual = module(value)
+    assert layers == [2], "the failing op's mode, then the call's one"
+    assert torch.equal(actual, value + 1) and float(module.ticks) == 1.0
+    assert module.calls == 1 and failed.calls == 2 and len(trace["room"]) == 1
+    assert call.ops > 0 and not trace["residency"].poisoned
+    call.rewind()
+    assert float(module.ticks) == 0.0
 
 
 @pytest.mark.parametrize("effect", ["mutable", "copy", "rng", "custom"])

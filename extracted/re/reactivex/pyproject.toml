@@ -1,9 +1,9 @@
 [project]
 name = "reactivex"
-version = "5.1.0"
+version = "6.0.0"
 description = "ReactiveX (Rx) for Python"
 authors = [{ name = "Dag Brattli", email = "dag@brattli.net" }]
-requires-python = ">= 3.10, < 4.0"
+requires-python = ">= 3.11, < 4.0"
 readme = "README.rst"
 license = "MIT"
 classifiers = [
@@ -13,11 +13,11 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -31,13 +31,13 @@ Documentation = "https://rxpy.readthedocs.io/en/latest/"
 [dependency-groups]
 test = [
     "pyyaml>=6.0.3,<7",
-    "pytest-asyncio>=1.2.0,<1.4.0",
+    "pytest-asyncio>=1.4.0,<2",
     "pytest>=8.4.1,<10",
     "coverage>=6.3.2,<8",
     "pytest-xdist>=3.8.0,<4",
     "ruff>=0.14.0,<1",
     "pyright>=1.1.407,<1.2.0",
-    "mypy>=1.18.2,<1.21.0",
+    "mypy>=2.3.1,<3",
     "coveralls>=4.0.2,<5",
     "pre-commit>=4.3.0,<5",
 ]
@@ -63,7 +63,7 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 exclude = [
     ".git",
     "__pycache__",
@@ -91,7 +91,7 @@ convention = "google"
 known-first-party = ["reactivex"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 follow_imports = "silent"
 files = ["reactivex"]
 disallow_any_generics = true
@@ -111,5 +111,5 @@ exclude = [
 ]
 reportImportCycles = false
 reportMissingImports = false
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 typeCheckingMode = "strict"

@@ -10,7 +10,8 @@ import asyncio
 import logging
 import warnings
 from math import ceil
-from typing import TYPE_CHECKING, Any, List, Literal, Mapping
+from typing import TYPE_CHECKING, Any, List, Literal, Mapping, Iterator
+from contextlib import contextmanager
 from collections import deque
 from dataclasses import dataclass
 
@@ -54,6 +55,31 @@ from fireworks.training.sdk.sampling_observability import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _sampling_response_evidence(response: httpx.Response, prompt: list[int]) -> Iterator[None]:
+    """Keep HTTP-200 stream decoding failures distinct from transport failures."""
+    try:
+        yield
+    except (_SSETruncationError, httpx.RequestError):
+        raise
+    except Exception as error:
+        error._fireworks_http_status = response.status_code
+        error._fireworks_response_request_id = extract_request_id(response.headers)
+        error._fireworks_prompt_token_ids = tuple(prompt)
+        # The HTTP client buffers the response before SSE decoding. Retain a
+        # bounded copy locally without adding payloads to attempt telemetry.
+        try:
+            limit = 16 * 1024 * 1024
+            error._fireworks_sampled_response = {
+                "sse_body": response.text[:limit],
+                "body_truncated": len(response.text) > limit,
+            }
+        except Exception:
+            pass  # Diagnostic access must preserve the original decode error.
+        raise
+
 
 # Finished-choice fields describing R3 and top-K references in the trainer-shared store.
 _STORAGE_REFERENCE_FIELDS = (
@@ -602,120 +628,123 @@ class DeploymentSampler(_RestClient):
                 )
             resp.raise_for_status()
 
-            accumulated_text = ""
-            accumulated_logprobs: list[dict] = []
-            finish_reason = None
-            usage_info = None
-            raw_output = None
-            routing_metadata = {}
-            perf_metrics_dict: dict[str, str] | None = None
-            first_token_time: float | None = None
-            upstream_response_id: str | None = None
+            with _sampling_response_evidence(resp, prompt):
+                accumulated_text = ""
+                accumulated_logprobs: list[dict] = []
+                finish_reason = None
+                usage_info = None
+                raw_output = None
+                routing_metadata = {}
+                perf_metrics_dict: dict[str, str] | None = None
+                first_token_time: float | None = None
+                upstream_response_id: str | None = None
 
-            # Track whether the stream ended cleanly. A well-formed completion
-            # must close with [DONE] and/or set finish_reason. A clean TCP close
-            # without either signals server-side mid-stream truncation.
-            has_seen_done = False
-            has_seen_finish_reason = False
+                # Track whether the stream ended cleanly. A well-formed completion
+                # must close with [DONE] and/or set finish_reason. A clean TCP close
+                # without either signals server-side mid-stream truncation.
+                has_seen_done = False
+                has_seen_finish_reason = False
 
-            decoder = _SSEDecoder()
-            async for sse in decoder.aiter_events(resp):
-                if sse.data.startswith("[DONE]"):
-                    has_seen_done = True
-                    break
+                decoder = _SSEDecoder()
+                async for sse in decoder.aiter_events(resp):
+                    if sse.data.startswith("[DONE]"):
+                        has_seen_done = True
+                        break
 
-                try:
-                    chunk = json.loads(sse.data)
-                except (ValueError, TypeError):
-                    continue
+                    try:
+                        chunk = json.loads(sse.data)
+                    except (ValueError, TypeError):
+                        continue
 
-                if upstream_response_id is None and chunk.get("id"):
-                    upstream_response_id = str(chunk["id"])
+                    if upstream_response_id is None and chunk.get("id"):
+                        upstream_response_id = str(chunk["id"])
 
-                for choice in chunk.get("choices", []):
-                    routing_metadata.update({key: choice[key] for key in _STORAGE_REFERENCE_FIELDS if key in choice})
-                    text_delta = choice.get("text", "")
-                    if text_delta:
-                        if first_token_time is None:
-                            first_token_time = time.monotonic()
-                        accumulated_text += text_delta
+                    for choice in chunk.get("choices", []):
+                        routing_metadata.update(
+                            {key: choice[key] for key in _STORAGE_REFERENCE_FIELDS if key in choice}
+                        )
+                        text_delta = choice.get("text", "")
+                        if text_delta:
+                            if first_token_time is None:
+                                first_token_time = time.monotonic()
+                            accumulated_text += text_delta
 
-                    lp = choice.get("logprobs")
-                    if lp and isinstance(lp, dict):
-                        content = lp.get("content")
-                        if isinstance(content, list):
-                            accumulated_logprobs.extend(content)
+                        lp = choice.get("logprobs")
+                        if lp and isinstance(lp, dict):
+                            content = lp.get("content")
+                            if isinstance(content, list):
+                                accumulated_logprobs.extend(content)
 
-                    fr = choice.get("finish_reason")
-                    if fr:
-                        finish_reason = fr
-                        has_seen_finish_reason = True
+                        fr = choice.get("finish_reason")
+                        if fr:
+                            finish_reason = fr
+                            has_seen_finish_reason = True
 
-                    ro = choice.get("raw_output")
-                    if ro:
-                        raw_output = ro
+                        ro = choice.get("raw_output")
+                        if ro:
+                            raw_output = ro
 
-                if "usage" in chunk:
-                    usage_info = chunk["usage"]
+                    if "usage" in chunk:
+                        usage_info = chunk["usage"]
 
-                # perf_metrics is patched into the final chunk by the server
-                # (with is_completed=True, so it has full timing data).
-                if "perf_metrics" in chunk:
-                    perf_metrics_dict = chunk["perf_metrics"]
+                    # perf_metrics is patched into the final chunk by the server
+                    # (with is_completed=True, so it has full timing data).
+                    if "perf_metrics" in chunk:
+                        perf_metrics_dict = chunk["perf_metrics"]
 
-            if not raw_output and not has_seen_done and not has_seen_finish_reason:
-                raise _SSETruncationError(
-                    "Transient server-side error: the inference deployment "
-                    "closed the SSE stream mid-generation without sending "
-                    "[DONE], finish_reason, or raw_output. The SDK is "
-                    "retrying. If this persists across all retry attempts, "
-                    "contact the Fireworks team."
+                if not raw_output and not has_seen_done and not has_seen_finish_reason:
+                    raise _SSETruncationError(
+                        "Transient server-side error: the inference deployment "
+                        "closed the SSE stream mid-generation without sending "
+                        "[DONE], finish_reason, or raw_output. The SDK is "
+                        "retrying. If this persists across all retry attempts, "
+                        "contact the Fireworks team."
+                    )
+
+                client_ttft = (first_token_time - t0) if first_token_time else None
+                elapsed = time.monotonic() - t0
+                completion_tokens = usage_info.get("completion_tokens") if usage_info else None
+
+                # Build ServerMetrics: prefer perf_metrics from final chunk
+                # (has complete timing), fall back to HTTP headers (partial).
+                # The final perf-metrics event contains the most complete timing
+                # values, while gateway correlation facts such as x-request-id are
+                # response-header-only. Preserve both in one attributable record.
+                metrics_source = {**dict(resp.headers), **(perf_metrics_dict or {})}
+                server_metrics = ServerMetrics.from_headers(
+                    metrics_source,
+                    client_ttft=client_ttft,
+                    http_status_code=resp.status_code,
+                    client_latency=elapsed,
+                    completion_tokens=(
+                        completion_tokens
+                        if isinstance(completion_tokens, int) and not isinstance(completion_tokens, bool)
+                        else None
+                    ),
                 )
 
-            client_ttft = (first_token_time - t0) if first_token_time else None
-            elapsed = time.monotonic() - t0
-            completion_tokens = usage_info.get("completion_tokens") if usage_info else None
+                assembled_choice: dict[str, Any] = {
+                    "text": accumulated_text,
+                    "finish_reason": finish_reason or "stop",
+                }
+                assembled_choice.update(routing_metadata)
+                if accumulated_logprobs:
+                    assembled_choice["logprobs"] = {"content": accumulated_logprobs}
+                if raw_output:
+                    assembled_choice["raw_output"] = raw_output
+                result: dict[str, Any] = {"choices": [assembled_choice]}
+                if upstream_response_id is not None:
+                    result["id"] = upstream_response_id
+                if usage_info:
+                    result["usage"] = usage_info
 
-            # Build ServerMetrics: prefer perf_metrics from final chunk
-            # (has complete timing), fall back to HTTP headers (partial).
-            # The final perf-metrics event contains the most complete timing
-            # values, while gateway correlation facts such as x-request-id are
-            # response-header-only. Preserve both in one attributable record.
-            metrics_source = {**dict(resp.headers), **(perf_metrics_dict or {})}
-            server_metrics = ServerMetrics.from_headers(
-                metrics_source,
-                client_ttft=client_ttft,
-                http_status_code=resp.status_code,
-                client_latency=elapsed,
-                completion_tokens=(
-                    completion_tokens
-                    if isinstance(completion_tokens, int) and not isinstance(completion_tokens, bool)
-                    else None
-                ),
-            )
-
-            assembled_choice: dict[str, Any] = {
-                "text": accumulated_text,
-                "finish_reason": finish_reason or "stop",
-            }
-            assembled_choice.update(routing_metadata)
-            if accumulated_logprobs:
-                assembled_choice["logprobs"] = {"content": accumulated_logprobs}
-            if raw_output:
-                assembled_choice["raw_output"] = raw_output
-            result: dict[str, Any] = {"choices": [assembled_choice]}
-            if upstream_response_id is not None:
-                result["id"] = upstream_response_id
-            if usage_info:
-                result["usage"] = usage_info
-
-            logger.debug(
-                "Stream completions: prompt=%d, text_len=%d, %.1fs",
-                prompt_len,
-                len(accumulated_text),
-                elapsed,
-            )
-            return result, server_metrics
+                logger.debug(
+                    "Stream completions: prompt=%d, text_len=%d, %.1fs",
+                    prompt_len,
+                    len(accumulated_text),
+                    elapsed,
+                )
+                return result, server_metrics
 
         raise RuntimeError("Exhausted hotload retries in streaming mode")
 
@@ -1387,21 +1416,29 @@ class DeploymentSampler(_RestClient):
                 server_metrics.error = f"HTTP {e.response.status_code}"
                 transient, label = e, f"HTTP {e.response.status_code}"
             except self._RETRY_HTTPX_CONNECTION_EXC as e:
-                server_metrics = ServerMetrics(
-                    transport_error=True, retry_attempt=attempt, error=type(e).__name__
-                )
+                server_metrics = ServerMetrics(transport_error=True, retry_attempt=attempt, error=type(e).__name__)
                 transient, label = e, type(e).__name__
             except asyncio.CancelledError as e:
                 server_attempts.append(SampledServerAttempt(index=attempt, outcome="cancelled"))
                 self._attach_attempt_context(e, logical_request_id, attempt, server_attempts)
                 raise
             except Exception as e:
-                attempt_record = ServerMetrics(retry_attempt=attempt, error=type(e).__name__)
+                status = getattr(e, "_fireworks_http_status", None)
+                request_id = getattr(e, "_fireworks_response_request_id", None)
+                attempt_record = ServerMetrics(
+                    retry_attempt=attempt,
+                    error=type(e).__name__,
+                    http_status_code=status,
+                    response_request_id=request_id,
+                )
                 server_attempts.append(
                     SampledServerAttempt(
                         index=attempt,
                         outcome="failed",
+                        status_code=status,
+                        response_request_id=request_id,
                         error_kind=type(e).__name__,
+                        server_metrics=attempt_record,
                     )
                 )
                 self._attach_attempt_context(e, logical_request_id, attempt, server_attempts)
@@ -1427,6 +1464,11 @@ class DeploymentSampler(_RestClient):
                         top_sampling_requested=self._top_sampling_parquet_requested(kwargs),
                     )
                 except Exception as e:
+                    # Keep the successful raw response available to the local
+                    # TITO failure recorder when SDK decoding fails. It is not
+                    # included in payload-free logs or as_error_record().
+                    e._fireworks_sampled_response = result
+                    e._fireworks_prompt_token_ids = tuple(prompt_ids)
                     # The attempt's record is already drained-visible; mark that same
                     # record failed (the controller already consumed it unchanged).
                     if server_metrics is not None:

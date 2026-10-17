@@ -83,6 +83,46 @@ and adds two of its own: the lane must have been quiet for
 an hour, not one a minute. It ignores routing (a missing runtime is missing on
 every instance) and the probe windows, which protect a probe from a lane being
 rebuilt under it; a lane with no runtime fails the probe either way.
+
+A LAGGING LANE HAS A DECLARED BOUND, AND IS LOUD (OMN-21146)
+-----------------------------------------------------------
+The probe windows above cost more than they protect. C15 runs every two hours
+for a declared 65 minutes, so with the 40-minute lead each run excludes 105
+minutes of every 120, and a merge that lands in one waits for the 15 minutes
+between. On 2026-10-15 omnimarket#3964 merged at 17:07Z, inside the 17:41Z
+run's exclusion; the default instance's agent accepted its converge at 18:46:52Z, the
+exclusion's end, and dod-verify refused merged_pr fleet-wide on the old image
+until the lane was rebuilt, with nothing saying the lane was behind.
+
+So an instance may declare ``flags.max_dev_lag_minutes`` in the routing table
+(``ModelLaneFlags.max_dev_lag``). The agent records when it first saw the lane
+behind a followed repository's dev head (:func:`next_behind_since`); once that
+is as old as the bound the lane is OVERDUE, and :func:`decide` no longer
+refuses it for the idle period (``recently_active``), an unreadable probe
+schedule or a probe window. A probe graded against code older than the code
+being delivered is the failure FreshAtProbe names; past the declared bound, the
+lane's freshness wins. Every other bound holds: no job in flight, the FROZEN
+flag, the load gate, and one converge per head. And the lag is loud:
+:func:`dev_lane_drift` is the ``ModelDevLaneDrift`` the agent publishes and
+serves at ``GET /dev-lane-drift``. An instance with no bound is unchanged.
+
+THE LAB FOLLOWS omnimarket's DEV TAGS, NOT ITS RELEASES (OMN-19998)
+------------------------------------------------------------------
+Operator RULING 2026-10-16T09:35:49Z: in the lab, omnimarket deploys from a
+tag cut on each dev merge, not from a PyPI release, and that is part of the
+process rather than something somebody remembers. omnimarket cuts a
+lightweight ``dev-<UTC YYYYMMDDHHMMSS>-<sha12>`` on every push to dev. For
+each repository in ``tracking_ref.DEV_TAG_FOLLOWED_REPOSITORIES`` the head
+this module follows is the newest such tag, read with ``git ls-remote``
+against the canonical clone's origin (:func:`read_dev_tags`), and a lab build
+stages that tag (``deploy_source_ref.py --follow-dev-tag``). Until origin
+carries a first tag the dev branch head is followed, as before.
+
+Every instance also beats against that tag, whatever the routing table says:
+:func:`dev_tag_heartbeat` is the ``ModelDevTagHeartbeat`` the agent publishes
+every :data:`DEV_TAG_HEARTBEAT_INTERVAL`, and its ``alarm`` is raised once the
+lane has run behind the newest tag for :data:`DEV_TAG_ALARM_AFTER`
+(:func:`dev_tag_behind_since`).
 """
 
 from __future__ import annotations
@@ -105,6 +145,8 @@ from pydantic import BaseModel, ConfigDict
 from deploy_agent.events import (
     BuildSource,
     EnumRuntimeLane,
+    ModelDevLaneDrift,
+    ModelDevTagHeartbeat,
     ModelRebuildRequested,
     Scope,
 )
@@ -157,6 +199,13 @@ CHECK_INTERVAL_SECONDS: Final = 60
 PROBE_WINDOWS_RELPATH: Final = "config/lab_probe_windows.yaml"
 PROBE_WINDOWS_PARSER_RELPATH: Final = "scripts/ci/check_lab_probe_windows.py"
 BUILD_PROVENANCE_PATH: Final = "/app/build-provenance.json"
+#: OMN-19998: how long a lab lane may run behind a tag-followed repository's
+#: newest dev tag before the heartbeat raises its alarm.
+DEV_TAG_ALARM_AFTER: Final = timedelta(hours=2)
+#: OMN-19998: how often the heartbeat is published while its alarm holds still.
+DEV_TAG_HEARTBEAT_INTERVAL: Final = timedelta(minutes=15)
+#: The one parser of ``dev-*`` tag names, shared with the build's checkout.
+DEPLOY_SOURCE_REF_RELPATH: Final = "scripts/runtime_build/deploy_source_ref.py"
 READ_TIMEOUT_SECONDS: Final = 30
 
 Runner = Callable[..., "subprocess.CompletedProcess[str]"]
@@ -197,6 +246,19 @@ class ModelIdleConvergeInputs(BaseModel):
     attempted_heads: frozenset[str]
     #: The instance's FROZEN reason in force (``deploy_agent.routing`` lane flags), or ``None``.
     frozen_reason: str | None = None
+    #: OMN-21146: when the agent first saw the lane behind this repository's
+    #: dev head (:func:`next_behind_since`), or ``None``.
+    behind_since: datetime | None = None
+    #: OMN-21146: the instance's declared lag bound, or ``None`` for none.
+    max_lag: timedelta | None = None
+
+    def overdue(self) -> bool:
+        """Whether the lane has run behind the head for the declared bound."""
+        return (
+            self.max_lag is not None
+            and self.behind_since is not None
+            and self.now - self.behind_since >= self.max_lag
+        )
 
 
 class ModelIdleConvergeDecision(BaseModel):
@@ -225,16 +287,28 @@ def decide(inputs: ModelIdleConvergeInputs) -> ModelIdleConvergeDecision:
         )
     if inputs.job_active:
         return refuse(EnumIdleConvergeVerdict.JOB_ACTIVE, "a job is in flight")
+    # OMN-21146: past the declared bound the idle wait and the probe windows
+    # no longer hold the lane back; each overridden refusal is named.
+    overdue = inputs.overdue()
+    overridden: list[str] = []
     idle = inputs.now - inputs.last_activity
     if idle < IDLE_AFTER:
-        return refuse(
-            EnumIdleConvergeVerdict.RECENTLY_ACTIVE,
-            f"idle {int(idle.total_seconds())}s of {int(IDLE_AFTER.total_seconds())}s",
+        detail = (
+            f"idle {int(idle.total_seconds())}s of {int(IDLE_AFTER.total_seconds())}s"
         )
+        if not overdue:
+            return refuse(EnumIdleConvergeVerdict.RECENTLY_ACTIVE, detail)
+        overridden.append(detail)
     if inputs.windows_error is not None:
-        return refuse(EnumIdleConvergeVerdict.WINDOWS_UNREADABLE, inputs.windows_error)
+        if not overdue:
+            return refuse(
+                EnumIdleConvergeVerdict.WINDOWS_UNREADABLE, inputs.windows_error
+            )
+        overridden.append(inputs.windows_error)
     if inputs.probe_blocker is not None:
-        return refuse(EnumIdleConvergeVerdict.PROBE_WINDOW, inputs.probe_blocker)
+        if not overdue:
+            return refuse(EnumIdleConvergeVerdict.PROBE_WINDOW, inputs.probe_blocker)
+        overridden.append(inputs.probe_blocker)
     if inputs.head_ref is None:
         return refuse(
             EnumIdleConvergeVerdict.HEAD_UNREADABLE,
@@ -255,13 +329,83 @@ def decide(inputs: ModelIdleConvergeInputs) -> ModelIdleConvergeDecision:
             EnumIdleConvergeVerdict.ALREADY_ATTEMPTED,
             f"{repo} {inputs.head_ref[:12]} was already converged on once",
         )
+    detail = (
+        f"idle {int(idle.total_seconds())}s, {repo} "
+        f"{inputs.running_ref[:12]} -> dev head {inputs.head_ref[:12]}"
+    )
+    if overdue:
+        assert inputs.behind_since is not None and inputs.max_lag is not None
+        lag = inputs.now - inputs.behind_since
+        detail += (
+            f"; overdue: behind {int(lag.total_seconds())}s of a "
+            f"{int(inputs.max_lag.total_seconds())}s bound"
+        )
+        if overridden:
+            detail += f", overriding {'; '.join(overridden)}"
     return ModelIdleConvergeDecision(
         verdict=EnumIdleConvergeVerdict.CONVERGE,
-        detail=(
-            f"idle {int(idle.total_seconds())}s, {repo} "
-            f"{inputs.running_ref[:12]} -> dev head {inputs.head_ref[:12]}"
-        ),
+        detail=detail,
         head_ref=inputs.head_ref,
+    )
+
+
+def next_behind_since(
+    previous: datetime | None,
+    running_ref: str | None,
+    head_ref: str | None,
+    now: datetime,
+) -> datetime | None:
+    """When the lane started running behind the head, after one more read.
+
+    Starts at the first read that sees the lane behind, keeps the earliest while
+    the head moves on, and clears on a read that sees the lane on the head. A
+    read that left either ref unknown proves nothing, so it changes nothing.
+    """
+    if running_ref is None or head_ref is None:
+        return previous
+    if running_ref == head_ref:
+        return None
+    return previous if previous is not None else now
+
+
+def dev_lane_drift(
+    *,
+    instance: str,
+    repository: str,
+    runtime_container: str,
+    running_image: str,
+    running_ref: str | None,
+    head_ref: str | None,
+    behind_since: datetime | None,
+    max_lag: timedelta | None,
+    now: datetime,
+) -> ModelDevLaneDrift | None:
+    """The lane's drift behind ``repository``'s dev head, or ``None``.
+
+    ``None`` when the instance declares no bound, the lane is not behind, or a
+    ref is unread: there is nothing to say that the converge verdict does not
+    already log.
+    """
+    if (
+        max_lag is None
+        or behind_since is None
+        or running_ref is None
+        or head_ref is None
+    ):
+        return None
+    lag = now - behind_since
+    return ModelDevLaneDrift(
+        instance=instance,
+        repository=repository,
+        runtime_container=runtime_container,
+        running_image=running_image,
+        running_ref=running_ref,
+        head_ref=head_ref,
+        behind_since=behind_since,
+        observed_at=now,
+        lag_seconds=max(0, int(lag.total_seconds())),
+        max_lag_seconds=int(max_lag.total_seconds()),
+        overdue=lag >= max_lag,
     )
 
 
@@ -515,6 +659,30 @@ def read_runtime_presence(
     return EnumRuntimePresence.RUNNING, f"{container} is {state}"
 
 
+def read_running_image(container: str, *, run: Runner = _default_run) -> str:
+    """``<image name>@<image id>`` of ``container``, or ``""`` when unread.
+
+    OMN-21146: the drift event names the image the lane runs, so a reader can
+    tell an old build from a build of the wrong ref.
+    """
+    try:
+        result = run(
+            [
+                "docker",
+                "inspect",
+                "--format",
+                "{{.Config.Image}}@{{.Image}}",
+                container,
+            ],
+            timeout=READ_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
 def read_dev_head(clone: Path, *, run: Runner = _default_run) -> str | None:
     """The ``dev`` head on ``clone``'s remote, read from the local clone."""
     try:
@@ -528,3 +696,158 @@ def read_dev_head(clone: Path, *, run: Runner = _default_run) -> str | None:
         return None
     first = (result.stdout.split() or [""])[0]
     return first if _is_sha(first) else None
+
+
+class ModelDevTag(BaseModel):
+    """One ``dev-<UTC YYYYMMDDHHMMSS>-<sha12>`` tag on a repository's origin."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str
+    sha: str
+    cut_at: datetime
+
+
+def _deploy_source_ref_module(clone_root: Path) -> ModuleType:
+    path = clone_root / DEPLOY_SOURCE_REF_RELPATH
+    spec = importlib.util.spec_from_file_location("_deploy_source_ref", path)
+    if spec is None or spec.loader is None:
+        raise OSError(f"cannot load the dev-tag parser at {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(spec.name, None)
+        raise
+    return module
+
+
+def parse_dev_tags(ls_remote_output: str, clone_root: Path) -> list[ModelDevTag]:
+    """The well-formed dev tags in ``git ls-remote --tags`` output, oldest first.
+
+    Parsed by ``deploy_source_ref.parse_dev_tags`` from ``clone_root``, the
+    same function the build's checkout uses, so what the agent follows and what
+    a build stages can never read the tags differently.
+    """
+    module = _deploy_source_ref_module(clone_root)
+    return [
+        ModelDevTag(name=tag.name, sha=tag.sha, cut_at=tag.cut_at)
+        for tag in module.parse_dev_tags(ls_remote_output)
+    ]
+
+
+def read_dev_tags(
+    clone: Path, clone_root: Path, *, run: Runner = _default_run
+) -> list[ModelDevTag] | None:
+    """Every dev tag on ``clone``'s origin, oldest first, or ``None`` unread."""
+    try:
+        result = run(
+            [
+                "git",
+                "-C",
+                str(clone),
+                "ls-remote",
+                "--tags",
+                "origin",
+                "refs/tags/dev-*",
+            ],
+            timeout=READ_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    try:
+        return parse_dev_tags(result.stdout, clone_root)
+    except (OSError, ImportError, AttributeError):
+        return None
+
+
+def dev_tag_behind_since(
+    tags: list[ModelDevTag],
+    running_ref: str | None,
+    previous: datetime | None,
+    now: datetime,
+    *,
+    running_contains_newest: bool = False,
+) -> datetime | None:
+    """When the lane started running behind the newest dev tag, or ``None``.
+
+    ``None`` when it runs the newest tag, or a commit that contains it
+    (``running_contains_newest``: a build of the branch ahead of its newest
+    tag is not behind). When it runs an older tag, the cut time of the next
+    tag: the first one it missed. When its commit is no tag (a build from
+    before the tags, or a hand build), the first read that saw it off the
+    newest tag, kept across reads. An unread running ref, or no tag at all,
+    changes nothing.
+    """
+    if running_ref is None or not tags:
+        return previous
+    if running_ref == tags[-1].sha or running_contains_newest:
+        return None
+    for index, tag in enumerate(tags[:-1]):
+        if tag.sha == running_ref:
+            return tags[index + 1].cut_at
+    return previous if previous is not None else now
+
+
+def contains_commit(
+    clone: Path, ancestor: str, descendant: str, *, run: Runner = _default_run
+) -> bool:
+    """Whether ``descendant`` contains ``ancestor`` in ``clone``; False unread."""
+    try:
+        result = run(
+            [
+                "git",
+                "-C",
+                str(clone),
+                "merge-base",
+                "--is-ancestor",
+                ancestor,
+                descendant,
+            ],
+            timeout=READ_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
+def dev_tag_heartbeat(
+    *,
+    instance: str,
+    repository: str,
+    runtime_container: str,
+    running_ref: str | None,
+    tags: list[ModelDevTag] | None,
+    behind_since: datetime | None,
+    now: datetime,
+    alarm_after: timedelta = DEV_TAG_ALARM_AFTER,
+) -> ModelDevTagHeartbeat:
+    """The lane's reading against ``repository``'s newest dev tag."""
+    newest = tags[-1] if tags else None
+    lag = (
+        max(timedelta(0), now - behind_since)
+        if behind_since is not None
+        else timedelta(0)
+    )
+    return ModelDevTagHeartbeat(
+        instance=instance,
+        repository=repository,
+        runtime_container=runtime_container,
+        running_ref=running_ref,
+        newest_tag=newest.name if newest else None,
+        newest_tag_sha=newest.sha if newest else None,
+        newest_tag_cut_at=newest.cut_at if newest else None,
+        behind_since=behind_since,
+        observed_at=now,
+        lag_seconds=int(lag.total_seconds()),
+        alarm_after_seconds=int(alarm_after.total_seconds()),
+        alarm=(
+            running_ref is not None
+            and newest is not None
+            and running_ref != newest.sha
+            and lag > alarm_after
+        ),
+    )

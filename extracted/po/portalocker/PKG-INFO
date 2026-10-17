@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: portalocker
-Version: 4.4.0
+Version: 4.4.1
 Summary: Cross-platform file locking, with Redis, PID-file and bounded-semaphore locks
 Keywords: locking,locks,with,statement,windows,linux,unix
 Author: Rick van Hattem

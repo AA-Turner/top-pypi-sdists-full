@@ -288,7 +288,7 @@ class AnalogueDockingWorkflow(MoleculeWorkflow, ProteinStructureWorkflow):
         num_conformers_per_analogue: number of top poses to retain per analogue; 5× this many conformers are generated internally and the best are kept
         require_posebusters: filter conformers based on PoseBusters validity before docking
         run_local_optimization: optimize in the docking pocket when true, or just score otherwise
-        docking_settings: how docking should be run; only the vina executable is supported
+        docking_settings: how docking should be run; Vina and Heron executables are supported
 
         analogue_scores: docked poses for each analogue of form {smiles: list[poses]}
     """
@@ -312,10 +312,11 @@ class AnalogueDockingWorkflow(MoleculeWorkflow, ProteinStructureWorkflow):
         return self
 
     @model_validator(mode="after")
-    def check_vina_only(self) -> Self:
-        """Check that only the vina executable is used."""
-        if self.docking_settings.executable != "vina":
+    def check_analogue_docking_executable(self) -> Self:
+        """Check that Vina or Heron is used for analogue docking."""
+        if self.docking_settings.executable not in {"vina", "heron"}:
             raise ValueError(
-                f"AnalogueDockingWorkflow only supports the vina executable, not {self.docking_settings.executable!r} (qvina2 and qvina-w are not supported)"
+                f"AnalogueDockingWorkflow only supports the vina and heron executables, not {self.docking_settings.executable!r} "
+                "(qvina2 and qvina-w are not supported)"
             )
         return self

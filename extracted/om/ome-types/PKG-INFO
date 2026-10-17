@@ -1,39 +1,45 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: ome-types
-Version: 0.6.3
+Version: 0.7.0
 Summary: Python dataclasses for the OME data model
-Project-URL: Source, https://github.com/tlambert03/ome-types
-Project-URL: Tracker, https://github.com/tlambert03/ome-types/issues
+Project-URL: Source, https://github.com/imaging-formats/ome-types
+Project-URL: Tracker, https://github.com/imaging-formats/ome-types/issues
 Project-URL: Documentation, https://ome-types.readthedocs.io/en/latest/
 Author-email: Talley Lambert <talley.lambert@gmail.com>
-License: MIT
+License-Expression: MIT
 License-File: LICENSE
 Keywords: microscopy,ome,ome-model,schema,types
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
 Requires-Dist: pydantic-core>=2.20.0; python_version >= '3.13'
+Requires-Dist: pydantic-core>=2.41.1; python_version >= '3.14'
+Requires-Dist: pydantic-core>=2.50.0; python_version >= '3.15'
 Requires-Dist: pydantic-extra-types>=2.0.0
+Requires-Dist: pydantic>=2.12.0; python_version >= '3.14'
+Requires-Dist: pydantic>=2.14.0; python_version >= '3.15'
 Requires-Dist: pydantic>=2.4.0
 Requires-Dist: xsdata>=24.4
+Requires-Dist: xsdata>=24.9; python_version >= '3.15'
 Provides-Extra: build
 Requires-Dist: ruff==0.13.2; extra == 'build'
-Requires-Dist: xsdata[cli]>=24.7; extra == 'build'
+Requires-Dist: xsdata[cli]<27,>=26.1; extra == 'build'
 Provides-Extra: lxml
-Requires-Dist: lxml>=4.8.0; extra == 'lxml'
-Requires-Dist: lxml>=5.0; (python_version >= '3.11') and extra == 'lxml'
+Requires-Dist: lxml>=5.0; extra == 'lxml'
 Requires-Dist: lxml>=5.3; (python_version >= '3.13') and extra == 'lxml'
+Requires-Dist: lxml>=6.0.1; (python_version >= '3.14') and extra == 'lxml'
+Requires-Dist: lxml>=6.1.2; (python_version >= '3.15') and extra == 'lxml'
 Provides-Extra: pint
 Requires-Dist: pint>=0.15; extra == 'pint'
 Requires-Dist: pint>=0.25; (python_version >= '3.13') and extra == 'pint'
@@ -41,15 +47,15 @@ Description-Content-Type: text/markdown
 
 # ome-types
 
-[![License](https://img.shields.io/github/license/tlambert03/ome-types)](LICENSE)
+[![License](https://img.shields.io/github/license/imaging-formats/ome-types)](LICENSE)
 [![Version](https://img.shields.io/pypi/v/ome-types.svg)](https://pypi.python.org/pypi/ome-types)
 [![CondaVersion](https://img.shields.io/conda/v/conda-forge/ome-types)](https://anaconda.org/conda-forge/ome-types)
 [![Python
 Version](https://img.shields.io/pypi/pyversions/ome-types.svg)](https://python.org)
-[![Tests](https://github.com/tlambert03/ome-types/workflows/tests/badge.svg)](https://github.com/tlambert03/ome-types/actions)
+[![CI](https://github.com/imaging-formats/ome-types/actions/workflows/ci.yml/badge.svg)](https://github.com/imaging-formats/ome-types/actions/workflows/ci.yml)
 [![Docs](https://readthedocs.org/projects/ome-types/badge/?version=latest)](https://ome-types.readthedocs.io/en/latest/?badge=latest)
-[![codecov](https://codecov.io/gh/tlambert03/ome-types/branch/main/graph/badge.svg?token=GocY9y8A32)](https://codecov.io/gh/tlambert03/ome-types)
-[![Benchmarks](https://img.shields.io/badge/⏱-codspeed-%23FF7B53)](https://codspeed.io/tlambert03/ome-types)
+[![codecov](https://codecov.io/gh/imaging-formats/ome-types/branch/main/graph/badge.svg?token=GocY9y8A32)](https://codecov.io/gh/imaging-formats/ome-types)
+[![Benchmarks](https://img.shields.io/badge/⏱-codspeed-%23FF7B53)](https://codspeed.io/imaging-formats/ome-types)
 
 ## A pure-python implementation of the OME data model
 
@@ -62,7 +68,7 @@ can also take these python objects and output them into valid OME-XML.
 machine.
 
 > Note: The generated python code can be seen in the [`built`
-> branch](https://github.com/tlambert03/ome-types/tree/built).
+> branch](https://github.com/imaging-formats/ome-types/tree/built).
 > (Read the [code generation](#code-generation) section for details).
 
 ### 📖 &nbsp;&nbsp;[documentation](https://ome-types.readthedocs.io/)
@@ -97,7 +103,7 @@ conda install -c conda-forge ome-types
 ### from github (bleeding edge dev version)
 
 ```shell
-pip install git+https://github.com/tlambert03/ome-types.git
+pip install git+https://github.com/imaging-formats/ome-types.git
 ```
 
 ## Usage
@@ -110,7 +116,7 @@ schema](https://www.openmicroscopy.org/Schemas/Documentation/Generated/OME-2016-
 ```python
 from ome_types import from_xml
 
-ome = from_xml('tests/data/hcs.ome.xml')
+ome = from_xml("tests/data/hcs.ome.xml")
 ```
 
 ### extract OME metadata from an OME-TIFF
@@ -118,7 +124,7 @@ ome = from_xml('tests/data/hcs.ome.xml')
 ```python
 from ome_types import from_tiff
 
-ome2 = from_tiff('tests/data/ome.tiff')
+ome2 = from_tiff("tests/data/ome.tiff")
 ```
 
 ### manipulate the metadata via python objects
@@ -271,7 +277,7 @@ generated at install time, and is therefore not checked into source (or visible
 in the main branch of this repo).
 
 You can see the code generated by the main branch in the [built
-branch](https://github.com/tlambert03/ome-types/tree/built)
+branch](https://github.com/imaging-formats/ome-types/tree/built)
 
 The package at `src/ome_autogen` converts the [ome.xsd
 schema](https://www.openmicroscopy.org/Schemas/OME/2016-06/ome.xsd) into valid
@@ -289,7 +295,7 @@ The documentation and types for the full model can be in the [API Reference](htt
 To clone and install this repository locally:
 
 ```shell
-git clone https://github.com/tlambert03/ome-types.git
+git clone https://github.com/imaging-formats/ome-types.git
 cd ome-types
 pip install -e .[test,dev]
 ```

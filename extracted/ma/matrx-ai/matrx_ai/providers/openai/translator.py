@@ -33,6 +33,8 @@ from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_
 class OpenAITranslator(BaseTranslator):
     """Translates between unified format and OpenAI Responses API"""
 
+    TURN_CONTEXT_AFTER_CACHE_LINE = True
+
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)
 
@@ -79,7 +81,10 @@ class OpenAITranslator(BaseTranslator):
         # TAIL CHANNEL (config/live_plan.py): a developer item after the newest
         # function_call_output — the platform's voice, not the person's, at the
         # end of the context. Automatic prefix caching is unaffected.
-        tail_text = self.get_tail_context_text(config)
+        # THE CACHE LINE LAW: this turn's context block rides here too, in its
+        # own developer item AFTER the cached prefix — never in the leading
+        # developer item, where it changed the prefix every turn.
+        tail_text = self.get_trailing_context_text(config)
         if tail_text:
             messages.append(
                 {"role": "developer", "content": [{"type": "input_text", "text": tail_text}]}
@@ -146,6 +151,27 @@ class OpenAITranslator(BaseTranslator):
             openai_request["prompt_cache_key"] = normalize_openai_prompt_cache_key(
                 config.prompt_cache_key
             )
+
+        # LONG CACHE (agent setting, config/cache_marks.py): the 24h retention on the
+        # models that take it; elsewhere said to be a no-op, never pretended.
+        if getattr(config, "extended_prompt_cache", False):
+            from matrx_ai.config.cache_marks import (
+                long_cache_note,
+                openai_takes_extended_retention,
+            )
+            from matrx_ai.providers.request_capture import note_capture
+
+            if openai_takes_extended_retention(config.model):
+                openai_request["prompt_cache_retention"] = "24h"
+                note_capture(
+                    long_cache_note(
+                        "openai",
+                        config.model,
+                        applied='prompt_cache_retention "24h" keeps the cached prefix up to 24 hours',
+                    )
+                )
+            else:
+                note_capture(long_cache_note("openai", config.model, applied=None))
 
         return openai_request
 

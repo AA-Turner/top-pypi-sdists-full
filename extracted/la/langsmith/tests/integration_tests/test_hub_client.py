@@ -32,9 +32,7 @@ def skill_identifier() -> str:
 
 
 @skip_if_rate_limited
-def test_push_and_pull_agent_roundtrip(
-    langsmith_client: Client, agent_identifier: str
-) -> None:
+def test_push_and_pull_agent_roundtrip(langsmith_client: Client, agent_identifier: str) -> None:
     ctx = langsmith_client
     try:
         url = ctx.push_agent(
@@ -58,9 +56,7 @@ def test_push_and_pull_agent_roundtrip(
 
 
 @skip_if_rate_limited
-def test_push_and_pull_agent_tools_json_roundtrip(
-    langsmith_client: Client, agent_identifier: str
-) -> None:
+def test_push_and_pull_agent_tools_json_roundtrip(langsmith_client: Client, agent_identifier: str) -> None:
     ctx = langsmith_client
     try:
         url = ctx.push_agent(
@@ -84,9 +80,7 @@ def test_push_and_pull_agent_tools_json_roundtrip(
 
 
 @skip_if_rate_limited
-def test_push_and_pull_skill_roundtrip(
-    langsmith_client: Client, skill_identifier: str
-) -> None:
+def test_push_and_pull_skill_roundtrip(langsmith_client: Client, skill_identifier: str) -> None:
     ctx = langsmith_client
     try:
         url = ctx.push_skill(
@@ -110,9 +104,7 @@ def test_push_and_pull_skill_roundtrip(
 
 
 @skip_if_rate_limited
-def test_agent_exists_reflects_create_delete_lifecycle(
-    langsmith_client: Client, agent_identifier: str
-) -> None:
+def test_agent_exists_reflects_create_delete_lifecycle(langsmith_client: Client, agent_identifier: str) -> None:
     ctx = langsmith_client
     try:
         assert ctx.agent_exists(agent_identifier) is False
@@ -133,9 +125,7 @@ def test_agent_exists_reflects_create_delete_lifecycle(
 
 
 @skip_if_rate_limited
-def test_skill_exists_reflects_create_delete_lifecycle(
-    langsmith_client: Client, skill_identifier: str
-) -> None:
+def test_skill_exists_reflects_create_delete_lifecycle(langsmith_client: Client, skill_identifier: str) -> None:
     ctx = langsmith_client
     try:
         assert ctx.skill_exists(skill_identifier) is False
@@ -156,9 +146,7 @@ def test_skill_exists_reflects_create_delete_lifecycle(
 
 
 @skip_if_rate_limited
-def test_push_agent_null_entry_deletes_file(
-    langsmith_client: Client, agent_identifier: str
-) -> None:
+def test_push_agent_null_entry_deletes_file(langsmith_client: Client, agent_identifier: str) -> None:
     ctx = langsmith_client
     try:
         ctx.push_agent(
@@ -184,9 +172,7 @@ def test_push_agent_null_entry_deletes_file(
 
 
 @skip_if_rate_limited
-def test_push_agent_second_commit_updates_content(
-    langsmith_client: Client, agent_identifier: str
-) -> None:
+def test_push_agent_second_commit_updates_content(langsmith_client: Client, agent_identifier: str) -> None:
     ctx = langsmith_client
     try:
         ctx.push_agent(
@@ -210,9 +196,7 @@ def test_push_agent_second_commit_updates_content(
 
 
 @skip_if_rate_limited
-def test_delete_agent_removes_repo(
-    langsmith_client: Client, agent_identifier: str
-) -> None:
+def test_delete_agent_removes_repo(langsmith_client: Client, agent_identifier: str) -> None:
     ctx = langsmith_client
     ctx.push_agent(
         agent_identifier,
@@ -228,9 +212,7 @@ def test_delete_agent_removes_repo(
 
 
 @skip_if_rate_limited
-def test_list_agents_returns_pushed_agent(
-    langsmith_client: Client, agent_identifier: str
-) -> None:
+def test_list_agents_returns_pushed_agent(langsmith_client: Client, agent_identifier: str) -> None:
     ctx = langsmith_client
     _, handle = agent_identifier.split("/", 1)
     try:
@@ -248,9 +230,7 @@ def test_list_agents_returns_pushed_agent(
 
 
 @skip_if_rate_limited
-def test_delete_skill_removes_repo(
-    langsmith_client: Client, skill_identifier: str
-) -> None:
+def test_delete_skill_removes_repo(langsmith_client: Client, skill_identifier: str) -> None:
     ctx = langsmith_client
     ctx.push_skill(
         skill_identifier,
@@ -265,9 +245,7 @@ def test_delete_skill_removes_repo(
 
 
 @skip_if_rate_limited
-def test_list_skills_returns_pushed_skill(
-    langsmith_client: Client, skill_identifier: str
-) -> None:
+def test_list_skills_returns_pushed_skill(langsmith_client: Client, skill_identifier: str) -> None:
     ctx = langsmith_client
     _, handle = skill_identifier.split("/", 1)
     try:

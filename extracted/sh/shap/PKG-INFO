@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: shap
-Version: 0.53.0
+Version: 0.54.1
 Summary: A unified approach to explain the output of any machine learning model.
 Author-Email: Scott Lundberg <slund1@cs.washington.edu>
 License: MIT License
@@ -30,6 +30,8 @@ Requires-Dist: tqdm>=4.27.0
 Requires-Dist: packaging>20.9
 Requires-Dist: slicer==0.0.8
 Requires-Dist: cloudpickle
+Provides-Extra: cuda
+Requires-Dist: shap-cuda==0.54.1; extra == "cuda"
 Description-Content-Type: text/markdown
 
 
@@ -67,10 +69,10 @@ conda install -c conda-forge shap
 
 ### GPU support
 
-To enable GPU-accelerated Tree SHAP, install from source with the CUDA toolkit available and the `SHAP_ENABLE_CUDA` environment variable set:
+To enable GPU-accelerated Tree SHAP (`GPUTreeExplainer`), install the `cuda` extra:
 
 <pre>
-SHAP_ENABLE_CUDA=1 pip install .
+pip install shap[cuda]
 </pre>
 
 This requires the [CUDA toolkit](https://developer.nvidia.com/cuda-toolkit) to be installed on your system.

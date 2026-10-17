@@ -60,8 +60,23 @@ def is_ai_api_request(request):
     return any(domain in request.host for domain in ai_domains)
 
 
+# Cassettes are recorded against the provider hosts. CI routes provider calls
+# through the LLM Gateway, so map those URLs back before matching or recording,
+# otherwise every gateway request misses the cassette and goes live.
+GATEWAY_PREFIXES = {
+    "https://gateway.smith.langchain.com/openai/v1": "https://api.openai.com/v1",
+    "https://gateway.smith.langchain.com/anthropic": "https://api.anthropic.com",
+    "https://gateway.smith.langchain.com/gemini": "https://generativelanguage.googleapis.com",
+}
+
+
 def filter_request_data(request):
     """Filter sensitive data from requests and only record AI API calls."""
+
+    for gateway, provider in GATEWAY_PREFIXES.items():
+        if request.uri.startswith(gateway):
+            request.uri = provider + request.uri[len(gateway) :]
+            break
 
     # Only record OpenAI and Anthropic API calls
     if not is_ai_api_request(request):
@@ -76,9 +91,7 @@ def filter_request_data(request):
                 body_str = request.body
 
             # Replace API keys and other sensitive data
-            body_str = re.sub(
-                r'(api[-_]?key"?\s*:\s*")\w+(")', r"\1FILTERED\2", body_str
-            )
+            body_str = re.sub(r'(api[-_]?key"?\s*:\s*")\w+(")', r"\1FILTERED\2", body_str)
             body_str = re.sub(r"(Bearer\s+)[A-Za-z0-9-_]+", r"\1FILTERED", body_str)
 
             # Update the request body

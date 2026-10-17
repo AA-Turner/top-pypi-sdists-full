@@ -80,9 +80,7 @@ def test_dict_element_inside_evaluation_results_is_not_extracted():
     # Known limitation: within ``EvaluationResults(results=[...])`` only
     # ``EvaluationResult(...)`` elements are parsed; a ``dict(...)`` element is
     # skipped. (The dict-form ``{"results": [...]}`` branch does handle both.)
-    assert _extract_code_evaluator_feedback_keys(
-        _evaluation_results_mixed_elements
-    ) == ["d1"]
+    assert _extract_code_evaluator_feedback_keys(_evaluation_results_mixed_elements) == ["d1"]
 
 
 def test_falls_back_to_function_name_for_dynamic_key():

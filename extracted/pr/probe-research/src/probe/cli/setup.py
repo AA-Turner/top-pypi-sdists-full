@@ -1896,7 +1896,7 @@ def refresh_marketplace(*, source: str | None = None) -> claude_cli.Result:
         return claude_cli.Result(
             ok=False, detail=f"{selected} has no plugin marketplace", reachable=False
         )
-    added = plugin_cli.add_marketplace(selected, MARKETPLACE_REPO)
+    added = plugin_cli.add_marketplace(selected, MARKETPLACE_REPO, name=MARKETPLACE)
     refreshed = plugin_cli.refresh_marketplace(selected, MARKETPLACE)
     if not refreshed.ok and not added.ok:
         from probe.cli import updater
@@ -1906,6 +1906,17 @@ def refresh_marketplace(*, source: str | None = None) -> claude_cli.Result:
         # found": report the cause, not the symptom.
         if updater.git_blocker(added.detail):
             return added
+        # Otherwise say BOTH. `add` alone can be the harmless "already
+        # added", but when the refresh then fails too, `add`'s refusal is
+        # usually the cause: Codex's "not configured as a Git marketplace"
+        # was all a researcher saw of an add that had been refused.
+        return claude_cli.Result(
+            ok=False,
+            detail=f"`{added.command}` failed: {added.detail}\n"
+            f"`{refreshed.command}` failed: {refreshed.detail}",
+            reachable=refreshed.reachable,
+            command=refreshed.command,
+        )
     return refreshed
 
 

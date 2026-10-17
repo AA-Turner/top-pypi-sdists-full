@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: wandb
-Version: 0.30.0
+Version: 0.31.0
 Summary: A CLI and library for interacting with the Weights & Biases API.
 Project-URL: Source, https://github.com/wandb/wandb
 Project-URL: Bug Reports, https://github.com/wandb/wandb/issues
@@ -41,6 +41,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -48,6 +49,7 @@ Classifier: Topic :: System :: Logging
 Classifier: Topic :: System :: Monitoring
 Requires-Python: >=3.10
 Requires-Dist: click>=8.2.0
+Requires-Dist: cwevals==0.0.1b1
 Requires-Dist: opentelemetry-api>=1.43.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.43.0
 Requires-Dist: opentelemetry-sdk>=1.43.0
@@ -62,6 +64,8 @@ Requires-Dist: xxhash>=3.0.0
 Provides-Extra: aws
 Requires-Dist: boto3; extra == 'aws'
 Requires-Dist: botocore>=1.5.76; extra == 'aws'
+Provides-Extra: ax
+Requires-Dist: ax-platform>=1.3.1; (python_version >= '3.11') and extra == 'ax'
 Provides-Extra: azure
 Requires-Dist: azure-identity; extra == 'azure'
 Requires-Dist: azure-storage-blob; extra == 'azure'
@@ -112,6 +116,8 @@ Requires-Dist: rdkit; extra == 'media'
 Requires-Dist: soundfile; extra == 'media'
 Provides-Extra: models
 Requires-Dist: cloudpickle; extra == 'models'
+Provides-Extra: optuna
+Requires-Dist: optuna>=4.0.0; extra == 'optuna'
 Provides-Extra: sandbox
 Requires-Dist: cwsandbox[cli]>=1.0.0; (python_version >= '3.11') and extra == 'sandbox'
 Provides-Extra: sweeps
@@ -128,7 +134,7 @@ Description-Content-Type: text/markdown
 <a href="https://pypi.python.org/pypi/wandb"><img src="https://img.shields.io/pypi/v/wandb" /></a>
 <a href="https://anaconda.org/conda-forge/wandb"><img src="https://img.shields.io/conda/vn/conda-forge/wandb" /></a>
 <a href="https://pypi.python.org/pypi/wandb"><img src="https://img.shields.io/pypi/pyversions/wandb" /></a>
-<a href="https://circleci.com/gh/wandb/wandb"><img src="https://img.shields.io/circleci/build/github/wandb/wandb/main" /></a>
+<a href="https://github.com/wandb/wandb/actions/workflows/sdk-ci.yml?query=branch%3Amain"><img src="https://github.com/wandb/wandb/actions/workflows/sdk-ci.yml/badge.svg?branch=main" /></a>
 </p>
 <p align='center'>
 <a href="https://colab.research.google.com/github/wandb/examples/blob/master/colabs/intro/Intro_to_Weights_%26_Biases.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" /></a>

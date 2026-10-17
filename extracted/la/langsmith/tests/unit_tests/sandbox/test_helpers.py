@@ -28,21 +28,15 @@ def test_merge_headers_override_replaces_across_casing() -> None:
     base = httpx.Headers({"X-Service-Key": "base", "X-Api-Key": ""})
     merged = merge_headers(base, {"X-Service-Key": "override"})
 
-    assert [v for k, v in merged.items() if k.lower() == "x-service-key"] == [
-        "override"
-    ]
+    assert [v for k, v in merged.items() if k.lower() == "x-service-key"] == ["override"]
     # And only one X-Service-Key actually goes on the wire.
     request = httpx.Request("GET", "https://example.com", headers=merged)
-    on_wire = [
-        v.decode() for k, v in request.headers.raw if k.lower() == b"x-service-key"
-    ]
+    on_wire = [v.decode() for k, v in request.headers.raw if k.lower() == b"x-service-key"]
     assert on_wire == ["override"]
 
 
 def test_parse_error_response_preserves_error_id() -> None:
-    request = httpx.Request(
-        "POST", "https://example.com/v2/sandboxes/boxes/box/snapshot"
-    )
+    request = httpx.Request("POST", "https://example.com/v2/sandboxes/boxes/box/snapshot")
     response = httpx.Response(
         500,
         request=request,
@@ -58,7 +52,5 @@ def test_parse_error_response_preserves_error_id() -> None:
 
     assert parse_error_response(error) == {
         "error_type": "SandboxSnapshotFailed",
-        "message": (
-            "Snapshot capture failed. (error_id=6a39f608-e9aa-4247-8e61-846870563681)"
-        ),
+        "message": ("Snapshot capture failed. (error_id=6a39f608-e9aa-4247-8e61-846870563681)"),
     }

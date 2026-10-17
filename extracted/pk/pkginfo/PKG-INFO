@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pkginfo
-Version: 1.13
+Version: 1.13.3
 Summary: Query metadata from sdists / bdists / installed packages.
 Home-page: https://code.launchpad.net/~tseaver/pkginfo/trunk
 Author: Tres Seaver, Agendaless Consulting
@@ -59,6 +59,41 @@ for detailed documentation.
 
 ``pkginfo`` Changelog
 =====================
+
+1.13.3 (2026-10-16)
+-------------------
+
+- Remove dead branch in 'wheel.Wheel._extract_purelib'.
+
+1.13.2 (2026-10-16)
+-------------------
+
+- Add ``Wheel`` support for exposing the PEP 427 tags encoded in the wheel
+  filename (``python_tag``, ``abi_tag``, ``platform_tag``, ``build_tag``),
+  along with the ``Root-Is-Purelib`` setting read from the archive's
+  ``WHEEL`` file (``purelib``):  the closest available signal for whether
+  a wheel contains native code.  LP #2015657.  GH #11
+
+- Anchor candidate matching for installed distribution metadata at the
+  ``<name>-<version>`` boundary, such that a package whose name is a
+  strict prefix of another installed package's name no longer has its
+  metadata masked by that other package (e.g. 'pyramid' vs.
+  'pyramid_chameleon').  LP #1974172.  GH #9
+
+- Test installed distributions against the metadata version recorded in
+  their own ``PKG-INFO`` / ``METADATA`` files, rather than against
+  hardcoded literals which drift with the packaging toolchain.
+  LP #2103804.  GH #10
+
+1.13.1 (2026-10-16)
+-------------------
+
+- Test ``Installed`` distributions against the fixture's own ``PKG-INFO``,
+  rather than against the version of the installed ``pkginfo`` package;
+  ``Develop`` tests now check the live project metadata against the
+  installed package's recorded version.  Fixes failures of the released
+  sdist's test suite under other versions (``namespaced.dodgy`` egg-info
+  carries a snapshot stamped during development).  GH #1
 
 1.13.0 (2026-08-29)
 -------------------

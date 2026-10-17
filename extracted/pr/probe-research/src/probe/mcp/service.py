@@ -691,12 +691,53 @@ _SAVED_VIEW_FIELDS = ("id", "name", "spec", "created_by", "created_at", "updated
 #: "who made this" is answered by a person, not a session id.
 _SESSION_ROW_FIELDS = (
     "name",
+    "title",
     "agent",
     "owner_name",
     "owner_email",
     "device_label",
     "first_seen_at",
     "last_seen_at",
+)
+
+#: One page of a summary's version history (GET …/summary/versions): the
+#: route's own cap, and the page this view walks one at a time.
+_SUMMARY_VERSIONS_PAGE = 50
+
+#: A summary_history row: who wrote the version, when, through what, and how
+#: big it is -- never the text, which is one `view_options.version` read away.
+_SUMMARY_HISTORY_ROW_FIELDS = (
+    "version",
+    "created_at",
+    "created_by",
+    "source",
+    "via",
+    "mode",
+    "session_title",
+    "size_chars",
+)
+
+#: One summary version (GET …/summary/versions/{v}), `markdown` last.
+_SUMMARY_VERSION_FIELDS = (
+    "version",
+    "created_at",
+    "created_by",
+    "source",
+    "via",
+    "mode",
+    "markdown",
+)
+
+#: Said on a project-scoped search that named `transcripts`: the backend's
+#: project scope keeps only hits that resolve to the project, and a transcript
+#: resolves to none (it is a keyless connector document), so every transcript
+#: hit is dropped before ranking. Silence there read as "no session mentioned
+#: it". The honest route to a project's sessions is the sessions view plus a
+#: per-transcript grep, which is exact and fully scoped.
+_TRANSCRIPTS_NOT_PROJECT_SCOPED = (
+    "transcripts are not project-scoped: a project_id search drops every transcript hit. "
+    "For a project's sessions use entity view=sessions on the project (newest first), "
+    "then entity view=transcript on a session with view_options.grep."
 )
 
 #: ProjectReadmeOut, `markdown` last so a reader meets the provenance first.
@@ -1068,6 +1109,10 @@ _ENTITY_IDENTITY_FIELDS = (
     "ended_at",
 )
 _ENTITY_REF_FIELDS = ("id", "slug", "name", "kind", "project_id", "experiment_id", "run_id")
+#: Card fields that are COUNTS a server may not know yet (a sub-note's token
+#: count before its backfill): null is left off the card, never shown as a value
+#: an agent could read as zero.
+_UNKNOWN_COUNT_FIELDS = frozenset({"tokens", "remaining_tokens"})
 _CARD_FIELDS: dict[str, tuple[str, ...]] = {
     EntityType.PROJECT: (
         "workspace_id",
@@ -1107,7 +1152,10 @@ _CARD_FIELDS: dict[str, tuple[str, ...]] = {
     EntityType.TEAM_NOTE: ("version",),
     # Fullness rides the card because a sub-note is capped at its carrier's
     # limit, and an agent about to append needs the room left, not a guess.
-    EntityType.SUB_NOTE: ("chars", "limit_chars", "remaining_chars", "notes_version"),
+    # TOKENS, the unit the cap refuses in; the `*_chars` pair beside them on the
+    # row measures the character backstop and is left off. A count the server
+    # could not give (null) is left off too (`_UNKNOWN_COUNT_FIELDS`).
+    EntityType.SUB_NOTE: ("tokens", "limit_tokens", "remaining_tokens", "notes_version"),
     # The data catalog (C4). `ref` is the server's canonical address, the one
     # a run's use names; a dataset's version, a checkpoint's facts and a
     # source's counts are what a reader decides with.
@@ -1244,7 +1292,13 @@ def _entity_projection(kind: str, entity: dict, *, card: bool, document: bool = 
             out["summary_truncated"] = True
     if not card:
         return out
-    out.update({key: entity[key] for key in _CARD_FIELDS[kind] if key in entity})
+    out.update(
+        {
+            key: entity[key]
+            for key in _CARD_FIELDS[kind]
+            if key in entity and not (entity[key] is None and key in _UNKNOWN_COUNT_FIELDS)
+        }
+    )
     if kind == EntityType.EXPERIMENT:
         _card_fork(out, entity)
     _card_text(out, entity, "description", _CARD_DESCRIPTION_CHARS)
@@ -1336,7 +1390,7 @@ def _notes_excerpt(text: str | None, *, read_all: str = 'view="notes"') -> dict 
     """The `{text, truncated, read_all?}` block a card carries, or None.
 
     ONE renderer for every carrier (0124): a note reads the same whether it hangs
-    off a project, experiment, run, group or artifact, and the shape matches the
+    off a project, experiment or run, and the shape matches the
     browse orientation's excerpt so the product feels like one thing rather than
     four independently invented excerpt formats.
 
@@ -1412,6 +1466,86 @@ def _sessions_view(sessions: Any, total: Any) -> _ViewData:
     )
 
 
+def _experiment_project_id(entity: dict) -> str | None:
+    """The project an experiment card says it is filed under, under either
+    spelling the two reads use; None lets the SDK locate it."""
+    found = entity.get("project_id") or entity.get("parent_project_id")
+    return str(found) if found else None
+
+
+def _session_id_of(address: str) -> str:
+    """The bare session id from a `session:` address as `_session_row` writes
+    it (`session:<agent>/<id>` or `session:<id>`) -- what the sessions routes
+    take as `after`. A bare id passes through."""
+    rest = (
+        address.split(":", 1)[1] if address.startswith(f"{EntityType.SESSION.value}:") else address
+    )
+    return rest.rsplit("/", 1)[-1]
+
+
+#: The page counter's column type (`entity_overviews.version`, int4): a number
+#: past it binds nowhere, so it is refused here rather than as a server 500.
+_INT4_MAX = 2_147_483_647
+
+
+def _summary_version_number(value: Any) -> int | None:
+    """A summary version as the routes take it -- a whole number, 0 or more,
+    within int4 -- from a `view_options.version` or a cursor's `after`; None for
+    anything else. `str.isdecimal`, not `isdigit`: "²" is a digit that `int()`
+    refuses, and a bool is an int that is not a version."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, str):
+        if not value.isdecimal():
+            return None
+        value = int(value)
+    if not isinstance(value, int) or not 0 <= value <= _INT4_MAX:
+        return None
+    return value
+
+
+def _paged_sessions_view(page: dict) -> _ViewData:
+    """A `sessions` view over a route that PAGES (a project's or an experiment's):
+    one route page of rows, newest first, the exact total, and the walk past
+    it on the route's own key -- each row's `uuid` is the `after` the next
+    page starts from (`resume_key`).
+
+    Under `X-Probe-Hide-Session-Work` the WATCHED session is left out, as in
+    `_sessions_view`. The total is lowered when it was on this page; when it
+    was not, whether it sits on another page is unknowable from here, so the
+    count is a floor (`session_total_at_least`). `resume_fetched` names the
+    last row FETCHED, so a page the exclusion empties still advances."""
+    if "next_after" not in page:
+        # A server before the paged routes: the experiment route ignored
+        # `order` and `after` and answered the leaf door's oldest-first 50 with
+        # no page key. That is the capped, uncursored list `_sessions_view` was
+        # written for; read as a page it would claim a 300-session entity
+        # complete at 50 rows. (The hosted MCP and the API deploy apart.)
+        return _sessions_view(page.get("sessions"), page.get("session_total"))
+    watched = accounting.session_work_to_hide()
+    listed = [s for s in page.get("sessions") or [] if isinstance(s, dict) and s.get("session_id")]
+    total = page.get("session_total")
+    count = total if isinstance(total, int) and not isinstance(total, bool) else len(listed)
+    more = bool(page.get("next_after")) and bool(listed)
+    fetched_last = _session_row(listed[-1])["uuid"] if listed else None
+    floor = False
+    if watched is not None:
+        kept = [s for s in listed if str(s["session_id"]).lower() != watched.lower()]
+        if len(kept) < len(listed):
+            count = max(len(kept), count - (len(listed) - len(kept)))
+        elif more or count > len(listed):
+            count, floor = max(len(kept), count - 1), True
+        listed = kept
+    return _ViewData(
+        payload={"session_total_at_least" if floor else "session_total": count},
+        rows=[_session_row(s) for s in listed],
+        rows_key="sessions",
+        more_beyond=more,
+        resume_key="uuid",
+        resume_fetched=fetched_last,
+    )
+
+
 def _span_subtree(spans: list[dict], root_id: str) -> list[dict] | None:
     """`root_id`'s span and every descendant of it within `spans`, or None.
 
@@ -1451,8 +1585,8 @@ def _span_subtree(spans: list[dict], root_id: str) -> list[dict] | None:
 
 
 _VIEWS: dict[tuple[str, str], str] = {
-    # 0124: run/experiment/group cards carry a notes excerpt, and each kind gains
-    # a full `notes` view. The project set the precedent and the argument is the
+    # 0124: run and experiment cards carry a notes excerpt, and each kind gains
+    # a full `notes` view. Sweep groups and files no longer carry notes. The project set the precedent and the argument is the
     # same everywhere -- a caveat an agent has to know to ask for is one it does
     # not read, and a run's caveat is the one most likely to change what a reader
     # concludes from its numbers.
@@ -1509,6 +1643,13 @@ _VIEWS: dict[tuple[str, str], str] = {
     # A fork's source runs and their files, read live through its link. The
     # card's `read_inherited` hint is the door (only forks carry it).
     (EntityType.EXPERIMENT, View.INHERITED): "_view_experiment_inherited",
+    # The captured sessions that worked on the experiment, newest first and
+    # walkable past the route's page (GET …/experiments/{E}/sessions), and the
+    # summary's version history (GET …/summary/versions[/{v}]). Both exist so a
+    # recorder rewriting the summary can read what it is replacing and whose
+    # sessions it is summarising.
+    (EntityType.EXPERIMENT, View.SESSIONS): "_view_experiment_sessions",
+    (EntityType.EXPERIMENT, View.SUMMARY_HISTORY): "_view_experiment_summary_history",
     (EntityType.PROJECT, View.CARD): "_view_project_card",
     (EntityType.PROJECT, View.NOTES): "_view_project_notes",
     (EntityType.PROJECT, View.SUMMARY): "_view_project_summary",
@@ -1530,8 +1671,11 @@ _VIEWS: dict[tuple[str, str], str] = {
     # The attached repository's README, as text. A document view: delivery
     # pages its markdown in text fragments, the repo and commit riding along.
     (EntityType.PROJECT, View.README): "_view_project_readme",
-    (EntityType.GROUP, View.CARD): "_view_card_with_notes",
-    (EntityType.GROUP, View.NOTES): "_view_group_notes",
+    # The project's sessions (GET /v1/projects/{P}/sessions) and its summary's
+    # versions -- see the experiment pair above.
+    (EntityType.PROJECT, View.SESSIONS): "_view_project_sessions",
+    (EntityType.PROJECT, View.SUMMARY_HISTORY): "_view_project_summary_history",
+    (EntityType.GROUP, View.CARD): "_view_card",
     # One rollout as an entity (0135). NO `notes` view and no notes excerpt on the
     # card, unlike every other entity here: a Trial carries no notes document at
     # all. A rollout ran once and is immutable, so `description` holds what a
@@ -1549,7 +1693,7 @@ _VIEWS: dict[tuple[str, str], str] = {
     # existed this view was deliberately absent -- an empty answer would have
     # read as "this file has no lineage".
     (EntityType.ARTIFACT, View.LINEAGE): "_view_artifact_lineage",
-    (EntityType.ARTIFACT, View.CARD): "_view_artifact_card",
+    (EntityType.ARTIFACT, View.CARD): "_view_card",
     (EntityType.ARTIFACT, View.VERSIONS): "_view_artifact_versions",
     # The captured sessions that registered or touched the file -- "who made
     # this", which the artifact's own row does not say.
@@ -1666,6 +1810,15 @@ _VIEW_OPTIONS: dict[tuple[str, str], set[str]] = {
     # `runs` picks the route's `kind=runs` (the source runs) over its default
     # `kind=files` (those runs' files) -- the route's own parameter.
     (EntityType.EXPERIMENT, View.INHERITED): {"runs"},
+    # `version` reads ONE version's markdown (GET …/summary/versions/{v}) in
+    # place of the list -- the route's own address, not a client-side pick.
+    # The sessions views take NO options: the route's order is fixed to
+    # newest here and its page is walked by `cursor`, so there is nothing a
+    # key could honestly narrow.
+    **{
+        (kind, View.SUMMARY_HISTORY): {"version"}
+        for kind in (EntityType.PROJECT, EntityType.EXPERIMENT)
+    },
     # GET /v1/provenance's own parameters: `direction` and `depth` shape the
     # graph, `steps` asks for the methods view (`format=steps`) instead.
     **{
@@ -2285,8 +2438,8 @@ class ResearchReadService:
         "created_at",
     )
 
-    #: Excerpt length for a row's free text (a run's description, a file's notes)
-    #: -- the browse tree's own `description` excerpt, for the same reason.
+    #: Excerpt length for a row's free text (a run's description) -- the browse
+    #: tree's own `description` excerpt, for the same reason.
     _ROW_TEXT_CHARS = 180
 
     #: How many backend pages one flat-listing call reads looking for a row the
@@ -2357,12 +2510,9 @@ class ResearchReadService:
         return _annotate(node, EntityType.RUN, api_base_url=self._api_base_url)
 
     def _file_row(self, row: dict) -> dict:
+        # No `notes`: files no longer carry notes (an older server may still
+        # send one, which is not shown).
         node = {key: row.get(key) for key in self._FILE_ROW_FIELDS}
-        notes = row.get("notes")
-        if isinstance(notes, str) and notes:
-            node["notes"] = notes[: self._ROW_TEXT_CHARS]
-            if len(notes) > self._ROW_TEXT_CHARS:
-                node["notes_truncated"] = True
         return _annotate(node, EntityType.ARTIFACT, api_base_url=self._api_base_url)
 
     #: Postgres `lower()` under the research databases' C collation lowers ASCII
@@ -2428,7 +2578,9 @@ class ResearchReadService:
         out.update(
             {
                 key: row[key]
-                for key in ("title", "excerpt", "chars", "limit_chars", "updated_at")
+                # Tokens against the token cap; `tokens` is null (so left off)
+                # for a document the server has not counted yet.
+                for key in ("title", "excerpt", "tokens", "limit_tokens", "updated_at")
                 if row.get(key) is not None
             }
         )
@@ -3438,6 +3590,14 @@ class ResearchReadService:
                 "active_runs_count": exact.get("active_runs_count"),
                 "unsupported_values": unsupported,
             }
+            if project_id is not None and (
+                not search_in or ToolCorpus.TRANSCRIPTS in search_in
+            ):
+                # Said, not marked: the search RAN and its other corpora are
+                # right; what the caller asked of transcripts it cannot do.
+                # `search_in` omitted asks for EVERY corpus (`_map_search_in`),
+                # transcripts included, so the silence would be the same.
+                data["note"] = _TRANSCRIPTS_NOT_PROJECT_SCOPED
             if budget_note:
                 data["budget"] = budget_note
             # The view vocabulary, for the hits an agent can actually open.
@@ -3855,13 +4015,6 @@ class ResearchReadService:
         """The entity projection is assembled once, without extra source reads."""
         return _ViewData()
 
-    def _view_artifact_card(self, entity: dict, request: _Req) -> _ViewData:
-        """Preserve authored caveats without advertising an absent notes view."""
-        excerpt = _notes_excerpt(
-            entity.get("notes"), read_all='view="record", view_options={"field":"notes"}'
-        )
-        return _ViewData() if excerpt is None else _ViewData(payload={"notes": excerpt})
-
     def _view_record(self, entity: dict, request: _Req) -> _ViewData:
         """Explicit full-record/field access, paged at the common delivery boundary."""
         if "field" not in request.filters:
@@ -4236,10 +4389,6 @@ class ResearchReadService:
         """An experiment's notes in full (0124) + its titled sub-notes (0146)."""
         return self._notes_with_sub_notes(entity, "experiment")
 
-    def _view_group_notes(self, entity: dict, request: _Req) -> _ViewData:
-        """A group's notes in full (0124) + its titled sub-notes (0146)."""
-        return self._notes_with_sub_notes(entity, "group")
-
     def _notes_with_sub_notes(self, entity: dict, kind: str) -> _ViewData:
         """The full-notes view: the MAIN document off the already-fetched row,
         plus each titled SUB-NOTE (0146) as a bounded excerpt.
@@ -4289,11 +4438,12 @@ class ResearchReadService:
             rows = (page or {}).get("sub_notes") or []
             section = []
             for row in rows:
-                item: dict = {
-                    "title": row.get("title"),
-                    "chars": row.get("chars"),
-                    "limit_chars": row.get("limit_chars"),
-                }
+                item: dict = {"title": row.get("title")}
+                # Fullness in tokens, the unit the cap refuses in; an uncounted
+                # sub-note (null) says nothing rather than a guess.
+                for key in ("tokens", "limit_tokens"):
+                    if row.get(key) is not None:
+                        item[key] = row[key]
                 if row.get("id"):
                     # The address of the WHOLE sub-note: the excerpt below is
                     # bounded, and `entity` on this reads the rest.
@@ -4323,7 +4473,7 @@ class ResearchReadService:
     def _view_card_with_notes(self, entity: dict, request: _Req) -> _ViewData:
         """The generic card, plus a bounded notes excerpt (0124).
 
-        Runs, groups and experiments carry notes now, and the argument that put
+        Runs and experiments carry notes now, and the argument that put
         them on the PROJECT card applies unchanged: orientation is
         `browse_research` then a card, and a caveat an agent has to know to ask
         for is one it does not read. A run whose note says "the scorer was stale,
@@ -4519,14 +4669,101 @@ class ResearchReadService:
         return _ViewData(payload={"overview": saved})
 
     def _view_project_overview(self, entity: dict, request: _Req) -> _ViewData:
-        return self._saved_overview(self.source.project_overview(str(entity["id"])))
+        view = self._saved_overview(self.source.project_overview(str(entity["id"])))
+        return self._with_summary_markdown(view, EntityType.PROJECT, entity)
 
     def _view_experiment_overview(self, entity: dict, request: _Req) -> _ViewData:
-        return self._saved_overview(
+        view = self._saved_overview(
             self.source.experiment_overview(
                 str(entity["id"]),
-                project_id=entity.get("project_id") or entity.get("parent_project_id"),
+                project_id=_experiment_project_id(entity),
             )
+        )
+        return self._with_summary_markdown(view, EntityType.EXPERIMENT, entity)
+
+    def _with_summary_markdown(self, view: _ViewData, kind: str, entity: dict) -> _ViewData:
+        """`overview.markdown`: the page as the recorders read and write it
+        (GET …/summary), beside the `html` the dashboard renders. `""` is a
+        page with no summary. On a server predating the summary route the read
+        is a 404, and the key is left OUT rather than set to null: absent says
+        "this server cannot say", null would say "there is none"."""
+        try:
+            summary = self.source.summary(
+                kind, str(entity["id"]), project_id=_experiment_project_id(entity)
+            )
+        except errors.NotFoundError:
+            return view
+        markdown = summary.get("markdown") if isinstance(summary, dict) else None
+        if isinstance(markdown, str):
+            view.payload["overview"]["markdown"] = markdown
+        return view
+
+    def _view_project_summary_history(self, entity: dict, request: _Req) -> _ViewData:
+        return self._summary_history(EntityType.PROJECT, entity, request)
+
+    def _view_experiment_summary_history(self, entity: dict, request: _Req) -> _ViewData:
+        return self._summary_history(EntityType.EXPERIMENT, entity, request)
+
+    def _summary_history(self, kind: str, entity: dict, request: _Req) -> _ViewData:
+        """The summary's versions, newest first, one route page per call and the
+        walk past it on the route's own `before` (`resume_key="version"`); or,
+        with `view_options.version`, ONE version with its markdown -- atomic,
+        so delivery fragments a long one rather than cutting it."""
+        entity_id = str(entity["id"])
+        project_id = _experiment_project_id(entity) if kind == EntityType.EXPERIMENT else None
+        version = request.filters.get("version")
+        if version is not None:
+            # 0 is a recorded version: pages written before the counter existed
+            # sit there (`app/overviews/history.py`), and the list shows them.
+            wanted = _summary_version_number(version)
+            if wanted is None:
+                raise errors.ValidationError(
+                    "view_options.version must be a whole number, 0 or more: a `version` "
+                    "from this view's rows",
+                    status=422,
+                )
+            try:
+                row = self.source.summary_version(kind, entity_id, wanted, project_id=project_id)
+            except errors.NotFoundError as exc:
+                # The entity resolved a moment ago, so this is the version or the
+                # route, never the entity -- say which the reader should doubt.
+                raise errors.NotFoundError(
+                    f"no version {wanted} of this {kind}'s summary ({exc}): a `version` "
+                    "from this view's rows, on a server with the summary routes"
+                ) from exc
+            shaped = {key: row.get(key) for key in _SUMMARY_VERSION_FIELDS if isinstance(row, dict)}
+            return _ViewData(payload={"summary_version": shaped, "filters": request.filters})
+        before: int | None = None
+        if request.after is not None:
+            # The cursor carries the last version SENT (`resume_key`); anything
+            # else is not a cursor of this view, and serving the first page again
+            # would walk forever rather than say so.
+            before = _summary_version_number(request.after)
+            if before is None:
+                raise errors.ValidationError(
+                    "malformed cursor: pass the next_cursor value from a previous "
+                    "research_get call",
+                    status=422,
+                )
+        try:
+            page = self.source.summary_versions(
+                kind, entity_id, project_id=project_id, before=before, limit=_SUMMARY_VERSIONS_PAGE
+            )
+        except errors.NotFoundError as exc:
+            raise errors.NotFoundError(
+                f"no summary history for this {kind} ({exc}): the server predates the "
+                "summary routes, or the page is withheld from this reader"
+            ) from exc
+        versions = [v for v in (page.get("versions") or []) if isinstance(v, dict)]
+        rows = [
+            {key: v[key] for key in _SUMMARY_HISTORY_ROW_FIELDS if v.get(key) is not None}
+            for v in versions
+        ]
+        return _ViewData(
+            rows=rows,
+            rows_key="versions",
+            more_beyond=page.get("next_before") is not None and bool(rows),
+            resume_key="version",
         )
 
     def _view_project_summary(self, entity: dict, request: _Req) -> _ViewData:
@@ -4870,6 +5107,31 @@ class ResearchReadService:
         """The captured sessions that registered or touched this file."""
         out = self.source.artifact_sessions(str(entity["id"]), limit=_SESSIONS_ROUTE_MAX)
         return _sessions_view(out.get("sessions"), out.get("session_total"))
+
+    def _view_project_sessions(self, entity: dict, request: _Req) -> _ViewData:
+        """The captured sessions that worked on the project or on anything in it
+        (`direct` false names the child), NEWEST first, one route page per call
+        and the walk past it by `cursor`. Each row's `uuid` opens the session;
+        `view_options.grep` on its transcript is the project-scoped search
+        that `search` cannot do over transcripts."""
+        page = self.source.project_sessions(
+            str(entity["id"]),
+            order="newest",
+            limit=_SESSIONS_ROUTE_MAX,
+            after=_session_id_of(request.after) if request.after else None,
+        )
+        return _paged_sessions_view(page)
+
+    def _view_experiment_sessions(self, entity: dict, request: _Req) -> _ViewData:
+        """The experiment's sessions: the same page as a project's."""
+        page = self.source.experiment_sessions(
+            str(entity["id"]),
+            project_id=_experiment_project_id(entity),
+            order="newest",
+            limit=_SESSIONS_ROUTE_MAX,
+            after=_session_id_of(request.after) if request.after else None,
+        )
+        return _paged_sessions_view(page)
 
     def _view_project_readme(self, entity: dict, request: _Req) -> _ViewData:
         """The attached repository's README. Only a `snapshot` carries text; every

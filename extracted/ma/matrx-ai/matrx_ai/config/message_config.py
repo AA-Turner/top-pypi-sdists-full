@@ -39,8 +39,12 @@ from .unified_content import (
 #
 # Per-turn platform material (scope/active context, the deferred-context
 # manifest, skills attached mid-conversation, observational memory, safety
-# notes, the sandbox briefing, chat attachments) is delivered in the system
-# channel, wrapped in this frame so the model knows who wrote it.
+# notes, the sandbox briefing, chat attachments, the live date) is wrapped in
+# this frame so the model knows who wrote it. WHERE it is delivered is the
+# translator's call (``BaseTranslator.get_trailing_context_text``): on a
+# provider with a prompt-cache line it rides AFTER that line — its own block
+# after the newest message, never inside the person's words — because the
+# cache line law (Arman, 2026-10-16) forbids changing anything behind it.
 #
 # THE WORDING IS LOAD-BEARING. Its predecessor rode inside the user's message
 # and said "the user did not write it ... Do not respond to it". A model told
@@ -54,9 +58,8 @@ TURN_CONTEXT_NOTE = (
     "Reference material the AI Matrx platform assembled for this turn. It is "
     "part of your instructions, not part of the conversation: the person "
     "cannot see it, did not write it, and is not asking about it. Your role "
-    "and instructions come from the rest of this system prompt and remain in "
-    "force. Where this restates something stated earlier in these "
-    "instructions, THIS copy is the current one. Never quote it, name it, or "
+    "and instructions come from your system prompt and remain in force. "
+    "Where this restates something stated earlier in your instructions, THIS copy is the current one. Never quote it, name it, or "
     "mention that it exists -- answer the person's own message as if you "
     "simply knew what this contains."
 )
@@ -83,11 +86,25 @@ def register_turn_context_slot_note(slot: str, note: str) -> None:
 # Marker embedded in a tool_result truncated by the Layer-2 absolute-ceiling pass.
 # Used to make that pass idempotent (a block already carrying it is skipped, so the
 # ceiling alarm fires once per event, not once per provider call).
+#: Set on a message whose fill dropped an empty optional part: a refill cannot restart it.
+_PARTS_DROPPED_ATTR = "_variable_parts_dropped"
 _CEILING_TRUNCATION_MARKER = "TRUNCATED AT THE ABSOLUTE SIZE CEILING"
 
 
 class MessageSanitizationError(ValueError):
     pass
+
+
+def is_blank_text_block(content: Any) -> bool:
+    """THE one blank test for a content block: text that is empty or whitespace-only.
+    ``MessageList.sanitize`` drops such a block (Anthropic rejects empty text blocks)."""
+    return isinstance(content, TextContent) and not content.text.strip()
+
+
+def is_blank_message(message: "UnifiedMessage") -> bool:
+    """A message the config builder drops: nothing left once its blank text blocks are gone.
+    ``authored_template_messages`` counts against exactly the messages kept, with this test."""
+    return all(is_blank_text_block(c) for c in (message.content or []))
 
 
 def _raise_sanitized_empty(
@@ -340,7 +357,7 @@ class UnifiedMessage:
         )
 
         metadata = dict(data.get("metadata") or {})
-        # Message FLAGS (prefill / cache_boundary / example) — an authored
+        # Message FLAGS (prefill / example) — an authored
         # definition message carries them top-level; at runtime they live in
         # metadata so cx_message.metadata round-trips them. Validated here:
         # an unknown flag raises, never rides along silently.
@@ -831,10 +848,20 @@ class UnifiedMessage:
             VideoContent,
             YouTubeVideoContent,
         )
+        from matrx_ai.config.template_substitution import VariableRefillError, is_data
 
+        if getattr(self, _PARTS_DROPPED_ATTR, False):
+            # An earlier fill removed an optional part it left empty; that part's template is
+            # gone, so this message cannot restart from what its author wrote.
+            raise VariableRefillError(
+                f"a {self.role} message", "had an empty optional part removed by its first fill"
+            )
         kept: list[Any] = []
         for content in self.content:
-            if isinstance(content, TextContent):
+            if is_data(content):
+                # The person's typed content (marked when it was set): data, never filled.
+                kept.append(content)
+            elif isinstance(content, TextContent):
                 # TextContent now also returns drop-bool: role-tagged
                 # text (e.g. negative_prompt) that resolved to empty
                 # gets dropped so we don't pass empty role-text to
@@ -858,6 +885,8 @@ class UnifiedMessage:
                     kept.append(content)
             else:
                 kept.append(content)
+        if len(kept) != len(self.content):
+            setattr(self, _PARTS_DROPPED_ATTR, True)
         self.content = kept
 
     def to_storage_dict(self) -> dict[str, Any]:
@@ -1666,7 +1695,7 @@ class MessageList:
             next_results = window_after[i]
             new_content: list[UnifiedContent] = []
             for c in msg.content:
-                if isinstance(c, TextContent) and not c.text.strip():
+                if is_blank_text_block(c):
                     empty_text_blocks_dropped += 1
                     continue
                 if isinstance(c, ToolCallContent) and c.id:
@@ -2012,6 +2041,31 @@ class MessageList:
         A trailing PREFILL (an authored assistant turn flagged ``prefill``) must
         stay last — the reply continues from it — so the input lands before it.
         """
+        # The person's content is DATA the moment it is set: every block it adds is marked, and
+        # typed text glued onto an authored block is recorded as that block's data tail, so no
+        # later pass (a forced re-apply included) ever fills it.
+        from matrx_ai.config.template_substitution import add_data_tail, mark_as_data
+
+        before_ids = {id(c) for m in self._messages for c in (m.content or [])}
+        before_text = {
+            id(c): c.text
+            for m in self._messages
+            for c in (m.content or [])
+            if isinstance(c, TextContent)
+        }
+        self._append_or_extend_user_input(user_input, own_block=own_block)
+        for message in self._messages:
+            for content in message.content or []:
+                if id(content) not in before_ids:
+                    mark_as_data(content)
+                elif isinstance(content, TextContent):
+                    old = before_text.get(id(content))
+                    if old is not None and content.text != old and content.text.startswith(old):
+                        add_data_tail(content, content.text[len(old):])
+
+    def _append_or_extend_user_input(
+        self, user_input: str | list[dict[str, Any]], own_block: bool = False
+    ) -> None:
         from matrx_ai.config.message_flags import flags_of
 
         if self._messages:
@@ -2022,7 +2076,7 @@ class MessageList:
             ):
                 self._messages.pop()
                 try:
-                    self.append_or_extend_user_input(user_input, own_block=own_block)
+                    self._append_or_extend_user_input(user_input, own_block=own_block)
                 finally:
                     self._messages.append(tail)
                 return

@@ -2,6 +2,8 @@
 # under the 3-Clause BSD License. Please see 'LICENSE.rst' for further
 # information.
 
+from __future__ import annotations
+
 __name__ = "biotite.database.rcsb"
 __author__ = "Patrick Kunzmann, Maximilian Dombrowsky"
 __all__ = [
@@ -71,10 +73,10 @@ class Query(metaclass=abc.ABCMeta):
         """
         pass
 
-    def __and__(self, query: "Query") -> "CompositeQuery":
+    def __and__(self, query: Query) -> CompositeQuery:
         return CompositeQuery([self, query], "and")
 
-    def __or__(self, query: "Query") -> "CompositeQuery":
+    def __or__(self, query: Query) -> CompositeQuery:
         return CompositeQuery([self, query], "or")
 
 
@@ -231,7 +233,7 @@ class FieldQuery(SingleQuery):
 
     >>> query = FieldQuery("reflns.d_resolution_high", less_or_equal=0.5)
     >>> print(sorted(search(query)))
-    ['3NIR', '4JLJ', '5D8V', '7R0H']
+    ['30OH', '30OR', '3NIR', '4JLJ', '5D8V', '7R0H']
     """
 
     # Overloads expose the mutually exclusive operator keywords.
@@ -433,7 +435,7 @@ class FieldQuery(SingleQuery):
             content["parameters"]["value"] = self._value
         return content
 
-    def __invert__(self) -> "FieldQuery":
+    def __invert__(self) -> FieldQuery:
         clone = copy.deepcopy(self)
         clone._negation = not clone._negation
         return clone
@@ -831,7 +833,7 @@ class UniprotGrouping(Grouping):
 def count(
     query: Query,
     return_type: _ReturnType = "entry",
-    group_by: "Grouping | None" = None,
+    group_by: Grouping | None = None,
     content_types: Iterable[_ContentType] = ("experimental",),
 ) -> int:
     """
@@ -884,10 +886,10 @@ def count(
 
     >>> query = FieldQuery("reflns.d_resolution_high", less_or_equal=0.5)
     >>> print(count(query))
-    4
+    6
     >>> ids = search(query)
     >>> print(sorted(ids))
-    ['3NIR', '4JLJ', '5D8V', '7R0H']
+    ['30OH', '30OR', '3NIR', '4JLJ', '5D8V', '7R0H']
     """
     query_dict = _initialize_query_dict(query, return_type, group_by, content_types)
 
@@ -1027,20 +1029,20 @@ def search(
 
     >>> query = FieldQuery("reflns.d_resolution_high", less_or_equal=0.5)
     >>> print(sorted(search(query)))
-    ['3NIR', '4JLJ', '5D8V', '7R0H']
+    ['30OH', '30OR', '3NIR', '4JLJ', '5D8V', '7R0H']
     >>> print(search(query, sort_by="rcsb_accession_info.initial_release_date"))
-    ['7R0H', '5D8V', '4JLJ', '3NIR']
+    ['30OH', '30OR', '7R0H', '5D8V', '4JLJ', '3NIR']
     >>> print(search(
     ...     query, range=(1,4), sort_by="rcsb_accession_info.initial_release_date"
     ... ))
-    ['5D8V', '4JLJ', '3NIR']
+    ['30OR', '7R0H', '5D8V']
     >>> print(sorted(search(query, return_type="polymer_instance")))
-    ['3NIR.A', '4JLJ.A', '4JLJ.B', '5D8V.A', '7R0H.A']
+    ['30OH.A', '30OR.A', '3NIR.A', '4JLJ.A', '4JLJ.B', '5D8V.A', '7R0H.A']
     >>> print(search(
     ...     query, return_type="polymer_entity", return_groups=True,
     ...     group_by=UniprotGrouping(sort_by="rcsb_accession_info.initial_release_date"),
     ... ))
-    {'P27707': ['4JLJ_1'], 'P80176': ['5D8V_1'], 'O29777': ['7R0H_1'], 'P01542': ['3NIR_1']}
+    {'Q9V099': ['30OR_1', '30OH_1'], 'P27707': ['4JLJ_1'], 'P80176': ['5D8V_1'], 'O29777': ['7R0H_1'], 'P01542': ['3NIR_1']}
     """
     query_dict = _initialize_query_dict(query, return_type, group_by, content_types)
 

@@ -15,6 +15,7 @@ from statsig_python_core.typed_config import (
     TypedConfigUnavailableError,
     _TypedConfigs,
 )
+from packaged_config_fixture import packaged_config
 
 
 def selected(version, value=None, *, lcut=None, usable=True):
@@ -104,7 +105,9 @@ class FakeSDK:
     def evaluate(self, user):
         return deepcopy(self.raw(user) if callable(self.raw) else self.raw)
 
-    def _INTERNAL_get_typed_config(self, user, name, options):
+    def _INTERNAL_get_typed_config(
+        self, user, name, options, *, allow_packaged_fallback=False
+    ):
         self.last_options = options
         self.request_reads += 1
         return self.evaluate(user)
@@ -115,9 +118,22 @@ class FakeSDK:
     def _INTERNAL_typed_config_updates(self):
         return self.updates
 
-    def get(self, *, user=None, message_type=Struct, options=None):
+    def get(
+        self,
+        *,
+        user=None,
+        message_type=Struct,
+        options=None,
+        packaged_fallback_package=None,
+        allow_packaged_fallback=True,
+    ):
         return self._typed_configs.get(
-            "config", user or self.user, message_type, options
+            "config",
+            user or self.user,
+            message_type,
+            options,
+            packaged_fallback_package,
+            allow_packaged_fallback=allow_packaged_fallback,
         )
 
     def register(self, callback, *, user=None, message_type=Struct):
@@ -211,13 +227,15 @@ def test_open_handle_retains_owner_without_retaining_it_in_coordinator():
     del handle
     collect()
     assert owner_ref() is None
-    with pytest.raises(TypedConfigUnavailableError, match="shut down"):
+    with pytest.raises(TypedConfigUnavailableError, match="no longer available"):
         coordinator._ensure_open()
 
 
-@pytest.mark.parametrize("operation", ["get", "register"])
-@pytest.mark.parametrize("owner_state", ["collected", "closed"])
-def test_missing_or_closed_owner_rejects_typed_operations(operation, owner_state):
+@pytest.mark.parametrize(
+    "operation,owner_state",
+    [("get", "collected"), ("register", "collected"), ("register", "closed")],
+)
+def test_missing_owner_and_closed_registration_are_rejected(operation, owner_state):
     class Owner:
         pass
 
@@ -228,7 +246,7 @@ def test_missing_or_closed_owner_rejects_typed_operations(operation, owner_state
         collect()
     else:
         coordinator.close()
-    with pytest.raises(TypedConfigUnavailableError, match="shut down"):
+    with pytest.raises(TypedConfigUnavailableError):
         if operation == "get":
             coordinator.get("config", None, Struct, None)
         else:
@@ -478,7 +496,7 @@ def test_callback_exception_isolation_and_callback_shutdown_fence(sdk, caplog):
     assert sdk._typed_configs.observers == []
     assert "ValueError" in caplog.text and "private payload" not in caplog.text
     with pytest.raises(TypedConfigUnavailableError):
-        sdk.get()
+        sdk.register(lambda result: None)
 
 
 def test_callback_failure_retries_only_on_later_publication(sdk):
@@ -505,10 +523,7 @@ def test_callback_failure_retries_only_on_later_publication(sdk):
     assert attempts == [2, 2]
 
 
-@pytest.mark.parametrize("operation", ["get", "register"])
-def test_shutdown_fences_inflight_evaluation_without_holding_state_lock(
-    sdk, monkeypatch, operation
-):
+def test_shutdown_fences_inflight_registration(sdk, monkeypatch):
     sdk.register(lambda result: None)
     entered, release, outcomes = Event(), Event(), Queue()
     evaluate = sdk.evaluate
@@ -523,10 +538,7 @@ def test_shutdown_fences_inflight_evaluation_without_holding_state_lock(
 
     def invoke():
         try:
-            if operation == "get":
-                outcomes.put(sdk.get())
-            else:
-                outcomes.put(sdk.register(lambda result: None))
+            outcomes.put(sdk.register(lambda result: None))
         except Exception as error:
             outcomes.put(error)
 
@@ -534,8 +546,7 @@ def test_shutdown_fences_inflight_evaluation_without_holding_state_lock(
     caller.start()
     try:
         assert entered.wait(5)
-        if operation == "register":
-            sdk.updates.publish()
+        sdk.updates.publish()
         sdk._typed_configs.close()
     finally:
         release.set()
@@ -627,3 +638,50 @@ def test_callbacks_can_register_without_replay_and_read_each_others_sdk():
         for closer in closers:
             closer.join(5)
         assert all(not closer.is_alive() for closer in closers)
+
+
+def test_packaged_tier_selection_and_fresh_values(tmp_path, monkeypatch):
+    package = packaged_config(
+        tmp_path,
+        monkeypatch,
+        {
+            "default": {"default_only": True},
+            "environments": {"production": {"number": 4}},
+        },
+    )
+    sdk = FakeSDK()
+    sdk.raw = {
+        "__typed_packaged_fallback_eligible": True,
+        "__typed_packaged_fallback_tier": "production",
+    }
+    first = sdk._typed_configs.get("config", sdk.user, Struct, None, package)
+    assert first.value == {"number": 4} and first.value_source == "packaged"
+    assert first.rule_id == first.id_type == ""
+    assert (
+        first.details.lcut is first.details.version is first.details.received_at is None
+    )
+    assert first._revision is None
+    first.value["number"] = 99
+    assert sdk.get(
+        allow_packaged_fallback=True, packaged_fallback_package=package
+    ).value == {"number": 4}
+    sdk.raw["__typed_packaged_fallback_tier"] = "unknown"
+    assert sdk.get(
+        allow_packaged_fallback=True, packaged_fallback_package=package
+    ).value == {"default_only": True}
+
+
+def test_missing_package_errors_and_absent_native_metadata_fail_closed(
+    tmp_path, monkeypatch
+):
+    package = packaged_config(tmp_path, monkeypatch, {"default": {}})
+    (tmp_path / package.__name__ / "fallback.json").unlink()
+    sdk = FakeSDK()
+    sdk.raw = {"__typed_usable": False}
+    with pytest.raises(TypedConfigUnavailableError, match="no usable value"):
+        sdk.get(allow_packaged_fallback=True, packaged_fallback_package=package)
+    sdk.raw["__typed_packaged_fallback_eligible"] = True
+    with pytest.raises(TypedConfigUnavailableError, match="config.*fallback.json"):
+        sdk.get(allow_packaged_fallback=True, packaged_fallback_package=package)
+    with pytest.raises(TypeError, match="package module"):
+        sdk.get(packaged_fallback_package="package_name")

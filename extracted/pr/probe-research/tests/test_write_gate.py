@@ -470,6 +470,7 @@ def test_every_top_level_command_is_classified():
 WRITE_GROUP_READS = frozenset(
     {
         "version list",
+        "summary checkout", "visuals options",
         "checkpoint list", "dataset download", "dataset list", "dataset show", "source list", "source show",
         "artifact download", "artifact list", "artifact pin-impact", "artifact tree",
         "artifact versions",
@@ -485,7 +486,7 @@ WRITE_GROUP_READS = frozenset(
         "run check", "run get", "run inputs", "run list", "run metrics", "run reproduce", "run series",
         "run upstream",
         "span get", "span list",
-        "trial export", "trial get", "trial list",
+        "trial get", "trial list",
         "views data", "views list", "views preview", "views show",
     }
 )
@@ -506,6 +507,7 @@ WRITE_GROUP_UNGATED = frozenset(
 WRITE_GROUP_WRITES = frozenset(
     {
         "version create",
+        "summary push", "visuals set",
         "checkpoint use", "dataset add", "dataset use", "source add",
         "artifact add", "artifact gc-uploads", "artifact move", "artifact set",
         "artifact version-add",
@@ -524,7 +526,10 @@ WRITE_GROUP_WRITES = frozenset(
         # Correcting what a run read was matched to: the researcher's (L5).
         "run input dismiss", "run input pin", "run input reset",
         "span add",
-        "trial add", "trial drain", "trial expand", "trial reconcile", "trial set", "trial stage", "trial watch",
+        # `trial export` uploads a staged trial; `export` read as a read verb
+        # let `read` through it.
+        "trial add", "trial drain", "trial expand", "trial export", "trial reconcile", "trial set", "trial stage",
+        "trial watch",
         "views create", "views rename", "views update",
         "wandb import-hosted", "wandb import-local",
     }
@@ -578,6 +583,51 @@ def test_every_write_group_command_is_sorted_on_purpose():
 
 #: Options on a READ_UNLESS_FLAGS command that only shape what it prints.
 READ_ONLY_OPTIONS = frozenset({"--fields"})
+
+
+#: Every command inside a read group, sorted the same way. A read group made every
+#: verb a read, so `read` let `shared add` upload and `metrics backfill` store a
+#: curve, and `off` refused `metrics delete`, cleanup that every other group allows.
+READ_GROUP_COMMANDS = {
+    "read": frozenset(
+        {"metrics export", "metrics grouped", "metrics plot", "metrics wide", "series latest", "shared download",
+         "shared list"}
+    ),
+    None: frozenset({"metrics delete", "shared delete"}),
+    "write": frozenset({"metrics backfill", "shared add", "shared share", "shared unshare"}),
+}
+
+
+def test_every_read_group_command_is_sorted_on_purpose():
+    command = typer.main.get_command(cli_main.app)
+    actual = {
+        f"{group} {verb}"
+        for group in session_marker.READ_GROUPS
+        for verb in getattr(command.commands[group], "commands", {})
+    }
+    assert "shared add" in actual, "the walk found no read group's commands"
+    declared = set().union(*READ_GROUP_COMMANDS.values())
+    assert sorted(actual - declared) == [], "sort each into READ_GROUP_COMMANDS (and session_marker)"
+    assert sorted(declared - actual) == [], "no longer a command; drop it here"
+    wrong = [
+        f"{key}: gate says {kind}, declared {want}"
+        for want, keys in READ_GROUP_COMMANDS.items()
+        for key in sorted(keys)
+        if (kind := session_marker.classify_probe_args(key.split())[0]) != want
+    ]
+    assert not wrong, f"{wrong}: a write goes in session_marker.READ_GROUP_WRITES, a removal in READ_GROUP_REMOVALS"
+
+
+def test_a_read_groups_writes_are_refused_and_its_removals_never_are():
+    _set(session_marker.STATE_READ_ONLY)
+    for argv in (["shared", "add", "x.csv"], ["metrics", "backfill", "r1", "--file", "c.json"],
+                 ["shared", "share", "a1"], ["shared", "unshare", "a1"], ["trial", "export", "req.json"]):
+        assert "READ-ONLY" in (_refusal(argv) or ""), argv
+    assert _refusal(["shared", "list"]) is None
+    for state in (session_marker.STATE_OFF, session_marker.STATE_READ_ONLY):
+        _set(state)
+        assert _refusal(["metrics", "delete", "r1", "--key", "loss_ema"]) is None, state
+        assert _refusal(["shared", "delete", "a1"]) is None, state
 
 
 def test_read_unless_flags_name_every_option_that_writes():
@@ -659,14 +709,16 @@ def test_every_daemon_exemption_names_a_real_command():
     for key in (
         session_marker.DAEMON_AGENT_WRITES
         | session_marker.DAEMON_RUN_WRITES
+        | session_marker.DAEMON_PROFILE_ALLOWED
         | session_marker.UNGATED_COMMANDS
         | session_marker.DIRECTED_ONLY
+        | session_marker.READ_GROUP_WRITES
+        | session_marker.READ_GROUP_REMOVALS
     ):
-        words = key.split()
-        node = command.commands.get(words[0])
-        assert node is not None, key
-        if len(words) > 1:
-            assert words[1] in getattr(node, "commands", {}), key
+        node = command
+        for word in key.split():
+            node = getattr(node, "commands", {}).get(word)
+            assert node is not None, key
 
 
 def test_main_runs_a_refused_exec_without_recording(monkeypatch, capsys):

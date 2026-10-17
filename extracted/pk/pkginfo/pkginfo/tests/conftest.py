@@ -87,3 +87,16 @@ def manky(sys_path, sys_modules, here):
         import namespaced.manky
 
     return namespaced.manky
+
+@pytest.fixture
+def tricky(sys_path, sys_modules, here):
+    # Fixture for LP #1974172 / GH #9:  'tricky' is a package whose name
+    # is a strict prefix of 'tricky_decoy' (installed adjacent, as an
+    # egg-info);  resolution must not mistake the decoy's metadata for
+    # that of 'tricky' itself.
+    tricky = here / 'tricky'
+    sys_path.append(str(tricky))
+
+    import tricky
+
+    return tricky

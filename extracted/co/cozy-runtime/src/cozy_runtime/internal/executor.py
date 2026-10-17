@@ -22,7 +22,6 @@ Its whole surface is the seam (`internal/seam.py`), and its whole vocabulary is:
     prepare_request  resolve ONE request (decode, normalize, preflight) and retain it, so
               TensorD prices a plan against the record the handler will actually run
     invoke    run ONE PREPARED attempt through the author invocation kernel and report its facts
-    run_job   run ONE @app.job to completion through the SAME kernel, with job services
     probe     device/host memory facts, for TensorD's ledger reconciliation
     shutdown  cooperative exit
 
@@ -66,20 +65,27 @@ from typing import Any
 
 import msgspec
 from msgspec import UNSET, UnsetType
+from tensorfs.derived import SourceCapability
 
 from cozy_runtime import __version__ as RUNTIME_VERSION
+from cozy_runtime import graphs
+from cozy_runtime.author import describe
 from cozy_runtime.author._activity import settles
+from cozy_runtime.author._app import Registration
+from cozy_runtime.author._artifacts import ModelArtifact
 from cozy_runtime.author._assets import GrantedInput
 from cozy_runtime.author._attention import _close as close_producer_states
-from cozy_runtime.author._calls import _Broker, _CallType
+from cozy_runtime.author._calls import _Broker, _CallType, _export
 from cozy_runtime.author._capture import ActivationCapture
 from cozy_runtime.author._context import AdapterRef, Device
 from cozy_runtime.author._demand import shape_cell
 from cozy_runtime.author._errors import (
     DEVICE_OOM,
     CapabilityError,
+    ConformanceError,
     InvalidRequest,
     Outcome,
+    RuntimeFailure,
     classify,
     ends,
     is_device_oom,
@@ -87,14 +93,12 @@ from cozy_runtime.author._errors import (
 from cozy_runtime.author._executor_requests import (
     Answer,
     BudgetCell,
-    Checkpoint,
-    CheckpointReceipt,
     ChildEvents,
     DeviceRoom,
     DeviceTier,
     DeviceTierAnswer,
+    FetchChannel,
     Handoff,
-    HostTier,
     ModelSource,
     ObjectFiles,
     ObjectFilesAnswer,
@@ -103,7 +107,6 @@ from cozy_runtime.author._executor_requests import (
     Request,
     Room,
     SealedPlan,
-    SealedPrefetch,
     SealedStage,
     SealedTier,
     SharedRegion,
@@ -115,27 +118,32 @@ from cozy_runtime.author._executor_requests import encode as encode_request
 from cozy_runtime.author._invoke import (
     Invocation,
     PreparedRequest,
-    attempt,
     prepare,
     run_prepared,
 )
-from cozy_runtime.author._model import Model, _derive_model, component_use
+from cozy_runtime.author._model import WARNINGS, Model, component_use
 from cozy_runtime.author._observations import Attribution
 from cozy_runtime.author._services import Attempt as AuthorAttempt
-from cozy_runtime.author._services import CheckpointConflict, ProgressFrame
+from cozy_runtime.author._services import ProgressFrame
 from cozy_runtime.author._split import install as install_pieces
+from cozy_runtime.author._weights import Weights as RawWeights
 from cozy_runtime.author.kernels import _SETS as KERNEL_SETS
 from cozy_runtime.author.kernels import Launch, Plan, TritonKernels
+from cozy_runtime.derive.operations import app as builtin_operations_app
 from cozy_runtime.internal import (
     accel,
+    arch,
     attention,
     attention_sol,
     attention_ulysses,
     budget_cell,
+    builtin_operations,
     canonical,
     child_env,
     execution_evidence,
     executor_commands,
+    fetch_plan,
+    int8_linear,
     kernel_cache,
     kernel_compile,
     model_config,
@@ -177,14 +185,12 @@ from cozy_runtime.internal.executor_commands import (
     Load,
     Map,
     ModelLoad,
-    Prefetch,
     PrepareRequest,
     Probe,
     Release,
     Residency,
     Restore,
     Revoke,
-    RunJob,
     Share,
     Shutdown,
     Start,
@@ -195,6 +201,7 @@ from cozy_runtime.internal.executor_commands import (
 from cozy_runtime.internal.exits import Exit
 from cozy_runtime.internal.lora_composition import bind as bind_adapters
 from cozy_runtime.internal.lora_contract import read as read_adapter_graph
+from cozy_runtime.internal.model_values import read_values_into
 from cozy_runtime.internal.parallel import copy_engine, cp, links, mirror, wire
 from cozy_runtime.internal.parallel.group import (
     ROUTED,
@@ -231,6 +238,7 @@ from cozy_runtime.internal.weights import (
     Weights,
     journaling,
 )
+from cozy_runtime.internal.weights_writer import ExecutionStorage
 
 #: The native inline-result door: a small typed result rides
 #: the terminal envelope and skips the file-store round trip. Larger than this REFUSES at
@@ -249,6 +257,9 @@ PREPARED_HELD = 8
 #: The environment as it was when this process started, restricted to the sealed names.
 #: Captured before any import that could initialize CUDA.
 _SEALED: dict[str, str] = {}
+
+#: macOS's ceiling on a process's soft descriptor limit (`<sys/syslimits.h>`).
+_OPEN_MAX = 10240
 
 
 #: Each callable an attempt may call, by (module, export).
@@ -272,6 +283,11 @@ def _env_changes() -> tuple[str, ...]:
         for name in sorted(_SEALED.keys() | current.keys())
         if current.get(name) != _SEALED.get(name) and name not in ROUTED
     )
+
+
+def _attention_pin(kernel: str, bits: int) -> str:
+    """A request's attention override: its pin, else level 16 at 16 bits (C4)."""
+    return kernel or (attention.EXACT if bits == 16 else "")
 
 
 def _sealed_entries() -> tuple[str, ...]:
@@ -386,11 +402,19 @@ def _distribution_version(name: str) -> str:
 
 
 def _proc_status(field: str) -> str:
-    with open("/proc/self/status") as handle:
+    """A `/proc/self/status` field; "" where the system has no `/proc` (macOS)."""
+    with contextlib.suppress(FileNotFoundError), open("/proc/self/status") as handle:
         for line in handle:
             if line.startswith(field + ":"):
                 return line.split(":", 1)[1].strip()
     return ""
+
+
+def _oom_score_adj() -> str:
+    try:
+        return Path("/proc/self/oom_score_adj").read_text().strip()
+    except FileNotFoundError:  # no /proc: macOS has no OOM killer score
+        return ""
 
 
 def _rss() -> int:
@@ -410,12 +434,12 @@ def _deadline(seconds: float | None) -> float:
     return math.inf if seconds is None else time.monotonic() + seconds
 
 
-def _granted_inputs(command: Invoke | RunJob) -> dict[str, GrantedInput]:
-    """Verified input paths, projected identically into either execution lane."""
+def _granted_inputs(command: Invoke) -> dict[str, GrantedInput]:
+    """Verified input paths in the attempt's spool."""
     return {input_id: row.granted(input_id) for input_id, row in command.inputs.items()}
 
 
-def _trees(command: Invoke | RunJob) -> dict[str, tuple[Path, str]]:
+def _trees(command: Invoke) -> dict[str, tuple[Path, str]]:
     return {ref: (Path(root), digest) for ref, (root, digest) in command.trees.items()}
 
 
@@ -427,6 +451,38 @@ def _working_peak(peak: int, at_entry: int, residency: Mapping[str, Any]) -> int
     if "plane" in residency and scoped > 0:
         return scoped
     return max(int(peak) - int(at_entry), scoped, 0)
+
+
+def _serving(interface: str, module: str, export: str, surface: Any) -> _CallType:
+    """A callable bound from its own code, called as every function is: `{payload, models}`.
+    Its direct caller passes the model slots beside the request fields (`_CallType.models`)."""
+    slots = frozenset(binding.param for binding in surface.model_bindings)
+    request, result = surface.payload_type, surface.result_type
+    if not all(isinstance(t, type) and issubclass(t, msgspec.Struct) for t in (request, result)):
+        raise CapabilityError("callable types are not structured", code="child_interface")
+    fields = msgspec.structs.fields(request)
+    if any(field.name in slots for field in fields):
+        request = msgspec.defstruct(
+            request.__name__,
+            # An invocable's defaults are immutable scalars (`_wire_default`), never factories.
+            [(f.name, f.type, f.default) for f in fields if f.name not in slots],
+            module=module,
+            kw_only=True,
+            frozen=True,
+            forbid_unknown_fields=True,
+        )
+    artifact: Any = ModelArtifact | None
+    models = msgspec.defstruct(
+        f"{export}Models",
+        [(slot, artifact, None) for slot in sorted(slots)],
+        module=module,
+        kw_only=True,
+        frozen=True,
+    )
+    call = msgspec.defstruct(
+        f"{export}Call", [("payload", request), ("models", models)], module=module, frozen=True
+    )
+    return _CallType(interface, module, export, call, result, models=slots)
 
 
 # --------------------------------------------------------------------------- state
@@ -493,12 +549,37 @@ class _CompositeResidency:
         }
 
 
+class _OnDemand:
+    """An `on_demand=` model argument: built, and its weights fetched, when the function first
+    reads it. Until then the runtime's probes see no model, and a request that never reads it
+    builds and fetches nothing of it."""
+
+    def __init__(self, build: Callable[[], Any]) -> None:
+        self._build = build
+        self._model: Any = None
+        self._lock = threading.Lock()
+
+    @property
+    def _cozy_residency(self) -> Any:
+        return getattr(self._model, "_cozy_residency", None)
+
+    @property
+    def _cozy_active(self) -> Any:
+        return getattr(self._model, "_cozy_active", None)
+
+    def __getattr__(self, name: str) -> Any:
+        with self._lock:
+            if self._model is None:
+                self._model = self._build()
+        return getattr(self._model, name)
+
+
 #: Model classes that still define `warm` (packages built for an older Runtime), noted once each.
 _WARM_NOTED: set[type] = set()
 
 #: The requests rank 0 relays to the machine for a follower (`_relay`).
 _RELAYED = frozenset(
-    {"sealed_tier", "sealed_prefetch", "sealed_stage", "object_files", "model_source"}
+    {"sealed_tier", "sealed_stage", "object_files", "model_source"}
 )
 
 #: The runtime modules a construction imports, named ONCE so `start` can warm
@@ -577,6 +658,16 @@ class Executor:
         #: plane (`self.weights`), whose priorities are the LRU across them.
         self.constructions: dict[str, Executor] = {}
         self.weights: Weights | None = None
+        #: HOST ONLY, rank 0: what this process asks TensorFS to fetch, when and in what order
+        self.fetch = (
+            fetch_plan.Fetches(self._fetch_channel, self._fetch_progress)
+            if host is None and rank == 0
+            else None
+        )
+        #: HOST ONLY: each `Weights[M]` slot's declared components, by `<fn>.models.<param>`
+        self.source_components: dict[str, tuple[str, ...]] = {}
+        #: HOST ONLY: the constructed slots built on first use (`on_demand=`), by the same path
+        self.on_demand: frozenset[str] = frozenset()
         self.active = ""
         self.started = False
         #: torch, the Runtime and the package are imported (`Start.import_only`); no device yet
@@ -614,6 +705,8 @@ class Executor:
         #: a follower's last mirrored call that succeeded: rewound if the group runs it again
         #: because another GPU failed it (`join` with `room`), dropped at its next call
         self._last_journal: Journal | None = None
+        #: the per-GPU caps the group's planes were last given (`budget`)
+        self.rank_caps: tuple[int, ...] = ()
         self._device_ready = False
         self._startup_reported = False
         #: a follower's budget cell from rank 0 (`RANK_CELLS`), for its weight plane
@@ -715,12 +808,6 @@ class Executor:
                 except Exception as exc:
                     key = command.construction or self.active
                     return self.unsettled(self.constructions.get(key, self), exc)
-            case RunJob():
-                self.handled = None
-                try:
-                    return self._settled(self.run_job(command))
-                except Exception as exc:
-                    return self.unsettled(self, exc)
             case Probe():
                 if command.collect:
                     gc.collect()
@@ -735,8 +822,6 @@ class Executor:
                 return self.share()
             case Revoke():
                 return self.revoke(command)
-            case Prefetch():
-                return self.prefetch(command)
             case Map():
                 return self.map(command)
             case Shutdown():
@@ -761,20 +846,20 @@ class Executor:
                 zygote.CAPABILITY,
                 "vacate_ranks",
                 LOAD_ATTENTION_PIN,
-                *(
-                    [plane.CAPABILITY, LOAD_PINNED, PROCESS_CAP, RANK_CELLS, MAP]
-                    if plane.available()
-                    else []
-                ),
-                *(plane.SHARING if plane.sharing() else ()),
-                *([SEALED_TIERS] if plane.sealed_available() else []),
-                *([SEALED_FILLING] if plane.sealed_filling() else []),
-                *([SEALED_STAGED] if plane.sealed_holes() else []),
+                plane.CAPABILITY,
+                LOAD_PINNED,
+                PROCESS_CAP,
+                RANK_CELLS,
+                MAP,
+                *plane.SHARING,
+                SEALED_TIERS,
+                SEALED_FILLING,
+                SEALED_STAGED,
             ],
             "memo": [stage_memo.CAPABILITY],
             "pgid": os.getpgrp(),
             "no_new_privs": _proc_status("NoNewPrivs"),
-            "oom_score_adj": Path("/proc/self/oom_score_adj").read_text().strip(),
+            "oom_score_adj": _oom_score_adj(),
             "uid": os.getuid(),
             "euid": os.geteuid(),
             "sealed": dict(_SEALED),
@@ -928,6 +1013,8 @@ class Executor:
     def _rank_device(self, torch: Any) -> Any:
         if self.device_kind == "cuda" and accel.present(torch, self.device_kind):
             return torch.device("cuda", self.rank if self.world > 1 else 0)
+        if self.device_kind == "mps" and accel.present(torch, self.device_kind):
+            return torch.device("mps")
         return torch.device("cpu")
 
     def join(self, command: Join) -> dict[str, Any]:
@@ -1442,8 +1529,9 @@ class Executor:
         Rank 0 spawns its followers first and hands them this command, so every rank's
         Torch, runtime and package imports and the package `warmup()` run in parallel; the
         group then forms over the loopback store. Nothing here moves a weight byte. A
-        package whose interface binds no model on any entrypoint imports no Torch at all,
-        which is what keeps a weightless package servable on a cardless runner (cl-013).
+        session with GPUs initializes them here, constructed models or not; a session
+        without (`accelerator=False`), or whose environment has no Torch, imports none and
+        never opens CUDA.
         Idempotent: a started process answers with what it started as.
 
         `import_only` (a prespawn, before the GPU grant) stops after the imports: no device
@@ -1480,29 +1568,48 @@ class Executor:
             }
         _restore_seal()
         try:
-            interface = package_interface.read_bytes(
+            interface = package_interface.parse(
                 Path(command.package_interface).read_bytes(), command.package_interface
             )
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, ConformanceError) as exc:
             self.poisoned = "start without a readable package interface"
             return {
                 "ok": False,
                 "code": "package_prepare_path_invalid",
                 "detail": f"the start names no readable PackageInterface: {exc}"[:900],
             }
-        entrypoints = interface.get("entrypoints") or []
-        model_bearing = (
-            any(isinstance(doc, dict) and doc.get("models") for doc in entrypoints)
-            if isinstance(entrypoints, list)
-            else False
+        # Run 6132: an environment without torch runs on the devices it was given, untouched.
+        device = bool(command.devices) and importlib.util.find_spec("torch") is not None
+        constructs = device and any(
+            not slot.weights for entry in interface.entrypoints for slot in entry.models
         )
-        if degree > 1 and not model_bearing:
+        if degree > 1 and not constructs:
             self.poisoned = "sequence-parallel construction unsupported"
             return {
                 "ok": False,
                 "code": "sequence_parallel_unsupported",
-                "detail": "a group requires a model-bearing package",
+                "detail": "a group runs constructed models",
             }
+        self.source_components = {
+            slot.path: slot.components
+            for entry in interface.entrypoints
+            for slot in entry.models
+            if slot.weights and isinstance(slot.components, tuple)
+        }
+        # A group's GPUs construct in lockstep at its load: it builds every model there.
+        self.on_demand = frozenset(
+            slot.path
+            for entry in interface.entrypoints
+            for slot in entry.models
+            if slot.on_demand and degree == 1
+        )
+        eager = [row for row in command.constructions if row.path not in self.on_demand]
+        if self.fetch is not None and eager and not command.import_only:
+            # The Start pass, before torch and the package: the imports, kernel compiles
+            # and warmup run while the weights download. Never in an import-only parent: a
+            # channel's reader thread would leave it unforkable.
+            self.fetch.begin()
+            self.fetch.schedule(fetch_plan.at_start(eager, lambda m: self._model_source(m, "")))
         started = time.perf_counter()
         stages: list[tuple[str, float]] = []
         _mark = [started]
@@ -1534,7 +1641,7 @@ class Executor:
                     self.group.dial_back(_SEALED)
                 self.group.broadcast(executor_commands.encode(command))
                 stage("followers_spawned")
-            if model_bearing:
+            if device:
                 import torch
 
                 if command.import_only:
@@ -1561,7 +1668,7 @@ class Executor:
                         self.poisoned = f"start refused: {refused['code']}"
                         return self._close_after(refused)
                     stage("cuda_init")
-                if not imported:
+                if constructs and not imported:
                     for name in _CONSTRUCTION_MODULES:
                         importlib.import_module(name)
                     stage("runtime_imports")
@@ -1573,11 +1680,11 @@ class Executor:
             self.call_interfaces = command.call_interfaces or self.call_interfaces
             compiles = (
                 self._expect_kernels(isolated=command.import_only)
-                if model_bearing and self.rank == 0 and not imported
+                if constructs and self.rank == 0 and not imported
                 else ""
             )
             if command.import_only:
-                if model_bearing and accel.initialized(torch, self.device_kind):
+                if device and accel.initialized(torch, self.device_kind):
                     self.poisoned = "the package import initialized a device before its grant"
                     return self._close_after(
                         self._refusal("cuda_initialized_before_runtime", self.poisoned)
@@ -1758,10 +1865,10 @@ class Executor:
         return {"ok": True, "ranks": [], "skipped": "compiles start with the process"}
 
     def _model_classes(self) -> list[type[Model[Any]]]:
-        """The classes the package's Model slots declare, wherever they are defined (a
-        script's come from its libraries, not its entry module)."""
+        """The classes the package's constructed Model slots declare, wherever they are
+        defined (a script's come from its libraries, not its entry module)."""
         surfaces = getattr(self.discovered, "surfaces", ())
-        slots = [slot for surface in surfaces for slot in surface.model_bindings]
+        slots = [s for surface in surfaces for s in surface.model_bindings if not s.weights]
         return list(dict.fromkeys(slot.model_class for slot in slots))
 
     def _expect_kernels(self, *, isolated: bool) -> str:
@@ -1880,6 +1987,8 @@ class Executor:
             loaded._bind_parameters(command)
             return self._load_reply(key, loaded, reused=True)
         child = self._construction_child(key)
+        if self.fetch is not None:
+            self.fetch.begin()  # the Load pass replaces the Start pass
         try:
             reply = child._prepare_first(command)
         except Exception:
@@ -2122,7 +2231,7 @@ class Executor:
             }
         # THE DEGREE (cr-068): the process started at K; every load names the same K, and a
         # mismatch refuses before any weight moves. Degree 1 (or absent) is a plain
-        # executor, whatever the seal's width - a job's envelope lane.
+        # executor, whatever the seal's width.
         degree = command.sequence_parallel_degree or 1
         if degree != max(self.world, 1) or (degree > 1 and degree != len(_sealed_entries())):
             self.poisoned = "sequence-parallel degree mismatch"
@@ -2172,6 +2281,8 @@ class Executor:
         if command.models is not UNSET:
             return self._prepare_many(command, command.models)
         single = command.single()
+        if self._group_parent is None and self._deferred(single.binding):
+            return self._prepare_many(command, (single,))
         binding = single.binding
         self._group_model_key = f"{self.construction}#{binding.model_binding_path}"
         started = time.perf_counter()
@@ -2297,6 +2408,8 @@ class Executor:
             attention.reserve(command.attention_pin, device_facts)
         stage("measure_device")
         hardware_variant = binding.variant
+        if not hardware_variant and device_facts.kind == "mps":
+            hardware_variant = "mps"
         if not hardware_variant:
             if device_facts.kind != "cuda" or device_facts.sm <= 0:
                 self.poisoned = "modeled accelerator unavailable"
@@ -2335,6 +2448,14 @@ class Executor:
         present = [name for name in names if checkpoints[name].has(name)]
         rows = [r for name in present for r in checkpoints[name].rows(name)]
         stage("checkpoint_headers")
+        if not accel.bf16_supported(self.device_kind) and any(
+            dtype_name(r.dtype) == "bfloat16" for r in rows
+        ):
+            return self._refusal(
+                "dtype_unsupported",
+                f"this lane stores bfloat16, which {device_facts.name} computes from macOS 14 "
+                f"on ({device_facts.driver} here): serve an f16 lane",
+            )
         # NVML is queried with the sealed device (#549.9): inside the seal, card zero IS the
         # lane's card, so a multi-GPU pod's records name the card the fill actually uses.
         runtime_identity = measure_runtime(torch, binding.release)
@@ -2460,9 +2581,10 @@ class Executor:
             except plane.Unavailable as exc:
                 return {"ok": False, "code": "weight_plane_unavailable", "detail": str(exc)}
         weights = host.weights
+        weights.fetch = host.fetch
         # TensorD retains exported GPU allocation handles. Runtime's plane attaches those
         # allocations here and can later export its own filled regions for reuse.
-        sharing = command.device_weights and self.world == 1 and plane.sharing()
+        sharing = command.device_weights and self.world == 1
         weights.sharing = (
             DeviceTiers(ask=self._ask_device, offer=self._offer_device) if sharing else None
         )
@@ -2484,12 +2606,14 @@ class Executor:
             qualified=qualified_pair,
             device_facts=device_facts,
             custody=binding.custody,
-            tiers=self._tiers(
-                command.host_tier,
-                command.sealed_tiers,
-                staged=command.staged_tiers and not weights.host_only,
+            tiers=HostTiers(seal=lambda _plan: None, files=self.host._object_files)
+            if weights.unified  # the page cache is its host tier: the machine keeps no layout
+            else self._tiers(
+                command.sealed_tiers, staged=command.staged_tiers and not weights.host_only
             ),
         )
+        scopes = fetch_plan.in_definition_order(model_cls, component_use(model_cls))
+        backend.order = tuple(fetch_plan.stage_components(scopes, scopes))
         stage("backend_ctor")
         # THE GROUP AGREES ITS PLAN before any rank registers a byte (cr-068). Budgets are
         # the Worker's, per device, so the ceiling the ranks share is the one it assigned.
@@ -2553,12 +2677,10 @@ class Executor:
             substrate=lambda: serving_substrate(hardware_variant, seen),
         )
         try:
-            # `expect` takes the verified read leases: a corrupt artifact refuses here,
-            # before construction.
             backend.expect(
                 {name: tuple(r.key for r in checkpoints[name].rows(name)) for name in present}
             )
-            stage("lease_acquire")
+            stage("expect")
             adapter_rows = tuple(
                 AdapterRef(
                     ref=row.model_id or row.ref,
@@ -2599,16 +2721,16 @@ class Executor:
             planned = self._execution_plan(model, torch, load_kernels, kernels_ready)
             roots = backend.roots
             stage("execution_plan")
-            # THE FASTEST KERNEL THIS DEVICE AND IMAGE SUPPORT, PINNED POST-FILL (cr-124),
-            # per attention site and before any warm step (`attention.select`).
+            # EACH SITE'S KERNEL FROM THE GROUP'S FAMILY CELL AT THE MODEL'S ATTENTION LEVEL,
+            # PINNED POST-FILL (cr-124), before any warm step (`attention.select`).
+            sms = [accel.device_capability(entry) for entry in _sealed_entries()]
             self._reselect = functools.partial(
                 attention.select,
                 device_facts,
                 roots,
                 degree=self.world,
-                choose=model.choose_attention
-                if type(model).choose_attention is not Model.choose_attention
-                else None,
+                bits=type(model).__attention_bits__,
+                row=arch.common(map(arch.row, sms)) if self.world > 1 and all(sms) else None,
             )
             applied = self._reselect()
             self.device_facts = device_facts
@@ -2623,10 +2745,10 @@ class Executor:
         self.models = {name: model for name in binding.parameter_names()}
         # THE COMPONENT-USE CONTRACT'S RUNTIME BODY: from here on a declared scope is a
         # stage on the plane, and each block runs inside one acquire/release.
-        self.residency = WeightResidency(
-            weights, backend.components, component_use(model_cls), refine=backend.refine
-        )
+        self.residency = WeightResidency(weights, backend.components, scopes, refine=backend.refine)
         object.__setattr__(model, "_cozy_residency", self.residency)
+        # Its components' calls replay CUDA graphs once recorded (`graphs`), unless uncaptured.
+        graphs.install(model, {name: c.root for name, c in self.residency.components.items()})
         stage_memo.install(
             model,
             torch=torch,
@@ -2745,7 +2867,6 @@ class Executor:
             "plane": msgspec.to_builtins(weights.facts()),
             "authorized_device_limit_bytes": authorized,
             "rss_bytes": _rss(),
-            "leases": backend.leases.document(),
             "gpu_name": accel.device_identity(torch, self.device_kind)["name"],
             "device_driver": device_facts.driver,
             "torch_version": torch.__version__,
@@ -2772,13 +2893,18 @@ class Executor:
             "facts": self.facts,
         }
 
+    def _deferred(self, binding: Binding) -> bool:
+        """Whether this model is built on first use (`on_demand=`)."""
+        return self.world == 1 and binding.model_binding_path in self.host.on_demand
+
     def _prepare_many(self, command: Load, rows: tuple[ModelLoad, ...]) -> dict[str, Any]:
-        """Prepare one complete bounded multi-model callable in this device process."""
-        if not 2 <= len(rows) <= 16:
+        """Prepare one complete bounded multi-model callable in this device process; an
+        on-demand model is built when the function first reads it (`_build_on_demand`)."""
+        if not 1 <= len(rows) <= 16:
             return {
                 "ok": False,
                 "code": "model_binding_set_invalid",
-                "detail": "models must be an array of 2 through 16 binding rows with budgets",
+                "detail": "models must be an array of 1 through 16 binding rows with budgets",
             }
         paths = [row.binding.model_binding_path for row in rows]
         parameters = [row.binding.model_parameter_name for row in rows]
@@ -2812,24 +2938,30 @@ class Executor:
             parameter = binding.model_parameter_name
             child = self._construction_child(self.construction)
             child._group_parent = self
-            reply = child._prepare_first(
-                # The command with one model in place of its set: everything the machine said
-                # about the load holds for each model (a field named one by one here was
-                # dropped twice: `model_sources`, then `device_weights`, so a construction
-                # of two models never attached the machine's GPU weights).
-                msgspec.structs.replace(
-                    command,
-                    construction=self.construction,
-                    binding=binding,
-                    budgets=row.budgets,
-                    models=UNSET,
-                    group=UNSET,
-                    model_key=f"{self.construction}#{binding.model_binding_path}"
-                    if self.world > 1
-                    else UNSET,
-                    sequence_parallel_degree=max(self.world, 1),
-                ),
+            # The command with one model in place of its set: everything the machine said
+            # about the load holds for each model (a field named one by one here was
+            # dropped twice: `model_sources`, then `device_weights`, so a construction
+            # of two models never attached the machine's GPU weights).
+            load = msgspec.structs.replace(
+                command,
+                construction=self.construction,
+                binding=binding,
+                budgets=row.budgets,
+                models=UNSET,
+                group=UNSET,
+                model_key=f"{self.construction}#{binding.model_binding_path}"
+                if self.world > 1
+                else UNSET,
+                sequence_parallel_degree=max(self.world, 1),
             )
+            if self._deferred(binding):
+                # Built inside the attempt that reads it, under that attempt's cap.
+                load = msgspec.structs.replace(load, cap_bytes=UNSET, rank_caps=())
+                build = functools.partial(self._build_on_demand, child, load)
+                child.models = dict.fromkeys(binding.parameter_names(), _OnDemand(build))
+                children.append((parameter, child, {}))
+                continue
+            reply = child._prepare_first(load)
             if not reply.get("ok"):
                 self.poisoned = child.poisoned or (
                     f"model {parameter} refused: {reply.get('code', 'unknown')}"
@@ -2844,8 +2976,11 @@ class Executor:
             name[0].startswith(self.construction + "#") for name in self.host.group_sharded
         ):
             return self._group_refusal(GroupRefusal("the model set contains no sharded component"))
+        built = [(parameter, child, reply) for parameter, child, reply in children if reply]
+        if self.discovered is None:
+            self._discover_provisioned(rows[0].binding)
         self.model_executors = [child for _, child, _ in children]
-        self.torch = children[-1][1].torch
+        self.torch = built[-1][1].torch if built else self.torch
         self.models = {}
         for parameter, child, _ in children:
             if parameter not in child.models or set(child.models) & set(self.models):
@@ -2865,7 +3000,7 @@ class Executor:
 
         constructed = [
             {"parameter": parameter, "digest": str(reply["constructed_model_digest"])}
-            for parameter, _, reply in children
+            for parameter, _, reply in built
         ]
         self.constructed_model_digest = (
             "sha256:"
@@ -2874,8 +3009,8 @@ class Executor:
             ).hexdigest()
         )
 
-        facts_rows = [(parameter, reply["facts"]) for parameter, _, reply in children]
-        last = facts_rows[-1][1]
+        facts_rows = [(parameter, reply["facts"]) for parameter, _, reply in built]
+        last = facts_rows[-1][1] if facts_rows else {}
         scopes = {
             f"{parameter}.{method}": [f"{parameter}/{component}" for component in components]
             for parameter, facts in facts_rows
@@ -2957,7 +3092,9 @@ class Executor:
             "layouts": layouts,
             "plane": self._plane_facts(),
             "declared_scopes": scopes,
-            "rss_bytes": max(int(facts.get("rss_bytes", 0)) for _, facts in facts_rows),
+            "rss_bytes": max(
+                (int(facts.get("rss_bytes", 0)) for _, facts in facts_rows), default=0
+            ),
             "attention": attention_fact,
             "gpu_name": str(last.get("gpu_name", "")),
             "torch_version": str(last.get("torch_version", "")),
@@ -2974,6 +3111,34 @@ class Executor:
             "entrypoints": sorted(self.surface_names),
             "facts": self.facts,
         }
+
+    def _build_on_demand(self, member: Executor, load: Load) -> Any:
+        """An on-demand model's first read: the load its construction deferred, run in the
+        attempt that reads it. From then on each pass wants its weights first when one of its
+        stages begins (`Fetches.want`), and a pass that never uses it asks for none of them."""
+        parameter = load.single().binding.model_parameter_name
+        weights = self.host.weights
+        if weights is not None:  # the attempt's own Degree 2 choice stands
+            load = msgspec.structs.replace(load, device_weights=weights.sharing is not None)
+        try:
+            reply = member._prepare_first(load)
+        except Exception:
+            self.poisoned = self.poisoned or member.poisoned or f"model {parameter} raised"
+            raise
+        if not reply.get("ok"):
+            self.poisoned = self.poisoned or member.poisoned
+            detail = f"model {parameter} refused: {reply.get('detail', '')}"
+            raise RuntimeFailure(detail[:900], code=str(reply.get("code") or "runtime_failure"))
+        member.load_reply = reply
+        self.torch = self.torch or member.torch
+        residency = member.residency
+        if residency is not None:
+            self.residency.rows[parameter] = residency
+            fetch = self.host.fetch
+            if fetch is not None:
+                key = str(id(member.backend))  # the key its Load pass scheduled under
+                residency.wanted = functools.partial(fetch.want, key, residency.fetch_plan)
+        return member.models[parameter]
 
     def _discover_provisioned(self, release: Release) -> None:
         """Import the installed release and bind its PackageInterface. No elapsed-time limit:
@@ -3050,6 +3215,23 @@ class Executor:
         target = self._target(command, attempt=False)
         if isinstance(target, dict):
             return target
+        if self.fetch is not None:
+            # The attempt re-asserts what it reads, on its own channel, in the order this
+            # process learned: a no-op for objects already here, and every fetch stays owned
+            # by a live call. The channel it replaces goes only after (nothing on the wire
+            # stops), and nothing of an earlier call carries over.
+            groups = [
+                group
+                for member in target.model_executors or [target]
+                # an on-demand model's waits for its first stage (`Fetches.want`)
+                if member.residency is not None and member.residency.wanted is None
+                for group in member.residency.fetch_plan()
+            ]
+            self.fetch.begin()
+            if groups:
+                self.fetch.schedule(groups)
+            else:
+                self.fetch.end()
         return target.prepare_request(command)
 
     def serve_invoke(self, command: Invoke) -> dict[str, Any]:
@@ -3058,11 +3240,12 @@ class Executor:
             return target
         target.handled = None
         # Every attempt carries its grant; none (-1: an older Worker, or no reading) derives
-        # from the driver, so a cut to 0 never outlives the attempt that follows it.
+        # from the driver, so a cut to 0 never outlives the attempt that follows it. Only a
+        # grant that changed reaches the group's GPUs.
         if self.weights is not None and (
             command.plane_budget_bytes != self.weights.budget
             or command.cap_bytes != self.weights.cap
-            or command.rank_caps
+            or command.rank_caps != self.rank_caps
             or command.floor_bytes != self.weights.owner_floor
         ):
             granted = self.budget(
@@ -3079,11 +3262,16 @@ class Executor:
             # A new request plans its stages afresh: a repeating stage the last one left open
             # (its cursor at that request's end) never carries over. Its weights stay mapped.
             self._unpark()
+            self.weights.restore_spilled()
             self.weights.seed_activations(command.activation_bytes)
             self.weights.seed_squeezed(command.squeezed_bytes)
             if not isinstance(command.device_weights, UnsetType):
                 self._device_weights(command.device_weights)
-        reply = target.invoke(command)
+        try:
+            reply = target.invoke(command)
+        finally:
+            if self.fetch is not None:
+                self.fetch.end()
         self.attempts += 1
         self.poisoned = self.poisoned or target.poisoned
         reply["poisoned"] = self.poisoned
@@ -3117,7 +3305,7 @@ class Executor:
                 "detail": f"{command.entrypoint!r} is not an entrypoint of this release",
             }
         registration = self.discovered.app.get(command.entrypoint)
-        pin = command.attention_kernel
+        pin = _attention_pin(command.attention_kernel, command.bits)
         waits = Attribution()
         if pin and self._attention_reaches(pin):
             held = kernel_compile.held.set(
@@ -3197,7 +3385,7 @@ class Executor:
                 "runs the record its plan was priced against, and this executor holds none "
                 "(a fresh epoch holds nothing at all)",
             }
-        requested = command.attention_kernel
+        requested = _attention_pin(command.attention_kernel, command.bits)
         # A pin is the run's: a call holding no site in its scope runs its own selection,
         # and the worker reports a run none of whose calls applied it.
         pin = requested if requested and self._attention_reaches(requested) else ""
@@ -3273,6 +3461,11 @@ class Executor:
         capture = None
         capture_result: dict[str, Any] | None = None
         record: AuthorAttempt | None = None
+        # Weights grants are the attempt's own: its sources and outputs end with it.
+        sources: dict[str, RawWeights[Any]] = {
+            name: RawWeights(manifest) for name, manifest in command.sources.items()
+        }
+        storage = ExecutionStorage(spool, self._durable, command.weights)
         stage_memo.ENGINE.open(self._durable, spool)
         try:
             with (
@@ -3312,6 +3505,11 @@ class Executor:
                                 else command.max_input_bytes or 64 << 20
                             ),
                             max_output_bytes=command.max_output_bytes,
+                            sources=sources,
+                            weights_values=read_values_into,
+                            tensorfs_source=self._sources(storage, command) if sources else None,
+                            tensorfs_output=storage.open_output if command.weights else None,
+                            tensorfs_adopt=storage.adopt_model if command.weights else None,
                             publish=self._publish,
                             calls=self.host._call_broker(
                                 command.request_id, self.host.call_interfaces
@@ -3331,6 +3529,24 @@ class Executor:
                 for group in member.refused_leaves:
                     fields = dataclasses.asdict(group)
                     record.emit("log", "encoded leaf refused, served decoded", "warn", **fields)
+            for feature, instead in accel.unavailable(self.device_kind) if self.models else ():
+                record.emit(
+                    "log", f"{feature} unavailable on {self.device_kind}", "warn", instead=instead
+                )
+            for missing in int8_linear.unavailable():
+                record.emit(
+                    "log",
+                    "8-bit op unavailable, slower kernels served",
+                    "warn",
+                    **dataclasses.asdict(missing),
+                )
+            for message, raised in WARNINGS:
+                record.emit("log", message, "warn", **raised)
+            members = self.model_executors or [self]
+            facts = next((m.device_facts for m in members if m.device_facts), None)
+            if facts is not None and (unnamed := arch.inherited(facts.sm, facts.name)):
+                record.emit("log", unnamed, "warn")
+        WARNINGS.clear()
         stage_memo.ENGINE.close(record.emit)
         if later:
             # The override put back the run's first selection; the construction keeps its last.
@@ -3410,10 +3626,6 @@ class Executor:
                 self.residency.restore()
             except Exception as exc:
                 record.emit("confession", "weights.restore", f"{type(exc).__name__}: {exc}"[:300])
-            # The owner charges this process what its reply says it holds: bytes mapped after
-            # the reply read as foreign memory, and shrank the next grant (an 8 GiB pool's
-            # upsampler got a 3.1 GB cap beside 4-5 GB "external", runs 8420-8437).
-            plane_facts = self._plane_facts()
         d2h_ms = (time.perf_counter() - d2h_started) * 1000
         released_us = execution_evidence.now_us()
         peak_vram = accel.peak_allocated(torch, self.device_kind) if torch is not None else 0
@@ -3859,264 +4071,6 @@ class Executor:
             "kernel_symbol": ",".join(sorted(choices.totals())) if choices is not None else "",
         }
 
-    # ------------------------------------------------------------------ job
-
-    def _job_models(self, surface: Any, command: RunJob) -> dict[str, Any]:
-        """Create typed Manifest-only Model instances; construct/load no package state."""
-        declared = {binding.param: binding for binding in surface.model_bindings}
-        rows = command.models
-        if not set(declared) <= set(rows):
-            raise CapabilityError(
-                f"job declares Model parameters {sorted(declared) or 'none'} and the worker "
-                f"passed {sorted(rows)}",
-                code="job_model_binding_mismatch",
-            )
-        payload = command.payload if isinstance(command.payload, Mapping) else {}
-        models: dict[str, Any] = {}
-        for parameter in sorted(declared):
-            row, binding = rows[parameter], declared[parameter]
-            if row.class_key != binding.class_key:
-                raise CapabilityError(
-                    f"job Model parameter {parameter!r} changed its interface class",
-                    code="job_model_class_mismatch",
-                )
-            if surface.invocable and (artifact := payload.get(parameter)) is not None:
-                expected = artifact.get("manifest") if isinstance(artifact, Mapping) else None
-                if (
-                    not isinstance(expected, Mapping)
-                    or expected.get("digest") != row.manifest
-                    or expected.get("length") != row.length
-                ):
-                    raise CapabilityError(
-                        "model call artifact differs from its admitted native input",
-                        code="model_artifact_binding",
-                    )
-            models[parameter] = _derive_model(binding.model_class, row.manifest)
-        return models
-
-    def run_job(self, command: RunJob) -> dict[str, Any]:
-        """ONE `@app.job`, run to completion through the SAME invocation kernel (cr-009).
-
-        Everything structural about a job is here and it is short, which is the point: a job
-        is not a second runtime, it is the one attempt kernel with a different service set
-        and no serving loop underneath it. The three differences from `invoke`, out loud:
-
-        1. **No prepared generation is required.** The admitted slot's device count
-           determines accelerator initialization. A CPU job, or one whose environment has no
-           Torch, imports no Torch and opens no CUDA context (its GPU is only the visible
-           devices TensorD set); a GPU transform can use its device without constructing an
-           inference model. A job Model remains a derive-only Manifest capability.
-        2. **Job services are injected**: a resumable Scratch tree keyed on the RUN, the
-           durable checkpoint exchange, and the typed budget facts.
-        3. **Quiescence is proven by what exists.** A torch-free job has no stream that
-           could still be moving, so the proof is structural rather than a device query.
-        """
-        if command.capture is not None:
-            return {
-                "ok": False,
-                "code": "capture_mode",
-                "detail": "activation capture requires an ordinary serving invocation",
-                "terminal": "refused",
-                "origin": "request",
-            }
-        if self.poisoned:
-            return {"ok": False, "code": "poisoned_generation", "detail": self.poisoned}
-        budget = command.budget
-        if budget.gpu_count > 0 and importlib.util.find_spec("torch") is not None:
-            import torch
-
-            self.torch = torch
-            refused = self._initialize_device(torch)
-            if refused is not None:
-                return refused
-        if self.discovered is None:
-            try:
-                self._install_call_proxies(command.call_interfaces)
-                self._discover_provisioned(
-                    Release(
-                        application=command.application,
-                        package_interface=command.package_interface,
-                    )
-                )
-            except Exception as exc:
-                return {
-                    "ok": False,
-                    "code": "job_release_undiscoverable",
-                    "detail": f"{type(exc).__name__}: {exc}"[:1024],
-                }
-        name = command.job
-        surface = self.surface_names.get(name)
-        if surface is None or surface.kind != "job":
-            return {
-                "ok": False,
-                "code": "unknown_job",
-                "detail": f"{name!r} is not a registered @app.job of this release (it has "
-                f"{sorted(s.name for s in self.surface_names.values() if s.kind == 'job')})",
-            }
-        registration = self.discovered.app.get(name)
-        spool = Path(command.spool)
-        scratch = Path(command.scratch) if command.scratch else None
-        if scratch is not None:
-            scratch.mkdir(parents=True, exist_ok=True)
-
-        try:
-            job_models = self._job_models(surface, command)
-        except CapabilityError as exc:
-            return {"ok": False, "code": exc.code, "detail": str(exc)[:1024]}
-
-        weights_values = None
-        if "weights_read" in surface.capabilities:
-            from cozy_runtime.internal.model_values import read_values_into
-
-            weights_values = read_values_into
-
-        tensorfs_source = tensorfs_output = tensorfs_adopt = None
-        # The owner grants writer channels explicitly. Installing Store APIs grants nothing;
-        # a job without channels can still run and refuses only a storage operation it asks for.
-        if command.weights:
-            from cozy_runtime.internal.weights_writer import ExecutionStorage
-
-            execution_storage = ExecutionStorage(
-                spool,
-                self._durable,
-                {output.name: output.max_new_bytes for output in surface.weights_outputs},
-            )
-            tensorfs_source = execution_storage.source
-            tensorfs_output = execution_storage.open_output
-            tensorfs_adopt = execution_storage.adopt_model
-
-        from cozy_runtime.author._services import (
-            BudgetFacts,
-            CheckpointDeclaration,
-            CheckpointSave,
-        )
-
-        def durable_checkpoint(save: CheckpointSave) -> CheckpointDeclaration:
-            """Block until the worker has JOURNALED the declaration. Never the lossy lane.
-
-            What comes back is a recorded declaration id, not a durability receipt: this
-            frame carries keys, a digest and a length, and the bytes stay in the spool
-            (#553a).
-            """
-            answer = self._durable(
-                Checkpoint(
-                    operation_key=save.operation_key,
-                    logical_key=save.logical_key,
-                    content_digest=save.content_digest,
-                    length=save.length,
-                ),
-                CheckpointReceipt,
-            )
-            if not answer.ok:
-                raise CheckpointConflict(f"{save.logical_key}: {answer.detail}", code=answer.code)
-            return CheckpointDeclaration(
-                declaration_id=answer.receipt_id,
-                operation_key=save.operation_key,
-                logical_key=save.logical_key,
-                content_digest=save.content_digest,
-                length=save.length,
-                replayed=answer.replayed,
-            )
-
-        started = time.perf_counter()
-        started_wall = time.time()
-        if self.torch is not None:
-            accel.reset_peak(self.torch, self.device_kind)
-        envelope, outcome, record = attempt(
-            registration,
-            command.payload,
-            Invocation(
-                request_id=command.request_id,
-                spool=spool,
-                deadline=_deadline(command.deadline_s),
-                calls=self._call_broker(command.request_id, command.call_interfaces),
-                publish_to=command.publish_to,
-                publish=self._publish,
-                device=self._device() if self.torch is not None else Device(),
-                cancel=lambda: _cancelled(self.root, command.request_id),
-                models=job_models,
-                trees=_trees(command),
-                assets=_granted_inputs(command),
-                max_input_bytes=(
-                    None if command.max_input_bytes is None else command.max_input_bytes or 64 << 20
-                ),
-                max_output_bytes=command.max_output_bytes,
-                scratch=scratch,
-                checkpoints=durable_checkpoint,
-                weights_values=weights_values,
-                tensorfs_source=tensorfs_source,
-                tensorfs_output=tensorfs_output,
-                tensorfs_adopt=tensorfs_adopt,
-                budget=BudgetFacts(
-                    gpu_rate_usd_per_hour=budget.gpu_rate_micro_usd_per_hour / 1e6,
-                    gpu_count=budget.gpu_count,
-                    cap_usd=budget.cap_micro_usd / 1e6,
-                    started_monotonic=time.monotonic(),
-                ),
-                progress=self._progress_sink(command.request_id),
-                activity=self._activity_sink(command.request_id),
-            ),
-        )
-        self.handled = (outcome, "", record)
-        handler_ms = (time.perf_counter() - started) * 1000
-        peak_vram = peak_reserved = 0
-        if self.torch is not None:
-            accel.synchronize(self.torch, self.device_kind)
-            peak_vram = accel.peak_allocated(self.torch, self.device_kind)
-            peak_reserved = accel.peak_reserved(self.torch, self.device_kind)
-        self.attempts += 1
-        result_ref, outputs, oversize = _serialize_result(envelope, spool)
-        if (
-            outcome.terminal == "failed"
-            and record.entered
-            and not record.failed_at_call
-            and outcome.code not in CAPACITY_CODES
-        ):
-            self.poisoned = f"{outcome.terminal}/{outcome.code}"
-        return {
-            "ok": True,
-            "kind": "job",
-            "shortfall": None,
-            "residency": {},
-            "execution_observation": self._execution_observation(),
-            "observations": record.ring.rows(),
-            "observation_caps": {**record.ring.caps(), "metrics_dropped": record.metrics_dropped},
-            "attribution": record.attribution.document(),
-            "position": record.position,
-            "outcome": {
-                "terminal": outcome.terminal,
-                "origin": outcome.origin,
-                "code": outcome.code,
-                "message": ends(outcome.message, 2048),
-                "fields": list(outcome.fields),
-                "traceback": outcome.traceback,
-            },
-            # A torch-free job holds no stream, so quiescence is a STRUCTURAL fact rather
-            # than a device query: there is nothing that could still be moving.
-            "quiescent": self._quiescent() if self.torch is not None else True,
-            **_env_document(),
-            "poisoned": self.poisoned,
-            "outputs": outputs,
-            "frames": [frame.row() for frame in record.frames.values()],
-            "max_output_bytes": record.max_output_bytes,
-            "result_ref": result_ref,
-            "result_schema_digest": self._result_schema_digest(surface),
-            "adjustments": [],
-            "ignored": list(record.ignored),
-            "oversize_result_bytes": oversize,
-            "metrics": {
-                "handler_ms": round(handler_ms, 3),
-                "device_lease_ms": round(handler_ms, 3),
-                "d2h_wait_ms": 0.0,
-                "peak_vram_bytes": peak_vram,
-                "peak_reserved_bytes": peak_reserved,
-                "allocated_at_start_bytes": 0,
-                "rss_at_end_bytes": _rss(),
-                "started_unix": started_wall,
-                "gpu_count": 1 if self.torch is not None else 0,
-            },
-        }
-
     def _install_call_proxies(self, rows: tuple[CallInterface, ...]) -> None:
         """Expose managed dependency imports before importing a private workflow.
 
@@ -4189,77 +4143,41 @@ class Executor:
                     native = dataclasses.replace(native, unavailable=row.unavailable[:1024])
                 bindings[(module, export)] = native
             elif row.builtin:
-                from cozy_runtime.internal import builtin_operations
-
                 if row.builtin != "operations":
                     raise CapabilityError("unknown Runtime builtin", code="child_interface")
                 builtin_operations.validate_binding(interface, module, export)
-                from cozy_runtime.author import describe
-                from cozy_runtime.derive.operations import app
-
-                describe(app)
-                builtin_surface = app.get(export).surface
-                request_type, result_type = (
-                    builtin_surface.payload_type,
-                    builtin_surface.result_type,
-                )
-                if not (
-                    isinstance(request_type, type)
-                    and issubclass(request_type, msgspec.Struct)
-                    and isinstance(result_type, type)
-                    and issubclass(result_type, msgspec.Struct)
-                ):
-                    raise CapabilityError("Runtime builtin types changed", code="child_interface")
-                binding = _CallType(interface, module, export, request_type, result_type)
-                bindings[(module, export)] = binding
+                describe(builtin_operations_app)
+                builtin = builtin_operations_app.get(export).surface
+                bindings[(module, export)] = _serving(interface, module, export, builtin)
             elif row.self_call:
                 assert self.discovered is not None
-                surface = next(
+                own_surface = next(
                     (
                         surface
                         for surface in self.discovered.surfaces
-                        if (surface.invocable or surface.kind == "entrypoint")
-                        and surface.fn.__module__ == module
-                        and surface.fn.__name__ == export
+                        if surface.fn.__module__ == module and surface.fn.__name__ == export
                     ),
                     None,
                 )
-                if surface is None:
+                if own_surface is None:
                     raise CapabilityError(
                         "self call is not a registered App export", code="child_interface"
                     )
-                binding = _CallType(
-                    interface, module, export, surface.payload_type, surface.result_type
-                )
-                bindings[(module, export)] = binding
+                bindings[(module, export)] = _serving(interface, module, export, own_surface)
             else:
                 imported = importlib.import_module(module)
-                from cozy_runtime.author._app import Registration
-                from cozy_runtime.author._calls import _export
-
                 function = getattr(imported, export, None)
                 declared = _export(function) if callable(function) else None
                 if declared is not None:
-                    surface = Registration(
+                    registration = Registration(
                         name=export,
-                        kind=row.kind,
                         fn=declared.implementation,
                         invocable=True,
                         memoize=declared.memoize,
                         model_defaults=declared.defaults,
                         model_components=declared.components,
-                    ).surface
-                    request_type, result_type = surface.payload_type, surface.result_type
-                    if not (
-                        isinstance(request_type, type)
-                        and issubclass(request_type, msgspec.Struct)
-                        and isinstance(result_type, type)
-                        and issubclass(result_type, msgspec.Struct)
-                    ):
-                        raise CapabilityError(
-                            "invocable types are not structured", code="child_interface"
-                        )
-                    binding = _CallType("", module, export, request_type, result_type)
+                    )
+                    binding = _serving("", module, export, registration.surface)
                 else:
                     generated_binding = getattr(imported, "__cozy_bindings__", {}).get(export)
                     if not isinstance(generated_binding, _CallType):
@@ -4267,8 +4185,6 @@ class Executor:
                             "installed export is not invocable", code="child_interface"
                         )
                     binding = generated_binding
-                # Source-preserving caller wheels retain ordinary @invocable job
-                # wrappers, whose lookup is by their exact module/export pair.
                 prior = bindings.get((module, export))
                 if prior is not None and prior != binding:
                     raise CapabilityError("ambiguous managed export", code="child_interface")
@@ -4281,74 +4197,58 @@ class Executor:
         """One product onto the run's output log, durable before this returns."""
         return self._durable(request, Published)
 
-    def _tiers(self, worker: bool, sealed: bool = False, staged: bool = False) -> HostTiers | None:
-        """Where this rank's pinned tiers come from. Sealed: every rank asks the machine for
-        its layouts (a follower through rank 0, `_relay`), and the machine hands K ranks one
-        copy. Otherwise a follower adopts its leader's, and rank 0 asks and offers the
-        worker's tiers when it keeps them and shares every tier with its followers. `staged`:
-        a GPU executor, whose layouts may be staged in part (a CPU one computes on them)."""
-        host = self.host
-        if self.rank > 0 and not sealed:
-            return HostTiers(ask=self._leader_tier, offer=lambda *_: None)
-        worker = worker and self.rank == 0
-        if not worker and not sealed and self.group is None:
+    def _tiers(self, sealed: bool, staged: bool = False) -> HostTiers | None:
+        """The machine's sealed layouts: every rank asks for its own (a follower through rank
+        0, `_relay`), and the machine keeps one copy for all. `staged`: a GPU executor's,
+        staged in part (a CPU one computes on them). None: the machine keeps none."""
+        if not sealed:
             return None
-        # With a TensorFS that reads holes from object files, the machine stages only the
-        # regions this executor streams (`host_tiers.staged/1`).
-        staged = staged and sealed and plane.sealed_holes()
+        host = self.host
         return HostTiers(
-            ask=host._ask_tier if worker else lambda *_: None,
-            offer=host._offer_tier if worker else lambda *_: None,
-            share=(lambda *_: None) if sealed else self._share_tier,
-            seal=((lambda p: host._seal_tier(p, ())) if staged else host._seal_tier)
-            if sealed
-            else None,
-            prefetch=host._prefetch_tiers if sealed else None,
+            seal=(lambda p: host._seal_tier(p, ())) if staged else host._seal_tier,
             stage=host._stage_tier if staged else None,
             files=host._object_files if staged else None,
         )
 
-    def _share_tier(self, name: str, layout: str, memfd: int) -> None:
-        """Rank 0 hands one registered tier to every follower, in registration order."""
-        if self.group is None:
-            return
-        for follower in self.group.followers:
-            self.group.send_one(
-                follower.rank, {"event": "tier", "name": name, "layout": layout, "held": True}
+    def _fetch_channel(self) -> int:
+        """A fresh fetch channel for the running call (`FetchChannel`); -1: none given."""
+        answer = self._durable(FetchChannel(), Handoff)
+        return answer.descriptor if answer.ok and answer.descriptor >= 0 else -1
+
+    def _fetch_progress(self, line: str, fraction: float) -> None:
+        """A wait on weights not here yet, told to the machine as the running request's stage."""
+        with contextlib.suppress(SeamError):
+            self.channel.send(
+                {"event": "progress", "request_id": "", "kind": "progress", "stage": line}
+                | {"stage_fraction": fraction, "advance": 0}
             )
-            self.group.memfd_to(follower.rank, memfd)
 
-    def _leader_tier(self, name: str, layout: str) -> int | None:
-        """A follower's tier: the one rank 0 registered for exactly this weight set."""
-        frame = self.channel.recv()
-        if (
-            frame is None
-            or frame.get("event") != "tier"
-            or (frame.get("name"), frame.get("layout")) != (name, layout)
-        ):
-            raise GroupRefusal(f"{_gpu(self.rank)} expected rank 0's tier for {name!r}")
-        return self.channel.recv_memfd() if frame.get("held") is True else None
-
-    def _ask_tier(self, name: str, layout: str) -> int | None:
-        """The pinned host tier the worker keeps for exactly this weight set's layout."""
-        answer = self._durable(HostTier(name=name, layout=layout), Tier)
-        return answer.descriptor if answer.ok and answer.held and answer.descriptor >= 0 else None
-
-    def _prefetch_tiers(self, plans: list[SealedPlan]) -> None:
-        """Start the machine filling every component's layout now (an older one refuses)."""
-        body = canonical.write([msgspec.to_builtins(plan) for plan in plans])
-        memfd = plane.sealed_memfd("cozy-sealed-plans", body)
-        try:
-            request = SealedPrefetch(
-                sha256=hashlib.sha256(body).hexdigest(), length=len(body), memfd=memfd
+    def _sources(
+        self, storage: ExecutionStorage, command: Invoke
+    ) -> Callable[[str], SourceCapability]:
+        """The attempt's `Weights[M]` sources, each wanting its declared components ahead of
+        its reads on the attempt's fetch channel."""
+        host = self.host
+        declared: dict[str, tuple[str, ...]] = {}
+        for param, manifest in command.sources.items():
+            path = f"{command.entrypoint}.models.{param}"
+            declared[manifest] = (
+                *declared.get(manifest, ()),
+                *host.source_components.get(path, ()),
             )
-            self._durable(request, Answer)
-        finally:
-            os.close(memfd)
+
+        def opened(manifest: str) -> SourceCapability:
+            capability = storage.source(manifest)
+            if host.fetch is None or not host.fetch.available():
+                return capability
+            header = host._model_source(manifest, "")
+            return fetch_plan.source(host.fetch, capability, header, declared.get(manifest, ()))
+
+        return opened
 
     def _model_source(self, manifest: str, name: str) -> bytes:
         """One model file from the machine (`ModelSource`): the header (`name` empty) or one
-        asset, checked against the length and digest the machine states."""
+        asset, checked against the length the machine states."""
         answer = self._durable(ModelSource(manifest=manifest, name=name), SourceBytes)
         if not (answer.ok and answer.held and answer.descriptor >= 0):
             raise RuntimeError(
@@ -4364,8 +4264,9 @@ class Executor:
                 body += chunk
         finally:
             os.close(answer.descriptor)
-        if len(body) != answer.length or hashlib.sha256(body).hexdigest() != answer.sha256:
-            raise RuntimeError(f"{name or 'header'} of {manifest[:23]} differs from its digest")
+        # A sealed memfd from the machine, which verified the bytes: the length is the check.
+        if len(body) != answer.length:
+            raise RuntimeError(f"{name or 'header'} of {manifest[:23]} is short")
         return bytes(body)
 
     def _seal_tier(self, plan: SealedPlan, stage: tuple[int, ...] | None = None) -> int | None:
@@ -4412,10 +4313,14 @@ class Executor:
         """The verified object files behind `plan` (`ObjectFiles`), for its layout's holes:
         `(sha256, length, fd)` per object of `objects` (the plan's own, in SHA-256 order), the
         fds the caller's to close. None unless the machine's answer names that same list."""
-        # One descriptor per object (SDXL's UNet: about 1,700): lift the soft limit to the hard.
+        # One descriptor per object (SDXL's UNet: about 1,700): lift the soft limit to the hard,
+        # which macOS caps at OPEN_MAX.
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         if soft != hard:
-            resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
+            try:
+                resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
+            except (ValueError, OSError):
+                resource.setrlimit(resource.RLIMIT_NOFILE, (min(hard, _OPEN_MAX), hard))
         body = canonical.write(msgspec.to_builtins(plan))
         memfd = plane.sealed_memfd("cozy-sealed-plan", body)
         try:
@@ -4439,7 +4344,10 @@ class Executor:
     def _device_room(self, free_bytes: int) -> None:
         """Ask the worker for `free_bytes` free on this GPU from its other tenants; it answers
         once they gave what they could, with this process's cap raised into that room when it
-        holds one (an older worker refuses, and nothing changes)."""
+        holds one (an older worker refuses, and nothing changes). An ask for no bytes is no
+        ask: the machine reads a byte count as unsigned."""
+        if free_bytes <= 0:
+            return
         held = self.weights._held()[1] if self.weights is not None else -1
         answer = self._durable(DeviceRoom(free_bytes=free_bytes, holding_bytes=held), Room)
         if answer.ok and answer.cap_bytes >= 0 and self.weights is not None:
@@ -4468,10 +4376,6 @@ class Executor:
         cell.close()
         return None
 
-    def _offer_tier(self, name: str, layout: str, memfd: int) -> None:
-        """Hand the worker a tier this process filled, so its bytes outlive the process."""
-        self._durable(HostTier(name=name, layout=layout, offer=True, memfd=memfd), Answer)
-
     def _child_events(self) -> int | None:
         """The worker's nudge socket for this attempt's calls; None from an older worker."""
         answer = self._durable(ChildEvents(), Handoff)
@@ -4487,10 +4391,7 @@ class Executor:
         body = encode_request(request)
         sending = (
             request.memfd
-            if (isinstance(request, HostTier) and request.offer)
-            or isinstance(
-                request, BudgetCell | SealedTier | SealedPrefetch | SealedStage | ObjectFiles
-            )
+            if isinstance(request, BudgetCell | SealedTier | SealedStage | ObjectFiles)
             else -1
         )
         body.pop("memfd", None)
@@ -4732,6 +4633,7 @@ class Executor:
         freed, refused = self._followers(self._plane_ranks(), command, "budget", own)
         if refused:
             return refused
+        self.rank_caps = command.rank_caps
         return {"ok": True, "freed_bytes": freed, "plane": self._plane_facts()}
 
     def share(self) -> dict[str, Any]:
@@ -4756,7 +4658,7 @@ class Executor:
             return
         if not on:
             weights.sharing = None
-        elif weights.sharing is None and self.world == 1 and plane.sharing():
+        elif weights.sharing is None and self.world == 1:
             weights.sharing = DeviceTiers(ask=self._ask_device, offer=self._offer_device)
 
     def revoke(self, command: Revoke) -> dict[str, Any]:
@@ -4822,24 +4724,6 @@ class Executor:
             os.close(answer.lease_fd)
             answer = msgspec.structs.replace(answer, lease_fd=-1)
         return answer
-
-    def prefetch(self, command: Prefetch) -> dict[str, Any]:
-        """Request CPU-tier fill/pinning for an existing construction through this plane.
-        This differs from the author's known-next-call hint sent to TensorD."""
-        if self.poisoned:
-            return {"ok": False, "code": "poisoned_generation", "detail": self.poisoned}
-
-        def own() -> int:
-            child = self.constructions.get(command.construction)
-            if self.weights is None or child is None:
-                return 0
-            members = child.model_executors or [child]
-            return sum(self.weights.prefetch(member._group_model_key) for member in members)
-
-        filling, refused = self._followers(self._plane_ranks(), command, "prefetch", own)
-        if refused:
-            return refused
-        return {"ok": True, "filling_bytes": filling}
 
     def map(self, command: Map) -> dict[str, Any]:
         """Map one loaded construction's weights onto this GPU now, inside the owner's cap:
@@ -5122,7 +5006,6 @@ _FOLLOWER_COMMANDS = frozenset(
         "vacate",
         "restore",
         "budget",
-        "prefetch",
         "probe",
         "shutdown",
     }
@@ -5190,7 +5073,7 @@ def main(argv: list[str] | None = None) -> int:
     kernel_cache.configure(kernel_cache.from_sealed(_SEALED))
     # cr-042: the executor's ONE network fence, installed BEFORE the seam dials so the
     # AF_UNIX exemption is exercised on every boot rather than asserted. It refuses
-    # Python-level egress from package and job code; it is not a kernel bound and
+    # Python-level egress from package code; it is not a kernel bound and
     # `sandbox.refuse_network` says exactly which adversary that leaves.
     sandbox.refuse_network(
         "the executor is handed verified files in its attempt spool and never an address "

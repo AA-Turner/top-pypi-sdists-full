@@ -59,31 +59,62 @@ class DecisionQuestionsContent:
 
         Values pass through ``prompt_safe_value``, the same door text parts
         use, so a question reads exactly what the text beside it reads.
+        Same rule as a text part (config/template_substitution.py): the escape and the
+        sections run too, even with no variables, on the AUTHORED text only — the first-seen
+        questions are kept as this part's authored template.
         Never drops the part: returns False always.
         """
-        if not variables:
-            return False
+        import copy
+
         from matrx_ai.config.prompt_values import prompt_safe_value
         from matrx_ai.config.template_substitution import substitute_authored
 
-        def fill(text: str) -> str:
+        from matrx_ai.config.template_substitution import FILLED_ATTR, restart_point
+
+        authored = getattr(self, "_authored_template", None)
+        if authored is None:
+            authored = copy.deepcopy(self.questions)
+            self._authored_template = authored
+        else:
+            # A refill restarts from the authored questions, never from filled text.
+            restart_point(self, self.questions, "a decision-questions part")
+            self.questions = copy.deepcopy(authored)
+        variables = variables or {}
+
+        def fill(text: str, template: Any) -> str:
             # One pass: a value's own braces are data, never re-filled.
-            return substitute_authored(text, text, variables, prompt_safe_value)
+            template = template if isinstance(template, str) else text
+            return substitute_authored(text, template, variables, prompt_safe_value, unescape=True)
+
+        def at(container: Any, key: Any) -> Any:
+            try:
+                return container[key]
+            except (KeyError, IndexError, TypeError):
+                return None
 
         filled: list[dict[str, Any]] = []
-        for question in self.questions:
+        for index, question in enumerate(self.questions):
             q = dict(question)
+            source = at(authored, index) or {}
             if isinstance(q.get("instructions"), str):
-                q["instructions"] = fill(q["instructions"])
+                q["instructions"] = fill(q["instructions"], at(source, "instructions"))
             criteria = q.get("criteria")
+            source_criteria = at(source, "criteria")
             if isinstance(criteria, dict):
-                q["criteria"] = {k: fill(v) if isinstance(v, str) else v for k, v in criteria.items()}
+                q["criteria"] = {
+                    k: fill(v, at(source_criteria, k)) if isinstance(v, str) else v
+                    for k, v in criteria.items()
+                }
             elif isinstance(criteria, list):
-                q["criteria"] = [fill(v) if isinstance(v, str) else v for v in criteria]
+                q["criteria"] = [
+                    fill(v, at(source_criteria, i)) if isinstance(v, str) else v
+                    for i, v in enumerate(criteria)
+                ]
             elif isinstance(criteria, str):
-                q["criteria"] = fill(criteria)
+                q["criteria"] = fill(criteria, source_criteria)
             filled.append(q)
         self.questions = filled
+        setattr(self, FILLED_ATTR, copy.deepcopy(filled))
         return False
 
     def get_output(self) -> str:

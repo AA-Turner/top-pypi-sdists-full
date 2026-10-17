@@ -408,22 +408,23 @@ def _spine_meter_call(usage) -> None:
 
 
 def _strip_ephemeral_for_storage(config: UnifiedConfig) -> None:
-    """Remove transient deferred-context content from a config before persistence.
+    """Remove this turn's transient context channel from a config before persistence.
 
-    Two pieces of state are attached on every turn by ``apply_context_objects``:
-    the ephemeral manifest block on the last user message, and the Tier 1
-    condensed block on ``SystemInstruction``. Both are re-attached fresh next
-    turn, so they must not survive into ``cx_message`` / ``cx_conversation``.
+    The per-turn context blocks (``MessageList.attach_turn_context``) are
+    re-attached fresh next turn, so they must not survive into ``cx_message``.
+    The turn-one context block on ``SystemInstruction`` (the organization
+    catalog) is NOT transient: it is part of the frozen prompt and stays.
     Idempotent — safe to call when nothing is attached.
     """
-    from matrx_ai.instructions.core import SystemInstruction
-
     config.messages.clear_turn_context()
-    # The first turn's context block is part of the system prompt that becomes
-    # the durable conversation prefix.  Later turns never receive a system
-    # block (the host places fresh context on the user message instead).
-    if config.system_prompt_frozen and isinstance(config.system_instruction, SystemInstruction):
-        config.system_instruction.clear_context_block()
+    # 🚨 THE SYSTEM CONTEXT BLOCK IS NEVER CLEARED HERE (cache line law,
+    # 2026-10-16). It is injected on turn ONE only (``apply_context_objects``
+    # gates it on ``not system_prompt_frozen``), so it is part of the frozen
+    # prompt the row stores. Clearing it once the per-turn barrier had frozen
+    # the prompt stripped the organization catalog off THIS object — the very
+    # object ``AgentCache`` hands the next turn on the same server task — so
+    # conversation 88a134af sent 8,764 -> 3,676 -> 8,764 system chars on three
+    # successive turns, a full cache miss on each flip.
 
 
 # ============================================================================
@@ -1859,10 +1860,35 @@ def _running_unattended() -> bool:
     """
     from matrx_connect.context.app_context import try_get_app_context
 
-    ctx = try_get_app_context()
+    return _is_workflow_step(try_get_app_context())
+
+
+#: Starters with no person watching: a workflow step, a schedule, or background system work.
+_UNATTENDED_STARTERS: frozenset[str] = frozenset({"workflow", "scheduled", "system"})
+
+
+def _is_workflow_step(ctx: Any) -> bool:
+    """True when nobody is watching this run: its TRUE starter is a workflow, a schedule or
+    background system work.
+
+    Reads the witnessed starter (``matrx_connect.true_starter_class``), not the context's
+    declared ``origin_class``: a mandate run forked from a workflow step declares
+    ``child_agent`` and read as attended. A context that DECLARES a person's class stays
+    attended (a person's run rebuilt by a worker has no route, so the witness alone would call
+    it ``system``). What "unattended" changes: the required-member gate FAILS loudly instead of
+    pausing for a person, and a loop-guard pause is recorded as a failed step. Gates keep
+    reading ``gate_origin_class``."""
     if ctx is None:
         return False
-    return str(getattr(ctx, "origin_class", "") or "") == "workflow"
+    declared = str(getattr(ctx, "origin_class", "") or "")
+    try:
+        from matrx_connect import ATTESTED_ORIGIN_CLASSES, true_starter_class
+
+        if declared in ATTESTED_ORIGIN_CLASSES:
+            return False
+        return true_starter_class(ctx) in _UNATTENDED_STARTERS
+    except Exception:  # noqa: BLE001 — an unreadable witness falls back to the declared class
+        return declared in _UNATTENDED_STARTERS
 
 
 def _loop_guard_meta(
@@ -1948,9 +1974,7 @@ def _required_member_gate(
         current_request.tool_call_history,
         active_tool_names=[t for t in (current_request.config.tools or []) if isinstance(t, str)],
     )
-    is_workflow = (
-        str(getattr(ctx, "origin_class", "") or "") == "workflow" if ctx is not None else False
-    )
+    is_workflow = _is_workflow_step(ctx)
     action = decide_required_member_action(
         report,
         already_intervened=state.required_member_intervened,
@@ -2249,11 +2273,7 @@ async def _finalize_handoff(
         )
         if not _rm_report.satisfied:
             _rm_missing = ", ".join(m.display for m in _rm_report.missing)
-            _rm_is_workflow = (
-                str(getattr(_rm_ctx, "origin_class", "") or "") == "workflow"
-                if _rm_ctx is not None
-                else False
-            )
+            _rm_is_workflow = _is_workflow_step(_rm_ctx)
             _handoff_meta["required_members_missing"] = [
                 {"agent_id": m.agent_id, "role_title": m.role_title} for m in _rm_report.missing
             ]
@@ -5395,6 +5415,7 @@ async def _execute_until_complete_inner(
                         system_text=(current_request.config.resolved_system_instruction or ""),
                         tool_names=_cache_prefix_tool_names(current_request.config),
                         raw_usage=api_response.usage.raw_usage or {},
+                        prefix_frozen=bool(current_request.config.system_prompt_frozen),
                     )
 
                 # Fold this call's cost into the tree-wide dollar budget. Parent

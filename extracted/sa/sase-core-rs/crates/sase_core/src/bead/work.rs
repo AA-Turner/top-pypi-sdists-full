@@ -5,6 +5,8 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use crate::dependency_waves::layer_dependency_waves;
+
 use super::read::read_store_issues;
 use super::wire::{
     BeadError, BeadTierWire, IssueTypeWire, IssueWire, PhaseSizeWire,
@@ -159,35 +161,19 @@ pub fn build_epic_work_plan_from_issues(
             )
         })
         .collect();
-    let mut waves: Vec<Vec<&str>> = Vec::new();
-    let mut placed: BTreeSet<&str> = BTreeSet::new();
-    let mut remaining = schedulable_phase_ids.clone();
-    while !remaining.is_empty() {
-        let mut ready: Vec<&str> = remaining
-            .iter()
-            .copied()
-            .filter(|pid| {
-                deps.get(pid)
-                    .is_some_and(|blockers| blockers.is_subset(&placed))
-            })
-            .collect();
-        ready.sort_by_key(|pid| sort_key.get(pid).copied().unwrap_or(("", "")));
-        if ready.is_empty() {
-            return Err(BeadError {
-                kind: "cycle".to_string(),
-                message: format!(
-                    "Cycle detected among phases of epic '{}': {}",
-                    epic_id,
-                    format_id_list(remaining.iter().copied())
-                ),
-            });
-        }
-        placed.extend(ready.iter().copied());
-        for pid in &ready {
-            remaining.remove(pid);
-        }
-        waves.push(ready);
+    let layered =
+        layer_dependency_waves(&schedulable_phase_ids, &deps, &sort_key);
+    if !layered.unresolved.is_empty() {
+        return Err(BeadError {
+            kind: "cycle".to_string(),
+            message: format!(
+                "Cycle detected among phases of epic '{}': {}",
+                epic_id,
+                format_id_list(layered.unresolved.iter().copied())
+            ),
+        });
     }
+    let waves = layered.waves;
 
     let assigned_waves = waves
         .iter()
@@ -640,5 +626,97 @@ mod tests {
                 .unwrap_err();
 
         assert_eq!(err.kind, "cycle");
+    }
+
+    #[test]
+    fn epic_launch_layers_match_clan_layers_for_declared_phase_waits() {
+        let p1 = phase("p1", "e1");
+        let mut p2 = phase("p2", "e1");
+        let mut p3 = phase("p3", "e1");
+        let mut p4 = phase("p4", "e1");
+        depends(&mut p2, "p1");
+        depends(&mut p3, "p1");
+        depends(&mut p4, "p2");
+        depends(&mut p4, "p3");
+        let plan = build_epic_work_plan_from_issues(
+            vec![epic("e1"), p1, p2, p3, p4],
+            "e1",
+        )
+        .unwrap();
+
+        let launch_rank: BTreeMap<&str, usize> = plan
+            .phase_bead_ids
+            .iter()
+            .enumerate()
+            .map(|(rank, bead_id)| (bead_id.as_str(), rank))
+            .collect();
+        let mut members = Vec::new();
+        for assignment in plan.waves.iter().flatten() {
+            members.push(crate::clan_waves::ClanWaveMemberWire {
+                key: assignment.bead_id.clone(),
+                name: format!("e1.{}", assignment.bead_id),
+                launch_key: format!(
+                    "{:02}",
+                    launch_rank[assignment.bead_id.as_str()]
+                ),
+                wait_for: assignment
+                    .waits_on
+                    .iter()
+                    .map(|name| format!("e1.{name}"))
+                    .collect(),
+                phase_bead_id: Some(assignment.bead_id.clone()),
+                ..Default::default()
+            });
+        }
+        members.push(crate::clan_waves::ClanWaveMemberWire {
+            key: "land".to_string(),
+            name: plan.land_agent_name.clone(),
+            launch_key: "99".to_string(),
+            wait_for: plan
+                .land_waits_on
+                .iter()
+                .map(|name| format!("e1.{name}"))
+                .collect(),
+            seal: true,
+            ..Default::default()
+        });
+        let clan = crate::clan_waves::project_clan_waves(
+            &crate::clan_waves::ClanWaveRequestWire {
+                clan_names: vec!["e1".to_string()],
+                members,
+            },
+        );
+
+        let planned = plan
+            .waves
+            .iter()
+            .map(|wave| {
+                wave.iter()
+                    .map(|assignment| format!("e1.{}", assignment.bead_id))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let projected = clan
+            .waves
+            .iter()
+            .filter(|wave| wave.number.is_some())
+            .map(|wave| {
+                wave.member_keys
+                    .iter()
+                    .map(|key| format!("e1.{key}"))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(projected, planned);
+        assert!(clan.has_seal);
+        assert!(clan.waves.last().unwrap().seal);
+        assert_eq!(
+            clan.members
+                .iter()
+                .find(|member| member.key == "land")
+                .unwrap()
+                .wave_index,
+            Some(plan.waves.len() as u32 + 1)
+        );
     }
 }

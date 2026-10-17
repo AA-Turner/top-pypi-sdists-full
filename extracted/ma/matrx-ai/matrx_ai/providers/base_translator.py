@@ -30,6 +30,12 @@ class BaseTranslator(ABC):
 
     debug: bool
 
+    #: THE CACHE LINE LAW: True = this translator places the per-turn context
+    #: block AFTER the cached prefix (``get_trailing_context_text``) instead of
+    #: in the system channel. Providers still False concatenate it into the
+    #: system text (no explicit cache line; see cache-line-law.md for the list).
+    TURN_CONTEXT_AFTER_CACHE_LINE: bool = False
+
     def __init__(self, debug: bool = False):
         self.debug = debug
 
@@ -119,6 +125,12 @@ class BaseTranslator(ABC):
         directive survives the chat-decoration stripping non-FC models undergo.
         """
         stable = self.get_stable_system_text(config)
+        if self.TURN_CONTEXT_AFTER_CACHE_LINE:
+            # THE CACHE LINE LAW (Arman, 2026-10-16): nothing behind the cache
+            # line changes between turns. This provider delivers the per-turn
+            # block AFTER the cached prefix (``get_trailing_context_text``), so
+            # the system channel is the frozen prompt alone.
+            return stable
         turn_context = self.get_turn_context_text(config)
         if not turn_context:
             return stable
@@ -153,6 +165,35 @@ class BaseTranslator(ABC):
         if render is None:
             return None
         return render()
+
+    def get_trailing_context_text(self, config: UnifiedConfig) -> str | None:
+        """Everything this send places AFTER the last prompt-cache line, or None.
+
+        🚨 THE CACHE LINE LAW (Arman, 2026-10-16): "NOTHING, other than the
+        removal of LARGE tool outputs should ever modify text behind the cache
+        line." The per-turn context block (live date and time, active
+        selection, value list, attached skills...) changes every turn, so on a
+        provider that sets ``TURN_CONTEXT_AFTER_CACHE_LINE`` it rides HERE —
+        after the conversation's newest block, as its own framed block (never
+        concatenated into the person's words) — and not in the system channel,
+        where it sat in front of the whole cached history and forced it to be
+        re-written on every turn (conversation 3787dd66: 53,807 tokens read,
+        49k-150k re-written, per turn). Never persisted: the next turn's
+        history is byte-identical to what this turn cached.
+
+        Followed by the tail channel (live plan) when the last message is a
+        tool result. Guard:
+        ``tests/test_nothing_behind_the_cache_line_changes_between_turns.py``.
+        """
+        parts: list[str] = []
+        if self.TURN_CONTEXT_AFTER_CACHE_LINE:
+            turn_context = self.get_turn_context_text(config)
+            if turn_context:
+                parts.append(turn_context)
+        tail = self.get_tail_context_text(config)
+        if tail:
+            parts.append(tail)
+        return "\n\n".join(parts) or None
 
     def get_tail_context_text(self, config: UnifiedConfig) -> str | None:
         """This send's TAIL-CHANNEL block, or None.

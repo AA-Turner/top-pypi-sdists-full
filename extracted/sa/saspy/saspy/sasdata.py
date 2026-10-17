@@ -684,42 +684,45 @@ class SASdata:
         dictionary that can be easily converted to a pyarrow.Schema.
 
         The dictionary structure is designed to be compatible with pyarrow schema:
-        {
-            "name": "table_name",
-            "libref": "library_reference",
-            "metadata": {
-                "memtype": "DATA|VIEW",
-                "memlabel": "dataset label",
-                "crdate": "datetime",
-                "modate": "datetime",
-                "filesize": 12345,
-                "nobs": 123,
-                "nvar": 4,
-                "encoding": "encoding",
-                "extended_attributes": {
-                    "custom_attr1": "value1",
-                    "custom_attr2": "value2"
-                }
-            },
-            "fields": [
-                {
-                    "name": "variable_name",
-                    "type": "arrow_type_string",
-                    "sortedby": 0,
-                    "nullable": True,
-                    "metadata": '{
-                        "sas_type": "char|num",
-                        "sas_format": "format",
-                        "sas_informat": "informat",
-                        "length": 8,
-                        "label": "variable label",
-                        "extended_attributes": {
-                            "var_attr1": "value1"
+
+        .. code-block:: json
+
+            {
+                "name": "table_name",
+                "libref": "library_reference",
+                "metadata": {
+                    "memtype": "DATA|VIEW",
+                    "memlabel": "dataset label",
+                    "crdate": "datetime",
+                    "modate": "datetime",
+                    "filesize": 12345,
+                    "nobs": 123,
+                    "nvar": 4,
+                    "encoding": "encoding",
+                    "extended_attributes": {
+                        "custom_attr1": "value1",
+                        "custom_attr2": "value2"
+                    }
+                },
+                "fields": [
+                    {
+                        "name": "variable_name",
+                        "type": "arrow_type_string",
+                        "sortedby": 0,
+                        "nullable": true,
+                        "metadata": {
+                            "sas_type": "char|num",
+                            "sas_format": "format",
+                            "sas_informat": "informat",
+                            "length": 8,
+                            "label": "variable label",
+                            "extended_attributes": {
+                                "var_attr1": "value1"
+                            }
                         }
-                    }'
-                }
-            ]
-        }
+                    }
+                ]
+            }
 
         Extended attributes are custom metadata that can be attached to datasets 
         and variables using PROC DATASETS XATTR statement.
@@ -814,7 +817,7 @@ class SASdata:
             for _, row in xattr_df.iterrows():
                 attr_name = str(row.get('xattr'))
                 attr_value = str(row.get('xvalue'))
-                var_name = row.get('name') if type(row.get('name')) is str else ''
+                var_name = row.get('name').lower() if type(row.get('name')) is str else ''
 
                 if not attr_name:
                     continue
@@ -896,8 +899,8 @@ class SASdata:
                 field_metadata = {k: v for k, v in column_metadata.items() if v is not None and v != ''}
 
                 # Add variable-level extended attributes
-                if var_name in var_extended_attrs.keys():
-                    field_metadata["extended_attributes"] = var_extended_attrs[var_name]
+                if var_name.lower() in var_extended_attrs.keys():
+                    field_metadata["extended_attributes"] = var_extended_attrs[var_name.lower()]
 
                 field = {
                     "name": var_name,

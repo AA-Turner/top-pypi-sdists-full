@@ -67,6 +67,7 @@ Anti-patterns
 from __future__ import annotations
 
 import hashlib
+import uuid
 import logging
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -526,6 +527,9 @@ class Judge:
             raise JudgeError(f"judge {contract.key!r}: {exc}") from exc
         model = held.pick_model(contract.model)
         api_key = self._api_key or resolve_api_key("ANTHROPIC_API_KEY")
+        # The judge's own stored conversation: a caller reads its measured cost and the exact
+        # request it sent (Agent Evaluation's input-integrity check) by this id.
+        conversation_id = str(uuid.uuid4())
         try:
             verdict = await run_held_pydantic(
                 held,
@@ -538,10 +542,16 @@ class Judge:
                 api_keys={"ANTHROPIC_API_KEY": api_key} if api_key else None,
                 system_run=True,
                 store=True,
+                conversation_id=conversation_id,
             )
         except (StrictJsonError, RuntimeError) as exc:
             raise JudgeError(f"judge {contract.key!r} failed through the funnel: {exc}") from exc
-        return verdict, {"runner": "funnel", "model": model, "mandate": mandate_key}
+        return verdict, {
+            "runner": "funnel",
+            "model": model,
+            "mandate": mandate_key,
+            "conversation_id": conversation_id,
+        }
 
     async def _run_mandated(
         self,

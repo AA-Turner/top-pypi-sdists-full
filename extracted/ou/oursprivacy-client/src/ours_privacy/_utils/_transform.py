@@ -19,10 +19,11 @@ from ._utils import (
     is_sequence,
 )
 from .._files import is_base64_file_input
-from ._compat import get_origin, is_typeddict
+from ._compat import is_typeddict
 from ._typing import (
     is_list_type,
     is_union_type,
+    is_mapping_type,
     extract_type_arg,
     is_iterable_type,
     is_required_type,
@@ -175,11 +176,10 @@ def _transform_recursive(
         inner_type = annotation
 
     stripped_type = strip_annotated_type(inner_type)
-    origin = get_origin(stripped_type) or stripped_type
     if is_typeddict(stripped_type) and is_mapping(data):
         return _transform_typeddict(data, stripped_type)
 
-    if origin == dict and is_mapping(data):
+    if is_mapping_type(stripped_type) and is_mapping(data):
         items_type = get_args(stripped_type)[1]
         return {key: _transform_recursive(value, annotation=items_type) for key, value in data.items()}
 
@@ -341,11 +341,10 @@ async def _async_transform_recursive(
         inner_type = annotation
 
     stripped_type = strip_annotated_type(inner_type)
-    origin = get_origin(stripped_type) or stripped_type
     if is_typeddict(stripped_type) and is_mapping(data):
         return await _async_transform_typeddict(data, stripped_type)
 
-    if origin == dict and is_mapping(data):
+    if is_mapping_type(stripped_type) and is_mapping(data):
         items_type = get_args(stripped_type)[1]
         return {key: _transform_recursive(value, annotation=items_type) for key, value in data.items()}
 

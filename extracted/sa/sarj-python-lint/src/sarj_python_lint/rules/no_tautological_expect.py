@@ -34,30 +34,65 @@ _FAIL = "fail"
 # Enough of the operand to identify it in the message without pasting a screenful.
 _OPERAND_PREVIEW_CHARS = 40
 _UNKNOWN = object()
+_DEFERRED_TRUTHY = object()
 
 
 class NoTautologicalExpect(Rule):
     id: str = "no-statically-truthy-assertion"
     code: str = "SARJ057"
     documentation: ClassVar[RuleDocumentation | None] = RuleDocumentation(
-        summary="An assertion condition is statically truthy, including test-local scalar setup.",
+        summary="An assertion condition is statically truthy, including deferred expressions and test-local scalar setup.",
         rationale=(
             "A condition that stays truthy whenever evaluation succeeds cannot reject an incorrect result and often "
-            "means the intended condition was wrapped in a container or placed in the message slot."
+            "means the intended condition was wrapped in a container, deferred without execution, or placed in the message slot."
         ),
         remediation=(
             "Assert an explicit runtime-derived condition. If the test only requires an operation not to raise, "
-            "evaluate it directly and retain any meaningful follow-up assertion."
+            "evaluate it directly and retain any meaningful follow-up assertion. Consume generator values or call "
+            "the lambda when their result is the contract; choose empty-input behavior explicitly."
         ),
         category=RuleCategory.TESTING,
         aliases=("no-tautological-expect",),
         limitations=(
-            "Detection covers truthy scalar constants and definitely non-empty list, set, and dict displays.",
+            "Detection covers truthy scalar constants, definitely non-empty list/set/dict displays, and directly asserted or locally bound generator expressions and lambdas.",
+            "Generator consumption, lambda invocation, comprehensions, and runtime iterator/callable values are not inferred; empty universal-quantification contracts remain valid.",
             "Test-local immutable scalar bindings and their aliases are tracked only through straight-line assignments; calls, control flow, mutable values, and global/nonlocal writes invalidate tracking.",
+            "Locally created generator/lambda objects and aliases are tracked for truthiness only; their creation clears earlier setup facts, and comparisons, consumption, invocation, and runtime-created iterators/callables are not inferred.",
+            "Pure Boolean conditions, compatible numeric/string/bytes ordering and chained comparisons over known scalar setup are evaluated; proven-true pure assertions retain bindings because their messages do not execute.",
             "Ruff owns asserted strings and tuples, literal comparisons and identity, and unittest-style assertion methods.",
             "Generated files, always-failing assertions, deliberate match-arm success markers, and runtime-value comparisons are excluded.",
         ),
         examples=(
+            RuleExample(
+                example_id="unconsumed-generator",
+                scenario="deferred-condition",
+                title="A generator object does not check the yielded conditions",
+                outcome=ExampleOutcome.MATCH,
+                files=(
+                    ExampleFile.python(
+                        "tests/test_service.py",
+                        "def test_values(rows):\n    checks = (row.is_valid for row in rows)\n    assert checks\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("tests/test_service.py"),
+                expected_count=1,
+                public=True,
+            ),
+            RuleExample(
+                example_id="consumed-generator",
+                scenario="deferred-condition",
+                title="Consume the conditions when the contract requires every row to be valid",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(
+                    ExampleFile.python(
+                        "tests/test_service.py",
+                        "def test_values(rows):\n    checks = (row.is_valid for row in rows)\n    assert all(checks)\n",
+                    ),
+                ),
+                focus_path=PurePosixPath("tests/test_service.py"),
+                expected_count=0,
+                public=True,
+            ),
             RuleExample(
                 example_id="setup-only-oracle",
                 scenario="setup-only",
@@ -164,12 +199,13 @@ def _function_bound_tautologies(function: ast.FunctionDef | ast.AsyncFunctionDef
     for statement in function.body:
         if _record_scalar_assignment(statement, bindings):
             continue
-        if isinstance(statement, ast.Assert):
+        if isinstance(statement, ast.Assert) and bindings and _scalar_condition(statement.test, bindings) is True:
             references_setup = any(
                 isinstance(node, ast.Name) and node.id in bindings for node in ast.walk(statement.test)
             )
-            if references_setup and _scalar_condition(statement.test, bindings) is True:
-                found.append(_Tautology(statement, "the condition follows only from unchanged scalar setup"))
+            if references_setup:
+                found.append(_Tautology(statement, "the condition follows only from unchanged test-local setup"))
+            continue
         bindings.clear()
     return found
 
@@ -179,6 +215,11 @@ def _record_scalar_assignment(statement: ast.stmt, bindings: dict[str, object]) 
         case (
             ast.Assign(targets=[ast.Name(id=name)], value=value) | ast.AnnAssign(target=ast.Name(id=name), value=value)
         ) if value is not None:
+            if isinstance(value, (ast.GeneratorExp, ast.Lambda)):
+                # Outer iterables and defaults execute now and can write earlier bindings.
+                bindings.clear()
+                bindings[name] = _DEFERRED_TRUTHY
+                return True
             scalar = _scalar_value(value, bindings)
             if scalar is not _UNKNOWN:
                 bindings[name] = scalar
@@ -207,24 +248,57 @@ def _scalar_value(node: ast.expr, bindings: dict[str, object]) -> object:
 
 
 def _scalar_condition(node: ast.expr, bindings: dict[str, object]) -> bool | None:
-    if isinstance(node, ast.Compare) and len(node.ops) == 1:
-        left = _scalar_value(node.left, bindings)
-        right = _scalar_value(node.comparators[0], bindings)
-        if left is _UNKNOWN or right is _UNKNOWN:
+    if isinstance(node, ast.BoolOp):
+        values = [_scalar_condition(value, bindings) for value in node.values]
+        if None in values:
             return None
-        match node.ops[0]:
-            case ast.Eq():
-                return left == right
-            case ast.NotEq():
-                return left != right
-            case ast.Is() if left is None or isinstance(left, bool):
-                return left is right
-            case ast.IsNot() if left is None or isinstance(left, bool):
-                return left is not right
-            case _:
-                return None
+        return all(values) if isinstance(node.op, ast.And) else any(values)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+        value = _scalar_condition(node.operand, bindings)
+        return None if value is None else not value
+    if isinstance(node, ast.Compare):
+        values = [_scalar_value(value, bindings) for value in (node.left, *node.comparators)]
+        results = list(map(_scalar_relation, values[:-1], values[1:], node.ops, strict=True))
+        return None if None in results else all(results)
     value = _scalar_value(node, bindings)
     return None if value is _UNKNOWN else bool(value)
+
+
+def _scalar_relation(left: object, right: object, op: ast.cmpop) -> bool | None:
+    if left is _UNKNOWN or right is _UNKNOWN or left is _DEFERRED_TRUTHY or right is _DEFERRED_TRUTHY:
+        return None
+    match op:
+        case ast.Eq():
+            return left == right
+        case ast.NotEq():
+            return left != right
+        case ast.Is() if left is None or right is None or isinstance(left, bool) or isinstance(right, bool):
+            return left is right
+        case ast.IsNot() if left is None or right is None or isinstance(left, bool) or isinstance(right, bool):
+            return left is not right
+        case _:
+            pass
+    if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+        return _ordered_relation(left, right, op)
+    if isinstance(left, str) and isinstance(right, str):
+        return _ordered_relation(left, right, op)
+    if isinstance(left, bytes) and isinstance(right, bytes):
+        return _ordered_relation(left, right, op)
+    return None
+
+
+def _ordered_relation[T: (int | float, str, bytes)](left: T, right: T, op: ast.cmpop) -> bool | None:
+    match op:
+        case ast.Lt():
+            return left < right
+        case ast.LtE():
+            return left <= right
+        case ast.Gt():
+            return left > right
+        case ast.GtE():
+            return left >= right
+        case _:
+            return None
 
 
 def _exempt_nodes(tree: ast.Module, *, node_index: NodeIndex | None = None) -> set[ast.AST]:
@@ -273,6 +347,10 @@ def _fixed_truth_reason(test: ast.expr) -> str | None:
     kind = _nonempty_container_kind(test)
     if kind is not None:
         return f"a non-empty {kind} display is truthy whatever it contains"
+    if isinstance(test, ast.GeneratorExp):
+        return "a generator expression creates a truthy iterator without checking its yielded values"
+    if isinstance(test, ast.Lambda):
+        return "a lambda expression creates a truthy function without calling its body"
     return None
 
 

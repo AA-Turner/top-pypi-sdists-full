@@ -141,9 +141,7 @@ def test_end_tests_includes_experiment_metadata():
     client = _make_client(dataset, experiment)
 
     user_meta = {"model": "gpt-4o", "env": "staging"}
-    suite = _LangSmithTestSuite(
-        client, experiment, dataset, experiment_metadata=user_meta
-    )
+    suite = _LangSmithTestSuite(client, experiment, dataset, experiment_metadata=user_meta)
     # Prevent the atexit handler registered in __init__ from running during the test
     suite._executor = MagicMock()
     suite._executor.shutdown = MagicMock()
@@ -170,18 +168,14 @@ def test_end_tests_system_keys_take_precedence():
     client = _make_client(dataset, experiment)
 
     user_meta = {"__ls_runner": "custom", "revision_id": "user-rev"}
-    suite = _LangSmithTestSuite(
-        client, experiment, dataset, experiment_metadata=user_meta
-    )
+    suite = _LangSmithTestSuite(client, experiment, dataset, experiment_metadata=user_meta)
     suite._executor = MagicMock()
     suite._executor.shutdown = MagicMock()
     suite._dataset_version = None
 
     with patch("langsmith.testing._internal.ls_env") as mock_env:
         mock_env.get_git_info.return_value = {}
-        mock_env.get_langchain_env_var_metadata.return_value = {
-            "revision_id": "sys-rev"
-        }
+        mock_env.get_langchain_env_var_metadata.return_value = {"revision_id": "sys-rev"}
         _end_tests(suite)
 
     _, update_kwargs = client.update_project.call_args
@@ -239,9 +233,7 @@ def test_git_remote_sanitized_in_evaluation_project_payloads(
     client.create_project.return_value = experiment
     _patch_git_remote(monkeypatch, raw_remote_url)
     try:
-        manager = _ExperimentManager(
-            [example], experiment="my-experiment", client=client, num_examples=1
-        )
+        manager = _ExperimentManager([example], experiment="my-experiment", client=client, num_examples=1)
         started_manager = manager.start()
         _, create_kwargs = client.create_project.call_args
         create_metadata = create_kwargs["metadata"]
@@ -281,14 +273,10 @@ def test_from_test_passes_experiment_metadata():
             return_value="my-suite",
         ),
         patch("langsmith.testing._internal._get_test_suite", return_value=dataset),
-        patch(
-            "langsmith.testing._internal._start_experiment", return_value=experiment
-        ) as mock_start,
+        patch("langsmith.testing._internal._start_experiment", return_value=experiment) as mock_start,
         patch.object(_LangSmithTestSuite, "_instances", {}),
     ):
-        suite = _LangSmithTestSuite.from_test(
-            client, dummy_func, experiment_metadata=user_meta
-        )
+        suite = _LangSmithTestSuite.from_test(client, dummy_func, experiment_metadata=user_meta)
 
     mock_start.assert_called_once_with(client, dataset, user_meta)
     assert suite.experiment_metadata == user_meta
@@ -332,9 +320,7 @@ def test_env_var_experiment_metadata(monkeypatch):
 
     with (
         patch("langsmith.testing._internal._get_test_suite", return_value=dataset),
-        patch(
-            "langsmith.testing._internal._start_experiment", return_value=experiment
-        ) as mock_start,
+        patch("langsmith.testing._internal._start_experiment", return_value=experiment) as mock_start,
         patch.object(_LangSmithTestSuite, "_instances", {}),
     ):
         _create_test_case(

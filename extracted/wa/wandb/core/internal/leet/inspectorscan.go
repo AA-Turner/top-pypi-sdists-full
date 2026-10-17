@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"time"
 
@@ -170,7 +169,8 @@ func recordSummary(record *spb.Record) string {
 	case *spb.Record_Run:
 		return sanitizeRecordSummary(t.Run.GetRunId())
 	case *spb.Record_History:
-		return fmt.Sprintf("step %d", historyStep(t.History))
+		step, _ := historyStep(t.History)
+		return fmt.Sprintf("step %d", step)
 	case *spb.Record_Stats:
 		if ts := t.Stats.GetTimestamp(); ts != nil {
 			return time.Unix(ts.GetSeconds(), 0).Format("15:04:05")
@@ -205,21 +205,21 @@ func recordSummary(record *spb.Record) string {
 }
 
 // historyStep extracts the step from a history record, falling back to the
-// "_step" item for records without an explicit step.
-func historyStep(h *spb.HistoryRecord) int64 {
+// "_step" item for records without an explicit step. It returns false for
+// records with neither, such as those of shared-mode runs.
+func historyStep(h *spb.HistoryRecord) (int64, bool) {
 	if step := h.GetStep(); step != nil {
-		return step.GetNum()
+		return step.GetNum(), true
 	}
 	for _, item := range h.GetItem() {
 		if historyItemKey(item) != "_step" {
 			continue
 		}
-		v, err := strconv.ParseInt(strings.TrimSpace(item.GetValueJson()), 10, 64)
-		if err == nil {
-			return v
+		if v, ok := historyItemStep(item); ok {
+			return v, true
 		}
 	}
-	return 0
+	return 0, false
 }
 
 func countSummary(n int, noun string) string {

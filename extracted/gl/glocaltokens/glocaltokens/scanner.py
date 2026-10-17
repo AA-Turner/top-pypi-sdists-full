@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 from threading import Event
-from typing import TYPE_CHECKING, NamedTuple
+import time
+from typing import TYPE_CHECKING, NamedTuple, override
 
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 
-from .const import DISCOVERY_TIMEOUT, GOOGLE_CAST_GROUP
+from .const import DISCOVERY_TIMEOUT, GOOGLE_CAST_GROUP, SERVICE_INFO_TIMEOUT
 from .utils import network as net_utils
 
 if TYPE_CHECKING:
@@ -39,9 +40,14 @@ class CastListener(ServiceListener):
         add_callback: Callable[[], None] | None = None,
         remove_callback: Callable[[], None] | None = None,
         update_callback: Callable[[], None] | None = None,
+        deadline: float | None = None,
     ):
-        """Create cast listener."""
+        """Create cast listener.
+
+        deadline: time.monotonic() value after which service lookups stop.
+        """
         self.devices: dict[str, NetworkDevice] = {}
+        self.deadline = deadline
         self.add_callback = add_callback
         self.remove_callback = remove_callback
         self.update_callback = update_callback
@@ -51,16 +57,19 @@ class CastListener(ServiceListener):
         """Number of discovered cast services."""
         return len(self.devices)
 
+    @override
     def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:
         """Add a service to the collection."""
         LOGGER.debug("add_service %s, %s", type_, name)
         self._add_update_service(zc, type_, name, self.add_callback)
 
+    @override
     def update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
         """Update a service in the collection."""
         LOGGER.debug("update_service %s, %s", type_, name)
         self._add_update_service(zc, type_, name, self.update_callback)
 
+    @override
     def remove_service(self, _zc: Zeroconf, type_: str, name: str) -> None:
         """Remove a cast device when its mDNS info expires or the host is down."""
         LOGGER.debug("remove_service %s, %s", type_, name)
@@ -83,8 +92,19 @@ class CastListener(ServiceListener):
         service = None
         tries = 0
         while service is None and tries < 4:
+            lookup_timeout = SERVICE_INFO_TIMEOUT
+            if self.deadline is not None:
+                lookup_timeout = min(
+                    lookup_timeout, int((self.deadline - time.monotonic()) * 1000)
+                )
+                if lookup_timeout <= 0:
+                    # Out of time: still use details zeroconf already has.
+                    cached = ServiceInfo(type_, name)
+                    if cached.load_from_cache(zc):
+                        service = cached
+                    break
             try:
-                service = zc.get_service_info(type_, name)
+                service = zc.get_service_info(type_, name, timeout=lookup_timeout)
             except OSError:
                 # If the zeroconf fails to receive the necessary data we abort
                 # adding the service
@@ -140,7 +160,11 @@ class CastListener(ServiceListener):
 
         if value is None or isinstance(value, str):
             return value
-        return value.decode("utf-8")
+        try:
+            return value.decode("utf-8")
+        except UnicodeDecodeError:
+            LOGGER.debug("Service %s has an invalid %s value", service.name, key)
+            return None
 
 
 def discover_devices(
@@ -148,50 +172,59 @@ def discover_devices(
     max_devices: int | None = None,
     timeout: int = DISCOVERY_TIMEOUT,
     zeroconf_instance: Zeroconf | None = None,
-    logging_level: int = logging.ERROR,
+    logging_level: int | None = None,
 ) -> list[NetworkDevice]:
     """Discover devices."""
-    LOGGER.setLevel(logging_level)
+    # Leave the level to the application unless the caller asks for one.
+    if logging_level is not None:
+        LOGGER.setLevel(logging_level)
 
     LOGGER.debug("Discovering devices...")
 
+    def is_wanted(device: NetworkDevice) -> bool:
+        return device.model != GOOGLE_CAST_GROUP and (
+            not models_list or device.model in models_list
+        )
+
     def callback() -> None:
         """Handle the event when zeroconf discovers a new device."""
-        if max_devices is not None and listener.count >= max_devices:
+        if max_devices is not None and (
+            sum(map(is_wanted, listener.devices.values())) >= max_devices
+        ):
             discovery_complete.set()
 
     LOGGER.debug("Creating new Event for discovery completion...")
     discovery_complete = Event()
     LOGGER.debug("Creating new CastListener...")
-    listener = CastListener(add_callback=callback)
+    listener = CastListener(add_callback=callback, deadline=time.monotonic() + timeout)
     if not zeroconf_instance:
         LOGGER.debug("Creating new Zeroconf instance")
         zc = Zeroconf()
     else:
         LOGGER.debug("Using attribute Zeroconf instance")
         zc = zeroconf_instance
-    LOGGER.debug("Creating zeroconf service browser for _googlecast._tcp.local.")
-    service_browser = ServiceBrowser(zc, "_googlecast._tcp.local.", listener)
-
-    # Wait for the timeout or the maximum number of devices
-    LOGGER.debug("Waiting for discovery completion...")
-    discovery_complete.wait(timeout)
-
-    # Stop discovery
-    service_browser.cancel()
-    service_browser.zc.close()
+    try:
+        LOGGER.debug("Creating zeroconf service browser for _googlecast._tcp.local.")
+        service_browser = ServiceBrowser(zc, "_googlecast._tcp.local.", listener)
+        try:
+            # Wait for the timeout or the maximum number of devices
+            LOGGER.debug("Waiting for discovery completion...")
+            discovery_complete.wait(timeout)
+        finally:
+            # Stop discovery
+            service_browser.cancel()
+    finally:
+        # A supplied instance belongs to the caller, who may still be using it.
+        if not zeroconf_instance:
+            zc.close()
 
     devices: list[NetworkDevice] = []
     LOGGER.debug("Got %d devices. Iterating...", listener.count)
     for device in listener.devices.values():
-        if models_list and device.model not in models_list:
+        if not is_wanted(device):
             LOGGER.debug(
-                'Skip discovered device since model "%s" is not in models_list',
-                device.model,
+                'Skip discovered device "%s" with model "%s"', device.name, device.model
             )
-            continue
-        if device.model == GOOGLE_CAST_GROUP:
-            LOGGER.debug("Skip discovered cast group: %s", device.name)
             continue
         LOGGER.debug("Add discovered device: %s", device)
         devices.append(device)

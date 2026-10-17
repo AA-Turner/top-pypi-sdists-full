@@ -8,9 +8,14 @@ so `make sync-tap-core` vendors it as `tap/companion_rules.md`, and its detailed
 
 from pathlib import Path
 
+import pytest
+
+from tests.held_for_plugin_release import HELD_SKILLS, REASON
+
 AGENT = Path(__file__).resolve().parents[1]
 
 
+@pytest.mark.xfail("track-work" in HELD_SKILLS, strict=True, reason=REASON)
 def test_the_daemon_reads_the_same_rules_as_the_agent():
     """The same base; a daemon reads the WRITER's version of it (skill_versions)."""
     from probe import skill_versions

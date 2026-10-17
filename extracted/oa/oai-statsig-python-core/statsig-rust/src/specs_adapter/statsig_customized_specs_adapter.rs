@@ -4,6 +4,7 @@ use super::StatsigHttpSpecsAdapter;
 use super::statsig_data_store_specs_adapter::StatsigDataStoreSpecsAdapter;
 use super::{SpecAdapterConfig, SpecsAdapterType};
 use crate::data_store_interface::DataStoreTrait;
+use crate::spec_store::SpecStore;
 use crate::{SpecsAdapter, SpecsUpdateListener, StatsigOptions, log_i, log_w};
 use crate::{StatsigErr, StatsigRuntime};
 use async_trait::async_trait;
@@ -18,9 +19,17 @@ const TAG: &str = stringify!(StatsigCustomizedSpecsAdapter);
 
 pub struct StatsigCustomizedSpecsAdapter {
     adapters: Vec<Arc<dyn SpecsAdapter>>,
+    http_adapters: Vec<Arc<StatsigHttpSpecsAdapter>>,
 }
 
 impl StatsigCustomizedSpecsAdapter {
+    pub(crate) fn initialize_spec_store(&self, store: Arc<SpecStore>) {
+        self.initialize(store.clone());
+        for adapter in &self.http_adapters {
+            adapter.initialize_spec_store(store.clone());
+        }
+    }
+
     pub fn new_from_config(
         sdk_key: &str,
         data_store_key: &str,
@@ -28,6 +37,7 @@ impl StatsigCustomizedSpecsAdapter {
         options: &StatsigOptions,
     ) -> Self {
         let mut adapters: Vec<Arc<dyn SpecsAdapter>> = Vec::new();
+        let mut http_adapters = Vec::new();
         // DataStore can replay raw protobuf written by a configured HTTP
         // adapter. Prefer its own source, then the first configured HTTP
         // source, instead of silently falling back to global options.
@@ -45,11 +55,13 @@ impl StatsigCustomizedSpecsAdapter {
                 }
                 SpecsAdapterType::NetworkHttp => {
                     // Since strategies is an order list, we will just use i
-                    adapters.push(Arc::new(StatsigHttpSpecsAdapter::new(
+                    let adapter = Arc::new(StatsigHttpSpecsAdapter::new(
                         sdk_key,
                         Some(options),
                         config.specs_url.clone(),
-                    )));
+                    ));
+                    adapters.push(adapter.clone());
+                    http_adapters.push(adapter);
                 }
                 SpecsAdapterType::DataStore => match options.data_store.clone() {
                     Some(data_store) => {
@@ -68,7 +80,10 @@ impl StatsigCustomizedSpecsAdapter {
             }
         }
 
-        StatsigCustomizedSpecsAdapter { adapters }
+        StatsigCustomizedSpecsAdapter {
+            adapters,
+            http_adapters,
+        }
     }
 
     pub fn new_from_data_store(
@@ -84,10 +99,13 @@ impl StatsigCustomizedSpecsAdapter {
             Some(options),
             None,
         );
-        let http_adapter = StatsigHttpSpecsAdapter::new(sdk_key, Some(options), None);
+        let http_adapter = Arc::new(StatsigHttpSpecsAdapter::new(sdk_key, Some(options), None));
         let adapters: Vec<Arc<dyn SpecsAdapter>> =
-            vec![Arc::new(data_store_spec_adapter), Arc::new(http_adapter)];
-        StatsigCustomizedSpecsAdapter { adapters }
+            vec![Arc::new(data_store_spec_adapter), http_adapter.clone()];
+        StatsigCustomizedSpecsAdapter {
+            adapters,
+            http_adapters: vec![http_adapter],
+        }
     }
 
     #[cfg(feature = "with_grpc")]

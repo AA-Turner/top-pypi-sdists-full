@@ -1,7 +1,7 @@
 """Message FLAGS — an instruction to the translator about a message, never content.
 
 The primitives table (common-docs/systems/agents/typed-messages/FEATURE.md) names
-three flags an author sets on a message. The provider never sees a flag as
+the flags an author sets on a message. The provider never sees a flag as
 content; each translator decides what it means on its wire:
 
 * ``prefill`` — a TRAILING assistant message the reply must continue from.
@@ -9,10 +9,8 @@ content; each translator decides what it means on its wire:
   (Anthropic removed it on Sonnet 5 / Opus 5 / Fable / the 4.6-4.8 line; OpenAI
   and Gemini never had it). Once the reply exists the prefill is CONSUMED: the
   reply carries its text, and the flagged message never reaches a wire again.
-* ``cache_boundary`` — "cache everything up to and including this message".
-  Anthropic: a ``cache_control`` breakpoint on the message's last block. OpenAI
-  caches prefixes automatically; Gemini caches implicitly — both announce a
-  no-op instead of pretending.
+* (``cache_boundary`` was retired 2026-10-16: the platform places every cache mark
+  itself — config/cache_marks.py — and the long cache is an agent setting.)
 * ``example`` — a few-shot turn. Sent as an ordinary turn; the flag rides the
   persisted message metadata so the runner collapses example pairs.
 
@@ -36,7 +34,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-FLAG_KEYS: tuple[str, ...] = ("prefill", "cache_boundary", "example")
+FLAG_KEYS: tuple[str, ...] = ("prefill", "example")
 
 #: Where a runtime message keeps its flags (cx_message.metadata round-trips it).
 FLAGS_METADATA_KEY = "flags"
@@ -55,15 +53,6 @@ DEFAULT_COMPAT_MODE: CompatMode = "refuse"
 #: The knob the host resolves (feature, key).
 COMPAT_MODE_KNOB = ("agents.messages", "flag_compatibility_mode")
 
-CacheBoundarySupport = Literal["breakpoint", "automatic", "implicit", "none"]
-
-#: How each chat wire honours a cache boundary. A wire not listed = "none".
-CACHE_BOUNDARY_BY_WIRE: dict[str, CacheBoundarySupport] = {
-    "anthropic_chat": "breakpoint",
-    "openai_chat": "automatic",
-    "google_chat": "implicit",
-}
-
 CONVERT_PREFILL_SLOT = "prefill"
 
 
@@ -73,7 +62,6 @@ class MessageFlags(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     prefill: bool | None = None
-    cache_boundary: bool | None = None
     example: bool | None = None
 
     def as_dict(self) -> dict[str, bool]:
@@ -153,7 +141,6 @@ def validate_message_flags(messages: Sequence[Any]) -> None:
 
     * ``example`` — user or assistant messages only.
     * ``prefill`` — only the LAST message, only an assistant, and it must carry text.
-    * ``cache_boundary`` — any message.
     """
     last = len(messages) - 1
     for index, message in enumerate(messages):
@@ -189,7 +176,6 @@ class FlagPlan:
     prefill_mode: Literal["native", "convert", "drop"] | None = None
     notes: list[str] = field(default_factory=list)
     convert_instruction: str | None = None
-    cache_boundaries: int = 0
     examples: int = 0
     #: The trailing prefill message itself (the live object), so the answer
     #: can retire it once the reply carries its text.
@@ -216,7 +202,6 @@ def plan_message_flags(
     messages: Sequence[Any],
     *,
     supports_prefill: bool,
-    cache_boundary_support: CacheBoundarySupport,
     model_label: str,
     mode: Any = DEFAULT_COMPAT_MODE,
 ) -> FlagPlan:
@@ -233,8 +218,6 @@ def plan_message_flags(
         flags = flags_of(message)
         if flags.get("example"):
             plan.examples += 1
-        if flags.get("cache_boundary"):
-            plan.cache_boundaries += 1
         if flags.get("prefill") and _role_of(message) == "assistant":
             if index != last:
                 continue  # consumed — its text lives at the start of the reply
@@ -268,13 +251,6 @@ def plan_message_flags(
             continue
         wire.append(message)
 
-    if plan.cache_boundaries and cache_boundary_support != "breakpoint":
-        why = {
-            "automatic": "this provider caches repeated prompt prefixes automatically, so nothing extra is sent",
-            "implicit": "this provider caches repeated prompt prefixes implicitly; explicit context caching is not used, so nothing extra is sent",
-            "none": "this provider has no prompt caching, so nothing is sent",
-        }[cache_boundary_support]
-        plan.notes.append(f"Cache boundary on {model_label}: {why}.")
     return plan
 
 

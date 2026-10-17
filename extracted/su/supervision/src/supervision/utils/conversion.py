@@ -4,7 +4,6 @@ from typing import Any, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
-from deprecate import deprecated, void  # type: ignore[import-untyped,unused-ignore]
 from PIL import Image
 
 from supervision import _cv2 as cv2
@@ -16,10 +15,9 @@ F = TypeVar("F", bound=Callable[..., Any])
 def ensure_cv2_image_for_class_method(
     annotate_func: F,
 ) -> F:
-    """
-    Decorates `BaseAnnotator.annotate` implementations, converts scene to
-    an image type used internally by the annotators, converts back when annotation
-    is complete.
+    """Decorates :meth:`~supervision.annotators.base.BaseAnnotator.annotate`
+    implementations, converts scene to an image type used internally by the annotators,
+    and converts back when annotation is complete.
 
     Assumes the annotators modify the scene in-place.
 
@@ -43,23 +41,11 @@ def ensure_cv2_image_for_class_method(
     return cast(F, wrapper)
 
 
-@deprecated(  # type: ignore[untyped-decorator]
-    target=ensure_cv2_image_for_class_method,
-    deprecated_in="0.27.0",
-    remove_in="0.31.0",
-)
-def ensure_cv2_image_for_annotation(
-    annotate_func: F,
-) -> F:
-    return cast(F, void(annotate_func))
-
-
 def ensure_cv2_image_for_standalone_function(
     image_processing_fun: F,
 ) -> F:
-    """
-    Decorates image processing functions that accept np.ndarray, converting `image` to
-    np.ndarray, converts back when processing is complete.
+    """Decorates image processing functions that accept np.ndarray, converting `image`
+    to np.ndarray, converts back when processing is complete.
 
     Assumes the annotators do NOT modify the scene in-place.
 
@@ -85,9 +71,8 @@ def ensure_cv2_image_for_standalone_function(
 def ensure_pil_image_for_class_method(
     annotate_func: F,
 ) -> F:
-    """
-    Decorates image processing functions that accept np.ndarray, converting `image` to
-    PIL image, converts back when processing is complete.
+    """Decorates image processing functions that accept np.ndarray, converting `image`
+    to PIL image, converts back when processing is complete.
 
     Assumes the annotators modify the scene in-place.
 
@@ -111,34 +96,11 @@ def ensure_pil_image_for_class_method(
     return cast(F, wrapper)
 
 
-@deprecated(  # type: ignore[untyped-decorator]
-    target=ensure_pil_image_for_class_method,
-    deprecated_in="0.27.0",
-    remove_in="0.31.0",
-)
-def ensure_pil_image_for_annotation(
-    annotate_func: F,
-) -> F:
-    return cast(F, void(annotate_func))
-
-
-@deprecated(  # type: ignore[untyped-decorator]
-    target=ensure_cv2_image_for_standalone_function,
-    deprecated_in="0.27.0",
-    remove_in="0.31.0",
-)
-def ensure_cv2_image_for_processing(
-    image_processing_fun: F,
-) -> F:
-    return cast(F, void(image_processing_fun))
-
-
 def images_to_cv2(
     images: list[npt.NDArray[np.uint8] | Image.Image],
 ) -> list[npt.NDArray[np.uint8]]:
-    """
-    Converts images provided either as Pillow images or OpenCV
-    images into OpenCV format.
+    """Converts images provided either as Pillow images or OpenCV images into OpenCV
+    format.
 
     Args:
         images: Images to be converted
@@ -146,7 +108,6 @@ def images_to_cv2(
     Returns:
         List of input images in OpenCV format
             (with order preserved).
-
     """
     result: list[npt.NDArray[np.uint8]] = []
     for image in images:
@@ -164,8 +125,7 @@ _SINGLE_CHANNEL_MODES = frozenset({"L", "1", "LA", "La", "F"})
 
 
 def pillow_to_cv2(image: Image.Image) -> npt.NDArray[np.uint8]:
-    """
-    Converts Pillow image into OpenCV image, handling RGB -> BGR conversion.
+    """Converts Pillow image into OpenCV image, handling RGB -> BGR conversion.
 
     Every Pillow mode is reduced to the 8-bit layout OpenCV would hand back for the
     same picture: an `(H, W)` grayscale array for single-channel modes and an
@@ -226,9 +186,8 @@ def pillow_to_cv2(image: Image.Image) -> npt.NDArray[np.uint8]:
 
 
 def cv2_to_pillow(image: npt.NDArray[np.uint8]) -> Image.Image:
-    """
-    Converts an OpenCV image into a Pillow image, reordering channels from
-    OpenCV's BGR(A) convention to Pillow's RGB(A).
+    """Converts an OpenCV image into a Pillow image, reordering channels from OpenCV's
+    BGR(A) convention to Pillow's RGB(A).
 
     Args:
         image: OpenCV image. Accepted shapes:

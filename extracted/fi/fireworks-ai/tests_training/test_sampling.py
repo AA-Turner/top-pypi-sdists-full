@@ -83,6 +83,26 @@ def _install_stream(sampler, effects):
     return calls
 
 
+def test_successful_http_response_survives_local_decode_failure():
+    sampler = _make_sampler()
+    _install_stream(sampler, [_SUCCESS])
+
+    def fail_parse(*args, **kwargs):
+        raise ValueError("synthetic alignment failure")
+
+    sampler._parse_completions_result = fail_parse
+    try:
+        with pytest.raises(ValueError) as failure:
+            asyncio.run(sampler.sample_with_prompt_tokens_result([1, 2, 3], logical_request_id="decode-failure"))
+        error = failure.value
+        assert error._fireworks_sampled_response == _SUCCESS[0]
+        assert error._fireworks_prompt_token_ids == (1, 2, 3)
+        assert error.server_attempts[-1].status_code == 200
+        assert error.logical_request_id == "decode-failure"
+    finally:
+        sampler.close()
+
+
 def test_completion_parser_retains_top_logprob_token_ids() -> None:
     sampler = _make_sampler()
     result = {

@@ -305,7 +305,7 @@ class SeoCollectRankWire(ToolArgs):
         default=None,
         description=(
             "AI answer engine. When set, the keyword is treated as a PROMPT run "
-            "through the engine with web search (provider dataforseo); citations "
+            "through the engine with web search; citations "
             "and brand mentions persist as ai_answer rank observations."
         ),
     )

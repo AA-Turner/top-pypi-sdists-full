@@ -216,9 +216,7 @@ def test_mount_config_nests_mounts_and_provider_auth() -> None:
 
 
 def test_s3_mount_sets_kms_key_only_when_encryption_given() -> None:
-    kms_key = (
-        "arn:aws:kms:us-east-1:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab"
-    )
+    kms_key = "arn:aws:kms:us-east-1:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab"
 
     assert "encryption" not in s3_mount(id="s3_data", mount_path="/mnt/s3", bucket="b")
     mount = s3_mount(
@@ -229,9 +227,7 @@ def test_s3_mount_sets_kms_key_only_when_encryption_given() -> None:
     )
     assert mount["encryption"] == {"kms_key": kms_key}
     with pytest.raises(ValueError, match="encryption.kms_key"):
-        s3_mount(
-            id="s3_data", mount_path="/mnt/s3", bucket="b", encryption={"kms_key": " "}
-        )
+        s3_mount(id="s3_data", mount_path="/mnt/s3", bucket="b", encryption={"kms_key": " "})
 
 
 def test_git_mount_serializes_backend_shape() -> None:
@@ -299,9 +295,7 @@ def test_git_mount_rejects_invalid_remote_urls(remote_url: str) -> None:
         (None, 0),
     ],
 )
-def test_git_mount_rejects_invalid_ref_and_refresh_interval(
-    ref, refresh_interval_seconds
-) -> None:
+def test_git_mount_rejects_invalid_ref_and_refresh_interval(ref, refresh_interval_seconds) -> None:
     with pytest.raises(ValueError):
         git_mount(
             id="repo",
@@ -444,13 +438,7 @@ def test_proxy_config_ignores_deprecated_no_proxy() -> None:
 
 def test_proxy_config_rejects_gcp_auth_without_scopes() -> None:
     with pytest.raises(ValueError, match="scopes"):
-        proxy_config(
-            rules=[
-                gcp_auth(
-                    service_account_json=workspace_secret("GCP_SERVICE_ACCOUNT_JSON")
-                )
-            ]
-        )
+        proxy_config(rules=[gcp_auth(service_account_json=workspace_secret("GCP_SERVICE_ACCOUNT_JSON"))])
 
 
 def test_create_sandbox_forwards_composed_proxy_config(

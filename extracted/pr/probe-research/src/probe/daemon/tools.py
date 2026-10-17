@@ -17,7 +17,9 @@ judgment lives in the skills, checks live in plain code (`shell.classify`,
                                is secret-scanned; into the team note it is a question
                                (`team_note.edit`, with the diff) unless bypass mode
     anything else           -> a question for the researcher (`shell.unsafe_command`),
-                               unless the session runs in bypass mode
+                               unless the session runs in bypass mode; outside
+                               bypass, Jev is asked first (`command_check`), and
+                               its yes runs it unasked
 
 `read(path, offset, limit)`: a file, nothing run (`read_file`).
 `session(op, ...)`: the chat log, the logbook, the state of the record; each op
@@ -69,7 +71,7 @@ from probe.daemon import approvals as appr
 from probe.daemon import precheck
 from probe.daemon import scope
 from probe.daemon.events import Kind
-from probe.daemon.store import UNRECORDED_BITE, Store, scrub
+from probe.daemon.store import CUT_SHORT, FAILED_WHILE_RUNNING, UNRECORDED_BITE, Store, scrub
 from probe.sdk.key_refusal import KEY_REFUSED_LINE
 from probe.sdk.write_outcome import was_queued
 from probe.tap_core import secrets
@@ -99,7 +101,7 @@ _TRANSPORT_FAILURE = re.compile(r"^error: (GET|HEAD|POST|PATCH|PUT|DELETE) /\S*:
 #: (project create), POST and PATCH /v1/projects/{P}/experiments[/{E}]
 #: (experiment create, set, move -- the server names them since light
 #: experiments X21), POST /v1/projects/{P}/experiments/{E}/groups, PATCH
-#: /v1/projects|runs|groups|artifacts|papers|views/{id}, POST
+#: /v1/projects|runs|groups|papers|views/{id}, POST
 #: /v1/artifacts/{id}/move, POST /v1/projects/{id}/papers|references, POST
 #: /v1/edges, POST /v1/runs/{id}/views, sub-notes (an experiment's under
 #: /v1/projects/{P}/experiments/{E}/sub-notes). NOT here, on purpose:
@@ -124,7 +126,7 @@ IDEMPOTENT_COMMANDS = frozenset({
     "experiment create", "experiment set", "experiment move", "experiment fork",
     "project set", "project tag", "project move",
     "run set", "run tag", "run move", "group set",
-    "artifact set", "artifact move", "paper add", "paper update", "paper tag",
+    "artifact move", "paper add", "paper update", "paper tag",
     "project reference add", "edge add", "views create", "views rename", "views update",
     "notes create", "notes rename", "feedback send",
 })
@@ -191,6 +193,29 @@ class Deps:
     lost_writes: int = 0
     #: Questions put to the researcher that did not come back yes (`_hold`).
     asked: int = 0
+    #: Summaries this run owes (plan 3.5, write-summary): a project or
+    #: experiment it created, or an experiment whose conclusion it set, keyed
+    #: `kind:ref` as typed (`summary_cli.landing`); `summaries_pushed` holds what
+    #: `probe summary push` landed. The writer's output validator sends the run
+    #: back once for the difference (`agent.SUMMARY_OWED`).
+    summaries_owed: set[str] = field(default_factory=set)
+    summaries_pushed: set[str] = field(default_factory=set)
+    #: A summary command said the team's summaries are the lane's (mode lane, a
+    #: 503): nothing is owed.
+    summaries_off: bool = False
+    #: The run was already sent back once for owed summaries.
+    summaries_owed_asked: bool = False
+    #: Experiments whose conclusion this run set (`kind:ref`), what the last
+    #: `summary checkout` of each entity said about its tables and charts
+    #: ({"eligible", "count"}), and the `visuals set` calls that landed: an
+    #: eligible experiment concluded with none set owes them (plan 3.8).
+    concluded: set[str] = field(default_factory=set)
+    visuals_state: dict[str, dict] = field(default_factory=dict)
+    visuals_landed: set[str] = field(default_factory=set)
+    visuals_owed_asked: bool = False
+    #: The tally above was read from the store (`SUMMARY_TALLY`): a run paused
+    #: after ROUNDS_BEFORE_YIELD carries on in a new bite with new Deps.
+    tally_loaded: bool = False
 
 
 def _hold(deps: Deps, *, policy: str, facts: dict, held: dict) -> appr.Request:
@@ -778,6 +803,19 @@ async def _checked_shell_command(deps: Deps, command: str, verdict: Any, why: st
             # checks above, so a note write keeps the hint that names the shape that runs.
             return f"not run: {verdict.reason.rstrip('.')}. {_SKILLS_ARE_READ}", None
     held = {"kind": "shell", "command": command, "cwd": str(cwd), "op_id": _op_id(deps, ["sh", "-c", command])}
+    # JEV BEFORE THE RESEARCHER (F8, `command_check`): in every mode but bypass,
+    # a command the safe list did not clear is put to Jev first; only its yes
+    # runs it unasked. Anything else falls through to the question below.
+    if not auto:
+        approved = await _jev_approval(deps, command, verdict, cwd, facts, held)
+        if approved is not None:
+            stop = write_refusal(deps)  # the check took a moment: still this process's session?
+            if stop is not None:
+                return stop, None
+            result = await _run_shell_write(deps, command, held["op_id"], head="shell", request=None, cwd=cwd,
+                                            stdin=stdin, reason=approved)
+            return (f"[{approved} · {_shell_status(result)}]\n{scrub(_off_scrubbed(deps, result.output, cwd))}",
+                    result.exit_code)
     req = _hold(deps, policy="shell.unsafe_command", facts=facts, held=held)
     if req.state == appr.DENIED:
         return _already_no(req), None
@@ -818,6 +856,207 @@ def _names_a_skill_folder(command: str) -> bool:
         if len(parts) > 1 and ":" not in parts[0] and any(part.strip("*?") in SHARED_SKILLS for part in parts):
             return True
     return False
+
+
+def _names_policy_path(deps: Deps, command: str, cwd: Path) -> str | None:
+    """A word of `command` naming a path a policy question guards, else None:
+    the notes folders the daemon writes (`write_dirs`), the team note
+    (`team_note.edit`; its folder, as `_in_team_note` reads it), Probe's whole
+    state folder (`~/.local/state/probe`: the sessions' mode files, the
+    approvals board, the daemon's own state) and Probe's config (`protected`).
+    Read as broadly as `shell.names_writable` reads the notes folders."""
+    from probe.daemon import shell as sh
+    from probe.daemon.folders import _state_base, note_dirs
+
+    guarded = [*deps.write_dirs, note_dirs()[-1], _state_base(), *deps.protected]
+    return sh.names_writable(command, cwd=cwd, home=deps.home, folders=guarded)
+
+
+#: WHAT JEV MAY JUDGE: `python -c CODE`, alone or after plain `cd DIR`s, and
+#: nothing else. Four review rounds of a list of "read-only" programs each found
+#: a new way a listed program writes, runs a helper through PATH or reads names
+#: its words don't show (`file -z` runs a decompressor, `diff -l` runs `pr`,
+#: `gzip -Sc` deletes, `unzip --p` cancels `-p`, `xxd a b` writes, `pip show
+#: --log` writes, `sha256sum -c` reads a list, `printf %n` sets PATH, `ps e`
+#: prints other environments): the safe list's own per-program rules are where
+#: those belong, and reads now run there anywhere. Inline Python is the gray
+#: zone left: its whole code is in the command's text, which is what Jev reads.
+
+#: The only Python options a judged `python -c` may carry: none turns the
+#: daemon shell's PYTHONSAFEPATH or PYTHONDONTWRITEBYTECODE off (`-E`, `-I`
+#: and `-X` would; `-m` and a file run code its words don't show).
+_PYTHON_FLAGS = frozenset({"-P", "-B", "-s", "-S", "-u", "-q", "-O", "-OO", "-b", "-bb"})
+_PYTHON_NAME = re.compile(r"python(3(\.\d+)?)?")
+_PYTHON_REAL = re.compile(r"python(\d+)\.(\d+)")
+
+
+def _parts(command: str) -> list[list[str]] | None:
+    """The simple commands of `command` as the checker's own strict reading
+    splits them (`shell._split`), their words unquoted; None when that reading
+    refuses it: `$`, backticks, globs and braces expand to what the text
+    doesn't show (`X=curl; $X`, `head -c 20 *`). Not the lenient reading the
+    scans use: it takes a quoted `'>'` for a redirect and merges the command
+    after it (`echo '>'; uv run x.py`) into echo's words."""
+    from probe.daemon import shell as sh
+
+    try:
+        parts = sh._split(sh._tokenize(command))
+    except sh._Refuse:
+        return None
+    if any(part.redirects for part in parts):
+        return None  # a redirect writes or reads what the words don't name; a heredoc runs bash on its body
+    return [[w.value for w in part.words] for part in parts]
+
+
+def _never_judged(deps: Deps, command: str, cwd: Path) -> bool:
+    """A command Jev is never asked about: anything but `python -c CODE` on a
+    Python 3.11+ (`_python_judgeable`: its options from `_PYTHON_FLAGS`, named
+    bare, found on the shell's PATH outside the working folders, no `X=1`
+    before it), alone or after plain `cd DIR`s, read by the checker's strict
+    reading (`_parts`: no `$`, backticks, globs or braces). And never while the
+    shell's PATH holds a folder of the session (a repo's `.venv/bin`)."""
+    parts = _parts(command)
+    if not parts or _path_reaches_the_session(deps, cwd):
+        return True
+    judged = False
+    for words in parts:
+        if not words:
+            continue
+        name = words[0]
+        if name == "cd" and len(words) == 2 and not words[1].startswith("-"):
+            continue
+        if not _PYTHON_NAME.fullmatch(name) or _program(deps, name, cwd) is None:
+            return True
+        if not _python_judgeable(deps, name, words[1:], cwd):
+            return True
+        judged = True
+    return not judged
+
+
+def _roots(deps: Deps, cwd: Path) -> list[str]:
+    return [os.path.realpath(r) for r in (*deps.workdirs, cwd)]
+
+
+def _inside_roots(real: str, roots: list[str]) -> bool:
+    return any(real == r or real.startswith(r.rstrip(os.sep) + os.sep) for r in roots)
+
+
+def _path_reaches_the_session(deps: Deps, cwd: Path) -> bool:
+    """Does the daemon shell's PATH hold a folder inside a working folder or
+    the session's folder (a repo's `.venv/bin`, `node_modules/.bin`)?"""
+    from probe.daemon import shell as sh
+
+    roots = _roots(deps, cwd)
+    return any(entry and _inside_roots(os.path.realpath(entry), roots)
+               for entry in sh.minimal_env()["PATH"].split(os.pathsep))
+
+
+def _program(deps: Deps, name: str, cwd: Path) -> str | None:
+    """The real file `name` runs, found on the daemon shell's PATH; None when
+    there is none, or it lies inside a working folder or the session's folder
+    (a repo's own `cut`). Nothing is run to find it."""
+    import shutil
+
+    from probe.daemon import shell as sh
+
+    found = shutil.which(name, path=sh.minimal_env()["PATH"])
+    if not found:
+        return None
+    real = os.path.realpath(found)
+    return None if _inside_roots(real, _roots(deps, cwd)) else real
+
+
+def _python_judgeable(deps: Deps, name: str, args: list[str], cwd: Path) -> bool:
+    """`python -c CODE` only: every option before `-c` from `_PYTHON_FLAGS`, and
+    the real interpreter a Python 3.11+ (one that honours PYTHONSAFEPATH, which
+    `shell.minimal_env` sets), read from its real file's name
+    (`/usr/bin/python3` -> `python3.12`). Nothing is run to find out: a probe
+    that ran it would run whatever PATH names. A name without a version (a
+    pyenv shim) is no.
+
+    RESIDUAL, not closed: Python runs `site`'s startup hooks (a `.pth` file or
+    `sitecustomize`/`usercustomize` in a site-packages folder) before the code.
+    Planting one is a write, and the daemon makes none unasked; whoever could
+    plant one (the coding agent, the researcher) can run code directly."""
+    k = 0
+    while k < len(args) and args[k] in _PYTHON_FLAGS:
+        k += 1
+    if k >= len(args) - 1 or args[k] != "-c":
+        return False
+    real = _program(deps, name, cwd)
+    m = _PYTHON_REAL.fullmatch(os.path.basename(real or ""))
+    return bool(m) and (int(m.group(1)), int(m.group(2))) >= (3, 11)
+
+
+def _programs(deps: Deps, command: str, cwd: Path) -> list[tuple] | None:  # None: not bindable
+    """What Jev's yes is bound to (G3): each program the command's parts run,
+    as its real file and that file's identity (device, inode, size, change
+    time). A link pointed elsewhere, a file replaced by rename, or one written
+    in place (its change time moves, which no one can set back) while Jev
+    answers is a different command."""
+    out: list[tuple] = []
+    for words in _parts(command) or []:
+        if not words or words[0] == "cd":
+            continue
+        real = _program(deps, words[0], cwd)
+        try:
+            st = os.stat(real) if real else None
+        except OSError:
+            st = None
+        if st is None:
+            return None  # no identity to bind a yes to: never judged
+        out.append((real, (st.st_dev, st.st_ino, st.st_size, st.st_ctime_ns)))
+    return out
+
+
+def _judgeable(deps: Deps, command: str, verdict: Any, cwd: Path) -> bool:
+    """May Jev be asked about this held command at all? Not when it names a
+    credential-shaped file (`Verdict.credential`), a hidden file or folder or a
+    whole tree's contents (`Verdict.private`), a policy path, or runs what
+    `_never_judged` names."""
+    from probe.daemon import shell as sh
+
+    parts = _parts(command)
+    names = sh.strict_names(command, workdirs=deps.workdirs, home=deps.home, cwd=cwd, protected=deps.protected,
+                            write_dirs=deps.write_dirs)  # the strict reading too: `x '>'; cd ~ && ... .bashrc`
+    return not (parts is None or names is None or any(names) or getattr(verdict, "credential", True)
+                or getattr(verdict, "private", True) or any(sh._tree_read(words) for words in parts)
+                or _names_policy_path(deps, command, cwd) is not None or _never_judged(deps, command, cwd))
+
+
+async def _jev_approval(deps: Deps, command: str, verdict: Any, cwd: Path, facts: dict, held: dict) -> str | None:
+    """Jev's yes to a held shell command (`command_check`), as the logbook's
+    reason (`auto-approved: Jev p=0.97`, the lowest answer); None: ask the
+    researcher. Never asked about what `_judgeable` keeps from Jev, a command
+    that runs a script file (its text is the file's, which never goes to
+    TypeSafe), or one the researcher was already asked about (a question waits,
+    or they said no). A yes is checked again before it stands (G3): Jev took up
+    to 3 s, and a link can be pointed at a key, or a program at another file, in
+    that time: so the same real programs, the same verdict, no credential,
+    private or policy path, and still no script."""
+    from probe.daemon import command_check
+
+    if facts.get("scripts") or not _judgeable(deps, command, verdict, cwd):
+        return None
+    pol = appr.POLICIES["shell.unsafe_command"]
+    if deps.board.find_same(deps.session_id, pol.name, pol.fingerprint(facts), appr.action_digest(held)):
+        return None
+    programs = _programs(deps, command, cwd)
+    if programs is None:
+        return None
+    answer = await command_check.ask_probe(command=command, cwd=str(cwd), reason=str(verdict.reason or ""),
+                                           working_folders=_working_roots(deps))
+    if answer is None or not answer.approve:
+        return None
+    again_programs = _programs(deps, command, cwd)
+    if again_programs is None or again_programs != programs:
+        return None
+    again = _classify(deps, command, cwd)
+    if not again.safe and (again.refused or again.reason != verdict.reason or not _judgeable(deps, command, again, cwd)):
+        return None
+    if _script_facts(deps, command, cwd):
+        return None
+    return command_check.jev_reason(answer.lowest)
 
 
 async def _run_steps(deps: Deps, steps: list, why: str) -> str:
@@ -904,14 +1143,26 @@ def _cd_step(deps: Deps, step: Any, cwd: Path) -> tuple[str, int, Path]:
     return f"[exit 1]\ncd: {step.cd}: no such folder", 1, cwd
 
 
+def _working_roots(deps: Deps) -> list[str]:
+    """The working folders and the session's own, real paths, never $HOME or
+    above (as `shell.classify` counts them)."""
+    from probe.daemon import shell as sh
+
+    homes = {os.path.realpath(str(deps.home)), os.path.normpath(str(deps.home))}
+    roots: list[str] = []
+    for folder in [*deps.workdirs, deps.cwd]:
+        real = os.path.realpath(str(folder))
+        if not any(sh._inside(h, real) for h in homes) and real not in roots:
+            roots.append(real)
+    return roots
+
+
 def _in_working_folders(deps: Deps, folder: str) -> bool:
     """`folder` (logically and physically) inside a working folder or the
     session's own, never $HOME or above (as `shell.classify` counts them)."""
     from probe.daemon import shell as sh
 
-    homes = {os.path.realpath(str(deps.home)), os.path.normpath(str(deps.home))}
-    roots = [os.path.realpath(str(f)) for f in [*deps.workdirs, deps.cwd]]
-    roots = [r for r in roots if not any(sh._inside(h, r) for h in homes)]
+    roots = _working_roots(deps)
     return all(any(sh._inside(place, root) for root in roots)
                for place in (os.path.normpath(folder), os.path.realpath(folder)))
 
@@ -957,21 +1208,31 @@ def _shell_status(result: Any) -> str:
     return "timed out" if result.timed_out else f"exit {result.exit_code}"
 
 
-async def _run_shell_write(deps: Deps, command: str, op_id: str, *, head: str, request: str,
-                           cwd: Path | None = None, stdin: bytes | None = None) -> Any:
-    """An approved (bypass-mode) shell write, watched by the lease; logged, and
-    logged as cancelled when the bite is cut short while it runs."""
+async def _run_shell_write(deps: Deps, command: str, op_id: str, *, head: str, request: str | None,
+                           cwd: Path | None = None, stdin: bytes | None = None, reason: str = appr.AUTO) -> Any:
+    """An approved (bypass-mode, or Jev's yes: `reason`) shell write, watched by
+    the lease. Logged BEFORE it runs (`running`), then with how it ended: ran,
+    not run (stopped before the launch), cut short with the bite, or failed
+    while it ran. A worker killed meanwhile leaves the `running` line, so a
+    command that ran is never missing from the logbook (`probe approvals`).
+    Who approved it stays first in the reason: `store.jev_approved` lists
+    Jev's yeses by it."""
     from probe.daemon import shell as sh
 
+    row = deps.store.log_write(bite=deps.bite_id, op_id=op_id, argv=["sh", "-c", command], head=head,
+                               status="running", reason=reason, request=request)
     try:
         result = await sh.run(command, cwd=cwd or deps.cwd, watch=lease_watch(deps), stdin=stdin)
     except asyncio.CancelledError:
-        deps.store.log_write(bite=deps.bite_id, op_id=op_id, argv=["sh", "-c", command], head=head,
-                             status="cancelled", reason="the bite was cut short while it ran", request=request)
+        deps.store.update_write(row, status="cancelled", reason=f"{reason}; {CUT_SHORT}")
         raise
-    deps.store.log_write(bite=deps.bite_id, op_id=op_id, argv=["sh", "-c", command], head=head,
-                         status="ran", reason=appr.AUTO, output=result.output, exit_code=result.exit_code,
-                         request=request)
+    except Exception as exc:
+        deps.store.update_write(row, status="failed", reason=f"{reason}; {FAILED_WHILE_RUNNING} ({type(exc).__name__})")
+        raise
+    if not result.started:
+        deps.store.update_write(row, status="not_run", reason=f"{reason}; not started: {result.stopped}")
+    else:
+        deps.store.update_write(row, status="ran", reason=reason, output=result.output, exit_code=result.exit_code)
     return result
 
 
@@ -1084,12 +1345,26 @@ async def _maybe_hold_team_note_sync(deps: Deps, parsed: precheck.Parsed, op_id:
     return f"held for the researcher (request {req.id}) - publishing the team note. It runs if they say yes."
 
 
+#: The commands that send a document their argv never names, with the command
+#: whose JSON `path` named it in this session (`_remember_checkout`): a push
+#: sends what the checkout wrote, a `visuals set` with no `--file` the draft
+#: `visuals options` wrote.
+_DOCUMENT_FROM = {"notes push": "notes checkout", "summary push": "summary checkout",
+                  "visuals set": "visuals options"}
+
+
 def _document_path(deps: Deps, parsed: precheck.Parsed) -> Path | None:
-    """The document `notes push` / `notes sync` upload though their argv never
-    names it: the file this session checked out with the same flags, the team
-    note. None for any other command, and for a push with no checkout known."""
-    if parsed.path == "notes push":
-        path = (deps.store.fact("checkouts", {}) or {}).get(_anchor_key(parsed))
+    """The document `notes push` / `summary push` / `notes sync` (and `visuals
+    set` without `--file`) upload though their argv never names it: the file
+    this session checked out with the same flags, the team note. None for any
+    other command, for a push with no checkout known, and for a help request
+    (it sends nothing)."""
+    if parsed.help:
+        return None
+    if parsed.path == "visuals set" and parsed.params.get("file"):
+        return None  # the file it names is checked as a file parameter
+    if parsed.path in _DOCUMENT_FROM:
+        path = (deps.store.fact("checkouts", {}) or {}).get(_checkout_key(_DOCUMENT_FROM[parsed.path], parsed))
         return Path(path) if path else None
     if parsed.path == "notes sync" and not parsed.params.get("pull_only"):
         return _team_note_paths(deps)[0]
@@ -1097,13 +1372,17 @@ def _document_path(deps: Deps, parsed: precheck.Parsed) -> Path | None:
 
 
 def _document_block(deps: Deps, parsed: precheck.Parsed) -> precheck.Block | None:
-    """D2: `notes push` and `notes sync` upload a document their argv never names.
-    Resolve it (`_document_path`) and scan it like any file a command sends."""
+    """D2: `notes push`, `summary push`, `visuals set` without `--file` and
+    `notes sync` upload a document their argv never names. Resolve it
+    (`_document_path`) and scan it like any file a command sends."""
     path = _document_path(deps, parsed)
-    if parsed.path == "notes push" and path is None:
+    if path is None and parsed.path in _DOCUMENT_FROM and not parsed.help and not (
+            parsed.path == "visuals set" and parsed.params.get("file")):
+        what = {"notes push": "a note's file", "summary push": "a summary's file",
+                "visuals set": "a visuals file"}[parsed.path]
         return precheck.Block(precheck.new_block_id(),
-                              "the daemon only knows a note's file from a `probe notes checkout` with the same "
-                              "flags in this session", "document", argv=parsed.argv, overridable=False)
+                              f"the daemon only knows {what} from a `probe {_DOCUMENT_FROM[parsed.path]}` with "
+                              "the same flags in this session", "document", argv=parsed.argv, overridable=False)
     return precheck.check_document(path, parsed) if path is not None else None
 
 
@@ -1180,6 +1459,8 @@ async def _checked_probe_command(deps: Deps, argv: list[str], *, why: str = "", 
         refusal = audit_probe_refusal(parsed)
         if refusal is not None:
             return refusal, None
+    if parsed.path in SUMMARY_COMMANDS and _mode_seen(deps) == "lane":
+        return LANE_SKIP, None
     try:
         # A help request deletes nothing: no trash to ask about (`precheck.Parsed.help`).
         trash = await _server_has_trash(deps) if parsed.path in precheck.DELETES and not parsed.help else False
@@ -1224,8 +1505,7 @@ async def _checked_probe_command(deps: Deps, argv: list[str], *, why: str = "", 
         result = await _probe_process(deps, argv, op_id, here)
     except asyncio.CancelledError:
         deps.store.log_write(bite=deps.bite_id, op_id=op_id, argv=["probe", *argv], head=parsed.path,
-                             status="cancelled", reason="the bite was cut short while it ran - it may have written "
-                             "part of its work")
+                             status="cancelled", reason=f"{CUT_SHORT} - it may have written part of its work")
         raise
     code, output = result.code, result.output
     deps.store.log_write(bite=deps.bite_id, op_id=op_id, argv=["probe", *argv], head=parsed.path,
@@ -1239,6 +1519,9 @@ async def _checked_probe_command(deps: Deps, argv: list[str], *, why: str = "", 
         if write_status(code, result.stderr) == "ran":
             await scope.stamp(deps, parsed)
             fact = branch_fact(deps, parsed, result.stdout)
+            note_summary_marks(deps, parsed, argv, result.stdout, result.stderr)
+    elif parsed.path.startswith(("summary ", "visuals ")):
+        note_summary_marks(deps, parsed, argv, result.stdout, result.stderr)
     elif parsed.path not in IDEMPOTENT_COMMANDS:
         output += "\n[not retried: it may have written part of its work]"
     stop = write_refusal(deps) if deps.key_refused else None
@@ -1288,17 +1571,36 @@ def branch_fact(deps: Deps, parsed: precheck.Parsed, stdout: str) -> str | None:
     return BRANCH_FACT.format(n=len(siblings), parent=names.get(parent, parent))
 
 
-_ANCHORS = ("project", "experiment", "run", "group", "artifact", "note")
+#: The flags that name a note's or a summary's document. Sweep groups and files
+#: no longer carry notes, so `--group` / `--artifact` name none.
+_ANCHORS = ("project", "experiment", "run", "note")
 
 
 def _anchor_key(parsed: precheck.Parsed) -> str:
     return "|".join(f"{k}={parsed.params.get(k)}" for k in _ANCHORS if parsed.params.get(k))
 
 
+def _checkout_key(checkout: str, parsed: precheck.Parsed) -> str:
+    """Where a checkout's path is kept: a note's under its flags alone (as
+    before), a summary's or a visuals draft's under its command too."""
+    anchors = _anchor_key(parsed)
+    return anchors if checkout == "notes checkout" else f"{checkout}|{anchors}"
+
+
+#: The last summary the writer loaded (`probe summary checkout`), for the pin
+#: (`worker.Worker._summary_pin`): {"kind", "label", "version", "text", "path",
+#: "loaded"}; `loaded` is the checkout's version, which the history is searched for.
+SUMMARY_PIN = "summary_pin"
+
+
 def _remember_note(deps: Deps, parsed: precheck.Parsed, stdout: str) -> None:
-    """The file a `notes checkout` wrote (the `path` of the JSON it prints on
-    stdout), for the `notes push` with the same flags (`_document_path`)."""
-    if parsed.path != "notes checkout":
+    """The file a `notes checkout`, `summary checkout` or `visuals options`
+    wrote (the `path` of the JSON it prints on stdout), for the push or `visuals
+    set` with the same flags (`_document_path`); and a summary's text, for the
+    pin."""
+    if parsed.path not in _DOCUMENT_FROM.values():
+        if parsed.path == "summary push":
+            _pin_after_push(deps, parsed, stdout)
         return
     try:
         payload = json.loads(stdout or "")
@@ -1307,8 +1609,32 @@ def _remember_note(deps: Deps, parsed: precheck.Parsed, stdout: str) -> None:
     path = payload.get("path") if isinstance(payload, dict) else None
     if isinstance(path, str) and os.path.isabs(path):
         checkouts = deps.store.fact("checkouts", {}) or {}
-        checkouts[_anchor_key(parsed)] = path
+        checkouts[_checkout_key(parsed.path, parsed)] = path
         deps.store.set_fact("checkouts", checkouts)
+        if parsed.path == "summary checkout" and isinstance(payload.get("markdown"), str):
+            version = int(payload.get("version") or 0)
+            deps.store.set_fact(SUMMARY_PIN, {
+                "kind": str(payload.get("target") or ""), "label": str(payload.get("label") or ""),
+                "version": version, "loaded": version, "text": payload["markdown"], "path": path,
+                "anchor": _anchor_key(parsed)})
+
+
+def _pin_after_push(deps: Deps, parsed: precheck.Parsed, stdout: str) -> None:
+    """A push that landed on the pinned summary: the pin is now what was pushed
+    (the draft, which is the page's text after a landed push)."""
+    pin = deps.store.fact(SUMMARY_PIN)
+    if not isinstance(pin, dict) or pin.get("anchor") != _anchor_key(parsed):
+        return
+    try:
+        payload = json.loads(stdout or "")
+    except ValueError:
+        return
+    if not (isinstance(payload, dict) and payload.get("pushed")):
+        return
+    text = _read(pin.get("path") or "")
+    if text is None:
+        return
+    deps.store.set_fact(SUMMARY_PIN, {**pin, "version": int(payload.get("version") or 0), "text": text})
 
 
 async def _maybe_hold_delete(deps: Deps, parsed: precheck.Parsed, op_id: str, why: str) -> Outcome | None:
@@ -1548,9 +1874,13 @@ async def read_file(deps: Deps, path: str, offset: int | None = None, limit: int
         reason, never = refused
         if never:
             return f"not read: {reason} This is refused in every mode."
-        if deps.reader or not (deps.bypass and deps.mode_known):
-            return (f"not read: {reason} The reader reads only what a safe `cat` may read - `cat` through the "
-                    "shell asks the researcher.")
+        if deps.reader:
+            return f"not read: {reason} The reader reads only what a safe `cat` may read in the working folders."
+        if not (deps.bypass and deps.mode_known):
+            # The shell's read programs reach further (`shell.classify`): a plain file outside runs at once there.
+            return (f"not read: {reason} The read tool reads only what a safe `cat` may read in the working "
+                    "folders. Outside them, `cat` through the shell runs at once for a plain file; a hidden, "
+                    "credential-shaped or private one asks the researcher.")
     full = Path(str(deps.home) + path[1:]) if path == "~" or path.startswith("~/") else deps.cwd / path
     text = scrub(await asyncio.to_thread(reader.render, full, offset, limit))
     if not deps.reader:
@@ -1764,3 +2094,207 @@ def _outline(store: Store, *, recorded: bool = False) -> str:
              for r in rows]
     return "\n".join(lines) or "empty session"
 
+
+
+#: Commands whose landing makes a summary owed (plan 3.5): the entity is new, or
+#: an experiment's question got its answer.
+_OWES_SUMMARY = frozenset({"project create", "experiment create"})
+#: The run's summary and visuals tally (`Deps.summaries_owed` and friends), kept
+#: in the store until the run's end stands (`tally_settled`): a run paused after
+#: ROUNDS_BEFORE_YIELD carries on in the next bite with new Deps, and still owes.
+SUMMARY_TALLY = "summary_tally"
+_TALLY_SETS = ("summaries_owed", "summaries_pushed", "concluded", "visuals_landed")
+_TALLY_FLAGS = ("summaries_off", "summaries_owed_asked", "visuals_owed_asked")
+
+
+def _tally(deps: Deps) -> None:
+    """Read the stored tally into `deps`, once per Deps."""
+    if deps.tally_loaded:
+        return
+    deps.tally_loaded = True
+    saved = deps.store.fact(SUMMARY_TALLY)
+    if not isinstance(saved, dict):
+        return
+    for name in _TALLY_SETS:
+        getattr(deps, name).update(str(x) for x in saved.get(name) or [] if isinstance(x, str))
+    for name in _TALLY_FLAGS:
+        setattr(deps, name, getattr(deps, name) or bool(saved.get(name)))
+    state = saved.get("visuals_state")
+    if isinstance(state, dict):
+        deps.visuals_state.update({k: v for k, v in state.items() if isinstance(v, dict) and k not in deps.visuals_state})
+
+
+#: The team's summaries mode as last seen (`{"mode", "at"}`): a checkout's JSON,
+#: a refused push or set (lane), a landed push (recorder), or
+#: `summaries_mode`'s read. The writer is sent back for a summary only in
+#: recorder mode: in lane mode the push is refused, and asking costs rounds.
+SUMMARIES_MODE = "summaries_mode"
+#: How long a seen mode stands: the global flip moves it once, and a stale
+#: `lane` only skips a nudge.
+SUMMARIES_MODE_TTL_S = 1800
+
+
+#: The commands that keep a summary and its tables: in lane mode the server
+#: refuses the writes, and the bench's lane replays spent a quarter more on them
+#: (12 checkouts, 3 pushes, 12 visuals calls a session). Once a checkout or a
+#: refusal said lane, they are not run until the seen mode expires.
+SUMMARY_COMMANDS = frozenset({"summary checkout", "summary push", "visuals options", "visuals set"})
+LANE_SKIP = ("not run: Probe's overview lane still writes this team's summaries and tables (mode lane), so "
+             "`probe summary` and `probe visuals` wait until it hands them over. Record everything else as usual.")
+
+
+def _mode_seen(deps: Deps) -> str | None:
+    """The stored mode while fresh (`SUMMARIES_MODE`), else None; asks nobody."""
+    saved = deps.store.fact(SUMMARIES_MODE)
+    if isinstance(saved, dict) and time.time() - float(saved.get("at") or 0) < SUMMARIES_MODE_TTL_S:
+        return saved.get("mode")
+    return None
+
+
+def _note_mode(deps: Deps, mode: str) -> None:
+    deps.store.set_fact(SUMMARIES_MODE, {"mode": mode, "at": time.time()})
+
+
+async def summaries_mode(deps: Deps, owed: str) -> str | None:
+    """`lane` | `recorder` | None (unknown: the server could not say). The
+    stored mode while fresh, else one summary read of `owed` (`kind ref`)."""
+    from probe.daemon import probe_api
+
+    seen = _mode_seen(deps)
+    if seen in probe_api.SUMMARIES_MODES:
+        return seen
+    kind, _, ref = owed.partition(" ")
+    try:
+        mode = await asyncio.wait_for(probe_api.summaries_mode(deps.probe_env, kind, ref), probe_api.SCOPE_TIMEOUT_S)
+    except probe_api.KeyRefused:
+        _mark_key_refused(deps)  # the worker hands recording back, as for any refused key
+        return None
+    except Exception:  # noqa: BLE001 -- unknown: no nudge
+        return None
+    if mode:
+        _note_mode(deps, mode)
+    return mode
+
+
+def tally_save(deps: Deps) -> None:
+    deps.store.set_fact(SUMMARY_TALLY, {
+        **{name: sorted(getattr(deps, name)) for name in _TALLY_SETS},
+        **{name: bool(getattr(deps, name)) for name in _TALLY_FLAGS},
+        "visuals_state": deps.visuals_state,
+    })
+
+
+def tally_settled(deps: Deps) -> None:
+    """The run's end stands: the next run starts owing nothing. What the last
+    checkouts said about tables (`visuals_state`) stays for the session."""
+    deps.store.set_fact(SUMMARY_TALLY, {"visuals_state": deps.visuals_state})
+
+
+def _flag_key(parsed: Any) -> str | None:
+    """`kind:ref` from a summary or visuals command's own `--experiment` /
+    `--project` flags."""
+    from probe.cli import summary_cli
+
+    experiment = next(iter(precheck._strings(parsed.params.get("experiment"))), None)
+    if experiment:
+        return f"{summary_cli.EXPERIMENT}:{experiment}"
+    project = next(iter(precheck._strings(parsed.params.get("project"))), None)
+    return f"{summary_cli.PROJECT}:{project}" if project else None
+
+
+def _json(stdout: str) -> dict | None:
+    try:
+        payload = json.loads(stdout or "")
+    except ValueError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _lane_said(parsed: Any, stdout: str, stderr: str) -> bool:
+    """Did this summary or visuals command say the team's summaries are the
+    lane's? A checkout's JSON `mode`; a refused push's JSON `detail`, or a
+    refused `visuals set`'s error line, ending in `summary_cli.LANE_MARK`.
+    Never free text: a page, a chart title in a 409's list, any other
+    command's output could hold the same words."""
+    from probe.cli import summary_cli
+
+    payload = _json(stdout)
+    if parsed.path == "summary checkout":
+        return bool(payload) and payload.get("mode") == summary_cli.MODE_LANE
+    if parsed.path == "summary push":
+        detail = payload.get("detail") if payload else None
+        return isinstance(detail, str) and detail.endswith(summary_cli.LANE_MARK)
+    if parsed.path == "visuals set":
+        return any(line.startswith("error: ") and line.rstrip().endswith(summary_cli.LANE_MARK)
+                   for line in (stderr or "").splitlines())
+    return False
+
+
+def note_summary_marks(deps: Deps, parsed: Any, argv: list[str], stdout: str = "", stderr: str = "") -> None:
+    """Keep the run's summary and visuals tally (`Deps.summaries_owed` and
+    friends, saved to the store; plain code, never raises into the write it
+    follows). A push settles a summary only when it landed (`pushed` in its
+    JSON): a merge that asks for another push, a conflict or a refusal do not."""
+    try:
+        _tally(deps)
+        from probe.cli import summary_cli
+
+        if _lane_said(parsed, stdout, stderr):
+            deps.summaries_off = True
+            _note_mode(deps, summary_cli.MODE_LANE)
+        elif parsed.path == "summary push":
+            key = _flag_key(parsed)
+            payload = _json(stdout)
+            if key and payload and payload.get("pushed"):
+                deps.summaries_pushed.add(key)
+                _note_mode(deps, "recorder")
+        elif parsed.path == "summary checkout":
+            key = _flag_key(parsed)
+            payload = _json(stdout)
+            visuals = payload.get("visuals") if payload else None
+            if key and isinstance(visuals, dict):
+                deps.visuals_state[key] = visuals
+            if payload and payload.get("mode") == "recorder":
+                _note_mode(deps, "recorder")
+        elif parsed.path == "visuals set":
+            key = _flag_key(parsed)
+            if key and _json(stdout) and _json(stdout).get("set"):
+                deps.visuals_landed.add(key)
+        else:
+            conclusion = precheck._strings(parsed.params.get("conclusion"))
+            concluding = parsed.path == "experiment set" and any(c.strip() for c in conclusion)
+            if not (parsed.path in _OWES_SUMMARY or concluding):
+                return
+            found = summary_cli.landing(list(argv))
+            if found is None:
+                return
+            key = f"{found[0]}:{found[1]}"
+            deps.summaries_owed.add(key)
+            deps.summaries_pushed.discard(key)  # a push before this write does not cover it
+            if concluding:
+                deps.concluded.add(key)
+        tally_save(deps)
+    except Exception:  # noqa: BLE001 -- bookkeeping, never a failed write
+        return
+
+
+def summaries_owed(deps: Deps) -> list[str]:
+    """`kind ref` for each summary this run owes and did not push; [] when the
+    team's summaries are the lane's."""
+    _tally(deps)
+    if deps.summaries_off:
+        return []
+    return [key.replace(":", " ", 1) for key in sorted(deps.summaries_owed - deps.summaries_pushed)]
+
+
+def visuals_owed(deps: Deps) -> list[str]:
+    """`kind ref` for each experiment this run concluded whose checkout said it
+    carries Metrics-center tables and charts and has none, with no `visuals set`
+    since; [] when the team's summaries are the lane's."""
+    _tally(deps)
+    if deps.summaries_off:
+        return []
+    owed = [key for key in deps.concluded
+            if (deps.visuals_state.get(key) or {}).get("eligible") and not deps.visuals_state[key].get("count")
+            and key not in deps.visuals_landed]
+    return [key.replace(":", " ", 1) for key in sorted(owed)]

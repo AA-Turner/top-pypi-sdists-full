@@ -11,9 +11,10 @@ from linearmodels.iv.model import IV2SLS
 from linearmodels.panel.data import PanelData
 from linearmodels.panel.model import PanelOLS, PooledOLS
 from linearmodels.panel.utility import AbsorbingEffectWarning
-from linearmodels.shared.exceptions import MemoryWarning
+from linearmodels.shared.exceptions import MemoryWarning, SingletonWarning
 from linearmodels.shared.hypotheses import WaldTestStatistic
 from linearmodels.shared.utility import AttrDict
+from linearmodels.tests._utility import warns_if_missing
 from linearmodels.tests.panel._utility import (
     access_attributes,
     assert_frame_similar,
@@ -22,15 +23,10 @@ from linearmodels.tests.panel._utility import (
     generate_data,
 )
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore::linearmodels.shared.exceptions.MissingValueWarning",
-    "ignore:the matrix subclass:PendingDeprecationWarning",
-)
-
 perc_missing = [0.0, 0.02, 0.20]
 has_const = [True, False]
 perms = list(product(perc_missing, datatypes, has_const))
-ids = ["-".join(str(param) for param in perms) for perm in perms]
+ids = ["-".join(str(param) for param in perm) for perm in perms]
 
 
 @pytest.fixture(params=perms, ids=ids)
@@ -137,23 +133,28 @@ def lsdv_config(request):
 
 def test_const_data_only(const_data):
     y, x = const_data.y, const_data.x
-    mod = PanelOLS(y, x)
+    with warns_if_missing(y, x):
+        mod = PanelOLS(y, x)
     res = mod.fit(debiased=False)
-    res2 = IV2SLS(y, x, None, None).fit()
+    with warns_if_missing(y, x, None, None):
+        res2 = IV2SLS(y, x, None, None).fit()
     assert_allclose(res.params, res2.params)
 
 
 def test_const_data_only_weights(const_data):
     y, x = const_data.y, const_data.x
-    mod = PanelOLS(y, x, weights=const_data.w)
+    with warns_if_missing(y, x):
+        mod = PanelOLS(y, x, weights=const_data.w)
     res = mod.fit(debiased=False)
-    res2 = IV2SLS(y, x, None, None, weights=const_data.w).fit()
+    with warns_if_missing(y, x, None, None):
+        res2 = IV2SLS(y, x, None, None, weights=const_data.w).fit()
     assert_allclose(res.params, res2.params)
 
 
 def test_const_data_entity(const_data):
     y, x = const_data.y, const_data.x
-    mod = PanelOLS(y, x, entity_effects=True)
+    with warns_if_missing(y, x):
+        mod = PanelOLS(y, x, entity_effects=True)
     res = mod.fit(debiased=False)
 
     x = mod.exog.dataframe
@@ -169,7 +170,8 @@ def test_const_data_entity(const_data):
 
 def test_const_data_time(const_data):
     y, x = const_data.y, const_data.x
-    mod = PanelOLS(y, x, time_effects=True)
+    with warns_if_missing(y, x):
+        mod = PanelOLS(y, x, time_effects=True)
     res = mod.fit(debiased=False)
 
     x = mod.exog.dataframe
@@ -186,9 +188,10 @@ def test_const_data_time(const_data):
 @pytest.mark.parametrize("entity", [True, False])
 def test_const_data_single_effect_weights(const_data, entity):
     y, x = const_data.y, const_data.x
-    mod = PanelOLS(
-        y, x, entity_effects=entity, time_effects=not entity, weights=const_data.w
-    )
+    with warns_if_missing(y, x):
+        mod = PanelOLS(
+            y, x, entity_effects=entity, time_effects=not entity, weights=const_data.w
+        )
     res = mod.fit(debiased=False)
 
     y = mod.dependent.dataframe
@@ -213,7 +216,8 @@ def test_const_data_single_effect_weights(const_data, entity):
 
 def test_const_data_both(const_data):
     y, x = const_data.y, const_data.x
-    mod = PanelOLS(y, x, entity_effects=True, time_effects=True)
+    with warns_if_missing(y, x):
+        mod = PanelOLS(y, x, entity_effects=True, time_effects=True)
     res = mod.fit(debiased=False)
 
     x = mod.exog.dataframe
@@ -234,7 +238,10 @@ def test_const_data_both(const_data):
 
 def test_const_data_both_weights(const_data):
     y, x = const_data.y, const_data.x
-    mod = PanelOLS(y, x, entity_effects=True, time_effects=True, weights=const_data.w)
+    with warns_if_missing(y, x):
+        mod = PanelOLS(
+            y, x, entity_effects=True, time_effects=True, weights=const_data.w
+        )
     res = mod.fit(debiased=False)
 
     w = mod.weights.dataframe
@@ -260,21 +267,26 @@ def test_const_data_both_weights(const_data):
 
 
 def test_panel_no_effects(data):
-    panel = PanelOLS(data.y, data.x)
+    with warns_if_missing(data.y, data.x):
+        panel = PanelOLS(data.y, data.x)
     assert panel._collect_effects().shape[1] == 0
     res = panel.fit()
-    res2 = PooledOLS(data.y, data.x).fit()
+    with warns_if_missing(data.y, data.x):
+        res2 = PooledOLS(data.y, data.x).fit()
     assert_results_equal(res, res2)
 
 
 def test_panel_no_effects_weighted(data):
-    res = PanelOLS(data.y, data.x, weights=data.w).fit()
-    res2 = PooledOLS(data.y, data.x, weights=data.w).fit()
+    with warns_if_missing(data.y, data.x):
+        res = PanelOLS(data.y, data.x, weights=data.w).fit()
+    with warns_if_missing(data.y, data.x):
+        res2 = PooledOLS(data.y, data.x, weights=data.w).fit()
     assert_results_equal(res, res2)
 
 
 def test_panel_entity_lsdv(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True)
     res = mod.fit(auto_df=False, count_effects=False, debiased=False)
 
     y = mod.dependent.dataframe
@@ -353,7 +365,8 @@ def test_panel_entity_lsdv(data):
 
 
 def test_panel_entity_fwl(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True)
     res = mod.fit(auto_df=False, count_effects=False, debiased=False)
 
     y = mod.dependent.dataframe
@@ -379,7 +392,8 @@ def test_panel_entity_fwl(data):
 
 
 def test_panel_time_lsdv(large_data):
-    mod = PanelOLS(large_data.y, large_data.x, time_effects=True)
+    with warns_if_missing(large_data.y, large_data.x):
+        mod = PanelOLS(large_data.y, large_data.x, time_effects=True)
     res = mod.fit(auto_df=False, count_effects=False, debiased=False)
 
     y = mod.dependent.dataframe
@@ -457,7 +471,8 @@ def test_panel_time_lsdv(large_data):
 
 
 def test_panel_time_fwl(data):
-    mod = PanelOLS(data.y, data.x, time_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, time_effects=True)
     res = mod.fit(auto_df=False, count_effects=False, debiased=False)
 
     y = mod.dependent.dataframe
@@ -481,7 +496,8 @@ def test_panel_time_fwl(data):
 
 
 def test_panel_both_lsdv(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True, time_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True, time_effects=True)
     res = mod.fit(auto_df=False, count_effects=False, debiased=False)
 
     y = mod.dependent.dataframe
@@ -564,7 +580,8 @@ def test_panel_both_lsdv(data):
 
 
 def test_panel_both_fwl(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True, time_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True, time_effects=True)
     res = mod.fit(auto_df=False, count_effects=False, debiased=False)
 
     y = mod.dependent.dataframe
@@ -590,7 +607,8 @@ def test_panel_both_fwl(data):
 
 
 def test_panel_entity_lsdv_weighted(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True, weights=data.w)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True, weights=data.w)
     res = mod.fit(auto_df=False, count_effects=False, debiased=False)
 
     y = mod.dependent.dataframe
@@ -672,7 +690,10 @@ def test_panel_entity_lsdv_weighted(data):
 
 
 def test_panel_time_lsdv_weighted(large_data):
-    mod = PanelOLS(large_data.y, large_data.x, time_effects=True, weights=large_data.w)
+    with warns_if_missing(large_data.y, large_data.x):
+        mod = PanelOLS(
+            large_data.y, large_data.x, time_effects=True, weights=large_data.w
+        )
     res = mod.fit(auto_df=False, count_effects=False, debiased=False)
 
     y = mod.dependent.dataframe
@@ -753,9 +774,10 @@ def test_panel_time_lsdv_weighted(large_data):
 
 
 def test_panel_both_lsdv_weighted(data):
-    mod = PanelOLS(
-        data.y, data.x, entity_effects=True, time_effects=True, weights=data.w
-    )
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(
+            data.y, data.x, entity_effects=True, time_effects=True, weights=data.w
+        )
     res = mod.fit(auto_df=False, count_effects=False, debiased=False)
 
     y = mod.dependent.dataframe
@@ -842,7 +864,8 @@ def test_panel_both_lsdv_weighted(data):
 
 
 def test_panel_entity_other_equivalence(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True)
     res = mod.fit()
     y = mod.dependent.dataframe
     x = mod.exog.dataframe
@@ -855,7 +878,8 @@ def test_panel_entity_other_equivalence(data):
 
 
 def test_panel_time_other_equivalence(data):
-    mod = PanelOLS(data.y, data.x, time_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, time_effects=True)
     res = mod.fit()
     y = mod.dependent.dataframe
     x = mod.exog.dataframe
@@ -868,7 +892,8 @@ def test_panel_time_other_equivalence(data):
 
 
 def test_panel_entity_time_other_equivalence(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True, time_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True, time_effects=True)
     res = mod.fit()
     y = mod.dependent.dataframe
     x = mod.exog.dataframe
@@ -884,7 +909,8 @@ def test_panel_entity_time_other_equivalence(data):
 
 
 def test_panel_other_lsdv(data):
-    mod = PanelOLS(data.y, data.x, other_effects=data.c)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, other_effects=data.c)
     assert "Num Other Effects: 2" in str(mod)
     res = mod.fit(auto_df=False, count_effects=False, debiased=False)
 
@@ -975,7 +1001,8 @@ def test_panel_other_lsdv(data):
 
 
 def test_panel_other_fwl(data):
-    mod = PanelOLS(data.y, data.x, other_effects=data.c)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, other_effects=data.c)
     res = mod.fit(auto_df=False, count_effects=False, debiased=False)
 
     y = mod.dependent.dataframe
@@ -1010,7 +1037,8 @@ def test_panel_other_fwl(data):
 
 
 def test_panel_other_incorrect_size(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True)
     y = mod.dependent.dataframe
     x = mod.exog.dataframe
     cats = pd.DataFrame(mod.dependent.entity_ids, index=mod.dependent.index)
@@ -1022,51 +1050,64 @@ def test_panel_other_incorrect_size(data):
 
 
 def test_results_access(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True)
     res = mod.fit()
     access_attributes(res)
 
-    mod = PanelOLS(data.y, data.x, other_effects=data.c)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, other_effects=data.c)
     res = mod.fit()
     access_attributes(res)
 
-    mod = PanelOLS(data.y, data.x, time_effects=True, entity_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, time_effects=True, entity_effects=True)
     res = mod.fit()
     access_attributes(res)
 
-    mod = PanelOLS(data.y, data.x)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x)
     res = mod.fit()
     access_attributes(res)
 
     const = PanelData(data.y).copy()
     const.dataframe.iloc[:, :] = 1
     const.dataframe.columns = ["const"]
-    mod = PanelOLS(data.y, const)
+    with warns_if_missing(data.y, const):
+        mod = PanelOLS(data.y, const)
     res = mod.fit()
     access_attributes(res)
 
 
 def test_alt_rsquared(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True)
     res = mod.fit(debiased=False)
     assert_allclose(res.rsquared, res.rsquared_within)
 
 
 def test_alt_rsquared_weighted(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True, weights=data.w)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True, weights=data.w)
     res = mod.fit(debiased=False)
     assert_allclose(res.rsquared, res.rsquared_within)
 
 
 def test_too_many_effects(data):
     with pytest.raises(ValueError, match=r"At most two effects supported"):
-        PanelOLS(
-            data.y, data.x, entity_effects=True, time_effects=True, other_effects=data.c
-        )
+        with warns_if_missing(data.y, data.x):
+            PanelOLS(
+                data.y,
+                data.x,
+                entity_effects=True,
+                time_effects=True,
+                other_effects=data.c,
+            )
 
 
 def test_cov_equiv_cluster(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True)
     res = mod.fit(cov_type="clustered", cluster_entity=True, debiased=False)
 
     y = PanelData(data.y)
@@ -1074,7 +1115,8 @@ def test_cov_equiv_cluster(data):
     res2 = mod.fit(cov_type="clustered", clusters=clusters, debiased=False)
     assert_results_equal(res, res2)
 
-    mod = PanelOLS(data.y, data.x, time_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, time_effects=True)
     res = mod.fit(cov_type="clustered", cluster_time=True, debiased=False)
     y = PanelData(data.y)
     clusters = pd.DataFrame(y.time_ids, index=y.index)
@@ -1088,7 +1130,8 @@ def test_cov_equiv_cluster(data):
 
 @pytest.mark.smoke
 def test_cluster_smoke(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True)
     mod.fit(cov_type="clustered", cluster_time=True, debiased=False)
     mod.fit(cov_type="clustered", cluster_entity=True, debiased=False)
     c2 = PanelData(data.vc2)
@@ -1115,11 +1158,13 @@ def test_cluster_smoke(data):
 
 
 def test_f_pooled(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True)
     res = mod.fit(debiased=False)
 
     if mod.has_constant:
-        mod2 = PooledOLS(data.y, data.x)
+        with warns_if_missing(data.y, data.x):
+            mod2 = PooledOLS(data.y, data.x)
     else:
         exog = mod.exog.dataframe.copy()
         exog["Intercept"] = 1.0
@@ -1138,7 +1183,8 @@ def test_f_pooled(data):
     assert res.f_pooled.df == v1
     assert res.f_pooled.df_denom == v2
 
-    mod = PanelOLS(data.y, data.x, time_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, time_effects=True)
     res = mod.fit(debiased=False)
     eps = res.resids.values
     eps2 = res2.resids.values
@@ -1151,7 +1197,8 @@ def test_f_pooled(data):
     assert res.f_pooled.df == v1
     assert res.f_pooled.df_denom == v2
 
-    mod = PanelOLS(data.y, data.x, entity_effects=True, time_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True, time_effects=True)
     res = mod.fit(debiased=False)
     eps = res.resids.values
     eps2 = res2.resids.values
@@ -1187,7 +1234,8 @@ def test_entity_other(data):
 
 @pytest.mark.smoke
 def test_other_weighted_smoke(data):
-    mod = PanelOLS(data.y, data.x, weights=data.w, other_effects=data.c)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, weights=data.w, other_effects=data.c)
     mod.fit(debiased=False)
 
 
@@ -1199,14 +1247,15 @@ def test_methods_equivalent(data, lsdv_config):
     elif lsdv_config.other_effects == 2:
         other_effects = data.c
     weights = data.w if lsdv_config.weights else None
-    mod = PanelOLS(
-        data.y,
-        data.x,
-        weights=weights,
-        entity_effects=lsdv_config.entity_effects,
-        time_effects=lsdv_config.time_effects,
-        other_effects=other_effects,
-    )
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(
+            data.y,
+            data.x,
+            weights=weights,
+            entity_effects=lsdv_config.entity_effects,
+            time_effects=lsdv_config.time_effects,
+            other_effects=other_effects,
+        )
     res1 = mod.fit()
     res2 = mod.fit(use_lsdv=True)
     res3 = mod.fit(use_lsmr=True)
@@ -1215,17 +1264,20 @@ def test_methods_equivalent(data, lsdv_config):
 
 
 def test_rsquared_inclusive_equivalence(data):
-    mod = PanelOLS(data.y, data.x)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x)
     res = mod.fit()
     assert_allclose(res.rsquared, res.rsquared_inclusive)
 
-    mod = PanelOLS(data.y, data.x, weights=data.w)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, weights=data.w)
     res = mod.fit()
     assert_allclose(res.rsquared, res.rsquared_inclusive)
 
 
 def test_panel_effects_sanity(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True)
     res = mod.fit(auto_df=False, count_effects=False)
     fitted = mod.exog.values2d @ res.params.values[:, None]
     expected = fitted
@@ -1233,7 +1285,8 @@ def test_panel_effects_sanity(data):
     expected += res.estimated_effects.values
     assert_allclose(mod.dependent.values2d, expected)
 
-    mod = PanelOLS(data.y, data.x, entity_effects=True, time_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True, time_effects=True)
     res = mod.fit(auto_df=False, count_effects=False)
     fitted = mod.exog.values2d @ res.params.values[:, None]
     expected = fitted
@@ -1241,7 +1294,8 @@ def test_panel_effects_sanity(data):
     expected += res.estimated_effects.values
     assert_allclose(mod.dependent.values2d, expected)
 
-    mod = PanelOLS(data.y, data.x, weights=data.w, entity_effects=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, weights=data.w, entity_effects=True)
     res = mod.fit(auto_df=False, count_effects=False)
     fitted = mod.exog.values2d @ res.params.values[:, None]
     expected = fitted
@@ -1249,9 +1303,10 @@ def test_panel_effects_sanity(data):
     expected += res.estimated_effects.values
     assert_allclose(mod.dependent.values2d, expected)
 
-    mod = PanelOLS(
-        data.y, data.x, weights=data.w, entity_effects=True, time_effects=True
-    )
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(
+            data.y, data.x, weights=data.w, entity_effects=True, time_effects=True
+        )
     res = mod.fit(auto_df=False, count_effects=False)
     fitted = mod.exog.values2d @ res.params.values[:, None]
     expected = fitted
@@ -1261,7 +1316,8 @@ def test_panel_effects_sanity(data):
 
 
 def test_fitted_effects_residuals(data, entity_eff, time_eff):
-    mod = PanelOLS(data.y, data.x, entity_effects=entity_eff, time_effects=time_eff)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=entity_eff, time_effects=time_eff)
     res = mod.fit()
 
     expected = mod.exog.values2d @ res.params.values
@@ -1285,11 +1341,13 @@ def test_fitted_effects_residuals(data, entity_eff, time_eff):
 @pytest.mark.parametrize("weighted", [True, False])
 def test_low_memory(data, weighted):
     if weighted:
-        mod = PanelOLS(
-            data.y, data.x, weights=data.w, entity_effects=True, time_effects=True
-        )
+        with warns_if_missing(data.y, data.x):
+            mod = PanelOLS(
+                data.y, data.x, weights=data.w, entity_effects=True, time_effects=True
+            )
     else:
-        mod = PanelOLS(data.y, data.x, entity_effects=True, time_effects=True)
+        with warns_if_missing(data.y, data.x):
+            mod = PanelOLS(data.y, data.x, entity_effects=True, time_effects=True)
     res = mod.fit()
 
     low_mem = mod.fit(low_memory=True)
@@ -1311,18 +1369,21 @@ def test_low_memory_auto():
         mod.fit()
 
 
-@pytest.mark.filterwarnings("ignore::linearmodels.shared.exceptions.SingletonWarning")
 def test_singleton_removal():
+    # Entity j is observed in the periods 0 to 5 - j, so the last entity and the
+    # last period have a single observation
     entities = []
+    times = []
     for i in range(6):
         entities.extend([f"entity.{j}" for j in range(6 - i)])
+        times.extend([i] * (6 - i))
     nobs = len(entities)
-    times = np.arange(nobs) % 6
     index = pd.MultiIndex.from_arrays((entities, times))
     cols = [f"x{i}" for i in range(3)]
     x = pd.DataFrame(np.random.randn(nobs, 3), index=index, columns=cols)
     y = pd.DataFrame(np.random.randn(nobs, 1), index=index)
-    mod = PanelOLS(y, x, singletons=False, entity_effects=True, time_effects=True)
+    with pytest.warns(SingletonWarning, match="singleton observations dropped"):
+        mod = PanelOLS(y, x, singletons=False, entity_effects=True, time_effects=True)
     res = mod.fit()
 
     mod = PanelOLS(y, x, singletons=True, entity_effects=True, time_effects=True)
@@ -1330,7 +1391,6 @@ def test_singleton_removal():
     assert_allclose(res.params, res_with.params)
 
 
-@pytest.mark.filterwarnings("ignore::linearmodels.shared.exceptions.SingletonWarning")
 def test_masked_singleton_removal():
     nobs = 8
     entities = ["A", "B", "C", "D"] * 2
@@ -1338,53 +1398,80 @@ def test_masked_singleton_removal():
     index = pd.MultiIndex.from_arrays((entities, times))
     x = pd.DataFrame(np.random.randn(nobs, 1), index=index, columns=["x"])
     y = pd.DataFrame(np.random.randn(nobs, 1), index=index)
-    mod = PanelOLS(y, x, singletons=False, entity_effects=True, time_effects=True)
+    with pytest.warns(SingletonWarning, match="singleton observations dropped"):
+        mod = PanelOLS(y, x, singletons=False, entity_effects=True, time_effects=True)
     res = mod.fit()
     assert res.nobs == 6
 
 
 def test_singleton_removal_other_effects(data):
-    mod_keep = PanelOLS(
-        data.y, data.x, weights=data.w, other_effects=data.c, singletons=True
-    )
+    with warns_if_missing(data.y, data.x):
+        mod_keep = PanelOLS(
+            data.y, data.x, weights=data.w, other_effects=data.c, singletons=True
+        )
     res_keep = mod_keep.fit()
 
-    mod = PanelOLS(
-        data.y, data.x, weights=data.w, other_effects=data.c, singletons=False
-    )
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(
+            data.y, data.x, weights=data.w, other_effects=data.c, singletons=False
+        )
     res = mod.fit(cov_type="clustered", clusters=data.vc1)
 
     assert res.nobs <= res_keep.nobs
 
 
+def test_singleton_removal_rescales_weights():
+    # The weights have a mean of 1 in the retained rows, as if the singleton had
+    # not been in the data
+    rng = np.random.default_rng(0)
+    index = pd.MultiIndex.from_product([range(8), range(5)])
+    keep = np.ones(len(index), dtype=bool)
+    keep[np.flatnonzero(index.codes[0] == 7)[1:]] = False
+    index = index[keep]
+    x = pd.DataFrame(rng.standard_normal((len(index), 2)), index=index)
+    y = pd.Series(rng.standard_normal(len(index)), index=index)
+    w = pd.Series(0.5 + 3 * rng.random(len(index)), index=index)
+    single = index.get_level_values(0) == 7
+    with pytest.warns(SingletonWarning, match="1 singleton observations dropped"):
+        dropped = PanelOLS(y, x, weights=w, entity_effects=True, singletons=False)
+    trimmed = PanelOLS(y[~single], x[~single], weights=w[~single], entity_effects=True)
+    assert_allclose(dropped.weights.values2d.mean(), 1.0)
+    assert_allclose(dropped.fit().s2, trimmed.fit().s2)
+
+
 @pytest.mark.slow
-@pytest.mark.filterwarnings("ignore::linearmodels.shared.exceptions.SingletonWarning")
 @pytest.mark.parametrize("other_effects", [1, 2])
 def test_singleton_removal_mixed(singleton_data, other_effects):
     if other_effects == 1:
         other_effects = PanelData(singleton_data.c).dataframe.iloc[:, [0]]
     else:
         other_effects = singleton_data.c
-    mod = PanelOLS(singleton_data.y, singleton_data.x, other_effects=other_effects)
+    with warns_if_missing(singleton_data.y, singleton_data.x):
+        mod = PanelOLS(singleton_data.y, singleton_data.x, other_effects=other_effects)
     res_keep = mod.fit(use_lsmr=True)
 
-    mod = PanelOLS(
-        singleton_data.y,
-        singleton_data.x,
-        other_effects=other_effects,
-        singletons=False,
-    )
+    with (
+        warns_if_missing(singleton_data.y, singleton_data.x),
+        pytest.warns(SingletonWarning, match="singleton observations dropped"),
+    ):
+        mod = PanelOLS(
+            singleton_data.y,
+            singleton_data.x,
+            other_effects=other_effects,
+            singletons=False,
+        )
     res = mod.fit(cov_type="clustered", clusters=singleton_data.vc2, use_lsmr=True)
     assert_allclose(res_keep.params, res.params)
     assert res.nobs <= res_keep.nobs
 
 
 def test_repeated_measures_weight():
-    # Issue reported by email
+    # Issue reported by email. The observations of an entity have to be at different
+    # times, since a combination of an entity and a time period can appear only once
     rs = np.random.RandomState(0)
     w = rs.chisquare(5, 300) / 5
     idx1 = ["a"] * 100 + ["b"] * 100 + ["c"] * 100
-    idx2 = np.arange(300) % 25
+    idx2 = np.tile(np.arange(100), 3)
     mi = pd.MultiIndex.from_arrays([idx1, idx2])
     df = pd.DataFrame(rs.standard_normal((300, 2)), index=mi, columns=["y", "x"])
     w = pd.Series(w, index=mi, name="weight")
@@ -1419,9 +1506,11 @@ def test_absorbed(absorbed_data):
 
 
 def test_absorbed_option(data):
-    mod = PanelOLS(data.y, data.x, entity_effects=True, drop_absorbed=True)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True, drop_absorbed=True)
     res = mod.fit(auto_df=False, count_effects=False, debiased=False)
-    mod = PanelOLS(data.y, data.x, entity_effects=True, drop_absorbed=False)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, entity_effects=True, drop_absorbed=False)
     res_false = mod.fit(auto_df=False, count_effects=False, debiased=False)
     assert_results_equal(res, res_false)
 
@@ -1435,6 +1524,67 @@ def test_fully_absorbed():
     y = pd.Series(y, index=mi, name="y")
     with pytest.raises(ValueError, match=r"All columns in exog have been fully"):
         PanelOLS(y, x, drop_absorbed=True, entity_effects=True).fit()
+
+
+def test_drop_absorbed_constant_when_regressor_is_time_invariant():
+    # Entity effects absorb a within-entity constant. With an intercept, the
+    # grand mean is added back and roundoff used to keep the column.
+    rng = np.random.RandomState(0)
+    idx = pd.MultiIndex.from_product(
+        [np.arange(30), np.arange(5)], names=["firm", "year"]
+    )
+    educ = np.repeat(np.arange(30, dtype=float), 5)
+    varying = rng.standard_normal(len(idx))
+    y = 1.7 + 0.4 * educ + 0.25 * varying + rng.standard_normal(len(idx))
+    frame = pd.DataFrame(
+        {"y": y, "educ": educ, "educ_shift": educ - 12.0, "x": varying},
+        index=idx,
+    )
+    intercepts = []
+    for term in ("educ", "educ_shift"):
+        with pytest.warns(AbsorbingEffectWarning, match=term):
+            res = PanelOLS.from_formula(
+                f"y ~ 1 + {term} + EntityEffects",
+                data=frame,
+                drop_absorbed=True,
+            ).fit()
+        assert term not in res.params.index
+        intercepts.append(float(res.params["Intercept"]))
+    assert_allclose(intercepts[0], intercepts[1])
+
+    with pytest.warns(AbsorbingEffectWarning, match="educ"):
+        kept = PanelOLS.from_formula(
+            "y ~ 1 + educ + x + EntityEffects",
+            data=frame,
+            drop_absorbed=True,
+        ).fit()
+    assert "educ" not in kept.params.index
+    assert "x" in kept.params.index
+
+
+def test_reordered_pandas_index_is_rejected():
+    rng = np.random.RandomState(1)
+    idx = pd.MultiIndex.from_product(
+        [np.arange(12), np.arange(4)], names=["firm", "year"]
+    )
+    x = pd.Series(rng.standard_normal(len(idx)), index=idx, name="x")
+    y = pd.Series(0.5 * x.to_numpy() + rng.standard_normal(len(idx)), index=idx)
+    other = pd.Series(np.arange(len(idx)) % 3, index=idx, name="g")
+    weights = pd.Series(rng.chisquare(5, len(idx)), index=idx, name="w")
+
+    matched = PanelOLS(y, x, entity_effects=True).fit()
+    both = PanelOLS(y.iloc[::-1], x.iloc[::-1], entity_effects=True).fit()
+    assert_allclose(both.params, matched.params)
+
+    with pytest.raises(ValueError, match="exog"):
+        PanelOLS(y, x.iloc[::-1], entity_effects=True)
+    with pytest.raises(ValueError, match="weights"):
+        PanelOLS(y, x, weights=weights.iloc[::-1], entity_effects=True)
+    with pytest.raises(ValueError, match="other_effects"):
+        PanelOLS(y, x, other_effects=other.iloc[::-1])
+
+    # A raw array stays positional.
+    PanelOLS(y, np.asarray(x)[:, None], entity_effects=True)
 
 
 def test_zero_endog():
@@ -1469,7 +1619,8 @@ def test_f_after_drop():
 
 
 def test_predict_incorrect(data):
-    mod = PanelOLS(data.y, data.x)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x)
     res = mod.fit()
     with pytest.raises(ValueError, match=r"exog does not have the correct"):
         mod.predict(res.params.iloc[:-1], exog=data.x)
@@ -1480,6 +1631,14 @@ def test_predict_incorrect(data):
         exog = exog[:, :-1]
     with pytest.raises(ValueError, match=r"exog does not have the correct"):
         mod.predict(res.params, exog=exog)
+
+
+def test_predict_requires_exog_or_data(data):
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x)
+    res = mod.fit()
+    with pytest.raises(ValueError, match=r"One of exog or data must be provided"):
+        mod.predict(res.params)
 
 
 @pytest.mark.parametrize(
@@ -1494,22 +1653,17 @@ def test_predict_incorrect(data):
 def test_unknown_covconfig_kwargs(data, cov_config):
     # GH342
     c, fig = cov_config
-    mod = PanelOLS(data.y, data.x)
-    if c == "clustered":
-        cov = "ClusteredCovariance"
-    elif c == "kernel":
-        cov = "DriscollKraay"
-    elif c == "robust":
-        cov = "HeteroskedasticCovariance"
-    else:
-        cov = "HomoskedasticCovariance"
-    with pytest.raises(ValueError, match=f"Covariance estimator {cov}"):
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x)
+    match = f"The keyword argument '{fig}' is not accepted with cov_type='{c}'"
+    with pytest.raises(ValueError, match=match):
         mod.fit(cov_type=c, **{fig: data.vc1})
 
 
 # Reported by email
 def test_corr_squared(data):
-    mod = PanelOLS(data.y, data.x)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x)
     res = mod.fit()
     has_const = np.any(np.all(mod._x == 1.0, 0))
     if has_const:

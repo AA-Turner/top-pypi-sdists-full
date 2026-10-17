@@ -12,9 +12,14 @@ if not _os.environ.get("COLORTERM"):
 from rich.cells import cell_len, set_cell_size
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Static
+from .web import is_browser
+if is_browser():
+    from .web.widgets import FixedStatic as Static
+else:
+    from textual.widgets import Static
 
-from . import statusbox
+from .sfx import crossed, discard, drain as drain_sfx, passive, position as menu_position
+from . import statusbox, holidays
 from .appactions import ActionsMixin
 from .appboot import (  # noqa: F401  (re-export: tuipet.app.X keeps resolving)
     MIN_COLS, MIN_ROWS, _load_sound, _lobby_uri, _preflight, _save_sound,
@@ -61,6 +66,10 @@ async def _to_thread(fn, *args):
     a worker on launch, so it killed the game before the egg hatched.
     run_in_executor on the default pool is the same thing on every version."""
     import asyncio
+    from .web import is_browser
+    if is_browser():
+        from .web import cloud
+        return await getattr(cloud, fn.__name__)(*args)
     return await asyncio.get_running_loop().run_in_executor(None, fn, *args)
 
 
@@ -162,7 +171,7 @@ class TuiPetApp(ActionsMixin, App):
     """
     # the release-news line (title-screen msg box, first launch per build) --
     # UPDATE THIS WITH EVERY RELEASE that ships something player-visible
-    WHATS_NEW = ("TWO NEW THEMES. Forest (moss green in the deep woods) and Dusk (violet twilight) replace Game Boy and Paper -- if you used one of those, you're moved to its replacement automatically.")
+    WHATS_NEW = ("FAIRER CUPS. U now shows each cup's bracket, rules, prize and price before you pay, warns before a bracket above your stage, won't let you enter without energy for all three bouts, and the daily featured cup is always one your pet can enter.")
 
 
     BINDINGS = [
@@ -195,6 +204,13 @@ class TuiPetApp(ActionsMixin, App):
         # only ENTER.  action_gift no-ops when no gift is pending.
         ("enter,space", "gift", "Accept gift"),
     ]
+
+    def get_driver_class(self):
+        from .web import is_browser
+        if is_browser():
+            from .web.driver import BrowserDriver
+            return BrowserDriver
+        return super().get_driver_class()
 
     def __init__(self, pet: Pet | None = None):
         super().__init__()
@@ -273,9 +289,9 @@ class TuiPetApp(ActionsMixin, App):
         self._announce_eggs()
         self.repaint()
         self._open_mode(titlescreen.TitlePanel(), self._after_title)   # the panel's strip() carries PRESS ENTER
-        self.set_interval(0.1, self.on_frame)    # single DVPet interval clock: 1 tick == 0.1s (main view AND sub-screens)
-        self.set_interval(1.0, self.on_tick)
-        self.set_interval(10.0, self.autosave)
+        self._frame_timer = self.set_interval(0.1, self.on_frame)    # single DVPet interval clock: 1 tick == 0.1s (main view AND sub-screens)
+        self._life_timer = self.set_interval(1.0, self.on_tick)
+        self._save_timer = self.set_interval(10.0, self.autosave)
         self.run_worker(self._check_update(), name="update", exclusive=False)
         self.run_worker(self._flush_bugs(), name="bugflush", exclusive=False)
         self._start_sync()
@@ -394,6 +410,9 @@ class TuiPetApp(ActionsMixin, App):
         command.  A failed install says so and hands the command over too; it
         never pretends the update happened.
         """
+        from .web import is_browser
+        if is_browser():
+            return
         latest = await _to_thread(update_check.latest_if_newer)
         if not latest:
             return
@@ -663,6 +682,7 @@ class TuiPetApp(ActionsMixin, App):
             persistence.note_xanti()
 
     def on_unmount(self):
+        sound.stop()
         persistence.save(self.pet)
         self._flush_dms_on_quit()       # a lobby quit must not drop PMs from this session
         self._flush_cloud_on_quit()     # capture the final state cloud-side on any exit
@@ -682,6 +702,9 @@ class TuiPetApp(ActionsMixin, App):
         """Best-effort blocking push so the final state is captured cloud-side.
         Same holder gate as _push_cloud -- the quit flush was the GPD
         incident's poison vector (2026-07-29)."""
+        from .web import is_browser
+        if is_browser():
+            return                      # web.entry awaits the final push and IDBFS flush
         if self._sync is None or persistence.holder_cache() is False:
             return
         try:
@@ -709,13 +732,9 @@ class TuiPetApp(ActionsMixin, App):
             # guarded; the browse menus could still open mid-ceremony -- now
             # every binding waits for the show.  q (quit) stays live; the
             # dying-fx revive mash is handled above this gate.
-            # the swallowed key is ACKNOWLEDGED (QOL 2026-07-23): a silent
-            # eat read as a frozen app and invited a mash -- same soft
-            # click the dying-fx taps get.  And since the animation audit
-            # (2026-10-14) a fresh key SKIPS the show to its end -- it never
-            # also runs the key's own action.
+            # A fresh key skips only the passive show; audio ends with it.
+            sound.stop()
             self.screen_w.skip_fx()
-            self.beep("click", bell=False)
             event.stop()
             event.prevent_default()
             return
@@ -761,19 +780,25 @@ class TuiPetApp(ActionsMixin, App):
                     and ch is not None and len(ch) == 1
                     and ch.isprintable() and not ch.isspace()):
                 k = ch
+            before = menu_position(self.mode)
+            was_passive = passive(self.mode)
+            if was_passive:
+                discard(self.mode)
             result = self.mode.key(k)
-            snd = getattr(self.mode, "sfx", None)
-            if snd:
-                self.beep(snd, bell=False)
-                self.mode.sfx = None
-            elif getattr(self.mode, "captures_text", False):
-                pass                                # typing: no nav/confirm blips (audit 2026-07)
-            elif event.key in _NAV_KEYS:
-                self.beep("scroll", bell=False)     # cursor-move blip for every list screen
-            elif event.key == "enter":
-                self.beep("confirm", bell=False)    # menu confirm (a screen's own sfx wins above)
-            elif event.key == "escape":
-                self.beep("cancel", bell=False)     # back/cancel
+            cues = drain_sfx(self.mode)
+            after = menu_position(self.mode)
+            if was_passive:
+                sound.stop()
+            for cue in cues:
+                self.beep(cue, bell=False)
+            if not cues and not getattr(self.mode, "captures_text", False) and not was_passive:
+                if event.key in _NAV_KEYS and before != after:
+                    self.beep("scroll", bell=False)
+                elif result is not None or before[1:] != after[1:]:
+                    if event.key == "enter":
+                        self.beep("confirm", bell=False)
+                    elif event.key == "escape":
+                        self.beep("cancel", bell=False)
             if result is not None and result[0] == "done":
                 self._close_mode(result[1])
             elif result is not None and result[0] == "quit":
@@ -938,7 +963,10 @@ class TuiPetApp(ActionsMixin, App):
     def beep(self, name=None, bell=True):
         if not self.sound:
             return
-        if name and sound.play(name):
+        from .web import is_browser
+        if is_browser():
+            return
+        if name and sound.play(name, fallback=bell):
             return
         if bell:
             self.bell()
@@ -974,14 +1002,17 @@ class TuiPetApp(ActionsMixin, App):
             return
         self._beep_q = [t - 1 for t in q if t > 0]
         if any(t <= 0 for t in q):
-            self.beep("alarm", bell=False)
+            self.beep("alarm")
 
     def _toggle_sound(self):
         """The options-menu sound switch (the panel carries its own message)."""
+        from .web import is_browser
+        if is_browser():
+            return
         self.sound = not self.sound
+        sound.stop()
+        self._beep_q = []
         _save_sound(self.sound)
-        if self.sound:
-            self.bell()
 
     def _restyle(self):
         # the DMG-shell reading (2026-07-05): the LCD's thick frame is the
@@ -1128,6 +1159,10 @@ class TuiPetApp(ActionsMixin, App):
         return out
 
     def repaint(self):
+        # The panel's own strip names the active controls.
+        if getattr(self, "keys_w", None) is not None:
+            owned = self.mode is not None or self.pet.stage == "Egg"
+            self.keys_w.styles.opacity = 0.4 if owned else 1.0
         if self.mode is not None:
             self.screen_w.update(self._center(self.mode.text()))
             self._mode_strip()
@@ -1161,6 +1196,13 @@ class TuiPetApp(ActionsMixin, App):
         statusbox.card(self, title, lines)
 
     def on_frame(self):                        # single DVPet interval clock (10 Hz, 0.1s): main view AND sub-screens
+        from .web import is_browser
+        if is_browser():
+            from .web.entry import hidden
+            if hidden:
+                return
+        if sound.failed() and self.sound:
+            self.bell()
         menu.TICK += 1                         # the shared note marquee clock: no screen clips a message
         self._drain_beep_q()                   # the alarm-pattern tail (#8): extra rings land here
         self._hud_marquee()                    # scroll any over-long HUD message (independent of the LCD)
@@ -1169,10 +1211,8 @@ class TuiPetApp(ActionsMixin, App):
         if self.mode is not None:
             if hasattr(self.mode, "anim"):
                 self.mode.anim()
-                snd = getattr(self.mode, "sfx", None)   # drain anim-driven sfx (battle hits, lobby) — on_key only covers keypress
-                if snd:
-                    self.beep(snd, bell=False)
-                    self.mode.sfx = None
+                for cue in drain_sfx(self.mode):
+                    self.beep(cue, bell=False)
                 self.screen_w.update(self._center(self.mode.text()))
                 self._mode_strip()
                 painter = self._status_painter()
@@ -1228,13 +1268,8 @@ class TuiPetApp(ActionsMixin, App):
                 # (refuse head-shakes, the evolve burst, the dnaWash entry, ...)
                 # a fast show (rate > 1) passes several beats a frame: walk
                 # every beat crossed so no cue is skipped (animation audit)
-                snd = None
-                for b in range(sc.fx.get("prev", sc.fx["step"] - 1) + 1, sc.fx["step"] + 1):
-                    snd = sc.fx.get("bite_snds", {}).get(b) or sc.fx.get("snds", {}).get(b)
-                    if snd:
-                        break
-                if snd:
-                    self.beep(snd, bell=False)
+                for cue in crossed(sc.fx):
+                    self.beep(cue, bell=False)
                 if sc.fx["kind"] == "eat":     # live DVPet feeding readout (calorie + P/M/V)
                     self._status_eat()
                 elif (sc.fx["kind"] == "play" and sc.fx["step"] >= PLAY_LEAD
@@ -1304,6 +1339,11 @@ class TuiPetApp(ActionsMixin, App):
             sc.paint(self.pet)
 
     def on_tick(self):
+        from .web import is_browser
+        if is_browser():
+            from .web.entry import hidden
+            if hidden:
+                return
         # the sim's proxy for "an animation is playing": the poop deferral
         # (canon startPoop state-machine block, restored 2026-07-19) holds
         # the squat through the whole VISIBLE fx, not just the anim ttl
@@ -1475,6 +1515,8 @@ class TuiPetApp(ActionsMixin, App):
             self._hud(self._need_message(p))
             self._showing_need = True
             self._showing_update = False
+        elif (season_notice := holidays.notice()):
+            self.flash(season_notice)
         elif p.tourney_alert:
             self._hud("ALERT — Tournament open! [b]U[/] to enter")
             self._showing_need = True           # reuse the clear-on-resolve flag
@@ -1568,8 +1610,17 @@ class TuiPetApp(ActionsMixin, App):
         loop = self._hud_scroll + HUD_GAP
         # the window is cropped in CELLS (see _hud_fits) -- a char slice with a
         # wide glyph inside would spill the box and wrap-clip the tail
-        self.msg_w.update(_hud_esc(set_cell_size(
-            (loop + loop)[self._hud_off:self._hud_off + HUD_W], HUD_W)))
+        draw = True
+        if is_browser():
+            # Keep scroll speed, but coalesce browser paints of this passive text.
+            import time
+            now = time.monotonic()
+            draw = now - getattr(self, "_web_hud_at", -1.0) >= 0.4
+            if draw:
+                self._web_hud_at = now
+        if draw:
+            self.msg_w.update(_hud_esc(set_cell_size(
+                (loop + loop)[self._hud_off:self._hud_off + HUD_W], HUD_W)))
         self._hud_off += 1
         if self._hud_off >= len(loop):
             self._hud_off = 0

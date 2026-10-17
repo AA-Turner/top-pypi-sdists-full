@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: draftjs_exporter
-Version: 7.1.0
+Version: 7.2.0
 Summary: Library to convert rich text from Draft.js raw ContentState to HTML
 License-Expression: MIT
 Classifier: Environment :: Web Environment
@@ -9,7 +9,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -24,8 +23,8 @@ Classifier: Topic :: Text Editors :: Word Processors
 Classifier: Typing :: Typed
 Requires-Dist: beautifulsoup4>=4.4.1,<5 ; extra == 'html5lib'
 Requires-Dist: html5lib>=0.999,<2 ; extra == 'html5lib'
-Requires-Dist: lxml>=4.6.5,<7 ; extra == 'lxml'
-Requires-Python: >=3.10
+Requires-Dist: lxml>=4.9.4,<7 ; extra == 'lxml'
+Requires-Python: >=3.11
 Project-URL: Documentation, https://wagtail.github.io/draftjs_exporter/
 Project-URL: Source, https://github.com/wagtail/draftjs_exporter
 Project-URL: Tracker, https://github.com/wagtail/draftjs_exporter/issues

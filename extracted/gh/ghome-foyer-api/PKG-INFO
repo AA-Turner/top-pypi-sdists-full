@@ -1,25 +1,25 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: ghome-foyer-api
-Version: 1.2.2
+Version: 2.0.0
 Summary: Generated protobuf stubs for Google Home Foyer API
 Project-URL: Homepage, https://github.com/KapJI/ghome-foyer-api
 Project-URL: Bug Tracker, https://github.com/KapJI/ghome-foyer-api/issues
 Project-URL: Release Notes, https://github.com/KapJI/ghome-foyer-api/releases
 Author-email: Ruslan Sayfutdinov <ruslan@sayfutdinov.com>
-License: MIT
+License-Expression: MIT
 License-File: LICENSE
 Keywords: Foyer API,Google Home
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
-Requires-Dist: grpcio<2,>=1.71.0
-Requires-Dist: protobuf>=5.29.2
+Requires-Python: >=3.12
+Requires-Dist: grpcio<2,>=1.83.1
+Requires-Dist: protobuf>=7.35.1
 Description-Content-Type: text/markdown
 
 [![CI](https://github.com/KapJI/ghome-foyer-api/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/KapJI/ghome-foyer-api/actions/workflows/ci.yml)

@@ -44,7 +44,7 @@ class Attention(torch.nn.Module):
         q, k = self.norm_q(q), self.norm_k(k)
         if rotary is not None:  # interleaved pairs, complex tables
             q, k = (
-                torch.view_as_real(torch.view_as_complex(t.float().unflatten(-1, (-1, 2))) * rotary)
+                torch.view_as_real(torch.view_as_complex(t.float().unflatten(-1, (-1, 2))) * rotary[:, None])
                 .flatten(3)
                 .type_as(t)
                 for t in (q, k)

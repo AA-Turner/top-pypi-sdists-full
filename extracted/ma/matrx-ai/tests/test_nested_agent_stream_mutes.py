@@ -84,21 +84,6 @@ async def test_research_condensers_are_muted(monkeypatch: pytest.MonkeyPatch, fn
 
 
 @pytest.mark.asyncio
-async def test_pdf_content_cleaner_is_muted(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The cleaned PDF is machine-parsed — it is never the user's reading copy."""
-    from matrx_ai.agent_runners import content_cleaner as mod
-
-    spy = _Spy("cleaned")
-    monkeypatch.setattr(mod, "run_mandated", spy)
-    monkeypatch.setattr(mod, "stamp_source_context", lambda **_kw: None)
-
-    result = await mod.clean_pdf_extracted_content("raw pdf text")
-
-    assert result.success
-    assert spy.last.get("suppress_stream") is True
-
-
-@pytest.mark.asyncio
 async def test_ctx_get_summary_agent_is_muted(monkeypatch: pytest.MonkeyPatch) -> None:
     """`ctx_get(mode="summary")` returns its summary in the ToolResult, not the wire."""
     import matrx_ai.agents.executor as executor_mod

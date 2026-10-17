@@ -448,12 +448,24 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     # ── Load + run the target agent ─────────────────────────────────────
     from matrx_ai.agents.definition import Agent
     from matrx_ai.agents.executor import run_agent
+    from matrx_ai.prompt_blocks.errors import PromptBlockError
 
     try:
         agent = await Agent.from_agent(
             agent_id,
             variables=parsed.variables or None,
             config_overrides=config_overrides,
+        )
+    except PromptBlockError as exc:
+        # A missing declared block refuses the run BY NAME — never "failed to build agent".
+        info = getattr(exc, "error_info", None)
+        return _fail(
+            ctx,
+            started_at,
+            error_type=getattr(info, "error_type", None) or "prompt_block",
+            message=getattr(info, "user_message", None) or str(exc),
+            is_retryable=False,
+            exc=exc,
         )
     except Exception as exc:
         return _fail(
@@ -554,6 +566,10 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             # Prepend: [borrowed past] + [agent's own authored messages] + the
             # user_input turn run_agent appends — mirroring hydrate_persisted_history
             # ordering (persisted first, new turns after).
+            # The child's first-turn pass runs BEFORE the borrowed history joins:
+            # that history is data and is never filled (execute would otherwise
+            # run the pass over it).
+            await agent.run_first_turn_pass()
             own_messages = list(agent.config.messages)
             agent.config.messages.clear()
             agent.config.messages.extend(history)

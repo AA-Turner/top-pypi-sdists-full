@@ -132,7 +132,7 @@ def test_which_must_be_latest_or_best():
 # -- downloading, against the fake API --------------------------------------------------
 
 
-def _upload_set(app, tmp_path, files: dict[str, bytes], *, refuse: str | None = None):
+def _upload_set(app, tmp_path, files: dict[str, bytes], *, refuse: str | None = None, verbatim: bool = False):
     """A run with one uploaded set, logged the way the integrations log it."""
     run_id = seeded_run(app, tmp_path)
     client = make_client(app, tmp_spool=tmp_path / "outbox")
@@ -147,7 +147,7 @@ def _upload_set(app, tmp_path, files: dict[str, bytes], *, refuse: str | None = 
                              meta={"checkpoint": "checkpoint-2@step2", "upload": "failed"})
             continue
         run.log_artifact(f"checkpoint-2@step2/{rel}", path=str(folder / rel), kind="file", step_index=2,
-                         meta={"checkpoint": "checkpoint-2@step2"})
+                         meta={"checkpoint": "checkpoint-2@step2"}, verbatim=verbatim)
     run.log_artifact("checkpoint-2@step2", path=str(folder), kind="checkpoint", reference=True, step_index=2,
                      meta={"step": 2, "members": sorted(files), "upload": "requested"})
     return client, run_id
@@ -167,6 +167,48 @@ def test_download_checkpoint_writes_every_member_byte_for_byte(app, tmp_path):
     # By id too (the CLI's path).
     again = client.download_checkpoint(row["id"], tmp_path / "again")
     assert len(again["files"]) == 3
+    client.close()
+
+
+_GHP = "ghp_KKF0RDt0Xaetn6QMfStFUWSus4jowQUux6hu"
+
+
+def test_a_tokenizer_vocabulary_round_trips_byte_for_byte(app, tmp_path):
+    """BERT's tokenizer.json holds `"password": 20786`; it used to be stored
+    masked, so the restored file was invalid JSON."""
+    tokenizer = json.dumps({"model": {"vocab": {"[PAD]": 0, "password": 20786, "the": 1996}}}).encode()
+    files = {"model.safetensors": b"weights", "tokenizer.json": tokenizer}
+    client, run_id = _upload_set(app, tmp_path, files, verbatim=True)
+    got = client.download_checkpoint(client.checkpoint(run_id, "latest"), tmp_path / "restored")
+    assert (tmp_path / "restored" / "tokenizer.json").read_bytes() == tokenizer
+    assert got["redacted"] == []
+    client.close()
+
+
+def test_a_member_holding_a_credential_is_refused_never_stored_masked(app, tmp_path):
+    files = {"model.safetensors": b"weights", "config.json": f'{{"hub_token": "{_GHP}"}}'.encode()}
+    with pytest.warns(UserWarning):
+        client, run_id = _upload_set(app, tmp_path, files, verbatim=True)
+    rows = client.list_run_artifacts(run_id, prefix="checkpoint-2@step2", scope="own")
+    config = next(r for r in rows if r["name"].endswith("/config.json"))
+    assert not checkpoints.is_stored(config)
+    with pytest.raises(CheckpointNotStored) as caught:
+        client.download_checkpoint(client.checkpoint(run_id, "latest", recoverable=False), tmp_path / "r")
+    assert caught.value.missing == ["config.json"]
+    client.close()
+
+
+def test_download_checkpoint_warns_when_a_member_was_stored_masked(app, tmp_path, monkeypatch):
+    from probe.sdk import client as client_module
+    from probe.sdk.secret_gate import ArtifactRedactedWarning
+
+    client = make_client(app, tmp_spool=tmp_path / "outbox")
+    monkeypatch.setattr(
+        client_module._checkpoints, "download",
+        lambda *a, **k: {"checkpoint": "ckpt@step2", "files": [], "redacted": ["tokenizer.json"]},
+    )
+    with pytest.warns(ArtifactRedactedWarning, match="tokenizer.json"):
+        client.download_checkpoint({"name": "ckpt@step2"}, tmp_path / "r")
     client.close()
 
 
@@ -353,6 +395,7 @@ def test_members_are_never_uploaded_strict(tmp_path):
     (index,) = [kw for n, kw in run.calls if n == name]
     assert len(members) == 2 and all(kw["strict"] is False for kw in members)
     assert index["strict"] is True and meta["members"] == ["model.safetensors", "optimizer.pt"]
+    assert all(kw["verbatim"] is True for kw in members) and "verbatim" not in index
 
 
 def test_a_set_that_would_be_copied_across_disks_is_recorded_as_a_location(tmp_path, monkeypatch):

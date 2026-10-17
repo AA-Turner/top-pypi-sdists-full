@@ -24,6 +24,7 @@ import time
 from collections.abc import Generator, Iterable, Sequence
 from typing import TYPE_CHECKING, Literal
 
+from opentelemetry._logs import SeverityNumber
 from typing_extensions import Any, Protocol
 
 import wandb
@@ -932,11 +933,6 @@ class _WandbInit:
         if not (settings.disable_git or settings.x_disable_machine_info):
             run._populate_git_info()
 
-        if settings._offline and settings.resume:
-            wandb.termwarn(
-                "`resume` will be ignored since W&B syncing is set to `offline`. "
-                f"Starting a new run with run id {run.id}."
-            )
         error: wandb.Error | None = None
 
         timeout = settings.init_timeout
@@ -1225,7 +1221,7 @@ def init(  # noqa: C901
     be tracked as a run in W&B.
 
     `wandb.init()` spawns a new background process to log data to a run, and it
-    also syncs data to https://wandb.ai by default, so you can see your results
+    also syncs data to https://forge.coreweave.com/wandb by default, so you can see your results
     in real-time. When you're done logging data, call `run.finish()` to
     end the run, or use the run as a context manager to call it automatically:
 
@@ -1548,6 +1544,12 @@ def init(  # noqa: C901
         if wl:
             wl._get_logger().warning("interrupted", exc_info=e)
 
+        raise
+
+    except UsageError as e:
+        if wl:
+            wl._get_logger().exception("error in wandb.init()", exc_info=e)
+        telemetry_recorder.log(str(e), severity=SeverityNumber.WARN)
         raise
 
     except Exception as e:

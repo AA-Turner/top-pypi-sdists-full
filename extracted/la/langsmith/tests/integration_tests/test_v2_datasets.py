@@ -49,9 +49,7 @@ async def _wait_for_async(
     raise ValueError(f"Condition not met within {max_sleep_time}s")
 
 
-def _setup_experiment(
-    client: Client, dataset_name: str, num_examples: int = 3
-) -> tuple:
+def _setup_experiment(client: Client, dataset_name: str, num_examples: int = 3) -> tuple:
     """Create a dataset + examples, run evaluate, return (dataset, experiment_id)."""
     if client.has_dataset(dataset_name=dataset_name):
         _safe_delete_dataset(client, dataset_name)
@@ -88,9 +86,7 @@ def langchain_client() -> Client:
 async def test_v2_experiment_runs_cursor_pagination(langchain_client: Client) -> None:
     """page_size=1 + following next_cursor returns all examples without duplicates."""
     dataset_name = "__test_v2_exp_cursor_" + uuid7().hex
-    dataset, experiment_id = _setup_experiment(
-        langchain_client, dataset_name, num_examples=3
-    )
+    dataset, experiment_id = _setup_experiment(langchain_client, dataset_name, num_examples=3)
 
     async def _ready() -> bool:
         page = await langchain_client.datasets.experiment_runs.query(
@@ -106,9 +102,7 @@ async def test_v2_experiment_runs_cursor_pagination(langchain_client: Client) ->
         kwargs: dict[str, Any] = {"experiment_ids": [experiment_id], "page_size": 1}
         if cursor:
             kwargs["cursor"] = cursor
-        page = await langchain_client.datasets.experiment_runs.query(
-            str(dataset.id), **kwargs
-        )
+        page = await langchain_client.datasets.experiment_runs.query(str(dataset.id), **kwargs)
         all_items.extend(page.items)
         cursor = page.next_cursor
         if not cursor:

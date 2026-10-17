@@ -1,12 +1,15 @@
 # flake8: noqa: F811
 from copy import deepcopy
+from importlib.metadata import PackageNotFoundError
 import os
+import types
 from unittest import mock
 
 import pytest
 
 from pydantic import ValidationError
 
+import koheesio.integrations.snowflake as sf_module
 from koheesio.integrations.snowflake import (
     GrantPrivilegesOnObject,
     GrantPrivilegesOnTable,
@@ -288,3 +291,69 @@ class TestSnowflakeConfigDir:
         origin_snowflake_home = os.environ.get("SNOWFLAKE_HOME")
         safe_import_snowflake_connector()
         assert os.environ.get("SNOWFLAKE_HOME") == origin_snowflake_home
+
+
+class TestConnectorVersionGate:
+    check_access = staticmethod(getattr(sf_module, "__check_access_snowflake_config_dir"))
+    uses_sf_dirs = staticmethod(getattr(sf_module, "__connector_uses_sf_dirs"))
+
+    @pytest.mark.parametrize(
+        ("connector_version", "expected"),
+        [("4.0.0", True), ("3.12.1", True), ("5.0.0", False), ("5.1.2", False), ("not-a-version", False)],
+    )
+    def test_uses_sf_dirs_by_version(self, mocker, connector_version, expected):
+        mocker.patch.object(sf_module, "version", return_value=connector_version)
+        assert self.uses_sf_dirs() is expected
+
+    def test_uses_sf_dirs_false_when_package_missing(self, mocker):
+        mocker.patch.object(sf_module, "version", side_effect=PackageNotFoundError)
+        assert self.uses_sf_dirs() is False
+
+    def test_check_skipped_on_connector_5(self, mocker):
+        mocker.patch.object(sf_module, "version", return_value="5.0.0")
+        assert self.check_access() is True
+
+    def test_check_runs_on_connector_4_and_reports_permission_error(self, mocker):
+        mocker.patch.object(sf_module, "version", return_value="4.0.0")
+        fake_dirs = mock.MagicMock()
+        type(fake_dirs.return_value).user_config_path = mock.PropertyMock(side_effect=PermissionError("denied"))
+        mocker.patch.dict(
+            "sys.modules", {"snowflake.connector.sf_dirs": mock.MagicMock(_resolve_platform_dirs=fake_dirs)}
+        )
+        with pytest.warns(UserWarning, match="not accessible"):
+            assert self.check_access() is False
+
+    def test_check_runs_on_connector_4_and_passes(self, mocker):
+        mocker.patch.object(sf_module, "version", return_value="4.0.0")
+        mocker.patch.dict("sys.modules", {"snowflake.connector.sf_dirs": mock.MagicMock()})
+        assert self.check_access() is True
+
+
+class TestConnLoggerSwap:
+    def _step(self, mocker):
+        step = SnowflakeRunQueryPython(**COMMON_OPTIONS, query="SELECT 1")
+        fake_connector = mock.MagicMock()
+        mocker.patch.object(type(step), "_snowflake_connector", fake_connector, create=True)
+        return step, fake_connector.connect.return_value
+
+    def test_conn_works_when_connection_module_has_no_logger(self, mocker):
+        """connector>=5: `snowflake.connector.connection` has no `logger` attribute"""
+        fake_module = types.ModuleType("snowflake.connector.connection")
+        mocker.patch.dict("sys.modules", {"snowflake.connector.connection": fake_module})
+        step, conn = self._step(mocker)
+        with step.conn as c:
+            assert c is conn
+        assert not hasattr(fake_module, "logger")
+        conn.close.assert_called_once()
+
+    def test_conn_swaps_and_restores_logger_when_present(self, mocker):
+        """connector<5: module-level logger is replaced during the context and restored after"""
+        original = object()
+        fake_module = types.ModuleType("snowflake.connector.connection")
+        fake_module.logger = original
+        mocker.patch.dict("sys.modules", {"snowflake.connector.connection": fake_module})
+        step, conn = self._step(mocker)
+        with step.conn:
+            assert fake_module.logger is step.log
+        assert fake_module.logger is original
+        conn.close.assert_called_once()

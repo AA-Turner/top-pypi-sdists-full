@@ -123,12 +123,12 @@ async def test_a_non_refusal_guard_bug_is_not_swallowed() -> None:
         await site_data({"url": GMAPS_URL}, _ctx())
 
 
-def test_stamp_read_engine_carries_site_data_provenance_and_notice() -> None:
-    prov = {"provider": "live_data", "engine": "site_data", "announcement": "live data, Google Maps place"}
-    page = _stamp_read_engine({"engine": "site_data", "provenance": prov,
-                               "site_data_notice": "fell back to a direct read"}, {"text": "x"})
-    assert page["engine"] == "site_data" and page["provenance"] == prov
-    assert page["site_data_notice"] == "fell back to a direct read"
+def test_stamp_read_engine_carries_the_advanced_reader_and_its_notice() -> None:
+    meta = {"url": "u", "ok": True, "reader": "advanced reader", "seconds": 6.1, "points": 30}
+    page = _stamp_read_engine({"engine": "advanced_read", "advanced_read": meta,
+                               "notice": "Read by the advanced reader."}, {"text": "x"})
+    assert page["engine"] == "advanced_read" and page["advanced_read"] == meta
+    assert page["notice"] == "Read by the advanced reader."
     plain = _stamp_read_engine({"text": "y"}, {"text": "y"})
     assert plain == {"text": "y"}
     assert _stamp_read_engine("not a dict", {"text": "z"}) == {"text": "z"}

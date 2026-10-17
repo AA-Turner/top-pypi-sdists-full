@@ -11,11 +11,9 @@ pub mod channel;
 mod estimate;
 pub use estimate::{estimate_write, WriteEstimate};
 mod progress;
-mod retention;
 mod roots;
 pub use adoption::adopt_checkpoint;
 use progress::read as read_progress;
-pub use retention::{release_retention, retain_result, RetainedResult};
 
 use std::collections::{BTreeMap, HashSet};
 use std::io::Read;
@@ -3230,13 +3228,7 @@ pub(crate) fn retain_restore(
 
 /// The manifests private roots name themselves, without walking their checkpoint chains.
 pub(crate) fn rooted_manifests(store: &Store) -> Result<Vec<ObjectRef>> {
-    let mut named: Vec<ObjectRef> = retention::held_objects(store)?
-        .into_iter()
-        .map(|hold| ObjectRef {
-            sha256: hold.sha256,
-            length: hold.length,
-        })
-        .collect();
+    let mut named = Vec::new();
     for root in roots::all(store)? {
         named.extend(root.sources);
         named.extend(root.manifest);
@@ -3245,7 +3237,7 @@ pub(crate) fn rooted_manifests(store: &Store) -> Result<Vec<ObjectRef>> {
 }
 
 pub(crate) fn retained_objects(store: &Store) -> Result<Vec<crate::storage::HeldKey>> {
-    let mut holds = retention::held_objects(store)?;
+    let mut holds = Vec::new();
     for object in roots::journaled(store)? {
         holds.push(crate::storage::HeldKey {
             key: crate::storage::blob_key(&object.sha256)?,
@@ -3766,11 +3758,11 @@ pub fn commit(
     walk.require_held(store, &crate::ingest::custody::live(store.root())?)?;
     // What it inherits and this store lacks stays where its sources' origin holds it.
     if walk.distinct().iter().any(|object| !store.contains(&object.sha256)) {
-        let evidence = sources
-            .iter()
-            .find_map(|source| crate::origin::evidence(store.root(), &source.fact.manifest).ok().flatten())
-            .unwrap_or_else(|| format!("derived {transaction}"));
-        crate::origin::attest(store, &manifest_ref, &evidence)?;
+        let origin = (sources.iter())
+            .find_map(|source| crate::origin::of(store.root(), &source.fact.manifest).ok().flatten());
+        if let Some(origin) = origin {
+            crate::origin::attest(store, &manifest_ref, &origin)?;
+        }
     }
     let (inherited_payload_objects, inherited_payload_bytes) =
         inherit_observation(&header, &row_before)?;

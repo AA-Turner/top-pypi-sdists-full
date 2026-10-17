@@ -5,7 +5,6 @@ import datetime
 import typing
 import warnings
 
-import Common.Util
 import QuantConnect
 import QuantConnect.Algorithm.Framework.Portfolio
 import QuantConnect.Api
@@ -17,6 +16,7 @@ import QuantConnect.Orders.Serialization
 import QuantConnect.Securities
 import QuantConnect.Securities.Option
 import QuantConnect.Securities.Positions
+import QuantConnect.Util
 import System
 import System.Collections.Generic
 import System.Threading
@@ -2352,7 +2352,7 @@ class FixOrderProperties(QuantConnect.Orders.OrderProperties):
     """Contains additional properties and settings for an order sent over a FIX connection"""
 
     @property
-    def additional_properties(self) -> Common.Util.BaseExtendedDictionary[str, str]:
+    def additional_properties(self) -> QuantConnect.Util.BaseExtendedDictionary[str, str]:
         """
         Custom FIX tags to send with the order. The key is the FIX tag number
         and the value is the tag value, e.g. AdditionalProperties<"9301"> = "1"
@@ -2360,7 +2360,7 @@ class FixOrderProperties(QuantConnect.Orders.OrderProperties):
         ...
 
     @additional_properties.setter
-    def additional_properties(self, value: Common.Util.BaseExtendedDictionary[str, str]) -> None:
+    def additional_properties(self, value: QuantConnect.Util.BaseExtendedDictionary[str, str]) -> None:
         ...
 
     @property
@@ -3961,7 +3961,7 @@ class TerminalLinkOrderProperties(QuantConnect.Orders.OrderProperties):
             ...
 
     @property
-    def additional_properties(self) -> Common.Util.BaseExtendedDictionary[str, str]:
+    def additional_properties(self) -> QuantConnect.Util.BaseExtendedDictionary[str, str]:
         """
         Custom EMSX fields to send with the order. The key is the EMSX element name
         and the value is the element value, e.g. AdditionalProperties<"EMSX_CFD_FLAG"> = "1"
@@ -3969,7 +3969,7 @@ class TerminalLinkOrderProperties(QuantConnect.Orders.OrderProperties):
         ...
 
     @additional_properties.setter
-    def additional_properties(self, value: Common.Util.BaseExtendedDictionary[str, str]) -> None:
+    def additional_properties(self, value: QuantConnect.Util.BaseExtendedDictionary[str, str]) -> None:
         ...
 
     @property

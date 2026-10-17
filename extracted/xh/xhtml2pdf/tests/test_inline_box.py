@@ -103,8 +103,8 @@ class InlineBoxParsingTest(TestCase):
         self.assertEqual(2, len(_markers(para)))
         outer = next(f for f in para.frags if f.text == "a ")
         inner = next(f for f in para.frags if f.text == "b")
-        for name in ("firstLineIndent", "spaceBefore"):
-            self.assertEqual(getattr(outer, name, 0), getattr(inner, name, 0), name)
+        self.assertEqual(outer.firstLineIndent, inner.firstLineIndent)
+        self.assertEqual(0, inner.spaceBefore)
 
     def test_the_markers_carry_the_box_and_the_text_does_not(self) -> None:
         para = _paragraph(f"<p>a <span style='{BOX}'>b</span> c</p>")
@@ -426,6 +426,24 @@ class InlineBoxRenderTest(TestCase):
     def test_a_box_alone_in_a_paragraph_renders(self) -> None:
         page = self._render(f"<p><span style='{BOX}'>only</span></p>")
         self.assertIn("only", page.extract_text())
+
+    def test_a_box_after_a_line_break_starting_with_whitespace_renders(self) -> None:
+        # The box's opening marker is in the pending word when the text
+        # after the line break starts (#849).
+        page = self._render(
+            "<p>first<br/><span style='padding: 1px'>&#xa0;second</span></p>"
+        )
+        text = page.extract_text()
+        self.assertLess(text.index("first"), text.index("second"))
+
+    def test_non_breaking_spaces_after_a_line_break_are_kept(self) -> None:
+        para = _paragraph("<p>first<br/>&#xa0;&#xa0;indented</p>")
+        kept = b"".join(
+            text.encode() if isinstance(text, str) else text
+            for word in _getFragWords(para.frags)
+            for _f, text in word[1:]
+        )
+        self.assertEqual(2, kept.decode().count("\xa0"))
 
 
 class EmbeddedFontTest(TestCase):

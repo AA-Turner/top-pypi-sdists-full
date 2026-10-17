@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-05T21:11:54.631011                                                            #
+# Generated on 2026-10-16T15:14:49.243645                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -128,6 +128,9 @@ class TypedCoreConfig(object, metaclass=type):
     force_upgrade : bool, optional
         Force upgrade the app even if it is currently being upgraded.
     
+    suspend : bool, optional
+        True suspends the app; false (the default, also used when omitted) resumes it. A suspended deploy returns before traffic readiness.
+    
     use_base_image_command : bool, optional
         When True, skip providing startup commands and rely on the container's entrypoint/CMD. Only available in the programmatic API. In CLI mode, use `--no-deps` along side passing no command to enable this behavior.
     
@@ -168,7 +171,7 @@ class TypedCoreConfig(object, metaclass=type):
     generate_static_url : bool, optional
         Generate a static URL for the app based on its name. Cannot be combined with `url_slug`, which names the URL instead.
     """
-    def __init__(self, name: typing.Union[str, None] = None, port: typing.Union[int, None] = None, description: typing.Union[str, None] = None, app_type: typing.Union[str, None] = None, image: typing.Union[str, None] = None, tags: typing.Union[list, None] = None, secrets: typing.Union[list, None] = None, compute_pools: typing.Union[list, None] = None, environment: typing.Union[dict, None] = None, commands: typing.Union[list, None] = None, resources: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ResourceConfigDict, None] = None, auth: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.AuthConfigDict, None] = None, replicas: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ReplicaConfigDict, None] = None, code_package: typing.Union[tuple, None] = None, force_upgrade: typing.Union[bool, None] = None, use_base_image_command: typing.Union[bool, None] = None, skip_code_package: typing.Union[bool, None] = None, capsule_type: typing.Union[str, None] = None, proxy: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ProxyConfigDict, None] = None, url_slug: typing.Union[str, None] = None, persistence: typing.Union[str, None] = None, project: typing.Union[str, None] = None, branch: typing.Union[str, None] = None, models: typing.Union[list, None] = None, data: typing.Union[list, None] = None, generate_static_url: typing.Union[bool, None] = None, **kwargs):
+    def __init__(self, name: typing.Union[str, None] = None, port: typing.Union[int, None] = None, description: typing.Union[str, None] = None, app_type: typing.Union[str, None] = None, image: typing.Union[str, None] = None, tags: typing.Union[list, None] = None, secrets: typing.Union[list, None] = None, compute_pools: typing.Union[list, None] = None, environment: typing.Union[dict, None] = None, commands: typing.Union[list, None] = None, resources: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ResourceConfigDict, None] = None, auth: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.AuthConfigDict, None] = None, replicas: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ReplicaConfigDict, None] = None, code_package: typing.Union[tuple, None] = None, force_upgrade: typing.Union[bool, None] = None, suspend: typing.Union[bool, None] = None, use_base_image_command: typing.Union[bool, None] = None, skip_code_package: typing.Union[bool, None] = None, capsule_type: typing.Union[str, None] = None, proxy: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ProxyConfigDict, None] = None, url_slug: typing.Union[str, None] = None, persistence: typing.Union[str, None] = None, project: typing.Union[str, None] = None, branch: typing.Union[str, None] = None, models: typing.Union[list, None] = None, data: typing.Union[list, None] = None, generate_static_url: typing.Union[bool, None] = None, **kwargs):
         ...
     def create_config(self) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.CoreConfig:
         ...

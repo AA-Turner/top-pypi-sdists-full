@@ -721,7 +721,13 @@ fn lower_cte(cte: &Cte) -> Result<ast::Cte> {
         alias: table_alias(&cte.name, false),
         query: Box::new(lower_query(&cte.query)?),
         from: None,
-        materialized: None,
+        materialized: cte.materialized.map(|materialized| {
+            if materialized {
+                ast::CteAsMaterialized::Materialized
+            } else {
+                ast::CteAsMaterialized::NotMaterialized
+            }
+        }),
         closing_paren_token: ast::helpers::attached_token::AttachedToken::empty(),
     })
 }

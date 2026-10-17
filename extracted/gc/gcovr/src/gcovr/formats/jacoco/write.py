@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,7 +15,10 @@
 #
 # ****************************************************************************
 
+"""GCOVR JaCoCo report."""
+
 from dataclasses import dataclass
+
 from lxml import etree  # nosec # We only write XML files
 
 from ...data_model.container import CoverageContainer
@@ -29,15 +30,16 @@ from ...utils import write_xml_output
 def write_report(
     covdata: CoverageContainer, output_file: str, options: Options
 ) -> None:
-    """produce an XML report in the JaCoCo format"""
-
+    """Write an XML report in the JaCoCo format."""
     root_elem = etree.Element("report")
     root_elem.set("name", options.jacoco_report_name)
 
     # Generate the coverage output (on a per-package basis)
     packages = dict[str, PackageData]()
 
-    for _, filecov in sorted(covdata.items()):
+    for filecov in sorted(
+        covdata.filecov(recurse=True), key=lambda filecov: filecov.filename
+    ):
         filename = filecov.presentable_filename(options.root_filter)
         if "/" in filename:
             directory, fname = filename.rsplit("/", 1)

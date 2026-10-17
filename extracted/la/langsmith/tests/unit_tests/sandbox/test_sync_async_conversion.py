@@ -110,17 +110,13 @@ class TestSandboxConversion:
     def test_conversion_disables_auto_delete(self, sync_client, async_client):
         sb = Sandbox.from_dict(SANDBOX_DATA, client=sync_client, auto_delete=True)
         assert sb.to_async()._auto_delete is False
-        asb = AsyncSandbox.from_dict(
-            SANDBOX_DATA, client=async_client, auto_delete=True
-        )
+        asb = AsyncSandbox.from_dict(SANDBOX_DATA, client=async_client, auto_delete=True)
         assert asb.to_sync()._auto_delete is False
 
     def test_explicit_client_is_used(self, sync_client, async_client):
         sb = Sandbox.from_dict(SANDBOX_DATA, client=sync_client, auto_delete=False)
         assert sb.to_async(client=async_client)._client is async_client
-        asb = AsyncSandbox.from_dict(
-            SANDBOX_DATA, client=async_client, auto_delete=False
-        )
+        asb = AsyncSandbox.from_dict(SANDBOX_DATA, client=async_client, auto_delete=False)
         assert asb.to_sync(client=sync_client)._client is sync_client
 
     def test_data_fields_stay_in_sync(self):

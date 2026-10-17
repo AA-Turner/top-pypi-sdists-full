@@ -80,7 +80,12 @@ def stl_loadb(buffer: bytes) -> MeshTransformer:
     """
     # http://www.fabbers.com/tech/STL_Format#Sct_ASCII
     index = 80
-    n_faces = struct.unpack_from("<I", buffer, index)[0]
+    try:
+        n_faces = struct.unpack_from("<I", buffer, index)[0]
+    except struct.error:
+        raise ParsingError(
+            "binary STL parsing error: buffer is too short for an 84-byte header"
+        )
     index += 4
 
     mesh = MeshVertexMerger()
@@ -208,7 +213,12 @@ def obj_loads(content: str) -> list[MeshTransformer]:
     mesh = MeshVertexMerger()
     for num, line in enumerate(content.split("\n"), start=1):
         line = line.strip(" \r")
-        if line.startswith("v"):
+        # Match the line type by its first whitespace-separated token, so that
+        # "vn" (normals), "vt" (texture coords) and "vp" lines are not mistaken
+        # for "v" (vertex) lines.
+        tokens = line.split()
+        tag = tokens[0] if tokens else ""
+        if tag == "v":
             try:
                 vtx = parse_vertex(line[2:])
             except (IndexError, ValueError):
@@ -216,7 +226,7 @@ def obj_loads(content: str) -> list[MeshTransformer]:
                     f"OBJ vertex parsing error in line {num}: {line}"
                 )
             vertices.append(vtx)
-        elif line.startswith("f"):
+        elif tag == "f":
             try:
                 mesh.add_face(vertices[i] for i in parse_face(line[2:]))
             except ValueError:
@@ -228,7 +238,7 @@ def obj_loads(content: str) -> list[MeshTransformer]:
                     f"OBJ face index error (n={len(vertices)}) in line {num}: {line}"
                 )
 
-        elif line.startswith("g") and len(mesh.vertices) > 0:
+        elif tag == "g" and len(mesh.vertices) > 0:
             meshes.append(MeshTransformer.from_builder(mesh))
             mesh = MeshVertexMerger()
 

@@ -141,6 +141,41 @@ class QuicPacketBuilderTest(TestCase):
         # check builder
         self.assertEqual(builder.packet_number, 2)
 
+    def test_long_header_initial_client_ack_max_flight_bytes_zero(self):
+        """
+        A client pads datagrams carrying an ACK-only INITIAL packet even when the
+        congestion window is full, as the padding is not in flight.
+        """
+        builder = create_builder(is_client=True)
+        builder.max_flight_bytes = 0
+        crypto = create_crypto()
+
+        # INITIAL, ACK only
+        builder.start_packet(QuicPacketType.INITIAL, crypto)
+        buf = builder.start_frame(QuicFrameType.ACK)
+        buf.push_bytes(bytes(4))
+
+        # check datagrams
+        datagrams, packets = builder.flush()
+        self.assertEqual(datagram_sizes(datagrams), [1200])
+        self.assertEqual(
+            packets,
+            [
+                QuicSentPacket(
+                    epoch=Epoch.INITIAL,
+                    in_flight=False,
+                    is_ack_eliciting=False,
+                    is_crypto_packet=False,
+                    packet_number=0,
+                    packet_type=QuicPacketType.INITIAL,
+                    sent_bytes=49,
+                )
+            ],
+        )
+
+        # check builder
+        self.assertEqual(builder.packet_number, 1)
+
     def test_long_header_initial_client_zero_rtt(self):
         builder = create_builder(is_client=True)
         crypto = create_crypto()
@@ -471,6 +506,57 @@ class QuicPacketBuilderTest(TestCase):
         # check builder
         self.assertEqual(builder.packet_number, 3)
 
+    def test_long_header_then_short_header_max_flight_bytes(self):
+        """
+        A short header packet which would pad an INITIAL datagram beyond the
+        congestion window is sent in a datagram of its own.
+        """
+        builder = create_builder(is_client=True)
+        builder.max_flight_bytes = 1000
+        crypto = create_crypto()
+
+        # INITIAL, ACK only
+        builder.start_packet(QuicPacketType.INITIAL, crypto)
+        buf = builder.start_frame(QuicFrameType.ACK)
+        buf.push_bytes(bytes(4))
+
+        # ONE_RTT, starts a new datagram
+        builder.start_packet(QuicPacketType.ONE_RTT, crypto)
+        self.assertEqual(builder.remaining_flight_space, 973)
+        buf = builder.start_frame(QuicFrameType.STREAM_BASE)
+        buf.push_bytes(bytes(100))
+        self.assertFalse(builder.packet_is_empty)
+
+        # check datagrams
+        datagrams, packets = builder.flush()
+        self.assertEqual(datagram_sizes(datagrams), [1200, 128])
+        self.assertEqual(
+            packets,
+            [
+                QuicSentPacket(
+                    epoch=Epoch.INITIAL,
+                    in_flight=False,
+                    is_ack_eliciting=False,
+                    is_crypto_packet=False,
+                    packet_number=0,
+                    packet_type=QuicPacketType.INITIAL,
+                    sent_bytes=49,
+                ),
+                QuicSentPacket(
+                    epoch=Epoch.ONE_RTT,
+                    in_flight=True,
+                    is_ack_eliciting=True,
+                    is_crypto_packet=False,
+                    packet_number=1,
+                    packet_type=QuicPacketType.ONE_RTT,
+                    sent_bytes=128,
+                ),
+            ],
+        )
+
+        # check builder
+        self.assertEqual(builder.packet_number, 2)
+
     def test_short_header_empty(self):
         builder = create_builder()
         crypto = create_crypto()
@@ -737,6 +823,56 @@ class QuicPacketBuilderTest(TestCase):
         # check builder
         self.assertEqual(builder.packet_number, 2)
 
+    def test_short_header_path_challenge(self):
+        """
+        Datagrams containing a PATH_CHALLENGE are padded, but not the next one.
+        """
+        builder = create_builder()
+        crypto = create_crypto()
+
+        builder.start_packet(QuicPacketType.ONE_RTT, crypto)
+        buf = builder.start_frame(QuicFrameType.PATH_CHALLENGE, capacity=9)
+        buf.push_bytes(bytes(8))
+
+        builder.start_packet(QuicPacketType.ONE_RTT, crypto)
+        builder.start_frame(QuicFrameType.PING)
+
+        # check datagrams
+        datagrams, packets = builder.flush()
+        self.assertEqual(datagram_sizes(datagrams), [1200, 29])
+
+    def test_short_header_path_challenge_max_total_bytes(self):
+        """
+        Padding of datagrams containing a PATH_CHALLENGE is limited by
+        max_total_bytes.
+        """
+        builder = create_builder()
+        builder.max_total_bytes = 800
+        crypto = create_crypto()
+
+        builder.start_packet(QuicPacketType.ONE_RTT, crypto)
+        buf = builder.start_frame(QuicFrameType.PATH_CHALLENGE, capacity=9)
+        buf.push_bytes(bytes(8))
+
+        # check datagrams
+        datagrams, packets = builder.flush()
+        self.assertEqual(datagram_sizes(datagrams), [800])
+
+    def test_short_header_path_response(self):
+        """
+        Datagrams containing a PATH_RESPONSE are padded.
+        """
+        builder = create_builder()
+        crypto = create_crypto()
+
+        builder.start_packet(QuicPacketType.ONE_RTT, crypto)
+        buf = builder.start_frame(QuicFrameType.PATH_RESPONSE, capacity=9)
+        buf.push_bytes(bytes(8))
+
+        # check datagrams
+        datagrams, packets = builder.flush()
+        self.assertEqual(datagram_sizes(datagrams), [1200])
+
     def test_short_header_ping_only(self):
         """
         The payload is too short to provide enough data for header protection,
@@ -768,3 +904,29 @@ class QuicPacketBuilderTest(TestCase):
                 )
             ],
         )
+
+    def test_short_header_ping_only_max_total_bytes(self):
+        """
+        max_total_bytes must leave room for the padding which header protection
+        needs, so a PING alone needs 29 bytes.
+        """
+        crypto = create_crypto()
+
+        # 28 bytes do not allow a PING.
+        builder = create_builder()
+        builder.max_total_bytes = 28
+        builder.start_packet(QuicPacketType.ONE_RTT, crypto)
+        with self.assertRaises(QuicPacketBuilderStop):
+            builder.start_frame(QuicFrameType.PING)
+        datagrams, packets = builder.flush()
+        self.assertEqual(datagrams, [])
+        self.assertEqual(packets, [])
+
+        # 29 bytes do.
+        builder = create_builder()
+        builder.max_total_bytes = 29
+        builder.start_packet(QuicPacketType.ONE_RTT, crypto)
+        builder.start_frame(QuicFrameType.PING)
+        datagrams, packets = builder.flush()
+        self.assertEqual(datagram_sizes(datagrams), [29])
+        self.assertEqual(packets[0].sent_bytes, 29)

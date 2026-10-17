@@ -9,26 +9,27 @@ logger = logging.getLogger(__name__)
 cow = bool(os.environ.get("LM_TEST_COPY_ON_WRITE", ""))
 if cow:
     try:
-        pd.options.mode.copy_on_write = cow
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            pd.options.mode.copy_on_write = cow
     except AttributeError:
         cow = False
 if cow:
     logger.critical("Copy on Write testing enabled")
 
 
-def pytest_configure(config):
+def pytest_configure(config: pytest.Config) -> None:
     # Minimal config to simplify running tests from lm.test()
     config.addinivalue_line("markers", "example: mark a test as an example")
     config.addinivalue_line("markers", "slow: mark a test as slow")
     config.addinivalue_line(
         "markers", "smoke: mark a test as a coding error (smoke) test"
     )
-    config.addinivalue_line(
-        "filterwarnings", "ignore:Method .ptp is deprecated:FutureWarning"
-    )
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--skip-slow", action="store_true", help="skip slow tests")
     parser.addoption("--only-slow", action="store_true", help="run only slow tests")
     parser.addoption("--skip-smoke", action="store_true", help="skip smoke tests")
@@ -36,7 +37,7 @@ def pytest_addoption(parser):
     parser.addoption("--skip-examples", action="store_true", help="skip examples tests")
 
 
-def pytest_runtest_setup(item):
+def pytest_runtest_setup(item: pytest.Item) -> None:
     if "slow" in item.keywords and item.config.getoption("--skip-slow"):
         pytest.skip("skipping due to --skip-slow")
 

@@ -1,7 +1,7 @@
 mod utils;
 use std::sync::Arc;
 use utils::{
-    mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi},
+    mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi, StubData},
     mock_specs_adapter::MockSpecsAdapter,
 };
 
@@ -11,6 +11,33 @@ use statsig_rust::{
 };
 
 const SDK_KEY: &str = "secret-key";
+
+#[tokio::test]
+async fn test_initialize_without_timeout_can_exceed_three_seconds() {
+    let statsig = Statsig::new(
+        SDK_KEY,
+        Some(Arc::new(StatsigOptions {
+            specs_adapter: Some(Arc::new(MockSpecsAdapter::delayed(
+                "tests/data/eval_proj_dcs.json",
+                3200,
+            ))),
+            disable_all_logging: Some(true),
+            disable_country_lookup: Some(true),
+            ..StatsigOptions::new()
+        })),
+    );
+
+    let details = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        statsig.initialize_with_details(),
+    )
+    .await
+    .expect("initialization must finish")
+    .unwrap();
+    assert!(details.init_success, "{details:?}");
+    assert!(statsig.is_config_spec_ready());
+    statsig.shutdown().await.unwrap();
+}
 
 #[tokio::test]
 async fn test_initialize_timeout() {
@@ -63,4 +90,44 @@ async fn test_timeout_logic() {
     let response = network_client.post(init_request_args, None).await;
     // Assert that the request timed out
     assert!(response.is_err());
+}
+
+#[tokio::test]
+async fn test_default_initial_http_request_can_exceed_three_seconds() {
+    let mock_scrapi = MockScrapi::new().await;
+    mock_scrapi
+        .stub(EndpointStub {
+            delay_ms: 3_200,
+            response: StubData::String(
+                std::fs::read_to_string("tests/data/eval_proj_dcs.json").unwrap(),
+            ),
+            ..EndpointStub::with_endpoint(Endpoint::DownloadConfigSpecs)
+        })
+        .await;
+    let statsig = Statsig::new(
+        SDK_KEY,
+        Some(Arc::new(StatsigOptions {
+            specs_url: Some(mock_scrapi.url_for_endpoint(Endpoint::DownloadConfigSpecs)),
+            disable_all_logging: Some(true),
+            disable_country_lookup: Some(true),
+            ..StatsigOptions::new()
+        })),
+    );
+
+    let details = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        statsig.initialize_with_details(),
+    )
+    .await
+    .expect("initial HTTP response must finish within its request budget")
+    .unwrap();
+    assert!(details.init_success, "{details:?}");
+    assert!(statsig.is_config_spec_ready());
+    assert_eq!(
+        mock_scrapi
+            .get_requests_for_endpoint(Endpoint::DownloadConfigSpecs)
+            .len(),
+        1
+    );
+    statsig.shutdown().await.unwrap();
 }

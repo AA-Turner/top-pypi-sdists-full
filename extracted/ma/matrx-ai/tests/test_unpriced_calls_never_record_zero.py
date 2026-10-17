@@ -75,8 +75,8 @@ async def test_one_bad_offering_never_unprices_the_whole_table(monkeypatch) -> N
         SimpleNamespace(id="m-bad", name="bad-model", is_deprecated=False, retired_at=None),
     ]
     offerings = {
-        "m-good": [SimpleNamespace(id="o-good", endpoint_id="e", pricing=[{"input_price": 1, "output_price": 4}])],
-        "m-bad": [SimpleNamespace(id="o-bad", endpoint_id="e", pricing=[{"input_price": [1], "output_price": 4}])],
+        "m-good": [SimpleNamespace(id="o-good", endpoint_id="e", provider_model_id="good-model", pricing=[{"input_price": 1, "output_price": 4}])],
+        "m-bad": [SimpleNamespace(id="o-bad", endpoint_id="e", provider_model_id="bad-model", pricing=[{"input_price": [1], "output_price": 4}])],
     }
 
     class _Models:
@@ -210,3 +210,41 @@ async def test_a_priced_call_accrues_its_real_cost(monkeypatch) -> None:
 
     assert accrued == [pytest.approx((40_000 * 0.075 + 1_000 * 0.3) / 1_000_000)]
     assert unpriced == []
+
+
+@pytest.mark.asyncio
+async def test_a_counters_only_usage_is_priced_by_the_dispatched_route(monkeypatch) -> None:
+    """2026-10-16 (model_call_unpriced "unknown model", 17 alarms): a TypeSafe decision call returns
+    ``usage={input_tokens, output_tokens}`` with no model name. The dispatcher knows the route, so the
+    call is priced against it — never alarmed as an unknown model while being priced a step later."""
+    from matrx_ai.context import app_context
+    from matrx_ai.providers import guardrail_gate
+    from matrx_ai.providers.typesafe.client import TypeSafeUsage
+
+    ctx = SimpleNamespace(user_id="u-test", request_id="r-1", conversation_id="c-1")
+    monkeypatch.setattr(app_context, "try_get_app_context", lambda: ctx)
+    tier = PricingTier(max_tokens=None, input_price=0.02, output_price=0.1, cached_input_price=0.0)
+    monkeypatch.setattr(uc, "_pricing_lookup_cache", {"jev-1.13.0": ModelPricing("jev-1.13.0", "typesafe", [tier])})
+
+    accrued: list[float] = []
+    unpriced: list[str] = []
+    monkeypatch.setattr(guardrail_gate, "_accrue", None)
+    monkeypatch.setattr(guardrail_gate, "_every_call_usage", None)
+    monkeypatch.setattr(guardrail_gate, "_every_call_tracked", lambda c: True)
+    monkeypatch.setattr(guardrail_gate, "_every_call_accrue", lambda c, cost: accrued.append(cost))
+    monkeypatch.setattr(
+        guardrail_gate, "_every_call_unpriced",
+        lambda c, u, cost: unpriced.append(str(getattr(u, "matrx_model_name", "") or "unknown model")), raising=False,
+    )
+    profile = SimpleNamespace(model_name="jev-1.13.0", provider_model_id="jev-1.13.0", vendor="typesafe",
+                              offering_id="", resolution_route="pinned")
+    result = SimpleNamespace(usage=TypeSafeUsage(input_tokens=1_987, output_tokens=362))
+
+    await guardrail_gate.note_paid_result(result, profile=profile)
+    assert unpriced == [], f"a routed decision call alarmed as unpriced: {unpriced}"
+    assert accrued == [pytest.approx((1_987 * 0.02 + 362 * 0.1) / 1_000_000)]
+
+    # Without the route the same usage is honestly unpriced (the fix is the route, not a silent 0).
+    accrued.clear()
+    await guardrail_gate.note_paid_result(result)
+    assert unpriced == ["unknown model"] and accrued and accrued[0] > 0

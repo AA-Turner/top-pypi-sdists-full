@@ -129,13 +129,50 @@ def test_installed_ctor_w_egg_info_as_file():
     assert(installed.package_name == 'pkginfo.tests.funny')
 
 def test_installed_ctor_w_dist_info():
-    from packaging import version
     import wheel
 
     installed = _make_installed('wheel')
 
     assert(installed.package == wheel)
     assert(installed.package_name == 'wheel')
+
+    # Cross-check the parsed metadata version against the metadata
+    # recorded in wheel's own dist-info, rather than a version- or
+    # toolchain-dependent literal (LP #2103804, GH #10).
+    from email.parser import Parser
+    from importlib import metadata as importlib_metadata
+
+    expected = Parser().parsestr(
+        importlib_metadata.distribution('wheel').read_text('METADATA'))
+    assert(installed.metadata_version == expected['Metadata-Version'])
+
+def test_installed_ctor_w_prefix_collision(tricky):
+    # LP #1974172 / GH #9:  'tricky_decoy' must not mask 'tricky';  older
+    # resolution picked the decoy's egg-info ahead of tricky's dist-info.
+    import os.path
+    from email.parser import Parser
+
+    _expected = os.path.join(
+        os.path.dirname(tricky.__file__),
+        'tricky-0.1.dist-info', 'METADATA')
+    with open(_expected) as fp:
+        expected = Parser().parse(fp)
+
+    installed = _make_installed(tricky)
+
+    assert(installed.package is tricky)
+    assert(installed.package_name == 'tricky')
+    assert(installed.name == expected['Name'])
+    assert(installed.version == expected['Version'])
+    assert(installed.metadata_version == expected['Metadata-Version'])
+
+def test_installed_ctor_w_prefix_collision_w_name(tricky):
+
+    installed = _make_installed('tricky')
+
+    assert(installed.package is tricky)
+    assert(installed.name == 'tricky')
+    assert(installed.version == '0.1')
 
 def test_installed_namespaced_pkg_installed_via_setuptools(wonky):
 

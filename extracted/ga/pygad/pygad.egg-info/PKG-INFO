@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygad
-Version: 3.9.0
+Version: 3.9.2
 Summary: PyGAD: A Python Library for Building the Genetic Algorithm and Training Machine Learning Algoithms (Keras & PyTorch).
 Home-page: https://github.com/ahmedfgad/GeneticAlgorithmPython
 Author: Ahmed Fawzy Gad

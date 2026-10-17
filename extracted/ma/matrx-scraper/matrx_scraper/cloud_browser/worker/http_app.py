@@ -122,6 +122,20 @@ def create_worker_app(worker: BrowserWorker, *, stream: StreamSupervisor | None 
             "stream_rtc_config": stream is not None,
         }
 
+    @app.get("/machine/activity")
+    async def machine_activity() -> dict[str, object]:
+        """Cloud Computer idle evidence: CPU the person's OWN programs used.
+
+        Facts only, no verdict: the cumulative CPU ticks of every process that is
+        not part of the platform's own desktop/browser/stream stack (a shell job,
+        a build, an editor), and how many of them are running right now. The
+        control plane compares two readings; any growth is activity. Unreadable
+        ``/proc`` answers ``available: false`` and never a guessed zero.
+        """
+        from .machine_activity import read_machine_activity
+
+        return read_machine_activity()
+
     @app.post("/bootstrap", response_model=M.BootstrapResponse)
     async def bootstrap(
         request: M.BootstrapRequest, authorization: str | None = Header(default=None)

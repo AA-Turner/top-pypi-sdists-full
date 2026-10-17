@@ -83,9 +83,7 @@ class TestDeprecatedAudioPathProvider:
     def test_is_accepted_but_not_called(self):
         provider = MagicMock()
 
-        with pytest.warns(
-            DeprecationWarning, match="audio_path_provider is deprecated and ignored"
-        ):
+        with pytest.warns(DeprecationWarning, match="audio_path_provider is deprecated and ignored"):
             _processor(audio_path_provider=provider)
 
         provider.assert_not_called()
@@ -155,9 +153,7 @@ class TestDispatchDisposition:
         proc.on_end(_make_span("job_entrypoint", parent=None))
         proc.on_end(_make_span("agent_session", span_id=0x2))
 
-        warnings = [
-            message for message in caplog.messages if "has no thread id" in message
-        ]
+        warnings = [message for message in caplog.messages if "has no thread id" in message]
         assert len(warnings) == 1
 
 
@@ -178,10 +174,7 @@ class TestDeferredRootRelease:
             )
         )
         # The turn span exports normally; only the root is held back.
-        assert not any(
-            c.args[0]._attributes.get("langsmith.root_span")
-            for c in proc.downstream.on_end.call_args_list
-        )
+        assert not any(c.args[0]._attributes.get("langsmith.root_span") for c in proc.downstream.on_end.call_args_list)
 
         proc.on_end(_make_span("agent_session", trace_id=tid, span_id=0x3))
 
@@ -219,11 +212,7 @@ class TestRealtimeUserTranscript:
         )
 
     def _exported(self, proc, name):
-        return [
-            c.args[0]
-            for c in proc.downstream.on_end.call_args_list
-            if c.args[0].name == name
-        ]
+        return [c.args[0] for c in proc.downstream.on_end.call_args_list if c.args[0].name == name]
 
     def test_transcript_after_span_stamps_and_exports(self):
         # Span ends empty first (held), then the transcript arrives.
@@ -272,10 +261,7 @@ class TestRealtimeUserTranscript:
         proc._record_user_transcript("call-1", "first")
         proc._record_user_transcript("call-1", "second")
 
-        transcripts = [
-            s._attributes["lk.user_transcript"]
-            for s in self._exported(proc, "user_speaking")
-        ]
+        transcripts = [s._attributes["lk.user_transcript"] for s in self._exported(proc, "user_speaking")]
         assert transcripts == ["first", "second"]
 
     def test_no_thread_id_exports_untouched(self):
@@ -335,9 +321,7 @@ class TestRealtimeRootRollup:
 
     def _root(self, proc):
         return next(
-            c.args[0]
-            for c in proc.downstream.on_end.call_args_list
-            if c.args[0]._attributes.get("langsmith.root_span")
+            c.args[0] for c in proc.downstream.on_end.call_args_list if c.args[0]._attributes.get("langsmith.root_span")
         )
 
     def test_user_sorts_before_reply_despite_late_arrival(self):
@@ -429,10 +413,7 @@ class TestRealtimeRootRollup:
         proc.attach_session_report(_report(), thread_id="call-1")
 
         root = self._root(proc)
-        contents = [
-            m["content"]
-            for m in json.loads(root._attributes["gen_ai.prompt"])["messages"]
-        ]
+        contents = [m["content"] for m in json.loads(root._attributes["gen_ai.prompt"])["messages"]]
         assert contents == ["hi there!", "weather?", "sunny"]
 
 
@@ -466,15 +447,9 @@ class TestInstrumentSession:
 
         span = _make_span("user_speaking", span_id=0x2)
         proc.on_end(_start_span(proc, span, "call-1"))
-        session.handlers["user_input_transcribed"](
-            self._event(is_final=True, transcript="hello there")
-        )
+        session.handlers["user_input_transcribed"](self._event(is_final=True, transcript="hello there"))
 
-        exported = [
-            c.args[0]
-            for c in proc.downstream.on_end.call_args_list
-            if c.args[0].name == "user_speaking"
-        ]
+        exported = [c.args[0] for c in proc.downstream.on_end.call_args_list if c.args[0].name == "user_speaking"]
         assert len(exported) == 1
         assert exported[0]._attributes["lk.user_transcript"] == "hello there"
 
@@ -483,9 +458,7 @@ class TestInstrumentSession:
         session = self._FakeSession()
         proc.instrument_session(session, "call-1")
 
-        session.handlers["user_input_transcribed"](
-            self._event(is_final=False, transcript="partial")
-        )
+        session.handlers["user_input_transcribed"](self._event(is_final=False, transcript="partial"))
         # Interim result buffered nothing; a later span has no transcript to pair.
         assert len(proc._transcripts_waiting_for_trace) == 0
 
@@ -512,18 +485,13 @@ class TestForceFlush:
         proc.force_flush()
 
         # No root emitted, and it is still held for the (not-yet-ended) session.
-        assert not any(
-            c.args[0]._attributes.get("langsmith.root_span")
-            for c in proc.downstream.on_end.call_args_list
-        )
+        assert not any(c.args[0]._attributes.get("langsmith.root_span") for c in proc.downstream.on_end.call_args_list)
         assert proc._state_by_trace[tid].root is not None
 
         # When the session finally ends, the complete root is exported once.
         proc.on_end(_make_span("agent_session", trace_id=tid, span_id=0x3))
         root = next(
-            c.args[0]
-            for c in proc.downstream.on_end.call_args_list
-            if c.args[0]._attributes.get("langsmith.root_span")
+            c.args[0] for c in proc.downstream.on_end.call_args_list if c.args[0]._attributes.get("langsmith.root_span")
         )
         prompt = json.loads(root._attributes["gen_ai.prompt"])["messages"]
         assert prompt[-1]["content"] == "sunny"
@@ -534,10 +502,7 @@ class TestForceFlush:
         tid = 0xABC
         proc.on_end(_make_span("job_entrypoint", parent=None, trace_id=tid))
         proc.shutdown()
-        assert any(
-            c.args[0]._attributes.get("langsmith.root_span")
-            for c in proc.downstream.on_end.call_args_list
-        )
+        assert any(c.args[0]._attributes.get("langsmith.root_span") for c in proc.downstream.on_end.call_args_list)
 
 
 class _FakeChatHistory:
@@ -605,9 +570,7 @@ def _install_fake_livekit(monkeypatch, current_context, telemetry=None):
     """Install the tiny optional LiveKit surface the processor/configure use."""
     agents_module = ModuleType("livekit.agents")
     agents_module.get_job_context = lambda required=False: current_context["value"]
-    agents_module.telemetry = telemetry or SimpleNamespace(
-        set_tracer_provider=MagicMock()
-    )
+    agents_module.telemetry = telemetry or SimpleNamespace(set_tracer_provider=MagicMock())
     livekit_module = ModuleType("livekit")
     livekit_module.agents = agents_module
     monkeypatch.setitem(sys.modules, "livekit", livekit_module)
@@ -626,23 +589,13 @@ class _RecordingHarness:
     def teardown_method(self):
         set_thread_id(None)
 
-    def _start_conversation(
-        self, proc, tid=0xABC, start_time=_ROOT_START_NS, thread_id="call-1"
-    ):
+    def _start_conversation(self, proc, tid=0xABC, start_time=_ROOT_START_NS, thread_id="call-1"):
         # The root's thread id comes from set_thread_id (captured at on_start),
         # exactly as in production; clearing it after simulates the detached end.
         set_thread_id(thread_id)
-        proc.on_start(
-            _make_span(
-                "job_entrypoint", parent=None, trace_id=tid, start_time=start_time
-            )
-        )
+        proc.on_start(_make_span("job_entrypoint", parent=None, trace_id=tid, start_time=start_time))
         set_thread_id(None)
-        proc.on_end(
-            _make_span(
-                "job_entrypoint", parent=None, trace_id=tid, start_time=start_time
-            )
-        )
+        proc.on_end(_make_span("job_entrypoint", parent=None, trace_id=tid, start_time=start_time))
 
     def _end_session(self, proc, tid=0xABC):
         proc.on_end(_make_span("agent_session", trace_id=tid, span_id=0x3))
@@ -664,9 +617,7 @@ class _RecordingHarness:
 
 
 class TestAutomaticSessionReport(_RecordingHarness):
-    def test_report_hook_correlates_unthreaded_trace_by_trace_id(
-        self, monkeypatch, tmp_path
-    ):
+    def test_report_hook_correlates_unthreaded_trace_by_trace_id(self, monkeypatch, tmp_path):
         audio = tmp_path / "unthreaded.ogg"
         audio.write_bytes(b"unthreaded-audio")
         session = _FakeLifecycleSession()
@@ -701,9 +652,7 @@ class TestAutomaticSessionReport(_RecordingHarness):
 
         assert self._root(proc) is not None
 
-    def test_direct_processor_captures_report_on_session_close(
-        self, monkeypatch, tmp_path
-    ):
+    def test_direct_processor_captures_report_on_session_close(self, monkeypatch, tmp_path):
         audio = tmp_path / "automatic.ogg"
         audio.write_bytes(b"automatic-audio")
         session = _FakeLifecycleSession()
@@ -876,9 +825,7 @@ class TestEgressRecording(_RecordingHarness):
         assert base64.b64decode(payload[0]["content"]) == b"OggS-bytes"
         assert payload[0]["name"] == "call.ogg"
         assert payload[0]["mime_type"] == "audio/ogg"
-        assert (
-            root._attributes["langsmith.metadata.ls_audio_attach_status"] == "attached"
-        )
+        assert root._attributes["langsmith.metadata.ls_audio_attach_status"] == "attached"
 
     def test_recording_then_report(self):
         proc = _processor(recording_mode="egress")
@@ -1043,9 +990,7 @@ class TestSessionReport(_RecordingHarness):
         assert base64.b64decode(payload[0]["content"]) == b"OggS-session"
         assert payload[0]["name"] == "audio.ogg"
         assert md["langsmith.metadata.ls_audio_recording_start_offset_ms"] == 2800
-        assert md["langsmith.metadata.ls_audio_recording_started_at"] == pytest.approx(
-            (_ROOT_START_NS / 1e9) + 2.8
-        )
+        assert md["langsmith.metadata.ls_audio_recording_started_at"] == pytest.approx((_ROOT_START_NS / 1e9) + 2.8)
         assert md["langsmith.metadata.ls_audio_attach_status"] == "attached"
 
     def test_offset_can_be_negative(self, tmp_path):
@@ -1060,9 +1005,7 @@ class TestSessionReport(_RecordingHarness):
             thread_id="call-1",
         )
 
-        offset = self._root(proc)._attributes[
-            "langsmith.metadata.ls_audio_recording_start_offset_ms"
-        ]
+        offset = self._root(proc)._attributes["langsmith.metadata.ls_audio_recording_start_offset_ms"]
         assert offset == -1500
 
     def test_absent_origin_stamps_neither_key(self, tmp_path):
@@ -1071,9 +1014,7 @@ class TestSessionReport(_RecordingHarness):
         proc = _processor()
         self._start_conversation(proc)
         self._end_session(proc)
-        proc.attach_session_report(
-            _report(path=audio, started_at=None), thread_id="call-1"
-        )
+        proc.attach_session_report(_report(path=audio, started_at=None), thread_id="call-1")
 
         md = self._root(proc)._attributes
         assert "langsmith.metadata.ls_audio_recording_started_at" not in md
@@ -1097,9 +1038,7 @@ class TestSessionReport(_RecordingHarness):
         proc = _processor()
         self._start_conversation(proc)
         self._end_session(proc)
-        proc.attach_session_report(
-            _report(path=tmp_path / "gone.ogg"), thread_id="call-1"
-        )
+        proc.attach_session_report(_report(path=tmp_path / "gone.ogg"), thread_id="call-1")
 
         md = self._root(proc)._attributes
         assert "langsmith.attachments" not in md
@@ -1196,9 +1135,7 @@ class TestRecordingTimeout(_RecordingHarness):
             shutdown_finished.set()
 
         proc._export_completed_conversation = blocking_export
-        timeout_thread = threading.Thread(
-            target=proc._on_recording_timeout, args=(0xABC,)
-        )
+        timeout_thread = threading.Thread(target=proc._on_recording_timeout, args=(0xABC,))
         timeout_thread.start()
         assert export_started.wait(timeout=5)
 
@@ -1230,9 +1167,7 @@ class TestRecordingTimeout(_RecordingHarness):
         root = self._root(proc)
         assert root is not None
         assert "langsmith.attachments" not in root._attributes
-        assert (
-            root._attributes["langsmith.metadata.ls_audio_attach_status"] == "timeout"
-        )
+        assert root._attributes["langsmith.metadata.ls_audio_attach_status"] == "timeout"
 
     def test_egress_timeout_releases_when_recording_never_arrives(self):
         proc = _processor(recording_mode="egress", recording_timeout_seconds=0.05)
@@ -1246,9 +1181,7 @@ class TestRecordingTimeout(_RecordingHarness):
 
         root = self._root(proc)
         assert root is not None
-        assert (
-            root._attributes["langsmith.metadata.ls_audio_attach_status"] == "timeout"
-        )
+        assert root._attributes["langsmith.metadata.ls_audio_attach_status"] == "timeout"
 
     def test_none_mode_waits_for_report(self):
         proc = _processor(recording_mode="none")
@@ -1471,16 +1404,8 @@ class TestStateTTL:
     def test_active_call_refreshes_transcript_ttl(self):
         proc = _processor(state_ttl_seconds=60)
         tid = 0xABC
-        proc.on_end(
-            _make_span(
-                "agent_turn", {"lk.user_input": "one"}, trace_id=tid, span_id=0x2
-            )
-        )
-        proc.on_end(
-            _make_span(
-                "agent_turn", {"lk.response.text": "two"}, trace_id=tid, span_id=0x3
-            )
-        )
+        proc.on_end(_make_span("agent_turn", {"lk.user_input": "one"}, trace_id=tid, span_id=0x2))
+        proc.on_end(_make_span("agent_turn", {"lk.response.text": "two"}, trace_id=tid, span_id=0x3))
         # One state object owns the ordered transcript.
         assert [m["content"] for _, m in proc._state_by_trace[tid].transcript] == [
             "one",
@@ -1536,9 +1461,7 @@ class TestThreadId:
         set_thread_id("conv-9")
         proc.on_start(_make_span("job_entrypoint", parent=None, trace_id=tid))
         set_thread_id(None)
-        proc.on_end(
-            _make_span("agent_turn", {"lk.user_input": "x"}, trace_id=tid, span_id=0x2)
-        )
+        proc.on_end(_make_span("agent_turn", {"lk.user_input": "x"}, trace_id=tid, span_id=0x2))
         exported = proc.downstream.on_end.call_args.args[0]
         assert exported._attributes["langsmith.metadata.thread_id"] == "conv-9"
 
@@ -1573,9 +1496,7 @@ class TestMessageFromEvent:
             "type": "function",
             "function": {"name": "lookup", "arguments": '{"q": "x"}'},
         }
-        msg = build_message_from_event(
-            "assistant", self._event(role="assistant", tool_calls=[call])
-        )
+        msg = build_message_from_event("assistant", self._event(role="assistant", tool_calls=[call]))
         assert msg["tool_calls"] == [call]
 
     def test_tool_calls_json_string_parsed_to_object(self):
@@ -1584,21 +1505,15 @@ class TestMessageFromEvent:
             "type": "function",
             "function": {"name": "lookup", "arguments": "{}"},
         }
-        msg = build_message_from_event(
-            "assistant", self._event(tool_calls=[json.dumps(call)])
-        )
+        msg = build_message_from_event("assistant", self._event(tool_calls=[json.dumps(call)]))
         assert msg["tool_calls"] == [call]
 
     def test_unparseable_tool_call_dropped(self):
-        msg = build_message_from_event(
-            "assistant", self._event(tool_calls=["not json"])
-        )
+        msg = build_message_from_event("assistant", self._event(tool_calls=["not json"]))
         assert "tool_calls" not in msg
 
     def test_tool_result_carries_id_and_name(self):
-        msg = build_message_from_event(
-            "tool", self._event(content="done", id="call_1", name="lookup")
-        )
+        msg = build_message_from_event("tool", self._event(content="done", id="call_1", name="lookup"))
         assert msg["tool_call_id"] == "call_1"
         assert msg["name"] == "lookup"
 
@@ -1609,16 +1524,12 @@ class TestContentAttributeVersions:
         proc = _processor()
         proc.on_end(_make_span("user_turn", {f"{prefix}user_transcript": "Hello"}))
         attrs = proc.downstream.on_end.call_args.args[0]._attributes
-        assert json.loads(attrs["gen_ai.completion"])["messages"] == [
-            {"role": "assistant", "content": "Hello"}
-        ]
+        assert json.loads(attrs["gen_ai.completion"])["messages"] == [{"role": "assistant", "content": "Hello"}]
         assert attrs["langsmith.metadata.ls_message_view_exclude"] is True
 
         proc.on_end(_make_span("tts_request", {f"{prefix}input_text": "Welcome"}))
         attrs = proc.downstream.on_end.call_args.args[0]._attributes
-        assert json.loads(attrs["gen_ai.prompt"])["messages"] == [
-            {"role": "user", "content": "Welcome"}
-        ]
+        assert json.loads(attrs["gen_ai.prompt"])["messages"] == [{"role": "user", "content": "Welcome"}]
 
     @pytest.mark.parametrize("prefix", ["lk.", "lk.pii."])
     def test_turn_and_root_transcript(self, prefix):
@@ -1633,9 +1544,7 @@ class TestContentAttributeVersions:
         )
         attrs = proc.downstream.on_end.call_args.args[0]._attributes
         assert json.loads(attrs["gen_ai.prompt"])["messages"][0]["content"] == "Hi"
-        assert (
-            json.loads(attrs["gen_ai.completion"])["messages"][0]["content"] == "Hello"
-        )
+        assert json.loads(attrs["gen_ai.completion"])["messages"][0]["content"] == "Hello"
         proc.on_end(_make_span("agent_session", span_id=3))
         root = next(
             call.args[0]._attributes
@@ -1666,9 +1575,7 @@ class TestContentAttributeVersions:
         attrs = proc.downstream.on_end.call_args.args[0]._attributes
         assert attrs["langsmith.metadata.tool_name"] == "weather"
         assert json.loads(attrs["gen_ai.prompt"]) == {"city": "Paris"}
-        assert attrs["gen_ai.completion"] == (
-            output if isinstance(output, str) else json.dumps(output)
-        )
+        assert attrs["gen_ai.completion"] == (output if isinstance(output, str) else json.dumps(output))
 
     @pytest.mark.parametrize("value", ["current", ""])
     @pytest.mark.parametrize(
@@ -1684,9 +1591,7 @@ class TestContentAttributeVersions:
     )
     def test_new_field_wins_even_when_empty(self, span_name, field, io_key, value):
         proc = _processor()
-        proc.on_end(
-            _make_span(span_name, {f"lk.{field}": "stale", f"lk.pii.{field}": value})
-        )
+        proc.on_end(_make_span(span_name, {f"lk.{field}": "stale", f"lk.pii.{field}": value}))
         attrs = proc.downstream.on_end.call_args.args[0]._attributes
         assert "stale" not in attrs.get(io_key, "")
         if value:
@@ -1771,9 +1676,7 @@ class TestGenAIMessageAttributes:
             ),
             "gen_ai.input.messages": json.dumps(inputs),
             "gen_ai.output.messages": json.dumps(outputs),
-            "lk.llm_metrics": json.dumps(
-                {"prompt_tokens": 20, "completion_tokens": 5, "total_tokens": 25}
-            ),
+            "lk.llm_metrics": json.dumps({"prompt_tokens": 20, "completion_tokens": 5, "total_tokens": 25}),
         }
         span = self._export(attrs)
         prompt = json.loads(span._attributes["gen_ai.prompt"])["messages"]
@@ -1802,9 +1705,7 @@ class TestGenAIMessageAttributes:
         # Translating the exported copy must not mutate the source span attributes.
         assert attrs["gen_ai.input.messages"] == json.dumps(inputs)
 
-    @pytest.mark.parametrize(
-        "arguments", [{"city": "Paris"}, '{"city":"Paris"}', "partial{"]
-    )
+    @pytest.mark.parametrize("arguments", [{"city": "Paris"}, '{"city":"Paris"}', "partial{"])
     def test_output_tool_calls(self, arguments):
         span = self._export(
             {
@@ -1857,14 +1758,8 @@ class TestGenAIMessageAttributes:
                 self._event("gen_ai.choice", content="Old answer"),
             ],
         )
-        assert (
-            json.loads(span._attributes["gen_ai.prompt"])["messages"][0]["content"]
-            == "Old prompt"
-        )
-        assert (
-            json.loads(span._attributes["gen_ai.completion"])["messages"][0]["content"]
-            == "New answer"
-        )
+        assert json.loads(span._attributes["gen_ai.prompt"])["messages"][0]["content"] == "Old prompt"
+        assert json.loads(span._attributes["gen_ai.completion"])["messages"][0]["content"] == "New answer"
         assert "gen_ai.input.messages" not in span._attributes
         assert "gen_ai.output.messages" not in span._attributes
 
@@ -1874,9 +1769,7 @@ class TestGenAIMessageAttributes:
             {
                 "gen_ai.input.messages": "[]",
                 "gen_ai.output.messages": "[]",
-                "gen_ai.system_instructions": json.dumps(
-                    [{"type": "text", "content": "New instructions"}]
-                ),
+                "gen_ai.system_instructions": json.dumps([{"type": "text", "content": "New instructions"}]),
             },
             [
                 self._event("gen_ai.system.message", content="Old instructions"),
@@ -1898,11 +1791,7 @@ class TestGenAIMessageAttributes:
 
     def test_instructions_only_and_legacy_output(self):
         span = self._export(
-            {
-                "gen_ai.system_instructions": json.dumps(
-                    [{"type": "text", "content": "New instructions"}]
-                )
-            },
+            {"gen_ai.system_instructions": json.dumps([{"type": "text", "content": "New instructions"}])},
             [
                 self._event("gen_ai.system.message", content="Old instructions"),
                 self._event("gen_ai.user.message", content="Hi"),
@@ -1913,10 +1802,7 @@ class TestGenAIMessageAttributes:
             {"role": "system", "content": "New instructions"},
             {"role": "user", "content": "Hi"},
         ]
-        assert (
-            json.loads(span._attributes["gen_ai.completion"])["messages"][0]["content"]
-            == "Hello"
-        )
+        assert json.loads(span._attributes["gen_ai.completion"])["messages"][0]["content"] == "Hello"
 
     def test_omitted_content_does_not_fabricate_messages(self):
         attrs = self._export()._attributes
@@ -1968,9 +1854,7 @@ class TestGenAIMessageAttributes:
             }
         ]
 
-    @pytest.mark.parametrize(
-        "response", ["plain text", {"temp": 20}, [1, 2], None, False, 0, ""]
-    )
+    @pytest.mark.parametrize("response", ["plain text", {"temp": 20}, [1, 2], None, False, 0, ""])
     def test_tool_response_values(self, response):
         messages = build_messages_from_gen_ai(
             json.dumps(
@@ -1992,9 +1876,7 @@ class TestGenAIMessageAttributes:
             {
                 "role": "tool",
                 "tool_call_id": "call_1",
-                "content": response
-                if isinstance(response, str)
-                else json.dumps(response),
+                "content": response if isinstance(response, str) else json.dumps(response),
             }
         ]
 
@@ -2151,8 +2033,6 @@ class TestUsageCapture:
         # A cascade turn only wraps the STT/LLM/TTS children (which carry usage),
         # so it must stay a chain — an llm kind here would double-count cost.
         proc = _processor()
-        span = _make_span(
-            "agent_turn", {"lk.user_input": "hi", "lk.response.text": "hello"}
-        )
+        span = _make_span("agent_turn", {"lk.user_input": "hi", "lk.response.text": "hello"})
         proc.on_end(span)
         assert self._exported(proc)["langsmith.span.kind"] == "chain"

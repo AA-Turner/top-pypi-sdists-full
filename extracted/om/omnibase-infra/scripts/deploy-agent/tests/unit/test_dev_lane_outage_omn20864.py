@@ -638,6 +638,7 @@ class _FakeExecutor:
         self.sibling_source_refs: dict[str, str] = {}
         self.recreate_supervision: list[object] = []
         self.verify_recreate: list[object] = []
+        self.oneshot_reruns: list[object] = []
         self.deps_convergence: list[object] = []
         self.compose_invocations: list[object] = []
         self.health_checks: list[object] = []
@@ -676,6 +677,11 @@ def _agent(
 
     agent._idle_read_running_ref = no_running_ref
     agent._idle_read_head_ref = lambda repo: "b" * 40
+    # OMN-19998: the dev-tag heartbeat reads no remote and publishes nothing here.
+    agent._idle_read_dev_tags = lambda repo: None
+    monkeypatch.setattr(
+        agent_mod, "publish_dev_tag_heartbeat", lambda payload, config: True
+    )
     agent._idle_probe_blocker = lambda now: None
     agent._lane_flags = ModelLaneFlags()
     return agent

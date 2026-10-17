@@ -154,17 +154,21 @@ _FEATURE_PHRASES: dict[str, tuple[str, ...]] = {
     "metrics: shape assertions": ("run_series", "has_labeled_points"),
     "spans": ("run.span", "probe span add"),
     # prose
-    # `--description` left every create/set verb in 0.171.0 (the server writes
-    # the description once a run finishes); the skill says so instead.
-    "description": ("description itself",),
+    # `--description` left every create/set verb in 0.171.0; a project's
+    # description now comes from its summary (writer-owns-summary), and the
+    # skill says so instead.
+    "description": ("description comes from its summary",),
     "question": ("--question",),
     "conclusion": ("--conclusion",),
-    # The authored Markdown is the researcher's by policy since 2026-09-17 (the
-    # `--summary` flag still exists); the skill names the document and says whose it is.
-    "visible Markdown": ("summary_markdown", "the RESEARCHER's - never write it"),
+    # The researcher's block is theirs by policy since 2026-09-17 (the
+    # `--summary` flag still exists); the rest of the summary is the recorder's
+    # (`probe summary`, the write-summary skill), and so are an experiment's
+    # Metrics-center tables and charts (`probe visuals`, overview-visuals).
+    "visible Markdown": ("`document`, the researcher's block on a summary", "never write it"),
+    "summary": ("(write-summary)",),
+    "tables and charts": ("tables and charts (`overview-visuals`)",),
     "entity notes": ("notes checkout", "notes push"),
     "team note": ("probe-team-note.md", "`edit-notes`"),
-    "group notes": ("group",),
     # runs and lifecycle
     "run open": ("run start",),
     "run close with status": ("run end", "--status"),
@@ -291,7 +295,10 @@ def test_every_skill_on_disk_is_counted_by_telemetry() -> None:
     m = re.search(r"RESEARCH_SKILLS = \{(.*?)\}", hook, re.DOTALL)
     assert m, "could not extract RESEARCH_SKILLS"
     listed = set(re.findall(r'"([a-z0-9-]+)"', m.group(1)))
-    on_disk = {d.name for d in (AGENT_ROOT / "skills").iterdir() if d.is_dir()}
+    from tests.held_for_plugin_release import HELD_NEW_SKILLS
+
+    # A skill no plugin ships yet (D2) cannot be invoked through the hook.
+    on_disk = {d.name for d in (AGENT_ROOT / "skills").iterdir() if d.is_dir()} - HELD_NEW_SKILLS
     missing = on_disk - listed
     assert not missing, f"skills invisible to telemetry: {sorted(missing)}"
 

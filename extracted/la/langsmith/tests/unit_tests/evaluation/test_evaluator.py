@@ -156,9 +156,7 @@ def test_run_evaluator_decorator_multi_return_no_key(run_1: Run, example_1: Exam
             sample_evaluator.evaluate_run(run_1, example_1)
 
 
-def test_run_evaluator_decorator_return_multi_evaluation_result(
-    run_1: Run, example_1: Example
-):
+def test_run_evaluator_decorator_return_multi_evaluation_result(run_1: Run, example_1: Example):
     @run_evaluator
     def sample_evaluator(run: Run, example: Optional[Example]) -> EvaluationResults:
         return EvaluationResults(
@@ -182,9 +180,7 @@ def test_run_evaluator_decorator_return_multi_evaluation_result(
 
 async def test_run_evaluator_decorator_async(run_1: Run, example_1: Example):
     @run_evaluator
-    async def sample_evaluator(
-        run: Run, example: Optional[Example]
-    ) -> EvaluationResult:
+    async def sample_evaluator(run: Run, example: Optional[Example]) -> EvaluationResult:
         await asyncio.sleep(0.01)
         return EvaluationResult(key="test", score=1.0)
 
@@ -198,9 +194,7 @@ async def test_run_evaluator_decorator_async(run_1: Run, example_1: Example):
 
 def test_run_evaluator_decorator_async_sync_call(run_1: Run, example_1: Example):
     @run_evaluator
-    async def sample_evaluator(
-        run: Run, example: Optional[Example]
-    ) -> EvaluationResult:
+    async def sample_evaluator(run: Run, example: Optional[Example]) -> EvaluationResult:
         await asyncio.sleep(0.01)
         return EvaluationResult(key="test", score=1.0)
 
@@ -226,9 +220,7 @@ async def test_run_evaluator_decorator_dict_async(run_1: Run, example_1: Example
     assert result.score == 1.0
 
 
-async def test_run_evaluator_decorator_dict_no_key_async(
-    run_1: Run, example_1: Example
-):
+async def test_run_evaluator_decorator_dict_no_key_async(run_1: Run, example_1: Example):
     @run_evaluator
     async def sample_evaluator(run: Run, example: Optional[Example]) -> dict:
         await asyncio.sleep(0.01)
@@ -242,9 +234,7 @@ async def test_run_evaluator_decorator_dict_no_key_async(
     assert result.score == 1.0
 
 
-async def test_run_evaluator_decorator_dict_with_comment_async(
-    run_1: Run, example_1: Example
-):
+async def test_run_evaluator_decorator_dict_with_comment_async(run_1: Run, example_1: Example):
     @run_evaluator
     async def sample_evaluator(run: Run, example: Optional[Example]) -> dict:
         await asyncio.sleep(0.01)
@@ -259,9 +249,7 @@ async def test_run_evaluator_decorator_dict_with_comment_async(
     assert result.comment == "test"
 
 
-async def test_run_evaluator_decorator_multi_return_async(
-    run_1: Run, example_1: Example
-):
+async def test_run_evaluator_decorator_multi_return_async(run_1: Run, example_1: Example):
     _response = {
         "results": [
             {"key": "test", "score": 1.0},
@@ -293,16 +281,10 @@ async def test_run_evaluator_decorator_multi_return_async(
         aresult = await sample_sync_evaluator.aevaluate_run(run_1, example_1)
     sresult = sample_sync_evaluator.evaluate_run(run_1, example_1)
     scores = [result.score for result in result["results"]]
-    assert (
-        scores
-        == [r.score for r in sresult["results"]]
-        == [r.score for r in aresult["results"]]
-    )
+    assert scores == [r.score for r in sresult["results"]] == [r.score for r in aresult["results"]]
 
 
-async def test_run_evaluator_decorator_multi_return_no_key_async(
-    run_1: Run, example_1: Example
-):
+async def test_run_evaluator_decorator_multi_return_no_key_async(run_1: Run, example_1: Example):
     @run_evaluator
     async def sample_evaluator(run: Run, example: Optional[Example]) -> dict:
         await asyncio.sleep(0.01)
@@ -319,13 +301,9 @@ async def test_run_evaluator_decorator_multi_return_no_key_async(
             await sample_evaluator.aevaluate_run(run_1, example_1)
 
 
-async def test_run_evaluator_decorator_return_multi_evaluation_result_async(
-    run_1: Run, example_1: Example
-):
+async def test_run_evaluator_decorator_return_multi_evaluation_result_async(run_1: Run, example_1: Example):
     @run_evaluator
-    async def sample_evaluator(
-        run: Run, example: Optional[Example]
-    ) -> EvaluationResults:
+    async def sample_evaluator(run: Run, example: Optional[Example]) -> EvaluationResults:
         await asyncio.sleep(0.01)
         return EvaluationResults(
             results=[
@@ -397,37 +375,25 @@ def test_check_value_non_numeric(caplog):
     with caplog.at_level(logging.WARNING):
         EvaluationResult(key="test", value=5)
 
-    assert (
-        "Numeric values should be provided in the 'score' field, not 'value'. Got: 5"
-        in caplog.text
-    )
+    assert "Numeric values should be provided in the 'score' field, not 'value'. Got: 5" in caplog.text
 
     # Test when score is provided and value is numeric (should not log)
     with caplog.at_level(logging.WARNING):
         caplog.clear()
         EvaluationResult(key="test", score=5, value="non-numeric")
 
-    assert (
-        "Numeric values should be provided in the 'score' field, not 'value'."
-        not in caplog.text
-    )
+    assert "Numeric values should be provided in the 'score' field, not 'value'." not in caplog.text
 
     # Test when both score and value are None (should not log)
     with caplog.at_level(logging.WARNING):
         caplog.clear()
         EvaluationResult(key="test")
 
-    assert (
-        "Numeric values should be provided in the 'score' field, not 'value'."
-        not in caplog.text
-    )
+    assert "Numeric values should be provided in the 'score' field, not 'value'." not in caplog.text
 
     # Test when value is non-numeric (should not log)
     with caplog.at_level(logging.WARNING):
         caplog.clear()
         EvaluationResult(key="test", value="non-numeric")
 
-    assert (
-        "Numeric values should be provided in the 'score' field, not 'value'."
-        not in caplog.text
-    )
+    assert "Numeric values should be provided in the 'score' field, not 'value'." not in caplog.text

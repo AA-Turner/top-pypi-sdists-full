@@ -102,9 +102,9 @@ def test_immutable_upload_receipt_and_replay(queue, tmp_path):
 
 
 def test_correlation_rejects_changed_request(queue, tmp_path):
-    enqueue(queue, tmp_path, notes="original")
+    enqueue(queue, tmp_path, content_type="text/x-python")
     with pytest.raises(ValueError, match="different immutable request"):
-        enqueue(queue, tmp_path, notes="changed")
+        enqueue(queue, tmp_path, content_type="text/plain")
     assert len(queue.pending()) == 1
 
 
@@ -400,6 +400,39 @@ def test_environment_attribution_applies_to_normal_queued_operations(tmp_path, m
     assert client.transport.attribution == "backfill"
     assert client.journal.pending()[0][1]["attribution"] == "backfill"
     client.transport.close()
+
+
+def test_a_queued_backfill_write_tells_the_server_even_through_an_ambient_drainer(tmp_path):
+    """#probe-usage prints `driven_by ?? surface`, and an import's uploads are
+    delivered by the outbox drainer -- an ordinary client whose surface is `sdk`.
+    The op's persisted attribution must still reach the server as the header it
+    stamps `driven_by=backfill` from; a live request must not carry it."""
+    seen: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"id": "p1"})
+
+    settings = Settings(base_url="http://test", token="test-token")
+    spool = tmp_path / "outbox"
+    producer = Client(settings=settings, spool_dir=spool, async_writes=True, auto_drain=False,
+                      attribution="backfill")
+    producer.write("POST", "/v1/projects", {"name": "historical"})
+    producer.transport.close()
+
+    def drainer(_ctx):
+        http = httpx.Client(base_url="http://test", transport=httpx.MockTransport(handle))
+        return Client(settings=settings, transport=Transport(settings, client=http),
+                      spool_dir=spool, async_writes=False, auto_drain=False)
+
+    assert drain(Journal(spool), client_factory=drainer).delivered == 1
+    assert [r.headers.get("X-Probe-Attribution") for r in seen] == ["backfill"]
+    assert seen[0].headers["X-Probe-Surface"] == "sdk"
+
+    seen.clear()
+    with drainer(None) as live:
+        live.transport.post("/v1/projects", {"name": "today"})
+    assert "X-Probe-Attribution" not in seen[0].headers
 
 
 def test_admitted_intent_recovery_can_drain_below_new_enqueue_disk_floor(queue, tmp_path, monkeypatch):

@@ -618,9 +618,7 @@ class TestAsyncCommandHandle:
 
         sandbox.reconnect.side_effect = make_reconnect_handle
         seen: list[str] = []
-        handle = AsyncCommandHandle(
-            initial_stream(), None, sandbox, on_stdout=seen.append
-        )
+        handle = AsyncCommandHandle(initial_stream(), None, sandbox, on_stdout=seen.append)
         await handle._ensure_started()
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -629,9 +627,7 @@ class TestAsyncCommandHandle:
         assert [chunk.data for chunk in chunks] == ["before", "after"]
         assert seen == ["before", "after"]
         # Offsets are the ones "before" left behind: the ack carried no bytes.
-        sandbox.reconnect.assert_called_once_with(
-            "cmd-123", stdout_offset=6, stderr_offset=0
-        )
+        sandbox.reconnect.assert_called_once_with("cmd-123", stdout_offset=6, stderr_offset=0)
         assert (await handle.result).stdout == "beforeafter"
 
     @pytest.mark.asyncio
@@ -813,9 +809,7 @@ class TestAsyncSandboxRunWs:
 
     @pytest.mark.asyncio
     @patch("langsmith.sandbox._ws_execute.run_ws_stream_async")
-    async def test_run_retries_rate_limited_handshake_after_retry_after(
-        self, mock_run_ws
-    ):
+    async def test_run_retries_rate_limited_handshake_after_retry_after(self, mock_run_ws):
         """Async execution waits for a 429 hint and reuses the command ID."""
         rate_limited = SandboxRetryableConnectionError("HTTP 429", retry_after=10.0)
 
@@ -953,9 +947,7 @@ class TestAsyncSandboxRunWs:
         sandbox = self._make_sandbox(default_headers={"X-Service-Key": "svc-jwt"})
         await sandbox.run("echo hello")
 
-        assert mock_run_ws.call_args.kwargs.get("headers") == {
-            "X-Service-Key": "svc-jwt"
-        }
+        assert mock_run_ws.call_args.kwargs.get("headers") == {"X-Service-Key": "svc-jwt"}
 
     @pytest.mark.asyncio
     async def test_run_wait_false_plus_callbacks_raises(self):
@@ -973,9 +965,7 @@ class TestAsyncSandboxRunWs:
         """Without the library and without the SSE feature, run() has no
         transport: it says so rather than silently degrading."""
         monkeypatch.delenv("LANGSMITH_EXPERIMENTAL_FEATURES", raising=False)
-        monkeypatch.setattr(
-            "langsmith.sandbox._async_sandbox.WEBSOCKETS_AVAILABLE", False
-        )
+        monkeypatch.setattr("langsmith.sandbox._async_sandbox.WEBSOCKETS_AVAILABLE", False)
         sandbox = self._make_sandbox()
 
         with pytest.raises(ImportError) as excinfo:
@@ -1158,9 +1148,7 @@ class TestAsyncHandshakeFailureWrapping:
     async def test_run_ws_stream_async_wraps_invalid_message(self):
         with patch("langsmith.sandbox._ws_execute._ws_connect_async") as mock_connect:
             mock_connect.side_effect = self._invalid_message()
-            msg_stream, _ = await run_ws_stream_async(
-                "https://sb.example.com", "key", "echo hi"
-            )
+            msg_stream, _ = await run_ws_stream_async("https://sb.example.com", "key", "echo hi")
             with pytest.raises(SandboxConnectionError, match="no valid HTTP response"):
                 async for _ in msg_stream:
                     pass
@@ -1169,9 +1157,7 @@ class TestAsyncHandshakeFailureWrapping:
     async def test_reconnect_ws_stream_async_wraps_invalid_message(self):
         with patch("langsmith.sandbox._ws_execute._ws_connect_async") as mock_connect:
             mock_connect.side_effect = self._invalid_message()
-            msg_stream, _ = await reconnect_ws_stream_async(
-                "https://sb.example.com", "key", "cmd-123"
-            )
+            msg_stream, _ = await reconnect_ws_stream_async("https://sb.example.com", "key", "cmd-123")
             with pytest.raises(SandboxConnectionError, match="no valid HTTP response"):
                 async for _ in msg_stream:
                     pass
@@ -1193,9 +1179,7 @@ class TestAsyncHandshakeFailureWrapping:
             "langsmith.sandbox._ws_execute._ensure_websockets_async",
             return_value=(connect, ConnectionClosedError, InvalidHandshake),
         ):
-            msg_stream, _ = await run_ws_stream_async(
-                "https://sb.example.com", "key", "echo hi"
-            )
+            msg_stream, _ = await run_ws_stream_async("https://sb.example.com", "key", "echo hi")
             with pytest.raises(
                 SandboxRetryableConnectionError,
                 match="no close frame received or sent",

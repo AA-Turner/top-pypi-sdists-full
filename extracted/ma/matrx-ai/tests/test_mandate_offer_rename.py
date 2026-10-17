@@ -131,15 +131,3 @@ async def test_synthesized_value_absent_still_refuses(monkeypatch) -> None:
         )
 
     assert _CombiningAgent.ran is False
-
-
-@pytest.mark.asyncio
-async def test_shipped_pdf_cleaner_offer_matches_its_declared_provision() -> None:
-    """The real class + the real Provision names — the incident itself."""
-    from matrx_ai.agent_runners.content_cleaner import PdfCleanerAgent
-    from matrx_ai.agents.named import offer_view
-
-    view = offer_view(PdfCleanerAgent, PdfCleanerAgent.Inputs(content="hello"))
-
-    assert view["content"] == "hello", "the call-site name must be visible to the offer check"
-    assert view["text_extracted_from_pdf"] == "hello", "the holder name must survive too"

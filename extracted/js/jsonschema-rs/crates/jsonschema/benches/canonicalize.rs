@@ -176,6 +176,28 @@ mod bench {
             }})
         };
 
+        // Every branch admits the empty object, so each one overlaps all the others.
+        let overlapping_open_objects = json!({"type": "array", "items": {"anyOf": (0..64_usize)
+            .map(|i| json!({"type": "object", "properties": {format!("p{i}"): {"type": "integer"}}}))
+            .collect::<Vec<_>>()}});
+
+        // Each dependency is a union over holding its key or not, and the chain links them all.
+        let dependency_chain = {
+            let mut dependencies = Map::with_capacity(48);
+            for i in 0..48_usize {
+                dependencies.insert(format!("f{i}"), json!([format!("f{}", i + 1)]));
+            }
+            json!({"type": "object", "dependentRequired": dependencies})
+        };
+
+        // Every union doubles the branches, so the run gives up on the product it cannot carry.
+        let all_of_two_way_unions = json!({"allOf": (0..24_usize)
+            .map(|i| json!({"anyOf": [
+                {"required": [format!("a{i}")]},
+                {"required": [format!("b{i}")]},
+            ]}))
+            .collect::<Vec<_>>()});
+
         let open_api = read_json(OPEN_API);
         let swagger = read_json(SWAGGER);
         let geojson = read_json(GEOJSON);
@@ -197,6 +219,9 @@ mod bench {
                 "negated_closed_object_of_unions",
                 &negated_closed_object_of_unions,
             ),
+            ("overlapping_open_objects", &overlapping_open_objects),
+            ("dependency_chain", &dependency_chain),
+            ("all_of_two_way_unions", &all_of_two_way_unions),
             ("wide_numeric_grid", &wide_numeric_grid),
             ("object_with_properties", &object_with_properties),
             ("chained_refs", &chained_refs),

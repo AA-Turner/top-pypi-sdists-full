@@ -195,9 +195,7 @@ class TestServiceURL:
         data = {**_SAMPLE_SERVICE_URL_DATA, "expires_at": past}
 
         fresh_future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
-        fresh_svc = ServiceURL(
-            browser_url="b", service_url="s", token="t", expires_at=fresh_future
-        )
+        fresh_svc = ServiceURL(browser_url="b", service_url="s", token="t", expires_at=fresh_future)
         refresher = MagicMock(return_value=fresh_svc)
         svc = ServiceURL.from_dict(data, _refresher=refresher)
 
@@ -215,10 +213,7 @@ class TestServiceURL:
             call_kwargs = mock_req.call_args
             assert call_kwargs[0][0] == "GET"
             assert "/api/data" in call_kwargs[0][1]
-            assert (
-                call_kwargs[1]["headers"]["X-Langsmith-Sandbox-Service-Token"]
-                == "jwt-token-value"
-            )
+            assert call_kwargs[1]["headers"]["X-Langsmith-Sandbox-Service-Token"] == "jwt-token-value"
 
     def test_http_post_injects_header(self):
         """Test .post() injects the auth header."""
@@ -229,10 +224,7 @@ class TestServiceURL:
 
             call_kwargs = mock_req.call_args
             assert call_kwargs[0][0] == "POST"
-            assert (
-                call_kwargs[1]["headers"]["X-Langsmith-Sandbox-Service-Token"]
-                == "jwt-token-value"
-            )
+            assert call_kwargs[1]["headers"]["X-Langsmith-Sandbox-Service-Token"] == "jwt-token-value"
 
     def test_request_url_construction(self):
         """Test URL construction joins service_url and path correctly."""
@@ -245,9 +237,7 @@ class TestServiceURL:
 
     def test_expires_at_without_timezone_treated_as_utc(self):
         """Test expires_at without timezone info is treated as UTC."""
-        near_expiry = (datetime.now(timezone.utc) + timedelta(seconds=10)).strftime(
-            "%Y-%m-%dT%H:%M:%S"
-        )
+        near_expiry = (datetime.now(timezone.utc) + timedelta(seconds=10)).strftime("%Y-%m-%dT%H:%M:%S")
         data = {**_SAMPLE_SERVICE_URL_DATA, "expires_at": near_expiry}
 
         fresh_svc = ServiceURL(

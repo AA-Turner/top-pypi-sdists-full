@@ -6,11 +6,12 @@ import gzip
 import inspect
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Callable, Protocol, runtime_checkable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import uuid4
 
 import orjson
-from psycopg import AsyncConnection, InterfaceError, OperationalError
+from psycopg import AsyncConnection, InterfaceError, OperationalError, sql
 
 from ._backoff import jittery_exponential
 
@@ -231,7 +232,7 @@ class PostgresNotifier:
         await self._query.notify(channel, encoded)
 
     async def _connect(self) -> None:
-        dsn = self._query.dsn
+        dsn = await self._query.dsn()
 
         self._conn = await asyncio.wait_for(
             AsyncConnection.connect(dsn, autocommit=True),
@@ -255,7 +256,7 @@ class PostgresNotifier:
 
         try:
             await self._connect()
-        except (OSError, OperationalError, InterfaceError, asyncio.TimeoutError):
+        except (TimeoutError, OSError, OperationalError, InterfaceError):
             asyncio.create_task(self._reconnect())
 
     async def _loop(self) -> None:
@@ -282,7 +283,9 @@ class PostgresNotifier:
 
         for channel in list(self._pending_listen):
             full_channel = self._to_full_channel(channel)
-            await self._conn.execute(f'LISTEN "{full_channel}"')
+            await self._conn.execute(
+                sql.SQL("LISTEN {}").format(sql.Identifier(full_channel))
+            )
 
             self._pending_listen.discard(channel)
 
@@ -292,7 +295,9 @@ class PostgresNotifier:
 
         for channel in list(self._pending_unlisten):
             full_channel = self._to_full_channel(channel)
-            await self._conn.execute(f'UNLISTEN "{full_channel}"')
+            await self._conn.execute(
+                sql.SQL("UNLISTEN {}").format(sql.Identifier(full_channel))
+            )
 
             self._pending_unlisten.discard(channel)
 

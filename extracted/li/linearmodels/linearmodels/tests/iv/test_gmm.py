@@ -15,6 +15,7 @@ from linearmodels.iv.gmm import (
     OneWayClusteredWeightMatrix,
 )
 from linearmodels.shared.utility import AttrDict
+from linearmodels.tests._utility import warns_if_default_bandwidth
 from linearmodels.tests.iv._utility import generate_data
 
 
@@ -128,9 +129,11 @@ def test_kernel_weight_center(data, kernel, bandwidth):
         assert_allclose(weight, weight2, rtol=1e-12)
 
 
+# The default bandwidth, None, warns
 def test_kernel_weight_debiased(kernel, data, bandwidth):
     wm = KernelWeightMatrix(debiased=True, kernel=kernel.kernel, bandwidth=bandwidth)
-    weight = wm.weight_matrix(data.x, data.z, data.e)
+    with warns_if_default_bandwidth(bandwidth=bandwidth):
+        weight = wm.weight_matrix(data.x, data.z, data.e)
     z, e, nobs, nvar = data.z, data.e, data.nobs, data.nvar
     bw = bandwidth or wm.bandwidth
     w = kernel.weight(bw, nobs - 1)
@@ -146,7 +149,8 @@ def test_kernel_weight_debiased(kernel, data, bandwidth):
 
 def test_kernel_weight_config(data, kernel, bandwidth):
     wm = KernelWeightMatrix(kernel=kernel.kernel, bandwidth=bandwidth)
-    weight = wm.weight_matrix(data.x, data.z, data.e)
+    with warns_if_default_bandwidth(bandwidth=bandwidth):
+        weight = wm.weight_matrix(data.x, data.z, data.e)
     z, e, nobs = data.z, data.e, data.nobs
     bw = bandwidth or wm.bandwidth
     w = kernel.weight(bw, nobs - 1)
@@ -163,7 +167,8 @@ def test_kernel_weight_config(data, kernel, bandwidth):
 
     for name in kernel.alt_names:
         wm = KernelWeightMatrix(kernel=name, bandwidth=bandwidth)
-        weight2 = wm.weight_matrix(data.x, data.z, data.e)
+        with warns_if_default_bandwidth(bandwidth=bandwidth):
+            weight2 = wm.weight_matrix(data.x, data.z, data.e)
         assert_allclose(weight, weight2, rtol=1e-12)
 
 
@@ -267,14 +272,17 @@ def test_gmm_covariance_kernel(data, kernel, bandwidth):
         kernel=kernel.kernel,
         bandwidth=bandwidth,
     )
-    s = KernelWeightMatrix(kernel=kernel.kernel, bandwidth=bandwidth).weight_matrix(
-        data.x, data.z, data.e
-    )
+    with warns_if_default_bandwidth(bandwidth=bandwidth):
+        s = KernelWeightMatrix(kernel=kernel.kernel, bandwidth=bandwidth).weight_matrix(
+            data.x, data.z, data.e
+        )
     x, z, nobs = data.x, data.z, data.nobs
     xzwswzx = x.T @ z @ s @ z.T @ x / data.nobs
     cov = data.xzizx_inv @ xzwswzx @ data.xzizx_inv
     cov = (cov + cov.T) / 2
-    assert_allclose(c.cov, cov)
+    with warns_if_default_bandwidth(bandwidth=bandwidth):
+        estimated = c.cov
+    assert_allclose(estimated, cov)
     assert c.config["kernel"] == kernel.kernel
     assert c.config["debiased"] is False
     assert c.config["bandwidth"] == bandwidth or nobs - 2

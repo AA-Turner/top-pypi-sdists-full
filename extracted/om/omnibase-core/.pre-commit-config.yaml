@@ -862,7 +862,7 @@ repos:
       # Exclusions:
       # - typed_dict_demo.py: sample_id and ticket_id are external corpus identifiers, not internal UUIDs (OMN-1396)
       # - doctor_check_base.py: check_id is a semantic identifier ("kafka", "postgres"), not a version string
-      # - contracts/OMN-*.yaml: ticket-contract schema is owned by onex_change_control and currently requires string schema_version
+      # - contracts/OMN-*.yaml: the ticket-contract schema (omnibase_core ModelTicketContract) requires a string schema_version
       - id: validate-string-versions
         name: ONEX String Version Anti-Pattern Detection
         entry: uv run python scripts/validation/validate-string-versions.py
@@ -1654,8 +1654,7 @@ repos:
       # DOCUMENTATION files, executed as a COMPUTE node over the in-memory event
       # bus (same two-transport seam as check-private-ip-compute; Kafka backend
       # in CI). Generated + corpus-accepted (OMN-13569). Exemptions (OMN-13572):
-      # onex_change_control/ paths exempt from the OMN-<digits> rule only
-      # (local-env rules still apply); contracts/ excluded from the OMN rule; a
+      # contracts/ excluded from the OMN rule (local-env rules still apply); a
       # SKILL.md `ticket: OMN-NNNN` frontmatter field is exempt. BLOCKING (no
       # warn-only). Suppress a line with `doc-content-ok`; suppress a doc whose
       # subject IS these traces with `doc-content-file-ok`. The runner's EFFECT
@@ -1776,6 +1775,46 @@ repos:
         require_serial: true
         stages: [pre-commit]
 
+      # Cross-repository dependency direction (OMN-19998). Refuses a staged file
+      # that depends on a repository at the same or a higher layer of the
+      # declared order (src/omnibase_core/contracts/repo_layers.yaml)
+      # unless .onex_ratchets/dependency_direction_baseline.yaml records it. Mirrors the CI step
+      # in the lint-imports job, which also runs the full tree and the
+      # shrink-only baseline ratchet.
+      - id: check-dependency-direction
+        name: Cross-repository dependency direction (OMN-19998)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.handlers.handler_dependency_direction_cli
+        language: system
+        args: [--baseline, .onex_ratchets/dependency_direction_baseline.yaml]
+        files: (\.py|(^|/)pyproject\.toml|(^|/)(requirements|constraints)[^/]*\.(txt|in)|(^|/)(Dockerfile|Containerfile)[^/]*|\.dockerfile|\.(sh|bash|zsh|mk)|(^|/)(GNU)?Makefile|^\.github/.*\.ya?ml)$
+        pass_filenames: true
+        require_serial: true
+        stages: [pre-commit]
+
+      # Version drift at source (OMN-19998). Refuses a pyproject.toml floor raise
+      # on a sibling registry package while a registry consumer is not ready for
+      # it, and a workflow job the merge queue runs that pull request CI skips
+      # unless .onex_ratchets/merge_queue_parity_baseline.yaml records it. Mirror
+      # the CI steps in the lint-imports job and .github/workflows/version-drift.yml.
+      - id: check-version-floor-consumers
+        name: No floor raise ahead of registry consumers (OMN-19998)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.handlers.handler_version_floor_consumers_cli
+        language: system
+        files: ^pyproject\.toml$
+        pass_filenames: true
+        require_serial: true
+        stages: [pre-commit]
+
+      - id: check-merge-queue-parity
+        name: Pull request CI runs every merge-queue job (OMN-19998)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.handlers.handler_merge_queue_parity_cli
+        language: system
+        args: [--baseline, .onex_ratchets/merge_queue_parity_baseline.yaml]
+        files: ^\.github/workflows/[^/]+\.ya?ml$
+        pass_filenames: true
+        require_serial: true
+        stages: [pre-commit]
+
       # No localhost/hardcoded-endpoint fallback defaults (OMN-14659). Scope is
       # every Python and shell file: OMN-20565 retired the script hook
       # (scripts/validate_no_env_fallbacks.py) that covered the whole tree, and
@@ -1820,6 +1859,24 @@ repos:
         language: system
         files: ^src/.*\.py$
         pass_filenames: true
+        require_serial: true
+        stages: [pre-commit]
+
+      # CI inherits from core (OMN-17427, RULING 2026-10-14T20:01:09Z). Same
+      # handler as the ci.yml "CI Inherits From Core" job: refuses a new
+      # `uses: OmniNode-ai/<repo>/...` reference to a repository other than
+      # omnibase_core, comparing the working tree's workflows with HEAD's, and
+      # a new job defined inline outside a reusable workflow of omnibase_core
+      # (RULING 2026-10-14T19:54:41Z: the same CI for repositories of a type).
+      - id: check-ci-inheritance
+        name: CI Inherits From Core (OMN-17427)
+        entry: >-
+          bash -c 'set -euo pipefail; base=$(mktemp -d); trap "rm -rf \"$base\"" EXIT; git archive HEAD
+          .github/workflows | tar -x -C "$base"; env -u PYTHONPATH uv run python -m omnibase_core.handlers.handler_ci_inheritance_cli
+          --base-dir "$base/.github/workflows" --head-dir .github/workflows'
+        language: system
+        files: ^\.github/workflows/.*\.ya?ml$
+        pass_filenames: false
         require_serial: true
         stages: [pre-commit]
 

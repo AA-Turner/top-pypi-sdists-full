@@ -204,9 +204,7 @@ class TestLiveEventView:
         assert partial.agent_transcript == "sun"
         assert partial.final_agent_transcript is None
 
-        final = _LiveEventView(
-            _event(output_transcription=_txn("sunny", finished=True))
-        )
+        final = _LiveEventView(_event(output_transcription=_txn("sunny", finished=True)))
         assert final.final_agent_transcript == "sunny"
 
     def test_interrupted_and_turn_complete_flags(self):
@@ -229,9 +227,7 @@ class TestLiveEventView:
 
 class TestResolveModel:
     def test_string_model(self):
-        assert _resolve_model(_ctx(model="gemini-2.0-flash-live")) == (
-            "gemini-2.0-flash-live"
-        )
+        assert _resolve_model(_ctx(model="gemini-2.0-flash-live")) == ("gemini-2.0-flash-live")
 
     def test_base_llm_object(self):
         # ADK's LlmAgent.model can be a BaseLlm whose .model holds the name.
@@ -249,9 +245,7 @@ class TestUsageMetadata:
         assert _usage_metadata(_event()) is None
 
     def test_maps_token_counts(self):
-        um = SimpleNamespace(
-            prompt_token_count=10, candidates_token_count=5, total_token_count=15
-        )
+        um = SimpleNamespace(prompt_token_count=10, candidates_token_count=5, total_token_count=15)
         assert _usage_metadata(_event(usage_metadata=um)) == {
             "input_tokens": 10,
             "output_tokens": 5,
@@ -259,9 +253,7 @@ class TestUsageMetadata:
         }
 
     def test_omits_missing_and_non_int_fields(self):
-        um = SimpleNamespace(
-            prompt_token_count=10, candidates_token_count=None, total_token_count="x"
-        )
+        um = SimpleNamespace(prompt_token_count=10, candidates_token_count=None, total_token_count="x")
         assert _usage_metadata(_event(usage_metadata=um)) == {"input_tokens": 10}
 
     def test_captures_audio_cache_and_reasoning_detail(self):
@@ -269,9 +261,7 @@ class TestUsageMetadata:
         # audio bucket, cache_read, and reasoning must all be captured or the
         # audio gets mis-priced as text.
         def _mtc(modality, count):
-            return SimpleNamespace(
-                modality=SimpleNamespace(value=modality), token_count=count
-            )
+            return SimpleNamespace(modality=SimpleNamespace(value=modality), token_count=count)
 
         um = SimpleNamespace(
             prompt_token_count=100,
@@ -466,9 +456,7 @@ class TestObserve:
 
     def test_final_user_transcript_rolls_up_and_spans(self, make_plugin):
         plugin, ctx, session = self._start(make_plugin)
-        self._emit(
-            plugin, ctx, _event(input_transcription=_txn("weather?", finished=True))
-        )
+        self._emit(plugin, ctx, _event(input_transcription=_txn("weather?", finished=True)))
         # No turn grouping — the utterance is a flat, point-in-time span.
         session.start_turn.assert_not_called()
         session.add_message.assert_called_once_with("user", "weather?")
@@ -491,9 +479,7 @@ class TestObserve:
         # on the run's finalizing patch (patching usage after the run ends is
         # not reflected in cost). Not a chain event span, not turn-grouped.
         plugin, ctx, session = self._start(make_plugin)
-        self._emit(
-            plugin, ctx, _event(output_transcription=_txn("sunny", finished=True))
-        )
+        self._emit(plugin, ctx, _event(output_transcription=_txn("sunny", finished=True)))
         # Held, not yet recorded — waiting for its usage.
         session.add_message.assert_called_once_with("assistant", "sunny")
         session.set_title.assert_not_called()  # title only set from user speech
@@ -501,9 +487,7 @@ class TestObserve:
         session.start_turn.assert_not_called()
         session.record_llm.assert_not_called()
 
-        um = SimpleNamespace(
-            prompt_token_count=3, candidates_token_count=2, total_token_count=5
-        )
+        um = SimpleNamespace(prompt_token_count=3, candidates_token_count=2, total_token_count=5)
         self._emit(plugin, ctx, _event(usage_metadata=um))
         session.record_llm.assert_called_once()
         kwargs = session.record_llm.call_args.kwargs
@@ -520,15 +504,11 @@ class TestObserve:
     def test_usage_on_same_event_records_immediately(self, make_plugin):
         # If usage happens to ride the transcript event, record in one shot.
         plugin, ctx, session = self._start(make_plugin)
-        um = SimpleNamespace(
-            prompt_token_count=3, candidates_token_count=2, total_token_count=5
-        )
+        um = SimpleNamespace(prompt_token_count=3, candidates_token_count=2, total_token_count=5)
         self._emit(
             plugin,
             ctx,
-            _event(
-                output_transcription=_txn("sunny", finished=True), usage_metadata=um
-            ),
+            _event(output_transcription=_txn("sunny", finished=True), usage_metadata=um),
         )
         session.record_llm.assert_called_once()
         assert session.record_llm.call_args.kwargs["usage_metadata"] == {
@@ -543,29 +523,21 @@ class TestObserve:
         plugin = factory()
         ctx = _ctx(session_id="A", model="gemini-2.0-flash-live")
         _run(plugin.before_run_callback(invocation_context=ctx))
-        um = SimpleNamespace(
-            prompt_token_count=3, candidates_token_count=2, total_token_count=5
-        )
+        um = SimpleNamespace(prompt_token_count=3, candidates_token_count=2, total_token_count=5)
         _run(
             plugin.on_event_callback(
                 invocation_context=ctx,
-                event=_event(
-                    output_transcription=_txn("hi", finished=True), usage_metadata=um
-                ),
+                event=_event(output_transcription=_txn("hi", finished=True), usage_metadata=um),
             )
         )
         meta = created[0].record_llm.call_args.kwargs["metadata"]
         assert meta["ls_model_name"] == "gemini-2.0-flash-live"
 
-    def test_usage_before_transcript_is_paired_when_transcript_arrives(
-        self, make_plugin
-    ):
+    def test_usage_before_transcript_is_paired_when_transcript_arrives(self, make_plugin):
         # Usage can also arrive before the transcript within a turn; it's held
         # and paired when the transcript lands, still recorded in one shot.
         plugin, ctx, session = self._start(make_plugin)
-        um = SimpleNamespace(
-            prompt_token_count=7, candidates_token_count=1, total_token_count=8
-        )
+        um = SimpleNamespace(prompt_token_count=7, candidates_token_count=1, total_token_count=8)
         self._emit(plugin, ctx, _event(usage_metadata=um))
         session.record_llm.assert_not_called()  # nothing to record yet
 
@@ -581,9 +553,7 @@ class TestObserve:
         # A held transcript whose turn ends with no usage is recorded as-is
         # (usage=None) rather than dropped.
         plugin, ctx, session = self._start(make_plugin)
-        self._emit(
-            plugin, ctx, _event(output_transcription=_txn("sunny", finished=True))
-        )
+        self._emit(plugin, ctx, _event(output_transcription=_txn("sunny", finished=True)))
         session.record_llm.assert_not_called()  # held, awaiting usage
         self._emit(plugin, ctx, _event(turn_complete=True))
         session.record_llm.assert_called_once()
@@ -593,15 +563,11 @@ class TestObserve:
         # Usage in a turn that never produced a transcript is dropped, not
         # misattributed to a later turn.
         plugin, ctx, session = self._start(make_plugin)
-        self._emit(
-            plugin, ctx, _event(output_transcription=_txn("sunny", finished=True))
-        )
+        self._emit(plugin, ctx, _event(output_transcription=_txn("sunny", finished=True)))
         self._emit(plugin, ctx, _event(turn_complete=True))  # flushes "sunny"
         session.record_llm.reset_mock()
 
-        um = SimpleNamespace(
-            prompt_token_count=3, candidates_token_count=2, total_token_count=5
-        )
+        um = SimpleNamespace(prompt_token_count=3, candidates_token_count=2, total_token_count=5)
         self._emit(plugin, ctx, _event(usage_metadata=um))
         self._emit(plugin, ctx, _event(turn_complete=True))
         session.record_llm.assert_not_called()
@@ -616,9 +582,7 @@ class TestObserve:
         self._emit(
             plugin,
             ctx,
-            _event(
-                parts=[_part(fcall=_fcall("get_weather", id="fc-1", args={"c": "SF"}))]
-            ),
+            _event(parts=[_part(fcall=_fcall("get_weather", id="fc-1", args={"c": "SF"}))]),
         )
         session.open_span.assert_called_once()
         open_kwargs = session.open_span.call_args.kwargs
@@ -631,11 +595,7 @@ class TestObserve:
         self._emit(
             plugin,
             ctx,
-            _event(
-                parts=[
-                    _part(fresp=_fresp("get_weather", id="fc-1", response={"t": 68}))
-                ]
-            ),
+            _event(parts=[_part(fresp=_fresp("get_weather", id="fc-1", response={"t": 68}))]),
         )
         session.close_span.assert_called_once()
         assert session.close_span.call_args.args[0] is run
@@ -772,9 +732,7 @@ class TestAudioRouting:
 
 class TestExceptionIsolation:
     def test_before_run_swallows_errors(self, monkeypatch):
-        monkeypatch.setattr(
-            adk_plugin, "start_session", MagicMock(side_effect=RuntimeError("boom"))
-        )
+        monkeypatch.setattr(adk_plugin, "start_session", MagicMock(side_effect=RuntimeError("boom")))
         plugin = _new_plugin()
         # Must not raise, and no session should be registered.
         _run(plugin.before_run_callback(invocation_context=_ctx(session_id="A")))

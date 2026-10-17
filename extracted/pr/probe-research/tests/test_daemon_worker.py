@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -484,3 +486,42 @@ def test_a_pi_worker_never_reports_a_known_permission_mode(tmp_path, monkeypatch
     cc = worker_mod.Worker(worker_mod.Session(SID, transcript, work, "claude_code", home=tmp_path / "home"),
                            replay=Replay())
     assert cc.permission() == (True, True)
+
+
+@pytest.mark.parametrize(("source", "mode", "asks_jev"), [
+    ("pi", "bypass", True),  # pi cannot show its mode: never bypass, so Jev first
+    ("claude_code", "default", True),
+    ("claude_code", None, True),  # a harness with modes whose mode is not read yet
+    ("claude_code", "bypass", False),  # bypass runs it as before
+])
+def test_jev_is_asked_about_a_held_command_in_every_mode_but_bypass(tmp_path, monkeypatch, source, mode, asks_jev):
+    """Shell approvals F8 (Richard 2026-10-15): a command off the safe list is
+    put to Jev before the researcher in every mode except bypass. Jev judges
+    inline Python only (#2899), so the command is one: `python3` on PATH is this
+    interpreter, outside the working folders, named by its version."""
+    from probe.daemon import command_check
+    from probe.daemon import tools as tools_mod
+
+    real = os.path.realpath(sys.executable)
+    if not tools_mod._PYTHON_REAL.fullmatch(os.path.basename(real)):
+        pytest.skip(f"the test interpreter's real file is not named by its version: {real}")
+    (tmp_path / "pybin").mkdir()
+    (tmp_path / "pybin" / "python3").symlink_to(real)
+    monkeypatch.setenv("PATH", f"{tmp_path / 'pybin'}:/usr/bin:/bin")
+    command = "python3 -c \"print(open('file.txt').read()[:5])\""
+    transcript, work = _session(tmp_path, monkeypatch)
+    if mode is not None:
+        (tmp_path / "state" / "probe" / "sessions" / f"{SID}.mode").write_text(mode)
+    (work / "file.txt").write_text("hello world\n")
+    asked: list[str] = []
+
+    async def check(**kw):
+        asked.append(kw["command"])
+        return None
+
+    monkeypatch.setattr(command_check, "ask_probe", check)
+    w = worker_mod.Worker(worker_mod.Session(SID, transcript, work, source, home=tmp_path / "home"),
+                          replay=Replay())
+    out = asyncio.run(tools_mod.shell(w.deps(1), command))
+    assert asked == ([command] if asks_jev else [])
+    assert ("held for the researcher" in out) is asks_jev, out

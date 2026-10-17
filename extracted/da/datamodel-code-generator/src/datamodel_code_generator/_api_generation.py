@@ -6,7 +6,6 @@ import os
 import re
 import sys
 import tempfile
-import unicodedata
 from contextlib import ExitStack, suppress
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
@@ -32,6 +31,7 @@ from datamodel_code_generator._target_documents import (
     document_identity,
     shown,
 )
+from datamodel_code_generator._target_unicode import casefold, nfc
 from datamodel_code_generator.base_config import implied_target_settings as implied_settings
 
 if TYPE_CHECKING:
@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 
     from datamodel_code_generator import _GenerationInput  # pyright: ignore[reportPrivateUsage]
     from datamodel_code_generator._api_types import ArtifactKind, TargetKind
+    from datamodel_code_generator._format_types import PythonVersion
     from datamodel_code_generator._openapi_generation import ModelGenerationProduct, SourceLease
     from datamodel_code_generator._publication import PublicationAnchor, StagedFile
     from datamodel_code_generator._target_config import TargetConfig
@@ -514,8 +515,9 @@ def _root_operations(batch: GeneratedTypeContractBatch) -> tuple[OperationContra
     )
 
 
-def _collision_key(path: Path) -> str:
-    return unicodedata.normalize("NFC", str(path)).casefold()
+def _collision_key(path: Path, target_python_version: PythonVersion) -> str:
+    """Return the form two paths compare in: NFC-normalized, then case-folded, as the target does."""
+    return casefold(nfc(str(path), target_python_version), target_python_version)
 
 
 def _present(location: Path) -> bool:
@@ -612,6 +614,7 @@ class _Planner:
         """
         output = self.effective.output
         assert output is not None
+        target = self.effective.target_python_version
         roots = [self.root, *(() if self.models.single else ((self.cwd / output).resolve(),))]
         parents: dict[Path, Path] = {}
         directories: set[str] = set()
@@ -622,7 +625,7 @@ class _Planner:
             if (parent := parents.get(location.parent)) is None:
                 parent = parents[location.parent] = location.parent.resolve()
                 for directory in (parent, *parent.parents):
-                    directories.add(key := _collision_key(directory))
+                    directories.add(key := _collision_key(directory, target))
                     if any(directory == root or root in directory.parents for root in roots):
                         packages.add(key)
             locations.append(parent / location.name)
@@ -630,9 +633,9 @@ class _Planner:
         problems: list[Diagnostic] = []
         for artifact, location in zip(artifacts, locations, strict=True):
             message = None
-            if (key := _collision_key(location)) in seen or key in directories:
+            if (key := _collision_key(location, target)) in seen or key in directories:
                 message = "Two generated files resolve to the same path"
-            elif location.suffix == ".py" and _collision_key(location.with_suffix("")) in packages:
+            elif location.suffix == ".py" and _collision_key(location.with_suffix(""), target) in packages:
                 message = "The module has the name of a generated package directory beside it"
             if message is not None:
                 problems.append(
@@ -1005,11 +1008,13 @@ class _Finisher:
         Imports used only for type checking move into `TYPE_CHECKING` blocks as they do in the models' modules: a target
         package is a multi-module output of the model backend, so the backend decides the default. The implementations
         are formatted the same way, without the generated header, returned second, and put where a text file holds
-        their `implementation_text`.
+        their `implementation_text`. Every text is checked against the encoding of its file before any is staged, as
+        model files are before any is written.
         """
         from datamodel_code_generator import (  # noqa: PLC0415
             _build_file_header_parts,  # pyright: ignore[reportPrivateUsage]
             _build_module_content,  # pyright: ignore[reportPrivateUsage]
+            _ensure_output_text_encodable,  # pyright: ignore[reportPrivateUsage]
             _format_file_header,  # pyright: ignore[reportPrivateUsage]
         )
         from datamodel_code_generator._target_format import TargetCodeFormatter  # noqa: PLC0415
@@ -1056,6 +1061,8 @@ class _Finisher:
                 else body
             )
         own = {file.path: formatter.format_code(file.text) for file in rendered.implementations}
+        for path, text in (*texts.items(), *own.items()):
+            _ensure_output_text_encodable(text, self.encoding(path))
         self.defer(formatter, texts, formatted, own)
         for key, value in list(texts.items()):
             if not _is_python(key):
@@ -1064,11 +1071,14 @@ class _Finisher:
                 texts[key] = value
         return self.planned(texts), self.planned(own)
 
+    def encoding(self, path: PurePosixPath) -> str:
+        """Return the encoding a file is written in: Python files in the model encoding, other text as UTF-8."""
+        return self.effective.encoding if _is_python(path) else "utf-8"
+
     def planned(self, texts: dict[PurePosixPath, str]) -> tuple[PlannedFile, ...]:
-        """Encode formatted texts as their files hold them: Python files in the model encoding, other text as UTF-8."""
-        encoding = self.effective.encoding
+        """Encode formatted texts as their files hold them."""
         return tuple(
-            PlannedFile(path=path, content=_written(_normalized(text), encoding if _is_python(path) else "utf-8"))
+            PlannedFile(path=path, content=_written(_normalized(text), self.encoding(path)))
             for path, text in texts.items()
         )
 
@@ -1133,6 +1143,7 @@ def _plan(  # noqa: PLR0913
     the batch `job` that plans the target.
     """
     effective = prepare_target(input_, model_config, generator)
+    config.check_target(effective.target_python_version)
     if publish and effective.remote_lock_resolved and getattr(effective.remote_lock, "update", False):
         raise config_error(
             code="E_CONFIG_CONFLICT",

@@ -49,7 +49,7 @@ from . import session_marker
 from . import unstorable
 from .config import DAEMON_SHELL_CONFIG, Settings
 from .agent_session import AGENT_SESSION_HEADER, agent_session_headers
-from .surface import SURFACE_HEADER, TOOL_HEADER, Surface, current_tool
+from .surface import ATTRIBUTION_HEADER, SURFACE_HEADER, TOOL_HEADER, Surface, current_tool
 from .tls import ssl_context
 
 #: SDK reliability 2.8: every request from this client says it speaks per-writer
@@ -960,6 +960,11 @@ class Transport:
         attribution = _attribution_override.get() or self.attribution
         if attribution is Attribution.AMBIENT:
             headers.update(agent_session_headers())
+        else:
+            # Said out loud, not only implied by the missing session headers: the
+            # server stamps it as `driven_by`, which is how #probe-usage tells an
+            # import from the person's own work (the drainer's surface is `sdk`).
+            headers[ATTRIBUTION_HEADER] = attribution.value
         key = _idempotency_key(method, path)
         if key:
             headers["Idempotency-Key"] = key

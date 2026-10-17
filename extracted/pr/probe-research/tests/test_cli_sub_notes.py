@@ -14,7 +14,7 @@ import pytest
 import typer
 
 from probe import cli
-from tests.conftest import make_client
+from tests.conftest import make_client, token_text
 
 
 @pytest.fixture
@@ -44,7 +44,9 @@ def test_create_and_list_roundtrip(wired, capsys):
     assert [row["title"] for row in page["sub_notes"]] == ["Caveats"]
     row = page["sub_notes"][0]
     assert row["stored_chars"] == 0
-    assert row["limit"] == 100_000
+    assert row["limit"] == 150_000  # the character backstop
+    assert row["stored_tokens"] == 0
+    assert row["limit_tokens"] == 30_000  # the cap
     assert page["limit_count"] == 20
 
 
@@ -83,7 +85,7 @@ def test_a_near_full_sub_note_warns_on_stderr(wired, capsys, monkeypatch):
 
     assert cli.main(["notes", "checkout", "--run", run_id, "--note", "Caveats"]) == 0
     path = pathlib.Path(_json_out(capsys)["path"])
-    path.write_text("x" * 2_600)
+    path.write_text(token_text(1_300))
     assert cli.main(["notes", "push", "--run", run_id, "--note", "Caveats"]) == 0
     capsys.readouterr()
 
@@ -91,7 +93,8 @@ def test_a_near_full_sub_note_warns_on_stderr(wired, capsys, monkeypatch):
     # it can change what you do.
     assert cli.main(["notes", "checkout", "--run", run_id, "--note", "Caveats", "--steal"]) == 0
     err = capsys.readouterr().err
-    assert "warning:" in err  # 2,600 of 4,000: the budget is visibly coming down
+    # 1,300 of 2,000 tokens: the budget is visibly coming down.
+    assert "warning:" in err and "(1,300 of 2,000 tokens, 700 left)" in err
 
 
 def test_a_duplicated_title_refuses_and_the_id_door_still_works(wired, capsys):
@@ -174,16 +177,45 @@ def test_a_pre_0146_server_gets_the_upgrade_message(wired, capsys):
     assert "#2282" in capsys.readouterr().err
 
 
-def test_an_entity_miss_is_not_mislabeled_as_an_old_server(wired, capsys):
+def test_an_entity_miss_is_not_mislabeled_as_an_old_server(wired, capsys, monkeypatch):
     """`run not found` must pass through as itself — the upgrade mapping keys
-    on the ROUTE-shaped bare `Not Found` only."""
-    rc = cli.main(
-        ["notes", "list", "--group", "00000000-0000-0000-0000-000000000000"]
-    )
+    on the ROUTE-shaped bare `Not Found` only. (A run deleted between its
+    resolve and the sub-notes read is the miss left to hit: every carrier now
+    resolves before the read.)"""
+    from probe.sdk import errors
+    from probe.sdk.client import Client
+
+    cli.main(["run", "start", "--experiment", "e", "--name", "r1"])
+    run_id = capsys.readouterr().out.strip()
+
+    def gone(self, kind, entity_id):
+        raise errors.NotFoundError("run not found", status=404, detail="run not found")
+
+    monkeypatch.setattr(Client, "list_sub_notes", gone)
+    rc = cli.main(["notes", "list", "--run", run_id])
     assert rc == 1
     err = capsys.readouterr().err
-    assert "group not found" in err
+    assert "run not found" in err
     assert "0.231.0.0" not in err
+
+
+@pytest.mark.parametrize("flag", ["--group", "--artifact"])
+def test_files_and_sweep_groups_are_no_longer_note_targets(wired, capsys, flag):
+    """Files and sweep groups stopped carrying notes, so no `notes` command
+    takes a flag for them any more."""
+    for argv in (
+        ["notes", "list"],
+        ["notes", "show"],
+        ["notes", "checkout"],
+        ["notes", "push"],
+        ["notes", "create", "--title", "T"],
+        ["notes", "append", "--text", "x"],
+        ["notes", "edit", "--old", "a", "--new", "b"],
+        ["notes", "rename", "--note", "T", "--to", "U"],
+        ["notes", "delete", "--note", "T", "--yes"],
+    ):
+        assert cli.main([*argv, flag, "00000000-0000-0000-0000-000000000000"]) == 2, argv
+        assert "No such option" in capsys.readouterr().err
 
 
 def test_the_fullness_sweep_sees_sub_notes(wired, capsys, monkeypatch):
@@ -198,7 +230,7 @@ def test_the_fullness_sweep_sees_sub_notes(wired, capsys, monkeypatch):
     # test has to actually push something for there to be fullness to see.
     cli.main(["notes", "checkout", "--run", run_id, "--note", "Caveats"])
     path = pathlib.Path(_json_out(capsys)["path"])
-    path.write_text("x" * 3_900)
+    path.write_text(token_text(1_950))
     cli.main(["notes", "push", "--run", run_id, "--note", "Caveats"])
     capsys.readouterr()
 

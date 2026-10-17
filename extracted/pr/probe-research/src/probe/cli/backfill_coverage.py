@@ -48,6 +48,19 @@ OBSERVE_HASH_WORKERS = 4
 SIGNATURE_SETTLE_SECONDS = 2.0
 
 
+def own_names(intent: dict) -> set[str]:
+    """The artifact names that are this intent's file: the scrubbed name the
+    uploader sends, and the raw path a legacy adoption (`backfill_legacy`)
+    matched an artifact already stored under.
+
+    The SDK scrubs credentials out of every name (`scrub_string`), so a path
+    carrying one is delivered under its redacted form; comparing a receipt with
+    the raw path alone would fail that file on every run."""
+    from ..sdk.redaction import scrub_string
+
+    return {scrub_string(intent["artifact_name"]), intent["artifact_name"]}
+
+
 class CoverageError(ValueError):
     """Unverified scope, corrupt state, or a conflicting import owner."""
 
@@ -589,6 +602,24 @@ class Coverage:
                     (str(project["id"]), project["slug"], row["manifest"] if same else None,
                      row["correlation"] if same else None, path))
 
+    def exclude(self, reasons: dict[str, str], *, changed: bool = False) -> None:
+        """Pin reviewed bytes as LEFT OUT, with the classifier's why, in one commit.
+
+        `report()` reads these as `excluded` (settled, not pending) until the
+        bytes change, when the file is `changed` and goes back to review. The
+        same refusals as `approve`, minus the destination: there is none.
+        """
+        with self.conn:
+            for path, why in reasons.items():
+                row = self.conn.execute("SELECT * FROM files WHERE path=?", (path,)).fetchone()
+                if not row or not row["observed_hash"] or not row["present"]:
+                    raise CoverageError(f"Cannot approve unreadable or missing source: {path}")
+                if row["approved_hash"] and row["approved_hash"] != row["observed_hash"] and not changed:
+                    raise CoverageError(f"Changed source requires explicit review: {path}")
+                self.conn.execute("""UPDATE files SET approved_hash=observed_hash,
+                    project_id=NULL, project_slug=NULL, manifest=NULL, correlation=NULL,
+                    exclusion=?, dead=NULL WHERE path=?""", ((why or "left out")[:1024], path))
+
     def validate_destinations(self, client) -> None:
         """A deleted/recreated slug or moved project cannot inherit old completion."""
         for row in self.conn.execute("SELECT DISTINCT project_id FROM files WHERE project_id IS NOT NULL"):
@@ -606,6 +637,8 @@ class Coverage:
     def intend(self, row: dict, *, reference: bool, uri: str | None = None) -> dict:
         if not row["approved_hash"] or row["approved_hash"] != row["observed_hash"]:
             raise CoverageError(f"Source version is not approved: {row['path']}")
+        if row.get("exclusion") or not row.get("project_id"):
+            raise CoverageError(f"Source was left out of the import: {row['path']}")
         if row.get("correlation"):
             saved = self.conn.execute(
                 "SELECT intent FROM versions WHERE correlation=?", (row["correlation"],)
@@ -635,6 +668,39 @@ class Coverage:
             self.conn.execute("UPDATE files SET correlation=? WHERE path=?", (correlation, row["path"]))
         return {**intent, "correlation": correlation}
 
+    def reissue(self, row: dict, *, stale: str) -> dict:
+        """A fresh delivery identity for an approved file whose saved request
+        went out under a name that can never verify.
+
+        CLIs from 0.173.0 until this fix scrubbed artifact names with the prose
+        scrubber, whose home-path rule cut every `Users/<x>` or `home/<x>`
+        FOLDER in a path to `<path>`. The request is frozen under its
+        correlation, so a resume replays the wrong name forever: its receipt
+        fails `accept_receipt`, and two files that collapsed onto one name 409.
+        The new intent is the saved one plus `reissue_of`, so the reviewed
+        path, bytes, project and URI are unchanged and only the identity is
+        new. Once only: a reissued intent that mismatches again is a different
+        bug, and minting another identity each run would re-upload it forever.
+        """
+        saved = self.conn.execute("SELECT intent FROM versions WHERE correlation=?", (stale,)).fetchone()
+        if not saved:
+            raise CoverageError("Approved file has no durable delivery intention.")
+        intent = json.loads(saved[0])
+        if intent.get("reissue_of"):
+            raise CoverageError("Delivery name still differs from the approved file after a reissue.")
+        if intent.get("path") != row["path"] or intent.get("content_hash") != row["approved_hash"]:
+            raise CoverageError("Saved intention differs from the approved source version.")
+        intent["reissue_of"] = stale
+        correlation = "backfill-v2:" + hashlib.sha256(json.dumps(intent, sort_keys=True).encode()).hexdigest()
+        with self.conn:
+            self.conn.execute("INSERT OR IGNORE INTO versions(correlation,intent) VALUES (?,?)",
+                              (correlation, json.dumps(intent, sort_keys=True)))
+            self.conn.execute("UPDATE versions SET error=? WHERE correlation=?",
+                              (f"Reissued as {correlation}: delivered under the wrong name.", stale))
+            self.conn.execute("UPDATE files SET correlation=? WHERE path=? AND correlation=?",
+                              (correlation, row["path"], stale))
+        return {**intent, "correlation": correlation}
+
     def accept_receipt(self, correlation: str, receipt: dict) -> None:
         found = self.conn.execute("SELECT intent FROM versions WHERE correlation=?", (correlation,)).fetchone()
         if not found:
@@ -646,7 +712,7 @@ class Coverage:
                 or (not expected_ref and receipt.get("readable") is not True)
                 or not receipt.get("artifact_id") or receipt.get("anchor") != "project"
                 or receipt.get("anchor_id") != intent["project_id"]
-                or receipt.get("name") != intent["artifact_name"]
+                or receipt.get("name") not in own_names(intent)
                 or receipt.get("content_hash") != intent["content_hash"]
                 or receipt.get("size_bytes") != intent["size_bytes"]
                 or bool(receipt.get("is_reference")) != expected_ref
@@ -736,6 +802,17 @@ class Coverage:
                 ).rowcount
             return total
 
+    def clear_exclusions(self) -> int:
+        """Put every left-out file back in front of the classifier (`--review-excluded`).
+
+        The approval goes with the marker, exactly as in `clear_dead`: a row
+        with neither reads `new`, which is the only state the import re-reviews.
+        """
+        with self.conn:
+            return self.conn.execute(
+                "UPDATE files SET exclusion=NULL, approved_hash=NULL WHERE exclusion IS NOT NULL"
+            ).rowcount
+
     def dead_reasons(self) -> dict[str, str]:
         return {row["path"]: row["dead"]
                 for row in self.conn.execute(
@@ -752,10 +829,14 @@ class Coverage:
                 state = "vanished"
             elif row["observation_error"]:
                 state = "unresolved"
+            elif row["exclusion"]:
+                # BEFORE `changed`: leaving a file out was a call about what it
+                # IS, and a product's code changes daily -- re-reviewing every
+                # edit kept a monorepo import "partial" forever and re-paid the
+                # classifier. `--review-excluded` is the way back.
+                state = "excluded"
             elif row["approved_hash"] and row["approved_hash"] != row["observed_hash"]:
                 state = "changed"
-            elif row["exclusion"]:
-                state = "excluded"
             elif row["receipt"]:
                 receipt = json.loads(row["receipt"])
                 state = "references" if receipt.get("is_reference") else "delivered"

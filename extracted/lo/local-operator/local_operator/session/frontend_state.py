@@ -3453,6 +3453,9 @@ class FrontendSessionState(BaseModel):
     # Bounded transient seed for a frontend that joins mid-turn. Existing
     # frontends consume raw events; only the atomic snapshot needs this fold.
     live_events: list[dict[str, Any]] = Field(default_factory=list)
+    # Additive display proof, never tool/model state. Absent on the unchanged
+    # direct/raw-only path; checkpoints retain bounded archive refs, not bodies.
+    peer_cycle_display: dict[str, Any] | None = None
     jobs: list[JobState] = Field(default_factory=list)
     todos: list[TodoPhaseState] = Field(default_factory=list)
     wakes: list[WakeState] = Field(default_factory=list)
@@ -3465,11 +3468,11 @@ class FrontendSessionState(BaseModel):
     loop: dict[str, Any] | None = None
     pending_gate: PendingGateState | None = None
     #: The session's queued asks, newest first with the OPEN ones in front, and
-    #: how many of them are still OUTSTANDING — ``open`` or ``timed_out`` and
-    #: still answerable late (design §2.2; the rule lives in
-    #: ``asks.store.OUTSTANDING_STATUSES``). It is NOT "open asks": a timed-out
-    #: ask the user can still answer still counts, which is exactly the state a
-    #: queue of nothing but timed-out asks is in.
+    #: how many of them are still OUTSTANDING — ``open`` asks, the ones still
+    #: waiting on the user (the rule lives in ``asks.store.OUTSTANDING_STATUSES``).
+    #: A ``timed_out`` ask is settled (#2388): its row rides ``asks`` as a
+    #: dismissible receipt, but the tally does not count it, so a queue of
+    #: nothing but timed-out asks publishes rows beside ``asks_open: 0``.
     #:
     #: PRESENCE IS THE CAPABILITY PROXY (design §4/N2, and the UI contract's own
     #: rule, amended by the WIRE FIX): a client may take "``asks`` OR
@@ -3544,6 +3547,8 @@ class FrontendSessionState(BaseModel):
         # absent whenever there is no row list to carry, while ``asks_open``
         # rides whenever the queue is live — ``0`` included — so the pair's
         # presence is the capability read a renderer keys its ask paint on.
+        if mutable.peer_cycle_display is None:
+            payload.pop("peer_cycle_display", None)
         if mutable.asks is None:
             payload.pop("asks", None)
         if mutable.asks_open is None:
@@ -4020,6 +4025,9 @@ def sync_wire_payload(sync: FrontendSync) -> dict[str, Any]:
         _bound_live_events_in_place(snapshot)
         _bound_asks_in_place(snapshot)
         _bound_spend_channels_in_place(snapshot)
+        # Charge the proof's independent byte cap before residual consumers
+        # spend room on it; the final call below can also yield a crowded frame.
+        _bound_peer_cycle_display_in_place(snapshot)
         # The goal record is bounded at ENTRY by `GoalState` (a swept history, a
         # clipped judge reason) and yielded HERE at the wire, because an entry
         # cap is not a wire bound: the frame this field rides is the one the
@@ -4061,6 +4069,7 @@ def sync_wire_payload(sync: FrontendSync) -> dict[str, Any]:
         # else will shrink. See MODEL_CATALOGUE_FLOOR_ROWS for why the
         # catalogue takes a residual budget where jobs take a fixed one.
         _bound_model_catalogue_in_place(payload, snapshot)
+        _bound_peer_cycle_display_in_place(snapshot, payload=payload)
         _yield_spend_channels_when_the_frame_has_no_room(payload, snapshot)
         _yield_asks_when_the_frame_has_no_room(snapshot, payload)
     return payload
@@ -4195,6 +4204,56 @@ def _frame_line_bytes(payload: dict[str, Any]) -> int:
     return len(json.dumps({"op": "result", "req": 9_999_999_999, "data": payload}).encode()) + 1
 
 
+# A hot proof is optional display acceleration, not the original transcript.
+# Sixteen 64-KiB UTF-8 records can exceed the ENTIRE 1-MiB socket frame once
+# JSON escapes non-ASCII child payloads. Charge actual wire bytes, in aggregate,
+# and keep the full attestations in the existing indexed archive/store instead.
+PEER_CYCLE_DISPLAY_WIRE_BUDGET_BYTES = 64 * 1024
+
+
+def _bound_peer_cycle_display_in_place(
+    fields: dict[str, Any], *, payload: dict[str, Any] | None = None
+) -> None:
+    """Yield complete proof, never truncated proof that could grant ownership.
+
+    A metadata-budget marker is withholding, NOT proof refutation. Updated
+    history readers can obtain complete records from the indexed archive; other
+    readers keep the original rows visible. Only the wire copy is changed; the
+    authoritative store and indexed archive retain all the source facts. Like the
+    money-table yield, a snapshot with no residual room omits this OPTIONAL
+    accelerator altogether rather than preventing attach. Absence grants no
+    grouping authority and is already valid for legacy/non-capable owners.
+    """
+    value = fields.get("peer_cycle_display")
+    if not isinstance(value, dict):
+        return
+    if _live_row_cost(value) > PEER_CYCLE_DISPLAY_WIRE_BUDGET_BYTES:
+        from local_operator.harness.peer_cycle_display import HOT_RECORDS
+
+        refs = value.get("refs")
+        # Budgeted DTO absence must not revoke a previously validated same-
+        # owner graph. `unavailable` is the consumer's HARD-refusal vocabulary;
+        # only source/validation conflicts, never this byte cap, belong there.
+        # Use the archive/page metadata-budget and remaining-ID vocabulary.
+        budgeted: dict[str, Any] = {"records": [], "status": "metadata_budget"}
+        if (
+            isinstance(refs, list)
+            and len(refs) <= HOT_RECORDS
+            and all(isinstance(ref, str) and ref for ref in refs)
+        ):
+            budgeted["refs"] = list(refs)
+            budgeted["remaining"] = list(refs)
+        if _live_row_cost(budgeted) > PEER_CYCLE_DISPLAY_WIRE_BUDGET_BYTES:
+            budgeted = {
+                "records": [],
+                "status": "metadata_budget",
+                "remaining_count": len(budgeted.get("remaining", ())),
+            }
+        fields["peer_cycle_display"] = budgeted
+    if payload is not None and _frame_line_bytes(payload) > _MODEL_CATALOGUE_LINE_LIMIT:
+        fields.pop("peer_cycle_display", None)
+
+
 def _bound_goal_record_in_place(payload: dict[str, Any], snapshot: dict[str, Any]) -> None:
     """Yield the goal record's PAYLOAD when the frame it would ride is over the line.
 
@@ -4284,7 +4343,7 @@ def _bound_goal_record_in_place(payload: dict[str, Any], snapshot: dict[str, Any
 #:   the ellipsis is the only signal that anything is missing.
 #:
 #: So the rule here, and the constraint a later editor must keep: on the
-#: ANSWERING surface a bound may bound the NUMBER of things carried, never the
+#: ANSWERING surface a bound may bound the NUMBER of asks carried, never the
 #: LENGTH of a field the user must read or act on. A truncated LIST is
 #: recoverable — ``dropped`` marks it (``asks_truncated`` on the wire), the true
 #: count still rides (``asks_open``), and the aggregate routes
@@ -4300,13 +4359,24 @@ def _bound_goal_record_in_place(payload: dict[str, Any], snapshot: dict[str, Any
 #: notice, and the TUI picker keeps its labels whole instead of cutting them
 #: (``ask_picker._labels_must_all_fit``). Neither is this surface.
 #:
-#: The counts below are that bound, and a review finding is why they exist
-#: rather than symmetry: with only a byte budget the FIRST row was exempt from
-#: it, so one ask carrying a hundred questions could spend the whole frame by
-#: itself. An ask is put to a human one screen at a time, so the wire carries a
-#: screenful and ``dropped`` says when it could not.
-ASK_WIRE_QUESTIONS_MAX = 12
-ASK_WIRE_OPTIONS_MAX = 10
+#: The same rule one level up: A BOUND MAY DROP WHOLE ROWS, NEVER PART OF ONE.
+#: An ask is answered atomically — ``AskQueue.respond`` refuses an answer that
+#: leaves any question out (``_partial_answer_error``) — so a row missing a
+#: question is a row nobody can submit, and a row missing an option is a choice
+#: the reader never saw. Earlier revisions capped each row at 12 questions and
+#: 10 options; a live 16-question ask then rendered 12, the card answered those
+#: 12, and the queue refused every submit ("every question must be answered at
+#: once: … has no entry"). A row-level drop is recoverable (``dropped`` /
+#: ``asks_truncated``, and the aggregate routes carry the rest); a partial row
+#: is not. What bounds the BYTES of one huge head row is the frame, not this
+#: function, and each route has its own backstop. On the attach snapshot,
+#: ``_yield_asks_when_the_frame_has_no_room`` drops the asks field (with
+#: ``asks_open``) and says so. On the delta route nothing yields the field
+#: alone: ``fit_frame_for_wire`` → ``relay_frame_or_degraded`` sheds the WHOLE
+#: ``frontend_update`` body — every other change in that delta with it — as a
+#: sequenced ``degraded`` placeholder, and the viewer re-syncs. Either way the
+#: ask stays answerable through the aggregate ``GET /v1/desktop/asks``.
+#:
 #: The ask field's text budget, and the allowance for the TAIL only. Spent in the
 #: fold's own order (open first) so the rows that survive are the ones a user
 #: must answer; a row that would push the field past it is left out WHOLE
@@ -4330,21 +4400,20 @@ def bound_ask_rows(
     for jobs ("a bound placed only at the snapshot boundary holds for the first
     frame and leaks on every one after it").
 
-    TEXT IS NOT CUT (see the constants above for the measured corruption that
-    clipping caused): the bounds drop whole QUESTIONS past
-    ``ASK_WIRE_QUESTIONS_MAX``, whole OPTIONS past ``ASK_WIRE_OPTIONS_MAX`` and
-    whole ROWS past the budget, so every string a surface shows — and the label
-    an answer records — is the string the model wrote. A bound removes a whole
-    unit or nothing; it never trims a field the reader or the answer needs.
+    NOTHING INSIDE A ROW IS CUT (see the comment block above for the measured
+    corruption that clipping text, and capping question counts, caused): the
+    bound drops whole ROWS past the budget and nothing else, so every question,
+    every option and every string a surface shows — and the label an answer
+    records — is what the model wrote, and the ask a surface shows is one it
+    can submit.
 
-    The FIRST row always survives, bounded only in its question and option
-    COUNTS, and it does NOT spend the tail's allowance: it is the ask the user
-    must answer, so charging its bytes into the budget would leave the field
-    already over and drop every later row — an over-budget head ask silently
-    taking the tail asks off the wire is the opposite of what the exemption is
-    for (review round 1, MAJOR-1). ``dropped`` says whether anything was left
-    out, so a client can be told the list is a prefix instead of inferring it
-    from a count.
+    The FIRST row always survives whole, and it does NOT spend the tail's
+    allowance: it is the ask the user must answer, so charging its bytes into
+    the budget would leave the field already over and drop every later row — an
+    over-budget head ask silently taking the tail asks off the wire is the
+    opposite of what the exemption is for (review round 1, MAJOR-1).
+    ``dropped`` says whether anything was left out, so a client can be told the
+    list is a prefix instead of inferring it from a count.
     """
     if not isinstance(rows, list):
         return [], False
@@ -4355,18 +4424,14 @@ def bound_ask_rows(
         if not isinstance(row, dict):
             continue
         raw_questions = [q for q in (row.get("questions") or []) if isinstance(q, dict)]
-        if len(raw_questions) > ASK_WIRE_QUESTIONS_MAX:
-            dropped = True
         questions: list[dict[str, Any]] = []
         charge = 0
-        for question in raw_questions[:ASK_WIRE_QUESTIONS_MAX]:
+        for question in raw_questions:
             raw_options = [o for o in (question.get("options") or []) if isinstance(o, dict)]
-            if len(raw_options) > ASK_WIRE_OPTIONS_MAX:
-                dropped = True
             # ``dict(option)`` rather than a rebuilt pair: the whole option rides,
             # and any key a later schema adds rides with it instead of being
             # dropped by a two-key reconstruction.
-            options = [dict(option) for option in raw_options[:ASK_WIRE_OPTIONS_MAX]]
+            options = [dict(option) for option in raw_options]
             questions.append({**question, "options": options})
             charge += len(str(question.get("question") or ""))
             charge += sum(
@@ -4418,7 +4483,7 @@ def _bound_asks_in_place(snapshot: dict[str, Any]) -> None:
     snapshot["asks"] = kept
     if dropped:
         # ``asks_open`` keeps its meaning (how many of the session's asks are
-        # still OUTSTANDING — open or timed out and answerable); this says the
+        # still OUTSTANDING — the open ones, #2388); this says the
         # frame could not carry every row. Present only when true, so absence
         # reads as "nothing was dropped" — the additive-defaulted shape the rest
         # of this payload uses. The catalogue's ``model_catalogue_truncated`` is
@@ -5915,7 +5980,19 @@ class FrontendStateStore:
         # The ONE assignment outside ``_install``: nothing else can see this
         # store yet, so there is no race to take the lock against.
         self._state = _freeze_state_jobs(state.model_copy(deep=True))
+        self._peer_display_fold: Any = None
+        self._peer_display_pending: list[dict[str, Any]] = []
         self._subscribers: list[Callable[[FrontendUpdate], None]] = []
+        #: Callbacks that OBSERVE publications for the harness's own bookkeeping
+        #: (the phone display fold) without being a VIEWER. ``has_subscribers``
+        #: is read as "is a frontend attached", and it gates work that exists
+        #: FOR a frontend: the turn-end checkpoint write and the per-token fold.
+        #: An internal observer must not flip it. Symptom it caused: a headless
+        #: runtime whose only "subscriber" was the display observer wrote a
+        #: turn-end checkpoint a viewer-less runtime otherwise skips, and that
+        #: row embedded a raw transcript row id as ``history_cursor`` — the
+        #: durable-journal invariant the desktop ask-images e2e pins.
+        self._internal_subscribers: set[Callable[[FrontendUpdate], None]] = set()
         #: Guards the ONE O(1) critical section that makes registration and
         #: publication a single step across threads: a publish assigns ``_state``
         #: and takes its subscriber list (``_install``); a subscribe appends
@@ -6247,7 +6324,19 @@ class FrontendStateStore:
 
     @property
     def has_subscribers(self) -> bool:
-        return bool(self._subscribers)
+        """Whether a FRONTEND is attached.
+
+        Internal observers (see ``_internal_subscribers``) receive publications
+        but are not viewers, so they must not make an unobserved runtime look
+        attended: that would turn on work reserved for an attached frontend.
+        """
+        # Read from the CALLBACK set, never a parallel counter: a counter can
+        # drift from the set (the same callable registered as viewer and then
+        # as an internal observer left it reading as an attached frontend), and
+        # then this property lies about whether work reserved for a viewer is
+        # owed. O(number of registered callbacks), the same order the publish
+        # fan-out already pays on every update.
+        return any(callback not in self._internal_subscribers for callback in self._subscribers)
 
     def _freeze_for_install(self, state: FrontendSessionState) -> FrontendSessionState:
         """The frozen object an install publishes. Call OUTSIDE ``_publish_lock``.
@@ -6829,6 +6918,10 @@ class FrontendStateStore:
             for summary in summaries:
                 _elide_row_facts_in_place(summary)
             wire_changes["jobs"] = summaries
+        if "peer_cycle_display" in wire_changes:
+            # A live delta bypasses the attach serializer. Bound its independent
+            # wire copy too; normalized store/archive proof stays complete.
+            _bound_peer_cycle_display_in_place(wire_changes)
         if "spend_channels" in wire_changes:
             # The object rides every refresh's DELTA as well (the band's own
             # publish path), so the cap runs on this route too — a bound placed
@@ -6920,9 +7013,26 @@ class FrontendStateStore:
         """
         return self._join(callback)
 
-    def _join(self, callback: Callable[[FrontendUpdate], None]) -> FrontendSubscription:
+    def subscribe_internal_threadsafe(
+        self, callback: Callable[[FrontendUpdate], None]
+    ) -> FrontendSubscription:
+        """``subscribe_threadsafe`` for the harness's OWN observer.
+
+        Same admit path and the same publications, but the joiner is not a
+        VIEWER: ``has_subscribers`` stays False while it is the only one, so an
+        unattended runtime does not start doing viewer-only work (the turn-end
+        checkpoint write). Used by the phone display fold, which must keep
+        observing publications without making a headless session look attended.
+        """
+        return self._join(callback, internal=True)
+
+    def _join(
+        self, callback: Callable[[FrontendUpdate], None], *, internal: bool = False
+    ) -> FrontendSubscription:
         with self._publish_lock:
             self._subscribers.append(callback)
+            if internal:
+                self._internal_subscribers.add(callback)
             state_ref = self._state
         state = self._public_state(state_ref)
         sync = FrontendSync(
@@ -6938,6 +7048,9 @@ class FrontendStateStore:
                     self._subscribers.remove(callback)
                 except ValueError:
                     pass
+                else:
+                    if internal:
+                        self._internal_subscribers.discard(callback)
 
         return FrontendSubscription(sync=sync, unsubscribe=unsubscribe)
 
@@ -7895,6 +8008,7 @@ class FrontendStateStore:
         now = time.time()
         state = self._state
         changes: dict[str, Any] = {}
+        self._observe_peer_cycle_display(session, event)
         self._fold_live_event(event)
         changes.update(self._fold_live_tool_starts(event))
         changes.update(self._fold_activity_phase(event, now))
@@ -8145,6 +8259,92 @@ class FrontendStateStore:
         # needs installing against a reader.
         self._install(self._state.model_copy(update={"live_events": live}))
 
+    def _refuse_peer_cycle_display(
+        self, error: Exception, stage: str, event_type: str = ""
+    ) -> None:
+        # Display evidence is optional; its failure must not abort the agent or
+        # hide a real final. Report a structured body-free refusal, retire the
+        # candidate, and preserve previously sealed facts. Never log payloads or
+        # a validation exception's potentially secret-bearing repr.
+        self._peer_display_fold = None
+        self._peer_display_pending = []
+        logger.warning(
+            "peer display proof refused at %s (%s)",
+            stage,
+            type(error).__name__,
+            extra={
+                "peer_display_refusal": {
+                    "stage": stage,
+                    "event_type": event_type,
+                    "error_type": type(error).__name__,
+                }
+            },
+        )
+
+    def _observe_peer_cycle_display(self, session: Any, event: AgentEvent[Any]) -> None:
+        from local_operator.harness.peer_cycle_display import DisplayCycleAccumulator
+
+        state = self._state
+        try:
+            if (
+                self._peer_display_fold is None
+                or self._peer_display_fold.session_id != state.session_id
+                or self._peer_display_fold.epoch != state.epoch
+            ):
+                self._peer_display_fold = DisplayCycleAccumulator(
+                    state.session_id,
+                    state.epoch,
+                    getattr(session, "_redact_tool_result_text", None),
+                )
+                self._peer_display_pending = []
+            record = self._peer_display_fold.observe(event)
+            if record is not None:
+                self._peer_display_pending.append(record)
+        except Exception as error:
+            self._refuse_peer_cycle_display(error, "observe", event.type)
+
+    async def persist_peer_cycle_display(self, transcript: Any) -> None:
+        """Publish proof after an acknowledged specialized append, not at idle.
+
+        The enclosing raw result may persist later through its normal path.
+        Cold readers independently require those actual parents/outcomes; an
+        orphan display record is not proof of crash durability.
+        """
+        from local_operator.harness.peer_cycle_display import (
+            HOT_RECORDS,
+            persist_record,
+        )
+
+        pending, self._peer_display_pending = self._peer_display_pending, []
+        for record in pending:
+            try:
+                if not await persist_record(transcript, record):
+                    logger.warning(
+                        "peer display archive collision/unavailable: %s",
+                        record["id"],
+                        extra={
+                            "peer_display_refusal": {
+                                "stage": "archive",
+                                "reason": "collision_or_unavailable",
+                            }
+                        },
+                    )
+                    continue
+                previous = self._state.peer_cycle_display or {}
+                records = [
+                    item for item in previous.get("records", []) if item.get("id") != record["id"]
+                ]
+                records = [*records, record][-HOT_RECORDS:]
+                self.mutate(
+                    peer_cycle_display={
+                        "refs": [item["id"] for item in records],
+                        "records": records,
+                    }
+                )
+            except Exception as error:
+                self._refuse_peer_cycle_display(error, "archive")
+                break
+
     async def checkpoint(self, transcript: Any, *, preserve_mtime: bool = False) -> None:
         """Append the durable turn-end (or closing) status row.
 
@@ -8175,6 +8375,11 @@ class FrontendStateStore:
         durable = state.model_copy(
             update={
                 "live_events": [],
+                "peer_cycle_display": (
+                    {"refs": list((state.peer_cycle_display or {}).get("refs", []))}
+                    if state.peer_cycle_display is not None
+                    else None
+                ),
                 # The live-batch anchor is transient by construction, exactly
                 # like the seed above: it describes calls executing RIGHT NOW
                 # in this process, and there is nothing for a later reader to
@@ -8980,15 +9185,14 @@ def ask_wire(session: Any) -> tuple[list[dict[str, Any]] | None, int | None]:
     frontend state, the projection and the list rows cannot disagree about which
     asks are OUTSTANDING.
 
-    THE TALLY IS OUTSTANDING, NOT ``open`` — this is the fix for a queue whose
-    asks have all timed out: it used to fold to ``0`` (and, with no rows left in
-    the tally's own eye, could read as absence) while the ask bar still offered
-    the asks and a late answer still reached the agent. An ask is outstanding
-    while the user can still act on it — ``open`` OR ``timed_out``-and-unanswered
-    — and SETTLED once answered, declined or dismissed (design §2.2, the spec's
-    item 3). The statuses live in ONE place (``asks.store.OUTSTANDING_STATUSES``)
-    precisely because four surfaces read this rule; see that constant for why a
-    second spelling is what produced the wrong count here.
+    THE TALLY IS THE OUTSTANDING SET, which is ``open`` alone: an ask settles
+    once the agent is told — by its deadline (``timed_out``, #2388) or by an
+    answer — and a settled row still rides the rows (a timed-out one as a
+    dismissible receipt) without being counted. The queue still attributes a
+    late answer, but no surface offers one (D10). The statuses live in ONE
+    place (``asks.store.OUTSTANDING_STATUSES``) precisely because four surfaces
+    read this rule; see that constant for why a second spelling is what
+    produced a wrong count here.
 
     Returns ABSENCE — ``None`` — for the ROWS whenever they are not there, and
     the TALLY is the capability signal: a live queue with nothing to fold returns
@@ -9033,8 +9237,21 @@ def ask_wire(session: Any) -> tuple[list[dict[str, Any]] | None, int | None]:
         # (``asks/queue._refresh``) — a durable cross-session view must not show
         # an answer that a runtime death would erase. A queue that predates the
         # parameter answers the plain call, which is the log-only view.
+        #
+        # ``lapsed_visible_ms``: the ``asks.lapsed_visible_for`` window
+        # (decisions D8/D9), read per publish so a changed setting reaches the
+        # rows AND the tally below together — no surface may count an ask it no
+        # longer shows. Read off the queue, because the queue knows the config
+        # directory its log lives under.
+        window = getattr(queue, "lapsed_visible_ms", None)
         try:
-            rows = [dict(row) for row in cast("Any", folder(drafts=True))]
+            if callable(window):
+                rows = [
+                    dict(row)
+                    for row in cast("Any", folder(drafts=True, lapsed_visible_ms=window()))
+                ]
+            else:
+                rows = [dict(row) for row in cast("Any", folder(drafts=True))]
         except TypeError:
             rows = [dict(row) for row in cast("Any", folder())]
     except Exception:  # noqa: BLE001 — the same rule: absence, never a false zero

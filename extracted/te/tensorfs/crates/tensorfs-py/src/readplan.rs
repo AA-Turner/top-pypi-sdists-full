@@ -24,16 +24,6 @@ impl PyPlan {
     fn bytes(&self) -> u64 {
         self.plan.bytes
     }
-    /// The DISK leg — `bytes` minus what the header carries inline. Throughput belongs to
-    /// this one; inline bytes never touch a device.
-    #[getter]
-    fn io_bytes(&self) -> u64 {
-        self.plan.io_bytes
-    }
-    #[getter]
-    fn inline_parts(&self) -> usize {
-        self.plan.inline_parts
-    }
     #[getter]
     fn order(&self) -> &'static str {
         self.plan.order.as_str()
@@ -66,11 +56,6 @@ impl PyPlan {
         }
         Ok(l)
     }
-
-    /// How the plan tiles into slots of `slot_bytes` — the batch count the ring will run.
-    fn batches(&self, slot_bytes: u64) -> usize {
-        self.plan.batches(slot_bytes).len()
-    }
 }
 
 /// Build a read plan from canonical header bytes and the CALLER's traversal. Order is the
@@ -89,7 +74,7 @@ pub fn plan(
     components: Option<Vec<String>>,
     window: u64,
 ) -> PyResult<PyPlan> {
-    let h = Header::parse(header).or_refuse(py)?;
+    let h = Header::from_stored(header).or_refuse(py)?;
     let scope = components.unwrap_or_else(|| h.components.iter().map(|(c, _)| c.clone()).collect());
     let p = read::plan_for_traversal(&h, &traversal, &scope, window).or_refuse(py)?;
     Ok(PyPlan { plan: p })

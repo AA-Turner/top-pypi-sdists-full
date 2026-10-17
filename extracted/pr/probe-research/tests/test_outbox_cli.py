@@ -1101,6 +1101,37 @@ def test_manifest_reference_rows_stage_zero_bytes(wired_async, outbox_dir, tmp_p
     assert len(rows) == 2 and all(r["is_reference"] for r in rows)
 
 
+def test_manifest_notes_are_dropped_with_one_warning_and_every_row_still_lands(
+    wired_async, outbox_dir, tmp_path, capsys
+):
+    """Files no longer carry notes. A manifest an older skill or importer wrote
+    still uploads every row; its "notes" go nowhere, and that is said once."""
+    project_id = seed_project(wired_async, "p")
+    upload = tmp_path / "eval.csv"
+    upload.write_text("a,b\n")
+    pointer = tmp_path / "weights.ckpt"
+    pointer.write_bytes(b"w" * 64)
+    path = manifest(
+        tmp_path,
+        {"path": str(upload), "notes": "held-out table"},
+        {"path": str(pointer), "reference": True, "notes": "best checkpoint"},
+    )
+    capsys.readouterr()
+
+    rc = cli.main(["artifact", "add", "--from-manifest", path, "--project", "p"])
+
+    captured = capsys.readouterr()
+    assert rc == 0, captured
+    summary = json.loads(captured.out)
+    assert summary["enqueued"] == 2 and summary["failed"] == 0
+    assert captured.err.count("is ignored: notes on files were removed") == 1
+    queued = json.dumps([op for _, op in Journal(outbox_dir).pending()])
+    assert "held-out table" not in queued and "best checkpoint" not in queued
+    assert cli_drain(wired_async, outbox_dir).clean
+    rows = anchored(wired_async, project_id)
+    assert len(rows) == 2 and not [r for r in rows if r.get("notes")]
+
+
 def test_manifest_row_anchor_beats_the_command_line_default(
     wired_async, outbox_dir, tmp_path, capsys
 ):
@@ -1550,10 +1581,9 @@ def test_a_big_run_file_queues_in_parts_even_under_probe_async_0(
     """The Probe daemon runs every command with PROBE_ASYNC=0 (to see each write
     land) and kills it at 180 s; a multi-gigabyte upload cannot land in that
     time, so a run file over 64 MiB queues in parts unless --sync says
-    otherwise. Its notes are scrubbed like `log_artifact`'s, because the op file
-    outlives the command."""
+    otherwise. An older skill's `--notes` still uploads the file, and is never
+    written into the op file (files no longer carry notes)."""
     from probe.sdk import multipart
-    from probe.sdk.redaction import scrub_text
 
     monkeypatch.setenv("PROBE_ASYNC", "0")
     # A CI runner's outbox disk reads as ephemeral; pin the durable disk.
@@ -1568,9 +1598,12 @@ def test_a_big_run_file_queues_in_parts_even_under_probe_async_0(
 
     assert cli.main(["artifact", "add", run_id, str(big), "--notes", notes]) == 0
 
-    assert "(queued)" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert "(queued)" in captured.out
+    assert captured.err.count("--notes is ignored") == 1
     [(_, op)] = multipart.pending(Journal(outbox_dir))
-    assert op["upload"]["notes"] == scrub_text(notes) != notes
+    assert "notes" not in op["upload"]
+    assert "ghp_" not in json.dumps(op)
 
 
 def test_sync_still_uploads_a_big_run_file_in_process(wired_async, outbox_dir, tmp_path):

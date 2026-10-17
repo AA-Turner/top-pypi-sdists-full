@@ -4,6 +4,7 @@ mod network_client;
 pub mod network_error;
 pub mod providers;
 pub mod proxy_config;
+pub(crate) mod retry;
 mod statsig_url;
 
 pub use http_types::*;

@@ -68,9 +68,7 @@ def test_traceable_masks_a_secret_argument(mock_client: Client):
             assert api_key == PLAINTEXT, "the function still sees the real key"
             return f"Response to:{prompt}"
 
-        call_external_api(
-            api_key=LangSmithSecret(PLAINTEXT), prompt="What is LangSmith?"
-        )
+        call_external_api(api_key=LangSmithSecret(PLAINTEXT), prompt="What is LangSmith?")
         mock_client.flush()
 
     payloads = _posted_payloads(mock_client)
@@ -108,9 +106,7 @@ def test_nested_tool_headers_are_masked():
                     "type": "mcp",
                     "server_label": "kagi",
                     "server_url": "https://mcp.kagi.com/mcp",
-                    "headers": {
-                        "Authorization": LangSmithSecret(f"Bearer {PLAINTEXT}")
-                    },
+                    "headers": {"Authorization": LangSmithSecret(f"Bearer {PLAINTEXT}")},
                 },
                 {"type": "function", "name": "get_weather"},
             ],

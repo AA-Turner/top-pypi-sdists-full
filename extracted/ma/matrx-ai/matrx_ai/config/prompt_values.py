@@ -14,7 +14,9 @@ Rules:
 - Structured values (dict / list / tuple / set / pydantic models) → kind
   markers stripped, then CANONICAL JSON — models never see Python repr, and
   never learn our wire vocabulary.
-- Scalars → ``str()`` unchanged.
+- A boolean → ``true`` / ``false`` (JSON's words, never Python's ``True``). A toggle's
+  value is its label text, so it renders that label.
+- Other scalars → ``str()`` unchanged.
 - A value already serialized to a *string* by its producer is prose by that
   producer's choice and passes through verbatim — the door governs structured
   values, it does not re-parse text.
@@ -120,6 +122,8 @@ def prompt_safe_value(value: Any, *, indent: int | None = None) -> str:
         return ""
     if isinstance(value, str):
         return value
+    if isinstance(value, bool):
+        return "true" if value else "false"
     if isinstance(value, (dict, list, tuple, set, frozenset)) or hasattr(
         value, "model_dump"
     ):

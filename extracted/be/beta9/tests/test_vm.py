@@ -1,12 +1,17 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 from concurrent.futures import ThreadPoolExecutor
+import base64
+import gzip
 import json
 import io
 import shutil
 import subprocess
 import threading
 import socket
+import sys
+import tarfile
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -15,7 +20,7 @@ from beta9.abstractions.image import Image
 from beta9.abstractions.vm import VM, prepare_image
 from beta9.abstractions import vm as vm_module
 from beta9.exceptions import SandboxProcessError, SandboxConnectionError
-from beta9.channel import GatewayHTTPError
+from beta9.channel import GatewayHTTPError, ServiceClient
 from beta9.config import ConfigContext, SDKSettings
 from beta9.cli import extraclick
 from beta9.cli import vm as vm_cli
@@ -29,6 +34,82 @@ def service():
     )
 
 
+def test_default_creation_uses_one_http_request_and_freezes_retry(monkeypatch):
+    from requests import ConnectionError
+
+    monkeypatch.setattr(vm_module, "public_key", lambda: "ssh-ed25519 test")
+    with ServiceClient(ConfigContext(token="test", api_url="https://vm.example")) as selected:
+        selected._gateway = MagicMock()
+        direct = selected.vm_http
+        direct.json = MagicMock(
+            side_effect=[
+                ConnectionError("lost response"),
+                {
+                    "id": "vm-id",
+                    "name": "fast",
+                    "status": "running",
+                    "exec_ready": True,
+                    "container_id": "container",
+                    "stub_id": "stub",
+                },
+            ]
+        )
+        metadata = {"owner": "original"}
+        vm = VM("fast", desktop=True, metadata=metadata, _service=selected)
+        with pytest.raises(ConnectionError):
+            vm.create()
+        body = json.dumps(direct.json.call_args.kwargs["json"], sort_keys=True)
+        metadata["owner"] = "changed"
+        vm.create()
+        assert json.dumps(direct.json.call_args.kwargs["json"], sort_keys=True) == body
+        assert direct.workspace_id == "self"
+        assert all(
+            call.args[:2] == ("POST", "/api/v1/vm/{ws}") for call in direct.json.call_args_list
+        )
+        request = direct.json.call_args.kwargs["json"]
+        assert request["image"]["existing_image_uri"] == vm_module.DEFAULT_VM_BASE_IMAGE
+        assert vm_module.DEFAULT_VM_BASE_IMAGE.startswith("ubuntu:24.04@sha256:")
+        assert request["image"]["ignore_python"] is True
+        assert request["spec"]["ssh_public_key"] == "ssh-ed25519 test"
+        selected._gateway.export_workspace_config.assert_not_called()
+
+
+@pytest.mark.parametrize("status", [401, 404, 428])
+def test_default_creation_falls_back_before_allocation(monkeypatch, status):
+    monkeypatch.setattr(vm_module, "public_key", lambda: "ssh-ed25519 test")
+    with ServiceClient(ConfigContext(token="test", api_url="https://vm.example")) as selected:
+        selected.vm_http.json = MagicMock(side_effect=GatewayHTTPError(status, "not supported"))
+        vm = VM("fast", _service=selected)
+        prepare = MagicMock()
+        monkeypatch.setattr(vm, "prepare", prepare)
+        # The second submission represents the established image-build path.
+        submit = vm._submit_creation
+        legacy = MagicMock(return_value=vm)
+        monkeypatch.setattr(
+            vm, "_submit_creation", lambda wait: submit(wait) if vm._vm_http else legacy(wait)
+        )
+        assert vm.create() is vm
+        prepare.assert_called_once()
+        legacy.assert_called_once_with(True)
+        assert vm._creation_body is None
+
+
+@pytest.mark.parametrize("status", [400, 500])
+def test_default_creation_preserves_request_after_server_error(monkeypatch, status):
+    monkeypatch.setattr(vm_module, "public_key", lambda: "ssh-ed25519 test")
+    monkeypatch.setattr(vm_module, "transient_error", lambda _: False)
+    with ServiceClient(ConfigContext(token="test", api_url="https://vm.example")) as selected:
+        selected.vm_http.json = MagicMock(side_effect=GatewayHTTPError(status, "creation failed"))
+        vm = VM("fast", _service=selected)
+        prepare = MagicMock()
+        monkeypatch.setattr(vm, "prepare", prepare)
+        with pytest.raises(GatewayHTTPError):
+            vm.create()
+        prepare.assert_not_called()
+        assert vm._creation_body["request_id"] == vm.request_id
+        assert vm._vm_http is selected.vm_http
+
+
 def test_vm_image_is_deterministic_and_uses_selected_profile():
     image = Image(base_image="ubuntu:22.04").add_commands(["echo custom"])
     original = list(image.build_steps)
@@ -40,6 +121,67 @@ def test_vm_image_is_deterministic_and_uses_selected_profile():
     assert a.channel is selected.channel
     assert a.gateway_stub is selected.gateway
     assert len(a.build_steps) == len(original) + 1
+    # The shipped bundle has a fixed gzip header on every client.
+    archive = base64.b64decode(a.build_steps[-1].command.split("'")[3])
+    assert archive[9] == 255
+    with tarfile.open(fileobj=io.BytesIO(gzip.decompress(archive))) as assets:
+        assert "beam-desktop.service" in assets.getnames()
+        assert assets.getmember("browser-trust").mode == 0o755
+        installer = assets.extractfile("install").read().decode()
+        assert "libnss3-tools" in installer
+        assert "env GDK_SCALE=1 GDK_DPI_SCALE=1 pcmanfm --desktop" in installer
+        assert "/etc/ca-certificates/update.d/beam-browser" in installer
+
+
+def test_vm_image_bundle_matches_guest_files():
+    directory = Path(vm_module.__file__).parent
+    sources = {
+        path.name: path
+        for path in directory.iterdir()
+        if path.is_file()
+        and not path.name.startswith(".")
+        and path.suffix not in (".py", ".pyc", ".gz")
+    }
+    with tarfile.open(directory / "assets.tar.gz") as archive:
+        assert set(archive.getnames()) == set(sources), "Run python bin/generate_vm_assets.py"
+        for name, path in sources.items():
+            assert archive.extractfile(name).read() == path.read_bytes(), (
+                f"Stale VM bundle: run python bin/generate_vm_assets.py after updating {name}"
+            )
+            mode = 0o644 if path.suffix in (".service", ".desktop", ".svg") else 0o755
+            assert archive.getmember(name).mode == mode
+
+
+def test_vm_image_does_not_depend_on_client_archive_libraries(monkeypatch):
+    def unexpected(*args, **kwargs):
+        raise AssertionError("VM image identity must not depend on client tar/gzip output")
+
+    monkeypatch.setattr(tarfile, "open", unexpected)
+    monkeypatch.setattr(gzip, "GzipFile", unexpected)
+    prepared = prepare_image(Image(base_image="ubuntu:24.04"), service(), True)
+    encoded = prepared.build_steps[-1].command.split("'")[3]
+    assert (
+        base64.b64decode(encoded)
+        == Path(vm_module.__file__).with_name("assets.tar.gz").read_bytes()
+    )
+
+
+def test_desktop_clipboard_patch_is_idempotent_and_checks_upstream(tmp_path):
+    installer = Path(vm_module.__file__).with_name("install").read_text()
+    patch = installer.split("  python3 - <<'PY'\n", 1)[1].split("\nPY\n", 1)[0]
+    patch = patch.replace(
+        "Path('/usr/share/kasmvnc/www/assets')", "Path(" + repr(str(tmp_path)) + ")"
+    )
+    client = tmp_path / "ui.js"
+    client.write_text("class RFB { async clipboardPasteDataFrom(data) { return data; } }")
+    exec(patch, {})
+    once = client.read_text()
+    exec(patch, {})
+    assert client.read_text() == once, "Custom images may already contain the clipboard fix"
+    assert "async beamClipboardPasteDataFrom(data)" in once
+    client.write_text("class RFB { async differentClipboardAPI(data) { return data; } }")
+    with pytest.raises(AssertionError, match="no longer matches"):
+        exec(patch, {})
 
 
 def test_vm_rejects_gpu_build_and_does_not_modify_explicit_image():
@@ -124,6 +266,14 @@ def test_prepare_freezes_request_without_allocating_compute():
     vm.prepare()
     assert vm._creation_body == body
     assert selected.http.json.call_count == 1
+
+
+def test_advertised_vm_support_skips_list_preflight():
+    selected = service()
+    selected.http.persistent_vms = True
+    selected.http.json.return_value = {"id": "resource", "name": "dev", "status": "starting"}
+    VM("dev", template="base", ssh=False, _service=selected).create(wait=False)
+    assert [call.args[0] for call in selected.http.json.call_args_list] == ["POST"]
 
 
 def test_verified_launch_reuses_ready_connection_for_first_operation():
@@ -388,8 +538,29 @@ def test_cli_preserves_env_values_and_template_defaults(cli_service, monkeypatch
     assert options["env"] == {"VALUE": "a=b c"}
     assert options["cpu"] is None and options["desktop"] is None and options["ssh"] is None
     assert options["_service"] is cli_service
-    fake.create.assert_called_once_with(wait=False)
-    fake.wait.assert_called_once_with()
+    fake.create.assert_called_once_with()
+    fake.wait.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "args,base_image",
+    [
+        ([], None),
+        (["--template", "base"], None),
+        (["--image", "alpine:3"], "alpine:3"),
+        (["--build-secret", "TOKEN"], vm_module.DEFAULT_VM_BASE_IMAGE),
+    ],
+)
+def test_cli_preserves_default_image_fast_path(cli_service, monkeypatch, args, base_image):
+    vm = MagicMock()
+    vm.info = {"name": "fast", "id": "vm-id", "status": "running"}
+    factory = MagicMock(return_value=vm)
+    monkeypatch.setattr(vm_cli, "VM", factory)
+    result = CliRunner().invoke(vm_cli.management, ["new", *args])
+    assert result.exit_code == 0, result.output
+    image = factory.call_args.kwargs["image"]
+    assert (image.base_image if image else None) == base_image
+    vm.create.assert_called_once_with()
 
 
 def test_cli_creation_shows_progress_without_internal_startup_logs(cli_service, monkeypatch):
@@ -494,7 +665,7 @@ def test_browser_commands_open_authenticated_links(cli_service, monkeypatch, fea
         {"url": signed},
     ]
     opened = MagicMock()
-    monkeypatch.setattr(vm_cli.webbrowser, "open", opened)
+    monkeypatch.setattr(vm_cli, "_launch_browser", opened)
     result = CliRunner().invoke(vm_cli.management, [feature, "dev"])
     assert result.exit_code == 0, result.output
     assert result.output == "https://vm.example/\n"
@@ -517,7 +688,7 @@ def test_open_any_port_handles_public_and_private_access(
     }
     cli_service.http.json.side_effect = [info, {"url": signed}]
     opened = MagicMock()
-    monkeypatch.setattr(vm_cli.webbrowser, "open", opened)
+    monkeypatch.setattr(vm_cli, "_launch_browser", opened)
     result = CliRunner().invoke(
         vm_cli.management, ["open", "dev", "3000", *(["--url"] if url_only else [])]
     )
@@ -690,7 +861,8 @@ def test_cli_ip_is_copyable_and_reports_unallocated_addresses(cli_service, addre
         ["template", "create", "dev", "base"],
     ],
 )
-def test_long_operations_keep_json_free_of_progress(cli_service, monkeypatch, args):
+@pytest.mark.parametrize("json_mode", ["command", "global", "env"])
+def test_long_operations_keep_json_free_of_progress(cli_service, monkeypatch, args, json_mode):
     vm = MagicMock(info={"id": "vm-12ab34cd56ef7890", "name": "dev", "status": "running"})
     for method in ("create", "start", "pause", "stop", "fork"):
         getattr(vm, method).return_value = vm
@@ -700,7 +872,13 @@ def test_long_operations_keep_json_free_of_progress(cli_service, monkeypatch, ar
     factory.get.return_value = vm
     monkeypatch.setattr(vm_cli, "VM", factory)
 
-    result = CliRunner().invoke(vm_cli.management, [*args, "--json"])
+    cli = load_cli(check_config=False, settings=SDKSettings(name="Beam"))
+    argv = (["--json"] if json_mode == "global" else []) + ["vm", *args]
+    if json_mode == "command":
+        argv.append("--json")
+    result = CliRunner().invoke(
+        cli.common_group, argv, env={"BETA9_JSON": "1" if json_mode == "env" else "0"}
+    )
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == vm.info
 
@@ -749,6 +927,37 @@ def test_identity_reports_missing_openssh(monkeypatch, identity_settings):
     monkeypatch.setattr(vm_module.subprocess, "run", MagicMock(side_effect=FileNotFoundError()))
     with pytest.raises(RuntimeError, match="install ssh-keygen"):
         vm_module.identity()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS spawn regression")
+def test_identity_does_not_fork(monkeypatch, identity_settings):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Forking while gRPC threads are active")
+
+    monkeypatch.setattr(subprocess, "_fork_exec", forbidden)
+    assert vm_module.identity().with_suffix(".pub").exists()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS spawn regression")
+@pytest.mark.parametrize("command", ["ssh", "scp", "sync"])
+def test_local_vm_commands_do_not_fork(cli_service, monkeypatch, tmp_path, command):
+    for name in ("ssh", "scp", "rsync"):
+        (tmp_path / name).symlink_to("/usr/bin/true")
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.setattr(vm_cli, "_vm", lambda *_: SimpleNamespace(name="dev"))
+    monkeypatch.setattr(vm_cli, "_ssh_options", lambda *_: [])
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Forking while gRPC threads are active")
+
+    monkeypatch.setattr(subprocess, "_fork_exec", forbidden)
+    arguments = {
+        "ssh": ["ssh", "dev", "echo", "a b;$USER"],
+        "scp": ["scp", str(tmp_path), "dev:/workspace/"],
+        "sync": ["sync", "dev", str(tmp_path)],
+    }
+    result = CliRunner().invoke(vm_cli.management, arguments[command])
+    assert result.exit_code == 0, result.output
 
 
 @pytest.mark.parametrize("hung_command", ["systemctl", "python3"])
@@ -1107,13 +1316,20 @@ def test_cli_logs_rejects_conflicting_sources_before_acquiring_vm(
     acquire.assert_not_called()
 
 
-def test_cli_ps_uses_pid_indexed_processes(cli_service, monkeypatch):
+@pytest.mark.parametrize("mode", ["command", "global", "env"])
+def test_cli_ps_uses_pid_indexed_processes(cli_service, monkeypatch, mode):
     vm = MagicMock()
     vm.process.list_processes.return_value = {
         44: SimpleNamespace(pid=44, args=["echo", "two words"], cwd="/", exit_code=0)
     }
     monkeypatch.setattr(vm_cli, "_vm", lambda *_: vm)
-    result = CliRunner().invoke(vm_cli.management, ["ps", "--json", "dev"])
+    cli = load_cli(check_config=False, settings=SDKSettings(name="Beam"))
+    argv = (["--json"] if mode == "global" else []) + ["vm", "ps", "dev"]
+    if mode == "command":
+        argv.append("--json")
+    result = CliRunner().invoke(
+        cli.common_group, argv, env={"BETA9_JSON": "1" if mode == "env" else "0"}
+    )
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == [
         {"pid": 44, "args": ["echo", "two words"], "cwd": "/", "exit_code": 0}
@@ -1278,7 +1494,8 @@ def test_activity_lease_surfaces_lost_authorization():
 
 
 @pytest.mark.parametrize("detach", [False, True])
-def test_cli_json_exec_passes_stdin_only_for_foreground(cli_service, monkeypatch, detach):
+@pytest.mark.parametrize("mode", ["command", "global", "env"])
+def test_cli_json_exec_passes_stdin_only_for_foreground(cli_service, monkeypatch, detach, mode):
     vm = MagicMock()
     vm.id = "vm-test"
     vm.info = {"container_id": "current"}
@@ -1295,9 +1512,18 @@ def test_cli_json_exec_passes_stdin_only_for_foreground(cli_service, monkeypatch
     process.stdout.read.return_value = "output"
     process.stderr.read.return_value = ""
     monkeypatch.setattr(vm_cli, "_vm", lambda *_: vm)
-    args = ["exec", "--json"] + (["--detach"] if detach else []) + ["dev", "cat"]
-    result = CliRunner().invoke(vm_cli.management, args, input="piped input")
+    cli = load_cli(check_config=False, settings=SDKSettings(name="Beam"))
+    args = (["--json"] if mode == "global" else []) + ["vm", "exec"]
+    args += (["--json"] if mode == "command" else []) + (["--detach"] if detach else [])
+    args += ["dev", "cat"]
+    result = CliRunner().invoke(
+        cli.common_group,
+        args,
+        input="piped input",
+        env={"BETA9_JSON": "1" if mode == "env" else "0"},
+    )
     assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["pid"] == 44
     stdin = vm._sandbox.return_value.process.exec.call_args.kwargs["stdin"]
     if detach:
         assert stdin is None
@@ -1357,7 +1583,7 @@ def test_direct_browser_links_never_mint_cli_credentials(cli_service, monkeypatc
     }
     cli_service.http.json.return_value = info
     opened = MagicMock()
-    monkeypatch.setattr(vm_cli.webbrowser, "open", opened)
+    monkeypatch.setattr(vm_cli, "_launch_browser", opened)
     result = CliRunner().invoke(
         vm_cli.management, ["open", "dev", str(port), *(["--url"] if url_only else [])]
     )
@@ -1383,7 +1609,7 @@ def test_terminal_and_desktop_open_the_direct_vm_not_a_dashboard(
         "spec": {"protected_ports": [port]},
     }
     opened = MagicMock()
-    monkeypatch.setattr(vm_cli.webbrowser, "open", opened)
+    monkeypatch.setattr(vm_cli, "_launch_browser", opened)
     result = CliRunner().invoke(vm_cli.management, [feature, "dev"])
     assert result.exit_code == 0, result.output
     assert result.output == "https://vm.example/\n"
@@ -1410,3 +1636,61 @@ def test_new_vm_includes_desktop_and_preserves_prebuilt_settings(
     result = CliRunner().invoke(vm_cli.management, ["new", "dev", "--json", *args])
     assert result.exit_code == 0, result.output
     assert factory.call_args.kwargs["desktop"] is expected
+
+
+@pytest.mark.parametrize("mode", ["command", "global", "env"])
+def test_image_build_json_is_clean(cli_service, monkeypatch, tmp_path, mode):
+    (tmp_path / "Dockerfile").write_text("FROM ubuntu:24.04\n")
+    image = MagicMock()
+
+    def build():
+        print("Image build output belongs in diagnostics")
+        return SimpleNamespace(success=True, image_id="image-test")
+
+    image.build.side_effect = build
+    monkeypatch.setattr(vm_cli, "prepare_image", lambda *_: image)
+    cli = load_cli(check_config=False, settings=SDKSettings(name="Beam"))
+    args = (["--json"] if mode == "global" else []) + ["vm", "image", "build", str(tmp_path)]
+    if mode == "command":
+        args.append("--json")
+    result = CliRunner(mix_stderr=False).invoke(
+        cli.common_group, args, env={"BETA9_JSON": "1" if mode == "env" else "0"}
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout) == {"image_id": "image-test", "desktop": False}
+    assert "Image build output belongs in diagnostics" in result.stderr
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS browser fork regression")
+def test_browser_opener_does_not_fork_and_preserves_url(monkeypatch, tmp_path):
+    (tmp_path / "webbrowser.py").write_text(
+        "import os\nfrom pathlib import Path\n"
+        "def open(url):\n Path(os.environ['BROWSER_RESULT']).write_text(url)\n return True\n"
+    )
+    output = tmp_path / "opened-url"
+    monkeypatch.setenv("PYTHONPATH", str(tmp_path))
+    monkeypatch.setenv("BROWSER_RESULT", str(output))
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Forking while gRPC threads are active")
+
+    monkeypatch.setattr(subprocess, "_fork_exec", forbidden)
+    url = "https://vm.example/?beam_vm_session=literal&x=$VALUE"
+    vm_cli._launch_browser(url)
+    assert output.read_text() == url
+
+
+@pytest.mark.parametrize("background", [False, True])
+def test_codex_prompt_supports_fresh_workspace(cli_service, monkeypatch, background):
+    vm = MagicMock()
+    vm.process.exec.return_value.wait.return_value = 0
+    monkeypatch.setattr(vm_cli, "_vm", lambda *_: vm)
+    foreground = MagicMock()
+    monkeypatch.setattr(vm_cli.exec_vm.callback, "__wrapped__", foreground)
+    args = ["prompt", "dev", "literal ;$prompt", "--agent", "codex"]
+    if background:
+        args.append("--background")
+    result = CliRunner().invoke(vm_cli.management, args)
+    assert result.exit_code == 0, result.output
+    command = vm.process.exec.call_args.args[-1] if background else foreground.call_args.args[2][-1]
+    assert "codex exec --skip-git-repo-check 'literal ;$prompt'" in command

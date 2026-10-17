@@ -57,9 +57,9 @@ def test_the_escape_becomes_plain_braces_and_is_never_filled() -> None:
     assert block.text == "Write {{name}} literally; hello Ada."
 
 
-def test_the_escape_is_removed_even_with_no_variables() -> None:
+def test_the_escape_is_removed_even_with_no_value() -> None:
     config = UnifiedConfig(model="claude-opus-5-5", system_instruction="Use {{!slot}} in templates.", messages=[])
-    config.replace_variables({})
+    config.replace_variables({"slot": None})
     assert config.system_instruction.base_instruction == "Use {{slot}} in templates."
 
 

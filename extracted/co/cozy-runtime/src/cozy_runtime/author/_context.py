@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
     from cozy_runtime.author._artifacts import ModelArtifact
     from cozy_runtime.author._loader import Scheduler
-    from cozy_runtime.author._model import Model
+    from cozy_runtime.author._weights import Weights
 
 DeviceType = Literal["cuda", "cpu", "mps"]
 
@@ -128,7 +128,7 @@ class Context:
     device: Device = field(default_factory=Device)
     _cancel: Callable[[], bool] = field(default=lambda: False, repr=False)
     _adapters: tuple[AdapterRef, ...] = field(default=(), repr=False)
-    _tensorfs_source: Callable[[Model[object]], SourceCapability] | None = field(
+    _tensorfs_source: Callable[[Weights[Any]], SourceCapability] | None = field(
         default=None, repr=False
     )
     _tensorfs_output: Callable[[str], OutputCapability] | None = field(default=None, repr=False)
@@ -137,15 +137,14 @@ class Context:
     )
     _release_gpus: Callable[[], None] | None = field(default=None, repr=False)
 
-    def tensorfs_source(self, model: Model[object]) -> SourceCapability:
-        """Return scoped access to an admitted model's metadata/encoded bytes through TensorFS.
-        TensorD supplies scoped source access; this handle does not construct a GPU model."""
+    def tensorfs_source(self, weights: Weights[Any]) -> SourceCapability:
+        """Scoped TensorFS access to an admitted `Weights` argument's metadata and bytes."""
         self.raise_if_cancelled()
         if self._tensorfs_source is None:
             raise CapabilityError(
                 "this attempt has no TensorFS source binding", code="weights_source_ungranted"
             )
-        return self._tensorfs_source(model)
+        return self._tensorfs_source(weights)
 
     def output(self, slot: str) -> OutputCapability:
         """Return one interface-declared TensorFS output, without enlarging its bound."""
@@ -176,7 +175,7 @@ class Context:
         its GPUs until it returns. A GPU call awaited later waits in line at this request's
         original priority (its acceptance) and never takes GPUs back from whoever got them
         meanwhile. Idempotent. Where there is no allocation to end (a request with no GPU
-        calls, a nested job, or a GPU handler, whose GPU ends when it returns) it does nothing.
+        calls, a child call, or a GPU handler, whose GPU ends when it returns) it does nothing.
         """
         if self._release_gpus is not None:
             self._release_gpus()

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from typing_extensions import override
 
+import wandb
 from wandb import util
 from wandb.sdk.sweeps.run_state import RunState
 from wandb.sdk.sweeps.scheduler.optimizer import (
@@ -48,6 +49,7 @@ class WandbOptimizer(Optimizer):
     def __init__(self, sweep: SweepInfo):
         super().__init__(sweep)
         self._runs: dict[str, sweeps.SweepRun] = {}
+        self._pruned: set[str] = set()
         self._run_counter = 0
 
     @override
@@ -78,13 +80,25 @@ class WandbOptimizer(Optimizer):
         self._runs[run_id] = sweep_run
         return sweep_run
 
+    def _update(self, run_id: str, state: Any, data: RunWithMetrics) -> None:
+        # Keep the config we suggested: `data.config` may be empty for a
+        # reaped run.
+        sweep_run = self._runs.get(run_id)
+        if sweep_run is None:
+            raise ValueError(f"Run {run_id} not found")
+        sweep_run.state = state
+        sweep_run.summary_metrics = data.summary_metrics or {}
+        sweep_run.history = list(data.history_metrics)
+
     def _sweep_runs_for_stop_runs(
         self, run_ids: Sequence[str], runs: Sequence[RunWithMetrics]
     ) -> list[Any]:
         """Merge in-memory runs with the scheduler's latest poll snapshot."""
         sweep_runs_by_name = {run.name: run for run in self._runs.values()}
         for run_id, data in zip(run_ids, runs, strict=True):
-            sweep_runs_by_name[run_id] = self._to_sweep_run(run_id, data)
+            # A pruned run stays killed so hyperband never stops it twice.
+            if run_id not in self._pruned:
+                sweep_runs_by_name[run_id] = self._to_sweep_run(run_id, data)
         return list(sweep_runs_by_name.values())
 
     @override
@@ -123,6 +137,8 @@ class WandbOptimizer(Optimizer):
     def tell_run(self, run_id: Any, data: RunWithMetrics) -> None:
         """Record a run's latest outcome for the next search call to read.
 
+        A pruned run was already finalized by `prune_runs`, so it is a no-op.
+
         Args:
             run_id: The run id this optimizer handed out.
             data: The run's current state, summary metrics and history.
@@ -130,14 +146,9 @@ class WandbOptimizer(Optimizer):
         Raises:
             ValueError: If `run_id` was never proposed by this optimizer.
         """
-        # Keep the config we suggested: `data.config` may be empty for a
-        # reaped run.
-        sweep_run = self._runs.get(run_id)
-        if sweep_run is None:
-            raise ValueError(f"Run {run_id} not found")
-        sweep_run.state = _to_sweeps_state(data.state)
-        sweep_run.summary_metrics = data.summary_metrics or {}
-        sweep_run.history = list(data.history_metrics)
+        if run_id in self._pruned:
+            return
+        self._update(run_id, _to_sweeps_state(data.state), data)
 
     @override
     def forget_run(self, run_id: Any) -> None:
@@ -158,6 +169,8 @@ class WandbOptimizer(Optimizer):
         """Return the runs hyperband says should stop early.
 
         Returns nothing unless the sweep config has an `early_terminate` block.
+        Each returned run is recorded as killed with its latest metrics, since
+        the scheduler sends no further updates for it.
 
         Args:
             run_ids: Optimizer run ids to consider for pruning.
@@ -170,10 +183,18 @@ class WandbOptimizer(Optimizer):
                 self._sweep.config,
                 self._sweep_runs_for_stop_runs(run_ids, runs),
             )
-        except Exception:
+        except Exception as e:
+            wandb.termwarn(f"Early termination failed; no runs were stopped: {e}")
             return []
         to_stop_names = {run.name for run in to_stop}
-        return [run_id for run_id in run_ids if run_id in to_stop_names]
+        pruned: list[str] = []
+        for run_id, data in zip(run_ids, runs, strict=True):
+            if run_id not in to_stop_names:
+                continue
+            self._update(run_id, sweeps.RunState.killed, data)
+            self._pruned.add(run_id)
+            pruned.append(run_id)
+        return pruned
 
     @override
     def should_terminate_sweep(self) -> bool:
@@ -214,3 +235,19 @@ class WandbOptimizer(Optimizer):
             state=_to_sweeps_state(data.state),
         )
         return run_id
+
+    @override
+    def has_terminator(self) -> bool:
+        """The wandb engine does not support terminators."""
+        return False
+
+
+def build_wandb_optimizer(sweep: SweepInfo) -> WandbOptimizer:
+    """Build the optimizer for a sweep whose `scheduler.engine` is `wandb`."""
+    scheduler_config: dict[str, Any] = sweep.config.get("scheduler") or {}
+    if scheduler_config.get("optimizer") is not None:
+        wandb.termwarn("optimizer config is not supported by the wandb engine.")
+    if scheduler_config.get("search_space") is not None:
+        wandb.termwarn("search_space config is not supported by the wandb engine.")
+
+    return WandbOptimizer(sweep=sweep)

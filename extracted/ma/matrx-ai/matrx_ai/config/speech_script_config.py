@@ -46,24 +46,45 @@ class SpeechScriptContent:
         Slots: ``text``, ``direction``, ``voice`` (a voice bound to a variable)
         and ``speaker`` (a name can be a variable too — ``{{guest_name}}``).
         Values pass through ``prompt_safe_value``, the same door text parts use.
+        Same rule as a text part (config/template_substitution.py): the escape and the
+        sections run too, even with no variables, on the AUTHORED text only — the first-seen
+        turns are kept as this part's authored template.
         Never drops the part: returns False always.
         """
-        if not variables:
-            return False
+        import copy
+
         from matrx_ai.config.prompt_values import prompt_safe_value
         from matrx_ai.config.template_substitution import substitute_authored
 
-        def fill(value: Any) -> Any:
+        from matrx_ai.config.template_substitution import FILLED_ATTR, restart_point
+
+        authored = getattr(self, "_authored_template", None)
+        if authored is None:
+            authored = copy.deepcopy(self.turns)
+            self._authored_template = authored
+        else:
+            # A refill restarts from the authored turns, never from filled text.
+            restart_point(self, self.turns, "a speech-script part")
+            self.turns = copy.deepcopy(authored)
+        variables = variables or {}
+
+        def fill(value: Any, template: Any) -> Any:
             if not isinstance(value, str):
                 return value
+            template = template if isinstance(template, str) else value
             # One pass: a value's own braces are data, never re-filled.
-            return substitute_authored(value, value, variables, prompt_safe_value)
+            return substitute_authored(value, template, variables, prompt_safe_value, unescape=True)
+
+        def source(index: int, key: str) -> Any:
+            turn = authored[index] if index < len(authored) else None
+            return turn.get(key) if isinstance(turn, dict) else None
 
         self.turns = [
-            {key: (fill(val) if key in ("text", "direction", "voice", "speaker") else val)
+            {key: (fill(val, source(i, key)) if key in ("text", "direction", "voice", "speaker") else val)
              for key, val in dict(turn).items()}
-            for turn in self.turns
+            for i, turn in enumerate(self.turns)
         ]
+        setattr(self, FILLED_ATTR, copy.deepcopy(self.turns))
         return False
 
     def get_output(self) -> str:

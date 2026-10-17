@@ -1,8 +1,10 @@
 mod utils;
 use serde_json::Value;
+#[cfg(feature = "testing")]
+use statsig_rust::output_logger::LogLevel;
 use statsig_rust::{
     DynamicConfigEvaluationOptions, ExperimentEvaluationOptions, FeatureGateEvaluationOptions,
-    Statsig, StatsigOptions, StatsigUser, output_logger::LogLevel,
+    Statsig, StatsigOptions, StatsigUser,
 };
 use std::{
     io::Read,
@@ -178,6 +180,7 @@ async fn test_core_apis_exposure_logging_disabled() {
     );
 }
 
+#[cfg(feature = "testing")]
 #[tokio::test]
 async fn test_flushing_backoff_and_metadata() {
     std::env::set_var("STATSIG_TEST_OVERRIDE_TICK_INTERVAL_MS", "1");
@@ -229,6 +232,7 @@ async fn test_flushing_backoff_and_metadata() {
     std::env::remove_var("STATSIG_TEST_OVERRIDE_MAX_FLUSH_INTERVAL_MS");
 }
 
+#[cfg(feature = "testing")]
 fn assert_flushing_interval_and_scheduled_batch(
     requests: &[wiremock::Request],
     index: usize,

@@ -76,7 +76,7 @@ SciQLopMultiPlotPanel::SciQLopMultiPlotPanel(QWidget* parent, bool synchronize_x
     if (orientation == Qt::Vertical)
     {
         ::register_behavior<VPlotsAlign>(_container);
-        _place_holder_manager = new PlaceHolderManager(this);
+        _place_holder_manager = new PlaceHolderManager(this, _container);
     }
     if (synchronize_x)
         ::register_behavior<XAxisSynchronizer>(_container);
@@ -264,9 +264,14 @@ SciQLopPlotInterface* SciQLopMultiPlotPanel::create_plot(int index, PlotType plo
         case ::PlotType::TimeSeries:
             plot = new SciQLopTimeSeriesPlot();
             break;
+        case ::PlotType::Projections:
+            plot = new SciQLopNDProjectionPlot();
+            break;
         default:
             break;
     }
+    if (!plot)
+        return nullptr;
     if (index == -1)
         add_plot(plot);
     else
@@ -350,7 +355,11 @@ void SciQLopMultiPlotPanel::add_accepted_mime_type(PlotDragNDropCallback* callba
     if (!callback)
         return;
     callback->setParent(this);
-    _accepted_mime_types[callback->mime_type()] = callback;
+    auto& registered = _accepted_mime_types[callback->mime_type()];
+    // Later, not now: a callback may register its successor from its own call().
+    if (registered && registered != callback)
+        registered->deleteLater();
+    registered = callback;
 }
 
 void SciQLopMultiPlotPanel::setSelected(bool selected)
@@ -548,7 +557,11 @@ void SciQLopMultiPlotPanel::dragMoveEvent(QDragMoveEvent* event)
     {
         if (_current_callback->create_placeholder())
             _place_holder_manager->dragMoveEvent(event);
-        event->acceptProposedAction();
+        // Nothing to drop on between plots (on a splitter handle): say so, the drop would be lost.
+        if (widget_at(event->position()))
+            event->acceptProposedAction();
+        else
+            event->ignore();
     }
 }
 
@@ -575,9 +588,13 @@ void SciQLopMultiPlotPanel::dropEvent(QDropEvent* event)
                 widget_at(event->position()));
         }
 
-        event->acceptProposedAction();
         if (drop_plot)
+        {
+            event->acceptProposedAction();
             _current_callback->call(drop_plot, event->mimeData());
+        }
+        else
+            event->ignore();
         _current_callback = nullptr;
     }
 }

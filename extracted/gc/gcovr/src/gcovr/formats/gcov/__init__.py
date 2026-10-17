@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,7 +15,10 @@
 #
 # ****************************************************************************
 
+"""GCOVR GCOV report."""
+
 import os
+
 from ...data_model.container import CoverageContainer
 from ...formats.base import BaseHandler
 from ...options import (
@@ -26,13 +27,31 @@ from ...options import (
     relative_path,
 )
 
+OPTION_GROUP_NAME = "GCOV options"
+OPTION_GROUP = OPTION_GROUP_NAME.casefold().replace(" ", "_")
+
 
 class GcovHandler(BaseHandler):
     """Class to handle GCOV intermediate format."""
 
     @classmethod
+    def get_option_group(cls) -> dict[str, str]:
+        """Get the description of the option group."""
+        return {
+            "key": OPTION_GROUP,
+            "name": OPTION_GROUP_NAME,
+            "description": (
+                "Options for reading GCOV text and JSON reports. "
+                "JSON reports are the default for gcc-14 and newer (JSON format 2, see gcc --version)."
+            ),
+        }
+
+    @classmethod
     def get_options(cls) -> list[GcovrConfigOption | str]:
+        """Get the report options."""
         return [
+            # JSON option use for validation
+            "json_compare",
             # Global options used for output
             "verbose",
             # Global options needed for processing
@@ -56,16 +75,29 @@ class GcovHandler(BaseHandler):
             "merge_mode_functions",
             # Local options
             GcovrConfigOption(
+                "gcov_allowed_working_directory_roots",
+                ["--gcov-allowed-working-directory-root"],
+                config="gcov-allowed-working-directory-root",
+                group="gcov_options",
+                help=(
+                    "Do not run gcov in a working directory not in the list. "
+                    "The list contains by default the search paths. "
+                    "ATTENTION: This option has no effect when generating reports from JSON tracefile."
+                ),
+                type=relative_path,
+                action="append",
+            ),
+            GcovrConfigOption(
                 "gcov_use_existing_files",
                 ["-g", "--gcov-use-existing-files", "--use-gcov-files"],
-                group="gcov_options",
+                group=OPTION_GROUP,
                 help="Use existing gcov files for analysis.",
                 action="store_true",
             ),
             GcovrConfigOption(
                 "gcov_ignore_errors",
                 ["--gcov-ignore-errors"],
-                group="gcov_options",
+                group=OPTION_GROUP,
                 choices=(
                     "all",
                     "source_not_found",
@@ -87,7 +119,7 @@ class GcovHandler(BaseHandler):
             GcovrConfigOption(
                 "gcov_ignore_parse_errors",
                 ["--gcov-ignore-parse-errors"],
-                group="gcov_options",
+                group=OPTION_GROUP,
                 choices=(
                     "all",
                     "negative_hits.warn",
@@ -111,11 +143,11 @@ class GcovHandler(BaseHandler):
                 "gcov_suspicious_hits_threshold",
                 ["--gcov-suspicious-hits-threshold"],
                 config="gcov-suspicious-hits-threshold",
-                group="gcov_options",
+                group=OPTION_GROUP,
                 help=(
                     "Set the threshold for detecting suspicious hits "
                     "in gcov output files. "
-                    "Set to 0 to turn the detection of."
+                    "Set to 0 to turn the detection off."
                 ),
                 type=int,
                 default=2**32,
@@ -147,7 +179,7 @@ class GcovHandler(BaseHandler):
             GcovrConfigOption(
                 "gcov_cmd",
                 ["--gcov-executable"],
-                group="gcov_options",
+                group=OPTION_GROUP,
                 help=(
                     "Use a particular gcov executable. "
                     "Must match the compiler you are using, "
@@ -161,7 +193,7 @@ class GcovHandler(BaseHandler):
             GcovrConfigOption(
                 "gcov_objdir",
                 ["--gcov-object-directory", "--object-directory"],
-                group="gcov_options",
+                group=OPTION_GROUP,
                 help=(
                     "Override normal working directory detection. "
                     "Gcovr needs to identify the path between gcda files "
@@ -177,7 +209,7 @@ class GcovHandler(BaseHandler):
                 "gcov_parallel",
                 ["-j"],
                 config="gcov-parallel",
-                group="gcov_options",
+                group=OPTION_GROUP,
                 help=(
                     "Set the number of threads to use in parallel. "
                     "0=Number of CPUs, negative number='all but N CPUs'."
@@ -190,15 +222,24 @@ class GcovHandler(BaseHandler):
         ]
 
     def validate_options(self) -> None:
+        """Validate options."""
         if self.options.gcov_objdir is not None and not os.path.exists(
             self.options.gcov_objdir
         ):
-            raise RuntimeError(
+            msg = (
                 "Bad --gcov-object-directory option.\n"
                 "\tThe specified directory does not exist."
             )
+            raise RuntimeError(msg)
 
     def read_report(self) -> CoverageContainer:
-        from .read import read_report  # pylint: disable=import-outside-toplevel # Lazy loading is intended here
+        """Read report."""
+        # Lazy loading is intended here
+        from .read import (  # pylint: disable=import-outside-toplevel  # noqa: PLC0415
+            read_report,
+        )
 
+        if self.options.json_compare:
+            msg = "A gcov is not possible with --json-compare."
+            raise RuntimeError(msg)
         return read_report(self.options)

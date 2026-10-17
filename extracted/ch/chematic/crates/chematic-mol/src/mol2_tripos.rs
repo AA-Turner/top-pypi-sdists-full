@@ -7,7 +7,34 @@
 
 use core::fmt::Write as _;
 
-use chematic_core::{Atom, AtomIdx, BondIdx, BondOrder, Element, Molecule, MoleculeBuilder};
+use chematic_core::{
+    Atom, AtomIdx, BondIdx, BondOrder, Coords3D, Element, Molecule, MoleculeBuilder, Point3,
+};
+
+/// MOL2 has no wedge/parity field. A non-coplanar conformer can still specify
+/// tetrahedral configuration; planar depictions and degenerate coordinates
+/// must not acquire an arbitrary tag.
+pub(crate) fn perceive_mol2_tetrahedral_from_3d(
+    mol: &mut Molecule,
+    coordinates: &[(f64, f64, f64)],
+) {
+    let points: Vec<_> = coordinates
+        .iter()
+        .map(|&(x, y, z)| Point3::new(x, y, z))
+        .collect();
+    if crate::mol2000::classify_geometry_rank(&points) != crate::mol2000::GeometryRank::ThreeD {
+        return;
+    }
+    crate::mol2000::perceive_tetrahedral_from_3d(mol, &Coords3D { points });
+}
+
+pub(crate) fn perceive_mol2_stereo_from_coordinates(
+    mol: &mut Molecule,
+    coordinates: &[(f64, f64, f64)],
+) {
+    perceive_mol2_tetrahedral_from_3d(mol, coordinates);
+    chematic_perception::apply_ez_directions_from_3d(mol, coordinates);
+}
 
 /// One `@<TRIPOS>ATOM` row whose interchange fields are not representable by
 /// [`Molecule`]. The vector is index-aligned with [`Mol2Record::molecule`].
@@ -483,6 +510,9 @@ fn parse_mol2_atom(
         coordinate(3, "y")?,
         coordinate(4, "z")?,
     );
+    if !coords.0.is_finite() || !coords.1.is_finite() || !coords.2.is_finite() {
+        return Err(invalid("coordinates must be finite".into()));
+    }
     let symbol = mol2_symbol(fields[5]);
     let element = Element::from_symbol(&symbol).ok_or(Mol2Error::UnknownElement {
         symbol,
@@ -652,8 +682,10 @@ pub fn parse_mol2_record_with_limits(
     let (unity_formal_charges, unity_atom_attributes) = parse_unity_formal_charges(&all_lines)?;
     let mut atoms = parse_mol2_atoms(&all_lines, limits, &unity_formal_charges)?;
     let (bond_records, duplicate_bonds) = add_mol2_bonds(&all_lines, limits, &mut atoms)?;
+    let mut molecule = atoms.builder.build();
+    perceive_mol2_stereo_from_coordinates(&mut molecule, &atoms.coords);
     Ok(Mol2Record {
-        molecule: atoms.builder.build(),
+        molecule,
         coords: atoms.coords,
         name: header.name,
         molecule_type: header.molecule_type,
@@ -672,6 +704,15 @@ pub fn parse_mol2_record_with_limits(
 /// `coords` must have one entry per atom in `mol`.  Missing entries use
 /// `(0.0, 0.0, 0.0)`.
 pub fn write_mol2(mol: &Molecule, coords: &[(f64, f64, f64)]) -> String {
+    write_mol2_with_section_order(mol, coords, Mol2SectionOrder::default())
+}
+
+/// Write graph output with an explicit section-order compatibility policy.
+pub fn write_mol2_with_section_order(
+    mol: &Molecule,
+    coords: &[(f64, f64, f64)],
+    order: Mol2SectionOrder,
+) -> String {
     let record = Mol2Record {
         molecule: mol.clone(),
         coords: coords.to_vec(),
@@ -705,7 +746,7 @@ pub fn write_mol2(mol: &Molecule, coords: &[(f64, f64, f64)]) -> String {
         unity_atom_attributes: Vec::new(),
         opaque_sections: Vec::new(),
     };
-    write_mol2_record(&record)
+    write_mol2_record_with_section_order(&record, order)
 }
 
 fn bond_type_token(order: BondOrder) -> &'static str {
@@ -909,14 +950,41 @@ fn write_mol2_opaque_sections(record: &Mol2Record, out: &mut String) {
 /// Serialize a loss-aware MOL2 record, retaining atom types, partial charges,
 /// residue fields, status bits, formal-charge attributes, and opaque sections.
 pub fn write_mol2_record(record: &Mol2Record) -> String {
+    write_mol2_record_with_section_order(record, Mol2SectionOrder::default())
+}
+
+/// Output compatibility policy for editable/generated MOL2 records.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Mol2SectionOrder {
+    /// Retain the existing ATOM → UNITY → BOND order. Open Babel 3.2.1 reads
+    /// UNITY formal charges only before BOND in the tested graph controls.
+    #[default]
+    UnityBeforeBonds,
+    /// Emit ATOM → BOND → UNITY for readers requiring adjacent core sections
+    /// (Open Babel #2350). Open Babel 3.2.1 may ignore these UNITY charges.
+    AtomBondAdjacent,
+}
+
+/// Serialize an editable record with an explicit section-order policy.
+/// All section contents are retained; this does not assign SYBYL atom types
+/// or calculate partial charges. Immutable source writers remain separate.
+pub fn write_mol2_record_with_section_order(
+    record: &Mol2Record,
+    order: Mol2SectionOrder,
+) -> String {
     let mol = &record.molecule;
     let mut out = String::with_capacity(
         256 + mol.atom_count().saturating_mul(96) + mol.bond_count().saturating_mul(32),
     );
     write_mol2_header(record, &mut out);
     write_mol2_atoms(record, &mut out);
-    write_mol2_unity(&mol2_unity_groups(record), &mut out);
+    if order == Mol2SectionOrder::UnityBeforeBonds {
+        write_mol2_unity(&mol2_unity_groups(record), &mut out);
+    }
     write_mol2_bonds(record, &mut out);
+    if order == Mol2SectionOrder::AtomBondAdjacent {
+        write_mol2_unity(&mol2_unity_groups(record), &mut out);
+    }
     write_mol2_opaque_sections(record, &mut out);
     out
 }

@@ -87,12 +87,7 @@ async def test_list_runs(async_client: AsyncClient):
     filter_ = f'and(eq(metadata_key, "uid"), eq(metadata_value, "{meta_uid}"))'
 
     async def check_runs():
-        runs = [
-            run
-            async for run in async_client.list_runs(
-                project_name=project_name, filter=filter_
-            )
-        ]
+        runs = [run async for run in async_client.list_runs(project_name=project_name, filter=filter_)]
         return len(runs) == 2
 
     try:
@@ -140,9 +135,7 @@ async def test_list_examples(async_client: AsyncClient):
             dataset_id=dataset.id,
         )
 
-    examples = [
-        example async for example in async_client.list_examples(dataset_id=dataset.id)
-    ]
+    examples = [example async for example in async_client.list_examples(dataset_id=dataset.id)]
     assert len(examples) == 3
 
     await async_client.delete_dataset(dataset_id=dataset.id)
@@ -187,9 +180,7 @@ async def test_create_feedback(async_client: AsyncClient):
     assert feedback.value == "test_value"
     assert feedback.comment == "test_comment"
 
-    token = await async_client.create_presigned_feedback_token(
-        run_id=run_id, feedback_key="test_presigned_key"
-    )
+    token = await async_client.create_presigned_feedback_token(run_id=run_id, feedback_key="test_presigned_key")
     await async_client.create_feedback_from_token(
         token.id, score=0.8, value="presigned_value", comment="presigned_comment"
     )
@@ -201,15 +192,11 @@ async def test_create_feedback(async_client: AsyncClient):
     )
 
     async def check_feedback():
-        feedbacks = [
-            feedback async for feedback in async_client.list_feedback(run_ids=[run_id])
-        ]
+        feedbacks = [feedback async for feedback in async_client.list_feedback(run_ids=[run_id])]
         return sum(feedback.key == "test_presigned_key" for feedback in feedbacks) == 2
 
     await wait_for(check_feedback, timeout=10)
-    feedbacks = [
-        feedback async for feedback in async_client.list_feedback(run_ids=[run_id])
-    ]
+    feedbacks = [feedback async for feedback in async_client.list_feedback(run_ids=[run_id])]
     presigned_feedbacks = [f for f in feedbacks if f.key == "test_presigned_key"]
     assert len(presigned_feedbacks) == 2
     assert all(f.value == "presigned_value" for f in presigned_feedbacks)
@@ -282,16 +269,12 @@ async def test_list_feedback(async_client: AsyncClient):
         )
 
     async def check_feedbacks():
-        feedbacks = [
-            feedback async for feedback in async_client.list_feedback(run_ids=[run_id])
-        ]
+        feedbacks = [feedback async for feedback in async_client.list_feedback(run_ids=[run_id])]
         return len(feedbacks) == 3
 
     await wait_for(check_feedbacks, timeout=10)
 
-    feedbacks = [
-        feedback async for feedback in async_client.list_feedback(run_ids=[run_id])
-    ]
+    feedbacks = [feedback async for feedback in async_client.list_feedback(run_ids=[run_id])]
     assert len(feedbacks) == 3
 
 
@@ -324,9 +307,7 @@ async def test_delete_feedback(async_client: AsyncClient):
     await async_client.delete_feedback(feedback.id)
 
     # Verify feedback is deleted by checking list_feedback
-    feedbacks = [
-        feedback async for feedback in async_client.list_feedback(run_ids=[run_id])
-    ]
+    feedbacks = [feedback async for feedback in async_client.list_feedback(run_ids=[run_id])]
     assert len(feedbacks) == 0
 
 
@@ -337,9 +318,7 @@ async def test_annotation_queue_crud(async_client: AsyncClient):
     queue_id = uuid7()
 
     # Test creation
-    queue = await async_client.create_annotation_queue(
-        name=queue_name, description="Test queue", queue_id=queue_id
-    )
+    queue = await async_client.create_annotation_queue(name=queue_name, description="Test queue", queue_id=queue_id)
     assert queue.name == queue_name
     assert queue.id == queue_id
 
@@ -350,9 +329,7 @@ async def test_annotation_queue_crud(async_client: AsyncClient):
 
     # Test updating
     new_name = f"updated_{queue_name}"
-    await async_client.update_annotation_queue(
-        queue_id=queue_id, name=new_name, description="Updated description"
-    )
+    await async_client.update_annotation_queue(queue_id=queue_id, name=new_name, description="Updated description")
 
     updated_queue = await async_client.read_annotation_queue(queue_id)
     assert updated_queue.name == new_name
@@ -361,10 +338,7 @@ async def test_annotation_queue_crud(async_client: AsyncClient):
     await async_client.delete_annotation_queue(queue_id)
 
     # Verify deletion
-    queues = [
-        queue
-        async for queue in async_client.list_annotation_queues(queue_ids=[queue_id])
-    ]
+    queues = [queue async for queue in async_client.list_annotation_queues(queue_ids=[queue_id])]
     assert len(queues) == 0
 
 
@@ -388,9 +362,7 @@ async def test_feedback_config_crud(async_client: AsyncClient):
     assert config.is_lower_score_better is False
 
     # Test listing with filter
-    configs = [
-        c async for c in async_client.list_feedback_configs(feedback_key=[feedback_key])
-    ]
+    configs = [c async for c in async_client.list_feedback_configs(feedback_key=[feedback_key])]
     assert len(configs) == 1
     assert configs[0].feedback_key == feedback_key
 
@@ -405,9 +377,7 @@ async def test_feedback_config_crud(async_client: AsyncClient):
     await async_client.delete_feedback_config(feedback_key)
 
     # Verify deletion
-    configs = [
-        c async for c in async_client.list_feedback_configs(feedback_key=[feedback_key])
-    ]
+    configs = [c async for c in async_client.list_feedback_configs(feedback_key=[feedback_key])]
     assert len(configs) == 0
 
 
@@ -420,35 +390,20 @@ async def test_list_annotation_queues(async_client: AsyncClient):
     try:
         # Create test queues
         for name in queue_names:
-            queue = await async_client.create_annotation_queue(
-                name=name, description="Test queue"
-            )
+            queue = await async_client.create_annotation_queue(name=name, description="Test queue")
             queue_ids.append(queue.id)
 
         # Test listing with various filters
-        queues = [
-            queue
-            async for queue in async_client.list_annotation_queues(
-                queue_ids=queue_ids[:2], limit=2
-            )
-        ]
+        queues = [queue async for queue in async_client.list_annotation_queues(queue_ids=queue_ids[:2], limit=2)]
         assert len(queues) == 2
 
         # Test name filter
-        queues = [
-            queue
-            async for queue in async_client.list_annotation_queues(name=queue_names[0])
-        ]
+        queues = [queue async for queue in async_client.list_annotation_queues(name=queue_names[0])]
         assert len(queues) == 1
         assert queues[0].name == queue_names[0]
 
         # Test name_contains filter
-        queues = [
-            queue
-            async for queue in async_client.list_annotation_queues(
-                name_contains="test_queue"
-            )
-        ]
+        queues = [queue async for queue in async_client.list_annotation_queues(name_contains="test_queue")]
         assert len(queues) >= 3  # Could be more if other tests left queues
 
     finally:
@@ -466,9 +421,7 @@ async def test_annotation_queue_runs(async_client: AsyncClient):
     project_name = f"test_project_{uuid.uuid4().hex[:8]}"
 
     # Create a queue
-    queue = await async_client.create_annotation_queue(
-        name=queue_name, description="Test queue"
-    )
+    queue = await async_client.create_annotation_queue(name=queue_name, description="Test queue")
 
     # Create some test runs
     run_ids = [uuid7() for _ in range(3)]
@@ -494,9 +447,7 @@ async def test_annotation_queue_runs(async_client: AsyncClient):
     await async_client.add_runs_to_annotation_queue(queue_id=queue.id, run_ids=run_ids)
 
     # Test getting run at index
-    run_info = await async_client.get_run_from_annotation_queue(
-        queue_id=queue.id, index=0
-    )
+    run_info = await async_client.get_run_from_annotation_queue(queue_id=queue.id, index=0)
     assert run_info.id in run_ids
 
     # Test listing all runs in the queue
@@ -504,15 +455,11 @@ async def test_annotation_queue_runs(async_client: AsyncClient):
     assert sorted([r.id for r in listed]) == sorted(run_ids)
 
     # Test limit
-    limited = [
-        r async for r in async_client.list_runs_from_annotation_queue(queue.id, limit=1)
-    ]
+    limited = [r async for r in async_client.list_runs_from_annotation_queue(queue.id, limit=1)]
     assert len(limited) == 1
 
     # Test deleting a run from queue
-    await async_client.delete_run_from_annotation_queue(
-        queue_id=queue.id, run_id=run_ids[2]
-    )
+    await async_client.delete_run_from_annotation_queue(queue_id=queue.id, run_id=run_ids[2])
 
     # Test that runs are deleted
     with pytest.raises(ls_utils.LangSmithNotFoundError):
@@ -522,9 +469,7 @@ async def test_annotation_queue_runs(async_client: AsyncClient):
     run_2 = await async_client.get_run_from_annotation_queue(queue_id=queue.id, index=1)
     assert sorted([run_1.id, run_2.id]) == sorted(run_ids[:2])
 
-    remaining = [
-        r async for r in async_client.list_runs_from_annotation_queue(queue.id)
-    ]
+    remaining = [r async for r in async_client.list_runs_from_annotation_queue(queue.id)]
     assert sorted([r.id for r in remaining]) == sorted(run_ids[:2])
 
     # Clean up

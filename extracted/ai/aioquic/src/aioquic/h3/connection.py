@@ -33,6 +33,18 @@ from aioquic.quic.logger import QuicLoggerTrace
 
 logger = logging.getLogger("http3")
 
+# Connection-specific fields (RFC 9110 section 7.6.1), which make an HTTP/3
+# message malformed (RFC 9114 section 4.2).
+CONNECTION_SPECIFIC_HEADERS = frozenset(
+    (
+        b"connection",
+        b"keep-alive",
+        b"proxy-connection",
+        b"te",
+        b"transfer-encoding",
+        b"upgrade",
+    )
+)
 H3_ALPN = ["h3"]
 # Frame types used in HTTP/2 which have no HTTP/3 equivalent, receiving them
 # is an error (RFC 9114 section 7.2.8 and section 11.2.1).
@@ -195,6 +207,16 @@ def encode_settings(settings: dict[int, int]) -> bytes:
     return buf.data
 
 
+def is_interim_response(headers: Headers) -> bool:
+    """
+    Return whether the headers are those of an interim (1xx) response.
+    """
+    for key, value in headers:
+        if key == b":status":
+            return value.startswith(b"1")
+    return False
+
+
 def parse_max_push_id(data: bytes) -> int:
     buf = Buffer(data=data)
     try:
@@ -262,6 +284,8 @@ def validate_header_value(key: bytes, value: bytes):
 
 def validate_headers(
     headers: Headers,
+    *,
+    allow_te: bool = False,
     allowed_pseudo_headers: FrozenSet[bytes],
     required_pseudo_headers: FrozenSet[bytes],
     stream: Optional["H3Stream"] = None,
@@ -307,10 +331,12 @@ def validate_headers(
                     raise MessageError("content-length is not a non-negative integer")
                 if stream:
                     stream.expected_content_length = content_length
-            elif key == b"transfer-encoding" and value != b"trailers":
-                raise MessageError(
-                    "The only valid value for transfer-encoding is trailers"
-                )
+            elif key == b"te" and allow_te:
+                # TE may only be "trailers" in request headers (RFC 9114 section 4.2).
+                if value.lower() != b"trailers":
+                    raise MessageError(f"Header {key!r} value is not trailers")
+            elif key in CONNECTION_SPECIFIC_HEADERS:
+                raise MessageError(f"Header {key!r} is connection-specific")
 
     # check required pseudo-headers are present
     missing = required_pseudo_headers.difference(seen_pseudo_headers)
@@ -327,6 +353,7 @@ def validate_headers(
 def validate_push_promise_headers(headers: Headers) -> None:
     validate_headers(
         headers,
+        allow_te=True,
         allowed_pseudo_headers=frozenset(
             (b":method", b":scheme", b":authority", b":path")
         ),
@@ -341,6 +368,7 @@ def validate_request_headers(
 ) -> None:
     validate_headers(
         headers,
+        allow_te=True,
         allowed_pseudo_headers=frozenset(
             # FIXME: The pseudo-header :protocol is not actually defined, but
             # we use it for the WebSocket demo.
@@ -360,6 +388,15 @@ def validate_response_headers(
         required_pseudo_headers=frozenset((b":status",)),
         stream=stream,
     )
+
+    # The status code is a three-digit integer (RFC 9110 section 15).
+    status = dict(headers)[b":status"]
+    if len(status) != 3 or not status.isdigit():
+        raise MessageError(f"Pseudo-header b':status' has invalid value {status!r}")
+
+    # HTTP/3 does not support 101 Switching Protocols (RFC 9114 section 4.5).
+    if status == b"101":
+        raise MessageError("Pseudo-header b':status' cannot be 101")
 
 
 def validate_trailers(headers: Headers) -> None:
@@ -383,6 +420,7 @@ class H3Stream:
         self.frame_type: Optional[int] = None
         self.headers_recv_state: HeadersState = HeadersState.INITIAL
         self.headers_send_state: HeadersState = HeadersState.INITIAL
+        self.interim_response_received = False
         self.push_id: Optional[int] = None
         self.session_id: Optional[int] = None
         self.stream_id = stream_id
@@ -611,7 +649,16 @@ class H3Connection:
         with self._get_or_create_stream(stream_id) as stream:
             if stream.headers_send_state == HeadersState.AFTER_TRAILERS:
                 raise FrameUnexpected("HEADERS frame is not allowed in this state")
+
+            # Interim responses precede the final response (RFC 9114 section 4.1).
+            interim = (
+                not self._is_client
+                and stream.headers_send_state == HeadersState.INITIAL
+                and is_interim_response(headers)
+            )
             if end_stream:
+                if interim:
+                    raise FrameUnexpected("Interim response cannot end the stream")
                 stream.finish_sending()
 
             frame_data = self._encode_headers(stream_id, headers)
@@ -628,7 +675,8 @@ class H3Connection:
 
             # update state and send headers
             if stream.headers_send_state == HeadersState.INITIAL:
-                stream.headers_send_state = HeadersState.AFTER_HEADERS
+                if not interim:
+                    stream.headers_send_state = HeadersState.AFTER_HEADERS
             else:
                 stream.headers_send_state = HeadersState.AFTER_TRAILERS
             self._quic.send_stream_data(
@@ -648,6 +696,13 @@ class H3Connection:
         Return the sent SETTINGS frame, or None.
         """
         return self._sent_settings
+
+    def _abort_incomplete_request(self, stream_id: int) -> None:
+        """
+        Abort the response to a request stream which terminated before the
+        request's headers were passed to the application (RFC 9114 section 4.1).
+        """
+        self._quic.reset_stream(stream_id, ErrorCode.H3_REQUEST_INCOMPLETE)
 
     def _create_uni_stream(
         self, stream_type: int, push_id: Optional[int] = None
@@ -827,9 +882,15 @@ class H3Connection:
             headers = self._decode_headers(stream.stream_id, frame_data)
 
             # validate headers
+            interim = False
             if stream.headers_recv_state == HeadersState.INITIAL:
                 if self._is_client:
-                    validate_response_headers(headers, stream)
+                    interim = is_interim_response(headers)
+                    # Interim responses have no content, so their content-length
+                    # does not apply (RFC 9110 section 6.4.1).
+                    validate_response_headers(headers, None if interim else stream)
+                    if interim:
+                        stream.interim_response_received = True
                 else:
                     validate_request_headers(headers, stream)
             else:
@@ -837,6 +898,10 @@ class H3Connection:
 
             # content-length needs checking even when there is no data
             if stream_ended:
+                # A final response must follow interim responses (RFC 9114
+                # section 4.1).
+                if interim:
+                    raise MessageError("Interim response cannot end the stream")
                 self._check_content_length(stream)
 
             # log frame
@@ -857,7 +922,8 @@ class H3Connection:
 
             # update state and emit headers
             if stream.headers_recv_state == HeadersState.INITIAL:
-                stream.headers_recv_state = HeadersState.AFTER_HEADERS
+                if not interim:
+                    stream.headers_recv_state = HeadersState.AFTER_HEADERS
             else:
                 stream.headers_recv_state = HeadersState.AFTER_TRAILERS
             http_events.append(
@@ -919,23 +985,38 @@ class H3Connection:
             # PUSH_PROMISE can be the last frame of a response, see RFC 9114
             # section 4.1.
             if stream_ended:
-                http_events.append(self._handle_request_or_push_end(stream))
+                http_events.extend(self._handle_request_or_push_end(stream))
 
         return http_events
 
-    def _handle_request_or_push_end(self, stream: H3Stream) -> DataReceived:
+    def _handle_request_or_push_end(self, stream: H3Stream) -> list[H3Event]:
         """
         Handle the end of a request or push stream which is not conveyed by
         a DATA or HEADERS frame.
         """
+        if not self._is_client and stream.headers_recv_state == HeadersState.INITIAL:
+            # The application never saw the request, so nothing would respond.
+            self._abort_incomplete_request(stream.stream_id)
+            stream.sending_ended = True
+            return []
+
+        # A final response must follow interim responses (RFC 9114 section 4.1).
+        if (
+            stream.interim_response_received
+            and stream.headers_recv_state == HeadersState.INITIAL
+        ):
+            raise MessageError("Interim response cannot end the stream")
+
         self._check_content_length(stream)
 
-        return DataReceived(
-            data=b"",
-            push_id=stream.push_id,
-            stream_id=stream.stream_id,
-            stream_ended=True,
-        )
+        return [
+            DataReceived(
+                data=b"",
+                push_id=stream.push_id,
+                stream_id=stream.stream_id,
+                stream_ended=True,
+            )
+        ]
 
     def _check_push_id(self, push_id: int) -> None:
         """
@@ -1114,7 +1195,7 @@ class H3Connection:
 
         # handle lone FIN
         if stream_ended and not stream.buffer and stream.frame_size is None:
-            http_events.append(self._handle_request_or_push_end(stream))
+            http_events.extend(self._handle_request_or_push_end(stream))
             return http_events
 
         buf = Buffer(data=stream.buffer)
@@ -1189,7 +1270,7 @@ class H3Connection:
                 # Unknown frames can be the last frame on the stream, see
                 # RFC 9114 section 4.1.
                 if stream.receiving_ended and buf.eof() and stream.frame_size is None:
-                    http_events.append(self._handle_request_or_push_end(stream))
+                    http_events.extend(self._handle_request_or_push_end(stream))
                 continue
 
             if stream.frame_type != FrameType.DATA and chunk_size < stream.frame_size:
@@ -1466,8 +1547,25 @@ class H3Connection:
             stream.blocked_push_id = None
             stream.buffer = b""
             stream.receiving_ended = True
-            if stream.is_ended():
-                self._stream.pop(stream_id)
+
+        # The application never saw the request, so nothing would respond.
+        if (
+            not self._is_client
+            and stream_is_request_response(stream_id)
+            and (
+                stream is None
+                or (
+                    stream.headers_recv_state == HeadersState.INITIAL
+                    and stream.session_id is None
+                )
+            )
+        ):
+            self._abort_incomplete_request(stream_id)
+            if stream is not None:
+                stream.sending_ended = True
+
+        if stream is not None and stream.is_ended():
+            self._stream.pop(stream_id)
 
     def _validate_settings(self, settings: dict[int, int]) -> None:
         for setting in [

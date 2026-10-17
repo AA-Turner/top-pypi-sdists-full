@@ -2,11 +2,8 @@
 
 from unittest import TestCase
 
-from faker import Faker
-
 from glocaltokens.utils.logs import censor
-
-faker = Faker()
+from glocaltokens.utils.network import is_valid_ipv4_address, is_valid_ipv6_address
 
 
 class UtilsTests(TestCase):
@@ -15,11 +12,7 @@ class UtilsTests(TestCase):
     def test_censor(self) -> None:
         """Testing sensitive info censoring."""
         # With word
-        secret_string = faker.word()
-        censored_string = censor(secret_string)
-        assert secret_string != censored_string
-        assert censored_string.startswith(secret_string[0])
-        assert censored_string == f"{secret_string[0]}{(len(secret_string) - 1) * '*'}"
+        assert censor("secret") == "s*****"
 
         # With empty string
         censored_string = censor("")
@@ -33,3 +26,14 @@ class UtilsTests(TestCase):
 
         # Hide both
         assert censor("abc", hide_first_letter=True, hide_length=True) == "<redacted>"
+
+    def test_ip_address_validation(self) -> None:
+        """Testing IPv4 and IPv6 address validation."""
+        assert is_valid_ipv4_address("192.168.1.10")
+        for address in ("192.168.1", "192.168.1.256", "01.1.1.1", "::1", "", "host"):
+            assert not is_valid_ipv4_address(address), address
+
+        assert is_valid_ipv6_address("::1")
+        assert is_valid_ipv6_address("fe80::1ff:fe23:4567:890a")
+        for address in ("192.168.1.10", "::g", "", "host"):
+            assert not is_valid_ipv6_address(address), address

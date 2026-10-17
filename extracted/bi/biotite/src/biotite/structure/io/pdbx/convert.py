@@ -24,6 +24,7 @@ from collections.abc import Iterable
 from typing import Any, Literal, TypeAlias, overload
 import numpy as np
 from biotite.file import InvalidFileError
+from biotite.rust.structure.io.pdbx import find_matches as rust_find_matches
 from biotite.sequence.seqtypes import NucleotideSequence, ProteinSequence
 from biotite.sequence.sequence import Sequence
 from biotite.structure.atoms import (
@@ -128,12 +129,6 @@ COMP_BOND_TYPE_TO_ORDER = {
     bond_type: order for order, bond_type in COMP_BOND_ORDER_TO_TYPE.items()
 }
 CANONICAL_RESIDUE_LIST = canonical_aa_list + canonical_nucleotide_list
-# it was observed that when the number or rows in `atom_site` and `struct_conn`
-# exceed a certain threshold,
-# a dictionary approach is less computation and memory intensive than the dense
-# vectorized approach.
-# https://github.com/biotite-dev/biotite/pull/765#issuecomment-2708867357
-FIND_MATCHES_SWITCH_THRESHOLD = 4000000
 
 _proteinseq_type_list = ["polypeptide(D)", "polypeptide(L)"]
 _nucleotideseq_type_list = [
@@ -680,7 +675,7 @@ def _parse_intra_residue_bonds(
         if res_name not in custom_bond_dict:
             custom_bond_dict[res_name] = {}
         bond_type = COMP_BOND_ORDER_TO_TYPE.get(
-            (order.upper(), aromatic_flag), BondType.ANY
+            (order.upper(), aromatic_flag.upper()), BondType.ANY
         )
         custom_bond_dict[res_name][atom_1.item(), atom_2.item()] = bond_type
     return custom_bond_dict
@@ -743,7 +738,7 @@ def _parse_inter_residue_bonds(
             query_arrays.append(query[covale_mask])
         # Match the combination of 'label_asym_id', 'label_comp_id', etc.
         # in 'atom_site' and 'struct_conn'
-        atom_indices[i] = _find_matches(query_arrays, reference_arrays)
+        atom_indices[i] = rust_find_matches(query_arrays, reference_arrays)
     atoms_indices_1: NDArray1[Any, np.integer] = atom_indices[0]  # pyright: ignore[reportAssignmentType]
     atoms_indices_2: NDArray1[Any, np.integer] = atom_indices[1]  # pyright: ignore[reportAssignmentType]
 
@@ -767,91 +762,6 @@ def _parse_inter_residue_bonds(
         atom_count if atom_count is not None else atom_site.row_count,
         np.stack([atoms_indices_1, atoms_indices_2, bond_types], axis=-1),
     )
-
-
-def _find_matches(
-    query_arrays: list[NDArray1[Any, Any]],
-    reference_arrays: list[NDArray1[Any, Any]],
-) -> NDArray1[Any, np.integer]:
-    """
-    For each index in the `query_arrays` find the indices in the
-    `reference_arrays` where all query values match the reference counterpart.
-    If no match is found for a query, the corresponding index is -1.
-    """
-    if (
-        query_arrays[0].shape[0] * reference_arrays[0].shape[0]
-        <= FIND_MATCHES_SWITCH_THRESHOLD
-    ):
-        match_indices = _find_matches_by_dense_array(query_arrays, reference_arrays)
-    else:
-        match_indices = _find_matches_by_dict(query_arrays, reference_arrays)
-    return match_indices
-
-
-def _find_matches_by_dense_array(
-    query_arrays: list[NDArray1[Any, Any]],
-    reference_arrays: list[NDArray1[Any, Any]],
-) -> NDArray1[Any, np.integer]:
-    match_masks_for_all_columns = np.stack(
-        [
-            query[:, np.newaxis] == reference[np.newaxis, :]
-            for query, reference in zip(query_arrays, reference_arrays)
-        ],
-        axis=-1,
-    )
-    match_masks = np.all(match_masks_for_all_columns, axis=-1)
-    query_matches, reference_matches = np.where(match_masks)
-
-    # Duplicate matches indicate that an atom from the query cannot
-    # be uniquely matched to an atom in the reference
-    unique_query_matches, counts = np.unique(query_matches, return_counts=True)
-    if np.any(counts > 1):
-        ambiguous_query = unique_query_matches[np.where(counts > 1)[0][0]]
-        raise InvalidFileError(
-            f"The covalent bond in the 'struct_conn' category at index "
-            f"{ambiguous_query} cannot be unambiguously assigned to atoms in "
-            f"the 'atom_site' category"
-        )
-
-    # -1 indicates that no match was found in the reference
-    match_indices = np.full(len(query_arrays[0]), -1, dtype=int)
-    match_indices[query_matches] = reference_matches
-    return match_indices
-
-
-def _find_matches_by_dict(
-    query_arrays: list[NDArray1[Any, Any]],
-    reference_arrays: list[NDArray1[Any, Any]],
-) -> NDArray1[Any, np.integer]:
-    # Convert reference arrays to a dictionary for O(1) lookups
-    reference_dict = {}
-    ambiguous_keys = set()
-    for ref_idx, ref_row in enumerate(zip(*reference_arrays)):
-        ref_key = tuple(ref_row)
-        if ref_key in reference_dict:
-            ambiguous_keys.add(ref_key)
-            continue
-        reference_dict[ref_key] = ref_idx
-
-    match_indices = []
-    for query_idx, query_row in enumerate(zip(*query_arrays)):
-        query_key = tuple(query_row)
-        occurrence = reference_dict.get(query_key)
-
-        if occurrence is None:
-            # -1 indicates that no match was found in the reference
-            match_indices.append(-1)
-        elif query_key in ambiguous_keys:
-            # The query cannot be uniquely matched to an atom in the reference
-            raise InvalidFileError(
-                f"The covalent bond in the 'struct_conn' category at index "
-                f"{query_idx} cannot be unambiguously assigned to atoms in "
-                f"the 'atom_site' category"
-            )
-        else:
-            match_indices.append(occurrence)
-
-    return np.array(match_indices)
 
 
 def _get_struct_conn_col_name(col_name: str, partner: int) -> str:
@@ -966,7 +876,7 @@ def _get_chem_comp_bond_type(bond_type: BondType) -> tuple[str, str]:
 
 def set_structure(
     pdbx_file: _PDBxFile,
-    array: AtomArray[N] | AtomArrayStack[M, N],
+    array: AtomArray[N] | AtomArrayStack[M, N] | Iterable[AtomArray[N]],  # pyright: ignore[reportRedeclaration]
     data_block: str | None = None,
     include_bonds: bool = False,
     extra_fields: Iterable[str] = [],
@@ -988,9 +898,10 @@ def set_structure(
     ----------
     pdbx_file : CIFFile or CIFBlock or BinaryCIFFile or BinaryCIFBlock
         The file object.
-    array : AtomArray or AtomArrayStack
-        The structure to be written. If a stack is given, each array in
-        the stack will be in a separate model.
+    array : AtomArray or AtomArrayStack or iterable of AtomArray
+        The structure to be written.
+        If a stack or an iterable of :class:`AtomArray` is given, multiple models will
+        be written.
     data_block : str, optional
         The name of the data block.
         Default is the first (and most times only) data block of the
@@ -1026,6 +937,21 @@ def set_structure(
             "intra-residue are always written, if available",
             DeprecationWarning,
         )
+
+    if not isinstance(array, (AtomArray, AtomArrayStack)):
+        # An iterable of `AtomArray` objects represents multiple models that -
+        # unlike an `AtomArrayStack` - may contain different atoms in each model
+        # -> concatenate them into a single flat `AtomArray` and store the model
+        # membership in the `pdbx_PDB_model_num` annotation, which is written below
+        models: list[AtomArray[Any]] = list(array)
+        if len(models) == 0:
+            raise BadStructureError("Structure must not be empty")
+        model_num = np.repeat(
+            np.arange(1, len(models) + 1, dtype=np.int32),
+            [model.array_length() for model in models],
+        )
+        array: AtomArray[Any] = concatenate(models)
+        array.set_annotation("pdbx_PDB_model_num", model_num)
 
     _check_non_empty(array)
 
@@ -1127,7 +1053,16 @@ def set_structure(
         atom_site["Cartn_x"] = np.copy(np.ravel(array.coord[..., 0]))
         atom_site["Cartn_y"] = np.copy(np.ravel(array.coord[..., 1]))
         atom_site["Cartn_z"] = np.copy(np.ravel(array.coord[..., 2]))
-        atom_site["pdbx_PDB_model_num"] = np.ones(array.array_length(), dtype=np.int32)
+        # An iterable of `AtomArray` was concatenated into a single flat `AtomArray`,
+        # whose `pdbx_PDB_model_num` annotation stores the model membership
+        if "pdbx_PDB_model_num" in annot_categories:
+            atom_site["pdbx_PDB_model_num"] = np.copy(
+                array.get_annotation("pdbx_PDB_model_num")
+            )
+        else:
+            atom_site["pdbx_PDB_model_num"] = np.ones(
+                array.array_length(), dtype=np.int32
+            )
     # In case of multiple models repeat annotations
     # and use model specific coordinates
     else:
@@ -1270,15 +1205,22 @@ def _set_intra_residue_bonds(
     bond_array = _filter_bonds(array, "intra")
     if len(bond_array) == 0:
         return None
-    value_order = np.zeros(len(bond_array), dtype="U4")
-    aromatic_flag = np.zeros(len(bond_array), dtype="U1")
-    for i, bond_type in enumerate(bond_array[:, 2]):
+    # A structure contains far fewer distinct bond types than bonds,
+    # hence the bond type is translated once per distinct type
+    unique_bond_types, type_indices = np.unique(bond_array[:, 2], return_inverse=True)
+    unique_value_order = np.zeros(len(unique_bond_types), dtype="U4")
+    unique_aromatic_flag = np.zeros(len(unique_bond_types), dtype="U1")
+    for i, bond_type in enumerate(unique_bond_types):
         if bond_type == BondType.ANY:
             # ANY bonds will be masked anyway, no need to set the value
             continue
-        order, aromatic = _get_chem_comp_bond_type(bond_type)
-        value_order[i] = order
-        aromatic_flag[i] = aromatic
+        unique_value_order[i], unique_aromatic_flag[i] = _get_chem_comp_bond_type(
+            bond_type
+        )
+    # The shape of the inverse indices depends on the NumPy version
+    type_indices = type_indices.reshape(-1)
+    value_order = unique_value_order[type_indices]
+    aromatic_flag = unique_aromatic_flag[type_indices]
     any_mask = bond_array[:, 2] == BondType.ANY
 
     # Remove already existing residue and atom name combinations
@@ -1473,7 +1415,7 @@ def get_component(
 
     >>> import os.path
     >>> file = CIFFile.read(
-    ...     os.path.join(path_to_structures, "molecules", "TYR.cif")
+    ...     os.path.join(path_to_structure_data, "molecules", "TYR.cif")
     ... )
     >>> comp = get_component(file)
     >>> print(comp)
@@ -1577,7 +1519,7 @@ def get_component(
         ):
             atom_i = np.where(array.atom_name == atom1)[0][0]
             atom_j = np.where(array.atom_name == atom2)[0][0]
-            bond_type = COMP_BOND_ORDER_TO_TYPE[order, aromatic_flag]
+            bond_type = COMP_BOND_ORDER_TO_TYPE[order.upper(), aromatic_flag.upper()]
             bonds.add_bond(atom_i, atom_j, bond_type)
         array.bonds = bonds
 

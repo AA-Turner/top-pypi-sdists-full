@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: matrx-ai
-Version: 0.5.606
+Version: 0.5.617
 Summary: Unified multi-provider AI client, orchestration, and tool system
 Project-URL: Homepage, https://github.com/AI-Matrix-Engine/aidream-current
 Project-URL: Repository, https://github.com/AI-Matrix-Engine/aidream-current
@@ -32,14 +32,14 @@ Requires-Dist: google-genai>=1.75.0
 Requires-Dist: groq>=1.2.0
 Requires-Dist: httpx
 Requires-Dist: json-repair
-Requires-Dist: matrx-api>=0.1.5
-Requires-Dist: matrx-assignment>=0.1.44
-Requires-Dist: matrx-connect>=0.1.220
-Requires-Dist: matrx-files[all]>=0.2.295
-Requires-Dist: matrx-graph>=0.2.307
-Requires-Dist: matrx-runtime>=0.0.168
-Requires-Dist: matrx-scraper[browser,files]>=0.2.395
-Requires-Dist: matrx-utils>=2.0.73
+Requires-Dist: matrx-api>=0.1.7
+Requires-Dist: matrx-assignment>=0.1.45
+Requires-Dist: matrx-connect>=0.1.225
+Requires-Dist: matrx-files>=0.2.296
+Requires-Dist: matrx-graph>=0.2.314
+Requires-Dist: matrx-runtime>=0.0.169
+Requires-Dist: matrx-scraper[browser,files]>=0.2.398
+Requires-Dist: matrx-utils>=2.0.74
 Requires-Dist: numpy>=2.0
 Requires-Dist: openai>=2.35.1
 Requires-Dist: pathspec>=1.0.0
@@ -61,6 +61,8 @@ Requires-Dist: pyright>=1.1.0; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.25.0; extra == 'dev'
 Requires-Dist: pytest>=8.3.0; extra == 'dev'
 Requires-Dist: ruff>=0.9.0; extra == 'dev'
+Provides-Extra: media
+Requires-Dist: matrx-files[media]>=0.2.296; extra == 'media'
 Description-Content-Type: text/markdown
 
 # matrx-ai

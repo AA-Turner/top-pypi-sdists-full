@@ -74,6 +74,7 @@ _SEAMS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("matrx_ai.catalog.host_catalog", ("_runtime_models",)),
     ("matrx_ai.persistence.registry", ("_policy_registrar",)),
     ("matrx_ai.tools.vfs.workspace", ("_BACKEND", "_DURABLE_INSTALLED", "_FS_CACHE")),
+    ("matrx_ai.tools.catalog_seam", ("_CATALOG_EXECUTOR", "_LAZY_RESOLVER", "_CACHE_SECONDS", "_LAZY_CACHE")),
 )
 
 

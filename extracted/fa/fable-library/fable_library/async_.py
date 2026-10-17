@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import RLock, Timer
 from typing import (
     Any,
+    cast,
 )
 
 from .array_ import Array
@@ -16,6 +17,7 @@ from .async_builder import (
     Continuations,
     IAsyncContext,
     OperationCanceledError,
+    TaskCanceledError,
     Trampoline,
     empty_continuation,
     protected_bind,
@@ -32,7 +34,7 @@ from .choice import (
 )
 from .event import IEvent_2
 from .protocols import IEnumerable_1
-from .system import TimeoutException__ctor
+from .system import InvalidOperationException__ctor_Z721C83C5, TimeoutException__ctor
 from .task import TaskCompletionSource
 from .time_span import TimeSpan, to_milliseconds
 from .types import UNIT, Unit
@@ -213,6 +215,23 @@ def sequential[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
     return delay(delayed)
 
 
+def try_cancelled[T](computation: Async[T], compensation: Callable[[OperationCanceledError], None]) -> Async[T]:
+    def cont(ctx: IAsyncContext[T]) -> None:
+        def on_cancel(error: OperationCanceledError) -> None:
+            # decision: preserves the original cancellation when compensation throws, matching .NET
+            try:
+                compensation(error)
+            except Exception:
+                pass
+            ctx.trampoline.run(lambda: ctx.on_cancel(error))
+
+        ctx_ = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, ctx.on_success, ctx.on_error, on_cancel)
+        # invariant: installs the handler without adding a cancellation checkpoint, including for nested handlers
+        computation(ctx_)
+
+    return cont
+
+
 def catch_async[T](work: Async[T]) -> Async[FSharpChoice_2[T, Exception]]:
     def cont(ctx: IAsyncContext[FSharpChoice_2[T, Exception]]) -> None:
         def on_success(x: T):
@@ -227,16 +246,42 @@ def catch_async[T](work: Async[T]) -> Async[FSharpChoice_2[T, Exception]]:
     return protected_cont(cont)
 
 
-def from_continuations[T](
-    f: Callable[
-        [Continuations[T]],
-        None,
-    ],
-) -> Callable[[IAsyncContext[T]], None]:
+def from_continuations[T](f: Callable[[Continuations[T]], None]) -> Async[T]:
     def cont(ctx: IAsyncContext[T]) -> None:
-        f((ctx.on_success, ctx.on_error, ctx.on_cancel))
+        settled = False
+        gate = RLock()
 
-    return protected_cont(cont)
+        def claim() -> None:
+            nonlocal settled
+            with gate:
+                if settled:
+                    raise InvalidOperationException__ctor_Z721C83C5("A continuation was invoked more than once")
+                settled = True
+
+        # Compiled F# calls the success continuation with no argument when T is unit
+        def success(value: T = cast(T, None)) -> None:
+            claim()
+            ctx.on_success(value)
+
+        def error(value: Exception) -> None:
+            claim()
+            ctx.on_error(value)
+
+        def cancelled(value: OperationCanceledError) -> None:
+            claim()
+            ctx.on_cancel(value)
+
+        def on_exception(value: Exception) -> None:
+            with gate:
+                completed = settled
+            if completed:
+                raise value
+            error(value)
+
+        guarded = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, success, on_exception, cancelled)
+        protected_cont(lambda _: f((success, error, cancelled)))(guarded)
+
+    return cont
 
 
 def from_continuations_unit(
@@ -245,13 +290,16 @@ def from_continuations_unit(
         None,
     ],
 ) -> Async[None]:
-    def cont(ctx: IAsyncContext[None]) -> None:
-        def success(value: None = None) -> None:
-            ctx.on_success(value)
+    def callback(conts: Continuations[None]) -> None:
+        success, error, cancelled = conts
 
-        f((success, ctx.on_error, ctx.on_cancel))
+        # Generic callers pass None explicitly; specialized F# unit callers erase it.
+        def unit_success(value: None = None) -> None:
+            success(value)
 
-    return protected_cont(cont)
+        f((unit_success, error, cancelled))
+
+    return from_continuations(callback)
 
 
 def await_task[T](task: Awaitable[T]) -> Async[T]:
@@ -279,6 +327,17 @@ def await_task[T](task: Awaitable[T]) -> Async[T]:
 
     task.add_done_callback(done)
     return from_continuations(callback)
+
+
+def await_task_with_cancellation[T](task: Awaitable[T]) -> Async[T]:
+    async def observe() -> T:
+        try:
+            return await task
+        except asyncio.CancelledError as error:
+            # decision: cancelled tasks are ordinary AwaitTask failures, matching .NET TaskCanceledException
+            raise TaskCanceledError() from error
+
+    return await_task(observe())
 
 
 def run_in_loop(computation: Callable[..., None]) -> Any:
@@ -315,12 +374,19 @@ def start_with_continuations[T](
     token is used."""
     trampoline = Trampoline()
 
+    def done[U](cont: Callable[[U], None]) -> Callable[[U], None]:
+        def terminal(value: U) -> None:
+            trampoline.completed = True
+            cont(value)
+
+        return terminal
+
     ctx = IAsyncContext.create(
         trampoline,
         cancellation_token or default_cancellation_token,
-        continuation or empty_continuation,
-        exception_continuation or empty_continuation,
-        cancellation_continuation or empty_continuation,
+        done(continuation or empty_continuation),
+        done(exception_continuation or empty_continuation),
+        done(cancellation_continuation or empty_continuation),
     )
 
     def runner() -> None:
@@ -461,6 +527,7 @@ def run_synchronously[T](
 __all__ = [
     "await_event",
     "await_task",
+    "await_task_with_cancellation",
     "cancel",
     "cancel_after",
     "cancellation_token",
@@ -478,4 +545,5 @@ __all__ = [
     "start_child",
     "start_immediate",
     "start_with_continuations",
+    "try_cancelled",
 ]

@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import base64
 import io
+import logging
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
@@ -84,10 +86,122 @@ def duration_to_stt_input_units(usage_basis: str, billed_seconds: float) -> int:
     )
 
 
+class STTWord(BaseModel):
+    """One spoken word on the audio clock (seconds). ``confidence``/``speaker``
+    are filled only when the provider supplies them."""
+
+    text: str
+    start: float
+    end: float
+    confidence: float | None = None
+    speaker: str | None = None
+
+
+def clamp_words_monotonic(raw_words: list[Any] | None) -> list[STTWord]:
+    """The ONE shared clean-up for provider word timings (rule ``proportional@1``).
+
+    Whisper-class providers stretch each word's end to the next start and let
+    ~4 in 90 words overlap their neighbour. Provider order is kept (it is the spoken
+    order; never re-sorted), and where a
+    word starts inside its predecessor the two share their combined span in
+    proportion to their raw durations (see ``_apply_proportional_clamp``), so
+    start_i <= end_i <= start_(i+1). Honest gaps (start > previous end) are
+    left untouched. Output is identical to the TypeScript ``clampWordTimings``
+    on the shared golden fixture. Accepts
+    dicts or objects with ``word``/``text``, ``start``, ``end``; skips items
+    without text or numeric times.
+    """
+    items: list[STTWord] = []
+    for raw in raw_words or []:
+        get = raw.get if isinstance(raw, dict) else lambda k, d=None, _r=raw: getattr(_r, k, d)
+        text = get("word") if get("word") is not None else get("text")
+        start, end = get("start"), get("end")
+        if not isinstance(text, str) or not text.strip():
+            continue
+        if not isinstance(start, (int, float)) or not isinstance(end, (int, float)):
+            continue
+        conf = get("confidence")
+        speaker = get("speaker") if get("speaker") is not None else get("speaker_id")
+        items.append(
+            STTWord(
+                text=text.strip(),
+                start=float(start),
+                end=float(end),
+                confidence=float(conf) if isinstance(conf, (int, float)) else None,
+                speaker=str(speaker) if speaker is not None else None,
+            )
+        )
+    return _apply_proportional_clamp(items)
+
+
+#: Identifier of THE clamp rule; recorded on every Alignment (``source.clamp``).
+WORD_CLAMP_RULE = "proportional@1"
+
+
+def _round4(n: float) -> float:
+    # JS ``Math.round(n * 10000) / 10000`` (half up), not Python's banker's rounding:
+    # the TypeScript twin (apps/shared/media/src/video/words.ts) must match to the bit.
+    return math.floor(n * 10000 + 0.5) / 10000
+
+
+def _apply_proportional_clamp(items: list[STTWord]) -> list[STTWord]:
+    """Rule ``proportional@1`` over words in provider order (twin of ``clampWordTimings``).
+
+    Walk in order. When word i starts before word i-1 ends, the two share the span
+    [lo, hi] with lo = (clamped) start of i-1 and hi = max(end i-1, end i); the boundary
+    splits it in proportion to the two RAW durations (rounded to 0.1 ms). Every other word is
+    left as is, so an honest silence (start > previous end) is never filled; a start never
+    precedes the previous start and an end never precedes its own start.
+    """
+    raw = [(w.start, w.end) for w in items]
+    out = [w.model_copy() for w in items]
+    for i, cur in enumerate(out):
+        if cur.end < cur.start:
+            cur.end = cur.start
+        if i == 0:
+            continue
+        prev = out[i - 1]
+        if cur.start < prev.start:
+            cur.start = prev.start
+        if cur.end < cur.start:
+            cur.end = cur.start
+        if cur.start < prev.end:
+            lo = prev.start
+            hi = max(prev.end, cur.end)
+            d_prev = max(0.0, raw[i - 1][1] - raw[i - 1][0])
+            d_cur = max(0.0, raw[i][1] - raw[i][0])
+            share = d_prev / (d_prev + d_cur) if d_prev + d_cur > 0 else 0.5
+            split = _round4(lo + (hi - lo) * share)
+            prev.end = split
+            cur.start = split
+            cur.end = hi
+    return out
+
+
+#: Why ``STTResult.words`` is what it is. Asking for words and getting none is
+#: never silent: ``unsupported_by_provider`` (the adapter cannot supply them) and
+#: ``none_returned`` (it can, this clip yielded none) both announce themselves.
+WordsStatus = Literal["not_requested", "provided", "unsupported_by_provider", "none_returned"]
+
+
+def words_status_for(request: STTRequest, result: STTResult, *, supported: bool) -> WordsStatus:
+    """The ONE place that decides a result's ``words_status`` (every adapter inherits it)."""
+    if "word" not in (request.timestamp_granularities or []):
+        return "not_requested"
+    if result.words:
+        return "provided"
+    return "none_returned" if supported else "unsupported_by_provider"
+
+
 class STTResult(BaseModel):
     text: str
     usage: STTUsage
     segments: list[Any] | None = None
+    #: Word timings, monotonic (see ``clamp_words_monotonic``). Filled only
+    #: when the request asked for the "word" granularity.
+    words: list[STTWord] | None = None
+    #: Set by ``execute_stt`` from the request + adapter capability; see ``WordsStatus``.
+    words_status: WordsStatus = "not_requested"
     language: str | None = None
     duration: float | None = None
     quality_metrics: dict[str, Any] = Field(default_factory=dict)
@@ -273,6 +387,15 @@ async def execute_stt(request: STTRequest) -> STTResult:
         transient_retries=STT_TRANSIENT_RETRIES,
     )
     result.attempts = sends
+    # An adapter declares word support with ``supports_word_timestamps = True``;
+    # one that doesn't is reported, never silently answered with no words.
+    result.words_status = words_status_for(
+        request, result, supported=bool(getattr(client, "supports_word_timestamps", False))
+    )
+    if result.words_status == "unsupported_by_provider":
+        logging.getLogger(__name__).warning(
+            "STT word timestamps requested but provider %r cannot supply them", profile.wire_format
+        )
     return result
 
 

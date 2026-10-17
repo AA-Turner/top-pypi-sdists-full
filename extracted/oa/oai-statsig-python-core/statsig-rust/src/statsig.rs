@@ -95,7 +95,10 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::{Duration, Instant};
-use tokio::time::sleep;
+
+#[cfg(test)]
+#[path = "__tests__/state_read_initialization_tests.rs"]
+mod state_read_initialization_tests;
 use tokio::try_join;
 
 const TAG: &str = stringify!(Statsig);
@@ -108,6 +111,13 @@ enum RawExposureLogging {
 
 #[cfg(feature = "ffi-support")]
 type TypedConfigRevision = (String, Option<u32>, Option<String>);
+
+#[cfg(feature = "ffi-support")]
+struct RawDynamicConfigOptions {
+    include_local_override: bool,
+    exposure_logging: RawExposureLogging,
+    allow_packaged_fallback: bool,
+}
 
 #[cfg(feature = "ffi-support")]
 struct RawExperimentExposureOptions {
@@ -335,6 +345,19 @@ impl Statsig {
                     Marker::new(KeyType::Overall, ActionType::Start, None),
                     Some(ContextType::Initialize),
                 );
+
+                // Listener registration must survive cancellation of initialization fetches.
+                self.spec_store.set_source(SpecsSource::Loading);
+                if let Some(adapter) = &self.specs_adapter.as_default_adapter {
+                    adapter.initialize_spec_store(self.spec_store.clone());
+                } else if let Some(adapter) = &self.specs_adapter.as_customized_adapter {
+                    adapter.initialize_spec_store(self.spec_store.clone());
+                } else {
+                    self.specs_adapter.inner.initialize(self.spec_store.clone());
+                }
+                if let Some(adapter) = &self.id_lists_adapter.as_default_adapter {
+                    adapter.set_listener(self.spec_store.clone());
+                }
 
                 let init_details = if let Some(timeout_ms) = self.options.init_timeout_ms {
                     self.apply_timeout_to_init(timeout_ms).await
@@ -2235,9 +2258,12 @@ impl Statsig {
             &user_internal,
             dynamic_config_name,
             DynamicConfigEvaluationOptions::default(),
-            include_local_override,
-            RawExposureLogging::Delayed,
-            |raw, _, _| callback(raw),
+            RawDynamicConfigOptions {
+                include_local_override,
+                exposure_logging: RawExposureLogging::Delayed,
+                allow_packaged_fallback: false,
+            },
+            |raw, _, _, _| callback(raw),
         )
     }
 
@@ -2254,9 +2280,12 @@ impl Statsig {
             user_internal,
             dynamic_config_name,
             DynamicConfigEvaluationOptions::default(),
-            include_local_override,
-            RawExposureLogging::Delayed,
-            |raw, _, _| callback(raw),
+            RawDynamicConfigOptions {
+                include_local_override,
+                exposure_logging: RawExposureLogging::Delayed,
+                allow_packaged_fallback: false,
+            },
+            |raw, _, _, _| callback(raw),
         )
     }
 
@@ -2290,9 +2319,12 @@ impl Statsig {
             user_internal,
             dynamic_config_name,
             options,
-            true,
-            RawExposureLogging::Immediate,
-            |raw, _, _| callback(raw),
+            RawDynamicConfigOptions {
+                include_local_override: true,
+                exposure_logging: RawExposureLogging::Immediate,
+                allow_packaged_fallback: false,
+            },
+            |raw, _, _, _| callback(raw),
         )
         .0
     }
@@ -2302,35 +2334,49 @@ impl Statsig {
         user_internal: &StatsigUserInternal<'_, '_>,
         dynamic_config_name: &str,
         options: DynamicConfigEvaluationOptions,
-        include_local_override: bool,
-        exposure_logging: RawExposureLogging,
-        callback: impl FnOnce(&DynamicConfigRaw<'_>, &SpecStoreData, Option<&EvaluatorResult>) -> T,
+        raw_options: RawDynamicConfigOptions,
+        callback: impl FnOnce(
+            &DynamicConfigRaw<'_>,
+            &SpecStoreData,
+            Option<&EvaluatorResult>,
+            bool,
+        ) -> T,
     ) -> (T, Option<String>) {
         use crate::evaluation::evaluator_result::result_to_dynamic_config_raw;
 
         let interned_dynamic_config_name = InternedString::from_str_ref(dynamic_config_name);
         let disable_exposure_logging: bool = options.disable_exposure_logging;
-
         let (details, evaluation, data) = self.evaluate_spec_raw_with_include_local_override(
             user_internal,
             dynamic_config_name,
             &SpecType::DynamicConfig,
             Some(disable_exposure_logging),
-            include_local_override,
+            raw_options.include_local_override,
         );
 
         let raw = result_to_dynamic_config_raw(dynamic_config_name, &details, evaluation.as_ref());
-        let result = callback(&raw, &data, evaluation.as_ref());
+        // Accepted snapshots, including empty ones, retain their receipt time across failures.
+        let packaged_fallback_eligible = raw_options.allow_packaged_fallback
+            && data.time_received_at.is_none()
+            && raw.value.is_none()
+            && evaluation
+                .as_ref()
+                .is_some_and(|result| !result.unsupported && result.override_reason.is_none());
+        let result = callback(&raw, &data, evaluation.as_ref(), packaged_fallback_eligible);
 
-        self.emit_dynamic_config_evaluated_parts(
-            dynamic_config_name,
-            details.reason.as_str(),
-            evaluation.as_ref(),
-        );
+        if !packaged_fallback_eligible {
+            self.emit_dynamic_config_evaluated_parts(
+                dynamic_config_name,
+                details.reason.as_str(),
+                evaluation.as_ref(),
+            );
+        }
 
-        let token = match exposure_logging {
+        let token = match raw_options.exposure_logging {
             RawExposureLogging::Immediate => {
-                if disable_exposure_logging {
+                if packaged_fallback_eligible {
+                    None
+                } else if disable_exposure_logging {
                     log_d!(
                         TAG,
                         "Exposure logging is disabled for Dynamic Config {}",
@@ -2383,17 +2429,62 @@ impl Statsig {
             &[(String, Option<u32>, Option<String>)],
         ) -> T,
     ) -> T {
+        self.use_typed_config_with_packaged_fallback(
+            user,
+            name,
+            options,
+            false,
+            |raw, source, revisions, _, _| callback(raw, source, revisions),
+        )
+    }
+
+    /// Private binding entry point. Eligibility and exposure suppression use the
+    /// same pinned snapshot; the tier follows normal rule evaluation precedence.
+    /// Bindings load packaged resources after this returns.
+    #[doc(hidden)]
+    pub fn use_typed_config_with_packaged_fallback<T>(
+        &self,
+        user: &StatsigUserInternal<'_, '_>,
+        name: &str,
+        options: DynamicConfigEvaluationOptions,
+        allow_packaged_fallback: bool,
+        callback: impl FnOnce(
+            &DynamicConfigRaw<'_>,
+            &str,
+            &[(String, Option<u32>, Option<String>)],
+            bool,
+            Option<String>,
+        ) -> T,
+    ) -> T {
         let _output_scope = self.output_policy.enter();
         self.use_raw_dynamic_config_impl(
             user,
             name,
             options,
-            true,
-            RawExposureLogging::Immediate,
-            |raw, data, evaluation| {
+            RawDynamicConfigOptions {
+                include_local_override: true,
+                exposure_logging: RawExposureLogging::Immediate,
+                allow_packaged_fallback,
+            },
+            |raw, data, evaluation, eligible| {
                 let (source, revisions) =
                     Self::collect_typed_config_metadata(name, data, evaluation);
-                callback(raw, &source, &revisions)
+                let tier = if eligible {
+                    let explicit_tier = user
+                        .statsig_environment()
+                        .and_then(|environment| environment.get("tier"))
+                        .or_else(|| self.statsig_environment.as_ref()?.get("tier"));
+                    match explicit_tier {
+                        Some(value) => value
+                            .string_value
+                            .as_ref()
+                            .map(|tier| tier.value.to_string()),
+                        None => data.snapshot.default_environment.clone(),
+                    }
+                } else {
+                    None
+                };
+                callback(raw, &source, &revisions, eligible, tier)
             },
         )
         .0
@@ -3269,8 +3360,10 @@ impl Statsig {
     ) -> Result<InitializeDetails, StatsigErr> {
         let timeout = Duration::from_millis(timeout_ms);
 
-        let init_future = self.initialize_impl_with_details();
-        let timeout_future = sleep(timeout);
+        let deadline = tokio::time::Instant::now() + timeout;
+        let init_future = crate::networking::retry::INITIALIZATION_DEADLINE
+            .scope(deadline, self.initialize_impl_with_details());
+        let timeout_future = tokio::time::sleep_until(deadline);
 
         let statsig_runtime = self.statsig_runtime.clone();
         let id_lists_adapter = self.id_lists_adapter.inner.clone();
@@ -3281,9 +3374,7 @@ impl Statsig {
         let statsig_runtime_for_closure = statsig_runtime.clone();
 
         tokio::select! {
-            result = init_future => {
-                result
-            },
+            biased;
             _ = timeout_future => {
                 statsig_runtime.spawn(
                     "start_background_tasks",
@@ -3299,13 +3390,18 @@ impl Statsig {
                 )?;
                 Ok(InitializeDetails::from_timeout_failure(timeout_ms))
             },
+            result = init_future => {
+                if tokio::time::Instant::now() >= deadline {
+                    Ok(InitializeDetails::from_timeout_failure(timeout_ms))
+                } else {
+                    result
+                }
+            },
         }
     }
 
     async fn initialize_impl_with_details(&self) -> Result<InitializeDetails, StatsigErr> {
         let start_time = Instant::now();
-        self.spec_store.set_source(SpecsSource::Loading);
-        self.specs_adapter.inner.initialize(self.spec_store.clone());
         let use_third_party_ua_parser = self.should_user_third_party_parser();
 
         let mut error_message = None;
@@ -3968,6 +4064,7 @@ fn initialize_specs_adapter(
         return SpecsAdapterHousing {
             inner: adapter,
             as_default_adapter: None,
+            as_customized_adapter: None,
         };
     }
 
@@ -3980,8 +4077,9 @@ fn initialize_specs_adapter(
         ));
 
         return SpecsAdapterHousing {
-            inner: adapter,
+            inner: adapter.clone(),
             as_default_adapter: None,
+            as_customized_adapter: Some(adapter),
         };
     }
 
@@ -3994,8 +4092,9 @@ fn initialize_specs_adapter(
         ));
 
         return SpecsAdapterHousing {
-            inner: adapter,
+            inner: adapter.clone(),
             as_default_adapter: None,
+            as_customized_adapter: Some(adapter),
         };
     }
 
@@ -4004,6 +4103,7 @@ fn initialize_specs_adapter(
     SpecsAdapterHousing {
         inner: adapter.clone(),
         as_default_adapter: Some(adapter),
+        as_customized_adapter: None,
     }
 }
 
@@ -4038,6 +4138,7 @@ struct IdListsAdapterHousing {
 struct SpecsAdapterHousing {
     inner: Arc<dyn SpecsAdapter>,
     as_default_adapter: Option<Arc<StatsigHttpSpecsAdapter>>,
+    as_customized_adapter: Option<Arc<StatsigCustomizedSpecsAdapter>>,
 }
 
 fn setup_ops_stats(

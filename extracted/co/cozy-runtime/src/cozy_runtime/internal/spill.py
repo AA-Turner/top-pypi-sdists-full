@@ -34,8 +34,13 @@ SMALLEST = 1 << 20
 _MAPPED = 3
 #: Host blocks are locked in multiples of this, so maps of about one size share them.
 GRAIN = 2 << 20
+#: cudaMalloc's alignment, which CUDA libraries take for granted (cuBLASLt answers INVALID_VALUE
+#: for a workspace off it: run 9141); torch's host allocator gives 64.
+ALIGN = 256
 #: [times tensors moved, their bytes, nanoseconds it took] since the process began
 MOVED = [0, 0, 0]
+#: [times tensors came back (`restore`), their bytes] since the process began
+RESTORED = [0, 0]
 #: locked blocks no tensor holds, by size; and the address of every block one holds -> its size
 _FREE: dict[int, list[Any]] = {}
 HELD: dict[int, int] = {}
@@ -68,12 +73,14 @@ class _Host:
         if free:
             self.data = free.pop()
         else:
-            self.data = torch.empty(self.size, dtype=torch.uint8)
+            self.data = torch.empty(self.size + ALIGN, dtype=torch.uint8)
             cudart = torch.cuda.cudart()
             torch.cuda.check_error(
-                cudart.cudaHostRegister(self.data.data_ptr(), self.size, _MAPPED)
+                cudart.cudaHostRegister(self.data.data_ptr(), self.size + ALIGN, _MAPPED)
             )
-        pointer = self.data.data_ptr()
+        start = -self.data.data_ptr() % ALIGN
+        self.view = self.data[start : start + self.size]
+        pointer = self.view.data_ptr()
         HELD[pointer] = self.size
         self.__cuda_array_interface__ = {
             "shape": (nbytes,),
@@ -83,7 +90,7 @@ class _Host:
         }
 
     def __del__(self) -> None:
-        HELD.pop(self.data.data_ptr(), None)
+        HELD.pop(self.view.data_ptr(), None)
         _FREE.setdefault(self.size, []).append(self.data)
 
 
@@ -199,10 +206,47 @@ def spill(
     return moved
 
 
+def restore(torch: ModuleType, device: Device, room: int) -> int:
+    """The storages in host blocks come back to `device`, largest first, while `room` bytes
+    allow: each is copied back and repointed in place, and its host block is free again. A
+    moved tensor nobody brings back is read over the bus for as long as it lives, and a cache
+    or a decoder's state lives across calls. Returns the bytes restored."""
+    if not HELD or room <= 0:
+        return 0
+    torch.cuda.synchronize(device)
+    starts = sorted(HELD)
+    found: dict[int, UntypedStorage] = {}
+    for value in gc.get_objects():
+        if (
+            type(value) not in (torch.Tensor, torch.nn.Parameter)
+            or value.layout is not torch.strided
+            or value.device != device
+        ):
+            continue
+        storage = value.untyped_storage()
+        address, at = storage.data_ptr(), bisect_right(starts, storage.data_ptr()) - 1
+        if at >= 0 and address < starts[at] + HELD[starts[at]]:
+            found.setdefault(address, storage)
+    back = 0
+    for storage in sorted(found.values(), key=lambda s: -s.nbytes()):
+        nbytes = int(storage.nbytes())
+        if back + nbytes > room:
+            continue
+        fresh = torch.empty(nbytes, dtype=torch.uint8, device=device)
+        fresh.copy_(torch.empty(0, dtype=torch.uint8, device=device).set_(storage))
+        # `fresh` takes the host pointer and frees its block when it goes
+        storage._swap_data_ptr_(fresh.untyped_storage())
+        back += nbytes
+    torch.cuda.synchronize(device)
+    RESTORED[0] += back > 0
+    RESTORED[1] += back
+    return back
+
+
 def _move(torch: ModuleType, device: Device, storage: UntypedStorage) -> int:
     nbytes = int(storage.nbytes())
     host = _Host(torch, nbytes)
-    host.data[:nbytes].copy_(torch.empty(0, dtype=torch.uint8, device=device).set_(storage))
+    host.view[:nbytes].copy_(torch.empty(0, dtype=torch.uint8, device=device).set_(storage))
     alias = torch.as_tensor(host, device=device)
     storage._swap_data_ptr_(alias.untyped_storage())
     return nbytes

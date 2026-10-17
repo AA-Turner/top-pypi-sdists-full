@@ -4,7 +4,6 @@ import abc
 import datetime
 import typing
 
-import Common.Util
 import QuantConnect
 import QuantConnect.Brokerages
 import QuantConnect.Data.Market
@@ -177,7 +176,7 @@ class IResultHandler(QuantConnect.Statistics.IStatisticsService, metaclass=abc.A
 
     @property
     @abc.abstractmethod
-    def deployment_details(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+    def deployment_details(self) -> QuantConnect.Util.ReadOnlyExtendedDictionary[str, str]:
         """Read only view of the deployment details, see add_deployment_detail. Shared with the algorithm"""
         ...
 
@@ -634,7 +633,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @property
-    def deployment_details(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+    def deployment_details(self) -> QuantConnect.Util.ReadOnlyExtendedDictionary[str, str]:
         """Read only view of the deployment details, see add_deployment_detail. Shared with the algorithm"""
         ...
 

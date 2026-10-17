@@ -1,6 +1,7 @@
 """Static-only API contracts; checked with mypy --warn-unused-ignores."""
 
-from typing import TypeVar
+from types import ModuleType
+from typing import Literal, TypeVar
 
 from google.protobuf.message import Message
 from google.protobuf.struct_pb2 import Struct
@@ -16,10 +17,26 @@ def wrapper(sdk: Statsig, user: StatsigUser, cls: type[M]) -> TypedDynamicConfig
     return sdk.get_typed_config("config", user, message_type=cls)
 
 
-def valid_calls(sdk: Statsig, user: StatsigUser) -> None:
+def valid_calls(sdk: Statsig, user: StatsigUser, package: ModuleType) -> None:
     assert_type(wrapper(sdk, user, Struct), TypedDynamicConfig[Struct])
     assert_type(
         sdk.get_typed_config("config", user, message_type=Struct),
+        TypedDynamicConfig[Struct],
+    )
+
+    packaged = sdk.get_typed_config(
+        "config",
+        user,
+        message_type=Struct,
+        allow_packaged_fallback=True,
+        packaged_fallback_package=package,
+    )
+    assert_type(packaged, TypedDynamicConfig[Struct])
+    assert_type(packaged.value_source, Literal["statsig", "packaged"])
+    assert_type(
+        sdk.get_typed_config(
+            "config", user, message_type=Struct, allow_packaged_fallback=True
+        ),
         TypedDynamicConfig[Struct],
     )
 

@@ -48,6 +48,7 @@ from braintrust.prompt_cache.lru_cache import LRUCache
 from braintrust.prompt_cache.parameters_cache import ParametersCache
 from braintrust.prompt_cache.prompt_cache import PromptCache
 from braintrust.test_helpers import (
+    DataclassAttachment,
     assert_dict_matches,
     assert_logged_out,
     init_test_exp,
@@ -2483,7 +2484,7 @@ def reset_id_generator_state(monkeypatch):
     monkeypatch.delenv("BRAINTRUST_LEGACY_IDS", raising=False)
 
 
-def test_span_with_otel_ids_export_import(reset_id_generator_state, monkeypatch):
+def test_span_with_otel_ids_export_import(with_memory_logger, reset_id_generator_state, monkeypatch):
     """Test that actual Span objects with OTEL IDs can export and be used as parent context."""
     init_test_logger(__name__)
     monkeypatch.setenv("BRAINTRUST_OTEL_COMPAT", "true")
@@ -2501,7 +2502,7 @@ def test_span_with_otel_ids_export_import(reset_id_generator_state, monkeypatch)
         assert imported.root_span_id == span.root_span_id
 
 
-def test_span_with_uuid_ids_share_root_span_id(reset_id_generator_state, monkeypatch):
+def test_span_with_uuid_ids_share_root_span_id(with_memory_logger, reset_id_generator_state, monkeypatch):
     """Test that legacy UUID generators share span_id as root_span_id for backwards compatibility."""
     monkeypatch.setenv("BRAINTRUST_LEGACY_IDS", "true")
     init_test_logger(__name__)
@@ -2906,11 +2907,16 @@ class TestLoggerProjectGroup(TestCase):
         metadata_patch = patch.object(logger, "_compute_logger_metadata", _compute_logger_metadata)
         metadata_patch.start()
         self.addCleanup(metadata_patch.stop)
-        self.state = MagicMock()
+        self.state = logger.login_to_state(api_key=logger.TEST_API_KEY)
+        # These tests use a separate state, so the global memory override does
+        # not apply. Keep their span exports local too.
+        self.state._global_bg_logger = LazyValue(logger._MemoryBackgroundLogger, use_mutex=True)
         self.state.org_name = "test-org"
-        self.state.context_manager = BraintrustState().context_manager
-        self.state.id_generator = logger.id_gen.get_id_generator()
-        self.projects = self.state.api_client.return_value.projects
+        api_client = MagicMock()
+        client_patch = patch.object(self.state, "api_client", return_value=api_client)
+        client_patch.start()
+        self.addCleanup(client_patch.stop)
+        self.projects = api_client.projects
         self.projects.post_project.return_value = {"id": "project-id", "name": "project"}
         self.projects.get_project_id.return_value = {"id": "project-id", "name": "project"}
 
@@ -2953,7 +2959,7 @@ class TestLoggerProjectGroup(TestCase):
                 else:
                     self.projects.get_project_id.assert_not_called()
 
-    def test_group_survives_unresolved_exports(self):
+    def test_grouped_loggers_and_unresolved_exports_share_project_lookup(self):
         instance = init_logger(
             project="project",
             _create_in_project_group="my-group",
@@ -2967,7 +2973,6 @@ class TestLoggerProjectGroup(TestCase):
         self.projects.post_project.assert_not_called()
         for exported in exports:
             with self.subTest(exported=exported):
-                self.projects.reset_mock()
                 components = logger.SpanComponentsV4.from_str(exported)
                 self.assertEqual(
                     components.compute_object_metadata_args,
@@ -2979,9 +2984,14 @@ class TestLoggerProjectGroup(TestCase):
                 )
                 with patch.object(logger, "_state", self.state):
                     self.assertEqual(logger.span_components_to_object_id(components), "project-id")
-                self.projects.post_project.assert_called_once_with(
-                    body={"name": "project", "org_name": "test-org", "project_group_name": "my-group"}
-                )
+        other = init_logger(
+            project="project", _create_in_project_group="my-group", state=self.state, set_current=False
+        )
+        self.assertEqual(instance.id, other.id)
+        self.assertEqual(instance.id, "project-id")
+        self.projects.post_project.assert_called_once_with(
+            body={"name": "project", "org_name": "test-org", "project_group_name": "my-group"}
+        )
 
     def test_otel_parent_resolves_project_id_when_grouped(self):
         for group, expected_parent in [("my-group", "project_id:project-id"), (None, "project_name:project")]:
@@ -2998,7 +3008,7 @@ class TestLoggerProjectGroup(TestCase):
                     patch.object(logger, "current_logger", return_value=current),
                 ):
                     self.assertEqual(logger._current_braintrust_parent(), expected_parent)
-                expected_calls = 0 if group is None else 2
+                expected_calls = 0 if group is None else 1
                 self.assertEqual(self.projects.post_project.call_count, expected_calls)
 
     def test_otel_parent_tolerates_failed_group_registration(self):
@@ -3046,67 +3056,43 @@ class TestProjectGeneratedAPI(TestCase):
 
 class TestDatasetGeneratedAPI(TestCase):
     def test_init_dataset_uses_generated_project_and_dataset_resources(self):
-        mock_state = MagicMock()
-        mock_state.org_name = "test-org"
-        api_client = mock_state.api_client.return_value
-        api_client.projects.post_project.return_value = {
-            "id": "test-project-id",
-            "name": "test-project",
-        }
-        api_client.datasets.post_dataset.return_value = {
-            "id": "test-dataset-id",
-            "project_id": "test-project-id",
-            "name": "test-dataset",
-        }
+        for options, expected_name in [
+            ({"name": "test-dataset", "metadata": {"purpose": "test"}}, "test-dataset"),
+            ({}, "logs"),
+        ]:
+            with self.subTest(options=options):
+                mock_state = MagicMock()
+                mock_state.org_name = "test-org"
+                api_client = mock_state.api_client.return_value
+                api_client.projects.post_project.return_value = {"id": "test-project-id", "name": "test-project"}
+                api_client.datasets.post_dataset.return_value = {
+                    "id": "test-dataset-id",
+                    "project_id": "test-project-id",
+                    "name": expected_name,
+                }
 
-        dataset = braintrust.init_dataset(
-            project="test-project",
-            name="test-dataset",
-            description="description",
-            metadata={"purpose": "test"},
-            use_output=False,
-            state=mock_state,
-        )
+                dataset = braintrust.init_dataset(
+                    project="test-project",
+                    description="description",
+                    use_output=False,
+                    state=mock_state,
+                    **options,
+                )
 
-        self.assertEqual(dataset.id, "test-dataset-id")
-        api_client.projects.post_project.assert_called_once_with(body={"name": "test-project", "org_name": "test-org"})
-        api_client.datasets.post_dataset.assert_called_once_with(
-            body={
-                "project_id": "test-project-id",
-                "name": "test-dataset",
-                "description": "description",
-                "metadata": {"purpose": "test"},
-            }
-        )
-        mock_state.app_conn.assert_not_called()
-
-    def test_init_dataset_without_name_uses_logs_name_with_generated_resources(self):
-        mock_state = MagicMock()
-        mock_state.org_name = "test-org"
-        api_client = mock_state.api_client.return_value
-        api_client.projects.post_project.return_value = {
-            "id": "test-project-id",
-            "name": "test-project",
-        }
-        api_client.datasets.post_dataset.return_value = {
-            "id": "test-dataset-id",
-            "project_id": "test-project-id",
-            "name": "logs",
-        }
-
-        dataset = braintrust.init_dataset(
-            project="test-project",
-            description="description",
-            use_output=False,
-            state=mock_state,
-        )
-
-        self.assertEqual(dataset.name, "logs")
-        api_client.projects.post_project.assert_called_once_with(body={"name": "test-project", "org_name": "test-org"})
-        api_client.datasets.post_dataset.assert_called_once_with(
-            body={"project_id": "test-project-id", "name": "logs", "description": "description"}
-        )
-        mock_state.app_conn.assert_not_called()
+                self.assertEqual(dataset.id, "test-dataset-id")
+                self.assertEqual(dataset.name, expected_name)
+                api_client.projects.post_project.assert_called_once_with(
+                    body={"name": "test-project", "org_name": "test-org"}
+                )
+                api_client.datasets.post_dataset.assert_called_once_with(
+                    body={
+                        "project_id": "test-project-id",
+                        "name": expected_name,
+                        "description": "description",
+                        **options,
+                    }
+                )
+                mock_state.app_conn.assert_not_called()
 
     def test_init_dataset_looks_up_explicit_dataset_id(self):
         mock_state = MagicMock()
@@ -3426,6 +3412,30 @@ def test_attachment_upload_tracked_on_flush(with_memory_logger, with_simulate_lo
     assert with_memory_logger.upload_attempts[0] is attachment
 
 
+def test_dataclass_attachments_reach_flush(with_memory_logger, with_simulate_login):
+    from dataclasses import dataclass
+
+    @dataclass
+    class Payload:
+        files: list[BaseAttachment]
+
+    attachment = Attachment(data=b"data", filename="file.txt", content_type="text/plain")
+    external = ExternalAttachment(url="s3://bucket/key", filename="file.pdf", content_type="application/pdf")
+    dataclass_attachment = DataclassAttachment("test-key")
+    payload = Payload([attachment, external])
+    test_logger = init_test_logger(__name__)
+    with test_logger.start_span(name="dataclass-attachments") as span:
+        span.log(input=payload, output=dataclass_attachment)
+    test_logger.flush()
+
+    # The memory logger exercises extraction without making upload requests.
+    assert with_memory_logger.upload_attempts == [attachment, external, dataclass_attachment]
+    logged = with_memory_logger.pop()[0]
+    assert logged["input"] == {"files": [attachment.reference, external.reference]}
+    assert logged["output"] == dataclass_attachment.reference
+    assert payload.files == [attachment, external]
+
+
 def test_same_attachment_logged_twice_tracked_twice(with_memory_logger, with_simulate_login):
     """Test that same attachment logged twice appears twice in upload attempts."""
     attachment = Attachment(data=b"data", filename="file.txt", content_type="text/plain")
@@ -3625,8 +3635,18 @@ def test_traced_logs_exception_group_sub_exceptions(with_memory_logger):
     _assert_test_exception_group_contents(logs[0].get("error", ""))
 
 
-def test_check_org_info_no_git_metadata_leaves_settings_none():
-    """When org has no git_metadata, state.git_metadata_settings should be None (no org restriction)."""
+@pytest.mark.parametrize(
+    ("org_settings", "expected"),
+    [
+        pytest.param({}, None, id="no-org-restriction"),
+        pytest.param(
+            {"git_metadata": {"collect": "some", "fields": ["commit", "branch"]}},
+            GitMetadataSettings(collect="some", fields=["commit", "branch"]),
+            id="server-settings",
+        ),
+    ],
+)
+def test_check_org_info_git_metadata(org_settings, expected):
     state = BraintrustState()
     org_info = [
         {
@@ -3634,27 +3654,11 @@ def test_check_org_info_no_git_metadata_leaves_settings_none():
             "name": "org1",
             "api_url": "https://api.example.com",
             "proxy_url": "https://proxy.example.com",
+            **org_settings,
         }
     ]
     _check_org_info(state, org_info, None)
-    assert state.git_metadata_settings is None
-
-
-def test_check_org_info_with_git_metadata_uses_server_settings():
-    """When org provides git_metadata, it is used as-is."""
-    state = BraintrustState()
-    org_info = [
-        {
-            "id": "org-1",
-            "name": "org1",
-            "api_url": "https://api.example.com",
-            "proxy_url": "https://proxy.example.com",
-            "git_metadata": {"collect": "some", "fields": ["commit", "branch"]},
-        }
-    ]
-    _check_org_info(state, org_info, None)
-    assert state.git_metadata_settings.collect == "some"
-    assert set(state.git_metadata_settings.fields) == {"commit", "branch"}
+    assert state.git_metadata_settings == expected
 
 
 @pytest.mark.parametrize(

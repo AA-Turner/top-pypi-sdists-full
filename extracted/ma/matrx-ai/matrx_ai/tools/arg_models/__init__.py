@@ -72,6 +72,7 @@ from .rag_args import RagSearchArgs
 from .shell_args import ShellExecuteArgs, ShellPythonArgs
 from .text_args import RegexExtractArgs, TextAnalyzeArgs
 from .web_args import (
+    AdvancedReadArgs,
     SiteDataArgs,
     WebArgs,
     WebBatchReadWire,
@@ -114,6 +115,7 @@ __all__ = [
     "ShellJobArgs",
     "WebSearchArgs",
     "WebReadArgs",
+    "AdvancedReadArgs",
     "SiteDataArgs",
     "WebArgs",
     "WebSearchWire",

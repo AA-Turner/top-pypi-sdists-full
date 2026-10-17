@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: tuipet
-Version: 0.6.30
+Version: 0.6.37
 Summary: A terminal virtual pet (Digimon V-Pet style) rendered with halfblock sprites, built on data from the real devices.
 Author-email: Joel Taylor <joeltaylor734@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/joeltco/tuipet
+Project-URL: Play in browser, https://ff3mmo.com/tuipet/
 Project-URL: Repository, https://github.com/joeltco/tuipet
 Project-URL: Issues, https://github.com/joeltco/tuipet/issues
 Keywords: terminal,tui,virtual-pet,digimon,vpet,textual,game
@@ -35,11 +36,13 @@ Dynamic: license-file
 [![Python](https://img.shields.io/pypi/pyversions/tuipet)](https://pypi.org/project/tuipet/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+**▶ Play in your browser: [ff3mmo.com/tuipet](https://ff3mmo.com/tuipet/)** — no install, same online lobby as the terminal game.
+
 A terminal virtual pet — Digimon V-Pet style — rendered with halfblock Unicode
 sprites and animated in the terminal. It builds on the work of the Digimon V-Pet
 fan community — see [Credits & acknowledgments](#credits--acknowledgments).
 
-![tuipet 0.6 trailer — the Godzilla line: 28 new kaiju, the G-Cell meter, and real gameplay](https://raw.githubusercontent.com/joeltco/tuipet/main/demo.gif)
+![tuipet trailer — 1,250 monsters, the Godzilla line, 83 eggs, a 30-map adventure, shops, online multiplayer, and play in your browser](https://raw.githubusercontent.com/joeltco/tuipet/main/demo.gif)
 
 **Status: live and actively developed** — see the
 [changelog](CHANGELOG.md) for what each release brought. tuipet is its own game: the core

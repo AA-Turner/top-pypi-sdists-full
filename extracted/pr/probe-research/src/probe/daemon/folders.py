@@ -65,9 +65,11 @@ def _state_base() -> Path:
 
 
 def note_dirs() -> list[Path]:
-    """Where the daemon may write files: Probe's own note checkouts and the team note."""
+    """Where the daemon may write files: Probe's own note checkouts, its summary
+    drafts (`probe summary checkout`, `probe visuals options`) and the team note.
+    The team note stays LAST: `tools._in_team_note` reads it from there."""
     base = _state_base()
-    return [base / "notes", base / "team-note"]
+    return [base / "notes", base / "summaries", base / "team-note"]
 
 
 def protected_paths() -> list[Path]:

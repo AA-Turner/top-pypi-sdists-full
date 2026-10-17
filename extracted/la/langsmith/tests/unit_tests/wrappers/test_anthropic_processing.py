@@ -225,9 +225,7 @@ class TestMessageToOutputsParsedMessage:
             warnings.simplefilter("always")
             result = _message_to_outputs(msg)
 
-        assert len(caught) == 0, (
-            f"Expected no warnings, got: {[str(w.message) for w in caught]}"
-        )
+        assert len(caught) == 0, f"Expected no warnings, got: {[str(w.message) for w in caught]}"
         assert result["content"] == [{"type": "text", "text": "Hello"}]
 
     def test_regular_message_warnings_not_suppressed(self):
@@ -276,9 +274,7 @@ class TestRedactMCPServers:
     """`mcp_servers` may carry a bearer credential that must not be traced."""
 
     def test_strip_not_given_masks_authorization_token(self) -> None:
-        server = _strip_not_given({"model": "m", "mcp_servers": _mcp_servers()})[
-            "mcp_servers"
-        ][0]
+        server = _strip_not_given({"model": "m", "mcp_servers": _mcp_servers()})["mcp_servers"][0]
 
         assert server["authorization_token"] == SECRET_PLACEHOLDER
         assert server["type"] == "url"
@@ -304,11 +300,7 @@ class TestRedactMCPServers:
     def test_masks_fields_that_are_not_explicitly_allowed(self) -> None:
         """A credential field added to the API later is masked by default."""
         server = _strip_not_given(
-            {
-                "mcp_servers": [
-                    {"name": "x", "type": "url", "url": "u", "future_secret": "s3cret"}
-                ]
-            }
+            {"mcp_servers": [{"name": "x", "type": "url", "url": "u", "future_secret": "s3cret"}]}
         )["mcp_servers"][0]
 
         assert server["future_secret"] == SECRET_PLACEHOLDER

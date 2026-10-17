@@ -35,4 +35,7 @@ LITE_MODE_TYPE = "lit"
 FULL_MODE_TYPE = "ful"
 CH_PAUSE_TYPE = "cp"
 CH_RESUME_TYPE = "cr"
+CUSTOM_MSG_TYPE = "msg"  # "type" for custom messages with no matching request type
+CUSTOM_MSG_RESP_TYPE = 51  # HSM response type for custom messages
+SYMBOL_LIMIT_EXCEEDED_CODE = 51001  # custom-message code: Standard plan symbol limit
 INDEX_HSM_MAPPING_API = "https://public.fyers.in/sym_details/index_hsm_mapping.json"

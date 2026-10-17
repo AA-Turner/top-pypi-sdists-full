@@ -64,8 +64,7 @@ def _serve(sink):
                     "declared": declared,
                     "received": len(body),
                     "intact": ATTACHMENT in body,
-                    "chunked": "chunked"
-                    in (self.headers.get("Transfer-Encoding") or ""),
+                    "chunked": "chunked" in (self.headers.get("Transfer-Encoding") or ""),
                 }
             )
             payload = b"{}"
@@ -91,9 +90,7 @@ def _serve(sink):
             pass
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    threading.Thread(
-        target=server.serve_forever, kwargs={"poll_interval": 0.001}, daemon=True
-    ).start()
+    threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.001}, daemon=True).start()
     sink.url = f"http://127.0.0.1:{server.server_address[1]}"
     return server
 
@@ -172,9 +169,7 @@ def attachment_batch(tmp_path):
 def _assert_all_intact(received, label):
     assert received, f"{label}: no request reached the endpoint"
     bad = [r for r in received if not r["intact"]]
-    assert not bad, (
-        f"{label}: {len(bad)}/{len(received)} resends lost the attachment: {received}"
-    )
+    assert not bad, f"{label}: {len(bad)}/{len(received)} resends lost the attachment: {received}"
     # A resend of a consumed stream also breaks the length contract: either it
     # declares the full size and delivers less, or it falls back to chunked.
     assert all(r["declared"] == r["received"] for r in received), received
@@ -189,9 +184,7 @@ def _assert_all_intact(received, label):
     [20_000_000, 0],
     ids=["inline-bytes", "streamed"],
 )
-def test_every_retry_keeps_the_file_attachment(
-    sink, no_backoff, attachment_batch, max_inline_bytes
-):
+def test_every_retry_keeps_the_file_attachment(sink, no_backoff, attachment_batch, max_inline_bytes):
     """500 drives both retry layers; every resulting request must be complete.
 
     ``_send_multipart_req`` runs 3 attempts and urllib3 force-lists 500, so one
@@ -211,9 +204,7 @@ def test_every_retry_keeps_the_file_attachment(
     _assert_all_intact(sink.received, "app + transport retries")
 
 
-def test_every_write_endpoint_gets_the_file_attachment(
-    socket_enabled, attachment_batch
-):
+def test_every_write_endpoint_gets_the_file_attachment(socket_enabled, attachment_batch):
     """The second replica must not receive an attachment-less copy.
 
     ``_send_multipart_req`` loops over ``_write_api_urls`` and re-encodes per
@@ -242,9 +233,7 @@ def test_every_write_endpoint_gets_the_file_attachment(
         s2.server_close()
 
 
-def test_failed_trace_dump_keeps_the_file_attachment(
-    sink, no_backoff, attachment_batch, tmp_path, monkeypatch
-):
+def test_failed_trace_dump_keeps_the_file_attachment(sink, no_backoff, attachment_batch, tmp_path, monkeypatch):
     """The on-disk fallback copy must be replayable, i.e. carry the attachment.
 
     The dump encodes the parts a final time after every send has read them, so

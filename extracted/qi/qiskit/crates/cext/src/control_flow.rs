@@ -828,12 +828,12 @@ pub unsafe extern "C" fn qk_control_flow_box_duration_kind(
 /// # Example
 /// ```c
 /// // Assuming cf_inst is a Box instruction with a concrete duration
-///  QkDurationInfo duration_info = qk_control_flow_box_duration_val_info(cf_inst);
-///  if (duration_info.ty == QkDurationType_Dt) {
-///      int64_t dt = duration_info.value.dt;
-///  } else {
-///      double time = duration_info.value.time;
-///  }
+/// QkDurationInfo duration_info = qk_control_flow_box_duration_val_info(cf_inst);
+/// if (duration_info.ty == QkDurationType_Dt) {
+///     int64_t dt = duration_info.value.dt;
+/// } else {
+///     double time = duration_info.value.time;
+/// }
 /// ```
 ///
 /// # Safety
@@ -1614,7 +1614,7 @@ pub unsafe extern "C" fn qk_control_flow_switch_case_labels_clear(labels: *mut C
     if !labels.labels.is_null() && labels.num_labels > 0 {
         drop(unsafe {
             // SAFETY: Per document unsafe, label is a valid CSwitchCaseLabels
-            Box::from_raw(std::slice::from_raw_parts_mut(
+            Box::from_raw(std::ptr::slice_from_raw_parts_mut(
                 labels.labels as *mut u64,
                 labels.num_labels,
             ))

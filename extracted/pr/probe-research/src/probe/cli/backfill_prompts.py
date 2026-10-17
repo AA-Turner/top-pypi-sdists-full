@@ -35,7 +35,7 @@ NAMING, and this one is not stylistic.
     works out how to preview a file from the extension at its end. A
     description appended to a name breaks both.
 
-    Descriptions go in --notes. Never in --name."""
+    Descriptions go in the manifest's "notes". Never in the name."""
 
 #: Uploading a 10GB checkpoint is neither possible nor useful, and on a shared
 #: mount a file:// reference resolves from every other researcher's pod anyway.
@@ -79,7 +79,9 @@ ALWAYS WRITE A DESCRIPTION.
     is WRITTEN. Missed one? `probe project set <slug> --description "..."`."""
 
 #: Descriptions are the part nobody did at the time, and the part that makes a
-#: file findable later. It matters more than the upload.
+#: file findable later. It matters more than the upload. Files carry no notes of
+#: their own, so the lines stay in the manifest (never uploaded) and reach the
+#: record through the project's documentation, written from them at the end.
 DESCRIBE_ARTIFACTS = """\
 SAY WHAT THINGS ARE.
 
@@ -88,7 +90,22 @@ SAY WHAT THINGS ARE.
     what it is, what produced it, and what it shows.
 
     This is the part nobody did at the time, and the part that makes a file
-    findable in six months. It matters more than the upload."""
+    findable in six months. It matters more than the upload. Files carry no
+    notes of their own: the project's documentation is written from these
+    lines once the import ends."""
+
+#: What does not belong in a research record, decided by the agent with a stated
+#: why. Without it every row had to land in a project, so a product monorepo's
+#: web app, CLI and iOS app (2,858 web-app source files) uploaded file by file.
+LEAVE_OUT = """\
+LEAVE OUT WHAT IS NOT RESEARCH.
+
+    Code for a shipped product (its web or mobile app, CLI or service, with that
+    product's tests and assets), vendored code, build output and caches are not
+    research. Put those rows in `left_out` with a short why; they are not uploaded.
+
+    Keep research code, configs, notebooks, results, logs and checkpoints, even
+    inside a code repository."""
 
 
 #: The confinement, said out loud. The agent is not merely asked to leave the
@@ -258,9 +275,9 @@ EVIDENCE. One JSON object per line, in TWO shapes.
     what it actually says. These are the rows that can name a project.
 
     A row with "dir" is EVERY remaining file in that directory, rolled up:
-    checkpoints, shards, images, weights. They carry no text identifying
-    anything, so they are counted rather than listed. `files`, `bytes`, `ext`
-    and `mtime_span` describe the group.
+    checkpoints, shards, images, weights, or code in a language that is not
+    sampled. They are counted rather than listed. `files`, `bytes`, `ext` and
+    `mtime_span` describe the group.
 
     ASSIGN A ROLLUP ROW BY ITS "dir" VALUE, exactly as written, and every file
     under it goes with it. Do not invent per-file paths for them.
@@ -277,6 +294,8 @@ EVIDENCE. One JSON object per line, in TWO shapes.
     `esm3-baseline` are names someone will recognise in six months; `workspace`,
     `data` and `michael` are not.
 
+{LEAVE_OUT}
+
 TAIL FILES INHERIT. A checkpoint carries no evidence of what it belongs to, so
 place it with its neighbours and say which neighbours decided it. An inherited
 placement a reader cannot audit is a guess wearing a rule's clothes.
@@ -288,11 +307,12 @@ Answer with JSON on its own line and nothing after it:
   "assignments": [{{"path": "<a row's \"path\", or a rollup row's \"dir\", verbatim>",
                    "project": "<slug>",
                    "confidence": "high"|"low", "why": "<short>"}}],
+  "left_out": [{{"path": "<a row's \"path\" or \"dir\", verbatim>", "why": "<short>"}}],
   "unsure": ["<relative path>", ...],
   "summary": "<one sentence on what this folder contains>"}}
 
-Every ROW above must appear exactly once in `assignments` -- a rollup row
-counts once and carries all its files with it. Put
+Every ROW above must appear exactly once, in `assignments` or `left_out` -- a
+rollup row counts once and carries all its files with it. Put
 anything you are genuinely unsure about in `unsure` as well -- that list is what
 the human reviews first, and a short honest one is worth more than none.
 """
@@ -346,13 +366,14 @@ about. A reviewer who fixes one directory has implicitly accepted the rest,
 and a plan that shuffles everything makes their next read start over.
 
 Answer with the SAME JSON shape as before, complete and on its own line --
-every row of the evidence appears exactly once in `assignments`, not just the
-ones you changed:
+every row of the evidence appears exactly once, in `assignments` or `left_out`,
+not just the ones you changed:
 
 {{"projects": [{{"slug": "...", "name": "...", "description": "...",
                 "tags": ["..."]}}],
   "assignments": [{{"path": "...", "project": "...",
                    "confidence": "high"|"low", "why": "<short>"}}],
+  "left_out": [{{"path": "...", "why": "<short>"}}],
   "unsure": ["..."],
   "summary": "<one sentence, saying what you changed and why>"}}
 """
@@ -397,7 +418,7 @@ One object per line, and ONLY these four keys -- an unrecognised key fails that
 row, and booleans must be bare `true`/`false`, never the strings "true"/"false":
 
     {{"path": "<path relative to the folder, exactly as listed above>",
-      "notes": "<what it is, what produced it, what it shows>",
+      "notes": "<what it is, what produced it, what it shows -- never uploaded>",
       "reference": true|false,
       "allow_missing": true|false}}
 
@@ -534,8 +555,9 @@ concurrent import's paragraph is not erased.
 
 Be honest about gaps. "The 2024 sweep configs are here but their result tables
 are not" is worth more to the next agent than a confident summary that quietly
-omits it. Do not describe individual files -- they already carry their own
-notes. Three visible paragraphs plus concise caveats is plenty.
+omits it. Files carry no notes of their own, so name the few a teammate would
+look for first, by path, and say what each is; do not list every file. Three
+visible paragraphs plus concise caveats is plenty.
 
 Finish with JSON on its own line:
 
@@ -607,8 +629,9 @@ file in that directory rolled up, counted rather than listed.
 For each distinct line of work you can see, say what it is, what in this slice
 shows it, and roughly how much of the slice belongs to it. Be specific -- "an
 attention-vs-consensus ablation with Hessian max-LR analysis" is useful,
-"machine learning code" is not. If part of this slice is plainly build noise,
-caches or vendored dependencies, say so as its own entry.
+"machine learning code" is not. If part of this slice is not research -- a
+product's source, tests or assets, build noise, caches or vendored
+dependencies -- say so as its own entry.
 
 Answer with JSON on its own line and nothing after it:
 
@@ -616,6 +639,20 @@ Answer with JSON on its own line and nothing after it:
                 "evidence": ["<path or dir that shows it>", ...],
                 "approx_files": <int>}}],
   "notes": "<anything the naming step should know, or empty>"}}
+"""
+
+
+def _correction(feedback: str) -> str:
+    """The reviewer's words, quoted, for the passes that re-run on a correction."""
+    if not feedback:
+        return ""
+    return f"""
+THE REVIEWER HAS SEEN A PREVIOUS ANSWER AND SAYS:
+
+    {feedback}
+
+Apply it, and apply what it IMPLIES -- a correction is usually a rule, not a
+one-off. It outranks your own reading of the slices where the two disagree.
 """
 
 
@@ -633,18 +670,7 @@ def name_projects(
         if existing
         else "No projects exist yet. You are naming them for the first time."
     )
-    correction = (
-        f"""
-THE REVIEWER HAS SEEN A PREVIOUS ANSWER AND SAYS:
-
-    {feedback}
-
-Apply it, and apply what it IMPLIES -- a correction is usually a rule, not a
-one-off. It outranks your own reading of the slices where the two disagree.
-"""
-        if feedback
-        else ""
-    )
+    correction = _correction(feedback)
     return f"""\
 You are deciding how one research folder should be organised in Probe.
 
@@ -673,8 +699,8 @@ in half and every later comparison reads them as different things.
     `data` and `michael` are not.
 
 Keep the list SHORT. A folder is rarely more than a handful of lines of work,
-and every extra project is one more place someone has to look. Build noise and
-caches belong in one project of their own, not scattered.
+and every extra project is one more place someone has to look. Make no project
+for what is not research (a product's code, build noise, caches): it is left out.
 
 Answer with JSON on its own line and nothing after it:
 
@@ -694,8 +720,13 @@ def assign_chunk(
     work_dir: str,
     truncated: bool = False,
     mtime_uninformative: bool = False,
+    feedback: str = "",
 ) -> str:
-    """Map one slice's rows onto an already-decided project list."""
+    """Map one slice's rows onto an already-decided project list.
+
+    Gets the reviewer's correction too: this is where rows are left out, so
+    "keep apps/lab, it is research" must reach it, not only the naming step.
+    """
     caveat = TRUNCATED_CAVEAT if truncated else ""
     mtime_note = mtime_guidance(mtime_uninformative)
     return f"""\
@@ -703,11 +734,10 @@ You are filing part of a research folder into projects that are already decided.
 
 FOLDER: {root}
 This is slice {index} of {total}.
-
+{_correction(feedback)}
 {readonly(root=root, work_dir=work_dir)}
 
-THE PROJECTS. Use these and only these. You may not invent one, rename one, or
-leave a row out:
+THE PROJECTS. Use these and only these. You may not invent one or rename one:
 
 {projects}
 
@@ -723,19 +753,21 @@ EVIDENCE. One JSON object per line. A row with "path" is one file. A row with
 TAIL FILES INHERIT. A checkpoint carries no evidence of what it belongs to, so
 place it with its neighbours and say which neighbours decided it.
 
-If a row genuinely does not fit any project, put it in whichever is closest and
-mark it low confidence -- do NOT drop it. A row you leave out is a file that
-does not get imported, and nothing downstream can tell that from an oversight.
+{LEAVE_OUT}
+
+If a row is research but fits no project, put it in the closest one and mark it
+low confidence.
 
 Answer with JSON on its own line and nothing after it:
 
 {{"assignments": [{{"path": "<a row's \"path\", or a rollup row's \"dir\", verbatim>",
                    "project": "<one of the slugs above>",
                    "confidence": "high"|"low", "why": "<short>"}}],
+  "left_out": [{{"path": "<a row's \"path\" or \"dir\", verbatim>", "why": "<short>"}}],
   "unsure": ["<path>", ...]}}
 
-EVERY row above must appear exactly once in `assignments` -- {index} of {total}
-slices is still all of this slice.
+EVERY row above must appear exactly once, in `assignments` or `left_out` --
+{index} of {total} slices is still all of this slice.
 """
 
 

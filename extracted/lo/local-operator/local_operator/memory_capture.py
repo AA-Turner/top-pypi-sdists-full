@@ -41,12 +41,19 @@ MEMORY_DEFAULT_ENABLED = True
 # Hex ids stop at 12 characters (short git SHAs) and need a digit: longer bare hex is
 # indistinguishable from an API key and is deliberately NOT captured (review R4).
 _LOCATOR = re.compile(
-    r"https?://[^\s<>\"']{1,400}"
+    # Consume other URI schemes atomically too: ignoring guide:// must not
+    # leave its //tail available to the path alternative. A window is <=4096.
+    # A label colon (URL:https://...) is punctuation, not a URI tail. Real
+    # scheme:// tokens are consumed by this alternative before their contents.
+    r"(?<![\w/])(?P<uri>[A-Za-z][A-Za-z0-9+.-]{0,31}://[^\s<>\"'`]{1,4096})"
     r"|(?<![\w.+-])[\w.+-]{1,64}@[\w.-]{1,255}\.[A-Za-z]{2,24}"
-    r"|(?:~?/|\b(?:src|docs|tests|local_operator)/)[^\s<>\"']{1,400}"
+    # A slash inside a ratio, URI or another path is not a new absolute root.
+    r"|(?<![\w:/~.-])(?:~?/|\.\.?/|(?:src|docs|tests|local_operator)/)[^\s<>\"'`]{1,400}"
     r"|\bsecret\s{1,8}[A-Z][A-Z0-9_]{2,63}\b|(?<!\w)#[\w-]{2,64}"
     r"|\b(?=[0-9a-f]{7,12}\b)[0-9a-f]*\d[0-9a-f]*\b"
-    r"|\b(?:branch|thread)[: ]{1,3}[\w./-]{3,128}"
+    # The finite bound is a rejection limit, not permission to publish a
+    # prefix of a longer branch/thread identifier into memory or associations.
+    r"|(?P<reference>\b(?:branch|thread)(?:\s{0,3}:\s{0,3}|\s{1,3})[\w./-]{3,128}(?![\w./-]))"
 )
 #: The regex never sees more than this many characters at once. Bounded quantifiers make
 #: each call linear; windowing makes the worst case independent of input size, and lets
@@ -65,6 +72,97 @@ def policy(config: Path) -> dict[str, Any]:
         key: memory.get(key, MEMORY_DEFAULT_ENABLED) is True
         for key in ("enabled", "capture", "suggest")
     }
+
+
+def carry_rows(carry: str, *, limit: int = 12) -> list[dict[str, Any]]:
+    """Memory candidates from an archive's carry digest.
+
+    WHY the carry, when ``extract`` already scans a locator set: the scan reads
+    ``recovery_text``, which samples only a bounded head and tail of the pre-cut
+    prefix. Measured on the operator's own session (439818272d84, pass 45): that
+    sample covered 10.4% of a 9.6 M-char prefix and MISSED 2,584 of 3,524
+    locators (73%) — and missed every operator ask and decision in the middle
+    entirely, because prose carries no locator. The carry is the pass's own
+    deterministic digest of exactly the material that was about to be dropped
+    (see :mod:`local_operator.compaction.mine`), so feeding it here closes that
+    gap with no extra model call and no second scan of the transcript.
+
+    Every candidate is put through :func:`guard` and a refused one is SKIPPED,
+    exactly as ``extract`` guards each item it emits. This is not decoration:
+    the miner mines tool results as well as prose, so an ordinary path like
+    ``docs/.env`` or ``~/.aws/credentials`` can appear in a carry, and without a
+    per-item guard a single refused substring would make ``validate_fact`` raise
+    and take the WHOLE capture down to a ``failed`` terminal with zero rows
+    (review round 1, BLOCKER 1).
+
+    Bounded and de-duplicated like every other capture source: at most ``limit``
+    rows, whitespace-collapsed, each capped well under the fact body limit.
+    """
+    if not carry:
+        return []
+    from local_operator.compaction.mine import parse_carry
+
+    parsed = parse_carry(carry)
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for tag, items in (
+        ("ask", parsed.asks),
+        ("decision", parsed.decisions),
+        ("locator", parsed.identifiers),
+    ):
+        for item in items:
+            if len(rows) >= limit:
+                break
+            body = " ".join(item.split())[:280]
+            if not body or body in seen:
+                continue
+            seen.add(body)
+            try:
+                # ``opaque=True``: ``validate_fact`` applies the opaque guard to
+                # a fact body, so a candidate that clears only the DEFAULT guard
+                # would still raise inside ``persist`` and take the whole capture
+                # to a ``failed`` terminal. Matching the guard the write applies
+                # is what actually closes BLOCKER 1 (review round 2, MAJOR C).
+                guard(body, opaque=True)
+            except MemoryError:
+                # A refused candidate must never fail the whole capture: this is
+                # the BLOCKER-1 fix — one unguardable locator skips, the rest of
+                # the pass's facts still land.
+                continue
+            rows.append({"title": body[:100], "body": body, "tags": [tag]})
+    return rows[:limit]
+
+
+def carry_digest(carry: str) -> str:
+    """The carry rendered as SEMANTIC sections, for callers that parse a summary
+    rather than a tier list.
+
+    Renders the carry under the headings ``extract`` already recognises
+    (``Goal``/``Key Decisions``/``Critical Context``), so the semantic arm works
+    UNCHANGED for a pass that has no model summary (snapcompact) and no new fact
+    grammar is introduced. Deliberately NOT fed to capture alongside
+    :func:`carry_rows` in the same pass — writing the same bodies twice under two
+    tag sets is the duplication a reviewer found (round 1, MAJOR 7); degree
+    callers pick one. Retained because ``extract`` is the path that also handles a
+    context-full summary, and a caller that only has a summary string still needs
+    the carry reachable through its own parser.
+    """
+    if not carry:
+        return ""
+    from local_operator.compaction.mine import parse_carry
+
+    parsed = parse_carry(carry)
+    lines: list[str] = []
+    if parsed.asks:
+        lines.append("# Goal")
+        lines.extend(f"- {item}" for item in parsed.asks)
+    if parsed.decisions:
+        lines.append("# Key Decisions")
+        lines.extend(f"- {item}" for item in parsed.decisions)
+    if parsed.identifiers:
+        lines.append("# Critical Context")
+        lines.extend(f"- {item}" for item in parsed.identifiers)
+    return "\n".join(lines)
 
 
 def snapshot(messages: list[Any]) -> str:
@@ -116,12 +214,34 @@ def extract(text: str, summary: str = "") -> list[dict[str, Any]]:
     counts: Counter[str] = Counter()
     last: dict[str, int] = {}
     index = 0
+    offset = 0
     for window in windows(text[:2000000]):
         if time.monotonic() - started > 2:
             raise TimeoutError("memory capture budget")
+        start = offset
+        offset += len(window)
+        if start and not text[start - 1].isspace():
+            # A forced window cut can bisect an oversized URI/path. Do not
+            # reinterpret its continuation as an independent locator; traversal
+            # is still bounded by the unchanged scan window, with no I/O.
+            prefix = next((i for i, char in enumerate(window) if char.isspace()), len(window))
+            window = window[prefix:]
         for match in _LOCATOR.finditer(window):
             index += 1
-            locator = match.group().rstrip(".,;:)]}")[:200]
+            if match.end() == len(window) and offset < len(text) and not text[offset].isspace():
+                continue  # neither a forced cut nor the input cap publishes a whole token
+            locator = match.group().rstrip(".,;:)]}")
+            if len(locator) > 200:
+                continue  # dropping an oversized candidate is safer than persisting a fragment
+            if match.lastgroup == "uri" and not locator.lower().startswith(("http://", "https://")):
+                continue
+            if match.lastgroup == "reference" and ":" not in locator:
+                identifier = locator.split(maxsplit=1)[1]
+                # Without an explicit delimiter, ordinary prose ("branch that",
+                # "thread about") is not evidence of an identifier. Slash refs
+                # and numeric thread IDs remain useful without inventing facts.
+                if "/" not in identifier and not any(char.isdigit() for char in identifier):
+                    continue
             try:
                 guard(locator)
             except MemoryError:
@@ -282,18 +402,37 @@ def persist(
         db.commit()
 
 
+#: Rows held for the carry arm inside the shared 52-row capture cap. The pass's
+#: carry is its marquee retention (the asks/decisions/identifiers a resumed
+#: session cannot re-derive), so it must not be starved by a locator scan that
+#: can fill the whole cap alone (review round 2, MINOR 3).
+_CARRY_ROW_RESERVE = 12
+
+
 async def finish(
     store: MemoryStore,
     marker_id: str,
     task: asyncio.Task[Any],
     summary: str,
     committed_at: float | None = None,
+    carry: str = "",
 ) -> str:
     try:
         rows = await asyncio.wait_for(asyncio.shield(task), timeout=2)
-        # Summary parsing is deterministic, not another provider request.
+        # Summary parsing is deterministic, not another provider request. The
+        # carry rows are added ONCE (see ``carry_rows``); the digest is NOT also
+        # fed through ``extract`` in the same pass, which would persist the same
+        # bodies twice under two tag sets.
         rows = rows + await asyncio.to_thread(extract, "", summary)
-        await asyncio.to_thread(persist, store, marker_id, rows[:52], "ok", committed_at)
+        carry_arm = carry_rows(carry) if carry else []
+        # The carry is the pass's MARQUEE retention, so it gets its own bounded
+        # reserve inside the shared cap instead of sitting behind a locator scan
+        # that can fill all 52 rows by itself (measured: ``rows[:52]`` kept 0 of
+        # 3 carry rows; review round 2, MINOR 3). The scan keeps the remainder.
+        reserved = min(len(carry_arm), _CARRY_ROW_RESERVE)
+        scan_rows = rows[: 52 - reserved] if reserved else rows[:52]
+        rows = (scan_rows + carry_arm[:_CARRY_ROW_RESERVE])[:52]
+        await asyncio.to_thread(persist, store, marker_id, rows, "ok", committed_at)
         return "ok"
     except asyncio.CancelledError:
         raise
@@ -379,7 +518,9 @@ async def _session_tail(session: Any) -> str:
                 payload = marker.payload
                 preserve = payload.get("preserve_data") or {}
                 summary = "" if preserve.get("snapcompact") else payload.get("summary", "")
-                terminal = await finish(store, marker.id, task, summary, marker.ts)
+                snap = preserve.get("snapcompact") if isinstance(preserve, dict) else None
+                carry_text = str(snap.get("carry") or "") if isinstance(snap, dict) else ""
+                terminal = await finish(store, marker.id, task, summary, marker.ts, carry_text)
                 session._memory_terminal = (marker.id, terminal)
 
             session._spawn_background(recover())
@@ -420,7 +561,8 @@ def hint(store: MemoryStore, marker_id: str) -> str:
     text = (
         (
             f"Context compacted; {state[1]} candidates captured to session memory. "
-            "Search/read memory:// for paths and links. Store goals and decisions explicitly."
+            "Search/read memory:// for paths and links, retained asks and decisions. "
+            "Store goals and decisions explicitly."
         )
         if state[0] == "ok"
         else (

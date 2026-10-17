@@ -1,8 +1,13 @@
 """Per-call typed conversion and explicit publication observers."""
 
+import json
 import logging
+from copy import deepcopy
 from dataclasses import dataclass
+from functools import lru_cache
+from importlib import import_module, resources
 from threading import Condition, Lock, Thread, current_thread
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 from weakref import ref
 
@@ -18,11 +23,11 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class TypedConfigUnavailableError(RuntimeError):
-    """Native evaluation has no usable config, or the SDK is closed."""
+    """No usable config/resource is available, or the SDK is closed."""
 
 
 class TypedConfigConversionError(RuntimeError):
-    """The selected native value could not be converted to the requested type."""
+    """The selected value or packaged document is invalid for the requested type."""
 
 
 def _validate_message_type(message_type: type[T]) -> None:
@@ -30,6 +35,35 @@ def _validate_message_type(message_type: type[T]) -> None:
 
     if not isinstance(message_type, type) or not issubclass(message_type, Message):
         raise TypeError("message_type must be a protobuf Message class")
+
+
+@lru_cache(maxsize=64)
+def _load_packaged_document(package: ModuleType) -> Any:
+    # Packages are immutable build artifacts shared across SDK instances.
+    content = resources.files(package).joinpath("fallback.json").read_bytes()
+    try:
+        return json.loads(content)
+    except Exception as error:
+        raise TypedConfigConversionError("Invalid packaged fallback JSON") from error
+
+
+def _infer_packaged_fallback_package(name: str, message_type: type[T]) -> ModuleType:
+    parts = message_type.__module__.split(".")
+    if (
+        len(parts) != 4
+        or parts[:2] != ["oaiproto", "statsig_configs"]
+        or parts[3] != "config_pb2"
+    ):
+        raise TypedConfigUnavailableError(
+            f"Cannot infer packaged fallback for typed config {name!r}; "
+            "pass packaged_fallback_package for a nonstandard protobuf package"
+        )
+    try:
+        return import_module(parts[2])
+    except Exception as error:
+        raise TypedConfigUnavailableError(
+            f"Cannot import packaged fallback for typed config {name!r}: {parts[2]}"
+        ) from error
 
 
 @dataclass
@@ -58,15 +92,76 @@ class _TypedConfigs:
         user: Any,
         message_type: type[T],
         options: Any,
+        packaged_fallback_package: Optional[ModuleType] = None,
+        *,
+        allow_packaged_fallback: bool = True,
     ) -> TypedDynamicConfig[T]:
         _validate_message_type(message_type)
-        with self.lock:
-            sdk = self._ensure_open()
-        raw = sdk._INTERNAL_get_typed_config(user, name, options)
-        result = self._convert(name, raw, message_type)
-        with self.lock:
-            self._ensure_open()
+        if packaged_fallback_package is not None and not isinstance(
+            packaged_fallback_package, ModuleType
+        ):
+            raise TypeError("packaged_fallback_package must be a package module")
+        sdk = self._get_sdk()
+        if not allow_packaged_fallback:
+            raw = sdk._INTERNAL_get_typed_config(user, name, options)
+        else:
+            raw = sdk._INTERNAL_get_typed_config(
+                user, name, options, allow_packaged_fallback=True
+            )
+        if (
+            allow_packaged_fallback
+            and raw.get("__typed_packaged_fallback_eligible") is True
+        ):
+            if packaged_fallback_package is None:
+                packaged_fallback_package = _infer_packaged_fallback_package(
+                    name, message_type
+                )
+            result = self._get_packaged(
+                name,
+                packaged_fallback_package,
+                raw.get("__typed_packaged_fallback_tier"),
+                message_type,
+            )
+        else:
+            result = self._convert(name, raw, message_type)
         return result
+
+    def _get_packaged(
+        self, name: str, package: ModuleType, tier: Optional[str], message_type: type[T]
+    ) -> TypedDynamicConfig[T]:
+        if tier is not None and not isinstance(tier, str):
+            raise TypedConfigUnavailableError(
+                "Native packaged fallback tier is invalid"
+            )
+        resource_name = f"{package.__name__}/fallback.json"
+        try:
+            document = _load_packaged_document(package)
+        except TypedConfigConversionError as error:
+            raise TypedConfigConversionError(
+                f"Invalid packaged fallback for typed config {name!r}: {resource_name}"
+            ) from error.__cause__
+        except Exception as error:
+            raise TypedConfigUnavailableError(
+                f"Cannot read packaged fallback for typed config {name!r}: {resource_name}"
+            ) from error
+        try:
+            environments = document.get("environments", {})
+            selected = (
+                environments[tier] if tier in environments else document["default"]
+            )
+        except Exception as error:
+            raise TypedConfigConversionError(
+                f"Cannot select packaged fallback for typed config {name!r}: {resource_name}"
+            ) from error
+        # Protobuf's Any parser temporarily mutates its input, so never give it
+        # the shared cached document even though each output message is fresh.
+        value = self._parse_value(name, deepcopy(selected), message_type, resource_name)
+        return TypedDynamicConfig(
+            name,
+            {"details": {"reason": "PackagedFallback"}, "__typed_revision": None},
+            value,
+            value_source="packaged",
+        )
 
     def register(
         self,
@@ -119,15 +214,25 @@ class _TypedConfigs:
             raise TypedConfigUnavailableError(
                 f"Typed config {name!r} has no usable value"
             )
+        value = self._parse_value(name, raw["value"], message_type)
+        return TypedDynamicConfig(name, raw, value)
+
+    @staticmethod
+    def _parse_value(
+        name: str,
+        selected: dict,
+        message_type: type[T],
+        resource_name: Optional[str] = None,
+    ) -> T:
         from google.protobuf.json_format import ParseDict
 
         try:
-            value = ParseDict(raw["value"], message_type(), ignore_unknown_fields=True)
+            return ParseDict(selected, message_type(), ignore_unknown_fields=True)
         except Exception as error:
             raise TypedConfigConversionError(
                 f"Failed to convert typed config {name!r}"
+                + (f" from {resource_name}" if resource_name is not None else "")
             ) from error
-        return TypedDynamicConfig(name, raw, value)
 
     def _observe(self, observer: _Observer, *, baseline: bool = False) -> None:
         with self.lock:
@@ -187,11 +292,16 @@ class _TypedConfigs:
             for observer in observers:
                 self._observe(observer)
 
-    def _ensure_open(self) -> Any:
+    def _get_sdk(self) -> Any:
         sdk = self._sdk()
-        if self._closed or sdk is None:
-            raise TypedConfigUnavailableError("Statsig has been shut down")
+        if sdk is None:
+            raise TypedConfigUnavailableError("Statsig instance is no longer available")
         return sdk
+
+    def _ensure_open(self) -> Any:
+        if self._closed:
+            raise TypedConfigUnavailableError("Statsig has been shut down")
+        return self._get_sdk()
 
     def close(self) -> None:
         with self.lock:

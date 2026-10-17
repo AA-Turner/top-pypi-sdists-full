@@ -1,4 +1,4 @@
-"""The author-facing surface — the ONLY cozy-runtime package/job code imports.
+"""The author-facing surface — the ONLY cozy-runtime package code imports.
 
 Structural fence (cozy-runtime.md §7, boundaries.md): this package may import schema and
 typing libraries and the pure canonical-JSON facade only. It cannot import
@@ -30,7 +30,6 @@ from cozy_runtime.author._assets import (
     VideoAsset,
 )
 from cozy_runtime.author._attention import (
-    AttentionContext,
     AttentionProducer,
     ProducerCall,
     register_attention,
@@ -136,30 +135,19 @@ from cozy_runtime.author._model import (
     ScopeCall,
     placeable,
     sequence_parallel,
+    uncaptured,
     uses_components,
 )
-from cozy_runtime.author._model_reader import WeightsReader, WeightsView
 from cozy_runtime.author._script import ScriptContext, script_app
 from cozy_runtime.author._services import (
-    JOB_ONLY,
-    SERVING_ONLY,
     AdjustmentRow,
     Adjustments,
-    Budget,
-    BudgetExhausted,
-    BudgetFacts,
-    CheckpointConflict,
-    CheckpointDeclaration,
-    Checkpoints,
-    CheckpointSave,
-    CheckpointSinkUnbuilt,
     Egress,
     EgressResponse,
     ImageFrame,
     Outputs,
     SavedAudioFacts,
     SavedVideo,
-    Scratch,
     Secrets,
     Settings,
     Telemetry,
@@ -170,6 +158,7 @@ from cozy_runtime.author._split import Cut, split
 from cozy_runtime.author._spread import spread
 from cozy_runtime.author._weights import (
     MAX_WEIGHTS_NEW_BYTES,
+    Weights,
     WeightsOutput,
     WeightsReceipt,
 )
@@ -184,10 +173,8 @@ from cozy_runtime.author.publication import (
 
 __all__ = [
     "DEFAULT_DECODE_LIMITS",
-    "JOB_ONLY",
     "MAX_WEIGHTS_NEW_BYTES",
     "NEUTRAL_ERROR_SET",
-    "SERVING_ONLY",
     "ActivationCapture",
     "ActivationCaptureResult",
     "AdapterCompatibility",
@@ -202,25 +189,16 @@ __all__ = [
     "AssetInfo",
     "AssetLimits",
     "Assets",
-    "AttentionContext",
     "AttentionLayout",
     "AttentionProducer",
     "AudioAsset",
     "AuthorError",
     "Backend",
     "Bound",
-    "Budget",
-    "BudgetExhausted",
-    "BudgetFacts",
     "Cancelled",
     "CapabilityError",
-    "CheckpointConflict",
-    "CheckpointDeclaration",
     "CheckpointRef",
-    "CheckpointSave",
-    "CheckpointSinkUnbuilt",
     "CheckpointUnnormalized",
-    "Checkpoints",
     "ChildCallError",
     "Clamp",
     "Config",
@@ -294,7 +272,6 @@ __all__ = [
     "SavedVideo",
     "Scheduler",
     "ScopeCall",
-    "Scratch",
     "ScriptContext",
     "Secrets",
     "Settings",
@@ -307,10 +284,9 @@ __all__ = [
     "UnsupportedInput",
     "VideoAsset",
     "VideoJoin",
+    "Weights",
     "WeightsOutput",
-    "WeightsReader",
     "WeightsReceipt",
-    "WeightsView",
     "active_attention_layout",
     "assert_declaration_shape",
     "attach_assessment",
@@ -336,6 +312,7 @@ __all__ = [
     "sequence_parallel",
     "split",
     "spread",
+    "uncaptured",
     "upload_checkpoint",
     "uses_components",
 ]

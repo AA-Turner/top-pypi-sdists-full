@@ -18,9 +18,7 @@ def _clear_env_cache():
 
 
 @mock.patch("langsmith.client.requests.Session")
-def test_custom_headers(
-    mock_session: mock.Mock, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_custom_headers(mock_session: mock.Mock, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that custom headers are properly merged with default headers."""
     _clear_env_cache()
     monkeypatch.delenv("LANGCHAIN_API_KEY", raising=False)
@@ -52,9 +50,7 @@ def test_custom_headers(
 
 
 @mock.patch("langsmith.client.requests.Session")
-def test_custom_headers_dont_override_required(
-    mock_session: mock.Mock, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_custom_headers_dont_override_required(mock_session: mock.Mock, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that custom headers don't override required headers."""
     _clear_env_cache()
     monkeypatch.delenv("LANGCHAIN_API_KEY", raising=False)
@@ -79,9 +75,7 @@ def test_custom_headers_dont_override_required(
 
 
 @mock.patch("langsmith.client.requests.Session")
-def test_no_custom_headers(
-    mock_session: mock.Mock, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_no_custom_headers(mock_session: mock.Mock, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that client works without custom headers."""
     _clear_env_cache()
     monkeypatch.delenv("LANGCHAIN_API_KEY", raising=False)
@@ -100,9 +94,7 @@ def test_no_custom_headers(
 
 
 @mock.patch("langsmith.client.requests.Session")
-def test_custom_headers_property_setter(
-    mock_session: mock.Mock, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_custom_headers_property_setter(mock_session: mock.Mock, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that headers can be dynamically updated via property setter."""
     _clear_env_cache()
     monkeypatch.delenv("LANGCHAIN_API_KEY", raising=False)
@@ -136,9 +128,7 @@ def test_custom_headers_property_setter(
 
 
 @mock.patch("langsmith.client.requests.Session")
-def test_custom_headers_property_getter(
-    mock_session: mock.Mock, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_custom_headers_property_getter(mock_session: mock.Mock, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that headers property getter returns the custom headers."""
     _clear_env_cache()
     monkeypatch.delenv("LANGCHAIN_API_KEY", raising=False)
@@ -162,9 +152,7 @@ def test_custom_headers_property_getter(
 
 
 @mock.patch("langsmith.client.requests.Session")
-def test_workspace_id_with_custom_headers(
-    mock_session: mock.Mock, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_workspace_id_with_custom_headers(mock_session: mock.Mock, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that workspace_id header is preserved with custom headers."""
     _clear_env_cache()
     monkeypatch.delenv("LANGCHAIN_API_KEY", raising=False)

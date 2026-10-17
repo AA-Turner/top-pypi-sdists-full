@@ -108,25 +108,42 @@ class TextContent:
         empty text is harmless ("Hello {{name}}" with name="" is just
         "Hello ", not a system fault).
         """
-        original_text = self.text
+        from matrx_ai.config.template_substitution import data_tail, is_data
+
+        if is_data(self):
+            return False  # the person's typed content: data, never filled
+        tail = data_tail(self)
+        if tail and not self.text.endswith(tail):
+            tail = ""
+        # Typed text glued onto this authored block (``data_tail``) is data: fill the head only.
+        original_text = self.text[: len(self.text) - len(tail)] if tail else self.text
         # THE PROMPT DOOR (round-1 F4): every variable that becomes prompt
         # text passes through prompt_safe_value here — structured values get
         # kind markers stripped and render as canonical JSON (never Python
         # repr), scalars stay scalars. This is the choke point, so no caller
         # has to remember the law.
         from matrx_ai.config.prompt_values import prompt_safe_value
-        from matrx_ai.config.template_substitution import substitute_authored
+        from matrx_ai.config.template_substitution import (
+            FILLED_ATTR,
+            restart_point,
+            substitute_authored,
+        )
 
         # THE ONE RULE (config/template_substitution.py): declared slots only, one pass,
-        # the first-seen text is the authored template for the life of this block.
+        # the first-seen text is the authored template for the life of this block. Every fill
+        # restarts from that template, so a refill (force, a clone) fills it exactly once.
         template = getattr(self, "_authored_template", None)
         if template is None:
             template = original_text
             self._authored_template = template
+        else:
+            restart_point(self, original_text, "an authored text part")
+            original_text = template
         replaced_text = substitute_authored(
-            original_text, template, variables, prompt_safe_value, unescape=True, blocks=blocks
+            template, template, variables, prompt_safe_value, unescape=True, blocks=blocks
         )
-        self.text = replaced_text
+        setattr(self, FILLED_ATTR, replaced_text)
+        self.text = replaced_text + tail
         role = (self.metadata or {}).get("role")
         # Dropped only when the pass itself emptied it — never by searching the text for braces.
         if role and replaced_text != original_text and not replaced_text.strip():

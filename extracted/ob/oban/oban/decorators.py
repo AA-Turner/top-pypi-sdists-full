@@ -8,8 +8,9 @@ This module provides two decorators for making your code enqueueable:
 """
 
 import inspect
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 from ._extensions import use_ext
 from ._scheduler import register_scheduled
@@ -150,7 +151,7 @@ def worker(*, oban: str = "Oban", cron: str | dict | None = None, **overrides):
         if cron:
             register_scheduled(cron, cls)
 
-        return cls
+        return cls  # ty: ignore[invalid-return-type]
 
     return decorate
 
@@ -201,9 +202,9 @@ def job(*, oban: str = "Oban", cron: str | dict | None = None, **overrides):
                     return await result
                 return result
 
-        FunctionWorker.__name__ = func.__name__  # type: ignore[attr-defined]
-        FunctionWorker.__module__ = func.__module__  # type: ignore[attr-defined]
-        FunctionWorker.__qualname__ = func.__qualname__  # type: ignore[attr-defined]
+        FunctionWorker.__name__ = func.__name__  # ty: ignore[unresolved-attribute]
+        FunctionWorker.__module__ = func.__module__
+        FunctionWorker.__qualname__ = func.__qualname__  # ty: ignore[unresolved-attribute]
         FunctionWorker.__doc__ = func.__doc__
 
         worker_cls = worker(oban=oban, cron=cron, **overrides)(FunctionWorker)

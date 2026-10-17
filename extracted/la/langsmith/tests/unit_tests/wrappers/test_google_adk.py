@@ -94,9 +94,7 @@ def _build_runner_sync(agent):
     from google.adk import runners, sessions
 
     session_service = sessions.InMemorySessionService()
-    session_service.create_session_sync(
-        app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID
-    )
+    session_service.create_session_sync(app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
     return runners.Runner(
         agent=agent,
         app_name=APP_NAME,
@@ -108,9 +106,7 @@ async def _build_runner_async(agent):
     from google.adk import runners, sessions
 
     session_service = sessions.InMemorySessionService()
-    await session_service.create_session(
-        app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID
-    )
+    await session_service.create_session(app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
     return runners.Runner(
         agent=agent,
         app_name=APP_NAME,
@@ -131,9 +127,7 @@ def _collect_runs(mock_ls_client: Client) -> list[dict[str, Any]]:
         for run in [*(payload.get("post") or []), *(payload.get("patch") or [])]:
             run_id = run.get("id")
             if run_id and run_id in runs_by_id:
-                runs_by_id[run_id].update(
-                    {k: v for k, v in run.items() if v is not None}
-                )
+                runs_by_id[run_id].update({k: v for k, v in run.items() if v is not None})
             elif run_id:
                 runs_by_id[run_id] = run
     return list(runs_by_id.values())
@@ -143,9 +137,7 @@ def _find_run(runs: list[dict[str, Any]], name: str) -> dict[str, Any]:
     for run in runs:
         if run.get("name") == name:
             return run
-    raise AssertionError(
-        f"Run '{name}' not found. Present: {[r.get('name') for r in runs]}"
-    )
+    raise AssertionError(f"Run '{name}' not found. Present: {[r.get('name') for r in runs]}")
 
 
 def _extract_response(events) -> str | None:
@@ -224,9 +216,7 @@ def _run_agent(mode: str, agent, mock_ls_client: Client, input_text: str = "hell
 
 
 @pytest.mark.parametrize("mode", ["sync", "async"])
-def test_simple_agent_sync_async_inputs_outputs_and_ls_fields(
-    mode: str, mock_ls_client: Client
-):
+def test_simple_agent_sync_async_inputs_outputs_and_ls_fields(mode: str, mock_ls_client: Client):
     EchoCls, _, _ = _build_dummy_agents()
     response, runs = _run_agent(
         mode,
@@ -247,9 +237,7 @@ def test_simple_agent_sync_async_inputs_outputs_and_ls_fields(
 
 
 @pytest.mark.parametrize("mode", ["sync", "async"])
-def test_sequential_agent_sync_async_inputs_outputs_no_errors(
-    mode: str, mock_ls_client: Client
-):
+def test_sequential_agent_sync_async_inputs_outputs_no_errors(mode: str, mock_ls_client: Client):
     EchoCls, PipelineCls, _ = _build_dummy_agents()
     pipeline = PipelineCls(
         name="pipeline",
@@ -328,9 +316,7 @@ def _build_llm_agent_with_before_callback(injected_instruction: str):
 
 
 @pytest.mark.parametrize("mode", ["sync", "async"])
-def test_before_model_callback_mutations_reflected_in_llm_inputs(
-    mode: str, mock_ls_client: Client
-):
+def test_before_model_callback_mutations_reflected_in_llm_inputs(mode: str, mock_ls_client: Client):
     """LLM run inputs must reflect before_model_callback mutations (LSDK-279).
 
     ADK runs before_model_callback inside ``_call_llm_async`` and lets it mutate
@@ -346,17 +332,11 @@ def test_before_model_callback_mutations_reflected_in_llm_inputs(
     assert response is not None and injected in response
 
     llm_run = next((r for r in runs if r.get("run_type") == "llm"), None)
-    assert llm_run is not None, (
-        f"No LLM run found. Present: {[r.get('name') for r in runs]}"
-    )
+    assert llm_run is not None, f"No LLM run found. Present: {[r.get('name') for r in runs]}"
 
     messages = (llm_run.get("inputs") or {}).get("messages") or []
-    system_text = " ".join(
-        str(m.get("content") or "") for m in messages if m.get("role") == "system"
-    )
-    assert injected in system_text, (
-        f"Injected instruction missing from LLM inputs. messages={messages}"
-    )
+    system_text = " ".join(str(m.get("content") or "") for m in messages if m.get("role") == "system")
+    assert injected in system_text, f"Injected instruction missing from LLM inputs. messages={messages}"
 
 
 @pytest.mark.parametrize("mode", ["sync", "async"])
@@ -372,13 +352,20 @@ def test_error_agent_sync_async_records_errors(mode: str, mock_ls_client: Client
                 mock_ls_client,
                 input_text="hello",
             )
+        mock_ls_client.flush()
     else:
-        _run_agent(
-            mode,
-            ErrorCls(name="error_agent", description="error agent"),
-            mock_ls_client,
-            input_text="hello",
-        )
+        # google-adk < 2.7 swallows the agent error inside Runner.run's
+        # background thread; >= 2.7 (on Python 3.11+) re-raises it to the
+        # caller. Either way the error must land on the trace.
+        try:
+            _run_agent(
+                mode,
+                ErrorCls(name="error_agent", description="error agent"),
+                mock_ls_client,
+                input_text="hello",
+            )
+        except RuntimeError as e:
+            assert "boom" in str(e)
 
     runs = _collect_runs(mock_ls_client)
     assert any(run.get("error") for run in runs), runs
@@ -418,12 +405,9 @@ def test_wrap_tool_run_async_sets_tool_as_active_context(mock_ls_client: Client)
     runs = _collect_runs(mock_ls_client)
     tool_run = _find_run(runs, "test_tool")
 
-    assert captured_run_id is not None, (
-        "get_current_run_tree() returned None inside tool body"
-    )
+    assert captured_run_id is not None, "get_current_run_tree() returned None inside tool body"
     assert captured_run_id == tool_run["id"], (
-        f"Expected active context inside tool to be the tool span "
-        f"({tool_run['id']}), got {captured_run_id}"
+        f"Expected active context inside tool to be the tool span ({tool_run['id']}), got {captured_run_id}"
     )
 
 
@@ -437,24 +421,14 @@ def _tool_call_request(*calls: tuple[str | None, str | None], name: str = "weath
         contents.append(
             types.Content(
                 role="model",
-                parts=[
-                    types.Part(
-                        function_call=types.FunctionCall(
-                            id=call_id, name=name, args={"city": "Haifa"}
-                        )
-                    )
-                ],
+                parts=[types.Part(function_call=types.FunctionCall(id=call_id, name=name, args={"city": "Haifa"}))],
             )
         )
         contents.append(
             types.Content(
                 role="user",
                 parts=[
-                    types.Part(
-                        function_response=types.FunctionResponse(
-                            id=result_id, name=name, response={"c": 29}
-                        )
-                    )
+                    types.Part(function_response=types.FunctionResponse(id=result_id, name=name, response={"c": 29}))
                 ],
             )
         )
@@ -475,9 +449,7 @@ def _call_and_result_ids(llm_request):
 
 def test_tool_messages_pair_with_the_ids_adk_assigned():
     """When ADK keeps its ids, a tool message carries the id of the call it answers."""
-    calls, results = _call_and_result_ids(
-        _tool_call_request(("adk-1111", "adk-1111"), ("adk-2222", "adk-2222"))
-    )
+    calls, results = _call_and_result_ids(_tool_call_request(("adk-1111", "adk-1111"), ("adk-2222", "adk-2222")))
 
     assert calls == ["adk-1111", "adk-2222"]
     assert results == calls

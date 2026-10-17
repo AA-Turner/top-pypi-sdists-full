@@ -1,6 +1,7 @@
 """Sandbox client implementations."""
 
 import asyncio
+import contextlib
 import functools
 import json
 import math
@@ -13,7 +14,7 @@ import threading
 import time
 import uuid
 from collections import OrderedDict, deque
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -28,6 +29,7 @@ from typing import (
     Literal,
     NoReturn,
     Optional,
+    Tuple,
     TypeVar,
 )
 
@@ -40,7 +42,8 @@ from connectrpc.errors import ConnectError
 from connectrpc.method import MethodInfo
 from google.protobuf.message import Message
 from pyqwest import Client as HTTPClient
-from pyqwest import HTTPTransport
+from pyqwest import HTTPTransport, HTTPVersion, SyncHTTPTransport
+from pyqwest import SyncClient as SyncHTTPClient
 from tenacity import (
     retry,
     retry_if_exception,
@@ -132,6 +135,9 @@ _PROCESS_CONTROL_RPC_ATTEMPTS = 3
 _PROCESS_CONTROL_RETRY_INITIAL_DELAY = 0.5
 _BACKGROUND_JOB_LAUNCH_ATTEMPTS = 3
 _BACKGROUND_JOB_LAUNCH_BACKOFF_SECONDS = 0.5
+# The platform retries a failed LAN push from its scheduled status sweep.
+_LAN_SYNC_TIMEOUT_SECONDS = 120.0
+_LAN_SYNC_POLL_SECONDS = 2.0
 _BACKGROUND_JOB_LAUNCH_TIMEOUT_SECONDS = 30
 _SANDBOX_ERROR_CONTEXT_TIMEOUT_SECONDS = 10.0
 
@@ -342,6 +348,70 @@ def _live_process_transport() -> HTTPTransport:
         tcp_keepalive_interval=_LIVE_PROCESS_TCP_KEEPALIVE_SECONDS,
         pool_idle_timeout=_LIVE_PROCESS_POOL_IDLE_TIMEOUT_SECONDS,
     )
+
+
+# The gateway caps concurrent HTTP/2 streams per connection (100 behind Google's
+# front end), and pyqwest before 0.12 keeps every request to a host on one
+# connection whatever the cap, so past it further commands queue client-side until
+# their deadline. Each command transport therefore carries at most this many
+# streams, and the pool opens another transport (connection) when all are full.
+_COMMAND_STREAMS_PER_TRANSPORT = 90
+
+_PooledClient = TypeVar("_PooledClient")
+
+
+def _is_tls_gateway(base_url: str) -> bool:
+    return base_url.startswith("https://")
+
+
+def _command_transport() -> HTTPTransport:
+    # Pinned HTTP/2: under ALPN a burst on a cold transport races the upgrade and
+    # fails requests with "ALPN upgraded to HTTP/2". Plaintext gateways (local
+    # stacks) bypass the pool, since pinned HTTP/2 there would mean h2c.
+    return HTTPTransport(tls_ca_cert=_ca_bundle(), http_version=HTTPVersion.HTTP2)
+
+
+def _sync_command_transport() -> SyncHTTPTransport:
+    return SyncHTTPTransport(tls_ca_cert=_ca_bundle(), http_version=HTTPVersion.HTTP2)
+
+
+class _CommandTransportPool(Generic[_PooledClient]):
+    """Command-stream HTTP clients, each leased to at most a fixed number of streams."""
+
+    def __init__(self, new_client: Callable[[], _PooledClient]) -> None:
+        self._new_client = new_client
+        # Transports are kept for the client's lifetime, bounded by peak
+        # concurrency / limit; idle connections close via pool_idle_timeout.
+        self._slots: List[List[Any]] = []  # [client, in-flight streams]
+        self._lock = threading.Lock()
+
+    @contextlib.contextmanager
+    def lease(self) -> Iterator[_PooledClient]:
+        with self._lock:
+            slot = next(
+                (s for s in self._slots if s[1] < _COMMAND_STREAMS_PER_TRANSPORT),
+                None,
+            )
+            if slot is None:
+                slot = [self._new_client(), 0]
+                self._slots.append(slot)
+            slot[1] += 1
+        try:
+            yield slot[0]
+        finally:
+            with self._lock:
+                slot[1] -= 1
+
+
+def _lease_command_client(
+    pool: _CommandTransportPool[_PooledClient],
+    leases: contextlib.ExitStack,
+    base_url: str,
+) -> Optional[_PooledClient]:
+    """Lease a pooled command client for TLS gateways; plaintext uses the default."""
+    if not _is_tls_gateway(base_url):
+        return None
+    return leases.enter_context(pool.lease())
 
 
 def _network_update_payload(
@@ -2147,6 +2217,8 @@ class SandboxClient:
             self._operation_leases,
         )
         self._checkpoint_batch_supported: Optional[bool] = None
+        # sandbox_id -> (network_id, tags) recorded by create(), joined by wait_for_creation.
+        self._pending_lan_joins: Dict[str, Tuple[str, Optional[List[str]]]] = {}
         self._sandbox_status_batcher = _SyncRequestBatcher(
             self._fetch_sandbox_statuses,
             lambda sandbox_id: sandbox_id,
@@ -2165,6 +2237,9 @@ class SandboxClient:
             background_job_output_cache_bytes,
         )
         self._background_job_output_concurrency = background_job_output_concurrency
+        self._command_pool: _CommandTransportPool[SyncHTTPClient] = _CommandTransportPool(
+            lambda: SyncHTTPClient(transport=_sync_command_transport())
+        )
         self._sandbox_status_batch_supported: Optional[bool] = None
         self._background_job_status_batch_supported: Optional[bool] = None
 
@@ -2287,8 +2362,14 @@ class SandboxClient:
         self._auth_cache.clear()
 
     def create(self, request: CreateSandboxRequest) -> Sandbox:
-        """Create a new sandbox"""
-        payload = request.model_dump(by_alias=False, exclude_none=True)
+        """Create a new sandbox.
+
+        With ``lan_network_id`` set, the sandbox joins that LAN network once it is
+        running, during this client's ``wait_for_creation`` or
+        ``bulk_wait_for_creation``."""
+        payload = request.model_dump(
+            by_alias=False, exclude_none=True, exclude={"lan_network_id", "lan_tags"}
+        )
         # VM is the only runtime; send it explicitly so the created runtime
         # never depends on server-side defaults changing underneath the SDK.
         payload["vm"] = True
@@ -2303,7 +2384,10 @@ class SandboxClient:
             json=payload,
             idempotent_post=True,
         )
-        return Sandbox.model_validate(response)
+        sandbox = Sandbox.model_validate(response)
+        if request.lan_network_id is not None:
+            self._pending_lan_joins[sandbox.id] = (request.lan_network_id, request.lan_tags)
+        return sandbox
 
     def list(
         self,
@@ -2573,6 +2657,32 @@ class SandboxClient:
         )
         return LanNetworkMember.model_validate(response)
 
+    def _join_pending_lan(self, sandbox_ids: List[str]) -> None:
+        """Join the LAN network create() recorded for each of these sandboxes."""
+        for sandbox_id in sandbox_ids:
+            pending = self._pending_lan_joins.get(sandbox_id)
+            if pending is not None:
+                self._join_lan(pending[0], sandbox_id, pending[1])
+                self._pending_lan_joins.pop(sandbox_id, None)
+
+    def _join_lan(self, network_id: str, sandbox_id: str, tags: Optional[List[str]]) -> None:
+        """Add a member and wait until the platform has pushed it to the VM layer.
+        A failed inline push is retried by a background sweep, so poll for it."""
+        member = self.add_lan_member(network_id, sandbox_id, tags)
+        deadline = time.monotonic() + _LAN_SYNC_TIMEOUT_SECONDS
+        while not member.synced:
+            if time.monotonic() > deadline:
+                raise TimeoutError(
+                    f"Sandbox {sandbox_id} joined LAN network {network_id} but was not "
+                    f"synced within {_LAN_SYNC_TIMEOUT_SECONDS}s"
+                )
+            time.sleep(_LAN_SYNC_POLL_SECONDS)
+            network = self.get_lan_network(network_id)
+            found = next((m for m in network.members or [] if m.sandbox_id == sandbox_id), None)
+            if found is None:
+                raise RuntimeError(f"Sandbox {sandbox_id} left LAN network {network_id}")
+            member = found
+
     def remove_lan_member(self, network_id: str, sandbox_id: str) -> None:
         """Remove a sandbox from a LAN network."""
         self.client.request("DELETE", f"/sandbox/networks/{network_id}/members/{sandbox_id}")
@@ -2700,10 +2810,12 @@ class SandboxClient:
             exit_code: Optional[int] = None
             stream_started = False
 
+            command_lease = contextlib.ExitStack()
             rpc_client = ConnectClientSync(
                 base_url,
                 codec=GOOGLE_PROTOBUF_BINARY_CODEC,
                 send_compression=None,
+                http_client=_lease_command_client(self._command_pool, command_lease, base_url),
             )
             try:
                 stream = rpc_client.execute_server_stream(
@@ -2761,6 +2873,7 @@ class SandboxClient:
                 raise APIError(f"Request failed: {e.__class__.__name__}: {e}") from e
             finally:
                 rpc_client.close()
+                command_lease.close()
 
     def start_background_job(
         self,
@@ -3219,6 +3332,7 @@ class SandboxClient:
                 if reachable:
                     consecutive_successes += 1
                     if consecutive_successes >= stability_checks:
+                        self._join_pending_lan([sandbox_id])
                         return
                     # Small delay between stability checks
                     time.sleep(0.5)
@@ -3356,6 +3470,7 @@ class SandboxClient:
                             final_statuses.pop(sandbox_id, None)
 
                 if all_reachable:
+                    self._join_pending_lan(sandbox_ids)
                     return final_statuses
 
             if total_image_build_waiting:
@@ -3691,6 +3806,10 @@ class AsyncSandboxClient:
         # Shared httpx client for gateway operations (upload/download/execute)
         # Initialized lazily to allow connection pooling and reuse
         self._gateway_client: Optional[httpx.AsyncClient] = None
+        self._command_transports: List[HTTPTransport] = []
+        self._command_pool: _CommandTransportPool[HTTPClient] = _CommandTransportPool(
+            self._new_command_http_client
+        )
         self._operation_leases = _AsyncPollLeaseRegistry()
         self._poll_leases = self._operation_leases
         # Checkpoints outlive their sandboxes; leases use checkpoint scopes.
@@ -3700,6 +3819,8 @@ class AsyncSandboxClient:
             self._operation_leases,
         )
         self._checkpoint_batch_supported: Optional[bool] = None
+        # sandbox_id -> (network_id, tags) recorded by create(), joined by wait_for_creation.
+        self._pending_lan_joins: Dict[str, Tuple[str, Optional[List[str]]]] = {}
         self._sandbox_status_batcher = _AsyncRequestBatcher(
             self._fetch_sandbox_statuses,
             lambda sandbox_id: sandbox_id,
@@ -3858,8 +3979,14 @@ class AsyncSandboxClient:
         await self._auth_cache.clear()
 
     async def create(self, request: CreateSandboxRequest) -> Sandbox:
-        """Create a new sandbox"""
-        payload = request.model_dump(by_alias=False, exclude_none=True)
+        """Create a new sandbox.
+
+        With ``lan_network_id`` set, the sandbox joins that LAN network once it is
+        running, during this client's ``wait_for_creation`` or
+        ``bulk_wait_for_creation``."""
+        payload = request.model_dump(
+            by_alias=False, exclude_none=True, exclude={"lan_network_id", "lan_tags"}
+        )
         # VM is the only runtime; send it explicitly so the created runtime
         # never depends on server-side defaults changing underneath the SDK.
         payload["vm"] = True
@@ -3873,7 +4000,10 @@ class AsyncSandboxClient:
             json=payload,
             idempotent_post=True,
         )
-        return Sandbox.model_validate(response)
+        sandbox = Sandbox.model_validate(response)
+        if request.lan_network_id is not None:
+            self._pending_lan_joins[sandbox.id] = (request.lan_network_id, request.lan_tags)
+        return sandbox
 
     async def list(
         self,
@@ -4152,6 +4282,35 @@ class AsyncSandboxClient:
             json={"tags": tags or []},
         )
         return LanNetworkMember.model_validate(response)
+
+    async def _join_pending_lan(self, sandbox_ids: List[str]) -> None:
+        """Join the LAN network create() recorded for each of these sandboxes."""
+
+        async def join(sandbox_id: str) -> None:
+            pending = self._pending_lan_joins.get(sandbox_id)
+            if pending is not None:
+                await self._join_lan(pending[0], sandbox_id, pending[1])
+                self._pending_lan_joins.pop(sandbox_id, None)
+
+        await asyncio.gather(*(join(sandbox_id) for sandbox_id in sandbox_ids))
+
+    async def _join_lan(self, network_id: str, sandbox_id: str, tags: Optional[List[str]]) -> None:
+        """Add a member and wait until the platform has pushed it to the VM layer.
+        A failed inline push is retried by a background sweep, so poll for it."""
+        member = await self.add_lan_member(network_id, sandbox_id, tags)
+        deadline = time.monotonic() + _LAN_SYNC_TIMEOUT_SECONDS
+        while not member.synced:
+            if time.monotonic() > deadline:
+                raise TimeoutError(
+                    f"Sandbox {sandbox_id} joined LAN network {network_id} but was not "
+                    f"synced within {_LAN_SYNC_TIMEOUT_SECONDS}s"
+                )
+            await asyncio.sleep(_LAN_SYNC_POLL_SECONDS)
+            network = await self.get_lan_network(network_id)
+            found = next((m for m in network.members or [] if m.sandbox_id == sandbox_id), None)
+            if found is None:
+                raise RuntimeError(f"Sandbox {sandbox_id} left LAN network {network_id}")
+            member = found
 
     async def remove_lan_member(self, network_id: str, sandbox_id: str) -> None:
         """Remove a sandbox from a LAN network."""
@@ -4449,6 +4608,11 @@ class AsyncSandboxClient:
             finally:
                 await rpc_client.close()
 
+    def _new_command_http_client(self) -> HTTPClient:
+        transport = _command_transport()
+        self._command_transports.append(transport)
+        return HTTPClient(transport=transport)
+
     async def _execute_command_connect_rpc(
         self,
         sandbox_id: str,
@@ -4474,10 +4638,12 @@ class AsyncSandboxClient:
             exit_code: Optional[int] = None
             stream_started = False
 
+            command_lease = contextlib.ExitStack()
             rpc_client = ConnectClient(
                 base_url,
                 codec=GOOGLE_PROTOBUF_BINARY_CODEC,
                 send_compression=None,
+                http_client=_lease_command_client(self._command_pool, command_lease, base_url),
             )
             try:
                 stream = rpc_client.execute_server_stream(
@@ -4535,6 +4701,7 @@ class AsyncSandboxClient:
                 raise APIError(f"Request failed: {e.__class__.__name__}: {e}") from e
             finally:
                 await rpc_client.close()
+                command_lease.close()
 
     async def start_background_job(
         self,
@@ -5007,6 +5174,7 @@ class AsyncSandboxClient:
                 if reachable:
                     consecutive_successes += 1
                     if consecutive_successes >= stability_checks:
+                        await self._join_pending_lan([sandbox_id])
                         return
                     # Small delay between stability checks
                     await asyncio.sleep(0.5)
@@ -5145,6 +5313,7 @@ class AsyncSandboxClient:
                             final_statuses.pop(sandbox_id, None)
 
                 if all_reachable:
+                    await self._join_pending_lan(sandbox_ids)
                     return final_statuses
 
             if total_image_build_waiting:
@@ -5479,6 +5648,9 @@ class AsyncSandboxClient:
         try:
             if self._gateway_client is not None:
                 await self._gateway_client.aclose()
+            # pyqwest's aclose() returns a bare awaitable that gather() rejects on 3.11.
+            for transport in self._command_transports:
+                await transport.aclose()
         finally:
             await self.client.aclose()
 

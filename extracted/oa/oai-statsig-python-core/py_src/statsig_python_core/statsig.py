@@ -3,6 +3,7 @@ import inspect
 import json
 import os
 from pathlib import Path
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 from weakref import ref
 
@@ -177,6 +178,8 @@ class Statsig(StatsigBasePy):
         *,
         message_type: type[_TypedConfigValue],
         options: Optional[DynamicConfigEvaluationOptions] = None,
+        allow_packaged_fallback: bool = True,
+        packaged_fallback_package: Optional[ModuleType] = None,
     ) -> TypedDynamicConfig[_TypedConfigValue]:
         """Evaluate the supplied current context and freshly convert its value.
 
@@ -184,12 +187,27 @@ class Statsig(StatsigBasePy):
         pairs its value with metadata from that same evaluation. Ordinary
         exposure semantics apply; conversion failures raise and never substitute
         an earlier value. Reads retain no context binding and notify no callbacks.
+        Before the SDK has loaded any spec snapshot, an unavailable config uses
+        its package's ``fallback.json`` by default. Once a snapshot is loaded,
+        missing configs and evaluation errors never use packaged values. Set
+        ``allow_packaged_fallback=False`` to forbid packaged values.
+        The package is inferred from generated
+        ``oaiproto.statsig_configs.<package>.config_pb2`` types, or supplied with
+        ``packaged_fallback_package``. An explicit package does not override the
+        opt-out. Packaged values do not populate the SDK store or emit exposures.
         """
         if options is not None and not isinstance(
             options, DynamicConfigEvaluationOptions
         ):
             raise TypeError("options must be DynamicConfigEvaluationOptions")
-        return self._typed_configs.get(name, user, message_type, options)
+        return self._typed_configs.get(
+            name,
+            user,
+            message_type,
+            options,
+            packaged_fallback_package,
+            allow_packaged_fallback=allow_packaged_fallback,
+        )
 
     def register_typed_config_callback(
         self,

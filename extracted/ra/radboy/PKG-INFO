@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: radboy
-Version: 0.1.166
+Version: 0.1.168
 Summary: A Retail Calculator for Android/Linux
 Author: Carl Joseph Hirner III
 Author-email: Carl Hirner III <k.j.hirner.wisdom@gmail.com>
@@ -14,6 +14,7 @@ Description-Content-Type: text/markdown
 License-File: COPYING
 Requires-Dist: pyzipcode
 Requires-Dist: inputimeout
+Requires-Dist: pyotp
 Requires-Dist: gdown
 Requires-Dist: biip
 Requires-Dist: sympy

@@ -602,6 +602,8 @@ def test_main_adds_all_subcommands():
     ) as mock_deps, patch.object(
         main_module, "printers_main"
     ) as mock_printers, patch.object(
+        main_module, "metrics_main"
+    ) as mock_metrics, patch.object(
         main_module, "cli"
     ) as mock_cli:
 
@@ -623,6 +625,7 @@ def test_main_adds_all_subcommands():
         mock_lic.add_commands.assert_called_once_with(main_module.cli)
         mock_deps.add_commands.assert_called_once_with(main_module.cli)
         mock_printers.add_commands.assert_called_once_with(main_module.cli)
+        mock_metrics.add_commands.assert_called_once_with(main_module.cli)
 
         # Verify cli was called with envvar prefix
         mock_cli.assert_called_once_with(auto_envvar_prefix="AGILICUS")

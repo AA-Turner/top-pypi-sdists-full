@@ -47,7 +47,7 @@ def test_every_approved_file_is_used_here():
     used |= {f"bite/{p.name}" for p in (FIXTURES / "bite").glob("*.PROPOSED.md")}
     # `reads/` (the daemon's reader) is pinned in test_daemon_reads_prompts.py.
     assert {str(p.relative_to(FIXTURES)) for p in FIXTURES.rglob("*.md") if p.relative_to(FIXTURES).parts[0] != "reads"} == used
-    assert len(used) == 23
+    assert len(used) == 24
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +138,13 @@ def test_the_compaction_prompt_and_the_loop_stop_are_the_approved_text():
 
 def _store(tmp_path) -> store_mod.Store:
     return store_mod.Store(tmp_path / "s.sqlite", clock=time.time)
+
+
+def test_the_summary_pin_header_is_the_approved_text():
+    pytest.importorskip("pydantic_ai")
+    from probe.daemon import worker as worker_mod
+
+    assert worker_mod.SUMMARY_PIN_HEADER == body("bite/summary-pin-header.PROPOSED.md")
 
 
 def test_the_bite_constants_are_the_approved_text():

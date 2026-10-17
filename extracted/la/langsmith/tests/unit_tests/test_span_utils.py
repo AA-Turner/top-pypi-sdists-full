@@ -18,9 +18,7 @@ def _span() -> ReadableSpan:
 
 def test_rebuild_overrides_attributes_and_events():
     span = _span()
-    rebuilt = rebuild_readable_span(
-        span, attributes={"b": 2}, events=[Event(name="e1")]
-    )
+    rebuilt = rebuild_readable_span(span, attributes={"b": 2}, events=[Event(name="e1")])
 
     # Overridden fields.
     assert dict(rebuilt.attributes) == {"b": 2}

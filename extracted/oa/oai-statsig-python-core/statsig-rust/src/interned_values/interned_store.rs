@@ -31,7 +31,7 @@ pub use super::mmap_sync::{MmapSyncCursor, MmapWriteOutcome};
 use crate::{
     DynamicReturnable, StatsigErr, StatsigOptions,
     evaluation::{
-        dynamic_returnable::DynamicReturnableValue,
+        dynamic_returnable::{DynamicReturnableValue, owned_returnable_stable_hash},
         evaluator_value::{
             EvaluatorArrayKeyMode, EvaluatorValue, EvaluatorValueInner, MemoizedEvaluatorValue,
         },
@@ -147,21 +147,21 @@ static MMAP_EVALUATOR_OVERRIDE_EXISTS: AtomicBool = AtomicBool::new(false);
 
 lazy_static! {
     static ref MUTABLE_STRINGS: MutableStore<String> = MutableStore::default();
-    static ref MUTABLE_RETURNABLES: MutableStore<HashMap<String, RkyvValue>> =
+    static ref MUTABLE_RETURNABLES: MutableStore<HashMap<String, RkyvValue>, u64> =
         MutableStore::default();
     static ref MUTABLE_EVALUATOR_VALUES: MutableStore<MemoizedEvaluatorValue> =
         MutableStore::default();
 }
 
-type MutableEntries<T> = AHashMap<u64, Weak<T>>;
+type MutableEntries<T, M> = AHashMap<u64, (Weak<T>, M)>;
 
-struct MutableTable<T> {
-    entries: MutableEntries<T>,
+struct MutableTable<T, M> {
+    entries: MutableEntries<T, M>,
     insertions: usize,
     next_sweep_at: usize,
 }
 
-impl<T> Default for MutableTable<T> {
+impl<T, M> Default for MutableTable<T, M> {
     fn default() -> Self {
         Self {
             entries: AHashMap::new(),
@@ -171,11 +171,11 @@ impl<T> Default for MutableTable<T> {
     }
 }
 
-struct MutableStore<T> {
-    table: RwLock<MutableTable<T>>,
+struct MutableStore<T, M = ()> {
+    table: RwLock<MutableTable<T, M>>,
 }
 
-impl<T> Default for MutableStore<T> {
+impl<T, M> Default for MutableStore<T, M> {
     fn default() -> Self {
         Self {
             table: RwLock::new(MutableTable::default()),
@@ -185,37 +185,52 @@ impl<T> Default for MutableStore<T> {
 
 impl<T> MutableStore<T> {
     fn get(&self, hash: u64) -> Option<Arc<T>> {
-        let table = self.table.read();
-        let value = table.entries.get(&hash)?.upgrade();
-        value
+        self.get_with_metadata(hash).map(|(value, ())| value)
     }
 
     fn get_or_insert(&self, hash: u64, candidate: Arc<T>) -> Arc<T> {
+        self.get_or_insert_with_metadata(hash, candidate, ()).0
+    }
+
+    fn replace(&self, hash: u64, value: &Arc<T>) {
         let mut table = self.table.write();
-        let (value, inserted) = match table.entries.entry(hash) {
-            Entry::Occupied(mut entry) => match entry.get().upgrade() {
-                Some(value) => (value, false),
+        table.entries.insert(hash, (Arc::downgrade(value), ()));
+        Self::maybe_sweep(&mut table);
+    }
+}
+
+impl<T, M: Copy> MutableStore<T, M> {
+    fn get_with_metadata(&self, hash: u64) -> Option<(Arc<T>, M)> {
+        let table = self.table.read();
+        let (value, metadata) = table.entries.get(&hash)?;
+        Some((value.upgrade()?, *metadata))
+    }
+
+    fn get_or_insert_with_metadata(
+        &self,
+        hash: u64,
+        candidate: Arc<T>,
+        metadata: M,
+    ) -> (Arc<T>, M) {
+        let mut table = self.table.write();
+        let (value, metadata, inserted) = match table.entries.entry(hash) {
+            Entry::Occupied(mut entry) => match entry.get().0.upgrade() {
+                Some(value) => (value, entry.get().1, false),
                 None => {
-                    entry.insert(Arc::downgrade(&candidate));
-                    (candidate, true)
+                    entry.insert((Arc::downgrade(&candidate), metadata));
+                    (candidate, metadata, true)
                 }
             },
             Entry::Vacant(entry) => {
-                entry.insert(Arc::downgrade(&candidate));
-                (candidate, true)
+                entry.insert((Arc::downgrade(&candidate), metadata));
+                (candidate, metadata, true)
             }
         };
 
         if inserted {
             Self::maybe_sweep(&mut table);
         }
-        value
-    }
-
-    fn replace(&self, hash: u64, value: &Arc<T>) {
-        let mut table = self.table.write();
-        table.entries.insert(hash, Arc::downgrade(value));
-        Self::maybe_sweep(&mut table);
+        (value, metadata)
     }
 
     #[cfg(test)]
@@ -224,7 +239,7 @@ impl<T> MutableStore<T> {
             .read()
             .entries
             .iter()
-            .filter(|(_, value)| value.strong_count() > 0)
+            .filter(|(_, (value, _))| value.strong_count() > 0)
             .count()
     }
 
@@ -239,24 +254,30 @@ impl<T> MutableStore<T> {
     }
 
     fn take_live(&self) -> Vec<(u64, Arc<T>)> {
+        self.take_live_map(|hash, value, _| (hash, value))
+    }
+
+    fn take_live_map<R>(&self, mut project: impl FnMut(u64, Arc<T>, M) -> R) -> Vec<R> {
         let detached = {
             let mut table = self.table.write();
             std::mem::take(&mut *table)
         };
 
         let mut values = Vec::with_capacity(detached.entries.len());
-        for (hash, value) in detached.entries {
+        for (hash, (value, metadata)) in detached.entries {
             if let Some(value) = value.upgrade() {
-                values.push((hash, value));
+                values.push(project(hash, value, metadata));
             }
         }
         values
     }
 
-    fn maybe_sweep(table: &mut MutableTable<T>) {
+    fn maybe_sweep(table: &mut MutableTable<T, M>) {
         table.insertions += 1;
         if table.insertions == table.next_sweep_at {
-            table.entries.retain(|_, value| value.strong_count() > 0);
+            table
+                .entries
+                .retain(|_, (value, _)| value.strong_count() > 0);
             table.next_sweep_at = table
                 .insertions
                 .saturating_add(table.entries.len().max(WEAK_STORE_SWEEP_INTERVAL));
@@ -396,7 +417,7 @@ where
 #[derive(Default)]
 struct ImmortalData {
     strings: AHashMap<u64, &'static str>,
-    returnables: AHashMap<u64, &'static HashMap<String, RkyvValue>>,
+    returnables: AHashMap<u64, (&'static HashMap<String, RkyvValue>, u64)>,
     evaluator_values: AHashMap<u64, &'static MemoizedEvaluatorValue>,
     feature_gates: AHashMap<u64, &'static Spec>,
     dynamic_configs: AHashMap<u64, &'static Spec>,
@@ -875,12 +896,11 @@ impl InternedStore {
             return DynamicReturnable::from_archived(hash, returnable);
         }
 
-        if let Some(returnable) = get_returnable_from_shared(hash) {
-            return DynamicReturnable::from_static(hash, returnable);
+        if let Some((returnable, stable_hash)) = get_returnable_from_shared(hash) {
+            return DynamicReturnable::from_static(hash, returnable, stable_hash);
         }
 
-        let ptr = get_returnable_from_local(hash, value);
-        DynamicReturnable::from_pointer(hash, ptr)
+        get_returnable_from_local(hash, value)
     }
 
     pub fn get_or_intern_evaluator_value(value: Cow<'_, RawValue>) -> EvaluatorValue {
@@ -960,8 +980,12 @@ impl InternedStore {
             return Some(DynamicReturnable::from_archived(hash, returnable));
         }
 
-        if let Some(returnable) = get_returnable_from_shared(hash) {
-            return Some(DynamicReturnable::from_static(hash, returnable));
+        if let Some((returnable, stable_hash)) = get_returnable_from_shared(hash) {
+            return Some(DynamicReturnable::from_static(
+                hash,
+                returnable,
+                stable_hash,
+            ));
         }
 
         None
@@ -1109,27 +1133,38 @@ fn get_owned_string_from_local(hash: u64, value: String) -> Arc<String> {
 
 // ------------------------------------------------------------------------------- [ Returnable ]
 
-fn get_returnable_from_shared(hash: u64) -> Option<&'static HashMap<String, RkyvValue>> {
+fn get_returnable_from_shared(hash: u64) -> Option<(&'static HashMap<String, RkyvValue>, u64)> {
     match IMMORTAL_DATA.get() {
         Some(shared) => shared.returnables.get(&hash).copied(),
         None => None,
     }
 }
 
-fn get_returnable_from_local(hash: u64, value: Cow<RawValue>) -> Arc<HashMap<String, RkyvValue>> {
-    if let Some(returnable) = MUTABLE_RETURNABLES.get(hash) {
-        return returnable;
+fn get_returnable_from_local(hash: u64, value: Cow<RawValue>) -> DynamicReturnable {
+    if let Some((returnable, stable_hash)) = MUTABLE_RETURNABLES.get_with_metadata(hash) {
+        return DynamicReturnable::from_cached_value(
+            hash,
+            DynamicReturnableValue::JsonPointer(returnable),
+            stable_hash,
+        );
     }
 
     let owned: HashMap<String, RkyvValue> = match serde_json::from_str(value.get()) {
         Ok(owned) => owned,
         Err(e) => {
             log_e!(TAG, "Failed to parse returnable from local: {}", e);
-            return Arc::new(HashMap::new());
+            return DynamicReturnable::from_pointer(hash, Arc::new(HashMap::new()));
         }
     };
 
-    MUTABLE_RETURNABLES.get_or_insert(hash, Arc::new(owned))
+    let stable_hash = owned_returnable_stable_hash(&owned);
+    let (returnable, stable_hash) =
+        MUTABLE_RETURNABLES.get_or_insert_with_metadata(hash, Arc::new(owned), stable_hash);
+    DynamicReturnable::from_cached_value(
+        hash,
+        DynamicReturnableValue::JsonPointer(returnable),
+        stable_hash,
+    )
 }
 
 // ------------------------------------------------------------------------------- [ Evaluator Value ]
@@ -1191,22 +1226,25 @@ fn get_or_create_evaluator_value_from_local(
 fn mutable_to_immortal(
     specs_responses: Vec<SpecsResponseFull>,
 ) -> Result<ImmortalData, StatsigErr> {
-    let mutable_data = take_mutable_data();
+    let strings = MUTABLE_STRINGS.take_live();
+    let returnables =
+        MUTABLE_RETURNABLES.take_live_map(|hash, value, stable_hash| (hash, value, stable_hash));
+    let evaluator_values = MUTABLE_EVALUATOR_VALUES.take_live();
     let mut immortal = ImmortalData::default();
 
-    for (hash, arc) in mutable_data.strings.into_iter() {
+    for (hash, arc) in strings {
         let raw = Arc::into_raw(arc);
         let leaked: &'static str = unsafe { &*raw };
         immortal.strings.insert(hash, leaked);
     }
 
-    for (hash, returnable) in mutable_data.returnables.into_iter() {
+    for (hash, returnable, stable_hash) in returnables {
         let raw_returnable = Arc::into_raw(returnable);
         let leaked = unsafe { &*raw_returnable };
-        immortal.returnables.insert(hash, leaked);
+        immortal.returnables.insert(hash, (leaked, stable_hash));
     }
 
-    for (hash, evaluator_value) in mutable_data.evaluator_values.into_iter() {
+    for (hash, evaluator_value) in evaluator_values {
         let raw_evaluator_value = Arc::into_raw(evaluator_value);
         let leaked = unsafe { &*raw_evaluator_value };
         immortal.evaluator_values.insert(hash, leaked);
@@ -1281,8 +1319,16 @@ impl EvaluatorValue {
 }
 
 impl DynamicReturnable {
-    fn from_static(hash: u64, returnable: &'static HashMap<String, RkyvValue>) -> Self {
-        Self::from_interned_value(hash, DynamicReturnableValue::JsonStatic(returnable))
+    fn from_static(
+        hash: u64,
+        returnable: &'static HashMap<String, RkyvValue>,
+        stable_hash: u64,
+    ) -> Self {
+        Self::from_cached_value(
+            hash,
+            DynamicReturnableValue::JsonStatic(returnable),
+            stable_hash,
+        )
     }
 
     fn from_archived(
@@ -1312,6 +1358,10 @@ impl InternedString {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "__tests__/mutable_store_metadata_tests.rs"]
+mod mutable_store_metadata_tests;
 
 #[cfg(test)]
 mod mutable_store_tests {

@@ -8,6 +8,7 @@ from hashlib import sha1
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.db import transaction
 
+from allauth.core.internal.cryptokit import compare_user_code
 from allauth.mfa import app_settings
 from allauth.mfa.models import Authenticator
 from allauth.mfa.utils import decrypt, encrypt
@@ -18,7 +19,7 @@ class RecoveryCodes:
         self.instance = instance
 
     @classmethod
-    def activate(cls, user: AbstractBaseUser) -> "RecoveryCodes":
+    def activate(cls, user: AbstractBaseUser) -> RecoveryCodes:
         instance = Authenticator.objects.filter(
             user_id=user.pk, type=Authenticator.Type.RECOVERY_CODES
         ).first()
@@ -116,7 +117,7 @@ class RecoveryCodes:
         for i, c in enumerate(self.generate_codes()):
             if self._is_code_used(i):
                 continue
-            if secrets.compare_digest(code, c):
+            if compare_user_code(actual=code, expected=c):
                 self._mark_code_used(i)
                 return True
         return False

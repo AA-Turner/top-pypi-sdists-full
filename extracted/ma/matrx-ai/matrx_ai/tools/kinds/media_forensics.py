@@ -44,7 +44,7 @@ class ReverseImageMatchItem(BaseModel):
     match_type: str = Field(
         description="'exact' (the page carries this image) or 'visual' (merely similar)."
     )
-    engine: str = Field(description="SerpAPI engine that returned this match.")
+    engine: str = Field(description="Search engine that returned this match.")
     position: int | None = None
     title: str | None = None
     link: str | None = None

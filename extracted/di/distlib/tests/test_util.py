@@ -6,6 +6,7 @@
 #
 from io import BytesIO
 from itertools import islice
+import io
 import os
 import re
 import shutil
@@ -14,6 +15,7 @@ try:
 except ImportError:
     ssl = None
 import sys
+import tarfile
 import tempfile
 import textwrap
 import time
@@ -77,6 +79,18 @@ class UtilTestCase(DistlibTestCase):
         self.assertRaises(DistlibException, get_export_entry, 'foo=foo.bar:x [a,]')
         self.assertRaises(DistlibException, get_export_entry, 'foo=foo.bar:x [a,,b]')
         self.assertRaises(DistlibException, get_export_entry, 'foo=foo.bar:x [a b]')
+
+    def test_export_entry_long_invalid_name(self):
+        # Searching for an entry used to rescan a long name from every position
+        # in it when the value was not a valid callable: ~10 s for 32000 chars.
+        for spec in ('a' * 32000 + ' = -', ' ' * 32000 + 'x', '=' * 32000):
+            start = time.time()
+            self.assertIsNone(get_export_entry(spec))
+            self.assertLess(time.time() - start, 1)
+        start = time.time()
+        self.assertRaises(DistlibException, get_export_entry, '[a' * 16000 + ' = -')
+        self.assertLess(time.time() - start, 1)
+        self.check_entry(get_export_entry('a' * 32000 + ' = foo:main'), 'a' * 32000, 'foo', 'main', [])
 
     def test_resolve(self):
         import logging
@@ -486,6 +500,100 @@ class UtilTestCase(DistlibTestCase):
                 self.assertFalse(os.path.exists(escaped), '%s: file escaped to %r' % (label, escaped))
             finally:
                 shutil.rmtree(work)
+
+    def _make_tar(self, path, members):
+        with tarfile.open(path, 'w') as tf:
+            for ti, data in members:
+                tf.addfile(ti, io.BytesIO(data) if data is not None else None)
+
+    def test_unarchive_dot_member(self):
+        # GNU tar commonly emits a './' directory member.
+        work = tempfile.mkdtemp()
+        try:
+            arc = os.path.join(work, 'dot.tar')
+            d = tarfile.TarInfo('./')
+            d.type = tarfile.DIRTYPE
+            d.mode = 0o755
+            f = tarfile.TarInfo('./hello.txt')
+            f.size = 5
+            self._make_tar(arc, [(d, None), (f, b'hello')])
+            dest = os.path.join(work, 'dest')
+            os.mkdir(dest)
+            unarchive(arc, dest)
+            self.assertTrue(os.path.isfile(os.path.join(dest, 'hello.txt')))
+        finally:
+            shutil.rmtree(work)
+
+    def test_unarchive_escaping_symlink(self):
+        work = tempfile.mkdtemp()
+        try:
+            arc = os.path.join(work, 'sym.tar')
+            ti = tarfile.TarInfo('sub/link')
+            ti.type = tarfile.SYMTYPE
+            ti.linkname = '../../outside'
+            self._make_tar(arc, [(ti, None)])
+            dest = os.path.join(work, 'dest')
+            os.mkdir(dest)
+            self.assertRaises((OSError, ValueError), unarchive, arc, dest)
+            self.assertFalse(os.path.lexists(os.path.join(dest, 'sub', 'link')))
+        finally:
+            shutil.rmtree(work)
+
+    @unittest.skipUnless(hasattr(tarfile, 'data_filter'), 'requires tarfile extraction filters')
+    def test_unarchive_rejects_special_files(self):
+        for label, ttype in (('fifo', tarfile.FIFOTYPE), ('chardev', tarfile.CHRTYPE),
+                             ('blockdev', tarfile.BLKTYPE)):
+            work = tempfile.mkdtemp()
+            try:
+                arc = os.path.join(work, 'special.tar')
+                ti = tarfile.TarInfo('special')
+                ti.type = ttype
+                self._make_tar(arc, [(ti, None)])
+                dest = os.path.join(work, 'dest')
+                os.mkdir(dest)
+                self.assertRaises(ValueError, unarchive, arc, dest)
+                self.assertFalse(os.path.lexists(os.path.join(dest, 'special')), label)
+            finally:
+                shutil.rmtree(work)
+
+    @unittest.skipUnless(hasattr(tarfile, 'data_filter'), 'requires tarfile extraction filters')
+    def test_unarchive_absolute_symlink_unchecked(self):
+        # Even with check=False, data_filter must reject absolute links.
+        work = tempfile.mkdtemp()
+        try:
+            arc = os.path.join(work, 'abs.tar')
+            ti = tarfile.TarInfo('abslink')
+            ti.type = tarfile.SYMTYPE
+            ti.linkname = os.path.join(work, 'outside')
+            self._make_tar(arc, [(ti, None)])
+            dest = os.path.join(work, 'dest')
+            os.mkdir(dest)
+            self.assertRaises(ValueError, unarchive, arc, dest, check=False)
+            self.assertFalse(os.path.lexists(os.path.join(dest, 'abslink')))
+        finally:
+            shutil.rmtree(work)
+
+    def test_unarchive_chained_symlink(self):
+        # a -> . then a/b -> .. looks safe lexically, but a/b really points
+        # at dest's parent; a/b/file must be rejected even without filters.
+        work = tempfile.mkdtemp()
+        try:
+            arc = os.path.join(work, 'chain.tar')
+            a = tarfile.TarInfo('a')
+            a.type = tarfile.SYMTYPE
+            a.linkname = '.'
+            b = tarfile.TarInfo('a/b')
+            b.type = tarfile.SYMTYPE
+            b.linkname = '..'
+            f = tarfile.TarInfo('a/b/distlib_poc_marker.txt')
+            f.size = 4
+            self._make_tar(arc, [(a, None), (b, None), (f, b'PWND')])
+            dest = os.path.join(work, 'dest')
+            os.mkdir(dest)
+            self.assertRaises(ValueError, unarchive, arc, dest, check=True)
+            self.assertFalse(os.path.exists(os.path.join(work, 'distlib_poc_marker.txt')))
+        finally:
+            shutil.rmtree(work)
 
     def test_string_sequence(self):
         self.assertTrue(is_string_sequence(['a']))

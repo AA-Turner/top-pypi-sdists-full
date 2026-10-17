@@ -4,14 +4,16 @@ from itertools import product
 import numpy as np
 from numpy.linalg import lstsq, pinv
 from numpy.testing import assert_allclose, assert_equal
-from pandas import Categorical, DataFrame, Series, date_range, get_dummies
+from pandas import Categorical, DataFrame, MultiIndex, Series, date_range, get_dummies
 from pandas.api.types import is_string_dtype
 from pandas.testing import assert_frame_equal, assert_index_equal
 import pytest
 
 from linearmodels.panel.data import PanelData, _Panel
-from linearmodels.panel.model import PanelOLS
+from linearmodels.panel.model import PanelOLS, panel_structure_stats
+from linearmodels.shared.exceptions import UnknownOptionError
 from linearmodels.shared.utility import panel_to_frame
+from linearmodels.tests._utility import warns_if_missing
 from linearmodels.tests.panel._utility import MISSING_XARRAY, datatypes, generate_data
 
 try:
@@ -19,10 +21,6 @@ try:
 except ImportError:
     pass
 
-
-pytestmark = pytest.mark.filterwarnings(
-    "ignore::linearmodels.shared.exceptions.MissingValueWarning"
-)
 
 PERC_MISSING = [0, 0.02, 0.10, 0.33]
 TYPES = datatypes
@@ -67,7 +65,7 @@ def test_numpy_3d():
         minor_axis=items,
         swap=True,
     )
-    expected_frame.index.set_names(["entity", "time"], inplace=True)
+    expected_frame.index = expected_frame.index.set_names(["entity", "time"])
     assert_frame_equal(dh.dataframe, expected_frame)
 
 
@@ -149,6 +147,36 @@ def test_xarray_3d():
     assert_equal(np.reshape(x.values.T, (n * t, k)), dh.values2d)
 
 
+@pytest.mark.skipif(MISSING_XARRAY, reason="xarray is not installed")
+def test_xarray_3d_datetime_labels():
+    # The time labels of a DataArray with datetime64[ns] coordinates were the
+    # integer nanoseconds, so the DataArray did not match a pandas input with the
+    # same dates
+    nperiod, nentity = 6, 8
+    rg = np.random.default_rng(0)
+    months = np.arange("2000-01", "2000-07", dtype="datetime64[M]")
+    time = months.astype("datetime64[ns]")
+    entities = [f"firm{i}" for i in range(nentity)]
+    x = xr.DataArray(
+        rg.standard_normal((2, nperiod, nentity)),
+        coords={"vars": ["x0", "x1"], "time": time, "entities": entities},
+        dims=["vars", "time", "entities"],
+    )
+    x_frame = DataFrame(
+        x.values.transpose(2, 1, 0).reshape(nentity * nperiod, 2),
+        index=MultiIndex.from_product([entities, time]),
+        columns=["x0", "x1"],
+    )
+    times = PanelData(x).index.get_level_values(1)
+    assert times.dtype == np.dtype("datetime64[ns]")
+    assert_frame_equal(PanelData(x).dataframe, PanelData(x_frame).dataframe)
+
+    y = DataFrame(rg.standard_normal((nperiod, nentity)), index=time, columns=entities)
+    res = PanelOLS(y, x, entity_effects=True).fit()
+    expected = PanelOLS(y, x_frame, entity_effects=True).fit()
+    assert_allclose(res.params, expected.params)
+
+
 def test_dimensions(mi_df):
     dh = PanelData(mi_df)
     assert dh.nentity == len(mi_df.index.levels[0])
@@ -221,6 +249,33 @@ def test_ids(mi_df):
     assert len(np.unique(tids)) == 7
     for i in range(11):
         assert np.ptp(tids[i::7]) == 0
+
+
+def test_entity_ids_with_missing_index():
+    n, t = 4, 3
+    index = MultiIndex.from_tuples(
+        [(np.nan if i == 0 else f"e{i}", j) for i in range(n) for j in range(1, t + 1)],
+        names=["entity", "time"],
+    )
+    data = PanelData(DataFrame(np.random.standard_normal((n * t, 2)), index=index))
+    with pytest.raises(ValueError, match="entity index contains missing"):
+        _ = data.entity_ids
+
+
+def test_time_ids_with_missing_index():
+    n, t = 4, 3
+    index = MultiIndex.from_tuples(
+        [(f"e{i}", np.nan if j == 1 else j) for i in range(n) for j in range(1, t + 1)],
+        names=["entity", "time"],
+    )
+    data = PanelData(DataFrame(np.random.standard_normal((n * t, 2)), index=index))
+    with pytest.raises(ValueError, match="time index contains missing"):
+        _ = data.time_ids
+
+
+def test_panel_structure_stats_negative_ids():
+    with pytest.raises(ValueError, match="non-negative"):
+        panel_structure_stats(np.array([0, 1, -1]), "test")
 
 
 def test_str_repr(mi_df):
@@ -387,8 +442,15 @@ def test_demean_both_large_t():
 
 def test_demean_invalid(mi_df):
     data = PanelData(mi_df)
-    with pytest.raises(ValueError, match=r"Group must be one of"):
+    with pytest.raises(ValueError, match=r"Unknown group"):
         data.demean("unknown")
+
+
+@pytest.mark.parametrize("method", ["count", "mean", "demean", "dummies"])
+def test_unknown_group(mi_df, method):
+    data = PanelData(mi_df)
+    with pytest.raises(UnknownOptionError, match=r"Unknown group: 'times'"):
+        getattr(data, method)("times")
 
 
 def test_dummies(mi_df):
@@ -402,7 +464,7 @@ def test_dummies(mi_df):
     tdummy_drop = data.dummies(group="time", drop_first=True)
     assert tdummy_drop.shape == (77, 6)
     assert np.all(tdummy.sum(axis=0) == 11)
-    with pytest.raises(ValueError, match=r"Group must be one of"):
+    with pytest.raises(ValueError, match=r"Unknown group"):
         data.dummies("unknown")
 
 
@@ -485,6 +547,30 @@ def test_count(data):
 def test_first_difference(data):
     x = PanelData(data.x)
     x.first_difference()
+
+
+def test_first_difference_orders_time_when_first_entity_enters_late():
+    idx = MultiIndex.from_tuples(
+        [
+            (0, 2002),
+            (0, 2003),
+            (1, 2000),
+            (1, 2001),
+            (1, 2002),
+            (1, 2003),
+        ],
+        names=["firm", "year"],
+    )
+    toy = DataFrame({"y": [20.0, 30.0, 0.0, 1.0, 2.0, 3.0]}, index=idx)
+    got = PanelData(toy).first_difference().dataframe
+    expected = DataFrame(
+        {"y": [10.0, 1.0, 1.0, 1.0]},
+        index=MultiIndex.from_tuples(
+            [(0, 2003), (1, 2001), (1, 2002), (1, 2003)],
+            names=["firm", "year"],
+        ),
+    )
+    assert_frame_equal(got, expected)
 
 
 def test_demean_simple_weighted(data):
@@ -771,7 +857,8 @@ def test_original_unmodified(data):
     pre_y = data.y.copy()
     pre_x = data.x.copy()
     pre_w = data.w.copy()
-    mod = PanelOLS(data.y, data.x, weights=data.w)
+    with warns_if_missing(data.y, data.x):
+        mod = PanelOLS(data.y, data.x, weights=data.w)
     mod.fit(debiased=True)
     if isinstance(data.y, DataFrame):
         for after, before in ((data.y, pre_y), (data.x, pre_x), (data.w, pre_w)):
@@ -785,7 +872,8 @@ def test_original_unmodified(data):
         pre_y = mi_df_y.copy()
         pre_x = mi_df_x.copy()
         pre_w = mi_df_w.copy()
-        mod = PanelOLS(mi_df_y, mi_df_x, weights=mi_df_w)
+        with warns_if_missing(mi_df_y, mi_df_x):
+            mod = PanelOLS(mi_df_y, mi_df_x, weights=mi_df_w)
         mod.fit(debiased=True)
         assert_frame_equal(mi_df_w, pre_w)
         assert_frame_equal(mi_df_y, pre_y)
@@ -850,7 +938,7 @@ def test_named_index(data):
         assert pdata.dataframe.index.levels[0].name == data.x.index.levels[0].name
         assert pdata.dataframe.index.levels[1].name == data.x.index.levels[1].name
 
-        data.x.index.set_names([None, None], inplace=True)
+        data.x.index = data.x.index.set_names([None, None])
         pdata = PanelData(data.x)
 
     assert pdata.dataframe.index.levels[0].name == "entity"
@@ -863,7 +951,10 @@ def test_fake_panel_properties(mi_df):
     nvar = mi_df.shape[1]
     assert panel.shape == (nvar, ntime, nentity)
     assert_index_equal(panel.items, mi_df.columns)
-    assert_index_equal(panel.major_axis, mi_df.index.levels[1])
+    try:
+        assert_index_equal(panel.major_axis, mi_df.index.levels[1], check_freq=False)
+    except TypeError:
+        assert_index_equal(panel.major_axis, mi_df.index.levels[1])
     assert_index_equal(panel.minor_axis, mi_df.index.levels[0])
     df = panel.to_frame()
     assert_frame_equal(df, mi_df)

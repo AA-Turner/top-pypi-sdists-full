@@ -50,9 +50,7 @@ class Harness:
     def __init__(self, **client_kwargs):
         client_kwargs.setdefault("api_url", "https://own")
         client_kwargs.setdefault("api_key", "own-key")
-        self.client = Client(
-            session=MagicMock(), auto_batch_tracing=False, info=_INFO, **client_kwargs
-        )
+        self.client = Client(session=MagicMock(), auto_batch_tracing=False, info=_INFO, **client_kwargs)
         self.client.compressed_traces = CompressedTraces()
         self.client._data_available_event = threading.Event()
         self.client.tracing_queue = MagicMock()  # exists, so the fallback is live
@@ -111,9 +109,7 @@ class Harness:
             self.client, size_limit=1, size_limit_bytes=1
         )
         if stream is not None:
-            self.client._send_compressed_multipart_req(
-                stream, info, destinations=destinations
-            )
+            self.client._send_compressed_multipart_req(stream, info, destinations=destinations)
 
     @property
     def routes(self):
@@ -157,9 +153,7 @@ def test_replica_naming_the_clients_own_credentials_shares_the_frame():
 def test_nothing_crosses_between_destinations():
     """The assertion that would have caught #2013."""
     with Harness() as h:
-        h.post(
-            [_replica("https://b", "kb", "mine"), _replica("https://d", "kd", "theirs")]
-        )
+        h.post([_replica("https://b", "kb", "mine"), _replica("https://d", "kd", "theirs")])
         h.flush()
 
     assert {u: k for u, k, _ in h.sent} == {"https://b/runs/multipart": "kb"}
@@ -173,9 +167,7 @@ def test_nothing_crosses_between_destinations():
 
 def test_post_and_patch_for_one_destination_take_the_same_transport():
     with Harness() as h:
-        run = h.post(
-            [_replica("https://b", "kb", "p1"), _replica("https://d", "kd", "p2")]
-        )
+        run = h.post([_replica("https://b", "kb", "p1"), _replica("https://d", "kd", "p2")])
         run.end(outputs={"b": 2})
         run.patch()
         assert h.client.compressed_traces.trace_count == 2  # B's post and patch
@@ -334,10 +326,7 @@ def test_resolution_matches_the_headers_the_old_paths_would_have_sent(auth):
         auto_batch_tracing=False,
     )
     if not any(auth):
-        expected = [
-            (url, key, None, None, None, None)
-            for url, key in client._write_api_urls.items()
-        ]
+        expected = [(url, key, None, None, None, None) for url, key in client._write_api_urls.items()]
         fallback = None
     else:
         expected = [auth]
@@ -365,9 +354,7 @@ def test_resolution_matches_the_headers_the_old_paths_would_have_sent(auth):
 
 
 def test_a_null_write_api_url_key_still_strips_the_api_key_header():
-    client = Client(
-        api_urls={"https://a": ""}, session=MagicMock(), auto_batch_tracing=False
-    )
+    client = Client(api_urls={"https://a": ""}, session=MagicMock(), auto_batch_tracing=False)
     destinations = client._resolve_destinations(ReplicaAuth())
     assert [d.api_key for d in destinations] == [""]
 
@@ -681,9 +668,7 @@ def test_non_batch_writes_reach_the_replica_destination():
     with patch.object(
         Client,
         "request_with_retries",
-        lambda _s, _m, url, **kw: sent.append(
-            (url, kw["request_kwargs"]["headers"].get("x-api-key"))
-        ),
+        lambda _s, _m, url, **kw: sent.append((url, kw["request_kwargs"]["headers"].get("x-api-key"))),
     ):
         run = RunTree(
             name="r",
@@ -706,9 +691,7 @@ def test_non_batch_writes_reach_every_destination_of_a_group():
     with patch.object(
         Client,
         "request_with_retries",
-        lambda _s, _m, url, **kw: sent.append(
-            (url, kw["request_kwargs"]["headers"].get("x-api-key"))
-        ),
+        lambda _s, _m, url, **kw: sent.append((url, kw["request_kwargs"]["headers"].get("x-api-key"))),
     ):
         RunTree(
             name="r",

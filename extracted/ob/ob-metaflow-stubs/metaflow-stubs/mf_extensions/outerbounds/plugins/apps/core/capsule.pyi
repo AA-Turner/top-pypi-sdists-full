@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.39.1+obcheckpoint(0.2.14);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-10-05T21:11:54.630346                                                            #
+# Generated on 2026-10-16T15:14:49.242574                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
     import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
-    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.capsule
+    import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
 
 from .utils import TODOException as TODOException
 from .utils import safe_requests_wrapper as safe_requests_wrapper
@@ -188,6 +188,10 @@ class CapsuleApi(object, metaclass=type):
         ...
     def delete(self, capsule_id: str):
         ...
+    def suspend(self, capsule_id: str):
+        ...
+    def resume(self, capsule_id: str):
+        ...
     def get_workers(self, capsule_id: str) -> typing.List[typing.Dict[str, typing.Any]]:
         ...
     def logs(self, capsule_id: str, worker_id: str, previous: bool = False) -> typing.List[metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine.LogLine]:
@@ -248,7 +252,17 @@ class CapsuleDeployer(object, metaclass=type):
         ...
     def get(self):
         ...
+    def get_after_create(self):
+        """
+        Wait for the cached GET to reflect the accepted POST version.
+        """
+        ...
     def get_workers(self):
+        ...
+    def accepted_suspended_status(self, capsule_response):
+        """
+        Describe an accepted suspended deploy without claiming traffic readiness.
+        """
         ...
     def wait_for_terminal_state(self):
         """

@@ -644,21 +644,33 @@ impl StatsigBasePy {
             )
     }
 
-    #[pyo3(name = "_INTERNAL_get_typed_config", signature = (user, name, options=None))]
+    #[pyo3(name = "_INTERNAL_get_typed_config", signature = (user, name, options=None, allow_packaged_fallback=false))]
     pub fn _internal_get_typed_config(
         &self,
         py: Python<'_>,
         user: &StatsigUserPy,
         name: &str,
         options: Option<DynamicConfigEvaluationOptionsPy>,
+        allow_packaged_fallback: bool,
     ) -> PyResult<Py<PyDict>> {
         let user_internal = StatsigUserInternal::from_fast_user(&user.inner, Some(&self.inner));
-        self.inner.use_typed_config(
+        self.inner.use_typed_config_with_packaged_fallback(
             &user_internal,
             name,
             options.map_or(DynamicConfigEvaluationOptions::default(), Into::into),
-            |raw, source, revisions| {
-                crate::typed_config_py::typed_config_to_py_dict(py, raw, source, revisions)
+            allow_packaged_fallback,
+            |raw, source, revisions, packaged_fallback_eligible, packaged_fallback_tier| {
+                let result =
+                    crate::typed_config_py::typed_config_to_py_dict(py, raw, source, revisions)?;
+                let dict = result.bind(py);
+                dict.set_item(
+                    "__typed_packaged_fallback_eligible",
+                    packaged_fallback_eligible,
+                )?;
+                if packaged_fallback_eligible {
+                    dict.set_item("__typed_packaged_fallback_tier", packaged_fallback_tier)?;
+                }
+                Ok(result)
             },
         )
     }

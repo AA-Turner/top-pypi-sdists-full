@@ -16,28 +16,40 @@ stop flag a few steps behind.
 A graph reads the weights at their plane homes: a weight set keeps one device address range for
 its life, and a refill maps a region back at the same address. For the loop Runtime leases every
 block the step reads at home and turns their paging hooks off (`Residency.held`). Where they do
-not all fit, on a CPU, or when a capture fails, the same step runs eagerly. A model this does not
+not all fit, or the device has no room for a graph's pool beside them, the call decodes
+through Transformers' loop, and so does one that runs out of device memory; on a CPU, or after a
+capture fails (a run warning), the same step runs eagerly. A model this does not
 serve (a layer type other than full or linear attention, an attention other than SDPA or eager, a
 generation config that adds logits processors) generates through Transformers, said once.
+
+With a `draft` (a model's multi-token-prediction head) a step drafts `DEPTH` tokens, the model
+verifies them and the token after them in one pass, and the step keeps the prefix the model
+agrees with and the model's own token after it: the greedy tokens the model alone gives, one to
+`DEPTH + 1` of them a replay. Keys past the kept prefix are masked and overwritten, and every
+linear-attention layer's state goes back to the kept prefix's end (the pass keeps its state
+after each token).
 """
 
 from __future__ import annotations
 
+import contextvars
 import inspect
 import sys
 import time
 import weakref
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import ExitStack, contextmanager
 from typing import Any
 
-from cozy_runtime.author._model import PLACED, RELEASERS
+from cozy_runtime.author._model import PLACED, RELEASERS, WARNINGS
 from cozy_runtime.author.kernels import KernelsUnavailable, Launch, Plan, TritonKernels
-from cozy_runtime.graphs import capture, say
+from cozy_runtime.graphs import BYPASS, ROOM, capture, say
 from cozy_runtime.lm import _kernels
 
 try:
     import torch
+    from torch.overrides import TorchFunctionMode
     from torch.utils._python_dispatch import _disable_current_modes
     from transformers import LogitsProcessorList
     from transformers.cache_utils import (
@@ -48,7 +60,7 @@ try:
     )
 except ImportError as _absent:  # pragma: no cover - the base package has neither
     ABSENT = f"torch and transformers do not import ({_absent})"
-    StaticLayer = LinearAttentionLayer = Cache = object
+    StaticLayer = LinearAttentionLayer = Cache = TorchFunctionMode = object
 else:
     ABSENT = ""
 
@@ -56,8 +68,23 @@ else:
 MIN_WINDOW = 256
 #: Steps the host may queue ahead of the stop flag it last read.
 LAG = 2
-#: Captures tried per window; an eager step runs between them.
-CAPTURES = 2
+#: Tokens a draft head proposes a step. Qwen3.5-9B's head on FLUX.3's prompt upsampler keeps
+#: ~0.7 of first drafts and few third ones: 2 is fastest on a 4090 (1 and 3 lose 5%, 4 more).
+DEPTH = 2
+_DRAFT: contextvars.ContextVar[Any] = contextvars.ContextVar("cozy_lm_draft", default=None)
+
+
+@contextmanager
+def drafting(draft: Any) -> Iterator[None]:
+    """`generate` calls in the body draft with `draft` (`Draft`), so a package's model can name
+    the head another model holds without passing it through its own (memoized) calls."""
+    token = _DRAFT.set(draft)
+    try:
+        yield
+    finally:
+        _DRAFT.reset(token)
+
+
 #: A placed model's decode blocks, as its first call's first step ran them: later calls hold
 #: them before their prefill.
 _READS: weakref.WeakKeyDictionary[Any, frozenset[Any]] = weakref.WeakKeyDictionary()
@@ -103,11 +130,18 @@ def generate(
     stop: Sequence[int],
     pad: int | None = None,
     presence_penalty: float = 0.0,
+    draft: Any = None,
 ) -> Any:
     """Greedy tokens after the prompt, `[batch, n]` (`model.generate(..., do_sample=False)`'s
     tail): `inputs` as the processor returned them, generation ends at a `stop` token or after
     `max_new_tokens`, and a row that stopped early continues as `pad` (default: the first stop).
-    `presence_penalty` subtracts that much from every token already generated (vLLM's)."""
+    `presence_penalty` subtracts that much from every token already generated (vLLM's).
+    `draft(embeds, hidden, position_ids, past_key_values, attention_mask) -> hidden` is the
+    model's multi-token-prediction head (`Draft`): from a token's embedding and the state the
+    model's head read before it, the state the head reads for the token after. It speeds up a
+    batch of one, each token computed as decode computes it. Without one, the head `drafting`
+    names is used."""
+    draft = draft if draft is not None else _DRAFT.get()
     stops = [int(token) for token in stop]
     filler = stops[0] if pad is None else int(pad)
     why = ABSENT or _unsupported(model)
@@ -116,51 +150,155 @@ def generate(
             type(model).__name__, f"[lm] {type(model).__name__} decodes through Transformers: {why}"
         )
         return _transformers(model, inputs, max_new_tokens, stops, filler, presence_penalty)
-    with torch.inference_mode():
-        ids = inputs["input_ids"]
-        prompt, cuda = int(ids.shape[1]), ids.is_cuda
-        # Prompts within one window step share a session (its buffers and graphs).
-        capacity = -(-(prompt + max_new_tokens) // MIN_WINDOW) * MIN_WINDOW
-        key = (
-            int(ids.shape[0]),
-            capacity,
-            max_new_tokens,
-            len(stops),
-            presence_penalty,
-            ids.device,
-        )
-        decode = _SESSIONS.get(model)
-        if decode is None or decode.key != key:
-            decode = _SESSIONS[model] = _Decode(model, key, presence_penalty)
+    token = BYPASS.set(True)  # the component's calls are this loop's, its graphs its own
+    try:
+        with torch.inference_mode():
+            return _generate(model, inputs, max_new_tokens, stops, filler, presence_penalty, draft)
+    finally:
+        BYPASS.reset(token)
+
+
+def _generate(
+    model: Any,
+    inputs: Mapping[str, Any],
+    max_new_tokens: int,
+    stops: list[int],
+    filler: int,
+    presence_penalty: float,
+    draft: Any,
+) -> Any:
+    try:
+        tokens = _static(model, inputs, max_new_tokens, stops, filler, presence_penalty, draft)
+        if tokens is None and draft is not None:
+            # The head's weights and keys cost room the model's own decode set may need: the
+            # graphed decode without drafts beats Transformers' loop by far.
+            _SESSIONS.pop(model, None)
+            say(f"lm:{type(model).__name__}:undrafted", "[lm] drafting does not fit at home")
+            WARNINGS.append(("decoded without drafting", {"why": "the draft head does not fit"}))
+            tokens = _static(model, inputs, max_new_tokens, stops, filler, presence_penalty, None)
+        if tokens is not None:
+            return tokens
+        why = "its decode set does not fit at home"
+    except torch.OutOfMemoryError as exc:
+        why = f"OutOfMemoryError: {exc}".splitlines()[0][:300]
+    _SESSIONS.pop(model, None)  # its buffers go back before Transformers' loop needs the room
+    torch.cuda.empty_cache()
+    say(f"lm:{type(model).__name__}:{why[:30]}", f"[lm] {type(model).__name__}: {why}")
+    WARNINGS.append(("decode ran through Transformers' loop", {"why": why}))
+    # Transformers' own loop under Runtime's recovery, which makes room op by op.
+    return _transformers(model, inputs, max_new_tokens, stops, filler, presence_penalty)
+
+
+def _static(
+    model: Any,
+    inputs: Mapping[str, Any],
+    max_new_tokens: int,
+    stops: list[int],
+    filler: int,
+    presence_penalty: float,
+    draft: Any,
+) -> Any:
+    """The tokens from the static cache, replayed where its blocks are held at home; None when
+    they do not all fit there."""
+    ids = inputs["input_ids"]
+    prompt, cuda = int(ids.shape[1]), ids.is_cuda
+    if draft is not None and (ids.shape[0] != 1 or not _speculable(model)):
+        draft = None  # a batch's rows would keep prefixes of their own
+    per = DEPTH + 1 if draft is not None else 1
+    # Prompts within one window step share a session (its buffers and graphs); a drafted step
+    # can make `per` tokens, and the host learns their count `LAG` steps late.
+    reach = prompt + max_new_tokens + (per - 1) * (LAG + 2)
+    capacity = -(-reach // MIN_WINDOW) * MIN_WINDOW
+    key = (
+        int(ids.shape[0]),
+        capacity,
+        max_new_tokens,
+        len(stops),
+        presence_penalty,
+        ids.device,
+        draft,
+    )
+    # Only the prefill's forward runs under Runtime's recovery, into a cache of its own. The
+    # recovery would journal, spill or band what an op writes, and the session's buffers are
+    # read by address by its graphs and kept for later calls: everything that writes them runs
+    # outside it, and room that a step cannot get ends the static path, not the call.
+    decode = _SESSIONS.get(model)
+    if decode is None or decode.key != key:
+        _SESSIONS.pop(model, None)
+        decode = _SESSIONS[model] = _Decode(model, key, presence_penalty, draft)
+    with _disable_current_modes():
         decode.begin(inputs, stops, filler)
-        placed = PLACED.get(model)
-        if placed is None:  # a module Runtime does not place: its tensors stay where they are
+    targets = [(m, PLACED[m]) for m in (model, draft) if m is not None and m in PLACED]
+    if not targets:  # modules Runtime does not place: their tensors stay where they are
+        decode.prefill()
+        with _disable_current_modes():
+            return decode.run(graphs=cuda, layout=(), room=None)
+    if any(m not in _READS for m, _ in targets):
+        # The first call: its first step runs through the paging hooks, which record the
+        # blocks a step reads; later calls hold them before their prefill.
+        decode.prefill()
+        with ExitStack() as stack:
+            reads = {}
+            for _, (residency, _name) in targets:
+                if id(residency) not in reads:
+                    reads[id(residency)] = stack.enter_context(residency.recording())
+            stack.enter_context(_disable_current_modes())
+            decode.first()
+        for m, (residency, name) in targets:
+            _READS[m] = frozenset(reads[id(residency)].get(name, ()))
+    with ExitStack() as stack:
+        holds = [stack.enter_context(r.held(name, _READS[m])) for m, (r, name) in targets]
+        if not all(holds):
+            return None
+        if not decode.made:
             decode.prefill()
-            return decode.run(graphs=cuda, layout=())
-        residency, name = placed
-        blocks = _READS.get(model)
-        if blocks is None:
-            # The first call: its first step runs through the paging hooks, which record the
-            # blocks a step reads; later calls hold them before their prefill.
-            decode.prefill()
-            with residency.recording() as read:
-                decode.first()
-            blocks = _READS[model] = frozenset(read.get(name, ()))
-            with residency.held(name, blocks) as held:
-                if held:
-                    return decode.run(graphs=True, layout=residency.layout(name, blocks))
-        else:
-            with residency.held(name, blocks) as held:
-                if held:
-                    decode.prefill()
-                    return decode.run(graphs=True, layout=residency.layout(name, blocks))
-        # They do not all fit at home beside what this stage holds: Transformers' own loop
-        # streams them, which a static cache's recovery copies would only slow down.
-        say(
-            f"held:{type(model).__name__}",
-            f"[lm] {type(model).__name__}: no graphs, decode set does not fit",
+        layout = tuple(r.layout(name, _READS[m]) for m, (r, name) in targets)
+        with _disable_current_modes():
+            return decode.run(graphs=True, layout=layout, room=targets[0][1][0].allocatable)
+
+
+class Draft(torch.nn.Module if not ABSENT else object):  # type: ignore[misc]
+    """The multi-token-prediction head of a Qwen3.5 or Qwen3-Next checkpoint, its weights where
+    the checkpoint keeps them (`mtp.*`): the `draft` `generate` takes. From a token's embedding
+    and the hidden state the model's head read before it: the state the head reads for the token
+    after, which the next draft takes as its hidden state (as vLLM's and SGLang's do). `space` is
+    the model's modeling module."""
+
+    def __init__(self, config: Any, space: Any) -> None:
+        super().__init__()
+        text = config.get_text_config(decoder=True)
+        prefix = next(n[: -len("DecoderLayer")] for n in vars(space) if n.endswith("DecoderLayer"))
+        norm = getattr(space, f"{prefix}RMSNorm")
+        rotary = getattr(space, f"{prefix}TextRotaryEmbedding", None) or getattr(
+            space, f"{prefix}RotaryEmbedding"
         )
-        return _transformers(model, inputs, max_new_tokens, stops, filler, presence_penalty)
+        layer = getattr(space, f"{prefix}DecoderLayer")(
+            text, list(text.layer_types).index("full_attention")
+        )
+        layer.self_attn.layer_idx = 0  # the draft's own cache has the one layer
+        size, eps = text.hidden_size, text.rms_norm_eps
+        self.mtp = torch.nn.Module()
+        self.mtp.fc = torch.nn.Linear(2 * size, size, bias=False)
+        self.mtp.pre_fc_norm_embedding = norm(size, eps=eps)
+        self.mtp.pre_fc_norm_hidden = norm(size, eps=eps)
+        self.mtp.layers = torch.nn.ModuleList([layer])
+        self.mtp.norm = norm(size, eps=eps)
+        self.rotary = rotary(config=text)
+
+    def forward(self, embeds: Any, hidden: Any, positions: Any, cache: Any, mask: Any) -> Any:
+        mtp = self.mtp
+        joined = torch.cat([mtp.pre_fc_norm_embedding(embeds), mtp.pre_fc_norm_hidden(hidden)], -1)
+        x = mtp.fc(joined)
+        # Qwen3.5 carries the text position first and the rotary (mrope) ones after it.
+        text, rope = (positions[0], positions[1:]) if positions.shape[0] == 4 else (None, positions)
+        x = mtp.layers[0](
+            x,
+            position_embeddings=self.rotary(x, rope),
+            attention_mask=mask,
+            position_ids=text,
+            past_key_values=cache,
+        )
+        return mtp.norm(x)
 
 
 def install(plan: Plan, model: Any) -> str:
@@ -188,6 +326,8 @@ def install(plan: Plan, model: Any) -> str:
             current = getattr(space, name)
             if not getattr(current, "_cozy_slot", False):
                 setattr(space, name, _SLOTS[name](current, launch))
+        _STEPS[0] = launch
+        _SESSIONS.clear()  # their graphs recorded Transformers' path: the next call records anew
 
     try:
         if plan.when_ready is None:
@@ -285,8 +425,10 @@ def _recurrent_slot(original: Any, launch: Launch) -> Any:
                 (batch, 1, heads, _kernels.VALUE_DIM), dtype=bf16, device=query.device
             )
             _LAUNCHED[0] += 1
+            # The verify pass's kernel for one token, the state written over itself: a token
+            # then takes the same instructions in both, so a drafted one keeps decode's bits.
             launch(
-                _kernels.recurrent_step_kernel,
+                _kernels.recurrent_steps_kernel,
                 (batch * heads, _kernels.VALUE_DIM // _kernels.VALUE_BLOCK, 1),
                 query,
                 key,
@@ -294,14 +436,13 @@ def _recurrent_slot(original: Any, launch: Launch) -> Any:
                 g,
                 beta,
                 initial_state,
+                initial_state,
                 out,
                 heads,
-                query.stride(0),
-                query.stride(2),
-                key.stride(0),
-                key.stride(2),
-                value.stride(0),
-                value.stride(2),
+                1,
+                *query.stride()[:3],
+                *key.stride()[:3],
+                *value.stride()[:3],
                 float(width) ** 0.5,
                 _kernels.KEY_DIM,
                 _kernels.VALUE_DIM,
@@ -327,6 +468,8 @@ def _recurrent_slot(original: Any, launch: Launch) -> Any:
 _SLOTS = {"causal_conv1d_update": _conv_slot, "torch_recurrent_gated_delta_rule": _recurrent_slot}
 #: Launches the slots made in this process (Python runs once per capture, not per replay).
 _LAUNCHED = [0]
+#: The kernels' launcher once they serve: a verify pass's tokens then take one launch per layer.
+_STEPS: list[Launch | None] = [None]
 
 
 def _unsupported(model: Any) -> str:
@@ -385,6 +528,26 @@ def _transformers(
             logits_processor=LogitsProcessorList(processors),
         )
     return out[:, prompt:]
+
+
+def _into(mine: Any, value: Any) -> Any:
+    """`value` (a cache layer's field) copied into `mine` in place where they match, so a graph
+    that reads `mine` reads it; else `value` itself."""
+    if isinstance(value, torch.Tensor):
+        same = isinstance(mine, torch.Tensor) and (mine.shape, mine.dtype, mine.device) == (
+            value.shape,
+            value.dtype,
+            value.device,
+        )
+        return mine.copy_(value) if same else value
+    if isinstance(value, list):
+        if isinstance(mine, list) and len(mine) == len(value):
+            return [_into(a, b) for a, b in zip(mine, value, strict=True)]
+        return value
+    if isinstance(value, dict):
+        held = mine if isinstance(mine, dict) else {}
+        return {key: _into(held.get(key), item) for key, item in value.items()}
+    return value
 
 
 def window(length: int, capacity: int) -> int:
@@ -454,11 +617,241 @@ class _State(LinearAttentionLayer):  # type: ignore[misc]
             self.recurrent_states[state_idx] = torch.zeros_like(recurrent_states)
             self.is_recurrent_states_initialized[state_idx] = True
 
+    def update_conv_state(
+        self,
+        conv_states: Any,
+        state_idx: int = 0,
+        conv_kernel_size: int | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        verify = _VERIFY.get()
+        if verify is None or not self.has_previous_state[state_idx]:
+            return super().update_conv_state(
+                conv_states, state_idx, conv_kernel_size=conv_kernel_size, **kwargs
+            )
+        state = self.conv_states[state_idx]
+        full = torch.cat([state, conv_states], dim=-1)
+        verify.conv.append((state, full))  # its state after each token is a slice of `full`
+        state.copy_(full[..., -state.shape[-1] :])
+        return full
+
+
+@contextmanager
+def _taking(model: Any) -> Iterator[list[Any]]:
+    """The decoder's final states in the body, one per call: what the output head reads, at
+    every position of the call."""
+    taken: list[Any] = []
+    handle = model.get_decoder().register_forward_hook(
+        lambda _module, _args, out: taken.append(out[0])
+    )
+    try:
+        yield taken
+    finally:
+        handle.remove()
+
+
+class _RowByRow(TorchFunctionMode):  # type: ignore[misc]
+    """A verify pass's plain linears one row at a time, as decoding runs them: cuBLAS takes
+    another kernel for a few rows, whose sums differ in the last bit (Qwen3.5's `in_proj_a` and
+    `in_proj_b`), and a drafted token must keep decode's bits. It is faster for those, too."""
+
+    def __torch_function__(
+        self, func: Any, types: Any, args: tuple[Any, ...] = (), kwargs: Any = None
+    ) -> Any:
+        kwargs = kwargs or {}
+        x = args[0] if args else None
+        if (
+            func is torch.nn.functional.linear
+            and x is not None
+            and x.dim() > 1
+            and 1 < x.shape[-2] <= 16
+        ):
+            rows = [func(x[..., i : i + 1, :], *args[1:], **kwargs) for i in range(x.shape[-2])]
+            return torch.cat(rows, dim=-2)
+        return func(*args, **kwargs)
+
+
+class _Verify:
+    """A verify pass's record for putting states back: each linear-attention layer's conv input
+    (its state, then the new tokens) and its recurrent state after each token."""
+
+    def __init__(self) -> None:
+        self.conv: list[tuple[Any, Any]] = []
+        self.recurrent: list[tuple[Any, Any]] = []
+
+
+#: Set while the model verifies drafted tokens: its linear-attention layers then take each token
+#: with the one-token kernels' arithmetic (one launch for all once they serve) and record what
+#: `_Verify` keeps.
+_VERIFY: contextvars.ContextVar[_Verify | None] = contextvars.ContextVar(
+    "cozy_lm_verify", default=None
+)
+#: The Transformers kernel slots a verify pass replaces, and the one-token slots it steps through.
+_MANY = ("causal_conv1d_fn", "torch_chunk_gated_delta_rule")
+_ONE = ("causal_conv1d_update", "torch_recurrent_gated_delta_rule")
+
+
+def _speculable(model: Any) -> bool:
+    """Whether `model`'s linear-attention layers can verify drafted tokens: their modules carry
+    every slot it steps through; it wraps the multi-token ones once."""
+    spaces = {sys.modules.get(type(m).__module__) for m in model.modules()}
+    spaces = {space for space in spaces if space is not None and hasattr(space, _MANY[1])}
+    if not all(callable(getattr(space, name, None)) for space in spaces for name in _MANY + _ONE):
+        return False
+    for space in spaces:
+        for name, wrap in zip(_MANY, (_stepped_conv, _stepped_recurrence), strict=True):
+            current = getattr(space, name)
+            if not getattr(current, "_cozy_verify", False):
+                setattr(space, name, wrap(space, current))
+    return True
+
+
+def _stepped_conv(space: Any, original: Any) -> Any:
+    def conv(x: Any, weight: Any, bias: Any = None, *args: Any, **kwargs: Any) -> Any:
+        if _VERIFY.get() is None:
+            return original(x, weight, bias, *args, **kwargs)
+        activation = kwargs.get("activation", args[0] if args else None)
+        batch, channels, length = x.shape
+        size = weight.shape[-1]
+        # Channels innermost, as a decoded token's are, so the caller's views of the new tokens
+        # reach the recurrent kernels; it keeps only those.
+        out = x.new_empty(batch, length, channels).transpose(1, 2)
+        launch = _STEPS[0]
+        if (
+            launch is not None
+            and size == _kernels.CONV
+            and bias is None
+            and activation in ("silu", "swish")
+            and x.is_cuda
+            and x.dtype == weight.dtype == torch.bfloat16
+            and x.stride(-1) == 1
+            and tuple(weight.shape) == (channels, size)
+            and weight.is_contiguous()
+        ):
+            _LAUNCHED[0] += 1
+            launch(
+                _kernels.conv_steps_kernel,
+                (batch, -(-channels // _kernels.CONV_BLOCK), 1),
+                x,
+                weight,
+                out[..., size:],
+                channels,
+                length - size,
+                x.stride(0),
+                x.stride(1),
+                out.stride(0),
+                out.stride(2),
+                _kernels.CONV,
+                _kernels.CONV_BLOCK,
+            )
+            return out
+        state = x[..., :size].clone()
+        for t in range(size, length):
+            out[..., t] = space.causal_conv1d_update(
+                x[..., t : t + 1].contiguous(), state, weight, bias, activation
+            )[..., 0]
+        return out
+
+    conv._cozy_verify = True  # type: ignore[attr-defined]
+    return conv
+
+
+def _stepped_recurrence(space: Any, original: Any) -> Any:
+    def recurrence(
+        query: Any,
+        key: Any,
+        value: Any,
+        g: Any,
+        beta: Any,
+        initial_state: Any = None,
+        output_final_state: bool = False,
+        use_qk_l2norm_in_kernel: bool = False,
+        **kwargs: Any,
+    ) -> Any:
+        verify = _VERIFY.get()
+        if verify is None or initial_state is None:
+            return original(
+                query,
+                key,
+                value,
+                g,
+                beta,
+                initial_state=initial_state,
+                output_final_state=output_final_state,
+                use_qk_l2norm_in_kernel=use_qk_l2norm_in_kernel,
+                **kwargs,
+            )
+        batch, tokens, heads, width = query.shape
+        states = initial_state.new_empty((tokens, *initial_state.shape))
+        launch = _STEPS[0]
+        if (
+            launch is not None
+            and use_qk_l2norm_in_kernel
+            and query.is_cuda
+            and width == _kernels.KEY_DIM
+            and tuple(key.shape) == tuple(query.shape)
+            and tuple(value.shape) == (batch, tokens, heads, _kernels.VALUE_DIM)
+            and query.dtype == key.dtype == value.dtype == beta.dtype == torch.bfloat16
+            and g.dtype == initial_state.dtype == torch.float32
+            and tuple(initial_state.shape) == (batch, heads, width, _kernels.VALUE_DIM)
+            and tuple(g.shape) == tuple(beta.shape) == (batch, tokens, heads)
+            and initial_state.is_contiguous()
+            and g.is_contiguous()
+            and beta.is_contiguous()
+            and query.stride(-1) == key.stride(-1) == value.stride(-1) == 1
+        ):
+            out = value.new_empty((batch, tokens, heads, _kernels.VALUE_DIM))
+            _LAUNCHED[0] += 1
+            launch(
+                _kernels.recurrent_steps_kernel,
+                (batch * heads, _kernels.VALUE_DIM // _kernels.VALUE_BLOCK, 1),
+                query,
+                key,
+                value,
+                g,
+                beta,
+                initial_state,
+                states,
+                out,
+                heads,
+                tokens,
+                *query.stride()[:3],
+                *key.stride()[:3],
+                *value.stride()[:3],
+                float(width) ** 0.5,
+                _kernels.KEY_DIM,
+                _kernels.VALUE_DIM,
+                _kernels.VALUE_BLOCK,
+            )
+            verify.recurrent.append((initial_state, states))
+            return out, states[-1]
+        state, outs = initial_state.clone(), []
+        for t in range(tokens):
+            out, state = space.torch_recurrent_gated_delta_rule(
+                query[:, t : t + 1],
+                key[:, t : t + 1],
+                value[:, t : t + 1],
+                g=g[:, t : t + 1],
+                beta=beta[:, t : t + 1],
+                initial_state=state,
+                output_final_state=True,
+                use_qk_l2norm_in_kernel=use_qk_l2norm_in_kernel,
+            )
+            outs.append(out)
+            states[t].copy_(state)
+        verify.recurrent.append((initial_state, states))
+        return torch.cat(outs, dim=1), state
+
+    recurrence._cozy_verify = True  # type: ignore[attr-defined]
+    return recurrence
+
 
 class _StaticCache(Cache):  # type: ignore[misc]
     def __init__(self, text_config: Any, capacity: int, size: int) -> None:
         self.size = [size]
         types, kwargs = get_layer_types_and_kwargs(text_config)
+        if isinstance(kwargs, dict):  # Transformers before 5.19: one set for every layer
+            kwargs = [kwargs] * len(types)
         layers = [
             _Keys(self.size, capacity) if kind == "full_attention" else _State(**extra)
             for kind, extra in zip(types, kwargs, strict=True)
@@ -481,9 +874,11 @@ class _Decode:
     read were bound (`Residency.layout`): moved, they record again. Each call refills the
     buffers in place, so the graphs' addresses hold."""
 
-    def __init__(self, model: Any, key: tuple[Any, ...], penalty: float) -> None:
-        self.model, self.key, self.penalty = model, key, penalty
+    def __init__(self, model: Any, key: tuple[Any, ...], penalty: float, draft: Any) -> None:
+        self.model, self.key, self.penalty, self.draft = model, key, penalty, draft
         batch, self.capacity, self.max_new_tokens = key[0], key[1], key[2]
+        #: tokens a step can make: a drafted one, its drafts and the model's token after them
+        self.per = DEPTH + 1 if draft is not None else 1
         self.text = model.config.get_text_config(decoder=True)
         self.cache = _StaticCache(self.text, self.capacity, self.capacity)
         self.keep = "logits_to_keep" in set(inspect.signature(model.forward).parameters)
@@ -498,8 +893,14 @@ class _Decode:
         else:  # eager attention adds its mask: 0 where it attends, the dtype's minimum elsewhere
             self.mask = torch.zeros(valid.shape, dtype=model.dtype, device=device)
             self.open, self.closed = 0.0, torch.finfo(model.dtype).min
-        self.out = torch.zeros((batch, self.max_new_tokens), dtype=torch.long, device=device)
+        self.out = torch.zeros(
+            (batch, self.max_new_tokens + (self.per - 1) * (LAG + 2)),
+            dtype=torch.long,
+            device=device,
+        )
         self.n = torch.zeros((1,), dtype=torch.long, device=device)
+        #: `n` where the host reads it, a few steps late
+        self.count = torch.zeros((), dtype=torch.long, pin_memory=device.type == "cuda")
         self.done = torch.zeros((batch,), dtype=torch.bool, device=device)
         self.stops = torch.zeros((key[3],), dtype=torch.long, device=device)
         self.pad = torch.zeros((), dtype=torch.long, device=device)
@@ -511,6 +912,17 @@ class _Decode:
         self.layout: tuple[object, ...] | None = None
         self.pool: Any = None
         self.side: Any = None
+        #: bytes an eager step allocates (`_measured`): what a capture's pool takes, about
+        self.need: int | None = None
+        if draft is not None:
+            #: the draft head's own keys (its one attention layer), masked to the committed tokens
+            self.dcache = Cache(layers=[_Keys(self.cache.size, self.capacity)])
+            # on the device from the start: a step sets it before the head first writes a key
+            self.dcache.layers[0].cumulative_length = self.length[0].clone()
+            self.dmask = torch.full_like(self.mask, self.closed)
+            self.rows = torch.arange(self.capacity, device=device)
+            #: the state the model's head read for the token `ids` holds: the draft's input
+            self.hidden: Any = None
 
     def begin(self, inputs: Mapping[str, Any], stops: list[int], pad: int) -> None:
         self.inputs = inputs
@@ -541,23 +953,51 @@ class _Decode:
             kwargs["attention_mask"] = None
         if self.keep:
             kwargs["logits_to_keep"] = 1
+        fresh = _StaticCache(self.text, self.capacity, self.prompt)
         prepared = model.prepare_inputs_for_generation(
-            ids, past_key_values=self.cache, use_cache=True, is_first_iteration=True, **kwargs
+            ids, past_key_values=fresh, use_cache=True, is_first_iteration=True, **kwargs
         )
+        # Under the caller's recovery, which makes room op by op, into this call's own cache.
+        with _taking(model) as taken:
+            logits = model(**prepared, return_dict=True).logits[:, -1]
+        with _disable_current_modes():
+            self._settle(fresh, logits, mask, position)
+            if self.draft is not None:
+                self._drafted_prompt(taken[-1], ids, position)
+        if ids.is_cuda:
+            torch.cuda.current_stream().synchronize()
+        self.prefill_s = time.perf_counter() - started
 
-        def forward() -> Any:
-            self.cache.reset()
-            return model(**prepared, return_dict=True).logits[:, -1]
+    def _drafted_prompt(self, hidden: Any, ids: Any, position: Any) -> None:
+        """The head's keys for the prompt and the first token, as it attends to them while
+        drafting: slot j from token j and the model's state for the token before it, so drafts
+        read the whole context the head was trained on; and its state for the token after."""
+        tokens = torch.cat([ids[:, 1:], self.ids], dim=1)
+        slots = self.rows[: self.prompt + 1]
+        mask = self.dmask[..., : self.prompt + 1].expand(-1, -1, self.prompt, -1).clone()
+        mask.fill_(self.closed).masked_fill_((slots >= 1) & (slots <= slots[1:, None]), self.open)
+        if position is not None:
+            at = torch.cat([position[..., 1:], self.position], dim=-1)
+        else:
+            at = slots[None, 1:]
+        self.cache.window = self.prompt + 1
+        self.dcache.layers[0].cumulative_length.fill_(1)
+        embed = self.model.get_input_embeddings()
+        last = self.draft(embed(tokens), hidden, at, self.dcache, mask)[:, -1:]
+        if self.hidden is None or self.hidden.shape != last.shape:
+            self.hidden, self.graphs = torch.empty_like(last), {}
+        self.hidden.copy_(last)
+        self.dmask.fill_(self.closed)
+        self.dmask[..., 1 : self.prompt + 1] = self.open
 
-        try:
-            # Outside Runtime's per-op dispatch, as a paging hook runs a block that writes
-            # nothing it did not make: held blocks have no hook (2.2k image tokens: 1.09 s
-            # under it, 0.49 s without, on a 4090).
-            with _disable_current_modes():
-                logits = forward()
-        except torch.OutOfMemoryError:
-            torch.cuda.empty_cache()
-            logits = forward()  # again under the recovery, which makes room op by op
+    def _settle(self, fresh: Any, logits: Any, mask: Any, position: Any) -> None:
+        """The prefill's cache into the session's buffers, in place (its graphs read them by
+        address), and the decode's state at the prompt's end."""
+        for mine, theirs in zip(self.cache.layers, fresh.layers, strict=True):
+            for field, value in vars(theirs).items():
+                if field != "size":  # the window holder each cache shares with its layers
+                    setattr(mine, field, _into(getattr(mine, field, None), value))
+        ids = self.inputs["input_ids"]
         if position is not None:
             following = position[..., -1:] + 1
             if self.position is None or self.position.shape != following.shape:
@@ -578,17 +1018,14 @@ class _Decode:
             self.seen.zero_()
         self.select(logits)
         self.made = 1
-        if ids.is_cuda:
-            torch.cuda.current_stream().synchronize()
-        self.prefill_s = time.perf_counter() - started
 
     def first(self) -> None:
         """The first step eagerly, through the paging hooks (they record what it reads)."""
         started = time.perf_counter()
         if self.made < self.max_new_tokens and not bool(self.flag):
-            self.cache.window = window(self.prompt + self.made, self.capacity)
-            self.step()
-            self.made += 1
+            self.cache.window = window(self.prompt + self.made + self.per, self.capacity)
+            self._measured()
+            self.made = int(self.n)
             if self.ids.is_cuda:
                 torch.cuda.current_stream().synchronize()
         self.first_s = time.perf_counter() - started
@@ -607,6 +1044,7 @@ class _Decode:
         if self.seen is not None:
             self.seen.scatter_(1, token[:, None], 1.0)
         self.flag.copy_(self.done.all(), non_blocking=True)
+        self.count.copy_(self.n[0], non_blocking=True)
 
     def step(self) -> None:
         """One token: attend to the window, write this position's keys, select the next."""
@@ -628,10 +1066,112 @@ class _Decode:
         if self.position is not None:
             self.position.add_(1)
 
-    def run(self, graphs: bool, layout: tuple[object, ...]) -> Any:
+    def _advance(self) -> None:
+        if self.draft is None:
+            self.step()
+        else:
+            self._speculate()
+
+    def _speculate(self) -> None:
+        """`DEPTH` drafted tokens, verified with the drafted one before them in one pass: the
+        model's tokens up to and including its first disagreement are kept, and every state
+        goes back to the kept tokens' end."""
+        model, depth, size = self.model, DEPTH, self.cache.window
+        span = depth + 1
+        embed, head = model.get_input_embeddings(), model.get_output_embeddings()
+        keys, rows = self.rows[:size], self.rows[:span]
+        # Drafts: the head's state for the token after `ids` is in hand; each later draft is the
+        # head on the one before, its keys after the committed ones.
+        self.dcache.layers[0].cumulative_length.copy_(self.length[0] + 1)
+        token, hidden, seen, drafts = self.ids, self.hidden, self.seen, []
+        for i in range(depth):
+            if i:
+                open_ = (keys > self.length) & (keys <= self.length + i)
+                mask = torch.where(open_, self.open, self.dmask[..., :size])
+                at = self.position + i if self.position is not None else (self.length + i)[:, None]
+                hidden = self.draft(embed(token), hidden, at, self.dcache, mask)
+            scores = head(hidden)[:, -1].float()
+            if seen is not None:
+                scores = scores - self.penalty * seen
+            token = scores.argmax(-1, keepdim=True)
+            drafts.append(token)
+            if seen is not None:
+                seen = seen.scatter(1, token, 1.0)
+        drafted = torch.cat(drafts, dim=1)
+        # Verify: each row attends to the committed keys and this pass's up to its own.
+        open_ = (keys >= self.length) & (keys <= self.length + rows[:, None])
+        kwargs: dict[str, Any] = {
+            "input_ids": torch.cat([self.ids, drafted], dim=1),
+            "attention_mask": torch.where(open_, self.open, self.mask[..., :size]),
+            "past_key_values": self.cache,
+            "use_cache": True,
+            "return_dict": True,
+        }
+        if self.position is not None:
+            kwargs["position_ids"] = self.position + rows
+        if self.keep:
+            kwargs["logits_to_keep"] = span
+        verify = _Verify()
+        reset = _VERIFY.set(verify)
+        try:
+            with _taking(model) as taken, _RowByRow():
+                scores = model(**kwargs).logits[:, -span:].float()
+        finally:
+            _VERIFY.reset(reset)
+        if self.seen is not None:  # row j has seen the drafts before it
+            ahead = torch.zeros_like(scores).scatter_(2, drafted[..., None], 1.0).cumsum(1)
+            ahead = torch.cat([torch.zeros_like(ahead[:, :1]), ahead[:, :-1]], dim=1)
+            scores = scores - self.penalty * torch.maximum(self.seen[:, None], ahead.clamp(max=1))
+        best = scores.argmax(-1)
+        kept = (best[:, :depth] == drafted).long().cumprod(-1).sum(-1)  # [1]
+        valid = rows <= kept
+        stopped = (best[..., None] == self.stops).any(-1) & valid
+        after = (stopped.long().cumsum(-1) - stopped.long()) > 0
+        tokens = torch.where(self.done[:, None] | after, self.pad, best)
+        self.done |= stopped.any(-1)
+        at = (self.n + rows)[None]
+        self.out.scatter_(1, at, torch.where(valid, tokens, self.out.gather(1, at)))
+        if self.seen is not None:
+            self.seen.scatter_reduce_(1, tokens, valid.float()[None].expand_as(tokens), "amax")
+        self.ids.copy_(tokens.gather(1, kept[:, None]))
+        # The head's keys for the committed tokens, each from the model's own state for the
+        # token before it (as vLLM's and SGLang's drafters keep them), and its state for the
+        # token after them: the next step's first draft.
+        self.dcache.layers[0].cumulative_length.copy_(self.length[0] + 1)
+        open_ = (keys > self.length) & (keys <= self.length + 1 + rows[:, None])
+        mask = torch.where(open_, self.open, self.dmask[..., :size])
+        at = (
+            self.position + 1 + rows
+            if self.position is not None
+            else (self.length + 1 + rows)[None]
+        )
+        states = self.draft(embed(tokens), taken[-1][:, -span:], at, self.dcache, mask)
+        self.hidden.copy_(states.index_select(1, kept))
+        # Back to the kept tokens' end: keys past it are masked and overwritten later.
+        ended = self.length + kept + 1
+        for layer in self.cache.layers:
+            if isinstance(layer, _Keys):
+                layer.cumulative_length.copy_(ended[0])
+        for state, full in verify.conv:
+            state.copy_(full.index_select(-1, self.rows[: state.shape[-1]] + kept + 1))
+        for state, states in verify.recurrent:
+            state.copy_(states.index_select(0, kept)[0])
+        every = self.rows[: self.capacity]
+        self.mask.masked_fill_((every >= self.length) & (every < ended), self.open)
+        self.dmask.masked_fill_((every > self.length) & (every <= ended), self.open)
+        self.length.copy_(ended)
+        self.n.add_(kept + 1)
+        if self.position is not None:
+            self.position.add_(kept + 1)
+        self.flag.copy_(self.done.all(), non_blocking=True)
+        self.count.copy_(self.n[0], non_blocking=True)
+
+    def run(self, graphs: bool, layout: tuple[object, ...], room: Callable[[], int] | None) -> Any:
         """The steps after the prefill (and the first step, if it ran): each window's recorded
-        once and replayed when `graphs` (over weights bound at `layout`), else eager. Returns
-        the new tokens."""
+        once and replayed when `graphs` (over weights bound at `layout`), else eager. A window
+        records only while `room()` (device bytes torch can take without unmapping a weight)
+        is `ROOM` times what an eager step takes at its peak; after a capture fails, the call's
+        steps run eagerly. Returns the new tokens."""
         cuda = self.ids.is_cuda
         captures, capture_s, looped = 0, 0.0, self.made
         began = time.perf_counter()
@@ -642,30 +1182,42 @@ class _Decode:
             if self.pool is not None:
                 torch.cuda.empty_cache()
             self.pool, self.side = torch.cuda.graph_pool_handle(), torch.cuda.Stream()
-        recorded, pool, side = self.graphs, self.pool, self.side
-        tries: dict[int, int] = {}
+        recorded = self.graphs
         queued: deque[Any] = deque()
-        while self.made < self.max_new_tokens and not (self.made == 1 and bool(self.flag)):
-            size = window(self.prompt + self.made, self.capacity)
+        # `made` bounds the tokens made so far from above (a drafted step makes 1 to `per`);
+        # `counted` is what the host last read, a few steps late.
+        counted, steps = self.made, 0
+        while (
+            counted < self.max_new_tokens
+            and (self.per > 1 or self.made < self.max_new_tokens)
+            and not (self.made == 1 and bool(self.flag))
+        ):
+            size = window(self.prompt + self.made + self.per, self.capacity)
             self.cache.window = size
-            if graphs and recorded.get(size) is None and tries.get(size, 0) < CAPTURES:
-                # One more try after an eager step: a capture that ran out of memory leaves its
-                # pool spent, and the eager step's recovery makes room.
-                capturing = time.perf_counter()
-                recorded[size] = self._capture(pool, side)
-                if recorded[size] is None:
-                    torch.cuda.empty_cache()
-                    pool = self.pool = torch.cuda.graph_pool_handle()
-                tries[size] = tries.get(size, 0) + 1
-                capture_s += time.perf_counter() - capturing
-                captures += 1
             graph = recorded.get(size)
+            if graph is None and graphs and self.need is not None and not self.failed:
+                free = room() if room is not None else ROOM * self.need
+                if free < ROOM * self.need:
+                    self.failed = (
+                        f"no room: {free >> 20} MiB free, a step takes {self.need >> 20} MiB"
+                    )
+                else:
+                    capturing = time.perf_counter()
+                    graph = self._capture()
+                    if graph is not None:
+                        recorded[size] = graph
+                    capture_s += time.perf_counter() - capturing
+                    captures += 1
             if graph is not None:
                 graph.replay()
+            elif graphs and self.need is None:
+                self._measured()
             else:
-                self.step()
-            self.made += 1
+                self._advance()
+            self.made += self.per
+            steps += 1
             if not cuda:
+                counted = int(self.count)
                 if bool(self.flag):
                     break
                 continue
@@ -674,15 +1226,18 @@ class _Decode:
             queued.append(event)
             if len(queued) > LAG:
                 queued.popleft().synchronize()
+                counted = int(self.count)
                 if bool(self.flag):
                     break
         if cuda:
             torch.cuda.current_stream().synchronize()
+        self.made = min(int(self.n), self.max_new_tokens)
         loop_s, looped = time.perf_counter() - began, self.made - looped
-        mode = "graphs" if graphs else "eager"
-        if graphs and None in recorded.values():
-            mode = "partly eager: a capture failed"
-            self.graphs = {size: g for size, g in recorded.items() if g is not None}
+        mode = (
+            "graphs" if graphs and not self.failed else "eager" if not captures else "partly eager"
+        )
+        if self.draft is not None:
+            mode += f", drafting {DEPTH}: {looped / max(steps, 1):.2f} tokens a step"
         tokens = self.out[:, : self.made]
         hit = (tokens[..., None] == self.stops).any(-1)
         if bool(hit.any(-1).all()):
@@ -703,14 +1258,37 @@ class _Decode:
             placed[0].note(f"{placed[1]}.lm", self.facts)
         return tokens
 
-    def _capture(self, pool: Any, side: Any) -> Any:
-        """The step at the current window as a CUDA graph, or None (said once): it then runs
-        eagerly."""
-        graph, why = capture(self.step, pool, side)
+    def _measured(self) -> None:
+        """An eager step, and the device bytes it takes at its peak: the segments it reserves
+        beyond what torch holds with its idle cache given back, as a graph's pool would."""
+        torch.cuda.empty_cache()
+        before = torch.cuda.memory_reserved(self.ids.device)
+        self._advance()
+        self.need = max(self.need or 0, torch.cuda.memory_reserved(self.ids.device) - before)
+
+    def _capture(self) -> Any:
+        """The step at the current window as a CUDA graph, or None, with a run warning: the
+        call's steps then run eagerly, and the next call records into a fresh pool. A capture
+        executes nothing, so the buffers are as they were."""
+        graph, why = capture(self._advance, self.pool, self.side)
         if graph is None:
-            self.failed = self.failed or why
+            self.failed, self.pool = why, None
+            torch.cuda.empty_cache()
             say(f"capture:{type(self.model).__name__}", f"[lm] capture failed: {why}")
+            WARNINGS.append(
+                ("a CUDA graph was not used", {"module": type(self.model).__name__, "why": why})
+            )
         return graph
 
 
-__all__ = ["KERNELS", "MIN_WINDOW", "generate", "install", "release", "window"]
+__all__ = [
+    "DEPTH",
+    "KERNELS",
+    "MIN_WINDOW",
+    "Draft",
+    "drafting",
+    "generate",
+    "install",
+    "release",
+    "window",
+]

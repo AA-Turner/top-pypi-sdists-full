@@ -1231,7 +1231,7 @@ class ValuationRatios(QuantConnect.Data.Fundamental.FundamentalTimeDependentProp
         ...
 
 
-class DilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's diluted earnings per share (EPS) on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying diluted EPS reported in the Income Statement within the company filings or reports."""
 
     @property
@@ -1302,7 +1302,7 @@ class DilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DilutedContEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DilutedContEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's diluted EPS from continuing operations on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying diluted EPS from continuing operations reported in the Income Statement within the company filings or reports."""
 
     @property
@@ -1373,7 +1373,7 @@ class DilutedContEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's dividends per share (DPS) on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying DPS from its dividend database. Morningstar collects its DPS from company filings and reports, as well as from third party sources."""
 
     @property
@@ -1444,7 +1444,7 @@ class DPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class EquityPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EquityPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's book value per share on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying equity and end of period shares outstanding reported in the company filings or reports."""
 
     @property
@@ -1520,7 +1520,7 @@ class EquityPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class RegressionGrowthofDividends5Years(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RegressionGrowthofDividends5Years(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The five-year growth rate of dividends per share, calculated using regression analysis."""
 
     @property
@@ -1581,7 +1581,7 @@ class RegressionGrowthofDividends5Years(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class FCFPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FCFPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's free cash flow per share on a percentage basis. Morningstar calculates the growth percentage based on the free cash flow divided by average diluted shares outstanding reported in the Financial Statements within the company filings or reports."""
 
     @property
@@ -1647,7 +1647,7 @@ class FCFPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class BookValuePerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BookValuePerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's book value per share on a percentage basis. Morningstar calculates the growth percentage based on the common shareholder's equity reported in the Balance Sheet divided by the diluted shares outstanding within the company filings or reports."""
 
     @property
@@ -1718,7 +1718,7 @@ class BookValuePerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedDilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedDilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's Normalized Diluted EPS on a percentage basis."""
 
     @property
@@ -1809,7 +1809,7 @@ class NormalizedDilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class NormalizedBasicEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedBasicEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's Normalized Basic EPS on a percentage basis."""
 
     @property
@@ -1880,7 +1880,7 @@ class NormalizedBasicEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class SalesPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SalesPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth of Sales Per Share against the same period a window earlier. Sales Per Share is calculated using Total Revenue divided by the company's average shares outstanding over the accounting period."""
 
     @property
@@ -1956,7 +1956,7 @@ class SalesPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class EarningsPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EarningsPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth of Earnings Per Share (Calc) against the same period a window earlier. Earnings Per Share (Calc) is calculated by taking Net Income from Continuing Operations; or Net Income and dividing it by Weighted Average Shares."""
 
     @property
@@ -2032,7 +2032,7 @@ class EarningsPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CashFlowPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFlowPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth of Cash Flow Per Share against the same period a window earlier. Cash Flow Per Share is calculated using Cash Flow From Operating Activities Used For Calculations divided by the company's average shares outstanding over the accounting period."""
 
     @property
@@ -2585,7 +2585,7 @@ class EarningReportsPeriodType(QuantConnect.Data.Fundamental.MultiPeriodField[st
         ...
 
 
-class BasicContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BasicContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Basic EPS from Continuing Operations is the earnings from continuing operations reported by the company divided by the weighted average number of common shares outstanding."""
 
     @property
@@ -2666,7 +2666,7 @@ class BasicContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class BasicDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BasicDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Basic EPS from Discontinued Operations is the earnings from discontinued operations reported by the company divided by the weighted average number of common shares outstanding. This only includes gain or loss from discontinued operations."""
 
     @property
@@ -2747,7 +2747,7 @@ class BasicDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class BasicExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BasicExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Basic EPS from the Extraordinary Gains/Losses is the earnings attributable to the gains or losses (during the reporting period) from extraordinary items divided by the weighted average number of common shares outstanding."""
 
     @property
@@ -2858,7 +2858,7 @@ class BasicExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class BasicAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BasicAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Basic EPS from the Cumulative Effect of Accounting Change is the earnings attributable to the accounting change (during the reporting period) divided by the weighted average number of common shares outstanding."""
 
     @property
@@ -2949,7 +2949,7 @@ class BasicAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class BasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Basic EPS is the bottom line net income divided by the weighted average number of common shares outstanding."""
 
     @property
@@ -3030,7 +3030,7 @@ class BasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DilutedContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DilutedContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Diluted EPS from Continuing Operations is the earnings from continuing operations divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
 
     @property
@@ -3111,7 +3111,7 @@ class DilutedContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class DilutedDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DilutedDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Diluted EPS from Discontinued Operations is the earnings from discontinued operations divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock. This only includes gain or loss from discontinued operations."""
 
     @property
@@ -3192,7 +3192,7 @@ class DilutedDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class DilutedExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DilutedExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Diluted EPS from Extraordinary Gain/Losses is the gain or loss from extraordinary items divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
 
     @property
@@ -3303,7 +3303,7 @@ class DilutedExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DilutedAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DilutedAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Diluted EPS from Cumulative Effect Accounting Changes is the earnings from accounting changes (in the reporting period) divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
 
     @property
@@ -3394,7 +3394,7 @@ class DilutedAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Diluted EPS is the bottom line net income divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock. This value will be derived when not reported for the fourth quarter and will be less than or equal to Basic EPS."""
 
     @property
@@ -3475,7 +3475,7 @@ class DilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class BasicAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BasicAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The shares outstanding used to calculate Basic EPS, which is the weighted average common share outstanding through the whole accounting PeriodAsByte. Note: If Basic Average Shares are not presented by the firm in the Income Statement, this data point will be null."""
 
     @property
@@ -3556,7 +3556,7 @@ class BasicAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DilutedAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DilutedAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The shares outstanding used to calculate the diluted EPS, assuming the conversion of all convertible securities and the exercise of warrants or stock options. It is the weighted average diluted share outstanding through the whole accounting PeriodAsByte. Note: If Diluted Average Shares are not presented by the firm in the Income Statement and Basic Average Shares are presented, Diluted Average Shares will equal Basic Average Shares. However, if neither value is presented by the firm, Diluted Average Shares will be null."""
 
     @property
@@ -3637,7 +3637,7 @@ class DilutedAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount of dividend that a stockholder will receive for each share of stock held. It can be calculated by taking the total amount of dividends paid and dividing it by the total shares outstanding. Dividend per share = total dividend payment/total number of outstanding shares"""
 
     @property
@@ -3728,7 +3728,7 @@ class DividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class BasicEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BasicEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Basic EPS from the Other Gains/Losses is the earnings attributable to the other gains/losses (during the reporting period) divided by the weighted average number of common shares outstanding."""
 
     @property
@@ -3819,7 +3819,7 @@ class BasicEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ContinuingAndDiscontinuedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ContinuingAndDiscontinuedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Basic EPS from Continuing Operations plus Basic EPS from Discontinued Operations."""
 
     @property
@@ -3900,7 +3900,7 @@ class ContinuingAndDiscontinuedBasicEPS(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class TaxLossCarryforwardBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TaxLossCarryforwardBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The earnings attributable to the tax loss carry forward (during the reporting period)."""
 
     @property
@@ -3991,7 +3991,7 @@ class TaxLossCarryforwardBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class DilutedEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DilutedEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The earnings from gains and losses (in the reporting period) divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, convertible preferred stock, etc."""
 
     @property
@@ -4082,7 +4082,7 @@ class DilutedEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class ContinuingAndDiscontinuedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ContinuingAndDiscontinuedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Diluted EPS from Continuing Operations plus Diluted EPS from Discontinued Operations."""
 
     @property
@@ -4163,7 +4163,7 @@ class ContinuingAndDiscontinuedDilutedEPS(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class TaxLossCarryforwardDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TaxLossCarryforwardDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The earnings from any tax loss carry forward (in the reporting period)."""
 
     @property
@@ -4254,7 +4254,7 @@ class TaxLossCarryforwardDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class NormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The basic normalized earnings per share. Normalized EPS removes onetime and unusual items from EPS, to provide investors with a more accurate measure of the company's true earnings. Normalized Earnings / Basic Weighted Average Shares Outstanding."""
 
     @property
@@ -4335,7 +4335,7 @@ class NormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The diluted normalized earnings per share. Normalized EPS removes onetime and unusual items from EPS, to provide investors with a more accurate measure of the company's true earnings. Normalized Earnings / Diluted Weighted Average Shares Outstanding."""
 
     @property
@@ -4416,7 +4416,7 @@ class NormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalDividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalDividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total Dividend Per Share is cash dividends and special cash dividends paid per share over a certain period of time."""
 
     @property
@@ -4507,7 +4507,7 @@ class TotalDividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ReportedNormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReportedNormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Normalized Basic EPS as reported by the company in the financial statements."""
 
     @property
@@ -4578,7 +4578,7 @@ class ReportedNormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class ReportedNormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReportedNormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Normalized Diluted EPS as reported by the company in the financial statements."""
 
     @property
@@ -4649,7 +4649,7 @@ class ReportedNormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class DividendCoverageRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DividendCoverageRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Reflects a firm's capacity to pay a dividend, and is defined as Earnings Per Share / Dividend Per Share"""
 
     @property
@@ -4735,7 +4735,7 @@ class DividendCoverageRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedEPS(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents earnings per share adjusted for irregular and/or non-recurring items based on CPMS (Computerized Portfolio Management Services) methodology standards. This is an analyst-screened datapoint."""
 
     @property
@@ -4806,7 +4806,7 @@ class NormalizedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CapitalExpenditurePerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CapitalExpenditurePerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The per share value of Capital Expenditure: This is derived using Capital Expenditure divided by the company's average shares outstanding over the accounting period. Capital Expenditure: This data point represents the calculated variant of Capital Expenditure; which includes all cash outflows made by a company to acquire or maintain fixed assets and intangibles. This is calculated by summing up outflows for Property; Plant & Equipment; Intangibles; Exploration and Mine development costs and Reported Capital Expenditures."""
 
     @property
@@ -4877,7 +4877,7 @@ class CapitalExpenditurePerShare(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class EBITPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITPerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The per share value of earnings before interest and tax (EBIT). EBIT: This data point represents the earnings the company generated before paying the interest and tax expenses. This can be used to measure a company's profitability. This is calculated by using the summation of Pretax Income and Net Interest Income/Expenses."""
 
     @property
@@ -4948,7 +4948,7 @@ class EBITPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedEBITPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedEBITPerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The per share value of normalized earnings before interest and tax (EBIT). Normalized EBIT: This represents earnings before interest and taxes adjusted for items that are irregular or unusual in nature; and/or are non-recurring. This can be used to measure a company's profitability. This is calculated by using Earnings before Interest and Tax plus/minus any tax affected unusual items."""
 
     @property
@@ -5019,7 +5019,7 @@ class NormalizedEBITPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class EBITDARPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITDARPerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The per share value of earnings before interest; tax; depreciation; amortization and rent expenses (EBITDAR). EBITDAR: This data point represents the earnings the company generated before interest; tax; depreciation; amortization and rent expenses. This can be used to measure a company's profitability. This is calculated using EBITDA + Rent Expenses + Rent and Landing Fees."""
 
     @property
@@ -5090,7 +5090,7 @@ class EBITDARPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedEBITDAPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedEBITDAPerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The per share value of normalized earnings before interest; tax; depreciation and amortization expenses (EBITDA). Normalized EBITDA: This data point represents the earnings the company generated before interest; tax; depreciation and amortization expenses adjusted for items that are irregular or unusual in nature; and/or are non-recurring. This can be used to fairly measure a company's profitability. This is calculated using Earnings Before Interest; Tax; Depreciation and Amortization plus/minus any unusual Items."""
 
     @property
@@ -5161,7 +5161,7 @@ class NormalizedEBITDAPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class EBITDAPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITDAPerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The per share value of earnings before interest; tax; depreciation and amortization expenses (EBITDA). EBITDA: This data point represents the earnings the company generated before interest; tax; depreciation and amortization expenses. This can be used to measure a company's profitability. This is calculated using EBIT + Depreciation; Amortization and Depletion."""
 
     @property
@@ -5232,7 +5232,7 @@ class EBITDAPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedEBITDARPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedEBITDARPerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The per share value of normalized earnings before interest; tax; depreciation; amortization and rent expenses (EBITDAR). Normalized EBITDAR: This data point represents the earnings the company generated before interest; tax; depreciation; amortization and rent expenses adjusted for items that are irregular or unusual in nature; and/or are non-recurring. This can be used to measure a company's profitability. This is calculated using Earnings Before Interest; Tax; Depreciation; Amortization and Rent expenses plus/minus any unusual Items."""
 
     @property
@@ -5303,7 +5303,7 @@ class NormalizedEBITDARPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalUnusualItemsPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalUnusualItemsPerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The per share value of Total Unusual Items: This is derived using Total Unusual Items (After-Tax) divided by the company's average shares outstanding over the accounting period. Total Unusual Items (After-Tax): This data point represents the subtotal of irregular and non-recurring items (after-tax) based on CPMS (Computerized Portfolio Management Services) methodology standards."""
 
     @property
@@ -5621,7 +5621,7 @@ class EarningReports(QuantConnect.Data.Fundamental.FundamentalTimeDependentPrope
         ...
 
 
-class RevenueGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RevenueGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's revenue on a percentage basis. Morningstar calculates the growth percentage based on the underlying revenue data reported in the Income Statement within the company filings or reports."""
 
     @property
@@ -5692,7 +5692,7 @@ class RevenueGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class OperationIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OperationIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's operating income on a percentage basis. Morningstar calculates the growth percentage based on the underlying operating income data reported in the Income Statement within the company filings or reports."""
 
     @property
@@ -5763,7 +5763,7 @@ class OperationIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NetIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's net income on a percentage basis. Morningstar calculates the growth percentage based on the underlying net income data reported in the Income Statement within the company filings or reports."""
 
     @property
@@ -5834,7 +5834,7 @@ class NetIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NetIncomeContOpsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeContOpsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's net income from continuing operations on a percentage basis. Morningstar calculates the growth percentage based on the underlying net income from continuing operations data reported in the Income Statement within the company filings or reports. This figure represents the rate of net income growth for parts of the business that will continue to generate revenue in the future."""
 
     @property
@@ -5905,7 +5905,7 @@ class NetIncomeContOpsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CFOGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CFOGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's cash flow from operations on a percentage basis. Morningstar calculates the growth percentage based on the underlying cash flow from operations data reported in the Cash Flow Statement within the company filings or reports."""
 
     @property
@@ -5971,7 +5971,7 @@ class CFOGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class FCFGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FCFGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's free cash flow on a percentage basis. Morningstar calculates the growth percentage based on the underlying cash flow from operations and capital expenditures data reported in the Cash Flow Statement within the company filings or reports: Free Cash Flow = Cash flow from operations - Capital Expenditures."""
 
     @property
@@ -6037,7 +6037,7 @@ class FCFGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class OperationRevenueGrowth3MonthAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OperationRevenueGrowth3MonthAvg(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's operating revenue on a percentage basis. Morningstar calculates the growth percentage based on the underlying operating revenue data reported in the Income Statement within the company filings or reports."""
 
     @property
@@ -6108,7 +6108,7 @@ class OperationRevenueGrowth3MonthAvg(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class GrossMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GrossMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of gross profit to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: (Revenue - Cost of Goods Sold) / Revenue."""
 
     @property
@@ -6189,7 +6189,7 @@ class GrossMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class OperationMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OperationMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of operating income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Operating Income / Revenue."""
 
     @property
@@ -6270,7 +6270,7 @@ class OperationMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class PretaxMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PretaxMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of pretax income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Pretax Income / Revenue."""
 
     @property
@@ -6351,7 +6351,7 @@ class PretaxMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NetMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of net income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Net Income / Revenue."""
 
     @property
@@ -6432,7 +6432,7 @@ class NetMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TaxRate(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TaxRate(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of tax provision to pretax income. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Tax Provision / Pretax Income. <Note: Valid only when positive pretax income, and positive tax expense (not tax benefit)>"""
 
     @property
@@ -6513,7 +6513,7 @@ class TaxRate(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class EBITMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of earnings before interest and taxes to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: EBIT / Revenue."""
 
     @property
@@ -6594,7 +6594,7 @@ class EBITMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class EBITDAMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITDAMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of earnings before interest, taxes and depreciation and amortization to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: EBITDA / Revenue."""
 
     @property
@@ -6675,7 +6675,7 @@ class EBITDAMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class SalesPerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SalesPerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of Revenue to Employees. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Revenue / Employee Number."""
 
     @property
@@ -6781,7 +6781,7 @@ class SalesPerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CurrentRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of Current Assets to Current Liabilities. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Current Assets / Current Liabilities."""
 
     @property
@@ -6877,7 +6877,7 @@ class CurrentRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class QuickRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class QuickRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of liquid assets to Current Liabilities. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports:(Cash, Cash Equivalents, and Short Term Investments + Receivables ) / Current Liabilities."""
 
     @property
@@ -6973,7 +6973,7 @@ class QuickRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class LongTermDebtTotalCapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LongTermDebtTotalCapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of Long Term Debt to Total Capital. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / (Long-Term Debt And Capital Lease Obligation + Total Shareholder's Equity)"""
 
     @property
@@ -7069,7 +7069,7 @@ class LongTermDebtTotalCapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class InterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of EBIT to Interest Expense. Morningstar calculates the ratio by using the underlying data reported in the Income Statement within the company filings or reports: EBIT / Interest Expense."""
 
     @property
@@ -7175,7 +7175,7 @@ class InterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class LongTermDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LongTermDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of Long Term Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
 
     @property
@@ -7271,7 +7271,7 @@ class LongTermDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class FinancialLeverage(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinancialLeverage(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of Total Assets to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Total Assets / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
 
     @property
@@ -7377,7 +7377,7 @@ class FinancialLeverage(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of Total Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: (Current Debt And Current Capital Lease Obligation + Long-Term Debt And Long-Term Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
 
     @property
@@ -7473,7 +7473,7 @@ class TotalDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedNetProfitMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedNetProfitMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Normalized Income / Total Revenue. A measure of profitability of the company calculated by finding Normalized Net Profit as a percentage of Total Revenues."""
 
     @property
@@ -7554,7 +7554,7 @@ class NormalizedNetProfitMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DaysInSales(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DaysInSales(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """365 / Receivable Turnover"""
 
     @property
@@ -7630,7 +7630,7 @@ class DaysInSales(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DaysInInventory(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DaysInInventory(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """365 / Inventory turnover"""
 
     @property
@@ -7706,7 +7706,7 @@ class DaysInInventory(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DaysInPayment(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DaysInPayment(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """365 / Payable turnover"""
 
     @property
@@ -7782,7 +7782,7 @@ class DaysInPayment(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CashConversionCycle(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashConversionCycle(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Days In Inventory + Days In Sales - Days In Payment"""
 
     @property
@@ -7858,7 +7858,7 @@ class CashConversionCycle(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ReceivableTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReceivableTurnover(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Revenue / Average Accounts Receivables"""
 
     @property
@@ -7934,7 +7934,7 @@ class ReceivableTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class InventoryTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InventoryTurnover(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cost Of Goods Sold / Average Inventory"""
 
     @property
@@ -8010,7 +8010,7 @@ class InventoryTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class PaymentTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PaymentTurnover(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cost of Goods Sold / Average Accounts Payables"""
 
     @property
@@ -8086,7 +8086,7 @@ class PaymentTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class FixAssetsTuronver(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FixAssetsTuronver(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Revenue / Average PP&E"""
 
     @property
@@ -8162,7 +8162,7 @@ class FixAssetsTuronver(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class AssetsTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AssetsTurnover(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Revenue / Average Total Assets"""
 
     @property
@@ -8238,7 +8238,7 @@ class AssetsTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ROE(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ROE(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net Income / Average Total Common Equity"""
 
     @property
@@ -8314,7 +8314,7 @@ class ROE(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ROA(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ROA(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net Income / Average Total Assets"""
 
     @property
@@ -8390,7 +8390,7 @@ class ROA(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ROIC(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net Income / (Total Equity + Long-term Debt and Capital Lease Obligation + Short-term Debt and Capital Lease Obligation)"""
 
     @property
@@ -8466,7 +8466,7 @@ class ROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class FCFSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FCFSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Free Cash flow / Revenue"""
 
     @property
@@ -8522,7 +8522,7 @@ class FCFSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class FCFNetIncomeRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FCFNetIncomeRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Free Cash Flow / Net Income"""
 
     @property
@@ -8578,7 +8578,7 @@ class FCFNetIncomeRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CapExSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CapExSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Capital Expenditure / Revenue"""
 
     @property
@@ -8634,7 +8634,7 @@ class CapExSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DebtToAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DebtToAssets(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is a leverage ratio used to determine how much debt (a sum of long term and current portion of debt) a company has on its balance sheet relative to total assets. This ratio examines the percent of the company that is financed by debt."""
 
     @property
@@ -8730,7 +8730,7 @@ class DebtToAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CommonEquityToAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CommonEquityToAssets(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is a financial ratio of common stock equity to total assets that indicates the relative proportion of equity used to finance a company's assets."""
 
     @property
@@ -8826,7 +8826,7 @@ class CommonEquityToAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CapitalExpenditureAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CapitalExpenditureAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is the compound annual growth rate of the company's capital spending over the last 5 years. Capital Spending is the sum of the Capital Expenditure items found in the Statement of Cash Flows."""
 
     @property
@@ -8892,7 +8892,7 @@ class CapitalExpenditureAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class GrossProfitAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GrossProfitAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is the compound annual growth rate of the company's Gross Profit over the last 5 years."""
 
     @property
@@ -8958,7 +8958,7 @@ class GrossProfitAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class GrossMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GrossMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is the simple average of the company's Annual Gross Margin over the last 5 years. Gross Margin is Total Revenue minus Cost of Goods Sold divided by Total Revenue and is expressed as a percentage."""
 
     @property
@@ -9014,7 +9014,7 @@ class GrossMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class PostTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PostTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is the simple average of the company's Annual Post Tax Margin over the last 5 years. Post tax margin is Post tax divided by total revenue for the same PeriodAsByte."""
 
     @property
@@ -9070,7 +9070,7 @@ class PostTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class PreTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PreTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is the simple average of the company's Annual Pre Tax Margin over the last 5 years. Pre tax margin is Pre tax divided by total revenue for the same PeriodAsByte."""
 
     @property
@@ -9126,7 +9126,7 @@ class PreTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ProfitMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ProfitMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is the simple average of the company's Annual Net Profit Margin over the last 5 years. Net profit margin is post tax income divided by total revenue for the same PeriodAsByte."""
 
     @property
@@ -9182,7 +9182,7 @@ class ProfitMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ROE5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ROE5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is the simple average of the company's ROE over the last 5 years. Return on equity reveals how much profit a company has earned in comparison to the total amount of shareholder equity found on the balance sheet."""
 
     @property
@@ -9238,7 +9238,7 @@ class ROE5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ROA5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ROA5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is the simple average of the company's ROA over the last 5 years. Return on asset is calculated by dividing a company's annual earnings by its average total assets."""
 
     @property
@@ -9294,7 +9294,7 @@ class ROA5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class AVG5YrsROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AVG5YrsROIC(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is the simple average of the company's ROIC over the last 5 years. Return on invested capital is calculated by taking net operating profit after taxes and dividends and dividing by the total amount of capital invested and expressing the result as a percentage."""
 
     @property
@@ -9350,7 +9350,7 @@ class AVG5YrsROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedROIC(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """<Normalized Income + (Interest Expense * (1-Tax Rate))> / Invested Capital"""
 
     @property
@@ -9426,7 +9426,7 @@ class NormalizedROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class RegressionGrowthOperatingRevenue5Years(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RegressionGrowthOperatingRevenue5Years(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The five-year growth rate of operating revenue, calculated using regression analysis."""
 
     @property
@@ -9487,7 +9487,7 @@ class RegressionGrowthOperatingRevenue5Years(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class CashRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Indicates a company's short-term liquidity, defined as short term liquid investments (cash, cash equivalents, short term investments) divided by current liabilities."""
 
     @property
@@ -9548,7 +9548,7 @@ class CashRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CashtoTotalAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashtoTotalAssets(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents the percentage of a company's total assets is in cash."""
 
     @property
@@ -9609,7 +9609,7 @@ class CashtoTotalAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CapitalExpendituretoEBITDA(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CapitalExpendituretoEBITDA(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Measures the amount a company is investing in its business relative to EBITDA generated in a given PeriodAsByte."""
 
     @property
@@ -9665,7 +9665,7 @@ class CapitalExpendituretoEBITDA(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class FCFtoCFO(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FCFtoCFO(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Indicates the percentage of a company's operating cash flow is free to be invested in its business after capital expenditures."""
 
     @property
@@ -9721,7 +9721,7 @@ class FCFtoCFO(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class StockholdersEquityGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class StockholdersEquityGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the stockholder's equity on a percentage basis. Morningstar calculates the growth percentage based on the residual interest in the assets of the enterprise that remains after deducting its liabilities reported in the Balance Sheet within the company filings or reports."""
 
     @property
@@ -9787,7 +9787,7 @@ class StockholdersEquityGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalAssetsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalAssetsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the total assets on a percentage basis. Morningstar calculates the growth percentage based on the total assets reported in the Balance Sheet within the company filings or reports."""
 
     @property
@@ -9853,7 +9853,7 @@ class TotalAssetsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalLiabilitiesGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalLiabilitiesGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the total liabilities on a percentage basis. Morningstar calculates the growth percentage based on the total liabilities reported in the Balance Sheet within the company filings or reports."""
 
     @property
@@ -9919,7 +9919,7 @@ class TotalLiabilitiesGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalDebtEquityRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalDebtEquityRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's total debt to equity ratio on a percentage basis. Morningstar calculates the growth percentage based on the total debt divided by the shareholder's equity reported in the Balance Sheet within the company filings or reports."""
 
     @property
@@ -9985,7 +9985,7 @@ class TotalDebtEquityRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class CashRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's cash ratio on a percentage basis. Morningstar calculates the growth percentage based on the short term liquid investments (cash, cash equivalents, short term investments) divided by current liabilities reported in the Balance Sheet within the company filings or reports."""
 
     @property
@@ -10051,7 +10051,7 @@ class CashRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class EBITDAGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITDAGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's EBITDA on a percentage basis. Morningstar calculates the growth percentage based on the earnings minus expenses (excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
 
     @property
@@ -10117,7 +10117,7 @@ class EBITDAGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CashFlowFromFinancingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFlowFromFinancingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's cash flows from financing on a percentage basis. Morningstar calculates the growth percentage based on the financing cash flows reported in the Cash Flow Statement within the company filings or reports."""
 
     @property
@@ -10183,7 +10183,7 @@ class CashFlowFromFinancingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class CashFlowFromInvestingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFlowFromInvestingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's cash flows from investing on a percentage basis. Morningstar calculates the growth percentage based on the cash flows from investing reported in the Cash Flow Statement within the company filings or reports."""
 
     @property
@@ -10249,7 +10249,7 @@ class CashFlowFromInvestingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class CapExGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CapExGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's capital expenditures on a percentage basis. Morningstar calculates the growth percentage based on the capital expenditures reported in the Cash Flow Statement within the company filings or reports."""
 
     @property
@@ -10315,7 +10315,7 @@ class CapExGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CurrentRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth in the company's current ratio on a percentage basis. Morningstar calculates the growth percentage based on the current assets divided by current liabilities reported in the Balance Sheet within the company filings or reports."""
 
     @property
@@ -10381,7 +10381,7 @@ class CurrentRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class WorkingCapitalTurnoverRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class WorkingCapitalTurnoverRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total revenue / working capital (current assets minus current liabilities)"""
 
     @property
@@ -10447,7 +10447,7 @@ class WorkingCapitalTurnoverRatio(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class NetIncomePerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomePerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Refers to the ratio of Net Income to Employees. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Net Income / Employee Number."""
 
     @property
@@ -10513,7 +10513,7 @@ class NetIncomePerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class SolvencyRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SolvencyRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Measure of whether a company's cash flow is sufficient to meet its short-term and long-term debt requirements. The lower this ratio is, the greater the probability that the company will be in financial distress. Net Income + Depreciation, Depletion and Amortization/ average of annual Total Liabilities over the most recent two periods."""
 
     @property
@@ -10574,7 +10574,7 @@ class SolvencyRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ExpenseRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ExpenseRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A measure of operating performance for Insurance companies, as it shows the relationship between the premiums earned and administrative expenses related to claims such as fees and commissions. A number of 1 or lower is preferred, as this means the premiums exceed the expenses. Calculated as: (Deferred Policy Acquisition Amortization Expense+Fees and Commission Expense+Other Underwriting Expenses+Selling, General and Administrative) / Net Premiums Earned"""
 
     @property
@@ -10635,7 +10635,7 @@ class ExpenseRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class LossRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LossRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A measure of operating performance for Insurance companies, as it shows the relationship between the premiums earned and the expenses related to claims. A number of 1 or lower is preferred, as this means the premiums exceed the expenses. Calculated as: Benefits, Claims and Loss Adjustment Expense, Net / Net Premiums Earned"""
 
     @property
@@ -10696,7 +10696,7 @@ class LossRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalDebtToInvestedCapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalDebtToInvestedCapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's total debt relative to its invested capital. This can be used to measure the company's financial leverage. This is calculated using Total Debt divided by Invested Capital."""
 
     @property
@@ -10757,7 +10757,7 @@ class TotalDebtToInvestedCapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class NormalizedReturnOnAsset(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedReturnOnAsset(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's normalized income relative to its total assets. This can be used to measure the company's ability to utilize its assets efficiently to generate earnings from its normal operations. This is calculated using Normalized Income (TTM) divided by Average Total Assets."""
 
     @property
@@ -10813,7 +10813,7 @@ class NormalizedReturnOnAsset(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class EquityMultiplierRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EquityMultiplierRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of company's total assets relative to its total equity. This can be used to measure a company's financial leverage and is often referred to as the Financial Leverage Ratio. This is calculated using Total Assets divided by Total Equity."""
 
     @property
@@ -10874,7 +10874,7 @@ class EquityMultiplierRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CashFlowToDebtRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFlowToDebtRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's cash flow from operating activities relative to its total debt. This can be used to measure a company's ability to use its cash to pay off debt. This is calculated using Cash Flow from Operating Activities (TTM) divided by Average Total Debt."""
 
     @property
@@ -10930,7 +10930,7 @@ class CashFlowToDebtRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedReturnOnEquity(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedReturnOnEquity(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's normalized income relative to its total equity. This can be used to measure the company's ability to utilize its equity efficiently to generate earnings from its normal operations. This is calculated using Normalized Income (TTM) divided by Average Total Equity."""
 
     @property
@@ -10986,7 +10986,7 @@ class NormalizedReturnOnEquity(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NetOperatingAssetsTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetOperatingAssetsTurnover(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's total revenue relative to the value of its net operating assets. This can be used to measure a company's ability to use its assets efficiently to generate revenue. This is calculated using Total Revenue (TTM) divided by Average Net Operating Assets."""
 
     @property
@@ -11042,7 +11042,7 @@ class NetOperatingAssetsTurnover(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class ReturnOnNetOperatingAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReturnOnNetOperatingAssets(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's net income relative to its net operating assets. This can be used to determine how much profit a company generates on its asset base. This is calculated using Net Income from Continuing Operations (TTM) divided by Average Net Operating Assets."""
 
     @property
@@ -11098,7 +11098,7 @@ class ReturnOnNetOperatingAssets(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class LongTermDebtToAssetsRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LongTermDebtToAssetsRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's long term debt relative to its total assets. This can be used to measure a company's financial leverage. This is calculated using Long Term Debt and Capital Lease Obligations divided by Total Assets."""
 
     @property
@@ -11159,7 +11159,7 @@ class LongTermDebtToAssetsRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class InterestAsAPercentOfInvestedCapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestAsAPercentOfInvestedCapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's interest expense relative to the sum of it's Total Debt and Total Equity. This can be used to measure cost of borrowing in proportion to all capital invested in the company. This is calculated using Interest expenses divided by Invested Capital."""
 
     @property
@@ -11215,7 +11215,7 @@ class InterestAsAPercentOfInvestedCapitalRatio(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class BookValueToRevenueRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BookValueToRevenueRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's book value relative to its revenue. This can be used to determine a company's fair value when comparing this ratio among different companies within the same sector. This is calculated using Book Value divided by Revenue (TTM)."""
 
     @property
@@ -11271,7 +11271,7 @@ class BookValueToRevenueRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CashTurnoverRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashTurnoverRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's total revenue relative to its cash and cash equivalents. This can be used to measure a company's ability to use its cash efficiently to generate revenue. This is calculated using Total Revenue (TTM) divided by Average Cash and Cash Equivalents."""
 
     @property
@@ -11327,7 +11327,7 @@ class CashTurnoverRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ReturnOnCapitalEmployed(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReturnOnCapitalEmployed(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's earnings before interest and tax (EBIT) relative to its Capital Employed. This can be used to measure how much profit a company generates on its capital base. This is calculated using Earnings Before Interest and Tax (EBIT) (TTM); divided by Average Total Assets minus Average Current Liabilities"""
 
     @property
@@ -11383,7 +11383,7 @@ class ReturnOnCapitalEmployed(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class EquityTurnoverRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EquityTurnoverRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's total revenue relative to its average equity. This can be used to measure a company's ability to use the equity efficiently to generate revenue. This is calculated using Total Revenue (TTM) divided by Average Equity."""
 
     @property
@@ -11439,7 +11439,7 @@ class EquityTurnoverRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class SellingGeneralAdministrativeExpenseMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SellingGeneralAdministrativeExpenseMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's selling; general and administrative expenses relative to its total revenue. This can be used to measure a company's profitability. This is calculated using SG&A Expenses divided by Total Revenue."""
 
     @property
@@ -11510,7 +11510,7 @@ class SellingGeneralAdministrativeExpenseMargin(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class FreeCashFlowInterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FreeCashFlowInterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's free cash flow relative to its interest expense. This can be used to measure a company's ability to use its free cash flow to pay off its interest expense. This is calculated using Free Cash Flow divided by Interest Expense."""
 
     @property
@@ -11566,7 +11566,7 @@ class FreeCashFlowInterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class EBITDANetCapitalExpenditureToInterestExpensesRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITDANetCapitalExpenditureToInterestExpensesRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's EBITDA Net Capital Expenditure relative to its interest expense. This can be used to measure a company's ability to use EBITDA after deducting capital expenditures to pay off its interest expense. This ratio is useful for companies with high capital expenditures; including manufacturing and mining firms. This is calculated using EBITDA minus Capital Expenditure; divided by Interest Expense."""
 
     @property
@@ -11622,7 +11622,7 @@ class EBITDANetCapitalExpenditureToInterestExpensesRatio(QuantConnect.Data.Funda
         ...
 
 
-class EBITDAInterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITDAInterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's EBITDA relative to its interest expense. This can be used to measure a company's ability to use EBITDA to pay off its interest expense. This is calculated using EBITDA divided by Interest Expense."""
 
     @property
@@ -11678,7 +11678,7 @@ class EBITDAInterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ExcessCashMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ExcessCashMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's excess cash relative to its total revenue. This can be used to measure a company's profitability. This is calculated using (Cash Flow from Operating Activities Used for Calculations - Total Operating Profit/Loss) / Total Revenue"""
 
     @property
@@ -11749,7 +11749,7 @@ class ExcessCashMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedEBITMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedEBITMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's normalized EBIT relative to its total revenue. This can be used to fairly measure a company's profitability. This is calculated using Normalized EBIT divided by Total Revenue."""
 
     @property
@@ -11820,7 +11820,7 @@ class NormalizedEBITMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedEBITDAMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedEBITDAMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's normalized EBITDA relative to its total revenue. This can be used to fairly measure a company's profitability. This is calculated using Normalized EBITDA divided by Total Revenue."""
 
     @property
@@ -11891,7 +11891,7 @@ class NormalizedEBITDAMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class EBITDARMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITDARMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's EBITDAR relative to its total revenue. This can be used to measure a company's profitability. This is calculated using EBITDAR divided by Total Revenue."""
 
     @property
@@ -11962,7 +11962,7 @@ class EBITDARMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedEBITDARMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedEBITDARMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's normalized EBITDAR relative to its total revenue. This can be used to fairly measure a company's profitability. This is calculated using Normalized EBITDAR divided by Total Revenue."""
 
     @property
@@ -12033,7 +12033,7 @@ class NormalizedEBITDARMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedIncomePerFullTimeEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedIncomePerFullTimeEmployee(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This calculation represents the amount of normalized income generated by each employee. This can be used to measure a company's productivity. This is calculated using Normalized Income (TTM) divided by Number of Full Time Employees."""
 
     @property
@@ -12089,7 +12089,7 @@ class NormalizedIncomePerFullTimeEmployee(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class CashFlowFromOperatingActivitiesPerFullTimeEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFlowFromOperatingActivitiesPerFullTimeEmployee(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This calculation represents the amount of cash flow from operating activities generated by each employee. This can be used to measure a company's productivity. This is calculated using Cash Flow From Operating Activities (TTM) divided by Number of Full Time Employees."""
 
     @property
@@ -12145,7 +12145,7 @@ class CashFlowFromOperatingActivitiesPerFullTimeEmployee(QuantConnect.Data.Funda
         ...
 
 
-class BookValueToNetIncomeRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BookValueToNetIncomeRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's book value relative to its net income. This can be used to determine a company's fair value when comparing this ratio among different companies within the same sector. This is calculated using Book Value divided by Net Income (TTM)."""
 
     @property
@@ -12201,7 +12201,7 @@ class BookValueToNetIncomeRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DegreeOfOperatingLeverage(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DegreeOfOperatingLeverage(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of the net change of a company's EBIT relative to its net change of revenue. This can be used to evaluate the sensitivity of EBIT to a given change in total revenue. This is calculated using the percentage change of EBIT divided by the percentage change of Total Revenue."""
 
     @property
@@ -12257,7 +12257,7 @@ class DegreeOfOperatingLeverage(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class FreeCashFlowToAssetsRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FreeCashFlowToAssetsRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's free cash flow relative to its total assets. This can be used to measure a company's ability to transfer each dollar worth of assets into cash. This is calculated using the Free Cash Flow (TTM) divided by Average Total Assets."""
 
     @property
@@ -12313,7 +12313,7 @@ class FreeCashFlowToAssetsRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class FreeCashFlowToDebtRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FreeCashFlowToDebtRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's free cash flow relative to its total debt. This can be used to measure a company's ability to use its free cash to pay off its debt. This is calculated using the Free Cash Flow (TTM) divided by Average Total Debt."""
 
     @property
@@ -12369,7 +12369,7 @@ class FreeCashFlowToDebtRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalDebtToEBITDARatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalDebtToEBITDARatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's total debt relative to its EBITDA. This can be used to measure the company's ability to pay off its debt. This is calculated using Average Total Debt divided by EBITDA (TTM)."""
 
     @property
@@ -12425,7 +12425,7 @@ class TotalDebtToEBITDARatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NetDebtToEBITDARatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetDebtToEBITDARatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's net debt relative to its EBITDA. This can be used to measure the company's ability to pay off its debt. This is calculated using Average Net Debt divided by EBITDA (TTM)."""
 
     @property
@@ -12481,7 +12481,7 @@ class NetDebtToEBITDARatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class FreeCashFlowToEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FreeCashFlowToEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's free cash flow relative to its total equity. This can be used to measure the amount of cash available for distribution for each dollar worth of equity. This is calculated using the Free Cash Flow (TTM) divided by Average Total Equity."""
 
     @property
@@ -12537,7 +12537,7 @@ class FreeCashFlowToEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class EBITAMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITAMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's EBITA relative to its total revenue. This can be used to measure a company's profitability. This is calculated using EBITA divided by Total Revenue."""
 
     @property
@@ -12608,7 +12608,7 @@ class EBITAMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class BookValueToEBITDARatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BookValueToEBITDARatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's book value relative to its EBITDA. This can be used to determine a company's fair value when comparing this ratio among different companies within the same sector. This is calculated using Book Value divided by EBITDA (TTM)."""
 
     @property
@@ -12664,7 +12664,7 @@ class BookValueToEBITDARatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class BookValueToEBITRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BookValueToEBITRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This ratio represents the value of a company's book value relative to its EBIT. This can be used to determine a company's fair value when comparing this ratio among different companies within the same sector. This is calculated using Book Value divided by EBIT (TTM)."""
 
     @property
@@ -12720,7 +12720,7 @@ class BookValueToEBITRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NetIncomeAfterMinorityInterestGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeAfterMinorityInterestGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth of Net Income after Minority Interest against the same period a window earlier. Net Income after Minority Interest represents net income or loss of the company after non-controlling interests attribution."""
 
     @property
@@ -12801,7 +12801,7 @@ class NetIncomeAfterMinorityInterestGrowth(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class NormalizedIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth of Normalized Income against the same period a window earlier. Normalized Income is calculated using Net Income from Continuing Operations plus/minus any tax affected unusual Items and Goodwill Impairments/Write Offs."""
 
     @property
@@ -12867,7 +12867,7 @@ class NormalizedIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NetIncomeSelectionGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeSelectionGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth of Net Income Selection against the same period a window earlier. Net Income Selection is calculated by using Net Income from Continuing Operations; minus Non-Controlling/Minority Interests and Preferred/Other Stock Distribution."""
 
     @property
@@ -12933,7 +12933,7 @@ class NetIncomeSelectionGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class EBITGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth of EBIT against the same period a window earlier. EBIT is calculated by using the summation of Pretax Income and Net Interest Income/Expenses."""
 
     @property
@@ -12989,7 +12989,7 @@ class EBITGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalOperatingProfitLossGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalOperatingProfitLossGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth of Total Operating Profit/Loss against the same period a window earlier. Total Operating Profit/Loss represents profit or loss realized by calculating the difference between sales and total operating expenses."""
 
     @property
@@ -13050,7 +13050,7 @@ class TotalOperatingProfitLossGrowth(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class CashFlowFromOperationsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFlowFromOperationsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The growth of Cash Flow from Operations calculated as <(Value from current period / Value from the same period 5 years ago)^(1/5) - 1>. Cash Flow from Operations is calculated using Net Cash Flow from Operating Activities - Changes in Net Working Capital."""
 
     @property
@@ -14492,7 +14492,7 @@ class FinancialStatementsPeriodType(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class TotalRiskBasedCapital(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalRiskBasedCapital(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of Tier 1 and Tier 2 Capital. Tier 1 capital consists of common shareholders equity, perpetual preferred shareholders equity with non-cumulative dividends, retained earnings, and minority interests in the equity accounts of consolidated subsidiaries. Tier 2 capital consists of subordinated debt, intermediate-term preferred stock, cumulative and long-term preferred stock, and a portion of a bank's allowance for loan and lease losses."""
 
     @property
@@ -14730,7 +14730,7 @@ class IncomeStatementPeriodEndingDate(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class AmortizationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AmortizationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The non-cash expense recognized on intangible assets over the benefit period of the asset."""
 
     @property
@@ -14811,7 +14811,7 @@ class AmortizationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class SecuritiesAmortizationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SecuritiesAmortizationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amortization and accretion of securities allocated to the accounting period, such as the accretion of convertible notes."""
 
     @property
@@ -14887,7 +14887,7 @@ class SecuritiesAmortizationIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class CostOfRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CostOfRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate cost of goods produced and sold and services rendered during the reporting PeriodAsByte. It excludes all operating expenses such as depreciation, depletion, amortization, and SG&A. For the must have cost industry, if the number is not reported by the company, it will be calculated based on accounting equation. Cost of Revenue = Revenue - Operating Expenses - Operating Profit."""
 
     @property
@@ -14968,7 +14968,7 @@ class CostOfRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class DepletionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepletionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The non-cash expense recognized on natural resources (eg. Oil and mineral deposits) over the benefit period of the asset."""
 
     @property
@@ -15039,7 +15039,7 @@ class DepletionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DepreciationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepreciationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The current period non-cash expense recognized on tangible assets used in the normal course of business, by allocating the cost of assets over their useful lives, in the Income Statement. Examples of tangible asset include buildings, production and equipment."""
 
     @property
@@ -15115,7 +15115,7 @@ class DepreciationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class DepreciationAndAmortizationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepreciationAndAmortizationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of depreciation and amortization expense in the Income Statement. Depreciation is the non-cash expense recognized on tangible assets used in the normal course of business, by allocating the cost of assets over their useful lives Amortization is the non-cash expense recognized on intangible assets over the benefit period of the asset."""
 
     @property
@@ -15196,7 +15196,7 @@ class DepreciationAndAmortizationIncomeStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class DepreciationAmortizationDepletionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepreciationAmortizationDepletionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of depreciation, amortization and depletion expense in the Income Statement. Depreciation is the non-cash expense recognized on tangible assets used in the normal course of business, by allocating the cost of assets over their useful lives Amortization is the non-cash expense recognized on intangible assets over the benefit period of the asset. Depletion is the non-cash expense recognized on natural resources (eg. Oil and mineral deposits) over the benefit period of the asset."""
 
     @property
@@ -15277,7 +15277,7 @@ class DepreciationAmortizationDepletionIncomeStatement(QuantConnect.Data.Fundame
         ...
 
 
-class NetIncomeDiscontinuousOperationsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeDiscontinuousOperationsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """To be classified as discontinued operations, if both of the following conditions are met: 1: The operations and cash flow of the component have been or will be removed from the ongoing operations of the entity as a result of the disposal transaction, and 2: The entity will have no significant continuing involvement in the operations of the component after the disposal transaction. The discontinued operation is reported net of tax. Gains/Loss on Disposal of Discontinued Operations: Any gains or loss recognized on disposal of discontinued operations, which is the difference between the carrying value of the division and its fair value less costs to sell. Provision for Gain/Loss on Disposal: The amount of current expense charged in order to prepare for the disposal of discontinued operations."""
 
     @property
@@ -15358,7 +15358,7 @@ class NetIncomeDiscontinuousOperationsIncomeStatement(QuantConnect.Data.Fundamen
         ...
 
 
-class ExciseTaxesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ExciseTaxesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Excise taxes are taxes paid when purchases are made on a specific good, such as gasoline. Excise taxes are often included in the price of the product. There are also excise taxes on activities, such as on wagering or on highway usage by trucks."""
 
     @property
@@ -15429,7 +15429,7 @@ class ExciseTaxesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class NetIncomeExtraordinaryIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeExtraordinaryIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Gains (losses), whether arising from extinguishment of debt, prior period adjustments, or from other events or transactions, that are both unusual in nature and infrequent in occurrence thereby meeting the criteria for an event or transaction to be classified as an extraordinary item."""
 
     @property
@@ -15510,7 +15510,7 @@ class NetIncomeExtraordinaryIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class FeeRevenueAndOtherIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FeeRevenueAndOtherIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other revenue that is not classified elsewhere. Fees and commissions are not included."""
 
     @property
@@ -15581,7 +15581,7 @@ class FeeRevenueAndOtherIncomeIncomeStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class GeneralAndAdministrativeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GeneralAndAdministrativeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate total of general managing and administering expenses for the company."""
 
     @property
@@ -15662,7 +15662,7 @@ class GeneralAndAdministrativeExpenseIncomeStatement(QuantConnect.Data.Fundament
         ...
 
 
-class GrossProfitIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GrossProfitIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total revenue less cost of revenue. The number is as reported by the company on the income statement; however, the number will be calculated if it is not reported. This field is null if the cost of revenue is not given. Gross Profit = Total Revenue - Cost of Revenue."""
 
     @property
@@ -15743,7 +15743,7 @@ class GrossProfitIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class InterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Relates to the general cost of borrowing money. It is the price that a lender charges a borrower for the use of the lender's money."""
 
     @property
@@ -15824,7 +15824,7 @@ class InterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class InterestExpenseNonOperatingIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestExpenseNonOperatingIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Interest expense caused by long term financing activities; such as interest expense incurred on trading liabilities, commercial paper, long-term debt, capital leases, deposits, and all other borrowings."""
 
     @property
@@ -15905,7 +15905,7 @@ class InterestExpenseNonOperatingIncomeStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class InterestIncomeAfterProvisionForLoanLossIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestIncomeAfterProvisionForLoanLossIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net interest and dividend income or expense, including any amortization and accretion (as applicable) of discounts and premiums, including consideration of the provisions for loan, lease, credit, and other related losses, if any."""
 
     @property
@@ -15986,7 +15986,7 @@ class InterestIncomeAfterProvisionForLoanLossIncomeStatement(QuantConnect.Data.F
         ...
 
 
-class InterestIncomeNonOperatingIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestIncomeNonOperatingIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Interest income earned from long term financing activities."""
 
     @property
@@ -16067,7 +16067,7 @@ class InterestIncomeNonOperatingIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class NetNonOperatingInterestIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetNonOperatingInterestIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net-Non Operating interest income or expenses caused by financing activities."""
 
     @property
@@ -16148,7 +16148,7 @@ class NetNonOperatingInterestIncomeExpenseIncomeStatement(QuantConnect.Data.Fund
         ...
 
 
-class LossAdjustmentExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LossAdjustmentExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of net policyholder benefits and claims, the net change in insurance liability provisions, other insurance expenses and expenses on investment contracts, loss adjustment expense included."""
 
     @property
@@ -16219,7 +16219,7 @@ class LossAdjustmentExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class MinorityInterestsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class MinorityInterestsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents par or stated value of the subsidiary stock not owned by the parent company plus the minority interest's equity in the surplus of the subsidiary. This item includes preferred dividend averages on the minority preferred stock (preferred shares not owned by the reporting parent company). Minority interest also refers to stockholders who own less than 50% of a subsidiary's outstanding voting common stock. The minority stockholders hold an interest in the subsidiary's net assets and share earnings with the parent company."""
 
     @property
@@ -16300,7 +16300,7 @@ class MinorityInterestsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class NetIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Includes all the operations (continuing and discontinued) and all the other income or charges (extraordinary, accounting changes, tax loss carry forward, and other gains and losses)."""
 
     @property
@@ -16381,7 +16381,7 @@ class NetIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NetIncomeCommonStockholdersIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeCommonStockholdersIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net income minus the preferred dividends paid as presented in the Income Statement."""
 
     @property
@@ -16462,7 +16462,7 @@ class NetIncomeCommonStockholdersIncomeStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class NetIncomeContinuousOperationsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeContinuousOperationsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Revenue less expenses and taxes from the entity's ongoing operations and before income (loss) from: Preferred Dividends; Extraordinary Gains and Losses; Income from Cumulative Effects of Accounting Change; Discontinuing Operation; Income from Tax Loss Carry forward; Other Gains/Losses."""
 
     @property
@@ -16543,7 +16543,7 @@ class NetIncomeContinuousOperationsIncomeStatement(QuantConnect.Data.Fundamental
         ...
 
 
-class NetInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total interest income minus total interest expense. It represents the difference between interest and dividends earned on interest- bearing assets and interest paid to depositors and other creditors."""
 
     @property
@@ -16624,7 +16624,7 @@ class NetInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class NetInvestmentIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetInvestmentIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total of interest, dividends, and other earnings derived from the insurance company's invested assets minus the expenses associated with these investments. Excluded from this income are capital gains or losses as the result of the sale of assets, as well as any unrealized capital gains or losses."""
 
     @property
@@ -16695,7 +16695,7 @@ class NetInvestmentIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class TotalRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """All sales, business revenues and income that the company makes from its business operations, net of excise taxes. This applies for all companies and can be used as comparison for all industries. For Normal, Mining, Transportation and Utility templates companies, this is the sum of Operating Revenues, Excise Taxes and Fees. For Bank template companies, this is the sum of Net Interest Income and Non-Interest Income. For Insurance template companies, this is the sum of Premiums, Interest Income, Fees, Investment and Other Income."""
 
     @property
@@ -16776,7 +16776,7 @@ class TotalRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class NonInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Any expenses that not related to interest. It includes labor and related expense, occupancy and equipment, commission, professional expense and contract services expenses, selling, general and administrative, research and development depreciation, amortization and depletion, and any other special income/charges."""
 
     @property
@@ -16857,7 +16857,7 @@ class NonInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class NonInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The total amount of non-interest income which may be derived from: (1) fees and commissions; (2) premiums earned; (3) equity investment; (4) the sale or disposal of assets; and (5) other sources not otherwise specified."""
 
     @property
@@ -16938,7 +16938,7 @@ class NonInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class OperatingExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OperatingExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Operating expenses are primary recurring costs associated with central operations (other than cost of goods sold) that are incurred in order to generate sales."""
 
     @property
@@ -17019,7 +17019,7 @@ class OperatingExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class OperatingIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OperatingIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income from normal business operations after deducting cost of revenue and operating expenses. It does not include income from any investing activities."""
 
     @property
@@ -17100,7 +17100,7 @@ class OperatingIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class OperatingRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OperatingRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sales and income that the company makes from its business operations. This applies only to non-bank and insurance companies. For Utility template companies, this is the sum of revenue from electric, gas, transportation and other operating revenue. For Transportation template companies, this is the sum of revenue-passenger, revenue-cargo, and other operating revenue."""
 
     @property
@@ -17181,7 +17181,7 @@ class OperatingRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class OtherIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income or expense that comes from miscellaneous sources."""
 
     @property
@@ -17262,7 +17262,7 @@ class OtherIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class PolicyAcquisitionExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PolicyAcquisitionExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Costs that vary with and are primarily related to the acquisition of new and renewal insurance contracts. Also referred to as underwriting expenses."""
 
     @property
@@ -17333,7 +17333,7 @@ class PolicyAcquisitionExpenseIncomeStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class NetPolicyholderBenefitsAndClaimsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetPolicyholderBenefitsAndClaimsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net provision in current period for future policy benefits, claims, and claims settlement expenses incurred in the claims settlement process before the effects of reinsurance arrangements. The value is net of the effects of contracts assumed and ceded."""
 
     @property
@@ -17424,7 +17424,7 @@ class NetPolicyholderBenefitsAndClaimsIncomeStatement(QuantConnect.Data.Fundamen
         ...
 
 
-class PreferredStockDividendsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PreferredStockDividendsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount of dividends declared or paid in the period to preferred shareholders, or the amount for which the obligation to pay them dividends arose in the PeriodAsByte. Preferred dividends are the amount required for the current year only, and not for any amount required in past years."""
 
     @property
@@ -17505,7 +17505,7 @@ class PreferredStockDividendsIncomeStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class TotalPremiumsEarnedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalPremiumsEarnedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Premiums earned is the portion of an insurance written premium which is considered "earned" by the insurer, based on the part of the policy period that the insurance has been in effect, and during which the insurer has been exposed to loss."""
 
     @property
@@ -17576,7 +17576,7 @@ class TotalPremiumsEarnedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class PretaxIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PretaxIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Reported income before the deduction or benefit of income taxes."""
 
     @property
@@ -17657,7 +17657,7 @@ class PretaxIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class TaxProvisionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TaxProvisionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Include any taxes on income, net of any investment tax credits for the current accounting PeriodAsByte."""
 
     @property
@@ -17738,7 +17738,7 @@ class TaxProvisionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class CreditLossesProvisionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CreditLossesProvisionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A charge to income which represents an expense deemed adequate by management given the composition of a bank's credit portfolios, their probability of default, the economic environment and the allowance for credit losses already established. Specific provisions are established to reduce the book value of specific assets (primarily loans) to establish the amount expected to be recovered on the loans."""
 
     @property
@@ -17814,7 +17814,7 @@ class CreditLossesProvisionIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class ResearchAndDevelopmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ResearchAndDevelopmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of research and development expenses during the year."""
 
     @property
@@ -17895,7 +17895,7 @@ class ResearchAndDevelopmentIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class SellingAndMarketingExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SellingAndMarketingExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate total amount of expenses directly related to the marketing or selling of products or services."""
 
     @property
@@ -17976,7 +17976,7 @@ class SellingAndMarketingExpenseIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class SellingGeneralAndAdministrationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SellingGeneralAndAdministrationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate total costs related to selling a firm's product and services, as well as all other general and administrative expenses. Selling expenses are those directly related to the company's efforts to generate sales (e.g., sales salaries, commissions, advertising, delivery expenses). General and administrative expenses are expenses related to general administration of the company's operation (e.g., officers and office salaries, office supplies, telephone, accounting and legal services, and business licenses and fees)."""
 
     @property
@@ -18057,7 +18057,7 @@ class SellingGeneralAndAdministrationIncomeStatement(QuantConnect.Data.Fundament
         ...
 
 
-class SpecialIncomeChargesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SpecialIncomeChargesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Earnings or losses attributable to occurrences or actions by the firm that is either infrequent or unusual."""
 
     @property
@@ -18138,7 +18138,7 @@ class SpecialIncomeChargesIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class TotalExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of operating expense and cost of revenue. If the company does not give the reported number, it will be calculated by adding operating expense and cost of revenue."""
 
     @property
@@ -18219,7 +18219,7 @@ class TotalExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class InterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of the company's interest income and its dividend and investment income."""
 
     @property
@@ -18300,7 +18300,7 @@ class InterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class EBITIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Earnings minus expenses (excluding interest and tax expenses)."""
 
     @property
@@ -18381,7 +18381,7 @@ class EBITIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class EBITDAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITDAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Earnings minus expenses (excluding interest, tax, depreciation, and amortization expenses)."""
 
     @property
@@ -18462,7 +18462,7 @@ class EBITDAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NetIncomeContinuousOperationsNetMinorityInterestIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeContinuousOperationsNetMinorityInterestIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Revenue less expenses and taxes from the entity's ongoing operations net of minority interest and before income (loss) from: Preferred Dividends; Extraordinary Gains and Losses; Income from Cumulative Effects of Accounting Change; Discontinuing Operation; Income from Tax Loss Carry forward; Other Gains/Losses."""
 
     @property
@@ -18533,7 +18533,7 @@ class NetIncomeContinuousOperationsNetMinorityInterestIncomeStatement(QuantConne
         ...
 
 
-class CededPremiumsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CededPremiumsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount of premiums paid and payable to another insurer as a result of reinsurance arrangements in order to exchange for that company accepting all or part of insurance on a risk or exposure. This item is usually only available for insurance industry."""
 
     @property
@@ -18604,7 +18604,7 @@ class CededPremiumsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class CommissionExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CommissionExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """"""
 
     @property
@@ -18685,7 +18685,7 @@ class CommissionExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class CreditCardIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CreditCardIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income earned from credit card services including late, over limit, and annual fees. This item is usually only available for bank industry."""
 
     @property
@@ -18756,7 +18756,7 @@ class CreditCardIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class DividendIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DividendIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Dividends earned from equity investment securities. This item is usually only available for bank industry."""
 
     @property
@@ -18842,7 +18842,7 @@ class DividendIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class EarningsFromEquityInterestIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EarningsFromEquityInterestIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The earnings from equity interest can be a result of any of the following: Income from earnings distribution of the business, either as dividends paid to corporate shareholders or as drawings in a partnership; Capital gain realized upon sale of the business; Capital gain realized from selling his or her interest to other partners. This item is usually not available for bank and insurance industries."""
 
     @property
@@ -18923,7 +18923,7 @@ class EarningsFromEquityInterestIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class EquipmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EquipmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Equipment expenses include depreciation, repairs, rentals, and service contract costs. This also includes equipment purchases which do not qualify for capitalization in accordance with the entity's accounting policy. This item may also include furniture expenses. This item is usually only available for bank industry."""
 
     @property
@@ -18994,7 +18994,7 @@ class EquipmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ExplorationDevelopmentAndMineralPropertyLeaseExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ExplorationDevelopmentAndMineralPropertyLeaseExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Costs incurred in identifying areas that may warrant examination and in examining specific areas that are considered to have prospects of containing energy or metal reserves, including costs of drilling exploratory wells. Development expense is the capitalized costs incurred to obtain access to proved reserves and to provide facilities for extracting, treating, gathering and storing the energy and metal. Mineral property includes oil and gas wells, mines, and other natural deposits (including geothermal deposits). The payment for leasing those properties is called mineral property lease expense. Exploration expense is included in operation expenses for mining industry."""
 
     @property
@@ -19065,7 +19065,7 @@ class ExplorationDevelopmentAndMineralPropertyLeaseExpensesIncomeStatement(Quant
         ...
 
 
-class FeesAndCommissionsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FeesAndCommissionsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Fees and commission income less fees and commission expense."""
 
     @property
@@ -19146,7 +19146,7 @@ class FeesAndCommissionsIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class ForeignExchangeTradingGainsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ForeignExchangeTradingGainsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Trading revenues that result from foreign exchange exposures such as cash instruments and off-balance sheet derivative instruments. This item is usually only available for bank industry."""
 
     @property
@@ -19217,7 +19217,7 @@ class ForeignExchangeTradingGainsIncomeStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class FuelIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FuelIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of fuel cost for current period associated with the revenue generation. This item is usually only available for transportation industry."""
 
     @property
@@ -19298,7 +19298,7 @@ class FuelIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class FuelAndPurchasePowerIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FuelAndPurchasePowerIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cost of fuel, purchase power and gas associated with revenue generation. This item is usually only available for utility industry."""
 
     @property
@@ -19369,7 +19369,7 @@ class FuelAndPurchasePowerIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class GainOnSaleOfBusinessIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainOnSaleOfBusinessIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount of excess earned in comparison to fair value when selling a business. This item is usually not available for insurance industry."""
 
     @property
@@ -19450,7 +19450,7 @@ class GainOnSaleOfBusinessIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class GainOnSaleOfPPEIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainOnSaleOfPPEIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net gain or loss on the disposal or sale of assets, recognized in the non-operating section of the income statement; not limited to property, plant and equipment."""
 
     @property
@@ -19526,7 +19526,7 @@ class GainOnSaleOfPPEIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class GainOnSaleOfSecurityIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainOnSaleOfSecurityIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount of excess earned in comparison to the original purchase value of the security."""
 
     @property
@@ -19607,7 +19607,7 @@ class GainOnSaleOfSecurityIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class GrossPremiumsWrittenIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GrossPremiumsWrittenIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total premiums generated from all policies written by an insurance company within a given period of time. This item is usually only available for insurance industry."""
 
     @property
@@ -19678,7 +19678,7 @@ class GrossPremiumsWrittenIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class ImpairmentOfCapitalAssetsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ImpairmentOfCapitalAssetsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Impairments are considered to be permanent, which is a downward revaluation of fixed assets. If the sum of all estimated future cash flows is less than the carrying value of the asset, then the asset would be considered impaired and would have to be written down to its fair value. Once an asset is written down, it may only be written back up under very few circumstances. Usually the company uses the sum of undiscounted future cash flows to determine if the impairment should occur, and uses the sum of discounted future cash flows to make the impairment judgment. The impairment decision emphasizes on capital assets' future profit collection ability."""
 
     @property
@@ -19759,7 +19759,7 @@ class ImpairmentOfCapitalAssetsIncomeStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class IncreaseDecreaseInNetUnearnedPremiumReservesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IncreaseDecreaseInNetUnearnedPremiumReservesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Premium might contain a portion of the amount that has been paid in advance for insurance that has not yet been provided, which is called unearned premium. If either party cancels the contract, the insurer must have the unearned premium ready to refund. Hence, the amount of premium reserve maintained by insurers is called unearned premium reserves, which is prepared for liquidation. This item is usually only available for insurance industry."""
 
     @property
@@ -19830,7 +19830,7 @@ class IncreaseDecreaseInNetUnearnedPremiumReservesIncomeStatement(QuantConnect.D
         ...
 
 
-class InsuranceAndClaimsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InsuranceAndClaimsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Insurance and claims are the expenses in the period incurred with respect to protection provided by insurance entities against risks other than risks associated with production (which is allocated to cost of sales). This item is usually not available for insurance industries."""
 
     @property
@@ -19901,7 +19901,7 @@ class InsuranceAndClaimsIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class InterestExpenseForDepositIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestExpenseForDepositIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Includes interest expense on the following deposit accounts: Interest-bearing Demand deposit; Checking account; Savings account; Deposit in foreign offices; Money Market Certificates & Deposit Accounts. This item is usually only available for bank industry."""
 
     @property
@@ -19982,7 +19982,7 @@ class InterestExpenseForDepositIncomeStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class InterestExpenseForFederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToResellIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestExpenseForFederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToResellIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Gross expenses on the purchase of Federal funds at a specified price with a simultaneous agreement to sell the same to the same counterparty at a fixed or determinable price at a future date. This item is usually only available for bank industry."""
 
     @property
@@ -20053,7 +20053,7 @@ class InterestExpenseForFederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToRe
         ...
 
 
-class InterestExpenseForLongTermDebtAndCapitalSecuritiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestExpenseForLongTermDebtAndCapitalSecuritiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate interest expenses incurred on long-term borrowings and any interest expenses on fixed assets (property, plant, equipment) that are leased due longer than one year. This item is usually only available for bank industry."""
 
     @property
@@ -20134,7 +20134,7 @@ class InterestExpenseForLongTermDebtAndCapitalSecuritiesIncomeStatement(QuantCon
         ...
 
 
-class InterestExpenseForShortTermDebtIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestExpenseForShortTermDebtIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate interest expenses incurred on short-term borrowings and any interest expenses on fixed assets (property, plant, equipment) that are leased within one year. This item is usually only available for bank industry."""
 
     @property
@@ -20205,7 +20205,7 @@ class InterestExpenseForShortTermDebtIncomeStatement(QuantConnect.Data.Fundament
         ...
 
 
-class InterestIncomeFromDepositsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestIncomeFromDepositsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Interest income generated from all deposit accounts. This item is usually only available for bank industry."""
 
     @property
@@ -20286,7 +20286,7 @@ class InterestIncomeFromDepositsIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class InterestIncomeFromFederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToResellIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestIncomeFromFederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToResellIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Interest income earned on federal (central bank) funds sold and on securities purchased under agreements to resell."""
 
     @property
@@ -20357,7 +20357,7 @@ class InterestIncomeFromFederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToRe
         ...
 
 
-class InterestIncomeFromLeasesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestIncomeFromLeasesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Includes interest and fee income generated by direct lease financing. This item is usually only available for bank industry."""
 
     @property
@@ -20433,7 +20433,7 @@ class InterestIncomeFromLeasesIncomeStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class InterestIncomeFromLoansIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestIncomeFromLoansIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Loan is a common field to banks. Interest Income from Loans is interest and fee income generated from all loans, which includes Commercial loans; Credit loans; Other consumer loans; Real Estate - Construction; Real Estate - Mortgage; Foreign loans. Banks earn interest from loans. This item is usually only available for bank industry."""
 
     @property
@@ -20509,7 +20509,7 @@ class InterestIncomeFromLoansIncomeStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class InterestIncomeFromLoansAndLeaseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestIncomeFromLoansAndLeaseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total interest and fee income generated by loans and lease. This item is usually only available for bank industry."""
 
     @property
@@ -20585,7 +20585,7 @@ class InterestIncomeFromLoansAndLeaseIncomeStatement(QuantConnect.Data.Fundament
         ...
 
 
-class InterestIncomeFromSecuritiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestIncomeFromSecuritiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents total interest and dividend income from U.S. Treasury securities, U.S. government agency and corporation obligations, securities issued by states and political subdivisions, other domestic debt securities, foreign debt securities, and equity securities (including investments in mutual funds). Excludes interest income from securities held in trading accounts. This item is usually only available for bank industry."""
 
     @property
@@ -20666,7 +20666,7 @@ class InterestIncomeFromSecuritiesIncomeStatement(QuantConnect.Data.Fundamental.
         ...
 
 
-class InvestmentBankingProfitIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InvestmentBankingProfitIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Includes (1) underwriting revenue (the spread between the resale price received and the cost of the securities and related expenses) generated through the purchasing, distributing and reselling of new issues of securities (alternatively, could be a secondary offering of a large block of previously issued securities); and (2) fees earned for mergers, acquisitions, divestitures, restructurings, and other types of financial advisory services. This item is usually only available for bank industry."""
 
     @property
@@ -20737,7 +20737,7 @@ class InvestmentBankingProfitIncomeStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class MaintenanceAndRepairsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class MaintenanceAndRepairsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of maintenance and repair expenses in the current period associated with the revenue generation. Mainly for fixed assets. This item is usually only available for transportation industry."""
 
     @property
@@ -20818,7 +20818,7 @@ class MaintenanceAndRepairsIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class NetForeignExchangeGainLossIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetForeignExchangeGainLossIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate foreign currency translation gain or loss (both realized and unrealized) included as part of revenue. This item is usually only available for insurance industry."""
 
     @property
@@ -20889,7 +20889,7 @@ class NetForeignExchangeGainLossIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class NetOccupancyExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetOccupancyExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Occupancy expense may include items, such as depreciation of facilities and equipment, lease expenses, property taxes and property and casualty insurance expense. This item is usually only available for bank industry."""
 
     @property
@@ -20960,7 +20960,7 @@ class NetOccupancyExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class NetPremiumsWrittenIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetPremiumsWrittenIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net premiums written are gross premiums written less ceded premiums. This item is usually only available for insurance industry."""
 
     @property
@@ -21031,7 +21031,7 @@ class NetPremiumsWrittenIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class NetRealizedGainLossOnInvestmentsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetRealizedGainLossOnInvestmentsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Gain or loss realized during the period of time for all kinds of investment securities. In might include trading, available-for-sale, or held-to-maturity securities. This item is usually only available for insurance industry."""
 
     @property
@@ -21102,7 +21102,7 @@ class NetRealizedGainLossOnInvestmentsIncomeStatement(QuantConnect.Data.Fundamen
         ...
 
 
-class OccupancyAndEquipmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OccupancyAndEquipmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Includes total expenses of occupancy and equipment. This item is usually only available for bank industry."""
 
     @property
@@ -21173,7 +21173,7 @@ class OccupancyAndEquipmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class OperationAndMaintenanceIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OperationAndMaintenanceIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of operation and maintenance expenses, which is the one important operating expense for the utility industry. It includes any costs related to production and maintenance cost of the property during the revenue generation process. This item is usually only available for mining and utility industries."""
 
     @property
@@ -21254,7 +21254,7 @@ class OperationAndMaintenanceIncomeStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class OtherCustomerServicesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherCustomerServicesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents fees and commissions earned from provide other services. This item is usually only available for bank industry."""
 
     @property
@@ -21330,7 +21330,7 @@ class OtherCustomerServicesIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class OtherInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """All other interest expense that is not otherwise classified"""
 
     @property
@@ -21411,7 +21411,7 @@ class OtherInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class OtherInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """All other interest income that is not otherwise classified"""
 
     @property
@@ -21492,7 +21492,7 @@ class OtherInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class OtherNonInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherNonInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """All other non interest expense that is not otherwise classified"""
 
     @property
@@ -21573,7 +21573,7 @@ class OtherNonInterestExpenseIncomeStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class OtherSpecialChargesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherSpecialChargesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """All other special charges that are not otherwise classified"""
 
     @property
@@ -21649,7 +21649,7 @@ class OtherSpecialChargesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class OtherTaxesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherTaxesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Any taxes that are not part of income taxes. This item is usually not available for bank and insurance industries."""
 
     @property
@@ -21730,7 +21730,7 @@ class OtherTaxesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class PolicyholderBenefitsCededIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PolicyholderBenefitsCededIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The provision in current period for future policy benefits, claims, and claims settlement, which is under reinsurance arrangements. This item is usually only available for insurance industry."""
 
     @property
@@ -21786,7 +21786,7 @@ class PolicyholderBenefitsCededIncomeStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class PolicyholderBenefitsGrossIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PolicyholderBenefitsGrossIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The gross amount of provision in current period for future policyholder benefits, claims, and claims settlement, incurred in the claims settlement process before the effects of reinsurance arrangements. This item is usually only available for insurance industry."""
 
     @property
@@ -21857,7 +21857,7 @@ class PolicyholderBenefitsGrossIncomeStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class PolicyholderDividendsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PolicyholderDividendsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Payments made or credits extended to the insured by the company, usually at the end of a policy year results in reducing the net insurance cost to the policyholder. Such dividends may be paid in cash to the insured or applied by the insured as reductions of the premiums due for the next policy year. This item is usually only available for insurance industry."""
 
     @property
@@ -21928,7 +21928,7 @@ class PolicyholderDividendsIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class PolicyholderInterestIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PolicyholderInterestIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The periodic income payment provided to the annuitant by the insurance company, which is determined by the assumed interest rate (AIR) and other factors. This item is usually only available for insurance industry."""
 
     @property
@@ -21999,7 +21999,7 @@ class PolicyholderInterestIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class ProfessionalExpenseAndContractServicesExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ProfessionalExpenseAndContractServicesExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Professional and contract service expense includes cost reimbursements for support services related to contracted projects, outsourced management, technical and staff support. This item is usually only available for bank industry."""
 
     @property
@@ -22080,7 +22080,7 @@ class ProfessionalExpenseAndContractServicesExpenseIncomeStatement(QuantConnect.
         ...
 
 
-class ProvisionForDoubtfulAccountsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ProvisionForDoubtfulAccountsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Amount of the current period expense charged against operations, the offset which is generally to the allowance for doubtful accounts for the purpose of reducing receivables, including notes receivable, to an amount that approximates their net realizable value (the amount expected to be collected). The category includes provision for loan losses, provision for any doubtful account receivable, and bad debt expenses. This item is usually not available for bank and insurance industries."""
 
     @property
@@ -22156,7 +22156,7 @@ class ProvisionForDoubtfulAccountsIncomeStatement(QuantConnect.Data.Fundamental.
         ...
 
 
-class RentAndLandingFeesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RentAndLandingFeesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Rent fees are the cost of occupying space during the accounting PeriodAsByte. Landing fees are a change paid to an airport company for landing at a particular airport. This item is not available for insurance industry."""
 
     @property
@@ -22237,7 +22237,7 @@ class RentAndLandingFeesIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class RestructuringAndMergernAcquisitionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RestructuringAndMergernAcquisitionIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Expenses are related to restructuring, merger, or acquisitions. Restructuring expenses are charges associated with the consolidation and relocation of operations, disposition or abandonment of operations or productive assets. Merger and acquisition expenses are the amount of costs of a business combination including legal, accounting, and other costs that were charged to expense during the PeriodAsByte."""
 
     @property
@@ -22348,7 +22348,7 @@ class RestructuringAndMergernAcquisitionIncomeStatement(QuantConnect.Data.Fundam
         ...
 
 
-class SalariesAndWagesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SalariesAndWagesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """All salary, wages, compensation, management fees, and employee benefit expenses."""
 
     @property
@@ -22429,7 +22429,7 @@ class SalariesAndWagesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class SecuritiesActivitiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SecuritiesActivitiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income/Loss from Securities and Activities"""
 
     @property
@@ -22520,7 +22520,7 @@ class SecuritiesActivitiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class ServiceChargeOnDepositorAccountsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ServiceChargeOnDepositorAccountsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Includes any service charges on following accounts: Demand Deposit; Checking account; Savings account; Deposit in foreign offices; ESCROW accounts; Money Market Certificates & Deposit accounts, CDs (Negotiable Certificates of Deposits); NOW Accounts (Negotiable Order of Withdrawal); IRAs (Individual Retirement Accounts). This item is usually only available for bank industry."""
 
     @property
@@ -22601,7 +22601,7 @@ class ServiceChargeOnDepositorAccountsIncomeStatement(QuantConnect.Data.Fundamen
         ...
 
 
-class TradingGainLossIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TradingGainLossIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A broker-dealer or other financial entity may buy and sell securities exclusively for its own account, sometimes referred to as proprietary trading. The profit or loss is measured by the difference between the acquisition cost and the selling price or current market or fair value. The net gain or loss, includes both realized and unrealized, from trading cash instruments, equities and derivative contracts (including commodity contracts) that has been recognized during the accounting period for the broker dealer or other financial entity's own account. This item is typically available for bank industry."""
 
     @property
@@ -22677,7 +22677,7 @@ class TradingGainLossIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class TrustFeesbyCommissionsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TrustFeesbyCommissionsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Bank manages funds on behalf of its customers through the operation of various trust accounts. Any fees earned through managing those funds are called trust fees, which are recognized when earned. This item is typically available for bank industry."""
 
     @property
@@ -22748,7 +22748,7 @@ class TrustFeesbyCommissionsIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class UnderwritingExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class UnderwritingExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other underwriting expenses of an insurer that are not classified elsewhere. The amortization of deferred policy acquisition costs is not included."""
 
     @property
@@ -22819,7 +22819,7 @@ class UnderwritingExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class WriteOffIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class WriteOffIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A reduction in the value of an asset or earnings by the amount of an expense or loss."""
 
     @property
@@ -22890,7 +22890,7 @@ class WriteOffIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class OtherNonInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherNonInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Usually available for the banking industry. This is Non-Interest Income that is not otherwise classified."""
 
     @property
@@ -22966,7 +22966,7 @@ class OtherNonInterestIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class AmortizationOfIntangiblesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AmortizationOfIntangiblesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate expense charged against earnings to allocate the cost of intangible assets (nonphysical assets not used in production) in a systematic and rational manner to the periods expected to benefit from such assets."""
 
     @property
@@ -23047,7 +23047,7 @@ class AmortizationOfIntangiblesIncomeStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class NetIncomeFromContinuingAndDiscontinuedOperationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeFromContinuingAndDiscontinuedOperationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net Income from Continuing Operations and Discontinued Operations, added together."""
 
     @property
@@ -23128,7 +23128,7 @@ class NetIncomeFromContinuingAndDiscontinuedOperationIncomeStatement(QuantConnec
         ...
 
 
-class NetIncomeFromTaxLossCarryforwardIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeFromTaxLossCarryforwardIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Occurs if a company has had a net loss from operations on a previous year that can be carried forward to reduce net income for tax purposes."""
 
     @property
@@ -23219,7 +23219,7 @@ class NetIncomeFromTaxLossCarryforwardIncomeStatement(QuantConnect.Data.Fundamen
         ...
 
 
-class OtherOperatingExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherOperatingExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of operating expenses associated with normal operations. Will not include any gain, loss, benefit, or income; and its value reported by the company should be <0."""
 
     @property
@@ -23300,7 +23300,7 @@ class OtherOperatingExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class TotalMoneyMarketInvestmentsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalMoneyMarketInvestmentsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Treasury bills and other eligible bills: short term government backed obligations maturing within one year."""
 
     @property
@@ -23391,7 +23391,7 @@ class TotalMoneyMarketInvestmentsIncomeStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class ReconciledCostOfRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReconciledCostOfRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The costs incurred to provide the goods or services that generate revenue, as reported; not reconciled for depreciation and amortization."""
 
     @property
@@ -23472,7 +23472,7 @@ class ReconciledCostOfRevenueIncomeStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class ReconciledDepreciationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReconciledDepreciationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Is Depreciation, Depletion & Amortization from the Cash Flow Statement"""
 
     @property
@@ -23553,7 +23553,7 @@ class ReconciledDepreciationIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class NormalizedIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This calculation represents earnings adjusted for items that are irregular or unusual in nature, and/or are non-recurring. This can be used to fairly measure a company's profitability. This is calculated using Net Income from Continuing Operations plus/minus any tax affected unusual Items and Goodwill Impairments/Write Offs."""
 
     @property
@@ -23634,7 +23634,7 @@ class NormalizedIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class NetIncomeFromContinuingOperationNetMinorityInterestIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeFromContinuingOperationNetMinorityInterestIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net income or loss after non-controlling interests; discontinued operations and extraordinary items are included."""
 
     @property
@@ -23715,7 +23715,7 @@ class NetIncomeFromContinuingOperationNetMinorityInterestIncomeStatement(QuantCo
         ...
 
 
-class GainLossonSaleofAssetsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainLossonSaleofAssetsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Any gain (loss) recognized on the sale of assets or a sale which generates profit or loss, which is a difference between sales price and net book value at the disposal time."""
 
     @property
@@ -23806,7 +23806,7 @@ class GainLossonSaleofAssetsIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class GainonSaleofLoansIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainonSaleofLoansIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Gain on sale of any loans investment."""
 
     @property
@@ -23882,7 +23882,7 @@ class GainonSaleofLoansIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class GainonSaleofInvestmentPropertyIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainonSaleofInvestmentPropertyIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The gain or loss from selling other assets, such as foreclosed assets, in the ordinary course of business. Sales of investments, loans, investment properties and property, plant and equipment are not included."""
 
     @property
@@ -23953,7 +23953,7 @@ class GainonSaleofInvestmentPropertyIncomeStatement(QuantConnect.Data.Fundamenta
         ...
 
 
-class LossonExtinguishmentofDebtIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LossonExtinguishmentofDebtIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Loss on extinguishment of debt is the accounting loss that results from a debt extinguishment. A debt shall be accounted for as having been extinguished in a number of circumstances, including when it has been settled through repayment or replacement by another liability. It generally results in an accounting gain or loss. Amount represents the difference between the fair value of the payments made and the carrying amount of the debt at the time of its extinguishment."""
 
     @property
@@ -24024,7 +24024,7 @@ class LossonExtinguishmentofDebtIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class EarningsfromEquityInterestNetOfTaxIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EarningsfromEquityInterestNetOfTaxIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income from other equity interest reported after Provision of Tax. This applies to all industries."""
 
     @property
@@ -24105,7 +24105,7 @@ class EarningsfromEquityInterestNetOfTaxIncomeStatement(QuantConnect.Data.Fundam
         ...
 
 
-class NetIncomeIncludingNoncontrollingInterestsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeIncludingNoncontrollingInterestsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net income of the group after the adjustment of all expenses and benefit."""
 
     @property
@@ -24186,7 +24186,7 @@ class NetIncomeIncludingNoncontrollingInterestsIncomeStatement(QuantConnect.Data
         ...
 
 
-class OtherunderPreferredStockDividendIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherunderPreferredStockDividendIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Dividend paid to the preferred shareholders before the common stock shareholders."""
 
     @property
@@ -24262,7 +24262,7 @@ class OtherunderPreferredStockDividendIncomeStatement(QuantConnect.Data.Fundamen
         ...
 
 
-class StaffCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class StaffCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total staff cost which is paid to the employees that is not part of Selling, General, and Administration expense."""
 
     @property
@@ -24338,7 +24338,7 @@ class StaffCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class SocialSecurityCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SocialSecurityCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Benefits paid to the employees in respect of their work."""
 
     @property
@@ -24394,7 +24394,7 @@ class SocialSecurityCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class PensionCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PensionCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The expense that a company incurs each year by providing a pension plan for its employees. Major expenses in the pension cost include employer matching contributions and management fees."""
 
     @property
@@ -24450,7 +24450,7 @@ class PensionCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class OtherOperatingIncomeTotalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherOperatingIncomeTotalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total Other Operating Income- including interest income, dividend income and other types of operating income."""
 
     @property
@@ -24551,7 +24551,7 @@ class OtherOperatingIncomeTotalIncomeStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class IncomefromAssociatesandOtherParticipatingInterestsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IncomefromAssociatesandOtherParticipatingInterestsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total income from the associates and joint venture via investment, accounted for in the Non-Operating section."""
 
     @property
@@ -24622,7 +24622,7 @@ class IncomefromAssociatesandOtherParticipatingInterestsIncomeStatement(QuantCon
         ...
 
 
-class TotalOtherFinanceCostIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalOtherFinanceCostIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Any other finance cost which is not clearly defined in the Non-Operating section."""
 
     @property
@@ -24693,7 +24693,7 @@ class TotalOtherFinanceCostIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class GrossDividendPaymentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GrossDividendPaymentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total amount paid in dividends to investors- this includes dividends paid on equity and non-equity shares."""
 
     @property
@@ -24759,7 +24759,7 @@ class GrossDividendPaymentIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class FeesandCommissionIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FeesandCommissionIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Fees and commission income earned by bank and insurance companies on the rendering services."""
 
     @property
@@ -24830,7 +24830,7 @@ class FeesandCommissionIncomeIncomeStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class FeesandCommissionExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FeesandCommissionExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cost incurred by bank and insurance companies for fees and commission income."""
 
     @property
@@ -24901,7 +24901,7 @@ class FeesandCommissionExpenseIncomeStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class NetTradingIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetTradingIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Any trading income on the securities."""
 
     @property
@@ -24962,7 +24962,7 @@ class NetTradingIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class OtherStaffCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherStaffCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other costs in incurred in lieu of the employees that cannot be identified by other specific items in the Staff Costs section."""
 
     @property
@@ -25018,7 +25018,7 @@ class OtherStaffCostsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class GainonInvestmentPropertiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainonInvestmentPropertiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Gain on disposal and change in fair value of investment properties."""
 
     @property
@@ -25089,7 +25089,7 @@ class GainonInvestmentPropertiesIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class AverageDilutionEarningsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AverageDilutionEarningsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Adjustments to reported net income to calculate Diluted EPS, by assuming that all convertible instruments are converted to Common Equity. The adjustments usually include the interest expense of debentures when assumed converted and preferred dividends of convertible preferred stock when assumed converted."""
 
     @property
@@ -25160,7 +25160,7 @@ class AverageDilutionEarningsIncomeStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class GainLossonFinancialInstrumentsDesignatedasCashFlowHedgesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainLossonFinancialInstrumentsDesignatedasCashFlowHedgesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Gain/Loss through hedging activities."""
 
     @property
@@ -25251,7 +25251,7 @@ class GainLossonFinancialInstrumentsDesignatedasCashFlowHedgesIncomeStatement(Qu
         ...
 
 
-class GainLossonDerecognitionofAvailableForSaleFinancialAssetsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainLossonDerecognitionofAvailableForSaleFinancialAssetsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Gain/loss on the write-off of financial assets available-for-sale."""
 
     @property
@@ -25342,7 +25342,7 @@ class GainLossonDerecognitionofAvailableForSaleFinancialAssetsIncomeStatement(Qu
         ...
 
 
-class NegativeGoodwillImmediatelyRecognizedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NegativeGoodwillImmediatelyRecognizedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Negative Goodwill recognized in the Income Statement. Negative Goodwill arises where the net assets at the date of acquisition, fairly valued, falls below the cost of acquisition."""
 
     @property
@@ -25423,7 +25423,7 @@ class NegativeGoodwillImmediatelyRecognizedIncomeStatement(QuantConnect.Data.Fun
         ...
 
 
-class GainsLossesonFinancialInstrumentsDuetoFairValueAdjustmentsinHedgeAccountingTotalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainsLossesonFinancialInstrumentsDuetoFairValueAdjustmentsinHedgeAccountingTotalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Gain or loss on derivatives investment due to the fair value adjustment."""
 
     @property
@@ -25494,7 +25494,7 @@ class GainsLossesonFinancialInstrumentsDuetoFairValueAdjustmentsinHedgeAccountin
         ...
 
 
-class ImpairmentLossesReversalsFinancialInstrumentsNetIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ImpairmentLossesReversalsFinancialInstrumentsNetIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Impairment or reversal of impairment on financial instrument such as derivative. This is a contra account under Total Revenue in banks."""
 
     @property
@@ -25585,7 +25585,7 @@ class ImpairmentLossesReversalsFinancialInstrumentsNetIncomeStatement(QuantConne
         ...
 
 
-class ClaimsandPaidIncurredIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ClaimsandPaidIncurredIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """All reported claims arising out of incidents in that year are considered incurred grouped with claims paid out."""
 
     @property
@@ -25656,7 +25656,7 @@ class ClaimsandPaidIncurredIncomeStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class ReinsuranceRecoveriesClaimsandBenefitsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReinsuranceRecoveriesClaimsandBenefitsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Claim on the reinsurance company and take the benefits."""
 
     @property
@@ -25747,7 +25747,7 @@ class ReinsuranceRecoveriesClaimsandBenefitsIncomeStatement(QuantConnect.Data.Fu
         ...
 
 
-class ChangeinInsuranceLiabilitiesNetofReinsuranceIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinInsuranceLiabilitiesNetofReinsuranceIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income/Expense due to changes between periods in insurance liabilities."""
 
     @property
@@ -25838,7 +25838,7 @@ class ChangeinInsuranceLiabilitiesNetofReinsuranceIncomeStatement(QuantConnect.D
         ...
 
 
-class ChangeinInvestmentContractIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinInvestmentContractIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income/Expense due to changes between periods in Investment Contracts."""
 
     @property
@@ -25929,7 +25929,7 @@ class ChangeinInvestmentContractIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class CreditRiskProvisionsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CreditRiskProvisionsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Provision for the risk of loss of principal or loss of a financial reward stemming from a borrower's failure to repay a loan or otherwise meet a contractual obligation. Credit risk arises whenever a borrower is expecting to use future cash flows to pay a current debt. Investors are compensated for assuming credit risk by way of interest payments from the borrower or issuer of a debt obligation. This is a contra account under Total Revenue in banks."""
 
     @property
@@ -26000,7 +26000,7 @@ class CreditRiskProvisionsIncomeStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class WagesandSalariesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class WagesandSalariesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is the portion under Staff Costs that represents salary paid to the employees in respect of their work."""
 
     @property
@@ -26061,7 +26061,7 @@ class WagesandSalariesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class OtherNonOperatingIncomeExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherNonOperatingIncomeExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total other income and expense of the company that cannot be identified by other specific items in the Non-Operating section."""
 
     @property
@@ -26137,7 +26137,7 @@ class OtherNonOperatingIncomeExpensesIncomeStatement(QuantConnect.Data.Fundament
         ...
 
 
-class OtherNonOperatingIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherNonOperatingIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other income of the company that cannot be identified by other specific items in the Non-Operating section."""
 
     @property
@@ -26208,7 +26208,7 @@ class OtherNonOperatingIncomeIncomeStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class OtherNonOperatingExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherNonOperatingExpensesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other expenses of the company that cannot be identified by other specific items in the Non-Operating section."""
 
     @property
@@ -26279,7 +26279,7 @@ class OtherNonOperatingExpensesIncomeStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class TotalUnusualItemsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalUnusualItemsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total unusual items including Negative Goodwill."""
 
     @property
@@ -26360,7 +26360,7 @@ class TotalUnusualItemsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class TotalUnusualItemsExcludingGoodwillIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalUnusualItemsExcludingGoodwillIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of all the identifiable operating and non-operating unusual items."""
 
     @property
@@ -26441,7 +26441,7 @@ class TotalUnusualItemsExcludingGoodwillIncomeStatement(QuantConnect.Data.Fundam
         ...
 
 
-class TaxRateForCalcsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TaxRateForCalcsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Tax rate used for Morningstar calculations."""
 
     @property
@@ -26522,7 +26522,7 @@ class TaxRateForCalcsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class TaxEffectOfUnusualItemsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TaxEffectOfUnusualItemsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Tax effect of the usual items"""
 
     @property
@@ -26603,7 +26603,7 @@ class TaxEffectOfUnusualItemsIncomeStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class NormalizedEBITDAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedEBITDAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """EBITDA less Total Unusual Items"""
 
     @property
@@ -26684,7 +26684,7 @@ class NormalizedEBITDAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class StockBasedCompensationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class StockBasedCompensationIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cost to the company for granting stock options to reward employees."""
 
     @property
@@ -26755,7 +26755,7 @@ class StockBasedCompensationIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class DilutedNIAvailtoComStockholdersIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DilutedNIAvailtoComStockholdersIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net income to calculate Diluted EPS, accounting for adjustments assuming that all the convertible instruments are being converted to Common Equity."""
 
     @property
@@ -26826,7 +26826,7 @@ class DilutedNIAvailtoComStockholdersIncomeStatement(QuantConnect.Data.Fundament
         ...
 
 
-class InvestmentContractLiabilitiesIncurredIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InvestmentContractLiabilitiesIncurredIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income/Expenses due to the insurer's liabilities incurred in Investment Contracts."""
 
     @property
@@ -26897,7 +26897,7 @@ class InvestmentContractLiabilitiesIncurredIncomeStatement(QuantConnect.Data.Fun
         ...
 
 
-class ReinsuranceRecoveriesofInvestmentContractIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReinsuranceRecoveriesofInvestmentContractIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income/Expense due to recoveries from reinsurers for Investment Contracts."""
 
     @property
@@ -26988,7 +26988,7 @@ class ReinsuranceRecoveriesofInvestmentContractIncomeStatement(QuantConnect.Data
         ...
 
 
-class TotalDividendPaymentofEquitySharesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalDividendPaymentofEquitySharesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The gross amount, before tax, distributed to all of the company's shareholders."""
 
     @property
@@ -27059,7 +27059,7 @@ class TotalDividendPaymentofEquitySharesIncomeStatement(QuantConnect.Data.Fundam
         ...
 
 
-class TotalDividendPaymentofNonEquitySharesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalDividendPaymentofNonEquitySharesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total amount paid in dividends to Non-Equity securities investors."""
 
     @property
@@ -27130,7 +27130,7 @@ class TotalDividendPaymentofNonEquitySharesIncomeStatement(QuantConnect.Data.Fun
         ...
 
 
-class ChangeinTheGrossProvisionforUnearnedPremiumsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinTheGrossProvisionforUnearnedPremiumsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The change in the amount of the unearned premium reserves maintained by insurers."""
 
     @property
@@ -27201,7 +27201,7 @@ class ChangeinTheGrossProvisionforUnearnedPremiumsIncomeStatement(QuantConnect.D
         ...
 
 
-class ChangeinTheGrossProvisionforUnearnedPremiumsReinsurersShareIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinTheGrossProvisionforUnearnedPremiumsReinsurersShareIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The change in the amount of unearned premium reserve to be covered by reinsurers."""
 
     @property
@@ -27272,7 +27272,7 @@ class ChangeinTheGrossProvisionforUnearnedPremiumsReinsurersShareIncomeStatement
         ...
 
 
-class ClaimsandChangeinInsuranceLiabilitiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ClaimsandChangeinInsuranceLiabilitiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income/Expense due to the insurer's changes in insurance liabilities."""
 
     @property
@@ -27343,7 +27343,7 @@ class ClaimsandChangeinInsuranceLiabilitiesIncomeStatement(QuantConnect.Data.Fun
         ...
 
 
-class ReinsuranceRecoveriesofInsuranceLiabilitiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReinsuranceRecoveriesofInsuranceLiabilitiesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income/Expense due to recoveries from reinsurers for insurance liabilities."""
 
     @property
@@ -27414,7 +27414,7 @@ class ReinsuranceRecoveriesofInsuranceLiabilitiesIncomeStatement(QuantConnect.Da
         ...
 
 
-class TotalOperatingIncomeAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalOperatingIncomeAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Operating profit/loss as reported by the company, may be the same or not the same as Morningstar's standardized definition."""
 
     @property
@@ -27485,7 +27485,7 @@ class TotalOperatingIncomeAsReportedIncomeStatement(QuantConnect.Data.Fundamenta
         ...
 
 
-class OtherGAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherGAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other General and Administrative Expenses not categorized that the company incurs that are not directly tied to a specific function such as manufacturing, production, or sales."""
 
     @property
@@ -27556,7 +27556,7 @@ class OtherGAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class OtherCostofRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherCostofRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other costs associated with the revenue-generating activities of the company not categorized above."""
 
     @property
@@ -27627,7 +27627,7 @@ class OtherCostofRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class RentandLandingFeesCostofRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RentandLandingFeesCostofRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Costs paid to use the facilities necessary to generate revenue during the accounting PeriodAsByte."""
 
     @property
@@ -27698,7 +27698,7 @@ class RentandLandingFeesCostofRevenueIncomeStatement(QuantConnect.Data.Fundament
         ...
 
 
-class DDACostofRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DDACostofRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The total non-cash depreciation and amortization charged on tangible and intangible assets during the accounting period."""
 
     @property
@@ -27769,7 +27769,7 @@ class DDACostofRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class RentExpenseSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RentExpenseSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of all rent expenses incurred by the company for operating leases during the year, it is a supplemental value which would be reported outside consolidated statements or consolidated statement's footnotes."""
 
     @property
@@ -27840,7 +27840,7 @@ class RentExpenseSupplementalIncomeStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class NormalizedPreTaxIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedPreTaxIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This calculation represents pre-tax earnings adjusted for items that are irregular or unusual in nature, and/or are non-recurring. This can be used to fairly measure a company's profitability. This is calculated using Pre-Tax Income plus/minus any unusual Items and Goodwill Impairments/Write Offs."""
 
     @property
@@ -27911,7 +27911,7 @@ class NormalizedPreTaxIncomeIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class ResearchAndDevelopmentExpensesSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ResearchAndDevelopmentExpensesSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of research and development expenses during the year. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -27982,7 +27982,7 @@ class ResearchAndDevelopmentExpensesSupplementalIncomeStatement(QuantConnect.Dat
         ...
 
 
-class DepreciationSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepreciationSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The current period expense charged against earnings on tangible asset over its useful life. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -28053,7 +28053,7 @@ class DepreciationSupplementalIncomeStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class AmortizationSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AmortizationSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The current period expense charged against earnings on intangible asset over its useful life. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -28124,7 +28124,7 @@ class AmortizationSupplementalIncomeStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class DisposalofBusinessesSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DisposalofBusinessesSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Gains or losses on the disposal of businesses. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -28195,7 +28195,7 @@ class DisposalofBusinessesSupplementalIncomeStatement(QuantConnect.Data.Fundamen
         ...
 
 
-class DiscontinuedOperationsSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DiscontinuedOperationsSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income or expense from operations that have been discontinued. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -28266,7 +28266,7 @@ class DiscontinuedOperationsSupplementalIncomeStatement(QuantConnect.Data.Fundam
         ...
 
 
-class AssetDisposalsSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AssetDisposalsSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Gains or losses on the disposal of assets. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -28337,7 +28337,7 @@ class AssetDisposalsSupplementalIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class ImpairmentWriteOffWriteDownofCapitalAssetsSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ImpairmentWriteOffWriteDownofCapitalAssetsSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Impairment, write off or write down of capital assets. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -28408,7 +28408,7 @@ class ImpairmentWriteOffWriteDownofCapitalAssetsSupplementalIncomeStatement(Quan
         ...
 
 
-class GoodwillImpairmentWriteOffSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GoodwillImpairmentWriteOffSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Impairment or write off of goodwill. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -28479,7 +28479,7 @@ class GoodwillImpairmentWriteOffSupplementalIncomeStatement(QuantConnect.Data.Fu
         ...
 
 
-class ImpairmentWriteOffWriteDownofOtherAssetsSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ImpairmentWriteOffWriteDownofOtherAssetsSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Impairment, write off or write down of assets other than capital assets. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -28550,7 +28550,7 @@ class ImpairmentWriteOffWriteDownofOtherAssetsSupplementalIncomeStatement(QuantC
         ...
 
 
-class GainLossOnExtinguishmentofDebtSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainLossOnExtinguishmentofDebtSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Gains or losses arising from the extinguishment of debt. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -28621,7 +28621,7 @@ class GainLossOnExtinguishmentofDebtSupplementalIncomeStatement(QuantConnect.Dat
         ...
 
 
-class DebtRestructuringSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DebtRestructuringSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income or expense arising from the restructuring of debt. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -28692,7 +28692,7 @@ class DebtRestructuringSupplementalIncomeStatement(QuantConnect.Data.Fundamental
         ...
 
 
-class LitigationIncomeExpenseSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LitigationIncomeExpenseSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income or expense arising from litigation. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -28763,7 +28763,7 @@ class LitigationIncomeExpenseSupplementalIncomeStatement(QuantConnect.Data.Funda
         ...
 
 
-class MergerAndAcquisitionIncomeExpenseSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class MergerAndAcquisitionIncomeExpenseSupplementalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income or expense arising from mergers and acquisitions. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -28834,7 +28834,7 @@ class MergerAndAcquisitionIncomeExpenseSupplementalIncomeStatement(QuantConnect.
         ...
 
 
-class TotalRevenueAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalRevenueAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total revenue as reported by the company, may be the same or not the same as Morningstar's standardized definition."""
 
     @property
@@ -28905,7 +28905,7 @@ class TotalRevenueAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class OperatingExpenseAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OperatingExpenseAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Operating expense as reported by the company, may be the same or not the same as Morningstar's standardized definition."""
 
     @property
@@ -28976,7 +28976,7 @@ class OperatingExpenseAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class NormalizedIncomeAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedIncomeAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Earnings adjusted for items that are irregular or unusual in nature, and/or are non-recurring. This can be used to fairly measure a company's profitability. This is as reported by the company, may be the same or not the same as Morningstar's standardized definition."""
 
     @property
@@ -29047,7 +29047,7 @@ class NormalizedIncomeAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class NormalizedEBITDAAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedEBITDAAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """EBITDA less Total Unusual Items. This is as reported by the company, may be the same or not the same as Morningstar's standardized definition."""
 
     @property
@@ -29118,7 +29118,7 @@ class NormalizedEBITDAAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class NormalizedEBITAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedEBITAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """EBIT less Total Unusual Items. This is as reported by the company, may be the same or not the same as Morningstar's standardized definition."""
 
     @property
@@ -29189,7 +29189,7 @@ class NormalizedEBITAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class NormalizedOperatingProfitAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedOperatingProfitAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Operating profit adjusted for items that are irregular or unusual in nature, and/or are non-recurring. This can be used to fairly measure a company's profitability. This is as reported by the company, may be the same or not the same as Morningstar's standardized definition."""
 
     @property
@@ -29260,7 +29260,7 @@ class NormalizedOperatingProfitAsReportedIncomeStatement(QuantConnect.Data.Funda
         ...
 
 
-class EffectiveTaxRateAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EffectiveTaxRateAsReportedIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The average tax rate for the period as reported by the company, may be the same or not the same as Morningstar's standardized definition."""
 
     @property
@@ -29331,7 +29331,7 @@ class EffectiveTaxRateAsReportedIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class LitigationIncomeExpenseAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LitigationIncomeExpenseAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the net gain or loss sustained through legal proceedings after settling controversies or disputes in a court of law. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
 
     @property
@@ -29402,7 +29402,7 @@ class LitigationIncomeExpenseAdjustmentIncomeStatement(QuantConnect.Data.Fundame
         ...
 
 
-class GoodwillImpairmentWriteOffAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GoodwillImpairmentWriteOffAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the goodwill impairment/write-off value reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
 
     @property
@@ -29473,7 +29473,7 @@ class GoodwillImpairmentWriteOffAdjustmentIncomeStatement(QuantConnect.Data.Fund
         ...
 
 
-class DebtRestructuringAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DebtRestructuringAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the costs incurred from negotiating with bankers; creditors; vendors; and tax authorities while restructuring the company's debt in order to restore liquidity and continue its operations. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
 
     @property
@@ -29544,7 +29544,7 @@ class DebtRestructuringAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class DisposalOfBusinessesAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DisposalOfBusinessesAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents net gain or loss from disposal or sale of businesses reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
 
     @property
@@ -29615,7 +29615,7 @@ class DisposalOfBusinessesAdjustmentIncomeStatement(QuantConnect.Data.Fundamenta
         ...
 
 
-class MergerAndAcquisitionIncomeExpenseAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class MergerAndAcquisitionIncomeExpenseAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the costs incurred during merger and acquisition transactions reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
 
     @property
@@ -29686,7 +29686,7 @@ class MergerAndAcquisitionIncomeExpenseAdjustmentIncomeStatement(QuantConnect.Da
         ...
 
 
-class DiscontinuedOperationsAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DiscontinuedOperationsAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents net income or loss from disposal of discontinued operations reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
 
     @property
@@ -29757,7 +29757,7 @@ class DiscontinuedOperationsAdjustmentIncomeStatement(QuantConnect.Data.Fundamen
         ...
 
 
-class IrregularIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IrregularIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the calculated variant of irregular income/expense. This is calculated by summing up all Irregular Income/Expense reported by the company."""
 
     @property
@@ -29828,7 +29828,7 @@ class IrregularIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class OtherIrregularIncomeExpensesAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherIrregularIncomeExpensesAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents income or expenses from any other non-recurring activities reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
 
     @property
@@ -29899,7 +29899,7 @@ class OtherIrregularIncomeExpensesAdjustmentIncomeStatement(QuantConnect.Data.Fu
         ...
 
 
-class AssetDisposalsAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AssetDisposalsAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents net gain or loss due to disposal or sale of assets reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
 
     @property
@@ -29970,7 +29970,7 @@ class AssetDisposalsAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class RestructuringAndReorganizationExpenseAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RestructuringAndReorganizationExpenseAdjustmentIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents costs incurred in the event of a restructuring and/or reorganization with the aim to improve the business operations and/or financial situation of the firm; examples include laying off employees; severance pay; closing manufacturing plants; shifting production to a new location; writing-off assets; and more. This is reported in the income statement or cash flow statement and selected for a company's irregular income/expenses and total unusal items calculation."""
 
     @property
@@ -30041,7 +30041,7 @@ class RestructuringAndReorganizationExpenseAdjustmentIncomeStatement(QuantConnec
         ...
 
 
-class IncomeAfterTaxesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IncomeAfterTaxesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This calculation represents the company's after-tax earnings for the period. The calculation differs from Net Income; because it excludes Earnings from Equity Interests. This is calculated using Pretax Income minus Provision for Income Tax."""
 
     @property
@@ -30112,7 +30112,7 @@ class IncomeAfterTaxesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class NetOperatingProfitAfterTaxIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetOperatingProfitAfterTaxIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This calculation represents the tax affected operating earnings the company generated for the period. This can be used to measure a company's profitability. This is calculated using Net Income from Continuing Operations plus tax affected Net Interest Income/Expense minus tax affected Dividend and Investment Income."""
 
     @property
@@ -30183,7 +30183,7 @@ class NetOperatingProfitAfterTaxIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class NormalizedEBITIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedEBITIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This represents earnings before interest and taxes adjusted for items that are irregular or unusual in nature; and/or are non-recurring. This can be used to measure a company's profitability. This is calculated by using Earnings before Interest and Tax plus/minus any tax affected unusual items."""
 
     @property
@@ -30254,7 +30254,7 @@ class NormalizedEBITIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class EBITDARIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITDARIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the earnings the company generated before interest; tax; depreciation; amortization and rent expenses. This can be used to measure a company's profitability. This is calculated using EBITDA + Rent Expenses + Rent and Landing Fees."""
 
     @property
@@ -30325,7 +30325,7 @@ class EBITDARIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NormalizedEBITDARIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NormalizedEBITDARIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the earnings the company generated before interest; tax; depreciation; amortization and rent expenses adjusted for items that are irregular or unusual in nature; and/or are non-recurring. This can be used to measure a company's profitability. This is calculated using Earnings Before Interest; Tax; Depreciation; Amortization and Rent expenses plus/minus any unusual Items."""
 
     @property
@@ -30396,7 +30396,7 @@ class NormalizedEBITDARIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class ForeignCurrencyExchangeUnrealizedGainsLossesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ForeignCurrencyExchangeUnrealizedGainsLossesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents net amount of foreign exchange gains and losses due to translation to the functional/reporting currency reported in the income statement or cash flow statement and selected for a company's total unusal items calculation."""
 
     @property
@@ -30467,7 +30467,7 @@ class ForeignCurrencyExchangeUnrealizedGainsLossesIncomeStatement(QuantConnect.D
         ...
 
 
-class FinancialAssetsUnrealizedGainsLossesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinancialAssetsUnrealizedGainsLossesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents net unrealized gain or loss due to changes in the fair value of financial assets reported in the income statement or cash flow statement and selected for a company's total unusal items calculation."""
 
     @property
@@ -30538,7 +30538,7 @@ class FinancialAssetsUnrealizedGainsLossesIncomeStatement(QuantConnect.Data.Fund
         ...
 
 
-class FinancialInstrumentsAndInvestmentsGainsLossesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinancialInstrumentsAndInvestmentsGainsLossesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents net gain or loss on disposal or sale of investments; including financial instruments and other investments reported in the income statement or cash flow statement and selected for a company's total unusal items calculation."""
 
     @property
@@ -30609,7 +30609,7 @@ class FinancialInstrumentsAndInvestmentsGainsLossesIncomeStatement(QuantConnect.
         ...
 
 
-class DerivativesUnrealizedGainsLossesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DerivativesUnrealizedGainsLossesIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents net gain or loss due to changes in the fair value of derivative financial and hedging instruments reported in the income statement or cash flow statement and selected for a company's total unusal items calculation."""
 
     @property
@@ -30680,7 +30680,7 @@ class DerivativesUnrealizedGainsLossesIncomeStatement(QuantConnect.Data.Fundamen
         ...
 
 
-class NonOperatingIncomeExpensesTotalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonOperatingIncomeExpensesTotalIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Aggregate value of all income and expenses not associated with normal business operations and recognized by the company in the non-operating section of the Income Statement."""
 
     @property
@@ -30751,7 +30751,7 @@ class NonOperatingIncomeExpensesTotalIncomeStatement(QuantConnect.Data.Fundament
         ...
 
 
-class NetInterestIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetInterestIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the calculated variant of net Interest income/expense. This is calculated by using the most complete version of either reported Net Interest Income/Expense or Net Interest Income/Expense from supplemental information."""
 
     @property
@@ -30822,7 +30822,7 @@ class NetInterestIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class TotalNetFinanceIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalNetFinanceIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Difference between total interest and other finance income and total interest and other finance expense reported in the non-operating section of the Income Statement."""
 
     @property
@@ -30893,7 +30893,7 @@ class TotalNetFinanceIncomeExpenseIncomeStatement(QuantConnect.Data.Fundamental.
         ...
 
 
-class InterestRateIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestRateIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents a company's implied cost of debt. This is calculated using interest expense reported in the income statement divided by a company's total debt from its balance sheet."""
 
     @property
@@ -30949,7 +30949,7 @@ class InterestRateIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class EBITAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EBITAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the earnings the company generated before interest; tax and amortization expenses. This can be used to measure a company's profitability. This is calculated using Earnings Before Interest; Tax; Depreciation and Amortization minus Depreciation."""
 
     @property
@@ -31020,7 +31020,7 @@ class EBITAIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalUnusualItemsBeforeTaxIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalUnusualItemsBeforeTaxIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the subtotal of irregular and non-recurring items (before-tax) based on CPMS (Computerized Portfolio Management Services) methodology standards."""
 
     @property
@@ -31091,7 +31091,7 @@ class TotalUnusualItemsBeforeTaxIncomeStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class TotalUnusualItemsAfterTaxIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalUnusualItemsAfterTaxIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the subtotal of irregular and non-recurring items (after-tax) based on CPMS (Computerized Portfolio Management Services) methodology standards."""
 
     @property
@@ -31162,7 +31162,7 @@ class TotalUnusualItemsAfterTaxIncomeStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class NetInvestmentIncomeValueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetInvestmentIncomeValueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net realized gain or loss from investment assets such as bonds; stocks; mutual funds; loans; investments in affiliated companies; foreign exchange and other investments reported in the non-operating section of the Income Statement."""
 
     @property
@@ -31233,7 +31233,7 @@ class NetInvestmentIncomeValueIncomeStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class OtherIncomeExpenseOperatingIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherIncomeExpenseOperatingIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income or expenses from any other activity associated with normal operations that are not categorized above. Includes: amortization of deferred revenues/sales commissions/charges/ etc. as these are related to deferred or accrued operating income/expense"""
 
     @property
@@ -31304,7 +31304,7 @@ class OtherIncomeExpenseOperatingIncomeStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class UnadjustedRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class UnadjustedRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Revenue derived based on requirements from NASDAQ. For companies using the bank industry template; it is calculated using Net Interest Income; adding back interest expense to derive interest income revenue for the bank; and adding non-interest income to derive unadjusted revenue. For companies using the normal; insurance and investment templates; unadjusted revenue is the same as the company's total revenue."""
 
     @property
@@ -31375,7 +31375,7 @@ class UnadjustedRevenueIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class RealizedInvestmentGainsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RealizedInvestmentGainsIncomeStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the summation of realized investment gains on the company's assets. This is calculated using Gain/Loss on Disposal/Sale of Business + Gain/Loss on Disposal/Sale of Fixed Assets. For banking companies; this also includes Realized Gain/Loss on Sale of Loans and Lease."""
 
     @property
@@ -32781,7 +32781,7 @@ class BalanceSheetPeriodEndingDate(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class AccountsPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AccountsPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Any money that a company owes its suppliers for goods and services purchased on credit and is expected to pay within the next year or operating cycle."""
 
     @property
@@ -32877,7 +32877,7 @@ class AccountsPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class AccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Accounts owed to a company by customers within a year as a result of exchanging goods or services on credit."""
 
     @property
@@ -32973,7 +32973,7 @@ class AccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class CurrentAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """An expense recognized before it is paid for. Includes compensation, interest, pensions and all other miscellaneous accruals reported by the company. Expenses incurred during the accounting period, but not required to be paid until a later date."""
 
     @property
@@ -33069,7 +33069,7 @@ class CurrentAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class NonCurrentAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonCurrentAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """An expense that has occurred but the transaction has not been entered in the accounting records. Accordingly, an adjusting entry is made to debit the appropriate expense account and to credit a liability account such as accrued expenses payable or accounts payable."""
 
     @property
@@ -33145,7 +33145,7 @@ class NonCurrentAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class AccruedInvestmentIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AccruedInvestmentIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Interest, dividends, rents, ancillary and other revenues earned but not yet received by the entity on its investments."""
 
     @property
@@ -33211,7 +33211,7 @@ class AccruedInvestmentIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class AccumulatedDepreciationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AccumulatedDepreciationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cumulative amount of wear and tear or obsolescence charged against the fixed assets of a company."""
 
     @property
@@ -33307,7 +33307,7 @@ class AccumulatedDepreciationBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class GainsLossesNotAffectingRetainedEarningsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainsLossesNotAffectingRetainedEarningsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of gains or losses that are not part of retained earnings. It is also called other comprehensive income."""
 
     @property
@@ -33403,7 +33403,7 @@ class GainsLossesNotAffectingRetainedEarningsBalanceSheet(QuantConnect.Data.Fund
         ...
 
 
-class AdditionalPaidInCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AdditionalPaidInCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Excess of issue price over par or stated value of the entity's capital stock and amounts received from other transactions involving the entity's stock or stockholders. Includes adjustments to additional paid in capital. There are two major categories of additional paid in capital: 1) Paid in capital in excess of par/stated value, which is the difference between the actual issue price of the shares and the shares' par/stated value. 2) Paid in capital from other transactions which includes treasury stock, retirement of stock, stock dividends recorded at market, lapse of stock purchase warrants, conversion of convertible bonds in excess of the par value of the stock, and any other additional capital from the company's own stock transactions."""
 
     @property
@@ -33499,7 +33499,7 @@ class AdditionalPaidInCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class AllowanceForLoansAndLeaseLossesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AllowanceForLoansAndLeaseLossesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A contra account sets aside as an allowance for bad loans (e.g. customer defaults)."""
 
     @property
@@ -33575,7 +33575,7 @@ class AllowanceForLoansAndLeaseLossesBalanceSheet(QuantConnect.Data.Fundamental.
         ...
 
 
-class AvailableForSaleSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AvailableForSaleSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """For an unclassified balance sheet, this item represents equity securities categorized neither as held-to-maturity nor trading. Equity securities represent ownership interests or the right to acquire ownership interests in corporations and other legal entities which ownership interest is represented by shares of common or preferred stock (which is not mandatory redeemable or redeemable at the option of the holder), convertible securities, stock rights, or stock warrants. This category includes preferred stocks, available- for-sale and common stock, available-for-sale."""
 
     @property
@@ -33666,7 +33666,7 @@ class AvailableForSaleSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class CapitalStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CapitalStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The value of the issued common shares of the company."""
 
     @property
@@ -33762,7 +33762,7 @@ class CapitalStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CashBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash includes currency on hand as well as demand deposits with banks or financial institutions. It also includes other kinds of accounts that have the general characteristics of demand deposits in that the customer may deposit additional funds at any time and also effectively may withdraw funds at any time without prior notice or penalty."""
 
     @property
@@ -33858,7 +33858,7 @@ class CashBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash equivalents, excluding items classified as marketable securities, include short-term, highly liquid investments that are both readily convertible to known amounts of cash, and so near their maturity that they present insignificant risk of changes in value because of changes in interest rates. Generally, only investments with original maturities of three months or less qualify under this definition. Original maturity means original maturity to the entity holding the investment. For example, both a three-month US Treasury bill and a three-year Treasury note purchased three months from maturity qualify as cash equivalents. However, a Treasury note purchased three years ago does not become a cash equivalent when its remaining maturity is three months."""
 
     @property
@@ -33934,7 +33934,7 @@ class CashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class CashAndCashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashAndCashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Includes unrestricted cash on hand, money market instruments and other debt securities which can be converted to cash immediately."""
 
     @property
@@ -34030,7 +34030,7 @@ class CashAndCashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class CashAndDueFromBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashAndDueFromBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Includes cash on hand (currency and coin), cash items in process of collection, non-interest bearing deposits due from other financial institutions (including corporate credit unions), and balances with the Federal Reserve Banks, Federal Home Loan Banks and central banks."""
 
     @property
@@ -34121,7 +34121,7 @@ class CashAndDueFromBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class CashCashEquivalentsAndFederalFundsSoldBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashCashEquivalentsAndFederalFundsSoldBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of cash, cash equivalents and short term investments."""
 
     @property
@@ -34207,7 +34207,7 @@ class CashCashEquivalentsAndFederalFundsSoldBalanceSheet(QuantConnect.Data.Funda
         ...
 
 
-class CashCashEquivalentsAndMarketableSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashCashEquivalentsAndMarketableSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of cash, cash equivalents, and marketable securities."""
 
     @property
@@ -34303,7 +34303,7 @@ class CashCashEquivalentsAndMarketableSecuritiesBalanceSheet(QuantConnect.Data.F
         ...
 
 
-class CommonStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CommonStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Common stock (all issues) at par value, as reported within the Stockholder's Equity section of the balance sheet; i.e. it is one component of Common Stockholder's Equity"""
 
     @property
@@ -34399,7 +34399,7 @@ class CommonStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The total amount of assets considered to be convertible into cash within a relatively short period of time, usually a year."""
 
     @property
@@ -34495,7 +34495,7 @@ class CurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CurrentDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents the total amount of long-term debt such as bank loans and commercial paper, which is due within one year."""
 
     @property
@@ -34591,7 +34591,7 @@ class CurrentDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CurrentDebtAndCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentDebtAndCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """All borrowings due within one year including current portions of long-term debt and capital leases as well as short-term debt such as bank loans and commercial paper."""
 
     @property
@@ -34687,7 +34687,7 @@ class CurrentDebtAndCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundame
         ...
 
 
-class CurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The debts or obligations of the firm that are due within one year."""
 
     @property
@@ -34783,7 +34783,7 @@ class CurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class CurrentCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents the total amount of long-term capital leases that must be paid within the next accounting PeriodAsByte. Capital lease obligations are contractual obligations that arise from obtaining the use of property or equipment via a capital lease contract."""
 
     @property
@@ -34879,7 +34879,7 @@ class CurrentCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class DeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Deferred tax assets: taxes paid or carried forward that are not yet recognized in the income statement."""
 
     @property
@@ -34955,7 +34955,7 @@ class DeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class DeferredCostsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DeferredCostsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """An expenditure not recognized as a cost of operation of the period in which incurred, but carried forward to be written off in future periods."""
 
     @property
@@ -35046,7 +35046,7 @@ class DeferredCostsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NonCurrentDeferredLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonCurrentDeferredLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents the non-current portion of obligations, which is a liability that usually would have been paid but is now past due."""
 
     @property
@@ -35142,7 +35142,7 @@ class NonCurrentDeferredLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class CurrentDeferredLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentDeferredLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents the current portion of obligations, which is a liability that usually would have been paid but is now past due."""
 
     @property
@@ -35238,7 +35238,7 @@ class CurrentDeferredLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class DeferredPolicyAcquisitionCostsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DeferredPolicyAcquisitionCostsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net amount of deferred policy acquisition costs capitalized on contracts remaining in force as of the balance sheet date."""
 
     @property
@@ -35309,7 +35309,7 @@ class DeferredPolicyAcquisitionCostsBalanceSheet(QuantConnect.Data.Fundamental.M
         ...
 
 
-class CurrentDeferredRevenueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentDeferredRevenueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents collections of cash or other assets related to revenue producing activity for which revenue has not yet been recognized. Generally, an entity records deferred revenue when it receives consideration from a customer before achieving certain criteria that must be met for revenue to be recognized in conformity with GAAP. It can be either current or non-current item. Also called unearned revenue."""
 
     @property
@@ -35405,7 +35405,7 @@ class CurrentDeferredRevenueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class NonCurrentDeferredRevenueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonCurrentDeferredRevenueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The non-current portion of deferred revenue amount as of the balance sheet date. Deferred revenue is a liability related to revenue producing activity for which revenue has not yet been recognized, and is not expected be recognized in the next twelve months."""
 
     @property
@@ -35496,7 +35496,7 @@ class NonCurrentDeferredRevenueBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class DeferredTaxAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DeferredTaxAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """An asset on a company's balance sheet that may be used to reduce any subsequent period's income tax expense. Deferred tax assets can arise due to net loss carryovers, which are only recorded as assets if it is deemed more likely than not that the asset will be used in future fiscal periods."""
 
     @property
@@ -35572,7 +35572,7 @@ class DeferredTaxAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class CurrentDeferredTaxesAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentDeferredTaxesAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Meaning a future tax asset, resulting from temporary differences between book (accounting) value of assets and liabilities and their tax value, or timing differences between the recognition of gains and losses in financial statements and their recognition in a tax computation. It is also called future tax."""
 
     @property
@@ -35668,7 +35668,7 @@ class CurrentDeferredTaxesAssetsBalanceSheet(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class CurrentDeferredTaxesLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentDeferredTaxesLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Meaning a future tax liability, resulting from temporary differences between book (accounting) value of assets and liabilities and their tax value, or timing differences between the recognition of gains and losses in financial statements and their recognition in a tax computation. Deferred tax liabilities generally arise where tax relief is provided in advance of an accounting expense, or income is accrued but not taxed until received."""
 
     @property
@@ -35744,7 +35744,7 @@ class CurrentDeferredTaxesLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.
         ...
 
 
-class NonCurrentDeferredTaxesAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonCurrentDeferredTaxesAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A result of timing differences between taxable incomes reported on the income statement and taxable income from the company's tax return. Depending on the positioning of deferred income taxes, the field may be either current (within current assets) or non- current (below total current assets). Typically a company will have two deferred income taxes fields."""
 
     @property
@@ -35840,7 +35840,7 @@ class NonCurrentDeferredTaxesAssetsBalanceSheet(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class NonCurrentDeferredTaxesLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonCurrentDeferredTaxesLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The estimated future tax obligations, which usually arise when different accounting methods are used for financial statements and tax statement It is also an add-back to the cash flow statement. Deferred income taxes include accumulated tax deferrals due to accelerated depreciation and investment credit."""
 
     @property
@@ -35936,7 +35936,7 @@ class NonCurrentDeferredTaxesLiabilitiesBalanceSheet(QuantConnect.Data.Fundament
         ...
 
 
-class EquityInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EquityInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This asset represents equity securities categorized neither as held-to-maturity nor trading."""
 
     @property
@@ -36017,7 +36017,7 @@ class EquityInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class FederalFundsPurchasedAndSecuritiesSoldUnderAgreementToRepurchaseBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FederalFundsPurchasedAndSecuritiesSoldUnderAgreementToRepurchaseBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This liability refers to the amount shown on the books that a bank with insufficient reserves borrows, at the federal funds rate, from another bank to meet its reserve requirements; and the amount of securities that an institution sells and agrees to repurchase at a specified date for a specified price, net of any reductions or offsets."""
 
     @property
@@ -36083,7 +36083,7 @@ class FederalFundsPurchasedAndSecuritiesSoldUnderAgreementToRepurchaseBalanceShe
         ...
 
 
-class FederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToResellBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToResellBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This asset refers to very-short-term loans of funds to other banks and securities dealers."""
 
     @property
@@ -36159,7 +36159,7 @@ class FederalFundsSoldAndSecuritiesPurchaseUnderAgreementsToResellBalanceSheet(Q
         ...
 
 
-class FixedMaturityInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FixedMaturityInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This asset refers to types of investments that may be contained within the fixed maturity category which securities are having a stated final repayment date. Examples of items within this category may include bonds, including convertibles and bonds with warrants, and redeemable preferred stocks."""
 
     @property
@@ -36230,7 +36230,7 @@ class FixedMaturityInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class FuturePolicyBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FuturePolicyBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Reserves set aside by an insurer for future policy benefits, for claims incurred but not yet settled, and for claims incurred but not reported."""
 
     @property
@@ -36291,7 +36291,7 @@ class FuturePolicyBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class GeneralPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GeneralPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """In a limited partnership or master limited partnership form of business, this represents the balance of capital held by the general partners."""
 
     @property
@@ -36362,7 +36362,7 @@ class GeneralPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class GoodwillBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GoodwillBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The excess of the cost of an acquired company over the sum of the fair market value of its identifiable individual assets less the liabilities."""
 
     @property
@@ -36458,7 +36458,7 @@ class GoodwillBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class GoodwillAndOtherIntangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GoodwillAndOtherIntangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Rights or economic benefits, such as patents and goodwill, that is not physical in nature. They are those that are neither physical nor financial in nature, nevertheless, have value to the company. Intangibles are listed net of accumulated amortization."""
 
     @property
@@ -36554,7 +36554,7 @@ class GoodwillAndOtherIntangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental
         ...
 
 
-class GrossLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GrossLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents the sum of all loans (commercial, consumer, mortgage, etc.) as well as leases before any provisions for loan losses or unearned discounts."""
 
     @property
@@ -36630,7 +36630,7 @@ class GrossLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class GrossPPEBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GrossPPEBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Carrying amount at the balance sheet date for long-lived physical assets used in the normal conduct of business and not intended for resale. This can include land, physical structures, machinery, vehicles, furniture, computer equipment, construction in progress, and similar items. Amount does not include depreciation."""
 
     @property
@@ -36726,7 +36726,7 @@ class GrossPPEBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class HeldToMaturitySecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class HeldToMaturitySecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Debt securities that a firm has the ability and intent to hold until maturity, maturing beyond one year or a normal operating cycle."""
 
     @property
@@ -36802,7 +36802,7 @@ class HeldToMaturitySecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class IncomeTaxPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IncomeTaxPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A current liability account which reflects the amount of income taxes currently due to the federal, state, and local governments."""
 
     @property
@@ -36883,7 +36883,7 @@ class IncomeTaxPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class InterestBearingDepositsLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestBearingDepositsLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate of all domestic and foreign deposits in the bank that earns interests."""
 
     @property
@@ -36959,7 +36959,7 @@ class InterestBearingDepositsLiabilitiesBalanceSheet(QuantConnect.Data.Fundament
         ...
 
 
-class InterestPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of the carrying values as of the balance sheet date of interest payable on all forms of debt, including trade payable that has been incurred."""
 
     @property
@@ -37055,7 +37055,7 @@ class InterestPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class InterestBearingDepositsAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestBearingDepositsAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Deposit of money with a financial institution, in consideration of which the financial institution pays or credits interest, or amounts in the nature of interest."""
 
     @property
@@ -37131,7 +37131,7 @@ class InterestBearingDepositsAssetsBalanceSheet(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class InventoryBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InventoryBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A company's merchandise, raw materials, and finished and unfinished products which have not yet been sold."""
 
     @property
@@ -37227,7 +37227,7 @@ class InventoryBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class InvestmentsAndAdvancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InvestmentsAndAdvancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """All investments in affiliates, real estate, securities, etc. Non-current investment, not including marketable securities."""
 
     @property
@@ -37323,7 +37323,7 @@ class InvestmentsAndAdvancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class LimitedPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LimitedPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """In a limited partnership or master limited partnership form of business, this represents the balance of capital held by the limited partners."""
 
     @property
@@ -37389,7 +37389,7 @@ class LimitedPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class LongTermDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LongTermDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of the carrying values as of the balance sheet date of all long-term debt, which is debt initially having maturities due after one year or beyond the operating cycle, if longer, but excluding the portions thereof scheduled to be repaid within one year or the normal operating cycle, if longer. Long-term debt includes notes payable, bonds payable, mortgage loans, convertible debt, subordinated debt and other types of long term debt."""
 
     @property
@@ -37485,7 +37485,7 @@ class LongTermDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class LongTermDebtAndCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LongTermDebtAndCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """All borrowings lasting over one year including long-term debt and long-term portion of capital lease obligations."""
 
     @property
@@ -37581,7 +37581,7 @@ class LongTermDebtAndCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundam
         ...
 
 
-class LongTermInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LongTermInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Often referred to simply as "investments". Long-term investments are to be held for many years and are not intended to be disposed in the near future. This group usually consists of four types of investments."""
 
     @property
@@ -37647,7 +37647,7 @@ class LongTermInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class LongTermCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LongTermCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents the total liability for long-term leases lasting over one year. Amount equal to the present value (the principal) at the beginning of the lease term less lease payments during the lease term."""
 
     @property
@@ -37743,7 +37743,7 @@ class LongTermCapitalLeaseObligationBalanceSheet(QuantConnect.Data.Fundamental.M
         ...
 
 
-class MinorityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class MinorityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Carrying amount of the equity interests owned by non-controlling shareholders, partners, or other equity holders in one or more of the entities included in the reporting entity's consolidated financial statements."""
 
     @property
@@ -37839,7 +37839,7 @@ class MinorityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class MoneyMarketInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class MoneyMarketInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of federal (central bank) funds sold, securities purchased under agreements to resell, and securities borrowed."""
 
     @property
@@ -37915,7 +37915,7 @@ class MoneyMarketInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class NetLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents the value of all loans after deduction of the appropriate allowances for loan and lease losses."""
 
     @property
@@ -37991,7 +37991,7 @@ class NetLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NetPPEBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetPPEBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Tangible assets that are held by an entity for use in the production or supply of goods and services, for rental to others, or for administrative purposes and that are expected to provide economic benefit for more than one year; net of accumulated depreciation."""
 
     @property
@@ -38087,7 +38087,7 @@ class NetPPEBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NonInterestBearingDepositsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonInterestBearingDepositsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of all domestic and foreign deposits in the banks that do not draw interest."""
 
     @property
@@ -38163,7 +38163,7 @@ class NonInterestBearingDepositsBalanceSheet(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class CurrentNotesPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentNotesPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Written promises to pay a stated sum at one or more specified dates in the future, within the accounting PeriodAsByte."""
 
     @property
@@ -38259,7 +38259,7 @@ class CurrentNotesPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class NotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """An amount representing an agreement for an unconditional promise by the maker to pay the entity (holder) a definite sum of money at a future date(s) within one year of the balance sheet date or the normal operating cycle, whichever is longer. Such amount may include accrued interest receivable in accordance with the terms of the note. The note also may contain provisions including a discount or premium, payable on demand, secured, or unsecured, interest bearing or non-interest bearing, among a myriad of other features and characteristics."""
 
     @property
@@ -38325,7 +38325,7 @@ class NotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class NonCurrentNoteReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonCurrentNoteReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """An amount representing an agreement for an unconditional promise by the maker to pay the entity (holder) a definite sum of money at a future date(s), excluding the portion that is expected to be received within one year of the balance sheet date or the normal operating cycle, whichever is longer."""
 
     @property
@@ -38401,7 +38401,7 @@ class NonCurrentNoteReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class OtherCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other current liabilities = Total current liabilities - Payables and accrued Expenses - Current debt and capital lease obligation - provisions, current - deferred liabilities, current."""
 
     @property
@@ -38497,7 +38497,7 @@ class OtherCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class OtherIntangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherIntangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of the carrying amounts of all intangible assets, excluding goodwill."""
 
     @property
@@ -38593,7 +38593,7 @@ class OtherIntangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class OtherShortTermInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherShortTermInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of short term investments, which will be expired within one year that are not specifically classified as Available-for-Sale, Held-to-Maturity, nor Trading investments."""
 
     @property
@@ -38679,7 +38679,7 @@ class OtherShortTermInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class PayablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PayablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of all payables owed and expected to be paid within one year or one operating cycle, including accounts payables, taxes payable, dividends payable and all other current payables."""
 
     @property
@@ -38775,7 +38775,7 @@ class PayablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class PayablesAndAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PayablesAndAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This balance sheet account includes all current payables and accrued expenses."""
 
     @property
@@ -38871,7 +38871,7 @@ class PayablesAndAccruedExpensesBalanceSheet(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class PolicyReservesBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PolicyReservesBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Reserves set aside by an insurer for future policy benefits, for claims incurred but not yet settled, and for claims incurred but not reported."""
 
     @property
@@ -38942,7 +38942,7 @@ class PolicyReservesBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class PolicyholderFundsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PolicyholderFundsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The total liability as of the balance sheet date of amounts due to policy holders, excluding future policy benefits and claims, including unpaid policy dividends, retrospective refunds, and undistributed earnings on participating business."""
 
     @property
@@ -39003,7 +39003,7 @@ class PolicyholderFundsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class PreferredSecuritiesOutsideStockEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PreferredSecuritiesOutsideStockEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Preferred securities that that firm treats as a liability. It includes convertible preferred stock or redeemable preferred stock."""
 
     @property
@@ -39089,7 +39089,7 @@ class PreferredSecuritiesOutsideStockEquityBalanceSheet(QuantConnect.Data.Fundam
         ...
 
 
-class PreferredStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PreferredStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Preferred stock (all issues) at par value, as reported within the Stockholder's Equity section of the balance sheet."""
 
     @property
@@ -39185,7 +39185,7 @@ class PreferredStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class PrepaidAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PrepaidAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of the carrying amounts that are paid in advance for expenses, which will be charged against earnings in subsequent periods."""
 
     @property
@@ -39281,7 +39281,7 @@ class PrepaidAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NonCurrentPrepaidAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonCurrentPrepaidAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of the carrying amounts that are paid in advance for expenses, which will be charged against earnings in periods after one year or beyond the operating cycle, if longer."""
 
     @property
@@ -39357,7 +39357,7 @@ class NonCurrentPrepaidAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class ReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of all receivables owed by customers and affiliates within one year, including accounts receivable, notes receivable, premiums receivable, and other current receivables."""
 
     @property
@@ -39453,7 +39453,7 @@ class ReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ReinsuranceRecoverableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReinsuranceRecoverableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount of benefits the ceding insurer expects to recover on insurance policies ceded to other insurance entities as of the balance sheet date for all guaranteed benefit types. It includes estimated amounts for claims incurred but not reported, and policy benefits, net of any related valuation allowance."""
 
     @property
@@ -39514,7 +39514,7 @@ class ReinsuranceRecoverableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class RetainedEarningsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RetainedEarningsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cumulative net income of the company from the date of its inception (or reorganization) to the date of the financial statement less the cumulative distributions to shareholders either directly (dividends) or indirectly (treasury stock)."""
 
     @property
@@ -39610,7 +39610,7 @@ class RetainedEarningsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class SecuritiesLendingCollateralBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SecuritiesLendingCollateralBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying value as of the balance sheet date of the liabilities collateral securities loaned to other broker-dealers. Borrowers of securities generally are required to provide collateral to the lenders of securities, commonly cash but sometimes other securities or standby letters of credit, with a value slightly higher than that of the securities borrowed."""
 
     @property
@@ -39671,7 +39671,7 @@ class SecuritiesLendingCollateralBalanceSheet(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class SecurityAgreeToBeResellBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SecurityAgreeToBeResellBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying value of funds outstanding loaned in the form of security resale agreements if the agreement requires the purchaser to resell the identical security purchased or a security that meets the definition of "substantially the same" in the case of a dollar roll. Also includes purchases of participations in pools of securities that are subject to a resale agreement."""
 
     @property
@@ -39732,7 +39732,7 @@ class SecurityAgreeToBeResellBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class SecuritySoldNotYetRepurchasedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SecuritySoldNotYetRepurchasedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Financial liabilities held with the intent to trade for short term profit, including obligations to deliver securities sold short."""
 
     @property
@@ -39793,7 +39793,7 @@ class SecuritySoldNotYetRepurchasedBalanceSheet(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class SeparateAccountAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SeparateAccountAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The fair value of the assets held by the company for the benefit of separate account policyholders."""
 
     @property
@@ -39854,7 +39854,7 @@ class SeparateAccountAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class SeparateAccountBusinessBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SeparateAccountBusinessBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Assets an insurance company holds in separate accounts: bought by the company but owned by the investors who provided the funds, legally segregated and reported apart from the company's other investments."""
 
     @property
@@ -39915,7 +39915,7 @@ class SeparateAccountBusinessBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class ShortTermInvestmentsAvailableForSaleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ShortTermInvestmentsAvailableForSaleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The total of all short term financial investments."""
 
     @property
@@ -39976,7 +39976,7 @@ class ShortTermInvestmentsAvailableForSaleBalanceSheet(QuantConnect.Data.Fundame
         ...
 
 
-class ShortTermInvestmentsHeldToMaturityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ShortTermInvestmentsHeldToMaturityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The current assets section of a company's balance sheet that contains the investments that a company has made that will expire at a fixed date within one year."""
 
     @property
@@ -40037,7 +40037,7 @@ class ShortTermInvestmentsHeldToMaturityBalanceSheet(QuantConnect.Data.Fundament
         ...
 
 
-class ShortTermInvestmentsTradingBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ShortTermInvestmentsTradingBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The current assets section of a company's balance sheet that contains the investments that a company can trade at any moment."""
 
     @property
@@ -40098,7 +40098,7 @@ class ShortTermInvestmentsTradingBalanceSheet(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class StockholdersEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class StockholdersEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The residual interest in the assets of the enterprise that remains after deducting its liabilities. Equity is increased by owners' investments and by comprehensive income, and it is reduced by distributions to the owners."""
 
     @property
@@ -40194,7 +40194,7 @@ class StockholdersEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class TotalTaxPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalTaxPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A liability that reflects the taxes owed to federal, state, and local tax authorities. It is the carrying value as of the balance sheet date of obligations incurred and payable for statutory income, sales, use, payroll, excise, real, property and other taxes."""
 
     @property
@@ -40290,7 +40290,7 @@ class TotalTaxPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class TotalAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of probable future economic benefits obtained or controlled by a particular enterprise as a result of past transactions or events."""
 
     @property
@@ -40386,7 +40386,7 @@ class TotalAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalDepositsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalDepositsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A liability account which represents the total amount of funds deposited."""
 
     @property
@@ -40462,7 +40462,7 @@ class TotalDepositsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Asset that refers to the sum of all available for sale securities and other investments often reported on the balance sheet of insurance firms."""
 
     @property
@@ -40528,7 +40528,7 @@ class TotalInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class TotalNonCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalNonCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of the carrying amounts as of the balance sheet date of all assets that are expected to be realized in cash, sold or consumed after one year or beyond the normal operating cycle, if longer."""
 
     @property
@@ -40624,7 +40624,7 @@ class TotalNonCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class TotalPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Ownership interest of different classes of partners in the publicly listed limited partnership or master limited partnership. Partners include general, limited and preferred partners."""
 
     @property
@@ -40690,7 +40690,7 @@ class TotalPartnershipCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class TradingAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TradingAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Trading account assets are bought and held principally for the purpose of selling them in the near term (thus held for only a short period of time). Unrealized holding gains and losses for trading securities are included in earnings."""
 
     @property
@@ -40751,7 +40751,7 @@ class TradingAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TradingLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TradingLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying amount of liabilities as of the balance sheet date that pertain to principal and customer trading transactions, or which may be incurred with the objective of generating a profit from short-term fluctuations in price as part of an entity's market-making, hedging and proprietary trading. Examples include short positions in securities, derivatives and commodities, obligations under repurchase agreements, and securities borrowed arrangements."""
 
     @property
@@ -40812,7 +40812,7 @@ class TradingLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class TradingSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TradingSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The total of financial instruments that are bought and held principally for the purpose of selling them in the near term (thus held for only a short period of time) or for debt and equity securities formerly categorized as available-for-sale or held-to-maturity which the company held as of the date it opted to account for such securities at fair value."""
 
     @property
@@ -40883,7 +40883,7 @@ class TradingSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class TreasuryStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TreasuryStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The portion of shares that a company keeps in their own treasury. Treasury stock may have come from a repurchase or buyback from shareholders; or it may have never been issued to the public in the first place. These shares don't pay dividends, have no voting rights, and are not included in shares outstanding calculations."""
 
     @property
@@ -40979,7 +40979,7 @@ class TreasuryStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class UnearnedIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class UnearnedIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income received but not yet earned, it represents the unearned amount that is netted against the total loan."""
 
     @property
@@ -41055,7 +41055,7 @@ class UnearnedIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class UnearnedPremiumsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class UnearnedPremiumsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Carrying amount of premiums written on insurance contracts that have not been earned as of the balance sheet date."""
 
     @property
@@ -41126,7 +41126,7 @@ class UnearnedPremiumsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class UnpaidLossAndLossReserveBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class UnpaidLossAndLossReserveBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Liability amount that reflects claims that are expected based upon statistical projections, but which have not been reported to the insurer."""
 
     @property
@@ -41202,7 +41202,7 @@ class UnpaidLossAndLossReserveBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class InvestedCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InvestedCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Invested capital = common shareholders' equity + long term debt + current debt"""
 
     @property
@@ -41298,7 +41298,7 @@ class InvestedCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class CurrentDeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentDeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Payments that will be assigned as expenses with one accounting period, but that are paid in advance and temporarily set up as current assets on the balance sheet."""
 
     @property
@@ -41394,7 +41394,7 @@ class CurrentDeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class NonCurrentDeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonCurrentDeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Payments that will be assigned as expenses longer than one accounting period, but that are paid in advance and temporarily set up as non-current assets on the balance sheet."""
 
     @property
@@ -41490,7 +41490,7 @@ class NonCurrentDeferredAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class SecuritiesAndInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SecuritiesAndInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Asset, often applicable to Banks, which refers to the aggregate amount of all securities and investments."""
 
     @property
@@ -41571,7 +41571,7 @@ class SecuritiesAndInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class TotalLiabilitiesNetMinorityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalLiabilitiesNetMinorityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Probable future sacrifices of economic benefits arising from present obligations of an enterprise to transfer assets or provide services to others in the future as a result of past transactions or events, excluding minority interest."""
 
     @property
@@ -41667,7 +41667,7 @@ class TotalLiabilitiesNetMinorityInterestBalanceSheet(QuantConnect.Data.Fundamen
         ...
 
 
-class TotalNonCurrentLiabilitiesNetMinorityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalNonCurrentLiabilitiesNetMinorityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total obligations, net minority interest, incurred as part of normal operations that is expected to be repaid beyond the following twelve months or one business cycle; excludes minority interest."""
 
     @property
@@ -41763,7 +41763,7 @@ class TotalNonCurrentLiabilitiesNetMinorityInterestBalanceSheet(QuantConnect.Dat
         ...
 
 
-class TotalEquityGrossMinorityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalEquityGrossMinorityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Residual interest, including minority interest, that remains in the assets of the enterprise after deducting its liabilities. Equity is increased by owners' investments and by comprehensive income, and it is reduced by distributions to the owners."""
 
     @property
@@ -41859,7 +41859,7 @@ class TotalEquityGrossMinorityInterestBalanceSheet(QuantConnect.Data.Fundamental
         ...
 
 
-class GrossAccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GrossAccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Accounts owed to a company by customers within a year as a result of exchanging goods or services on credit."""
 
     @property
@@ -41920,7 +41920,7 @@ class GrossAccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class NonCurrentAccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonCurrentAccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Amounts due from customers, and other receivables, collectible beyond one year or a normal operating cycle."""
 
     @property
@@ -41996,7 +41996,7 @@ class NonCurrentAccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class AccruedInterestReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AccruedInterestReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This account shows the amount of unpaid interest accrued to the date of purchase and included in the purchase price of securities purchased between interest dates."""
 
     @property
@@ -42077,7 +42077,7 @@ class AccruedInterestReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class AdvanceFromFederalHomeLoanBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AdvanceFromFederalHomeLoanBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This item is typically available for bank industry. It's the amount of borrowings as of the balance sheet date from the Federal Home Loan Bank, which are primarily used to cover shortages in the required reserve balance and liquidity shortages."""
 
     @property
@@ -42153,7 +42153,7 @@ class AdvanceFromFederalHomeLoanBanksBalanceSheet(QuantConnect.Data.Fundamental.
         ...
 
 
-class AllowanceForDoubtfulAccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AllowanceForDoubtfulAccountsReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """An Allowance for Doubtful Accounts measures receivables recorded but not expected to be collected."""
 
     @property
@@ -42214,7 +42214,7 @@ class AllowanceForDoubtfulAccountsReceivableBalanceSheet(QuantConnect.Data.Funda
         ...
 
 
-class AllowanceForNotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AllowanceForNotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This item is typically available for bank industry. It represents a provision relating to a written agreement to receive money with the terms of the note (at a specified future date(s) within one year from the reporting date (or the normal operating cycle, whichever is longer), consisting of principal as well as any accrued interest) for the portion that is expected to be uncollectible."""
 
     @property
@@ -42275,7 +42275,7 @@ class AllowanceForNotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class AssetsHeldForSaleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AssetsHeldForSaleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This item is typically available for bank industry. It's a part of long-lived assets, which has been decided for sale in the future."""
 
     @property
@@ -42336,7 +42336,7 @@ class AssetsHeldForSaleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class AssetsOfDiscontinuedOperationsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AssetsOfDiscontinuedOperationsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A portion of a company's business that has been disposed of or sold."""
 
     @property
@@ -42397,7 +42397,7 @@ class AssetsOfDiscontinuedOperationsBalanceSheet(QuantConnect.Data.Fundamental.M
         ...
 
 
-class BankIndebtednessBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BankIndebtednessBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying value of amounts due to banks or institutions within one year or a normal operating cycle, including revolving credit, facilities and lines of credit."""
 
     @property
@@ -42458,7 +42458,7 @@ class BankIndebtednessBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class BankOwnedLifeInsuranceBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BankOwnedLifeInsuranceBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying amount of a life insurance policy on an officer, executive or employee for which the reporting entity (a bank) is entitled to proceeds from the policy upon death of the insured or surrender of the insurance policy."""
 
     @property
@@ -42534,7 +42534,7 @@ class BankOwnedLifeInsuranceBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class SecurityBorrowedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SecurityBorrowedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The securities borrowed or on loan, which is the temporary loan of securities by a lender to a borrower in exchange for cash. This item is usually only available for bank industry."""
 
     @property
@@ -42595,7 +42595,7 @@ class SecurityBorrowedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class BuildingsAndImprovementsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BuildingsAndImprovementsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Fixed assets that specifically deal with the facilities a company owns. Include the improvements associated with buildings."""
 
     @property
@@ -42691,7 +42691,7 @@ class BuildingsAndImprovementsBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class CommercialLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CommercialLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Short-term loan, typically 90 days, used by a company to finance seasonal working capital needs."""
 
     @property
@@ -42767,7 +42767,7 @@ class CommercialLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class CommercialPaperBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CommercialPaperBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Commercial paper is a money-market security issued by large banks and corporations. It represents the current obligation for the company. There are four basic kinds of commercial paper: promissory notes, drafts, checks, and certificates of deposit. The maturities of these money market securities generally do not exceed 270 days."""
 
     @property
@@ -42828,7 +42828,7 @@ class CommercialPaperBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class CommonStockEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CommonStockEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The portion of the Stockholders' Equity that reflects the amount of common stock, which are units of ownership."""
 
     @property
@@ -42924,7 +42924,7 @@ class CommonStockEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class ConstructionInProgressBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ConstructionInProgressBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """It represents carrying amount of long-lived asset under construction that includes construction costs to date on capital projects. Assets constructed, but not completed."""
 
     @property
@@ -43020,7 +43020,7 @@ class ConstructionInProgressBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class ConsumerLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ConsumerLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A loan that establishes consumer credit that is granted for personal use; usually unsecured and based on the borrower's integrity and ability to pay."""
 
     @property
@@ -43096,7 +43096,7 @@ class ConsumerLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class MinimumPensionLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class MinimumPensionLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Accumulated gains or losses from pension and other post-retirement plans, recorded in reserves or accumulated other comprehensive income."""
 
     @property
@@ -43157,7 +43157,7 @@ class MinimumPensionLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class CustomerAcceptancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CustomerAcceptancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Amounts receivable from customers on short-term negotiable time drafts drawn on and accepted by the institution (also known as banker's acceptance transactions) that are outstanding on the reporting date."""
 
     @property
@@ -43218,7 +43218,7 @@ class CustomerAcceptancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class DefinedPensionBenefitBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DefinedPensionBenefitBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The recognition of an asset where pension fund assets exceed promised benefits."""
 
     @property
@@ -43284,7 +43284,7 @@ class DefinedPensionBenefitBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class DerivativeProductLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DerivativeProductLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Fair values of all liabilities resulting from contracts that meet the criteria of being accounted for as derivative instruments; and which are expected to be extinguished or otherwise disposed of after one year or beyond the normal operating cycle."""
 
     @property
@@ -43380,7 +43380,7 @@ class DerivativeProductLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class DerivativeAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DerivativeAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Fair values of assets resulting from contracts that meet the criteria of being accounted for as derivative instruments, net of the effects of master netting arrangements."""
 
     @property
@@ -43446,7 +43446,7 @@ class DerivativeAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class DividendsPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DividendsPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of the carrying values of dividends declared but unpaid on equity securities issued and outstanding (also includes dividends collected on behalf of another owner of securities that are being held by entity) by the entity."""
 
     @property
@@ -43537,7 +43537,7 @@ class DividendsPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class EmployeeBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EmployeeBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Carrying amount as of the balance sheet date of the portion of the obligations recognized for the various benefits provided to former or inactive employees, their beneficiaries, and covered dependents after employment but before retirement."""
 
     @property
@@ -43623,7 +43623,7 @@ class EmployeeBenefitsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class FederalFundsPurchasedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FederalFundsPurchasedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount borrowed by a bank, at the federal funds rate, from another bank to meet its reserve requirements. This item is typically available for the bank industry."""
 
     @property
@@ -43684,7 +43684,7 @@ class FederalFundsPurchasedBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class FederalFundsSoldBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FederalFundsSoldBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Federal funds transactions involve lending (federal funds sold) or borrowing (federal funds purchased) of immediately available reserve balances. This item is typically available for the bank industry."""
 
     @property
@@ -43750,7 +43750,7 @@ class FederalFundsSoldBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class FederalHomeLoanBankStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FederalHomeLoanBankStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Federal Home Loan Bank stock represents an equity interest in a FHLB. It does not have a readily determinable fair value because its ownership is restricted and it lacks a market (liquidity). This item is typically available for the bank industry."""
 
     @property
@@ -43826,7 +43826,7 @@ class FederalHomeLoanBankStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class FinancialAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinancialAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Fair value of the derivative and hedging assets the company intends to hold for more than one year or a normal operating cycle."""
 
     @property
@@ -43897,7 +43897,7 @@ class FinancialAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class FinancialInstrumentsSoldUnderAgreementsToRepurchaseBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinancialInstrumentsSoldUnderAgreementsToRepurchaseBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying value as of the balance sheet date of securities that an institution sells and agrees to repurchase (the identical or substantially the same securities) as a seller-borrower at a specified date for a specified price, also known as a repurchase agreement. This item is typically available for bank industry."""
 
     @property
@@ -43963,7 +43963,7 @@ class FinancialInstrumentsSoldUnderAgreementsToRepurchaseBalanceSheet(QuantConne
         ...
 
 
-class FinishedGoodsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinishedGoodsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying amount as of the balance sheet date of merchandise or goods held by the company that are readily available for sale. This item is typically available for mining and manufacturing industries."""
 
     @property
@@ -44059,7 +44059,7 @@ class FinishedGoodsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class FlightFleetVehicleAndRelatedEquipmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FlightFleetVehicleAndRelatedEquipmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """It is one of the important fixed assets for transportation industry, which includes bicycles, cars, motorcycles, trains, ships, boats, and aircraft. This item is typically available for transportation industry."""
 
     @property
@@ -44125,7 +44125,7 @@ class FlightFleetVehicleAndRelatedEquipmentsBalanceSheet(QuantConnect.Data.Funda
         ...
 
 
-class ForeclosedAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ForeclosedAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying amount as of the balance sheet date of all assets obtained in full or partial satisfaction of a debt arrangement through foreclosure proceedings or defeasance; includes real and personal property; equity interests in corporations, partnerships, and joint ventures; and beneficial interest in trusts. This item is typically typically available for bank industry."""
 
     @property
@@ -44196,7 +44196,7 @@ class ForeclosedAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class ForeignCurrencyTranslationAdjustmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ForeignCurrencyTranslationAdjustmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Changes to accumulated comprehensive income that results from the process of translating subsidiary financial statements and foreign equity investments into functional currency of the reporting company."""
 
     @property
@@ -44282,7 +44282,7 @@ class ForeignCurrencyTranslationAdjustmentsBalanceSheet(QuantConnect.Data.Fundam
         ...
 
 
-class InventoriesAdjustmentsAllowancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InventoriesAdjustmentsAllowancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This item represents certain charges made in the current period in inventory resulting from such factors as breakage, spoilage, employee theft and shoplifting. This item is typically available for manufacturing, mining and utility industries."""
 
     @property
@@ -44358,7 +44358,7 @@ class InventoriesAdjustmentsAllowancesBalanceSheet(QuantConnect.Data.Fundamental
         ...
 
 
-class InvestmentsInOtherVenturesUnderEquityMethodBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InvestmentsInOtherVenturesUnderEquityMethodBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This item represents the carrying amount on the company's balance sheet of its investments in common stock of an equity method. This item is typically available for the insurance industry."""
 
     @property
@@ -44419,7 +44419,7 @@ class InvestmentsInOtherVenturesUnderEquityMethodBalanceSheet(QuantConnect.Data.
         ...
 
 
-class LandAndImprovementsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LandAndImprovementsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Fixed Assets that specifically deal with land a company owns. Includes the improvements associated with land. This excludes land held for sale."""
 
     @property
@@ -44515,7 +44515,7 @@ class LandAndImprovementsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class LeasesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LeasesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Carrying amount at the balance sheet date of a long-lived, depreciable asset that is an addition or improvement to assets held under lease arrangement. This item is usually not available for the insurance industry."""
 
     @property
@@ -44611,7 +44611,7 @@ class LeasesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class LiabilitiesOfDiscontinuedOperationsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LiabilitiesOfDiscontinuedOperationsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The obligations arising from the sale, disposal, or planned sale in the near future (generally within one year) of a disposal group, including a component of the entity (discontinued operation). This item is typically available for bank industry."""
 
     @property
@@ -44672,7 +44672,7 @@ class LiabilitiesOfDiscontinuedOperationsBalanceSheet(QuantConnect.Data.Fundamen
         ...
 
 
-class LineOfCreditBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LineOfCreditBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying value as of the balance sheet date of obligations drawn from a line of credit, which is a bank's commitment to make loans up to a specific amount."""
 
     @property
@@ -44753,7 +44753,7 @@ class LineOfCreditBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class LoansHeldForSaleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LoansHeldForSaleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """It means the aggregate amount of loans receivable that will be sold to other entities. This item is typically available for bank industry."""
 
     @property
@@ -44829,7 +44829,7 @@ class LoansHeldForSaleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class LoansReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LoansReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Reflects the carrying amount of unpaid loans issued to other institutions for cash needs or an asset purchase."""
 
     @property
@@ -44915,7 +44915,7 @@ class LoansReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class MachineryFurnitureEquipmentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class MachineryFurnitureEquipmentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Fixed assets specifically dealing with tools, equipment and office furniture. This item is usually not available for the insurance and utility industries."""
 
     @property
@@ -45011,7 +45011,7 @@ class MachineryFurnitureEquipmentBalanceSheet(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class MaterialsAndSuppliesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class MaterialsAndSuppliesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Aggregated amount of unprocessed materials to be used in manufacturing or production process and supplies that will be consumed. This item is typically available for the utility industry."""
 
     @property
@@ -45072,7 +45072,7 @@ class MaterialsAndSuppliesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class MineralPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class MineralPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A fixed asset that represents strictly mineral type properties. This item is typically available for mining industry."""
 
     @property
@@ -45148,7 +45148,7 @@ class MineralPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class MortgageLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class MortgageLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is a lien on real estate to protect a lender. This item is typically available for bank industry."""
 
     @property
@@ -45224,7 +45224,7 @@ class MortgageLoanBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class MortgageAndConsumerloansBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class MortgageAndConsumerloansBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Loans collateralized by a specified piece of real estate (mortgage loans). Consumer loans are not included."""
 
     @property
@@ -45285,7 +45285,7 @@ class MortgageAndConsumerloansBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class GrossNotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GrossNotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """An amount representing an agreement for an unconditional promise by the maker to pay the entity (holder) a definite sum of money at a future date(s) within one year of the balance sheet date or the normal operating cycle. Such amount may include accrued interest receivable in accordance with the terms of the note. The note also may contain provisions including a discount or premium, payable on demand, secured, or unsecured, interest bearing or non-interest bearing, among myriad other features and characteristics. This item is typically available for bank industry."""
 
     @property
@@ -45346,7 +45346,7 @@ class GrossNotesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class OtherAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other non-current assets that are not otherwise classified."""
 
     @property
@@ -45427,7 +45427,7 @@ class OtherAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class OtherCapitalStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherCapitalStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying value of stock issued and outstanding, including common and preferred stock."""
 
     @property
@@ -45503,7 +45503,7 @@ class OtherCapitalStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class OtherCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other current assets that are not otherwise classified."""
 
     @property
@@ -45599,7 +45599,7 @@ class OtherCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class OtherCurrentBorrowingsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherCurrentBorrowingsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Short Term Borrowings that are not otherwise classified."""
 
     @property
@@ -45675,7 +45675,7 @@ class OtherCurrentBorrowingsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class OtherEquityAdjustmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherEquityAdjustmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other adjustments to stockholders' equity that is not otherwise classified, including other reserves."""
 
     @property
@@ -45751,7 +45751,7 @@ class OtherEquityAdjustmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class OtherInventoriesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherInventoriesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other non-current inventories not otherwise classified."""
 
     @property
@@ -45837,7 +45837,7 @@ class OtherInventoriesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class OtherInvestedAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherInvestedAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """An item represents all the other investments or/and securities that cannot be defined into any category above. This item is typically available for the insurance industry."""
 
     @property
@@ -45898,7 +45898,7 @@ class OtherInvestedAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class OtherNonCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherNonCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other non-current assets that are not otherwise classified."""
 
     @property
@@ -45994,7 +45994,7 @@ class OtherNonCurrentAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class OtherPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other fixed assets not otherwise classified."""
 
     @property
@@ -46080,7 +46080,7 @@ class OtherPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class OtherRealEstateOwnedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherRealEstateOwnedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The Carrying amount as of the balance sheet date of other real estate, which may include real estate investments, real estate loans that qualify as investments in real estate, and premises that are no longer used in operations may also be included in real estate owned. This does not include real estate assets taken in settlement of troubled loans through surrender or foreclosure. This item is typically available for bank industry."""
 
     @property
@@ -46156,7 +46156,7 @@ class OtherRealEstateOwnedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class OtherReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other non-current receivables not otherwise classified."""
 
     @property
@@ -46242,7 +46242,7 @@ class OtherReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class NonCurrentPensionAndOtherPostretirementBenefitPlansBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonCurrentPensionAndOtherPostretirementBenefitPlansBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The long term obligation for employees' future pension and other post-retirement benefits, including retirement benefit obligations and severance cost."""
 
     @property
@@ -46328,7 +46328,7 @@ class NonCurrentPensionAndOtherPostretirementBenefitPlansBalanceSheet(QuantConne
         ...
 
 
-class PolicyLoansBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PolicyLoansBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A loan issued by an insurance company that uses the cash value of a person's life insurance policy as collateral. This item is usually only available for insurance industry."""
 
     @property
@@ -46389,7 +46389,7 @@ class PolicyLoansBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class PreferredStockEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PreferredStockEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A class of ownership in a company that has a higher claim on the assets and earnings than common stock. Preferred stock generally has a dividend that must be paid out before dividends to common stockholders and the shares usually do not have voting rights."""
 
     @property
@@ -46485,7 +46485,7 @@ class PreferredStockEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class PropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cost of other properties, and of improvements to properties, that are not categorized elsewhere; the net book value where accumulated depreciation is not reported."""
 
     @property
@@ -46546,7 +46546,7 @@ class PropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CurrentProvisionsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentProvisionsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Provisions are created to protect the interests of one or both parties named in a contract or legal document which is a preparatory action or measure. Current provision is expired within one accounting PeriodAsByte."""
 
     @property
@@ -46622,7 +46622,7 @@ class CurrentProvisionsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class LongTermProvisionsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LongTermProvisionsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Provisions are created to protect the interests of one or both parties named in a contract or legal document which is a preparatory action or measure. Long-term provision is expired beyond one accounting PeriodAsByte."""
 
     @property
@@ -46698,7 +46698,7 @@ class LongTermProvisionsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class RawMaterialsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RawMaterialsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Carrying amount as of the balance sheet data of unprocessed items to be consumed in the manufacturing or production process. This item is available for manufacturing and mining industries."""
 
     @property
@@ -46784,7 +46784,7 @@ class RawMaterialsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ReceivablesAdjustmentsAllowancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReceivablesAdjustmentsAllowancesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A provision relating to a written agreement to receive money at a specified future date(s) (within one year from the reporting date or the normal operating cycle, whichever is longer), consisting of principal as well as any accrued interest)."""
 
     @property
@@ -46855,7 +46855,7 @@ class ReceivablesAdjustmentsAllowancesBalanceSheet(QuantConnect.Data.Fundamental
         ...
 
 
-class RegulatoryAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RegulatoryAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Carrying amount as of the balance sheet date of capitalized costs of regulated entities that are expected to be recovered through revenue sources over one year or beyond the normal operating cycle."""
 
     @property
@@ -46916,7 +46916,7 @@ class RegulatoryAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class RegulatoryLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RegulatoryLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount for the individual regulatory noncurrent liability as itemized in a table of regulatory noncurrent liabilities as of the end of the PeriodAsByte. Such things as the costs of energy efficiency programs and low-income energy assistances programs and deferred fuel. This item is usually only available for utility industry."""
 
     @property
@@ -46977,7 +46977,7 @@ class RegulatoryLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class ReinsuranceBalancesPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReinsuranceBalancesPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying amount as of the balance sheet date of the known and estimated amounts owed to insurers under reinsurance treaties or other arrangements. This item is usually only available for insurance industry."""
 
     @property
@@ -47038,7 +47038,7 @@ class ReinsuranceBalancesPayableBalanceSheet(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class RestrictedCashBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RestrictedCashBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying amounts of cash and cash equivalent items, which are restricted as to withdrawal or usage. Restrictions may include legally restricted deposits held as compensating balances against short-term borrowing arrangements, contracts entered into with others, or entity statements of intention with regard to particular deposits; however, time deposits and short-term certificates of deposit are not generally included in legally restricted deposits. Excludes compensating balance arrangements that are not agreements, which legally restrict the use of cash amounts shown on the balance sheet. For a classified balance sheet, represents the current portion only (the non-current portion has a separate concept); for an unclassified balance sheet represents the entire amount. This item is usually not available for bank and insurance industries."""
 
     @property
@@ -47134,7 +47134,7 @@ class RestrictedCashBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class RestrictedCashAndCashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RestrictedCashAndCashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying amounts of cash and cash equivalent items which are restricted as to withdrawal or usage. This item is available for bank and insurance industries."""
 
     @property
@@ -47210,7 +47210,7 @@ class RestrictedCashAndCashEquivalentsBalanceSheet(QuantConnect.Data.Fundamental
         ...
 
 
-class RestrictedCashAndInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RestrictedCashAndInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash and investments whose use in whole or in part is restricted for the long-term, generally by contractual agreements or regulatory requirements. This item is usually only available for bank industry."""
 
     @property
@@ -47286,7 +47286,7 @@ class RestrictedCashAndInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class RestrictedCommonStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RestrictedCommonStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Shares of stock for which sale is contractually or governmentally restricted for a given period of time. Stock that is acquired through an employee stock option plan or other private means may not be transferred. Restricted stock must be traded in compliance with special SEC regulations."""
 
     @property
@@ -47352,7 +47352,7 @@ class RestrictedCommonStockBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class RestrictedInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RestrictedInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Investments whose use is restricted in whole or in part, generally by contractual agreements or regulatory requirements. This item is usually only available for bank industry."""
 
     @property
@@ -47413,7 +47413,7 @@ class RestrictedInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class TaxesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TaxesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Carrying amount due within one year of the balance sheet date (or one operating cycle, if longer) from tax authorities as of the balance sheet date representing refunds of overpayments or recoveries based on agreed-upon resolutions of disputes. This item is usually not available for bank industry."""
 
     @property
@@ -47499,7 +47499,7 @@ class TaxesReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class TotalCapitalizationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalCapitalizationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total equity, including non-controlling interests, plus long term debt."""
 
     @property
@@ -47600,7 +47600,7 @@ class TotalCapitalizationBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class TotalDeferredCreditsAndOtherNonCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalDeferredCreditsAndOtherNonCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Revenue received by a firm but not yet reported as income. This item is usually only available for utility industry."""
 
     @property
@@ -47676,7 +47676,7 @@ class TotalDeferredCreditsAndOtherNonCurrentLiabilitiesBalanceSheet(QuantConnect
         ...
 
 
-class UnbilledReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class UnbilledReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Amounts owed to the company by other parties, including accrued income and revenue not yet billed to the customer under the terms of the contract."""
 
     @property
@@ -47737,7 +47737,7 @@ class UnbilledReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class UnrealizedGainLossBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class UnrealizedGainLossBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Accumulated unrealized gains or losses on available-for-sale financial investments, held in accumulated other comprehensive income."""
 
     @property
@@ -47803,7 +47803,7 @@ class UnrealizedGainLossBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class WorkInProcessBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class WorkInProcessBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Work, or goods, in the process of being fabricated or manufactured but not yet completed as finished goods. This item is usually available for manufacturing and mining industries."""
 
     @property
@@ -47899,7 +47899,7 @@ class WorkInProcessBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class OtherNonCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherNonCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This item is usually not available for bank and insurance industries."""
 
     @property
@@ -47995,7 +47995,7 @@ class OtherNonCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class CapitalLeaseObligationsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CapitalLeaseObligationsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Current Portion of Capital Lease Obligation plus Long Term Portion of Capital Lease Obligation."""
 
     @property
@@ -48091,7 +48091,7 @@ class CapitalLeaseObligationsBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class OtherLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This item is available for bank and insurance industries."""
 
     @property
@@ -48177,7 +48177,7 @@ class OtherLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class OtherPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Payables and Accrued Expenses that are not defined as Trade, Tax or Dividends related."""
 
     @property
@@ -48273,7 +48273,7 @@ class OtherPayableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TangibleBookValueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TangibleBookValueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The company's total book value less the value of any intangible assets. Methodology: Common Stock Equity minus Goodwill and Other Intangible Assets"""
 
     @property
@@ -48369,7 +48369,7 @@ class TangibleBookValueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class TotalEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total Equity equals Preferred Stock Equity + Common Stock Equity."""
 
     @property
@@ -48465,7 +48465,7 @@ class TotalEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class WorkingCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class WorkingCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Current Assets minus Current Liabilities. This item is usually not available for bank and insurance industries."""
 
     @property
@@ -48561,7 +48561,7 @@ class WorkingCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class TotalDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """All borrowings incurred by the company including debt and capital lease obligations."""
 
     @property
@@ -48657,7 +48657,7 @@ class TotalDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class CommonUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CommonUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount for the other plant related to the utility industry fix assets."""
 
     @property
@@ -48728,7 +48728,7 @@ class CommonUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class ElectricUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ElectricUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount for the electric plant related to the utility industry."""
 
     @property
@@ -48789,7 +48789,7 @@ class ElectricUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class NaturalGasFuelAndOtherBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NaturalGasFuelAndOtherBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount for the natural gas, fuel and other items related to the utility industry, which might include oil and gas wells, the properties to exploit oil and gas or liquefied natural gas sites."""
 
     @property
@@ -48850,7 +48850,7 @@ class NaturalGasFuelAndOtherBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class NetUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net utility plant might include water production, electric utility plan, natural gas, fuel and other, common utility plant and accumulated depreciation. This item is usually only available for utility industry."""
 
     @property
@@ -48921,7 +48921,7 @@ class NetUtilityPlantBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class WaterProductionBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class WaterProductionBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount for a facility and plant that provides water which might include wells, reservoirs, pumping stations, and control facilities; and waste water systems which includes the waste treatment and disposal facility and equipment. This item is usually only available for utility industry."""
 
     @property
@@ -48982,7 +48982,7 @@ class WaterProductionBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class OrdinarySharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OrdinarySharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Number of Common or Ordinary Shares."""
 
     @property
@@ -49043,7 +49043,7 @@ class OrdinarySharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class PreferredSharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PreferredSharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Number of Preferred Shares."""
 
     @property
@@ -49104,7 +49104,7 @@ class PreferredSharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class TreasurySharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TreasurySharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Number of Treasury Shares."""
 
     @property
@@ -49165,7 +49165,7 @@ class TreasurySharesNumberBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class TradingAndOtherReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TradingAndOtherReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This will serve as the "parent" value to AccountsReceivable (DataId 23001) and OtherReceivables (DataId 23342) for all company financials reported in the IFRS GAAP."""
 
     @property
@@ -49226,7 +49226,7 @@ class TradingAndOtherReceivableBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class EquityAttributableToOwnersOfParentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EquityAttributableToOwnersOfParentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """"""
 
     @property
@@ -49292,7 +49292,7 @@ class EquityAttributableToOwnersOfParentBalanceSheet(QuantConnect.Data.Fundament
         ...
 
 
-class SecuritiesLoanedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SecuritiesLoanedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying value as of the balance sheet date of securities loaned to other broker dealers, typically used by such parties to cover short sales, secured by cash or other securities furnished by such parties until the borrowing is closed."""
 
     @property
@@ -49353,7 +49353,7 @@ class SecuritiesLoanedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class NetTangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetTangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net assets in physical form. This is calculated using Stockholders' Equity less Intangible Assets (including Goodwill)."""
 
     @property
@@ -49449,7 +49449,7 @@ class NetTangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class DuefromRelatedPartiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DuefromRelatedPartiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Amounts owed to the company from a non-arm's length entity, due within the company's current operating cycle."""
 
     @property
@@ -49510,7 +49510,7 @@ class DuefromRelatedPartiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class DuefromRelatedPartiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DuefromRelatedPartiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Amounts owed to the company from a non-arm's length entity, due after the company's current operating cycle."""
 
     @property
@@ -49571,7 +49571,7 @@ class DuefromRelatedPartiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.
         ...
 
 
-class DuetoRelatedPartiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DuetoRelatedPartiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Amounts owed by the company to a non-arm's length entity."""
 
     @property
@@ -49632,7 +49632,7 @@ class DuetoRelatedPartiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class DuetoRelatedPartiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DuetoRelatedPartiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Amounts owed by the company to a non-arm's length entity that has to be repaid within the company's current operating cycle."""
 
     @property
@@ -49693,7 +49693,7 @@ class DuetoRelatedPartiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class DuetoRelatedPartiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DuetoRelatedPartiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Amounts owed by the company to a non-arm's length entity that has to be repaid after the company's current operating cycle."""
 
     @property
@@ -49754,7 +49754,7 @@ class DuetoRelatedPartiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class InvestmentPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InvestmentPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Company's investments in properties net of accumulated depreciation, which generate a return."""
 
     @property
@@ -49815,7 +49815,7 @@ class InvestmentPropertiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class InvestmentsinSubsidiariesatCostBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InvestmentsinSubsidiariesatCostBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A stake in any company which is more than 51%."""
 
     @property
@@ -49876,7 +49876,7 @@ class InvestmentsinSubsidiariesatCostBalanceSheet(QuantConnect.Data.Fundamental.
         ...
 
 
-class InvestmentsinAssociatesatCostBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InvestmentsinAssociatesatCostBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A stake in any company which is more than 20% but less than 50%."""
 
     @property
@@ -49937,7 +49937,7 @@ class InvestmentsinAssociatesatCostBalanceSheet(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class InvestmentsinJointVenturesatCostBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InvestmentsinJointVenturesatCostBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A 50% stake in any company in which remaining 50% belongs to other company."""
 
     @property
@@ -49998,7 +49998,7 @@ class InvestmentsinJointVenturesatCostBalanceSheet(QuantConnect.Data.Fundamental
         ...
 
 
-class InvestmentinFinancialAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InvestmentinFinancialAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents the sum of all financial investments (trading securities, available-for-sale securities, held-to-maturity securities, etc.)"""
 
     @property
@@ -50069,7 +50069,7 @@ class InvestmentinFinancialAssetsBalanceSheet(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class FinanceLeaseReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinanceLeaseReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Accounts owed to the bank in relation to capital leases. Capital/ finance lease obligation are contractual obligations that arise from obtaining the use of property or equipment via a capital lease contract."""
 
     @property
@@ -50140,7 +50140,7 @@ class FinanceLeaseReceivablesBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class ConvertibleLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ConvertibleLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This represents loans that entitle the lender (or the holder of loan debenture) to convert the loan to common or preferred stock (ordinary or preference shares) within the next 12 months or operating cycle."""
 
     @property
@@ -50201,7 +50201,7 @@ class ConvertibleLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class BankLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BankLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A debt financing obligation issued by a bank or similar financial institution to a company, that entitles the lender or holder of the instrument to interest payments and the repayment of principal at a specified time within the next 12 months or operating cycle."""
 
     @property
@@ -50272,7 +50272,7 @@ class BankLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class OtherLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other loans between the customer and bank which cannot be identified by other specific items in the Debt section, due within the next 12 months or operating cycle."""
 
     @property
@@ -50333,7 +50333,7 @@ class OtherLoansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class AccruedandDeferredIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AccruedandDeferredIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Obligations for goods and services received but not yet invoiced, reported in current liabilities. Deferred income is not included."""
 
     @property
@@ -50394,7 +50394,7 @@ class AccruedandDeferredIncomeBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class BankLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BankLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A debt financing obligation issued by a bank or similar financial institution to a company, that entitles the lender or holder of the instrument to interest payments and the repayment of principal at a specified time beyond the current accounting PeriodAsByte."""
 
     @property
@@ -50465,7 +50465,7 @@ class BankLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class OtherLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other loans between the customer and bank which cannot be identified by other specific items in the Debt section, due beyond the current operating cycle."""
 
     @property
@@ -50526,7 +50526,7 @@ class OtherLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class OtherReservesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherReservesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of all reserves and accumulated other comprehensive income or losses."""
 
     @property
@@ -50587,7 +50587,7 @@ class OtherReservesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class LoansandAdvancestoBankBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LoansandAdvancestoBankBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of loans and advances made to a bank or financial institution."""
 
     @property
@@ -50648,7 +50648,7 @@ class LoansandAdvancestoBankBalanceSheet(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class LoansandAdvancestoCustomerBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LoansandAdvancestoCustomerBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of loans and advances made to customers."""
 
     @property
@@ -50719,7 +50719,7 @@ class LoansandAdvancestoCustomerBalanceSheet(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class TreasuryBillsandOtherEligibleBillsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TreasuryBillsandOtherEligibleBillsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Investments backed by the central government, it usually carries less risk than other investments."""
 
     @property
@@ -50780,7 +50780,7 @@ class TreasuryBillsandOtherEligibleBillsBalanceSheet(QuantConnect.Data.Fundament
         ...
 
 
-class EquitySharesInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EquitySharesInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Investments in shares of a company representing ownership in that company."""
 
     @property
@@ -50851,7 +50851,7 @@ class EquitySharesInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class DepositsbyBankBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepositsbyBankBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Deposits held by a bank from other banks or institutions."""
 
     @property
@@ -50912,7 +50912,7 @@ class DepositsbyBankBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class CustomerAccountsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CustomerAccountsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Deposits held by a bank from individual customers."""
 
     @property
@@ -50973,7 +50973,7 @@ class CustomerAccountsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class ItemsinTheCourseofTransmissiontoOtherBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ItemsinTheCourseofTransmissiontoOtherBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Carrying amount as of the balance sheet date of drafts and bills of exchange that have been accepted by the reporting bank or by others for its own account, as its liability to holders of the drafts."""
 
     @property
@@ -51034,7 +51034,7 @@ class ItemsinTheCourseofTransmissiontoOtherBanksBalanceSheet(QuantConnect.Data.F
         ...
 
 
-class TradingandFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TradingandFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The company's total debt: long term debt and capital lease obligations plus current debt and capital lease obligations."""
 
     @property
@@ -51095,7 +51095,7 @@ class TradingandFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.M
         ...
 
 
-class DebtSecuritiesinIssueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DebtSecuritiesinIssueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Any debt financial instrument issued instead of cash loan."""
 
     @property
@@ -51166,7 +51166,7 @@ class DebtSecuritiesinIssueBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class SubordinatedLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SubordinatedLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Debt that ranks after the other classes of debt should the company fall into liquidation or bankruptcy."""
 
     @property
@@ -51227,7 +51227,7 @@ class SubordinatedLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class ProvisionsTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ProvisionsTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Provisions are created to protect the interests of one or both parties named in a contract or legal document, which is a preparatory action or measure. Current provision is expired within one accounting PeriodAsByte."""
 
     @property
@@ -51288,7 +51288,7 @@ class ProvisionsTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class OperatingLeaseAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OperatingLeaseAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A contract that allows for the use of an asset, but does not convey rights of ownership of the asset. An operating lease is not capitalized; it is accounted for as a rental expense in what is known as "off balance sheet financing." For the lessor, the asset being leased is accounted for as an asset and is depreciated as such."""
 
     @property
@@ -51349,7 +51349,7 @@ class OperatingLeaseAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class ClaimsOutstandingBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ClaimsOutstandingBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Amounts owing to policy holders who have filed claims but have not yet been settled or paid."""
 
     @property
@@ -51420,7 +51420,7 @@ class ClaimsOutstandingBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class LiabilitiesHeldforSaleCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LiabilitiesHeldforSaleCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Liabilities due within the next 12 months related from an asset classified as Held for Sale."""
 
     @property
@@ -51481,7 +51481,7 @@ class LiabilitiesHeldforSaleCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class LiabilitiesHeldforSaleNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LiabilitiesHeldforSaleNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Liabilities related to an asset classified as held for sale excluding the portion due the next 12 months or operating cycle."""
 
     @property
@@ -51542,7 +51542,7 @@ class LiabilitiesHeldforSaleNonCurrentBalanceSheet(QuantConnect.Data.Fundamental
         ...
 
 
-class DebtSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DebtSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Debt securities held as investments."""
 
     @property
@@ -51603,7 +51603,7 @@ class DebtSecuritiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class TotalFinancialLeaseObligationsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalFinancialLeaseObligationsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents the total amount of long-term capital leases that must be paid within the next accounting period for a Non- Differentiated Balance Sheet. Capital lease obligations are contractual obligations that arise from obtaining the use of property or equipment via a capital lease contract."""
 
     @property
@@ -51664,7 +51664,7 @@ class TotalFinancialLeaseObligationsBalanceSheet(QuantConnect.Data.Fundamental.M
         ...
 
 
-class AccruedandDeferredIncomeCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AccruedandDeferredIncomeCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of Accrued Liabilities and Deferred Income (amount received in advance but the services are not provided in respect of amount) due within 1 year."""
 
     @property
@@ -51725,7 +51725,7 @@ class AccruedandDeferredIncomeCurrentBalanceSheet(QuantConnect.Data.Fundamental.
         ...
 
 
-class AccruedandDeferredIncomeNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AccruedandDeferredIncomeNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of Accrued Liabilities and Deferred Income (amount received in advance but the services are not provided in respect of amount) due after 1 year."""
 
     @property
@@ -51786,7 +51786,7 @@ class AccruedandDeferredIncomeNonCurrentBalanceSheet(QuantConnect.Data.Fundament
         ...
 
 
-class FinanceLeaseReceivablesCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinanceLeaseReceivablesCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Accounts owed to the bank in relation to capital leases to be received within the next accounting PeriodAsByte. Capital/ finance lease obligations are contractual obligations that arise from obtaining the use of property or equipment via a capital lease contract."""
 
     @property
@@ -51857,7 +51857,7 @@ class FinanceLeaseReceivablesCurrentBalanceSheet(QuantConnect.Data.Fundamental.M
         ...
 
 
-class FinanceLeaseReceivablesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinanceLeaseReceivablesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Accounts owed to the bank in relation to capital leases to be received beyond the next accounting PeriodAsByte. Capital/ finance lease obligations are contractual obligations that arise from obtaining the use of property or equipment via a capital lease contract."""
 
     @property
@@ -51928,7 +51928,7 @@ class FinanceLeaseReceivablesNonCurrentBalanceSheet(QuantConnect.Data.Fundamenta
         ...
 
 
-class FinancialLiabilitiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinancialLiabilitiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Financial related liabilities due within one year, including short term and current portions of long-term debt, capital leases and derivative liabilities."""
 
     @property
@@ -51989,7 +51989,7 @@ class FinancialLiabilitiesCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class FinancialLiabilitiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinancialLiabilitiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Financial related liabilities due beyond one year, including long term debt, capital leases and derivative liabilities."""
 
     @property
@@ -52050,7 +52050,7 @@ class FinancialLiabilitiesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.M
         ...
 
 
-class FinancialAssetsDesignatedasFairValueThroughProfitorLossTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinancialAssetsDesignatedasFairValueThroughProfitorLossTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Financial assets that are held at fair value through profit or loss comprise assets held for trading and those financial assets designated as being held at fair value through profit or loss."""
 
     @property
@@ -52111,7 +52111,7 @@ class FinancialAssetsDesignatedasFairValueThroughProfitorLossTotalBalanceSheet(Q
         ...
 
 
-class TaxesAssetsCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TaxesAssetsCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Carrying amount due within one year of the balance sheet date (or one operating cycle, if longer) from tax authorities as of the balance sheet date representing refunds of overpayments or recoveries based on agreed-upon resolutions of disputes, and current deferred tax assets."""
 
     @property
@@ -52172,7 +52172,7 @@ class TaxesAssetsCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class OtherEquityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherEquityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other equity instruments issued by the company that cannot be identified by other specific items in the Equity section."""
 
     @property
@@ -52233,7 +52233,7 @@ class OtherEquityInterestBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class InterestBearingBorrowingsNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestBearingBorrowingsNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Carrying amount of any interest-bearing loan which is due after one year."""
 
     @property
@@ -52294,7 +52294,7 @@ class InterestBearingBorrowingsNonCurrentBalanceSheet(QuantConnect.Data.Fundamen
         ...
 
 
-class NonInterestBearingBorrowingsNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonInterestBearingBorrowingsNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Non-interest bearing borrowings due after a year."""
 
     @property
@@ -52355,7 +52355,7 @@ class NonInterestBearingBorrowingsNonCurrentBalanceSheet(QuantConnect.Data.Funda
         ...
 
 
-class TradeandOtherPayablesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TradeandOtherPayablesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of all non-current payables and accrued expenses."""
 
     @property
@@ -52416,7 +52416,7 @@ class TradeandOtherPayablesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.
         ...
 
 
-class NonInterestBearingBorrowingsCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonInterestBearingBorrowingsCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Non-interest bearing deposits in other financial institutions for short periods of time, usually less than 12 months."""
 
     @property
@@ -52477,7 +52477,7 @@ class NonInterestBearingBorrowingsCurrentBalanceSheet(QuantConnect.Data.Fundamen
         ...
 
 
-class PensionandOtherPostRetirementBenefitPlansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PensionandOtherPostRetirementBenefitPlansCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total of the carrying values as of the balance sheet date of obligations incurred through that date and payable for obligations related to services received from employees, such as accrued salaries and bonuses, payroll taxes and fringe benefits."""
 
     @property
@@ -52538,7 +52538,7 @@ class PensionandOtherPostRetirementBenefitPlansCurrentBalanceSheet(QuantConnect.
         ...
 
 
-class OtherLoanAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherLoanAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Reflects the carrying amount of any other unpaid loans, an asset of the bank."""
 
     @property
@@ -52599,7 +52599,7 @@ class OtherLoanAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class AssetsPledgedasCollateralSubjecttoSaleorRepledgingTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AssetsPledgedasCollateralSubjecttoSaleorRepledgingTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total value collateral assets pledged to the bank that can be sold or used as collateral for other loans."""
 
     @property
@@ -52660,7 +52660,7 @@ class AssetsPledgedasCollateralSubjecttoSaleorRepledgingTotalBalanceSheet(QuantC
         ...
 
 
-class TaxAssetsTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TaxAssetsTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of total tax assets in a Non-Differentiated Balance Sheet, includes Tax Receivables and Deferred Tax Assets."""
 
     @property
@@ -52731,7 +52731,7 @@ class TaxAssetsTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class AdvancesfromCentralBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AdvancesfromCentralBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Borrowings from the central bank, which are primarily used to cover shortages in the required reserve balance and liquidity shortages."""
 
     @property
@@ -52792,7 +52792,7 @@ class AdvancesfromCentralBanksBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class DepositCertificatesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepositCertificatesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A savings certificate entitling the bearer to receive interest. A CD bears a maturity date, a specified fixed interest rate and can be issued in any denomination."""
 
     @property
@@ -52853,7 +52853,7 @@ class DepositCertificatesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class NonInterestBearingBorrowingsTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonInterestBearingBorrowingsTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Non-interest bearing deposits in other financial institutions for relatively short periods of time; on a Non-Differentiated Balance Sheet."""
 
     @property
@@ -52914,7 +52914,7 @@ class NonInterestBearingBorrowingsTotalBalanceSheet(QuantConnect.Data.Fundamenta
         ...
 
 
-class OtherBorrowedFundsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherBorrowedFundsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other borrowings by the bank to fund its activities that cannot be identified by other specific items in the Liabilities section."""
 
     @property
@@ -52975,7 +52975,7 @@ class OtherBorrowedFundsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class FinancialLiabilitiesDesignatedasFairValueThroughProfitorLossTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinancialLiabilitiesDesignatedasFairValueThroughProfitorLossTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Financial liabilities that are held at fair value through profit or loss."""
 
     @property
@@ -53036,7 +53036,7 @@ class FinancialLiabilitiesDesignatedasFairValueThroughProfitorLossTotalBalanceSh
         ...
 
 
-class FinancialLiabilitiesMeasuredatAmortizedCostTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinancialLiabilitiesMeasuredatAmortizedCostTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Financial liabilities carried at amortized cost."""
 
     @property
@@ -53097,7 +53097,7 @@ class FinancialLiabilitiesMeasuredatAmortizedCostTotalBalanceSheet(QuantConnect.
         ...
 
 
-class AccruedLiabilitiesTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AccruedLiabilitiesTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Liabilities which have occurred, but have not been paid or logged under accounts payable during an accounting PeriodAsByte. In other words, obligations for goods and services provided to a company for which invoices have not yet been received; on a Non- Differentiated Balance Sheet."""
 
     @property
@@ -53168,7 +53168,7 @@ class AccruedLiabilitiesTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class DeferredIncomeTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DeferredIncomeTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Collections of cash or other assets related to revenue producing activity for which revenue has not yet been recognized on a Non- Differentiated Balance Sheet."""
 
     @property
@@ -53229,7 +53229,7 @@ class DeferredIncomeTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class DeferredTaxLiabilitiesTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DeferredTaxLiabilitiesTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A future tax liability, resulting from temporary differences between book (accounting) value of assets and liabilities and their tax value or timing differences between the recognition of gains and losses in financial statements, on a Non-Differentiated Balance Sheet."""
 
     @property
@@ -53290,7 +53290,7 @@ class DeferredTaxLiabilitiesTotalBalanceSheet(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class ReinsuranceAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReinsuranceAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Reinsurance asset is insurance that is purchased by an insurance company from another insurance company."""
 
     @property
@@ -53351,7 +53351,7 @@ class ReinsuranceAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class DepositsMadeunderAssumedReinsuranceContractBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepositsMadeunderAssumedReinsuranceContractBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Deposits made under reinsurance."""
 
     @property
@@ -53412,7 +53412,7 @@ class DepositsMadeunderAssumedReinsuranceContractBalanceSheet(QuantConnect.Data.
         ...
 
 
-class InsuranceContractAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InsuranceContractAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A contract under which one party (the insurer) accepts significant insurance risk from another party (the policyholder) by agreeing to compensate the policyholder if a specified uncertain future event (the insured event) adversely affects the policyholder. This includes Insurance Receivables and Premiums Receivables."""
 
     @property
@@ -53473,7 +53473,7 @@ class InsuranceContractAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class InsuranceContractLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InsuranceContractLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Any type of insurance policy that protects an individual or business from the risk that they may be sued and held legally liable for something such as malpractice, injury or negligence. Liability insurance policies cover both legal costs and any legal payouts for which the insured would be responsible if found legally liable. Intentional damage and contractual liabilities are typically not covered in these types of policies."""
 
     @property
@@ -53534,7 +53534,7 @@ class InsuranceContractLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class DepositsReceivedunderCededInsuranceContractBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepositsReceivedunderCededInsuranceContractBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Deposit received through ceded insurance contract."""
 
     @property
@@ -53605,7 +53605,7 @@ class DepositsReceivedunderCededInsuranceContractBalanceSheet(QuantConnect.Data.
         ...
 
 
-class InvestmentContractLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InvestmentContractLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Liabilities due on the insurance investment contract."""
 
     @property
@@ -53666,7 +53666,7 @@ class InvestmentContractLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class PensionAndOtherPostretirementBenefitPlansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PensionAndOtherPostretirementBenefitPlansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total of the carrying values as of the balance sheet date of obligations incurred through that date and payable for obligations related to services received from employees, such as accrued salaries and bonuses, payroll taxes and fringe benefits. Used to reflect the current portion of the liabilities (due within one year or within the normal operating cycle if longer)."""
 
     @property
@@ -53727,7 +53727,7 @@ class PensionAndOtherPostretirementBenefitPlansTotalBalanceSheet(QuantConnect.Da
         ...
 
 
-class LiabilitiesHeldforSaleTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LiabilitiesHeldforSaleTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Liabilities related to an asset classified as held for sale."""
 
     @property
@@ -53788,7 +53788,7 @@ class LiabilitiesHeldforSaleTotalBalanceSheet(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class HedgingAssetsCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class HedgingAssetsCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A security transaction which expires within a 12 month period that reduces the risk on an existing investment position."""
 
     @property
@@ -53849,7 +53849,7 @@ class HedgingAssetsCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class ConvertibleLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ConvertibleLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying value of loans convertible into common or preferred stock that are scheduled to be repaid beyond one year or a normal operating cycle; the non-current portion only."""
 
     @property
@@ -53910,7 +53910,7 @@ class ConvertibleLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class BankLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BankLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The carrying value of loans from banks or similar institutions due beyond one year or a normal operating cycle; the non-current portion only."""
 
     @property
@@ -53971,7 +53971,7 @@ class BankLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class OtherLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total other loans between the customer and bank which cannot be identified by other specific items in the Debt section; in a Non- Differentiated Balance Sheet."""
 
     @property
@@ -54032,7 +54032,7 @@ class OtherLoansTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class InsuranceFundsNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InsuranceFundsNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Liabilities related to insurance funds that are dissolved after one year."""
 
     @property
@@ -54093,7 +54093,7 @@ class InsuranceFundsNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class DebtTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DebtTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The total aggregate of all written promises and/or agreements to repay a stated amount of borrowed funds at a specified date in the future; in a Non-Differentiated Balance Sheet."""
 
     @property
@@ -54154,7 +54154,7 @@ class DebtTotalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ComTreShaNumBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ComTreShaNumBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The treasury stock number of common shares. This represents the number of common shares owned by the company as a result of share repurchase programs or donations."""
 
     @property
@@ -54215,7 +54215,7 @@ class ComTreShaNumBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class PreTreShaNumBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PreTreShaNumBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The treasury stock number of preferred shares. This represents the number of preferred shares owned by the company as a result of share repurchase programs or donations."""
 
     @property
@@ -54286,7 +54286,7 @@ class PreTreShaNumBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NetDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This is a metric that shows a company's overall debt situation by netting the value of a company's liabilities and debts with its cash and other similar liquid assets. It is calculated using <Current Debt> + <Long Term Debt> - <Cash and Cash Equivalents>."""
 
     @property
@@ -54382,7 +54382,7 @@ class NetDebtBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class ShareIssuedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ShareIssuedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The number of authorized shares that is sold to and held by the shareholders of a company, regardless of whether they are insiders, institutional investors or the general public. Unlike shares that are held as treasury stock, shares that have been retired are not included in this figure. The amount of issued shares can be all or part of the total amount of authorized shares of a corporation."""
 
     @property
@@ -54443,7 +54443,7 @@ class ShareIssuedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class AssetsHeldForSaleCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AssetsHeldForSaleCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Short term assets set apart for sale to liquidate in the future and are measured at the lower of carrying amount and fair value less costs to sell."""
 
     @property
@@ -54504,7 +54504,7 @@ class AssetsHeldForSaleCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class AssetsHeldForSaleNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AssetsHeldForSaleNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Long term assets set apart for sale to liquidate in the future and are measured at the lower of carrying amount and fair value less costs to sell."""
 
     @property
@@ -54565,7 +54565,7 @@ class AssetsHeldForSaleNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class BiologicalAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BiologicalAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Biological assets include plants and animals."""
 
     @property
@@ -54626,7 +54626,7 @@ class BiologicalAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class CashRestrictedOrPledgedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashRestrictedOrPledgedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash, cash equivalents and investments whose withdrawal or use is restricted for more than one year or a normal operating cycle."""
 
     @property
@@ -54687,7 +54687,7 @@ class CashRestrictedOrPledgedBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class ConvertibleLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ConvertibleLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A long term loan with a warrant attached that gives the debt holder the option to exchange all or a portion of the loan principal for an equity position in the company at a predetermined rate of conversion within a specified period of time."""
 
     @property
@@ -54758,7 +54758,7 @@ class ConvertibleLoansNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class FinancialOrDerivativeInvestmentCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinancialOrDerivativeInvestmentCurrentLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Financial instruments that are linked to a specific financial instrument or indicator or commodity, and through which specific financial risks can be traded in financial markets in their own right, such as financial options, futures, forwards, etc."""
 
     @property
@@ -54819,7 +54819,7 @@ class FinancialOrDerivativeInvestmentCurrentLiabilitiesBalanceSheet(QuantConnect
         ...
 
 
-class OtherInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Investments that are neither Investment in Financial Assets nor Long term equity investment, not expected to be cashed within a year."""
 
     @property
@@ -54880,7 +54880,7 @@ class OtherInvestmentsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class TradeAndOtherReceivablesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TradeAndOtherReceivablesNonCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Amounts due from customers or clients, more than one year from the balance sheet date, for goods or services that have been delivered or sold in the normal course of business, or other receivables."""
 
     @property
@@ -54941,7 +54941,7 @@ class TradeAndOtherReceivablesNonCurrentBalanceSheet(QuantConnect.Data.Fundament
         ...
 
 
-class DueFromRelatedPartiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DueFromRelatedPartiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """For an unclassified balance sheet, carrying amount as of the balance sheet date of obligations due all related parties."""
 
     @property
@@ -55002,7 +55002,7 @@ class DueFromRelatedPartiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class UnallocatedSurplusBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class UnallocatedSurplusBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount of surplus from insurance contracts which has not been allocated at the balance sheet date. This is represented as a liability to policyholders, as it pertains to cumulative income arising from the with-profits business."""
 
     @property
@@ -55063,7 +55063,7 @@ class UnallocatedSurplusBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class DebtDueInYear1BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DebtDueInYear1BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Debt due under 1 year according to the debt maturity schedule reported by the company."""
 
     @property
@@ -55124,7 +55124,7 @@ class DebtDueInYear1BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class DebtDueInYear2BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DebtDueInYear2BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Debt due under 2 years according to the debt maturity schedule reported by the company."""
 
     @property
@@ -55185,7 +55185,7 @@ class DebtDueInYear2BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class DebtDueInYear5BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DebtDueInYear5BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Debt due within 5 year if the company provide maturity schedule in range e.g. 1-5 years, 2-5 years. Debt due under 5 years according to the debt maturity schedule reported by the company. If a range is reported by the company, the value will be collected under the maximum number of years (eg. 1-5 years, 3-5 years or 5 years will all be collected under this data point.)"""
 
     @property
@@ -55246,7 +55246,7 @@ class DebtDueInYear5BalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class DebtDueBeyondBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DebtDueBeyondBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Debt maturing beyond 5 years (eg. 5-10 years) or with no specified maturity, according to the debt maturity schedule reported by the company."""
 
     @property
@@ -55307,7 +55307,7 @@ class DebtDueBeyondBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalDebtInMaturityScheduleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalDebtInMaturityScheduleBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total Debt in Maturity Schedule is the sum of Debt details above."""
 
     @property
@@ -55378,7 +55378,7 @@ class TotalDebtInMaturityScheduleBalanceSheet(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class FixedAssetsRevaluationReserveBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FixedAssetsRevaluationReserveBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Reserves created by revaluation of assets."""
 
     @property
@@ -55439,7 +55439,7 @@ class FixedAssetsRevaluationReserveBalanceSheet(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class CurrentOtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentOtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other short term financial liabilities not categorized and due within one year or a normal operating cycle (whichever is longer)."""
 
     @property
@@ -55500,7 +55500,7 @@ class CurrentOtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental
         ...
 
 
-class NonCurrentOtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonCurrentOtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other long term financial liabilities not categorized and due over one year or a normal operating cycle (whichever is longer)."""
 
     @property
@@ -55561,7 +55561,7 @@ class NonCurrentOtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamen
         ...
 
 
-class OtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other financial liabilities not categorized."""
 
     @property
@@ -55622,7 +55622,7 @@ class OtherFinancialLiabilitiesBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class TotalLiabilitiesAsReportedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalLiabilitiesAsReportedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total liabilities as reported by the company, may be the same or not the same as Morningstar's standardized definition."""
 
     @property
@@ -55683,7 +55683,7 @@ class TotalLiabilitiesAsReportedBalanceSheet(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class TotalEquityAsReportedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalEquityAsReportedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total Equity as reported by the company, may be the same or not the same as Morningstar's standardized definition."""
 
     @property
@@ -55744,7 +55744,7 @@ class TotalEquityAsReportedBalanceSheet(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class TotalPreferredBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalPreferredBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the sum of Preferred Stock; Preferred Units and Preferred Securities Outside Stockholder's Equity as listed on the company's balance sheet."""
 
     @property
@@ -55805,7 +55805,7 @@ class TotalPreferredBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class TotalLiabilitiesAndEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalLiabilitiesAndEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the sum of Total Liabilities and Total Equity as listed on the company's balance sheet."""
 
     @property
@@ -55866,7 +55866,7 @@ class TotalLiabilitiesAndEquityBalanceSheet(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class NetOperatingAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetOperatingAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This calculation represents the difference between the company's operating assets and operating liabilities; and can be used to measure a company's efficiency and short term financial health. This is calculated using Total Assets - Total Liabilities + (Total Debt - Cash)."""
 
     @property
@@ -55927,7 +55927,7 @@ class NetOperatingAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class NetTangibleAssetsCalculatedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetTangibleAssetsCalculatedBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the value of a company's total assets net of intangible items such as goodwill; patents; etc. This can be used to measure the portion of a company's total assets that are tangible. This is calculated using Total Assets minus Net Intangible Assets."""
 
     @property
@@ -55988,7 +55988,7 @@ class NetTangibleAssetsCalculatedBalanceSheet(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class PaidInCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PaidInCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of all paid-in capital; including common stock and preferred stock."""
 
     @property
@@ -56049,7 +56049,7 @@ class PaidInCapitalBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class AccumulatedDepreciationValueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AccumulatedDepreciationValueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cumulative amount of wear and tear or obsolescence charged against the tangible assets of the company."""
 
     @property
@@ -56110,7 +56110,7 @@ class AccumulatedDepreciationValueBalanceSheet(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class CurrentPortionOfLongTermDebtAndCapitalLeaseBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CurrentPortionOfLongTermDebtAndCapitalLeaseBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Carrying value of the portion of all long-term debt that is scheduled to be repaid within one year or a normal operating cycle (whichever is longer) and all capital lease obligations."""
 
     @property
@@ -56171,7 +56171,7 @@ class CurrentPortionOfLongTermDebtAndCapitalLeaseBalanceSheet(QuantConnect.Data.
         ...
 
 
-class GrossGoodwillAndOtherIntangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GrossGoodwillAndOtherIntangibleAssetsBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total gross book value of the company's goodwill and other intangible assets."""
 
     @property
@@ -56232,7 +56232,7 @@ class GrossGoodwillAndOtherIntangibleAssetsBalanceSheet(QuantConnect.Data.Fundam
         ...
 
 
-class OtherReceivablesCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherReceivablesCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Amount due within one year or a normal operating cycle (whichever is longer); and not categorized in the above. Includes: rent receivable"""
 
     @property
@@ -56293,7 +56293,7 @@ class OtherReceivablesCurrentBalanceSheet(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class LeasedPropertyPlantAndEquipmentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LeasedPropertyPlantAndEquipmentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cost of tangible assets held by the company under a lease arrangement that cannot be delineated under its respective category in the above. Includes: Net book value if accumulated depreciation is not reported"""
 
     @property
@@ -56354,7 +56354,7 @@ class LeasedPropertyPlantAndEquipmentBalanceSheet(QuantConnect.Data.Fundamental.
         ...
 
 
-class OtherIntangibleAssetsValueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherIntangibleAssetsValueBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other intangibles not categorized in the above. Includes: Net book value if accumulated amortization is not reported; Club membership"""
 
     @property
@@ -56415,7 +56415,7 @@ class OtherIntangibleAssetsValueBalanceSheet(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class FurnitureFixturesAndOfficeEquipmentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FurnitureFixturesAndOfficeEquipmentBalanceSheet(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cost of the furniture; fixtures and office equipment owned by the company for its business operations. Includes: Computer hardware and software"""
 
     @property
@@ -58336,7 +58336,7 @@ class CashFlowStatementPeriodEndingDate(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class AmortizationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AmortizationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The systematic and rational apportionment of the acquisition cost of intangible operational assets to future periods in which the benefits contribute to revenue. This field is to include Amortization and any variation where Amortization is the first account listed in the line item, excluding Amortization of Intangibles."""
 
     @property
@@ -58417,7 +58417,7 @@ class AmortizationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class CapitalExpenditureCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CapitalExpenditureCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Funds used by a company to acquire or upgrade physical assets such as property, industrial buildings or equipment. This type of outlay is made by companies to maintain or increase the scope of their operations. Capital expenditures are generally depreciated or depleted over their useful life, as distinguished from repairs, which are subtracted from the income of the current year."""
 
     @property
@@ -58498,7 +58498,7 @@ class CapitalExpenditureCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class CashDividendsPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashDividendsPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Payments for the cash dividends declared by an entity to shareholders during the PeriodAsByte. This element includes paid and unpaid dividends declared during the period for both common and preferred stock."""
 
     @property
@@ -58579,7 +58579,7 @@ class CashDividendsPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class CashFlowFromContinuingFinancingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFlowFromContinuingFinancingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash generated by or used in financing activities of continuing operations; excludes cash flows from discontinued operations."""
 
     @property
@@ -58655,7 +58655,7 @@ class CashFlowFromContinuingFinancingActivitiesCashFlowStatement(QuantConnect.Da
         ...
 
 
-class CashFlowFromContinuingInvestingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFlowFromContinuingInvestingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash generated by or used in investing activities of continuing operations; excludes cash flows from discontinued operations."""
 
     @property
@@ -58731,7 +58731,7 @@ class CashFlowFromContinuingInvestingActivitiesCashFlowStatement(QuantConnect.Da
         ...
 
 
-class CashFlowFromContinuingOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFlowFromContinuingOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash generated by or used in operating activities of continuing operations; excludes cash flows from discontinued operations."""
 
     @property
@@ -58807,7 +58807,7 @@ class CashFlowFromContinuingOperatingActivitiesCashFlowStatement(QuantConnect.Da
         ...
 
 
-class CashFlowFromDiscontinuedOperationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFlowFromDiscontinuedOperationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net cash flow from discontinued operations that is not classified into operating, investing or financing cash flow."""
 
     @property
@@ -58878,7 +58878,7 @@ class CashFlowFromDiscontinuedOperationCashFlowStatement(QuantConnect.Data.Funda
         ...
 
 
-class FinancingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FinancingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net cash inflow (outflow) from financing activity for the period, which involve changes to the long-term liabilities and stockholders' equity."""
 
     @property
@@ -58959,7 +58959,7 @@ class FinancingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class InvestingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InvestingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """An item on the cash flow statement that reports the aggregate change in a company's cash position resulting from any gains (or losses) from investments in the financial markets and operating subsidiaries, and changes resulting from amounts spent on investments in capital assets such as plant and equipment."""
 
     @property
@@ -59040,7 +59040,7 @@ class InvestingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class OperatingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OperatingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net cash from (used in) all of the entity's operating activities, including those of discontinued operations, of the reporting entity. Operating activities include all transactions and events that are not defined as investing or financing activities. Operating activities generally involve producing and delivering goods and providing services. Cash flows from operating activities are generally the cash effects of transactions and other events that enter into the determination of net income."""
 
     @property
@@ -59121,7 +59121,7 @@ class OperatingCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class BeginningCashPositionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class BeginningCashPositionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash and equivalents balance at the beginning of the accounting period, as indicated on the Cash Flow statement."""
 
     @property
@@ -59202,7 +59202,7 @@ class BeginningCashPositionCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class EndCashPositionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EndCashPositionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash and cash equivalents balance at the end of the accounting period, as indicated on the Cash Flow statement. It is equal to the Beginning Cash and Equivalents, plus the Net Change in Cash and Equivalents."""
 
     @property
@@ -59283,7 +59283,7 @@ class EndCashPositionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class CashFromDiscontinuedFinancingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFromDiscontinuedFinancingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash generated by or used in financing activities of discontinued operations; excludes cash flows from continued operations."""
 
     @property
@@ -59354,7 +59354,7 @@ class CashFromDiscontinuedFinancingActivitiesCashFlowStatement(QuantConnect.Data
         ...
 
 
-class CashFromDiscontinuedInvestingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFromDiscontinuedInvestingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net cash inflow (outflow) from discontinued investing activities over the designated time PeriodAsByte."""
 
     @property
@@ -59425,7 +59425,7 @@ class CashFromDiscontinuedInvestingActivitiesCashFlowStatement(QuantConnect.Data
         ...
 
 
-class ChangeInAccountPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInAccountPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the account payables."""
 
     @property
@@ -59506,7 +59506,7 @@ class ChangeInAccountPayableCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class ChangeInTaxPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInTaxPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the tax payables."""
 
     @property
@@ -59587,7 +59587,7 @@ class ChangeInTaxPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class ChangeInAccruedExpenseCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInAccruedExpenseCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the accrued expenses."""
 
     @property
@@ -59668,7 +59668,7 @@ class ChangeInAccruedExpenseCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class ChangeInAccruedInvestmentIncomeCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInAccruedInvestmentIncomeCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between reporting periods in accrued income, unbilled revenue and costs in excess of billings."""
 
     @property
@@ -59739,7 +59739,7 @@ class ChangeInAccruedInvestmentIncomeCashFlowStatement(QuantConnect.Data.Fundame
         ...
 
 
-class ChangesInCashCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangesInCashCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net change between the beginning and ending balance of cash and cash equivalents."""
 
     @property
@@ -59820,7 +59820,7 @@ class ChangesInCashCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class ChangeInDeferredAcquisitionCostsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInDeferredAcquisitionCostsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The change of the unamortized portion as of the balance sheet date of capitalized costs that vary with and are primarily related to the acquisition of new and renewal insurance contracts."""
 
     @property
@@ -59891,7 +59891,7 @@ class ChangeInDeferredAcquisitionCostsCashFlowStatement(QuantConnect.Data.Fundam
         ...
 
 
-class ChangeInFederalFundsAndSecuritiesSoldForRepurchaseCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInFederalFundsAndSecuritiesSoldForRepurchaseCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount shown on the books that a bank with insufficient reserves borrows, at the federal funds rate, from another bank to meet its reserve requirements and the amount of securities that an institution sells and agrees to repurchase at a specified date for a specified price, net of any reductions or offsets."""
 
     @property
@@ -59962,7 +59962,7 @@ class ChangeInFederalFundsAndSecuritiesSoldForRepurchaseCashFlowStatement(QuantC
         ...
 
 
-class ChangeInFundsWithheldCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInFundsWithheldCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net change during the reporting period associated with funds withheld."""
 
     @property
@@ -60033,7 +60033,7 @@ class ChangeInFundsWithheldCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class ChangeInIncomeTaxPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInIncomeTaxPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the income tax payables."""
 
     @property
@@ -60114,7 +60114,7 @@ class ChangeInIncomeTaxPayableCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class ChangeInInterestPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInInterestPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the interest payable. Interest payable means carrying value as of the balance sheet date of interest payable on all forms of debt."""
 
     @property
@@ -60195,7 +60195,7 @@ class ChangeInInterestPayableCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class ChangeInInventoryCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInInventoryCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the Inventories. Inventories represent merchandise bought for resale and supplies and raw materials purchased for use in revenue producing operations."""
 
     @property
@@ -60276,7 +60276,7 @@ class ChangeInInventoryCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class ChangeInLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net change that a lender gives money or property to a borrower and the borrower agrees to return the property or repay the borrowed money, along with interest, at a predetermined date in the future."""
 
     @property
@@ -60347,7 +60347,7 @@ class ChangeInLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class ChangeInLossAndLossAdjustmentExpenseReservesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInLossAndLossAdjustmentExpenseReservesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net change during the reporting period in the reserve account established to account for expected but unspecified losses."""
 
     @property
@@ -60418,7 +60418,7 @@ class ChangeInLossAndLossAdjustmentExpenseReservesCashFlowStatement(QuantConnect
         ...
 
 
-class ChangeInPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the payables."""
 
     @property
@@ -60499,7 +60499,7 @@ class ChangeInPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class ChangeInPayablesAndAccruedExpenseCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInPayablesAndAccruedExpenseCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the payables and accrued expenses. Accrued expenses represent expenses incurred at the end of the reporting period but not yet paid; also called accrued liabilities. The accrued liability is shown under current liabilities in the balance sheet."""
 
     @property
@@ -60580,7 +60580,7 @@ class ChangeInPayablesAndAccruedExpenseCashFlowStatement(QuantConnect.Data.Funda
         ...
 
 
-class ChangeInPrepaidAssetsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInPrepaidAssetsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the prepaid assets."""
 
     @property
@@ -60661,7 +60661,7 @@ class ChangeInPrepaidAssetsCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class ChangeInReceivablesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInReceivablesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the receivables. Receivables are amounts due to be paid to the company from clients and other."""
 
     @property
@@ -60742,7 +60742,7 @@ class ChangeInReceivablesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class ChangeInReinsuranceRecoverableOnPaidAndUnpaidLossesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInReinsuranceRecoverableOnPaidAndUnpaidLossesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net change during the reporting period in the amount of benefits the ceding insurer expects to recover on insurance policies ceded to other insurance entities as of the balance sheet date for all guaranteed benefit types."""
 
     @property
@@ -60813,7 +60813,7 @@ class ChangeInReinsuranceRecoverableOnPaidAndUnpaidLossesCashFlowStatement(Quant
         ...
 
 
-class ChangeInRestrictedCashCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInRestrictedCashCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net cash inflow (outflow) for the net change associated with funds that are not available for withdrawal or use (such as funds held in escrow)."""
 
     @property
@@ -60874,7 +60874,7 @@ class ChangeInRestrictedCashCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class ChangeInTradingAccountSecuritiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInTradingAccountSecuritiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net change during the reporting period associated with trading account assets. Trading account assets are bought and held principally for the purpose of selling them in the near term (thus held for only a short period of time). Unrealized holding gains and losses for trading securities are included in earnings."""
 
     @property
@@ -60945,7 +60945,7 @@ class ChangeInTradingAccountSecuritiesCashFlowStatement(QuantConnect.Data.Fundam
         ...
 
 
-class ChangeInWorkingCapitalCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInWorkingCapitalCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the working capital. Working Capital is the amount left to the company to finance operations and expansion after current liabilities have been covered."""
 
     @property
@@ -61026,7 +61026,7 @@ class ChangeInWorkingCapitalCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class DeferredIncomeTaxCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DeferredIncomeTaxCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The component of income tax expense for the period representing the net change in the entities deferred tax assets and liabilities pertaining to continuing operations."""
 
     @property
@@ -61107,7 +61107,7 @@ class DeferredIncomeTaxCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class DeferredTaxCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DeferredTaxCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Future tax liability or asset, resulting from temporary differences between book (accounting) value of assets and liabilities, and their tax value. This arises due to differences between financial accounting for shareholders and tax accounting."""
 
     @property
@@ -61188,7 +61188,7 @@ class DeferredTaxCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class DepletionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepletionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Unlike depreciation and amortization, which mainly describe the deduction of expenses due to the aging of equipment and property, depletion is the actual physical reduction of natural resources by companies. For example, coalmines, oil fields and other natural resources are depleted on company accounting statements. This reduction in the quantity of resources is meant to assist in accurately identifying the value of the asset on the balance sheet."""
 
     @property
@@ -61259,7 +61259,7 @@ class DepletionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class DepreciationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepreciationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """An expense recorded to allocate a tangible asset's cost over its useful life. Since it is a non-cash expense, it increases free cash flow while decreasing reported earnings."""
 
     @property
@@ -61340,7 +61340,7 @@ class DepreciationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class DepreciationAndAmortizationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepreciationAndAmortizationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The current period expense charged against earnings on long-lived, physical assets used in the normal conduct of business and not intended for resale to allocate or recognize the cost of assets over their useful lives; or to record the reduction in book value of an intangible asset over the benefit period of such asset."""
 
     @property
@@ -61421,7 +61421,7 @@ class DepreciationAndAmortizationCashFlowStatement(QuantConnect.Data.Fundamental
         ...
 
 
-class DepreciationAmortizationDepletionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepreciationAmortizationDepletionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """It is a non cash charge that represents a reduction in the value of fixed assets due to wear, age or obsolescence. This figure also includes amortization of leased property, intangibles, and goodwill, and depletion. This non-cash item is an add-back to the cash flow statement."""
 
     @property
@@ -61502,7 +61502,7 @@ class DepreciationAmortizationDepletionCashFlowStatement(QuantConnect.Data.Funda
         ...
 
 
-class EffectOfExchangeRateChangesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EffectOfExchangeRateChangesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The effect of exchange rate changes on cash balances held in foreign currencies."""
 
     @property
@@ -61583,7 +61583,7 @@ class EffectOfExchangeRateChangesCashFlowStatement(QuantConnect.Data.Fundamental
         ...
 
 
-class IncreaseDecreaseInDepositCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IncreaseDecreaseInDepositCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate net change during the reporting period in moneys given as security, collateral, or margin deposits."""
 
     @property
@@ -61654,7 +61654,7 @@ class IncreaseDecreaseInDepositCashFlowStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class NetCommonStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetCommonStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of common stock."""
 
     @property
@@ -61735,7 +61735,7 @@ class NetCommonStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class NetIssuancePaymentsOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIssuancePaymentsOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of debt."""
 
     @property
@@ -61816,7 +61816,7 @@ class NetIssuancePaymentsOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class NetLongTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetLongTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of long term debt. Long term debt includes notes payable, bonds payable, mortgage loans, convertible debt, subordinated debt and other types of long term debt."""
 
     @property
@@ -61897,7 +61897,7 @@ class NetLongTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class NetPreferredStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetPreferredStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of preferred stock."""
 
     @property
@@ -61978,7 +61978,7 @@ class NetPreferredStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class NetShortTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetShortTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of short term debt."""
 
     @property
@@ -62059,7 +62059,7 @@ class NetShortTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class NetCashFromDiscontinuedOperationsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetCashFromDiscontinuedOperationsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net cash from (used in) all of the entity's discontinued operating activities, excluding those of continued operations, of the reporting entity."""
 
     @property
@@ -62130,7 +62130,7 @@ class NetCashFromDiscontinuedOperationsCashFlowStatement(QuantConnect.Data.Funda
         ...
 
 
-class NetForeignCurrencyExchangeGainLossCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetForeignCurrencyExchangeGainLossCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount of realized and unrealized gain or loss resulting from changes in exchange rates between currencies. (Excludes foreign currency transactions designated as hedges of net investment in a foreign entity and inter-company foreign currency transactions that are of a long-term nature, when the entities to the transaction are consolidated, combined, or accounted for by the equity method in the reporting entity's financial statements. For certain entities, primarily banks, which are dealers in foreign exchange, foreign currency transaction gains or losses, may be disclosed as dealer gains or losses.)"""
 
     @property
@@ -62206,7 +62206,7 @@ class NetForeignCurrencyExchangeGainLossCashFlowStatement(QuantConnect.Data.Fund
         ...
 
 
-class NetIncomeFromContinuingOperationsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIncomeFromContinuingOperationsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Revenue less expenses and taxes from the entity's ongoing operations and before income (loss) from discontinued operations, extraordinary items, impact of changes in accounting principles, minority interest, and various other reconciling adjustments; represents the starting line for Operating Cash Flow."""
 
     @property
@@ -62287,7 +62287,7 @@ class NetIncomeFromContinuingOperationsCashFlowStatement(QuantConnect.Data.Funda
         ...
 
 
-class PaymentForLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PaymentForLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Payment from a bank or insurance company to the lender who lends money or property based on the agreement, along with interest, at a predetermined date in the future."""
 
     @property
@@ -62358,7 +62358,7 @@ class PaymentForLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class CommonStockPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CommonStockPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash outflow to reacquire common stock during the PeriodAsByte."""
 
     @property
@@ -62439,7 +62439,7 @@ class CommonStockPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class PreferredStockPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PreferredStockPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash outflow to reacquire preferred stock during the PeriodAsByte."""
 
     @property
@@ -62515,7 +62515,7 @@ class PreferredStockPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class LongTermDebtPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LongTermDebtPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash outflow for the repayment of debt during the period: long term debt where the company reports it separately, otherwise all debt."""
 
     @property
@@ -62596,7 +62596,7 @@ class LongTermDebtPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class ShortTermDebtPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ShortTermDebtPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash outflow for a borrowing having initial term of repayment within one year or the normal operating cycle, if longer."""
 
     @property
@@ -62677,7 +62677,7 @@ class ShortTermDebtPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class ProceedsFromLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ProceedsFromLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash inflow from the repayment or sale of loans the company had granted."""
 
     @property
@@ -62748,7 +62748,7 @@ class ProceedsFromLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class ProceedsFromStockOptionExercisedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ProceedsFromStockOptionExercisedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash inflow associated with the amount received from holders exercising their stock options."""
 
     @property
@@ -62829,7 +62829,7 @@ class ProceedsFromStockOptionExercisedCashFlowStatement(QuantConnect.Data.Fundam
         ...
 
 
-class CommonStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CommonStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash inflow from offering common stock, which is the additional capital contribution to the entity during the PeriodAsByte."""
 
     @property
@@ -62910,7 +62910,7 @@ class CommonStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class LongTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LongTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash inflow from the issuance of debt during the period, whatever its maturity."""
 
     @property
@@ -62991,7 +62991,7 @@ class LongTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class PreferredStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PreferredStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash inflow from offering preferred stock."""
 
     @property
@@ -63072,7 +63072,7 @@ class PreferredStockIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class ShortTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ShortTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash inflow from a debt initially having maturity due within one year or the normal operating cycle, if longer."""
 
     @property
@@ -63153,7 +63153,7 @@ class ShortTermDebtIssuanceCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class NetProceedsPaymentForLoanCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetProceedsPaymentForLoanCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net value of proceeds or payments of loans."""
 
     @property
@@ -63224,7 +63224,7 @@ class NetProceedsPaymentForLoanCashFlowStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class ProceedsPaymentInInterestBearingDepositsInBankCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ProceedsPaymentInInterestBearingDepositsInBankCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net change on interest-bearing deposits in other financial institutions for relatively short periods of time including, for example, certificates of deposits."""
 
     @property
@@ -63295,7 +63295,7 @@ class ProceedsPaymentInInterestBearingDepositsInBankCashFlowStatement(QuantConne
         ...
 
 
-class PurchaseOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PurchaseOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount of capital outlays undertaken to increase, construct or improve intangible assets."""
 
     @property
@@ -63376,7 +63376,7 @@ class PurchaseOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class PurchaseOfInvestmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PurchaseOfInvestmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """All purchases of investments, including both long term and short term."""
 
     @property
@@ -63457,7 +63457,7 @@ class PurchaseOfInvestmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class PurchaseOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PurchaseOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount of capital outlays undertaken to increase, construct or improve capital assets. This category includes property, plant equipment, furniture, fixed assets, buildings, and improvement."""
 
     @property
@@ -63538,7 +63538,7 @@ class PurchaseOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class PurchaseOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PurchaseOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """All the purchases of business including business acquisitions, investment in subsidiary; investing in affiliated companies, and join venture."""
 
     @property
@@ -63619,7 +63619,7 @@ class PurchaseOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class NetBusinessPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetBusinessPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net change between Purchases/Sales of Business."""
 
     @property
@@ -63700,7 +63700,7 @@ class NetBusinessPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.
         ...
 
 
-class NetIntangiblesPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetIntangiblesPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net change between Purchases/Sales of Intangibles."""
 
     @property
@@ -63781,7 +63781,7 @@ class NetIntangiblesPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundament
         ...
 
 
-class NetInvestmentPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetInvestmentPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net change between Purchases/Sales of Investments."""
 
     @property
@@ -63862,7 +63862,7 @@ class NetInvestmentPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamenta
         ...
 
 
-class NetPPEPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetPPEPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net change between Purchases/Sales of PPE."""
 
     @property
@@ -63943,7 +63943,7 @@ class NetPPEPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class SaleOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SaleOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Proceeds received from selling a business including proceeds from a subsidiary, and proceeds from an affiliated company."""
 
     @property
@@ -64024,7 +64024,7 @@ class SaleOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class SaleOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SaleOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount of capital inflow from the sale of all kinds of intangible assets."""
 
     @property
@@ -64100,7 +64100,7 @@ class SaleOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class SaleOfInvestmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SaleOfInvestmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Proceeds received from selling all kind of investments, including both long term and short term."""
 
     @property
@@ -64181,7 +64181,7 @@ class SaleOfInvestmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class SaleOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SaleOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Proceeds from selling any fixed assets such as property, plant and equipment, which also includes retirement of equipment."""
 
     @property
@@ -64262,7 +64262,7 @@ class SaleOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class ChangesInAccountReceivablesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangesInAccountReceivablesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the accounts receivables."""
 
     @property
@@ -64343,7 +64343,7 @@ class ChangesInAccountReceivablesCashFlowStatement(QuantConnect.Data.Fundamental
         ...
 
 
-class AmortizationOfFinancingCostsAndDiscountsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AmortizationOfFinancingCostsAndDiscountsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The component of interest expense representing the non-cash expenses charged against earnings in the period to allocate debt discount and premium, and the costs to issue debt and obtain financing over the related debt instruments. This item is usually only available for bank industry."""
 
     @property
@@ -64424,7 +64424,7 @@ class AmortizationOfFinancingCostsAndDiscountsCashFlowStatement(QuantConnect.Dat
         ...
 
 
-class AmortizationOfSecuritiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AmortizationOfSecuritiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Represents amortization of the allocation of a lump sum amount to different time periods, particularly for securities, debt, loans, and other forms of financing. Does not include amortization, amortization of capital expenditure and intangible assets."""
 
     @property
@@ -64505,7 +64505,7 @@ class AmortizationOfSecuritiesCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class AssetImpairmentChargeCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AssetImpairmentChargeCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The non-cash impairment, write-off or write-down, net of reversals, of capital assets: property, plant and equipment, intangibles and fixed asset investments. Other non-current assets are not included."""
 
     @property
@@ -64586,7 +64586,7 @@ class AssetImpairmentChargeCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class ChangeInDividendPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInDividendPayableCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the dividend payables."""
 
     @property
@@ -64657,7 +64657,7 @@ class ChangeInDividendPayableCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class ChangeInDeferredChargesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInDeferredChargesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between reporting periods in deferred assets and deferred liabilities."""
 
     @property
@@ -64728,7 +64728,7 @@ class ChangeInDeferredChargesCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class ChangeInOtherCurrentAssetsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInOtherCurrentAssetsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the Other Current Assets. This category typically includes prepayments, deferred charges, and amounts (other than trade accounts) due from parents and subsidiaries."""
 
     @property
@@ -64809,7 +64809,7 @@ class ChangeInOtherCurrentAssetsCashFlowStatement(QuantConnect.Data.Fundamental.
         ...
 
 
-class ChangeInOtherCurrentLiabilitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInOtherCurrentLiabilitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the Other Current liabilities. Other Current liabilities is a balance sheet entry used by companies to group together current liabilities that are not assigned to common liabilities such as debt obligations or accounts payable."""
 
     @property
@@ -64890,7 +64890,7 @@ class ChangeInOtherCurrentLiabilitiesCashFlowStatement(QuantConnect.Data.Fundame
         ...
 
 
-class ChangeInOtherWorkingCapitalCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInOtherWorkingCapitalCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the other working capital."""
 
     @property
@@ -65001,7 +65001,7 @@ class ChangeInOtherWorkingCapitalCashFlowStatement(QuantConnect.Data.Fundamental
         ...
 
 
-class ChangeInUnearnedPremiumsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInUnearnedPremiumsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The change during the period in the unearned portion of premiums written, excluding the portion amortized into income. This item is usually only available for insurance industry."""
 
     @property
@@ -65072,7 +65072,7 @@ class ChangeInUnearnedPremiumsCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class CommonStockDividendPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CommonStockDividendPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash outflow from the distribution of an entity's earnings in the form of dividends to common shareholders."""
 
     @property
@@ -65153,7 +65153,7 @@ class CommonStockDividendPaidCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class EarningsLossesFromEquityInvestmentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class EarningsLossesFromEquityInvestmentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This item represents the entity's proportionate share for the period of the net income (loss) of its investee (such as unconsolidated subsidiaries and joint ventures) to which the equity method of accounting is applied. The amount typically reflects adjustments."""
 
     @property
@@ -65234,7 +65234,7 @@ class EarningsLossesFromEquityInvestmentsCashFlowStatement(QuantConnect.Data.Fun
         ...
 
 
-class ExcessTaxBenefitFromStockBasedCompensationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ExcessTaxBenefitFromStockBasedCompensationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Reductions in the entity's income taxes that arise when compensation cost (from non-qualified share-based compensation) recognized on the entities tax return exceeds compensation cost from share-based compensation recognized in financial statements. This element reduces net cash provided by operating activities."""
 
     @property
@@ -65310,7 +65310,7 @@ class ExcessTaxBenefitFromStockBasedCompensationCashFlowStatement(QuantConnect.D
         ...
 
 
-class GainLossOnInvestmentSecuritiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainLossOnInvestmentSecuritiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This item represents the net total realized gain (loss) included in earnings for the period as a result of selling or holding marketable securities categorized as trading, available-for-sale, or held-to-maturity, including the unrealized holding gain or loss of held-to- maturity securities transferred to the trading security category and the cumulative unrealized gain or loss which was included in other comprehensive income (a separate component of shareholders' equity) for available-for-sale securities transferred to trading securities during the PeriodAsByte. Additionally, this item would include any losses recognized for other than temporary impairments of the subject investments in debt and equity securities."""
 
     @property
@@ -65391,7 +65391,7 @@ class GainLossOnInvestmentSecuritiesCashFlowStatement(QuantConnect.Data.Fundamen
         ...
 
 
-class GainLossOnSaleOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainLossOnSaleOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The difference between the sale price or salvage price and the book value of an asset that was sold or retired during the reporting PeriodAsByte. This element refers to the gain (loss) and not to the cash proceeds of the business. This element is a non-cash adjustment to net income when calculating net cash generated by operating activities using the indirect method."""
 
     @property
@@ -65472,7 +65472,7 @@ class GainLossOnSaleOfBusinessCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class GainLossOnSaleOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainLossOnSaleOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The difference between the sale price or salvage price and the book value of the property, plant and equipment that was sold or retired during the reporting PeriodAsByte. Includes the amount received from selling any fixed assets such as property, plant and equipment. Usually this section also includes any retirement of equipment. Such as Sale of business segments; Sale of credit and receivables; Property disposition; Proceeds from sale or disposition of business or investment; Decrease in excess of purchase price over acquired net assets; Abandoned project (expenditures) credit; Allowances for other funds during construction."""
 
     @property
@@ -65553,7 +65553,7 @@ class GainLossOnSaleOfPPECashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class InterestCreditedOnPolicyholderDepositsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestCreditedOnPolicyholderDepositsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Non-cash adjustments for interest and finance income and expenses during the period, including the interest an insurer credits on policyholder deposits."""
 
     @property
@@ -65624,7 +65624,7 @@ class InterestCreditedOnPolicyholderDepositsCashFlowStatement(QuantConnect.Data.
         ...
 
 
-class CashFromDiscontinuedOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFromDiscontinuedOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net cash from (used in) all of the entity's discontinued operating activities, excluding those of continued operations, of the reporting entity."""
 
     @property
@@ -65695,7 +65695,7 @@ class CashFromDiscontinuedOperatingActivitiesCashFlowStatement(QuantConnect.Data
         ...
 
 
-class OperatingGainsLossesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OperatingGainsLossesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The gain or loss from the entity's ongoing operations."""
 
     @property
@@ -65776,7 +65776,7 @@ class OperatingGainsLossesCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class NetOtherFinancingChargesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetOtherFinancingChargesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Miscellaneous charges incurred due to Financing activities."""
 
     @property
@@ -65857,7 +65857,7 @@ class NetOtherFinancingChargesCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class NetOtherInvestingChangesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetOtherInvestingChangesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Miscellaneous charges incurred due to Investing activities."""
 
     @property
@@ -65938,7 +65938,7 @@ class NetOtherInvestingChangesCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class OtherNonCashItemsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherNonCashItemsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Items which adjusted back from net income but without real cash outflow or inflow."""
 
     @property
@@ -66019,7 +66019,7 @@ class OtherNonCashItemsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class PensionAndEmployeeBenefitExpenseCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PensionAndEmployeeBenefitExpenseCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount of pension and other (such as medical, dental and life insurance) postretirement benefit costs recognized during the PeriodAsByte."""
 
     @property
@@ -66100,7 +66100,7 @@ class PensionAndEmployeeBenefitExpenseCashFlowStatement(QuantConnect.Data.Fundam
         ...
 
 
-class PreferredStockDividendPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PreferredStockDividendPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Pay for the amount of dividends declared or paid in the period to preferred shareholders or the amount for which the obligation to pay them dividends rose in the PeriodAsByte."""
 
     @property
@@ -66181,7 +66181,7 @@ class PreferredStockDividendPaidCashFlowStatement(QuantConnect.Data.Fundamental.
         ...
 
 
-class ProceedsPaymentFederalFundsSoldAndSecuritiesPurchasedUnderAgreementToResellCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ProceedsPaymentFederalFundsSoldAndSecuritiesPurchasedUnderAgreementToResellCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate amount change of (1) the lending of excess federal funds to another commercial bank requiring such for its legal reserve requirements and (2) securities purchased under agreements to resell. This item is usually only available for bank industry."""
 
     @property
@@ -66252,7 +66252,7 @@ class ProceedsPaymentFederalFundsSoldAndSecuritiesPurchasedUnderAgreementToResel
         ...
 
 
-class ProvisionForLoanLeaseAndOtherLossesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ProvisionForLoanLeaseAndOtherLossesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of the periodic provision charged to earnings, based on an assessment of uncollectible from the counterparty on account of loan, lease or other credit losses, to reduce these accounts to the amount that approximates their net realizable value. This item is usually only available for bank industry."""
 
     @property
@@ -66323,7 +66323,7 @@ class ProvisionForLoanLeaseAndOtherLossesCashFlowStatement(QuantConnect.Data.Fun
         ...
 
 
-class RealizedGainLossOnSaleOfLoansAndLeaseCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RealizedGainLossOnSaleOfLoansAndLeaseCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The gains and losses included in earnings that represent the difference between the sale price and the carrying value of loans and leases that were sold during the reporting PeriodAsByte. This element refers to the gain (loss) and not to the cash proceeds of the sales. This element is a non-cash adjustment to net income when calculating net cash generated by operating activities using the indirect method. This item is usually only available for bank industry."""
 
     @property
@@ -66404,7 +66404,7 @@ class RealizedGainLossOnSaleOfLoansAndLeaseCashFlowStatement(QuantConnect.Data.F
         ...
 
 
-class StockBasedCompensationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class StockBasedCompensationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Value of stock issued during the period as a result of any share-based compensation plan other than an employee stock ownership plan (ESOP)."""
 
     @property
@@ -66485,7 +66485,7 @@ class StockBasedCompensationCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class UnrealizedGainLossOnInvestmentSecuritiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class UnrealizedGainLossOnInvestmentSecuritiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increases (decreases) in the market value of unsold securities whose gains (losses) were included in earnings."""
 
     @property
@@ -66566,7 +66566,7 @@ class UnrealizedGainLossOnInvestmentSecuritiesCashFlowStatement(QuantConnect.Dat
         ...
 
 
-class UnrealizedGainsLossesOnDerivativesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class UnrealizedGainsLossesOnDerivativesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The gross gains and losses on derivatives. This item is usually only available for insurance industry."""
 
     @property
@@ -66627,7 +66627,7 @@ class UnrealizedGainsLossesOnDerivativesCashFlowStatement(QuantConnect.Data.Fund
         ...
 
 
-class AmortizationOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AmortizationOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The aggregate expense charged against earnings to allocate the cost of intangible assets (nonphysical assets not used in production) in a systematic and rational manner to the periods expected to benefit from such assets."""
 
     @property
@@ -66708,7 +66708,7 @@ class AmortizationOfIntangiblesCashFlowStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class IncomeTaxPaidSupplementalDataCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IncomeTaxPaidSupplementalDataCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount of cash paid during the current period to foreign, federal state and local authorities as taxes on income."""
 
     @property
@@ -66789,7 +66789,7 @@ class IncomeTaxPaidSupplementalDataCashFlowStatement(QuantConnect.Data.Fundament
         ...
 
 
-class InterestPaidSupplementalDataCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestPaidSupplementalDataCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The amount of cash paid during the current period for interest owed on money borrowed; including amount of interest capitalized."""
 
     @property
@@ -66870,7 +66870,7 @@ class InterestPaidSupplementalDataCashFlowStatement(QuantConnect.Data.Fundamenta
         ...
 
 
-class IssuanceOfCapitalStockCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IssuanceOfCapitalStockCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash inflow from offering common stock, which is the additional capital contribution to the entity during the PeriodAsByte."""
 
     @property
@@ -66951,7 +66951,7 @@ class IssuanceOfCapitalStockCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class IssuanceOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IssuanceOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash inflow due to an increase in long term debt."""
 
     @property
@@ -67032,7 +67032,7 @@ class IssuanceOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class RepaymentOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RepaymentOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Payments to Settle Long Term Debt plus Payments to Settle Short Term Debt."""
 
     @property
@@ -67113,7 +67113,7 @@ class RepaymentOfDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class RepurchaseOfCapitalStockCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RepurchaseOfCapitalStockCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Payments for Common Stock plus Payments for Preferred Stock."""
 
     @property
@@ -67194,7 +67194,7 @@ class RepurchaseOfCapitalStockCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class FreeCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FreeCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash Flow Operations minus Capital Expenditures."""
 
     @property
@@ -67275,7 +67275,7 @@ class FreeCashFlowCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class DecreaseInInterestBearingDepositsInBankCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DecreaseInInterestBearingDepositsInBankCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net change on interest-bearing deposits in other financial institutions for relatively short periods of time including, for example, certificates of deposits."""
 
     @property
@@ -67346,7 +67346,7 @@ class DecreaseInInterestBearingDepositsInBankCashFlowStatement(QuantConnect.Data
         ...
 
 
-class IncreaseInInterestBearingDepositsInBankCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IncreaseInInterestBearingDepositsInBankCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Increase in interest-bearing deposits in bank."""
 
     @property
@@ -67417,7 +67417,7 @@ class IncreaseInInterestBearingDepositsInBankCashFlowStatement(QuantConnect.Data
         ...
 
 
-class InterestReceivedCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestReceivedCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Interest received by the company, in the Operating Cash Flow section."""
 
     @property
@@ -67488,7 +67488,7 @@ class InterestReceivedCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class InterestPaidCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestPaidCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Interest paid on loans, debt or borrowings, in the Operating Cash Flow section."""
 
     @property
@@ -67559,7 +67559,7 @@ class InterestPaidCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class PurchaseOfSubsidiariesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PurchaseOfSubsidiariesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Purchase of subsidiaries or interest in subsidiaries (investments 51% and above)."""
 
     @property
@@ -67650,7 +67650,7 @@ class PurchaseOfSubsidiariesCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class PurchaseOfJointVentureAssociateCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PurchaseOfJointVentureAssociateCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Purchase of joint venture/associates (investment below 50%)."""
 
     @property
@@ -67721,7 +67721,7 @@ class PurchaseOfJointVentureAssociateCashFlowStatement(QuantConnect.Data.Fundame
         ...
 
 
-class SaleOfSubsidiariesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SaleOfSubsidiariesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash inflow from the disposal of any subsidiaries."""
 
     @property
@@ -67792,7 +67792,7 @@ class SaleOfSubsidiariesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class SaleOfJointVentureAssociateCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SaleOfJointVentureAssociateCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash inflow from the disposal of joint venture/associates (investment below 50%)."""
 
     @property
@@ -67863,7 +67863,7 @@ class SaleOfJointVentureAssociateCashFlowStatement(QuantConnect.Data.Fundamental
         ...
 
 
-class IncreaseDecreaseInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IncreaseDecreaseInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Change in cash flow resulting from increase/decrease in lease financing."""
 
     @property
@@ -67934,7 +67934,7 @@ class IncreaseDecreaseInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundam
         ...
 
 
-class IncreaseInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IncreaseInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash inflow from increase in lease financing."""
 
     @property
@@ -67995,7 +67995,7 @@ class IncreaseInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class RepaymentInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RepaymentInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The cash outflow to repay lease financing during the PeriodAsByte."""
 
     @property
@@ -68066,7 +68066,7 @@ class RepaymentInLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class ShareOfAssociatesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ShareOfAssociatesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A non-cash adjustment for share of associates' income in respect of operating activities."""
 
     @property
@@ -68157,7 +68157,7 @@ class ShareOfAssociatesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class ProfitOnDisposalsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ProfitOnDisposalsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The difference between the sale price or salvage price and the book value of an asset that was sold or retired during the reporting PeriodAsByte."""
 
     @property
@@ -68248,7 +68248,7 @@ class ProfitOnDisposalsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class ReorganizationOtherCostsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReorganizationOtherCostsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A non-cash adjustment relating to restructuring costs."""
 
     @property
@@ -68339,7 +68339,7 @@ class ReorganizationOtherCostsCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class NetOutwardLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetOutwardLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Adjustments due to net loans to/from outsiders in the Investing Cash Flow section."""
 
     @property
@@ -68395,7 +68395,7 @@ class NetOutwardLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class IssueExpensesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IssueExpensesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cost associated with issuance of debt/equity capital in the Financing Cash Flow section."""
 
     @property
@@ -68471,7 +68471,7 @@ class IssueExpensesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class ChangeinDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the deposits by banks and customers."""
 
     @property
@@ -68527,7 +68527,7 @@ class ChangeinDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.Data.Fun
         ...
 
 
-class CashFlowsfromusedinOperatingActivitiesDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFlowsfromusedinOperatingActivitiesDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net cash from (used in) all of the entity's operating activities, including those of discontinued operations, of the reporting entity under the direct method."""
 
     @property
@@ -68603,7 +68603,7 @@ class CashFlowsfromusedinOperatingActivitiesDirectCashFlowStatement(QuantConnect
         ...
 
 
-class ClassesofCashReceiptsfromOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ClassesofCashReceiptsfromOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of total cash receipts in the direct cash flow."""
 
     @property
@@ -68679,7 +68679,7 @@ class ClassesofCashReceiptsfromOperatingActivitiesCashFlowStatement(QuantConnect
         ...
 
 
-class OtherCashReceiptsfromOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherCashReceiptsfromOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other cash receipts for the direct cash flow."""
 
     @property
@@ -68760,7 +68760,7 @@ class OtherCashReceiptsfromOperatingActivitiesCashFlowStatement(QuantConnect.Dat
         ...
 
 
-class ClassesofCashPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ClassesofCashPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of total cash payment in the direct cash flow."""
 
     @property
@@ -68836,7 +68836,7 @@ class ClassesofCashPaymentsCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class PaymentstoSuppliersforGoodsandServicesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PaymentstoSuppliersforGoodsandServicesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash paid to suppliers when purchasing goods or services by the company, in the direct cash flow."""
 
     @property
@@ -68907,7 +68907,7 @@ class PaymentstoSuppliersforGoodsandServicesCashFlowStatement(QuantConnect.Data.
         ...
 
 
-class PaymentsonBehalfofEmployeesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PaymentsonBehalfofEmployeesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash paid in a form of salaries or other benefits to employees of the company, in the direct cash flow."""
 
     @property
@@ -68978,7 +68978,7 @@ class PaymentsonBehalfofEmployeesCashFlowStatement(QuantConnect.Data.Fundamental
         ...
 
 
-class OtherCashPaymentsfromOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherCashPaymentsfromOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other cash payments for the direct cash flow."""
 
     @property
@@ -69059,7 +69059,7 @@ class OtherCashPaymentsfromOperatingActivitiesCashFlowStatement(QuantConnect.Dat
         ...
 
 
-class DividendsPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DividendsPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Dividend paid to the investors, for the direct cash flow."""
 
     @property
@@ -69115,7 +69115,7 @@ class DividendsPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class DividendsReceivedDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DividendsReceivedDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Dividend received on the investment, for the direct cash flow."""
 
     @property
@@ -69186,7 +69186,7 @@ class DividendsReceivedDirectCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class InterestPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Interest paid on loans, debt or borrowings, in the direct cash flow."""
 
     @property
@@ -69257,7 +69257,7 @@ class InterestPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPer
         ...
 
 
-class InterestReceivedDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestReceivedDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Interest received by the company, in the direct cash flow."""
 
     @property
@@ -69328,7 +69328,7 @@ class InterestReceivedDirectCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class TaxesRefundPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TaxesRefundPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Tax paid/refund related to operating activities, for the direct cash flow."""
 
     @property
@@ -69399,7 +69399,7 @@ class TaxesRefundPaidDirectCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class TotalAdjustmentsforNonCashItemsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalAdjustmentsforNonCashItemsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of all adjustments back from net income but without real cash outflow or inflow."""
 
     @property
@@ -69475,7 +69475,7 @@ class TotalAdjustmentsforNonCashItemsCashFlowStatement(QuantConnect.Data.Fundame
         ...
 
 
-class ImpairmentLossReversalRecognizedinProfitorLossCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ImpairmentLossReversalRecognizedinProfitorLossCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The difference between the future net cash flows expected to be received from the asset and its book value, recognized in the Income Statement."""
 
     @property
@@ -69566,7 +69566,7 @@ class ImpairmentLossReversalRecognizedinProfitorLossCashFlowStatement(QuantConne
         ...
 
 
-class DividendPaidCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DividendPaidCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Dividend paid to the investors, in the Operating Cash Flow section."""
 
     @property
@@ -69622,7 +69622,7 @@ class DividendPaidCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class DividendReceivedCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DividendReceivedCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Dividend received on investment, in the Operating Cash Flow section."""
 
     @property
@@ -69683,7 +69683,7 @@ class DividendReceivedCFOCashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class TaxesRefundPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TaxesRefundPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Total tax paid or received on operating activities."""
 
     @property
@@ -69754,7 +69754,7 @@ class TaxesRefundPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class OtherOperatingInflowsOutflowsofCashCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherOperatingInflowsOutflowsofCashCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Any other cash inflows or outflows in the Operating Cash Flow section, not accounted for in the other specified items."""
 
     @property
@@ -69825,7 +69825,7 @@ class OtherOperatingInflowsOutflowsofCashCashFlowStatement(QuantConnect.Data.Fun
         ...
 
 
-class CashAdvancesandLoansMadetoOtherPartiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashAdvancesandLoansMadetoOtherPartiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash outlay for cash advances and loans made to other parties."""
 
     @property
@@ -69881,7 +69881,7 @@ class CashAdvancesandLoansMadetoOtherPartiesCashFlowStatement(QuantConnect.Data.
         ...
 
 
-class CashReceiptsfromRepaymentofAdvancesandLoansMadetoOtherPartiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashReceiptsfromRepaymentofAdvancesandLoansMadetoOtherPartiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash received from the repayment of advances and loans made to other parties, in the Investing Cash Flow section."""
 
     @property
@@ -69942,7 +69942,7 @@ class CashReceiptsfromRepaymentofAdvancesandLoansMadetoOtherPartiesCashFlowState
         ...
 
 
-class DividendsReceivedCFICashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DividendsReceivedCFICashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Dividend received on investment, in the Investing Cash Flow section."""
 
     @property
@@ -70013,7 +70013,7 @@ class DividendsReceivedCFICashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class InterestReceivedCFICashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestReceivedCFICashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Interest received by the company, in the Investing Cash Flow section."""
 
     @property
@@ -70084,7 +70084,7 @@ class InterestReceivedCFICashFlowStatement(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class InterestPaidCFFCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestPaidCFFCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Interest paid on loans, debt or borrowings, in the Financing Cash Flow section."""
 
     @property
@@ -70155,7 +70155,7 @@ class InterestPaidCFFCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class ChangeinAccruedIncomeCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinAccruedIncomeCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods in the amount of outstanding money owed by a customer for goods or services provided by the company."""
 
     @property
@@ -70246,7 +70246,7 @@ class ChangeinAccruedIncomeCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class ChangeinFinancialAssetsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinFinancialAssetsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the financial assets."""
 
     @property
@@ -70302,7 +70302,7 @@ class ChangeinFinancialAssetsCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class ChangeinAdvancesfromCentralBanksCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinAdvancesfromCentralBanksCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the advances from central banks."""
 
     @property
@@ -70373,7 +70373,7 @@ class ChangeinAdvancesfromCentralBanksCashFlowStatement(QuantConnect.Data.Fundam
         ...
 
 
-class ChangeinFinancialLiabilitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinFinancialLiabilitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the financial liabilities."""
 
     @property
@@ -70444,7 +70444,7 @@ class ChangeinFinancialLiabilitiesCashFlowStatement(QuantConnect.Data.Fundamenta
         ...
 
 
-class ChangeinInsuranceContractAssetsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinInsuranceContractAssetsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the contract assets."""
 
     @property
@@ -70515,7 +70515,7 @@ class ChangeinInsuranceContractAssetsCashFlowStatement(QuantConnect.Data.Fundame
         ...
 
 
-class ChangeinReinsuranceReceivablesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinReinsuranceReceivablesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the reinsurance receivable."""
 
     @property
@@ -70606,7 +70606,7 @@ class ChangeinReinsuranceReceivablesCashFlowStatement(QuantConnect.Data.Fundamen
         ...
 
 
-class ChangeinDeferredAcquisitionCostsNetCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinDeferredAcquisitionCostsNetCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the deferred acquisition costs."""
 
     @property
@@ -70677,7 +70677,7 @@ class ChangeinDeferredAcquisitionCostsNetCashFlowStatement(QuantConnect.Data.Fun
         ...
 
 
-class ChangeinInsuranceFundsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinInsuranceFundsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the insurance funds."""
 
     @property
@@ -70748,7 +70748,7 @@ class ChangeinInsuranceFundsCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class ChangeinInvestmentContractLiabilitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinInvestmentContractLiabilitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the investment contract liabilities."""
 
     @property
@@ -70819,7 +70819,7 @@ class ChangeinInvestmentContractLiabilitiesCashFlowStatement(QuantConnect.Data.F
         ...
 
 
-class ChangeinInsuranceContractLiabilitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinInsuranceContractLiabilitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The increase or decrease between periods of the insurance contract liabilities."""
 
     @property
@@ -70890,7 +70890,7 @@ class ChangeinInsuranceContractLiabilitiesCashFlowStatement(QuantConnect.Data.Fu
         ...
 
 
-class ProvisionandWriteOffofAssetsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ProvisionandWriteOffofAssetsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """A non-cash adjustment for total provision and write off on assets & liabilities."""
 
     @property
@@ -70961,7 +70961,7 @@ class ProvisionandWriteOffofAssetsCashFlowStatement(QuantConnect.Data.Fundamenta
         ...
 
 
-class ReceiptsfromCustomersCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReceiptsfromCustomersCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Payment received from customers in the Direct Cash Flow."""
 
     @property
@@ -71032,7 +71032,7 @@ class ReceiptsfromCustomersCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class ReceiptsfromGovernmentGrantsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReceiptsfromGovernmentGrantsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash received from governments in the form of grants in the Direct Cash Flow."""
 
     @property
@@ -71103,7 +71103,7 @@ class ReceiptsfromGovernmentGrantsCashFlowStatement(QuantConnect.Data.Fundamenta
         ...
 
 
-class MinorityInterestCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class MinorityInterestCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Amount of net income (loss) for the period allocated to non-controlling shareholders, partners, or other equity holders in one or more of the entities included."""
 
     @property
@@ -71164,7 +71164,7 @@ class MinorityInterestCashFlowStatement(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class CapExReportedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CapExReportedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Capital expenditure, capitalized software development cost, maintenance capital expenditure, etc. as reported by the company."""
 
     @property
@@ -71245,7 +71245,7 @@ class CapExReportedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFi
         ...
 
 
-class CashReceiptsfromTaxRefundsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashReceiptsfromTaxRefundsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash received as refunds from tax authorities in operating cash flow, using the direct method"""
 
     @property
@@ -71316,7 +71316,7 @@ class CashReceiptsfromTaxRefundsCashFlowStatement(QuantConnect.Data.Fundamental.
         ...
 
 
-class CashReceiptsfromDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashReceiptsfromDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash received from banks and customer deposits in operating cash flow, using the direct method. This item is usually only available for bank industry"""
 
     @property
@@ -71392,7 +71392,7 @@ class CashReceiptsfromDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.
         ...
 
 
-class CashReceiptsfromLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashReceiptsfromLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash received from loans in operating cash flow, using the direct method. This item is usually only available for bank industry"""
 
     @property
@@ -71468,7 +71468,7 @@ class CashReceiptsfromLoansCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class CashReceiptsfromSecuritiesRelatedActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashReceiptsfromSecuritiesRelatedActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash received from the trading of securities in operating cash flow, using the direct method. This item is usually only available for bank and insurance industries"""
 
     @property
@@ -71569,7 +71569,7 @@ class CashReceiptsfromSecuritiesRelatedActivitiesCashFlowStatement(QuantConnect.
         ...
 
 
-class CashReceiptsfromFeesandCommissionsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashReceiptsfromFeesandCommissionsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash received from agency fees and commissions in operating cash flow, using the direct method. This item is usually available for bank and insurance industries"""
 
     @property
@@ -71640,7 +71640,7 @@ class CashReceiptsfromFeesandCommissionsCashFlowStatement(QuantConnect.Data.Fund
         ...
 
 
-class CashPaymentsforDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashPaymentsforDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash paid for deposits by banks and customers in operating cash flow, using the direct method. This item is usually only available for bank industry"""
 
     @property
@@ -71716,7 +71716,7 @@ class CashPaymentsforDepositsbyBanksandCustomersCashFlowStatement(QuantConnect.D
         ...
 
 
-class CashPaymentsforLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashPaymentsforLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash paid for loans in operating cash flow, using the direct method. This item is usually only available for bank industry"""
 
     @property
@@ -71787,7 +71787,7 @@ class CashPaymentsforLoansCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class InterestandCommissionPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class InterestandCommissionPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash paid for interest and commission in operating cash flow, using the direct method"""
 
     @property
@@ -71858,7 +71858,7 @@ class InterestandCommissionPaidCashFlowStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class AllTaxesPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AllTaxesPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash paid to tax authorities in operating cash flow, using the direct method"""
 
     @property
@@ -71934,7 +71934,7 @@ class AllTaxesPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class CashReceivedfromInsuranceActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashReceivedfromInsuranceActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash received from insurance activities in operating cash flow, using the direct method. This item is usually only available for insurance industry"""
 
     @property
@@ -72025,7 +72025,7 @@ class CashReceivedfromInsuranceActivitiesCashFlowStatement(QuantConnect.Data.Fun
         ...
 
 
-class PremiumReceivedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PremiumReceivedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash received from premium income in operating cash flow, using the direct method. This item is usually only available for insurance industry"""
 
     @property
@@ -72096,7 +72096,7 @@ class PremiumReceivedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriod
         ...
 
 
-class ReinsuranceandOtherRecoveriesReceivedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReinsuranceandOtherRecoveriesReceivedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash received from reinsurance income or other recoveries income in operating cash flow, using the direct method. This item is usually only available for insurance industry"""
 
     @property
@@ -72167,7 +72167,7 @@ class ReinsuranceandOtherRecoveriesReceivedCashFlowStatement(QuantConnect.Data.F
         ...
 
 
-class PolicyholderDepositInvestmentReceivedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PolicyholderDepositInvestmentReceivedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash received from policyholder deposit investment activities in operating cash flow, using the direct method. This item is usually only available for insurance industry"""
 
     @property
@@ -72238,7 +72238,7 @@ class PolicyholderDepositInvestmentReceivedCashFlowStatement(QuantConnect.Data.F
         ...
 
 
-class CashPaidforInsuranceActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashPaidforInsuranceActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash paid out for insurance activities during the period in operating cash flow, using the direct method. This item is usually only available for insurance industry"""
 
     @property
@@ -72309,7 +72309,7 @@ class CashPaidforInsuranceActivitiesCashFlowStatement(QuantConnect.Data.Fundamen
         ...
 
 
-class ClaimsPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ClaimsPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash paid out for claims by a insurance company during the period in operating cash flow, using the direct method. This item is usually only available for insurance industry"""
 
     @property
@@ -72380,7 +72380,7 @@ class ClaimsPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField
         ...
 
 
-class CommissionPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CommissionPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash paid for commissions in operating cash flow, using the direct method"""
 
     @property
@@ -72451,7 +72451,7 @@ class CommissionPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodF
         ...
 
 
-class CashPaidtoReinsurersCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashPaidtoReinsurersCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash paid out to reinsurers in operating cash flow, using the direct method. This item is usually only available for insurance industry"""
 
     @property
@@ -72522,7 +72522,7 @@ class CashPaidtoReinsurersCashFlowStatement(QuantConnect.Data.Fundamental.MultiP
         ...
 
 
-class OtherUnderwritingExpensesPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherUnderwritingExpensesPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash paid out for underwriting expenses, such as the acquisition of new and renewal insurance contracts, in operating cash flow, using the direct method. This item is usually only available for insurance industry"""
 
     @property
@@ -72593,7 +72593,7 @@ class OtherUnderwritingExpensesPaidCashFlowStatement(QuantConnect.Data.Fundament
         ...
 
 
-class CashDividendsForMinoritiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashDividendsForMinoritiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash Distribution of earnings to Minority Stockholders."""
 
     @property
@@ -72664,7 +72664,7 @@ class CashDividendsForMinoritiesCashFlowStatement(QuantConnect.Data.Fundamental.
         ...
 
 
-class CashGeneratedfromOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashGeneratedfromOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The net cash from an entity's operating activities before real cash inflow or outflow for Dividend, Interest, Tax, or other unclassified operating activities."""
 
     @property
@@ -72735,7 +72735,7 @@ class CashGeneratedfromOperatingActivitiesCashFlowStatement(QuantConnect.Data.Fu
         ...
 
 
-class FundFromOperationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FundFromOperationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Funds from operations; populated only for real estate investment trusts (REITs), defined as the sum of net income, gain/loss (realized and unrealized) on investment securities, asset impairment charge, depreciation and amortization and gain/ loss on the sale of business and property plant and equipment."""
 
     @property
@@ -72806,7 +72806,7 @@ class FundFromOperationCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class NetInvestmentPropertiesPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetInvestmentPropertiesPurchaseAndSaleCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net increase or decrease in cash due to purchases or sales of investment properties during the accounting PeriodAsByte."""
 
     @property
@@ -72877,7 +72877,7 @@ class NetInvestmentPropertiesPurchaseAndSaleCashFlowStatement(QuantConnect.Data.
         ...
 
 
-class PurchaseOfInvestmentPropertiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class PurchaseOfInvestmentPropertiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash outflow for purchases of investment properties during the accounting PeriodAsByte."""
 
     @property
@@ -72948,7 +72948,7 @@ class PurchaseOfInvestmentPropertiesCashFlowStatement(QuantConnect.Data.Fundamen
         ...
 
 
-class SaleOfInvestmentPropertiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class SaleOfInvestmentPropertiesCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Cash inflow from sale of investment properties during the accounting PeriodAsByte."""
 
     @property
@@ -73019,7 +73019,7 @@ class SaleOfInvestmentPropertiesCashFlowStatement(QuantConnect.Data.Fundamental.
         ...
 
 
-class OtherCashAdjustIncludedIntoChangeinCashCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherCashAdjustIncludedIntoChangeinCashCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other cash adjustments included in change in cash not categorized above."""
 
     @property
@@ -73090,7 +73090,7 @@ class OtherCashAdjustIncludedIntoChangeinCashCashFlowStatement(QuantConnect.Data
         ...
 
 
-class OtherCashAdjustExcludeFromChangeinCashCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class OtherCashAdjustExcludeFromChangeinCashCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Other changes to cash and cash equivalents during the accounting PeriodAsByte."""
 
     @property
@@ -73161,7 +73161,7 @@ class OtherCashAdjustExcludeFromChangeinCashCashFlowStatement(QuantConnect.Data.
         ...
 
 
-class ChangeinCashSupplementalAsReportedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeinCashSupplementalAsReportedCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The change in cash flow from the previous period to the current, as reported by the company, may be the same or not the same as Morningstar's standardized definition. It is a supplemental value which would be reported outside consolidated statements."""
 
     @property
@@ -73232,7 +73232,7 @@ class ChangeinCashSupplementalAsReportedCashFlowStatement(QuantConnect.Data.Fund
         ...
 
 
-class DepreciationAmortizationAndDepletionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class DepreciationAmortizationAndDepletionCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the calculated variant of depreciation; amortization and depletion. This is calculated by summing up all Depreciation; Amortization and Depletion reported by the company."""
 
     @property
@@ -73303,7 +73303,7 @@ class DepreciationAmortizationAndDepletionCashFlowStatement(QuantConnect.Data.Fu
         ...
 
 
-class RepurchaseOfPreferredStockCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RepurchaseOfPreferredStockCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the calculated variant of Repurchase of Preferred Stock which includes all payments made by a company for the purpose of repurchasing preferred stock. This is computed by returning any payments for Preferred Stock reported by the company or any payments net of issuances of preferred stock; where repayments alone are not reported."""
 
     @property
@@ -73374,7 +73374,7 @@ class RepurchaseOfPreferredStockCashFlowStatement(QuantConnect.Data.Fundamental.
         ...
 
 
-class IssuanceOfPreferredStockCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IssuanceOfPreferredStockCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the amount of cash that has been raised by the company through the issuing of preferred stock over the period. This is calculated by summing up all the proceeds from the Issuance of Preferred Stock."""
 
     @property
@@ -73445,7 +73445,7 @@ class IssuanceOfPreferredStockCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class IssuanceOfLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IssuanceOfLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the amount of capital that has been raised by the company through the method of lease financing; over the period. This is calculated by summing all proceeds from lease financing."""
 
     @property
@@ -73516,7 +73516,7 @@ class IssuanceOfLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class RepaymentOfLongTermDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RepaymentOfLongTermDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the calculated variant of Repayment of Long term Debt which includes all payments made by a company towards the Long term Debt appearing on their balance sheet. This is computed by returning any repayments for Long term Debt reported by the company or any repayments net of Long term Debt issuances; where repayments alone are not reported."""
 
     @property
@@ -73587,7 +73587,7 @@ class RepaymentOfLongTermDebtCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class IssuanceOfLongTermDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IssuanceOfLongTermDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the amount of capital that has been raised by the company through the issuing of long term debt; over the period. This is calculated by summing all Issuances of long term debt."""
 
     @property
@@ -73658,7 +73658,7 @@ class IssuanceOfLongTermDebtCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class IssuanceOfCommonStockCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IssuanceOfCommonStockCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the amount of cash that has been raised by the company through the issuing of common stock over the period. This is calculated by summing up all the proceeds from the Issuance of Common Stock."""
 
     @property
@@ -73729,7 +73729,7 @@ class IssuanceOfCommonStockCashFlowStatement(QuantConnect.Data.Fundamental.Multi
         ...
 
 
-class IssuanceOfShortTermDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IssuanceOfShortTermDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the amount of capital that has been raised by the company through the issuing of short term debt; over the period. This is calculated by summing all Issuances of short term debt."""
 
     @property
@@ -73800,7 +73800,7 @@ class IssuanceOfShortTermDebtCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class RepurchaseOfCommonStockCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RepurchaseOfCommonStockCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the calculated variant of Repurchase of Common Stock which includes all payments made by a company for the purpose of repurchasing common stock. This is computed by returning any payments for Common Stock reported by the company or any payments net of issuances of common stock; where repayments alone are not reported."""
 
     @property
@@ -73871,7 +73871,7 @@ class RepurchaseOfCommonStockCashFlowStatement(QuantConnect.Data.Fundamental.Mul
         ...
 
 
-class RepaymentOfShortTermDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RepaymentOfShortTermDebtCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the calculated variant of Repayment of Short term Debt which includes all payments made by a company towards the Short term Debt appearing on their balance sheet. This is computed by returning any repayments for Short term Debt reported by the company or any repayments net of Short term Debt issuances; where repayments alone are not reported."""
 
     @property
@@ -73942,7 +73942,7 @@ class RepaymentOfShortTermDebtCashFlowStatement(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class RepaymentOfLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RepaymentOfLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the calculated variant of Repayment of Lease Financing which includes all payments made by a company towards the leases appearing on their balance sheet. This is computed by returning any repayments for lease financing reported by the company or any repayments net of lease issuances; where repayments alone are not reported."""
 
     @property
@@ -74013,7 +74013,7 @@ class RepaymentOfLeaseFinancingCashFlowStatement(QuantConnect.Data.Fundamental.M
         ...
 
 
-class FreeCashFlowToEquityHoldersCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class FreeCashFlowToEquityHoldersCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This calculation represents a company's operating cash flow net of changes in net working capital and capital expenditures. This can be used to measure the cash a company has left over after paying interest expenses on debt and investing in the growth of its business. This is calculated using Cash Flow from Operating Activities - Changes in Net Working Capital - Capital Expenditures."""
 
     @property
@@ -74084,7 +74084,7 @@ class FreeCashFlowToEquityHoldersCashFlowStatement(QuantConnect.Data.Fundamental
         ...
 
 
-class CashFlowFromOperationsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashFlowFromOperationsCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """This data point represents the latest Cash Flow from Operating Activities (TTM) before changes in Working Capital. This is calculated using Net Cash Flow from Operating Activities - Changes in Net Working Capital."""
 
     @property
@@ -74155,7 +74155,7 @@ class CashFlowFromOperationsCashFlowStatement(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class IncomeLossBeforeNonCashAdjustmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IncomeLossBeforeNonCashAdjustmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Income or loss before non-cash adjustments to net income. Includes: discontinued operations if reported separately"""
 
     @property
@@ -74226,7 +74226,7 @@ class IncomeLossBeforeNonCashAdjustmentCashFlowStatement(QuantConnect.Data.Funda
         ...
 
 
-class IrregularIncomeLossNonCashAdjustmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class IrregularIncomeLossNonCashAdjustmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of all non-cash income or losses recognized during the accounting period from activities that are not regular or normal in nature."""
 
     @property
@@ -74297,7 +74297,7 @@ class IrregularIncomeLossNonCashAdjustmentCashFlowStatement(QuantConnect.Data.Fu
         ...
 
 
-class NetInvestmentIncomeLossNonCashAdjustmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetInvestmentIncomeLossNonCashAdjustmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net value of non-cash adjustments arising from the gain or loss on investments made by the company and recognized during the accounting period."""
 
     @property
@@ -74368,7 +74368,7 @@ class NetInvestmentIncomeLossNonCashAdjustmentCashFlowStatement(QuantConnect.Dat
         ...
 
 
-class GainLossOnDisposalsNonCashAdjustmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class GainLossOnDisposalsNonCashAdjustmentCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of all non-cash gains or losses recognized during the accounting period from the disposal or sale of fixed assets; businesses; or other assets."""
 
     @property
@@ -74439,7 +74439,7 @@ class GainLossOnDisposalsNonCashAdjustmentCashFlowStatement(QuantConnect.Data.Fu
         ...
 
 
-class CashDividendsAndInterestPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CashDividendsAndInterestPaidCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Sum of interest paid on debt and payment of cash dividends to common and preferred stockholders during the accounting period."""
 
     @property
@@ -74510,7 +74510,7 @@ class CashDividendsAndInterestPaidCashFlowStatement(QuantConnect.Data.Fundamenta
         ...
 
 
-class ChangeInOtherOperatingCapitalCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ChangeInOtherOperatingCapitalCashFlowStatement(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Increase or decrease of all operating capital between reporting periods."""
 
     @property
@@ -75744,7 +75744,7 @@ class CashFlowStatement:
         ...
 
 
-class CommonEquityTier1CapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CommonEquityTier1CapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Common equity tier 1 capital divided by risk weighted assets"""
 
     @property
@@ -75820,7 +75820,7 @@ class CommonEquityTier1CapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodFie
         ...
 
 
-class CommonEquityTier1Capital(QuantConnect.Data.Fundamental.MultiPeriodField):
+class CommonEquityTier1Capital(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Common equity tier 1 capital, the highest quality regulatory capital"""
 
     @property
@@ -75896,7 +75896,7 @@ class CommonEquityTier1Capital(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class LiquidityCoverageRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class LiquidityCoverageRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """High quality liquid assets divided by projected net cash outflows over thirty days"""
 
     @property
@@ -75972,7 +75972,7 @@ class LiquidityCoverageRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NetInterestMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetInterestMargin(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net interest income divided by average earning assets"""
 
     @property
@@ -76048,7 +76048,7 @@ class NetInterestMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NetInterestSpread(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NetInterestSpread(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The difference between the yield on earning assets and the rate paid on funding"""
 
     @property
@@ -76124,7 +76124,7 @@ class NetInterestSpread(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class NonPerformingAssetsLoans(QuantConnect.Data.Fundamental.MultiPeriodField):
+class NonPerformingAssetsLoans(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Loans on which the borrower is not making interest or principal payments as scheduled"""
 
     @property
@@ -76200,7 +76200,7 @@ class NonPerformingAssetsLoans(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class RiskWeightedAsset(QuantConnect.Data.Fundamental.MultiPeriodField):
+class RiskWeightedAsset(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Assets weighted by credit risk, the denominator of the regulatory capital ratios"""
 
     @property
@@ -76276,7 +76276,7 @@ class RiskWeightedAsset(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class Tier1CapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class Tier1CapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Tier 1 capital divided by risk weighted assets"""
 
     @property
@@ -76352,7 +76352,7 @@ class Tier1CapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class Tier1Capital(QuantConnect.Data.Fundamental.MultiPeriodField):
+class Tier1Capital(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Tier 1 capital: common equity, qualifying preferred equity and retained earnings"""
 
     @property
@@ -76428,7 +76428,7 @@ class Tier1Capital(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class Tier1LeverageRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class Tier1LeverageRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Tier 1 capital divided by average total consolidated assets"""
 
     @property
@@ -76504,7 +76504,7 @@ class Tier1LeverageRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class Tier2CapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+class Tier2CapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Tier 2 capital divided by risk weighted assets"""
 
     @property
@@ -76580,7 +76580,7 @@ class Tier2CapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class Tier2Capital(QuantConnect.Data.Fundamental.MultiPeriodField):
+class Tier2Capital(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Tier 2 capital: subordinated debt, cumulative preferred stock and loan loss allowances"""
 
     @property
@@ -76656,7 +76656,7 @@ class Tier2Capital(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class TotalCapital(QuantConnect.Data.Fundamental.MultiPeriodField):
+class TotalCapital(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """The sum of tier 1 and tier 2 capital, in currency rather than as a ratio"""
 
     @property
@@ -76732,7 +76732,7 @@ class TotalCapital(QuantConnect.Data.Fundamental.MultiPeriodField):
         ...
 
 
-class AdjustedBasicNetAssetValue(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AdjustedBasicNetAssetValue(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net asset value adjusted per the reporting standard, on a basic share basis"""
 
     @property
@@ -76808,7 +76808,7 @@ class AdjustedBasicNetAssetValue(QuantConnect.Data.Fundamental.MultiPeriodField)
         ...
 
 
-class AdjustedDilutedNetAssetValue(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AdjustedDilutedNetAssetValue(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Net asset value adjusted per the reporting standard, on a diluted share basis"""
 
     @property
@@ -76884,7 +76884,7 @@ class AdjustedDilutedNetAssetValue(QuantConnect.Data.Fundamental.MultiPeriodFiel
         ...
 
 
-class ReportedBasicAdjustedFundFromOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReportedBasicAdjustedFundFromOperations(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Adjusted funds from operations as reported, on a basic share basis"""
 
     @property
@@ -76960,7 +76960,7 @@ class ReportedBasicAdjustedFundFromOperations(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class ReportedDilutedAdjustedFundFromOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReportedDilutedAdjustedFundFromOperations(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Adjusted funds from operations as reported, on a diluted share basis"""
 
     @property
@@ -77036,7 +77036,7 @@ class ReportedDilutedAdjustedFundFromOperations(QuantConnect.Data.Fundamental.Mu
         ...
 
 
-class ReportedDilutedFundFromOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReportedDilutedFundFromOperations(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Funds from operations as reported, on a diluted share basis"""
 
     @property
@@ -77112,7 +77112,7 @@ class ReportedDilutedFundFromOperations(QuantConnect.Data.Fundamental.MultiPerio
         ...
 
 
-class AdjustedBasicNetAssetValuePerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AdjustedBasicNetAssetValuePerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Adjusted net asset value per basic share"""
 
     @property
@@ -77188,7 +77188,7 @@ class AdjustedBasicNetAssetValuePerShare(QuantConnect.Data.Fundamental.MultiPeri
         ...
 
 
-class AdjustedDilutedNetAssetValuePerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class AdjustedDilutedNetAssetValuePerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Adjusted net asset value per diluted share"""
 
     @property
@@ -77264,7 +77264,7 @@ class AdjustedDilutedNetAssetValuePerShare(QuantConnect.Data.Fundamental.MultiPe
         ...
 
 
-class ReportedBasicAdjustedFundFromOperationsPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReportedBasicAdjustedFundFromOperationsPerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Adjusted funds from operations per basic share, as reported"""
 
     @property
@@ -77340,7 +77340,7 @@ class ReportedBasicAdjustedFundFromOperationsPerShare(QuantConnect.Data.Fundamen
         ...
 
 
-class ReportedBasicFundFromOperationsPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReportedBasicFundFromOperationsPerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Funds from operations per basic share, as reported"""
 
     @property
@@ -77416,7 +77416,7 @@ class ReportedBasicFundFromOperationsPerShare(QuantConnect.Data.Fundamental.Mult
         ...
 
 
-class ReportedDilutedAdjustedFundFromOperationsPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReportedDilutedAdjustedFundFromOperationsPerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Adjusted funds from operations per diluted share, as reported"""
 
     @property
@@ -77492,7 +77492,7 @@ class ReportedDilutedAdjustedFundFromOperationsPerShare(QuantConnect.Data.Fundam
         ...
 
 
-class ReportedDilutedFundFromOperationsPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+class ReportedDilutedFundFromOperationsPerShare(QuantConnect.Data.Fundamental.MultiPeriodField[float]):
     """Funds from operations per diluted share, as reported"""
 
     @property
@@ -80040,8397 +80040,5 @@ class MorningstarIndustryCode(System.Object):
 
     SOLAR: int = 31130030
     """Companies that design, manufacture, market, or install solar power systems and components."""
-
-
-class FundamentalProperty(IntEnum):
-    """The fundamental property to access"""
-
-    MARKET = 0
-
-    DOLLAR_VOLUME = 1
-
-    VOLUME = 2
-
-    HAS_FUNDAMENTAL_DATA = 3
-
-    PRICE_FACTOR = 4
-
-    SPLIT_FACTOR = 5
-
-    VALUE = 6
-
-    PRICE = 7
-
-    COMPANY_REFERENCE_COMPANY_ID = 8
-
-    COMPANY_REFERENCE_SHORT_NAME = 9
-
-    COMPANY_REFERENCE_STANDARD_NAME = 10
-
-    COMPANY_REFERENCE_LEGAL_NAME = 11
-
-    COMPANY_REFERENCE_COUNTRY_ID = 12
-
-    COMPANY_REFERENCE_CIK = 13
-
-    COMPANY_REFERENCE_COMPANY_STATUS = 14
-
-    COMPANY_REFERENCE_FISCAL_YEAR_END = 15
-
-    COMPANY_REFERENCE_INDUSTRY_TEMPLATE_CODE = 16
-
-    COMPANY_REFERENCE_PRIMARY_SHARE_CLASS_ID = 17
-
-    COMPANY_REFERENCE_PRIMARY_SYMBOL = 18
-
-    COMPANY_REFERENCE_PRIMARY_EXCHANGE_ID = 19
-
-    COMPANY_REFERENCE_BUSINESS_COUNTRY_ID = 20
-
-    COMPANY_REFERENCE_LEGAL_NAME_LANGUAGE_CODE = 21
-
-    COMPANY_REFERENCE_AUDITOR = 22
-
-    COMPANY_REFERENCE_AUDITOR_LANGUAGE_CODE = 23
-
-    COMPANY_REFERENCE_ADVISOR = 24
-
-    COMPANY_REFERENCE_ADVISOR_LANGUAGE_CODE = 25
-
-    COMPANY_REFERENCE_IS_LIMITED_PARTNERSHIP = 26
-
-    COMPANY_REFERENCE_IS_REIT = 27
-
-    COMPANY_REFERENCE_PRIMARY_MIC = 28
-
-    COMPANY_REFERENCE_REPORT_STYLE = 29
-
-    COMPANY_REFERENCE_YEAROF_ESTABLISHMENT = 30
-
-    COMPANY_REFERENCE_IS_LIMITED_LIABILITY_COMPANY = 31
-
-    COMPANY_REFERENCE_EXPECTED_FISCAL_YEAR_END = 32
-
-    COMPANY_REFERENCE_IS_SPAC = 33
-
-    COMPANY_REFERENCE_IS_MLP = 34
-
-    COMPANY_REFERENCE_IS_BDC = 35
-
-    COMPANY_REFERENCE_LEI = 36
-
-    COMPANY_REFERENCE_IS_SHELL_COMPANY = 37
-
-    COMPANY_REFERENCE_STATE_OR_COUNTRY_OF_INCORPORATION = 38
-
-    SECURITY_REFERENCE_SECURITY_SYMBOL = 39
-
-    SECURITY_REFERENCE_EXCHANGE_ID = 40
-
-    SECURITY_REFERENCE_CURRENCY_ID = 41
-
-    SECURITY_REFERENCE_ISIN = 42
-
-    SECURITY_REFERENCE_IPO_DATE = 43
-
-    SECURITY_REFERENCE_IS_DEPOSITARY_RECEIPT = 44
-
-    SECURITY_REFERENCE_DEPOSITARY_RECEIPT_RATIO = 45
-
-    SECURITY_REFERENCE_SECURITY_TYPE = 46
-
-    SECURITY_REFERENCE_SHARE_CLASS_DESCRIPTION = 47
-
-    SECURITY_REFERENCE_SHARE_CLASS_STATUS = 48
-
-    SECURITY_REFERENCE_IS_PRIMARY_SHARE = 49
-
-    SECURITY_REFERENCE_IS_DIVIDEND_REINVEST = 50
-
-    SECURITY_REFERENCE_IS_DIRECT_INVEST = 51
-
-    SECURITY_REFERENCE_INVESTMENT_ID = 52
-
-    SECURITY_REFERENCE_IPO_OFFER_PRICE = 53
-
-    SECURITY_REFERENCE_DELISTING_DATE = 54
-
-    SECURITY_REFERENCE_DELISTING_REASON = 55
-
-    SECURITY_REFERENCE_MIC = 56
-
-    SECURITY_REFERENCE_COMMON_SHARE_SUB_TYPE = 57
-
-    SECURITY_REFERENCE_IPO_OFFER_PRICE_RANGE = 58
-
-    SECURITY_REFERENCE_EXCHANGE_SUB_MARKET_GLOBAL_ID = 59
-
-    SECURITY_REFERENCE_CONVERSION_RATIO = 60
-
-    SECURITY_REFERENCE_PAR_VALUE = 61
-
-    SECURITY_REFERENCE_TRADING_STATUS = 62
-
-    SECURITY_REFERENCE_MARKET_DATA_ID = 63
-
-    SECURITY_REFERENCE_IS_IPO = 64
-
-    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_ONE_MONTH = 65
-
-    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_TWO_MONTHS = 66
-
-    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_THREE_MONTHS = 67
-
-    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_SIX_MONTHS = 68
-
-    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_NINE_MONTHS = 69
-
-    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_TWELVE_MONTHS = 70
-
-    FINANCIAL_STATEMENTS_FILE_DATE_ONE_MONTH = 71
-
-    FINANCIAL_STATEMENTS_FILE_DATE_TWO_MONTHS = 72
-
-    FINANCIAL_STATEMENTS_FILE_DATE_THREE_MONTHS = 73
-
-    FINANCIAL_STATEMENTS_FILE_DATE_SIX_MONTHS = 74
-
-    FINANCIAL_STATEMENTS_FILE_DATE_NINE_MONTHS = 75
-
-    FINANCIAL_STATEMENTS_FILE_DATE_TWELVE_MONTHS = 76
-
-    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_ONE_MONTH = 77
-
-    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_TWO_MONTHS = 78
-
-    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_THREE_MONTHS = 79
-
-    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_SIX_MONTHS = 80
-
-    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_NINE_MONTHS = 81
-
-    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_TWELVE_MONTHS = 82
-
-    FINANCIAL_STATEMENTS_FORM_TYPE_ONE_MONTH = 83
-
-    FINANCIAL_STATEMENTS_FORM_TYPE_TWO_MONTHS = 84
-
-    FINANCIAL_STATEMENTS_FORM_TYPE_THREE_MONTHS = 85
-
-    FINANCIAL_STATEMENTS_FORM_TYPE_SIX_MONTHS = 86
-
-    FINANCIAL_STATEMENTS_FORM_TYPE_NINE_MONTHS = 87
-
-    FINANCIAL_STATEMENTS_FORM_TYPE_TWELVE_MONTHS = 88
-
-    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_ONE_MONTH = 89
-
-    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_TWO_MONTHS = 90
-
-    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_THREE_MONTHS = 91
-
-    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_SIX_MONTHS = 92
-
-    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_NINE_MONTHS = 93
-
-    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_TWELVE_MONTHS = 94
-
-    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_ONE_MONTH = 95
-
-    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_TWO_MONTHS = 96
-
-    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_THREE_MONTHS = 97
-
-    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_SIX_MONTHS = 98
-
-    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_NINE_MONTHS = 99
-
-    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_TWELVE_MONTHS = 100
-
-    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_ONE_MONTH = 101
-
-    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_TWO_MONTHS = 102
-
-    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_THREE_MONTHS = 103
-
-    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_SIX_MONTHS = 104
-
-    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_NINE_MONTHS = 105
-
-    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_TWELVE_MONTHS = 106
-
-    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_ONE_MONTH = 107
-
-    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_TWO_MONTHS = 108
-
-    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_THREE_MONTHS = 109
-
-    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_SIX_MONTHS = 110
-
-    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_NINE_MONTHS = 111
-
-    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_TWELVE_MONTHS = 112
-
-    FINANCIAL_STATEMENTS_PERIOD_TYPE_ONE_MONTH = 113
-
-    FINANCIAL_STATEMENTS_PERIOD_TYPE_TWO_MONTHS = 114
-
-    FINANCIAL_STATEMENTS_PERIOD_TYPE_THREE_MONTHS = 115
-
-    FINANCIAL_STATEMENTS_PERIOD_TYPE_SIX_MONTHS = 116
-
-    FINANCIAL_STATEMENTS_PERIOD_TYPE_NINE_MONTHS = 117
-
-    FINANCIAL_STATEMENTS_PERIOD_TYPE_TWELVE_MONTHS = 118
-
-    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_ONE_MONTH = 119
-
-    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_THREE_MONTHS = 120
-
-    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_SIX_MONTHS = 121
-
-    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_NINE_MONTHS = 122
-
-    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_TWELVE_MONTHS = 123
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_ONE_MONTH = 124
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_TWO_MONTHS = 125
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_THREE_MONTHS = 126
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_SIX_MONTHS = 127
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_NINE_MONTHS = 128
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_TWELVE_MONTHS = 129
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_ONE_MONTH = 130
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_TWO_MONTHS = 131
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_THREE_MONTHS = 132
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SIX_MONTHS = 133
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_NINE_MONTHS = 134
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_TWELVE_MONTHS = 135
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_ONE_MONTH = 136
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_THREE_MONTHS = 137
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_SIX_MONTHS = 138
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_NINE_MONTHS = 139
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_TWELVE_MONTHS = 140
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_ONE_MONTH = 141
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_TWO_MONTHS = 142
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_THREE_MONTHS = 143
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_SIX_MONTHS = 144
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_NINE_MONTHS = 145
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_TWELVE_MONTHS = 146
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPLETION_THREE_MONTHS = 147
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPLETION_SIX_MONTHS = 148
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPLETION_NINE_MONTHS = 149
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPLETION_TWELVE_MONTHS = 150
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_ONE_MONTH = 151
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_THREE_MONTHS = 152
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SIX_MONTHS = 153
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_NINE_MONTHS = 154
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_TWELVE_MONTHS = 155
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_ONE_MONTH = 156
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_TWO_MONTHS = 157
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_THREE_MONTHS = 158
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_SIX_MONTHS = 159
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_NINE_MONTHS = 160
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_TWELVE_MONTHS = 161
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_ONE_MONTH = 162
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_TWO_MONTHS = 163
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_THREE_MONTHS = 164
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_SIX_MONTHS = 165
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_NINE_MONTHS = 166
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_TWELVE_MONTHS = 167
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_ONE_MONTH = 168
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_TWO_MONTHS = 169
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_THREE_MONTHS = 170
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_SIX_MONTHS = 171
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_NINE_MONTHS = 172
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_TWELVE_MONTHS = 173
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXCISE_TAXES_THREE_MONTHS = 174
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXCISE_TAXES_SIX_MONTHS = 175
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXCISE_TAXES_NINE_MONTHS = 176
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXCISE_TAXES_TWELVE_MONTHS = 177
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_ONE_MONTH = 178
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_TWO_MONTHS = 179
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_THREE_MONTHS = 180
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_SIX_MONTHS = 181
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_NINE_MONTHS = 182
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_TWELVE_MONTHS = 183
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEE_REVENUE_AND_OTHER_INCOME_THREE_MONTHS = 184
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEE_REVENUE_AND_OTHER_INCOME_SIX_MONTHS = 185
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEE_REVENUE_AND_OTHER_INCOME_NINE_MONTHS = 186
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEE_REVENUE_AND_OTHER_INCOME_TWELVE_MONTHS = 187
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_ONE_MONTH = 188
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_TWO_MONTHS = 189
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_THREE_MONTHS = 190
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_SIX_MONTHS = 191
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_NINE_MONTHS = 192
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_TWELVE_MONTHS = 193
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_ONE_MONTH = 194
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_TWO_MONTHS = 195
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_THREE_MONTHS = 196
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_SIX_MONTHS = 197
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_NINE_MONTHS = 198
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_TWELVE_MONTHS = 199
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_ONE_MONTH = 200
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_TWO_MONTHS = 201
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_THREE_MONTHS = 202
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_SIX_MONTHS = 203
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NINE_MONTHS = 204
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_TWELVE_MONTHS = 205
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_ONE_MONTH = 206
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_TWO_MONTHS = 207
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_THREE_MONTHS = 208
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_SIX_MONTHS = 209
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_NINE_MONTHS = 210
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_TWELVE_MONTHS = 211
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_ONE_MONTH = 212
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_TWO_MONTHS = 213
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_THREE_MONTHS = 214
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_SIX_MONTHS = 215
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_NINE_MONTHS = 216
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_TWELVE_MONTHS = 217
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_ONE_MONTH = 218
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_TWO_MONTHS = 219
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_THREE_MONTHS = 220
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_SIX_MONTHS = 221
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_NINE_MONTHS = 222
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_TWELVE_MONTHS = 223
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_ONE_MONTH = 224
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_TWO_MONTHS = 225
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_THREE_MONTHS = 226
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_SIX_MONTHS = 227
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_NINE_MONTHS = 228
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_TWELVE_MONTHS = 229
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSS_ADJUSTMENT_EXPENSE_THREE_MONTHS = 230
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSS_ADJUSTMENT_EXPENSE_SIX_MONTHS = 231
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSS_ADJUSTMENT_EXPENSE_NINE_MONTHS = 232
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSS_ADJUSTMENT_EXPENSE_TWELVE_MONTHS = 233
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_ONE_MONTH = 234
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_TWO_MONTHS = 235
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_THREE_MONTHS = 236
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_SIX_MONTHS = 237
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_NINE_MONTHS = 238
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_TWELVE_MONTHS = 239
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_ONE_MONTH = 240
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_TWO_MONTHS = 241
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_THREE_MONTHS = 242
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_SIX_MONTHS = 243
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_NINE_MONTHS = 244
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_TWELVE_MONTHS = 245
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_ONE_MONTH = 246
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_TWO_MONTHS = 247
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_THREE_MONTHS = 248
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_SIX_MONTHS = 249
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_NINE_MONTHS = 250
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_TWELVE_MONTHS = 251
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_ONE_MONTH = 252
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_TWO_MONTHS = 253
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_THREE_MONTHS = 254
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_SIX_MONTHS = 255
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NINE_MONTHS = 256
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_TWELVE_MONTHS = 257
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_ONE_MONTH = 258
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_TWO_MONTHS = 259
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_THREE_MONTHS = 260
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_SIX_MONTHS = 261
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_NINE_MONTHS = 262
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_TWELVE_MONTHS = 263
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_THREE_MONTHS = 264
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_SIX_MONTHS = 265
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_NINE_MONTHS = 266
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_TWELVE_MONTHS = 267
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_ONE_MONTH = 268
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_TWO_MONTHS = 269
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_THREE_MONTHS = 270
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_SIX_MONTHS = 271
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_NINE_MONTHS = 272
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_TWELVE_MONTHS = 273
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_ONE_MONTH = 274
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_TWO_MONTHS = 275
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_THREE_MONTHS = 276
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_SIX_MONTHS = 277
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_NINE_MONTHS = 278
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_TWELVE_MONTHS = 279
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_ONE_MONTH = 280
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_TWO_MONTHS = 281
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_THREE_MONTHS = 282
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_SIX_MONTHS = 283
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_NINE_MONTHS = 284
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_TWELVE_MONTHS = 285
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_ONE_MONTH = 286
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_TWO_MONTHS = 287
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_THREE_MONTHS = 288
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_SIX_MONTHS = 289
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_NINE_MONTHS = 290
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_TWELVE_MONTHS = 291
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_ONE_MONTH = 292
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_TWO_MONTHS = 293
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_THREE_MONTHS = 294
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_SIX_MONTHS = 295
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_NINE_MONTHS = 296
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_TWELVE_MONTHS = 297
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_ONE_MONTH = 298
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_TWO_MONTHS = 299
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_THREE_MONTHS = 300
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_SIX_MONTHS = 301
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_NINE_MONTHS = 302
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_TWELVE_MONTHS = 303
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_ONE_MONTH = 304
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_TWO_MONTHS = 305
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_THREE_MONTHS = 306
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_SIX_MONTHS = 307
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_NINE_MONTHS = 308
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_TWELVE_MONTHS = 309
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICY_ACQUISITION_EXPENSE_THREE_MONTHS = 310
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICY_ACQUISITION_EXPENSE_SIX_MONTHS = 311
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICY_ACQUISITION_EXPENSE_NINE_MONTHS = 312
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICY_ACQUISITION_EXPENSE_TWELVE_MONTHS = 313
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_POLICYHOLDER_BENEFITS_AND_CLAIMS_THREE_MONTHS = 314
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_POLICYHOLDER_BENEFITS_AND_CLAIMS_SIX_MONTHS = 315
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_POLICYHOLDER_BENEFITS_AND_CLAIMS_NINE_MONTHS = 316
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_POLICYHOLDER_BENEFITS_AND_CLAIMS_TWELVE_MONTHS = 317
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_ONE_MONTH = 318
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_TWO_MONTHS = 319
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_THREE_MONTHS = 320
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_SIX_MONTHS = 321
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_NINE_MONTHS = 322
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_TWELVE_MONTHS = 323
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_PREMIUMS_EARNED_THREE_MONTHS = 324
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_PREMIUMS_EARNED_SIX_MONTHS = 325
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_PREMIUMS_EARNED_NINE_MONTHS = 326
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_PREMIUMS_EARNED_TWELVE_MONTHS = 327
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_ONE_MONTH = 328
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_TWO_MONTHS = 329
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_THREE_MONTHS = 330
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_SIX_MONTHS = 331
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_NINE_MONTHS = 332
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_TWELVE_MONTHS = 333
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_ONE_MONTH = 334
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_TWO_MONTHS = 335
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_THREE_MONTHS = 336
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_SIX_MONTHS = 337
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_NINE_MONTHS = 338
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_TWELVE_MONTHS = 339
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_ONE_MONTH = 340
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_THREE_MONTHS = 341
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_SIX_MONTHS = 342
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_NINE_MONTHS = 343
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_TWELVE_MONTHS = 344
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_ONE_MONTH = 345
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_TWO_MONTHS = 346
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_THREE_MONTHS = 347
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_SIX_MONTHS = 348
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_NINE_MONTHS = 349
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_TWELVE_MONTHS = 350
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_ONE_MONTH = 351
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_TWO_MONTHS = 352
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_THREE_MONTHS = 353
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_SIX_MONTHS = 354
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_NINE_MONTHS = 355
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_TWELVE_MONTHS = 356
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_ONE_MONTH = 357
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_TWO_MONTHS = 358
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_THREE_MONTHS = 359
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_SIX_MONTHS = 360
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_NINE_MONTHS = 361
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_TWELVE_MONTHS = 362
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_ONE_MONTH = 363
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_TWO_MONTHS = 364
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_THREE_MONTHS = 365
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_SIX_MONTHS = 366
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_NINE_MONTHS = 367
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_TWELVE_MONTHS = 368
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_ONE_MONTH = 369
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_TWO_MONTHS = 370
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_THREE_MONTHS = 371
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_SIX_MONTHS = 372
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_NINE_MONTHS = 373
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_TWELVE_MONTHS = 374
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_ONE_MONTH = 375
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_TWO_MONTHS = 376
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_THREE_MONTHS = 377
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_SIX_MONTHS = 378
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NINE_MONTHS = 379
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_TWELVE_MONTHS = 380
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_ONE_MONTH = 381
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_TWO_MONTHS = 382
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_THREE_MONTHS = 383
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_SIX_MONTHS = 384
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_NINE_MONTHS = 385
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_TWELVE_MONTHS = 386
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_ONE_MONTH = 387
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_TWO_MONTHS = 388
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_THREE_MONTHS = 389
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_SIX_MONTHS = 390
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_NINE_MONTHS = 391
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_TWELVE_MONTHS = 392
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NET_MINORITY_INTEREST_THREE_MONTHS = 393
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NET_MINORITY_INTEREST_SIX_MONTHS = 394
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NET_MINORITY_INTEREST_NINE_MONTHS = 395
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NET_MINORITY_INTEREST_TWELVE_MONTHS = 396
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CEDED_PREMIUMS_THREE_MONTHS = 397
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CEDED_PREMIUMS_SIX_MONTHS = 398
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CEDED_PREMIUMS_NINE_MONTHS = 399
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CEDED_PREMIUMS_TWELVE_MONTHS = 400
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_ONE_MONTH = 401
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_TWO_MONTHS = 402
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_THREE_MONTHS = 403
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_SIX_MONTHS = 404
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_NINE_MONTHS = 405
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_TWELVE_MONTHS = 406
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_CARD_THREE_MONTHS = 407
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_CARD_SIX_MONTHS = 408
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_CARD_NINE_MONTHS = 409
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_CARD_TWELVE_MONTHS = 410
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_ONE_MONTH = 411
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_TWO_MONTHS = 412
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_THREE_MONTHS = 413
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_SIX_MONTHS = 414
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_NINE_MONTHS = 415
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_TWELVE_MONTHS = 416
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_ONE_MONTH = 417
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_TWO_MONTHS = 418
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_THREE_MONTHS = 419
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_SIX_MONTHS = 420
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_NINE_MONTHS = 421
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_TWELVE_MONTHS = 422
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EQUIPMENT_THREE_MONTHS = 423
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EQUIPMENT_SIX_MONTHS = 424
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EQUIPMENT_NINE_MONTHS = 425
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EQUIPMENT_TWELVE_MONTHS = 426
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXPLORATION_DEVELOPMENT_AND_MINERAL_PROPERTY_LEASE_EXPENSES_THREE_MONTHS = 427
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXPLORATION_DEVELOPMENT_AND_MINERAL_PROPERTY_LEASE_EXPENSES_SIX_MONTHS = 428
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXPLORATION_DEVELOPMENT_AND_MINERAL_PROPERTY_LEASE_EXPENSES_NINE_MONTHS = 429
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXPLORATION_DEVELOPMENT_AND_MINERAL_PROPERTY_LEASE_EXPENSES_TWELVE_MONTHS = 430
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_ONE_MONTH = 431
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_THREE_MONTHS = 432
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_SIX_MONTHS = 433
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_NINE_MONTHS = 434
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_TWELVE_MONTHS = 435
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_EXCHANGE_TRADING_GAINS_THREE_MONTHS = 436
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_EXCHANGE_TRADING_GAINS_SIX_MONTHS = 437
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_EXCHANGE_TRADING_GAINS_NINE_MONTHS = 438
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_EXCHANGE_TRADING_GAINS_TWELVE_MONTHS = 439
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_ONE_MONTH = 440
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_TWO_MONTHS = 441
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_THREE_MONTHS = 442
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_SIX_MONTHS = 443
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_NINE_MONTHS = 444
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_TWELVE_MONTHS = 445
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_AND_PURCHASE_POWER_THREE_MONTHS = 446
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_AND_PURCHASE_POWER_SIX_MONTHS = 447
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_AND_PURCHASE_POWER_NINE_MONTHS = 448
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_AND_PURCHASE_POWER_TWELVE_MONTHS = 449
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_ONE_MONTH = 450
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_TWO_MONTHS = 451
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_THREE_MONTHS = 452
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_SIX_MONTHS = 453
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_NINE_MONTHS = 454
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_TWELVE_MONTHS = 455
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_ONE_MONTH = 456
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_THREE_MONTHS = 457
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_SIX_MONTHS = 458
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_NINE_MONTHS = 459
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_TWELVE_MONTHS = 460
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_ONE_MONTH = 461
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_TWO_MONTHS = 462
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_THREE_MONTHS = 463
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_SIX_MONTHS = 464
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_NINE_MONTHS = 465
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_TWELVE_MONTHS = 466
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PREMIUMS_WRITTEN_THREE_MONTHS = 467
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PREMIUMS_WRITTEN_SIX_MONTHS = 468
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PREMIUMS_WRITTEN_NINE_MONTHS = 469
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PREMIUMS_WRITTEN_TWELVE_MONTHS = 470
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_ONE_MONTH = 471
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_TWO_MONTHS = 472
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_THREE_MONTHS = 473
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_SIX_MONTHS = 474
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_NINE_MONTHS = 475
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_TWELVE_MONTHS = 476
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCREASE_DECREASE_IN_NET_UNEARNED_PREMIUM_RESERVES_THREE_MONTHS = 477
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCREASE_DECREASE_IN_NET_UNEARNED_PREMIUM_RESERVES_SIX_MONTHS = 478
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCREASE_DECREASE_IN_NET_UNEARNED_PREMIUM_RESERVES_NINE_MONTHS = 479
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCREASE_DECREASE_IN_NET_UNEARNED_PREMIUM_RESERVES_TWELVE_MONTHS = 480
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INSURANCE_AND_CLAIMS_THREE_MONTHS = 481
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INSURANCE_AND_CLAIMS_SIX_MONTHS = 482
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INSURANCE_AND_CLAIMS_NINE_MONTHS = 483
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INSURANCE_AND_CLAIMS_TWELVE_MONTHS = 484
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_ONE_MONTH = 485
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_THREE_MONTHS = 486
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_SIX_MONTHS = 487
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_NINE_MONTHS = 488
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_TWELVE_MONTHS = 489
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_THREE_MONTHS = 490
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_SIX_MONTHS = 491
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_NINE_MONTHS = 492
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_TWELVE_MONTHS = 493
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_ONE_MONTH = 494
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_THREE_MONTHS = 495
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_SIX_MONTHS = 496
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_NINE_MONTHS = 497
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_TWELVE_MONTHS = 498
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_SHORT_TERM_DEBT_THREE_MONTHS = 499
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_SHORT_TERM_DEBT_SIX_MONTHS = 500
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_SHORT_TERM_DEBT_NINE_MONTHS = 501
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_SHORT_TERM_DEBT_TWELVE_MONTHS = 502
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_ONE_MONTH = 503
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_THREE_MONTHS = 504
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_SIX_MONTHS = 505
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_NINE_MONTHS = 506
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_TWELVE_MONTHS = 507
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_THREE_MONTHS = 508
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_SIX_MONTHS = 509
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_NINE_MONTHS = 510
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_TWELVE_MONTHS = 511
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_ONE_MONTH = 512
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_THREE_MONTHS = 513
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_SIX_MONTHS = 514
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_NINE_MONTHS = 515
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_TWELVE_MONTHS = 516
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_ONE_MONTH = 517
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_THREE_MONTHS = 518
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_SIX_MONTHS = 519
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_NINE_MONTHS = 520
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_TWELVE_MONTHS = 521
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_ONE_MONTH = 522
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_THREE_MONTHS = 523
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_SIX_MONTHS = 524
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_NINE_MONTHS = 525
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_TWELVE_MONTHS = 526
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_ONE_MONTH = 527
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_TWO_MONTHS = 528
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_THREE_MONTHS = 529
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_SIX_MONTHS = 530
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_NINE_MONTHS = 531
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_TWELVE_MONTHS = 532
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_BANKING_PROFIT_THREE_MONTHS = 533
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_BANKING_PROFIT_SIX_MONTHS = 534
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_BANKING_PROFIT_NINE_MONTHS = 535
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_BANKING_PROFIT_TWELVE_MONTHS = 536
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_ONE_MONTH = 537
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_TWO_MONTHS = 538
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_THREE_MONTHS = 539
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_SIX_MONTHS = 540
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_NINE_MONTHS = 541
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_TWELVE_MONTHS = 542
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_FOREIGN_EXCHANGE_GAIN_LOSS_THREE_MONTHS = 543
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_FOREIGN_EXCHANGE_GAIN_LOSS_SIX_MONTHS = 544
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_FOREIGN_EXCHANGE_GAIN_LOSS_NINE_MONTHS = 545
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_FOREIGN_EXCHANGE_GAIN_LOSS_TWELVE_MONTHS = 546
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OCCUPANCY_EXPENSE_THREE_MONTHS = 547
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OCCUPANCY_EXPENSE_SIX_MONTHS = 548
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OCCUPANCY_EXPENSE_NINE_MONTHS = 549
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OCCUPANCY_EXPENSE_TWELVE_MONTHS = 550
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_PREMIUMS_WRITTEN_THREE_MONTHS = 551
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_PREMIUMS_WRITTEN_SIX_MONTHS = 552
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_PREMIUMS_WRITTEN_NINE_MONTHS = 553
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_PREMIUMS_WRITTEN_TWELVE_MONTHS = 554
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_REALIZED_GAIN_LOSS_ON_INVESTMENTS_THREE_MONTHS = 555
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_REALIZED_GAIN_LOSS_ON_INVESTMENTS_SIX_MONTHS = 556
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_REALIZED_GAIN_LOSS_ON_INVESTMENTS_NINE_MONTHS = 557
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_REALIZED_GAIN_LOSS_ON_INVESTMENTS_TWELVE_MONTHS = 558
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OCCUPANCY_AND_EQUIPMENT_THREE_MONTHS = 559
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OCCUPANCY_AND_EQUIPMENT_SIX_MONTHS = 560
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OCCUPANCY_AND_EQUIPMENT_NINE_MONTHS = 561
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OCCUPANCY_AND_EQUIPMENT_TWELVE_MONTHS = 562
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_ONE_MONTH = 563
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_TWO_MONTHS = 564
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_THREE_MONTHS = 565
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_SIX_MONTHS = 566
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_NINE_MONTHS = 567
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_TWELVE_MONTHS = 568
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_ONE_MONTH = 569
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_THREE_MONTHS = 570
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_SIX_MONTHS = 571
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_NINE_MONTHS = 572
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_TWELVE_MONTHS = 573
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_ONE_MONTH = 574
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_THREE_MONTHS = 575
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_SIX_MONTHS = 576
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_NINE_MONTHS = 577
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_TWELVE_MONTHS = 578
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_ONE_MONTH = 579
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_THREE_MONTHS = 580
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_SIX_MONTHS = 581
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_NINE_MONTHS = 582
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_TWELVE_MONTHS = 583
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_ONE_MONTH = 584
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_TWO_MONTHS = 585
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_THREE_MONTHS = 586
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_SIX_MONTHS = 587
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_NINE_MONTHS = 588
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_TWELVE_MONTHS = 589
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_TWO_MONTHS = 590
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_THREE_MONTHS = 591
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_SIX_MONTHS = 592
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_NINE_MONTHS = 593
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_TWELVE_MONTHS = 594
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_ONE_MONTH = 595
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_TWO_MONTHS = 596
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_THREE_MONTHS = 597
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_SIX_MONTHS = 598
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_NINE_MONTHS = 599
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_TWELVE_MONTHS = 600
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_CEDED_TWELVE_MONTHS = 601
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_GROSS_THREE_MONTHS = 602
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_GROSS_SIX_MONTHS = 603
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_GROSS_NINE_MONTHS = 604
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_GROSS_TWELVE_MONTHS = 605
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_DIVIDENDS_THREE_MONTHS = 606
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_DIVIDENDS_SIX_MONTHS = 607
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_DIVIDENDS_NINE_MONTHS = 608
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_DIVIDENDS_TWELVE_MONTHS = 609
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_INTEREST_THREE_MONTHS = 610
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_INTEREST_SIX_MONTHS = 611
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_INTEREST_NINE_MONTHS = 612
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_INTEREST_TWELVE_MONTHS = 613
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_ONE_MONTH = 614
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_TWO_MONTHS = 615
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_THREE_MONTHS = 616
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_SIX_MONTHS = 617
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_NINE_MONTHS = 618
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_TWELVE_MONTHS = 619
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_TWO_MONTHS = 620
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_THREE_MONTHS = 621
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_SIX_MONTHS = 622
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_NINE_MONTHS = 623
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_TWELVE_MONTHS = 624
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_ONE_MONTH = 625
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_TWO_MONTHS = 626
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_THREE_MONTHS = 627
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_SIX_MONTHS = 628
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_NINE_MONTHS = 629
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_TWELVE_MONTHS = 630
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_ONE_MONTH = 631
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_TWO_MONTHS = 632
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_THREE_MONTHS = 633
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_SIX_MONTHS = 634
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_NINE_MONTHS = 635
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_TWELVE_MONTHS = 636
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_ONE_MONTH = 637
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_TWO_MONTHS = 638
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_THREE_MONTHS = 639
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_SIX_MONTHS = 640
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_NINE_MONTHS = 641
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_TWELVE_MONTHS = 642
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_ACTIVITIES_THREE_MONTHS = 643
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_ACTIVITIES_SIX_MONTHS = 644
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_ACTIVITIES_NINE_MONTHS = 645
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_ACTIVITIES_TWELVE_MONTHS = 646
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_ONE_MONTH = 647
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_THREE_MONTHS = 648
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_SIX_MONTHS = 649
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_NINE_MONTHS = 650
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_TWELVE_MONTHS = 651
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_ONE_MONTH = 652
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_THREE_MONTHS = 653
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_SIX_MONTHS = 654
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_NINE_MONTHS = 655
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_TWELVE_MONTHS = 656
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRUST_FEESBY_COMMISSIONS_THREE_MONTHS = 657
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRUST_FEESBY_COMMISSIONS_SIX_MONTHS = 658
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRUST_FEESBY_COMMISSIONS_NINE_MONTHS = 659
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRUST_FEESBY_COMMISSIONS_TWELVE_MONTHS = 660
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNDERWRITING_EXPENSES_THREE_MONTHS = 661
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNDERWRITING_EXPENSES_SIX_MONTHS = 662
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNDERWRITING_EXPENSES_NINE_MONTHS = 663
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNDERWRITING_EXPENSES_TWELVE_MONTHS = 664
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WRITE_OFF_THREE_MONTHS = 665
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WRITE_OFF_SIX_MONTHS = 666
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WRITE_OFF_NINE_MONTHS = 667
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WRITE_OFF_TWELVE_MONTHS = 668
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_ONE_MONTH = 669
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_THREE_MONTHS = 670
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_SIX_MONTHS = 671
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_NINE_MONTHS = 672
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_TWELVE_MONTHS = 673
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_ONE_MONTH = 674
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_TWO_MONTHS = 675
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_THREE_MONTHS = 676
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_SIX_MONTHS = 677
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_NINE_MONTHS = 678
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_TWELVE_MONTHS = 679
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_ONE_MONTH = 680
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_TWO_MONTHS = 681
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_THREE_MONTHS = 682
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_SIX_MONTHS = 683
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_NINE_MONTHS = 684
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_TWELVE_MONTHS = 685
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_TAX_LOSS_CARRYFORWARD_THREE_MONTHS = 686
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_TAX_LOSS_CARRYFORWARD_SIX_MONTHS = 687
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_TAX_LOSS_CARRYFORWARD_NINE_MONTHS = 688
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_TAX_LOSS_CARRYFORWARD_TWELVE_MONTHS = 689
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_ONE_MONTH = 690
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_TWO_MONTHS = 691
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_THREE_MONTHS = 692
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_SIX_MONTHS = 693
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_NINE_MONTHS = 694
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_TWELVE_MONTHS = 695
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_ONE_MONTH = 696
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_THREE_MONTHS = 697
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_SIX_MONTHS = 698
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_NINE_MONTHS = 699
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_TWELVE_MONTHS = 700
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_ONE_MONTH = 701
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_TWO_MONTHS = 702
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_THREE_MONTHS = 703
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_SIX_MONTHS = 704
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_NINE_MONTHS = 705
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_TWELVE_MONTHS = 706
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_ONE_MONTH = 707
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_TWO_MONTHS = 708
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_THREE_MONTHS = 709
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_SIX_MONTHS = 710
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_NINE_MONTHS = 711
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_TWELVE_MONTHS = 712
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_ONE_MONTH = 713
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_TWO_MONTHS = 714
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_THREE_MONTHS = 715
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_SIX_MONTHS = 716
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_NINE_MONTHS = 717
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_TWELVE_MONTHS = 718
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_ONE_MONTH = 719
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_TWO_MONTHS = 720
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_THREE_MONTHS = 721
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_SIX_MONTHS = 722
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_NINE_MONTHS = 723
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_TWELVE_MONTHS = 724
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_ONE_MONTH = 725
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_THREE_MONTHS = 726
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_SIX_MONTHS = 727
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_NINE_MONTHS = 728
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_TWELVE_MONTHS = 729
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_ONE_MONTH = 730
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_THREE_MONTHS = 731
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_SIX_MONTHS = 732
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_NINE_MONTHS = 733
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_TWELVE_MONTHS = 734
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_INVESTMENT_PROPERTY_THREE_MONTHS = 735
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_INVESTMENT_PROPERTY_SIX_MONTHS = 736
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_INVESTMENT_PROPERTY_NINE_MONTHS = 737
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_INVESTMENT_PROPERTY_TWELVE_MONTHS = 738
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSSON_EXTINGUISHMENTOF_DEBT_THREE_MONTHS = 739
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSSON_EXTINGUISHMENTOF_DEBT_SIX_MONTHS = 740
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSSON_EXTINGUISHMENTOF_DEBT_NINE_MONTHS = 741
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSSON_EXTINGUISHMENTOF_DEBT_TWELVE_MONTHS = 742
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_ONE_MONTH = 743
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_TWO_MONTHS = 744
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_THREE_MONTHS = 745
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_SIX_MONTHS = 746
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_NINE_MONTHS = 747
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_TWELVE_MONTHS = 748
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_ONE_MONTH = 749
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_TWO_MONTHS = 750
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_THREE_MONTHS = 751
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_SIX_MONTHS = 752
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_NINE_MONTHS = 753
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_TWELVE_MONTHS = 754
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_ONE_MONTH = 755
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_THREE_MONTHS = 756
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_SIX_MONTHS = 757
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_NINE_MONTHS = 758
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_TWELVE_MONTHS = 759
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_TWO_MONTHS = 760
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_THREE_MONTHS = 761
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_SIX_MONTHS = 762
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_NINE_MONTHS = 763
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_TWELVE_MONTHS = 764
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SOCIAL_SECURITY_COSTS_TWELVE_MONTHS = 765
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PENSION_COSTS_TWELVE_MONTHS = 766
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_TWO_MONTHS = 767
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_THREE_MONTHS = 768
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_SIX_MONTHS = 769
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_NINE_MONTHS = 770
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_TWELVE_MONTHS = 771
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOMEFROM_ASSOCIATESAND_OTHER_PARTICIPATING_INTERESTS_THREE_MONTHS = 772
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOMEFROM_ASSOCIATESAND_OTHER_PARTICIPATING_INTERESTS_SIX_MONTHS = 773
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOMEFROM_ASSOCIATESAND_OTHER_PARTICIPATING_INTERESTS_NINE_MONTHS = 774
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOMEFROM_ASSOCIATESAND_OTHER_PARTICIPATING_INTERESTS_TWELVE_MONTHS = 775
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OTHER_FINANCE_COST_THREE_MONTHS = 776
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OTHER_FINANCE_COST_SIX_MONTHS = 777
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OTHER_FINANCE_COST_NINE_MONTHS = 778
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OTHER_FINANCE_COST_TWELVE_MONTHS = 779
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_DIVIDEND_PAYMENT_THREE_MONTHS = 780
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_DIVIDEND_PAYMENT_NINE_MONTHS = 781
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_DIVIDEND_PAYMENT_TWELVE_MONTHS = 782
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_INCOME_THREE_MONTHS = 783
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_INCOME_SIX_MONTHS = 784
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_INCOME_NINE_MONTHS = 785
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_INCOME_TWELVE_MONTHS = 786
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_EXPENSE_THREE_MONTHS = 787
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_EXPENSE_SIX_MONTHS = 788
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_EXPENSE_NINE_MONTHS = 789
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_EXPENSE_TWELVE_MONTHS = 790
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_TRADING_INCOME_TWELVE_MONTHS = 791
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_STAFF_COSTS_TWELVE_MONTHS = 792
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_INVESTMENT_PROPERTIES_THREE_MONTHS = 793
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_INVESTMENT_PROPERTIES_SIX_MONTHS = 794
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_INVESTMENT_PROPERTIES_NINE_MONTHS = 795
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_INVESTMENT_PROPERTIES_TWELVE_MONTHS = 796
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AVERAGE_DILUTION_EARNINGS_THREE_MONTHS = 797
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AVERAGE_DILUTION_EARNINGS_SIX_MONTHS = 798
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AVERAGE_DILUTION_EARNINGS_NINE_MONTHS = 799
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AVERAGE_DILUTION_EARNINGS_TWELVE_MONTHS = 800
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_FINANCIAL_INSTRUMENTS_DESIGNATEDAS_CASH_FLOW_HEDGES_THREE_MONTHS = 801
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_FINANCIAL_INSTRUMENTS_DESIGNATEDAS_CASH_FLOW_HEDGES_SIX_MONTHS = 802
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_FINANCIAL_INSTRUMENTS_DESIGNATEDAS_CASH_FLOW_HEDGES_NINE_MONTHS = 803
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_FINANCIAL_INSTRUMENTS_DESIGNATEDAS_CASH_FLOW_HEDGES_TWELVE_MONTHS = 804
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_DERECOGNITIONOF_AVAILABLE_FOR_SALE_FINANCIAL_ASSETS_THREE_MONTHS = 805
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_DERECOGNITIONOF_AVAILABLE_FOR_SALE_FINANCIAL_ASSETS_SIX_MONTHS = 806
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_DERECOGNITIONOF_AVAILABLE_FOR_SALE_FINANCIAL_ASSETS_NINE_MONTHS = 807
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_DERECOGNITIONOF_AVAILABLE_FOR_SALE_FINANCIAL_ASSETS_TWELVE_MONTHS = 808
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NEGATIVE_GOODWILL_IMMEDIATELY_RECOGNIZED_THREE_MONTHS = 809
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NEGATIVE_GOODWILL_IMMEDIATELY_RECOGNIZED_SIX_MONTHS = 810
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NEGATIVE_GOODWILL_IMMEDIATELY_RECOGNIZED_TWELVE_MONTHS = 811
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINS_LOSSESON_FINANCIAL_INSTRUMENTS_DUETO_FAIR_VALUE_ADJUSTMENTSIN_HEDGE_ACCOUNTING_TOTAL_THREE_MONTHS = 812
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINS_LOSSESON_FINANCIAL_INSTRUMENTS_DUETO_FAIR_VALUE_ADJUSTMENTSIN_HEDGE_ACCOUNTING_TOTAL_SIX_MONTHS = 813
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINS_LOSSESON_FINANCIAL_INSTRUMENTS_DUETO_FAIR_VALUE_ADJUSTMENTSIN_HEDGE_ACCOUNTING_TOTAL_NINE_MONTHS = 814
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINS_LOSSESON_FINANCIAL_INSTRUMENTS_DUETO_FAIR_VALUE_ADJUSTMENTSIN_HEDGE_ACCOUNTING_TOTAL_TWELVE_MONTHS = 815
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_LOSSES_REVERSALS_FINANCIAL_INSTRUMENTS_NET_THREE_MONTHS = 816
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_LOSSES_REVERSALS_FINANCIAL_INSTRUMENTS_NET_SIX_MONTHS = 817
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_LOSSES_REVERSALS_FINANCIAL_INSTRUMENTS_NET_NINE_MONTHS = 818
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_LOSSES_REVERSALS_FINANCIAL_INSTRUMENTS_NET_TWELVE_MONTHS = 819
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_PAID_INCURRED_THREE_MONTHS = 820
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_PAID_INCURRED_SIX_MONTHS = 821
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_PAID_INCURRED_NINE_MONTHS = 822
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_PAID_INCURRED_TWELVE_MONTHS = 823
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIES_CLAIMSAND_BENEFITS_THREE_MONTHS = 824
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIES_CLAIMSAND_BENEFITS_SIX_MONTHS = 825
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIES_CLAIMSAND_BENEFITS_NINE_MONTHS = 826
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIES_CLAIMSAND_BENEFITS_TWELVE_MONTHS = 827
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INSURANCE_LIABILITIES_NETOF_REINSURANCE_THREE_MONTHS = 828
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INSURANCE_LIABILITIES_NETOF_REINSURANCE_SIX_MONTHS = 829
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INSURANCE_LIABILITIES_NETOF_REINSURANCE_NINE_MONTHS = 830
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INSURANCE_LIABILITIES_NETOF_REINSURANCE_TWELVE_MONTHS = 831
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_THREE_MONTHS = 832
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_SIX_MONTHS = 833
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_NINE_MONTHS = 834
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_TWELVE_MONTHS = 835
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_RISK_PROVISIONS_THREE_MONTHS = 836
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_RISK_PROVISIONS_SIX_MONTHS = 837
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_RISK_PROVISIONS_NINE_MONTHS = 838
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_RISK_PROVISIONS_TWELVE_MONTHS = 839
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WAGESAND_SALARIES_SIX_MONTHS = 840
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WAGESAND_SALARIES_TWELVE_MONTHS = 841
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_TWO_MONTHS = 842
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_THREE_MONTHS = 843
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_SIX_MONTHS = 844
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_NINE_MONTHS = 845
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_TWELVE_MONTHS = 846
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_THREE_MONTHS = 847
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_SIX_MONTHS = 848
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_NINE_MONTHS = 849
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_TWELVE_MONTHS = 850
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_EXPENSES_THREE_MONTHS = 851
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_EXPENSES_SIX_MONTHS = 852
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_EXPENSES_NINE_MONTHS = 853
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_EXPENSES_TWELVE_MONTHS = 854
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_ONE_MONTH = 855
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_TWO_MONTHS = 856
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_THREE_MONTHS = 857
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_SIX_MONTHS = 858
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_NINE_MONTHS = 859
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_TWELVE_MONTHS = 860
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_ONE_MONTH = 861
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_TWO_MONTHS = 862
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_THREE_MONTHS = 863
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_SIX_MONTHS = 864
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_NINE_MONTHS = 865
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_TWELVE_MONTHS = 866
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_ONE_MONTH = 867
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_TWO_MONTHS = 868
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_THREE_MONTHS = 869
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_SIX_MONTHS = 870
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_NINE_MONTHS = 871
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_TWELVE_MONTHS = 872
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_ONE_MONTH = 873
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_TWO_MONTHS = 874
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_THREE_MONTHS = 875
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_SIX_MONTHS = 876
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_NINE_MONTHS = 877
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_TWELVE_MONTHS = 878
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_ONE_MONTH = 879
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_TWO_MONTHS = 880
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_THREE_MONTHS = 881
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_SIX_MONTHS = 882
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_NINE_MONTHS = 883
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_TWELVE_MONTHS = 884
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STOCK_BASED_COMPENSATION_THREE_MONTHS = 885
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STOCK_BASED_COMPENSATION_SIX_MONTHS = 886
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STOCK_BASED_COMPENSATION_NINE_MONTHS = 887
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STOCK_BASED_COMPENSATION_TWELVE_MONTHS = 888
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DILUTED_NI_AVAILTO_COM_STOCKHOLDERS_THREE_MONTHS = 889
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DILUTED_NI_AVAILTO_COM_STOCKHOLDERS_SIX_MONTHS = 890
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DILUTED_NI_AVAILTO_COM_STOCKHOLDERS_NINE_MONTHS = 891
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DILUTED_NI_AVAILTO_COM_STOCKHOLDERS_TWELVE_MONTHS = 892
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_CONTRACT_LIABILITIES_INCURRED_THREE_MONTHS = 893
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_CONTRACT_LIABILITIES_INCURRED_SIX_MONTHS = 894
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_CONTRACT_LIABILITIES_INCURRED_NINE_MONTHS = 895
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_CONTRACT_LIABILITIES_INCURRED_TWELVE_MONTHS = 896
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INVESTMENT_CONTRACT_THREE_MONTHS = 897
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INVESTMENT_CONTRACT_SIX_MONTHS = 898
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INVESTMENT_CONTRACT_NINE_MONTHS = 899
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INVESTMENT_CONTRACT_TWELVE_MONTHS = 900
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_EQUITY_SHARES_THREE_MONTHS = 901
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_EQUITY_SHARES_SIX_MONTHS = 902
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_EQUITY_SHARES_NINE_MONTHS = 903
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_EQUITY_SHARES_TWELVE_MONTHS = 904
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_NON_EQUITY_SHARES_THREE_MONTHS = 905
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_NON_EQUITY_SHARES_SIX_MONTHS = 906
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_NON_EQUITY_SHARES_NINE_MONTHS = 907
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_NON_EQUITY_SHARES_TWELVE_MONTHS = 908
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_THREE_MONTHS = 909
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_SIX_MONTHS = 910
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_NINE_MONTHS = 911
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_TWELVE_MONTHS = 912
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_REINSURERS_SHARE_THREE_MONTHS = 913
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_REINSURERS_SHARE_SIX_MONTHS = 914
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_REINSURERS_SHARE_NINE_MONTHS = 915
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_REINSURERS_SHARE_TWELVE_MONTHS = 916
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_CHANGEIN_INSURANCE_LIABILITIES_THREE_MONTHS = 917
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_CHANGEIN_INSURANCE_LIABILITIES_SIX_MONTHS = 918
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_CHANGEIN_INSURANCE_LIABILITIES_NINE_MONTHS = 919
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_CHANGEIN_INSURANCE_LIABILITIES_TWELVE_MONTHS = 920
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INSURANCE_LIABILITIES_THREE_MONTHS = 921
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INSURANCE_LIABILITIES_SIX_MONTHS = 922
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INSURANCE_LIABILITIES_NINE_MONTHS = 923
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INSURANCE_LIABILITIES_TWELVE_MONTHS = 924
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OPERATING_INCOME_AS_REPORTED_THREE_MONTHS = 925
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OPERATING_INCOME_AS_REPORTED_SIX_MONTHS = 926
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OPERATING_INCOME_AS_REPORTED_NINE_MONTHS = 927
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OPERATING_INCOME_AS_REPORTED_TWELVE_MONTHS = 928
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_GA_THREE_MONTHS = 929
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_GA_SIX_MONTHS = 930
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_GA_NINE_MONTHS = 931
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_GA_TWELVE_MONTHS = 932
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_COSTOF_REVENUE_THREE_MONTHS = 933
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_COSTOF_REVENUE_SIX_MONTHS = 934
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_COSTOF_REVENUE_NINE_MONTHS = 935
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_COSTOF_REVENUE_TWELVE_MONTHS = 936
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENTAND_LANDING_FEES_COSTOF_REVENUE_THREE_MONTHS = 937
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENTAND_LANDING_FEES_COSTOF_REVENUE_SIX_MONTHS = 938
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENTAND_LANDING_FEES_COSTOF_REVENUE_NINE_MONTHS = 939
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENTAND_LANDING_FEES_COSTOF_REVENUE_TWELVE_MONTHS = 940
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DDA_COSTOF_REVENUE_THREE_MONTHS = 941
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DDA_COSTOF_REVENUE_SIX_MONTHS = 942
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DDA_COSTOF_REVENUE_NINE_MONTHS = 943
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DDA_COSTOF_REVENUE_TWELVE_MONTHS = 944
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_EXPENSE_SUPPLEMENTAL_THREE_MONTHS = 945
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_EXPENSE_SUPPLEMENTAL_SIX_MONTHS = 946
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_EXPENSE_SUPPLEMENTAL_NINE_MONTHS = 947
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_EXPENSE_SUPPLEMENTAL_TWELVE_MONTHS = 948
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_PRE_TAX_INCOME_THREE_MONTHS = 949
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_PRE_TAX_INCOME_SIX_MONTHS = 950
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_PRE_TAX_INCOME_NINE_MONTHS = 951
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_PRE_TAX_INCOME_TWELVE_MONTHS = 952
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_EXPENSES_SUPPLEMENTAL_THREE_MONTHS = 953
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_EXPENSES_SUPPLEMENTAL_SIX_MONTHS = 954
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_EXPENSES_SUPPLEMENTAL_NINE_MONTHS = 955
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_EXPENSES_SUPPLEMENTAL_TWELVE_MONTHS = 956
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SUPPLEMENTAL_THREE_MONTHS = 957
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SUPPLEMENTAL_SIX_MONTHS = 958
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SUPPLEMENTAL_NINE_MONTHS = 959
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SUPPLEMENTAL_TWELVE_MONTHS = 960
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SUPPLEMENTAL_THREE_MONTHS = 961
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SUPPLEMENTAL_SIX_MONTHS = 962
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SUPPLEMENTAL_NINE_MONTHS = 963
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SUPPLEMENTAL_TWELVE_MONTHS = 964
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISPOSALOF_BUSINESSES_SUPPLEMENTAL_THREE_MONTHS = 965
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISPOSALOF_BUSINESSES_SUPPLEMENTAL_SIX_MONTHS = 966
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISPOSALOF_BUSINESSES_SUPPLEMENTAL_NINE_MONTHS = 967
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISPOSALOF_BUSINESSES_SUPPLEMENTAL_TWELVE_MONTHS = 968
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISCONTINUED_OPERATIONS_SUPPLEMENTAL_THREE_MONTHS = 969
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISCONTINUED_OPERATIONS_SUPPLEMENTAL_SIX_MONTHS = 970
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISCONTINUED_OPERATIONS_SUPPLEMENTAL_NINE_MONTHS = 971
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISCONTINUED_OPERATIONS_SUPPLEMENTAL_TWELVE_MONTHS = 972
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_ASSET_DISPOSALS_SUPPLEMENTAL_THREE_MONTHS = 973
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_ASSET_DISPOSALS_SUPPLEMENTAL_SIX_MONTHS = 974
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_ASSET_DISPOSALS_SUPPLEMENTAL_NINE_MONTHS = 975
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_ASSET_DISPOSALS_SUPPLEMENTAL_TWELVE_MONTHS = 976
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_WRITE_OFF_WRITE_DOWNOF_CAPITAL_ASSETS_SUPPLEMENTAL_THREE_MONTHS = 977
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_WRITE_OFF_WRITE_DOWNOF_CAPITAL_ASSETS_SUPPLEMENTAL_SIX_MONTHS = 978
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_WRITE_OFF_WRITE_DOWNOF_CAPITAL_ASSETS_SUPPLEMENTAL_NINE_MONTHS = 979
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_WRITE_OFF_WRITE_DOWNOF_CAPITAL_ASSETS_SUPPLEMENTAL_TWELVE_MONTHS = 980
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GOODWILL_IMPAIRMENT_WRITE_OFF_SUPPLEMENTAL_THREE_MONTHS = 981
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GOODWILL_IMPAIRMENT_WRITE_OFF_SUPPLEMENTAL_SIX_MONTHS = 982
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GOODWILL_IMPAIRMENT_WRITE_OFF_SUPPLEMENTAL_NINE_MONTHS = 983
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GOODWILL_IMPAIRMENT_WRITE_OFF_SUPPLEMENTAL_TWELVE_MONTHS = 984
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_WRITE_OFF_WRITE_DOWNOF_OTHER_ASSETS_SUPPLEMENTAL_THREE_MONTHS = 985
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_WRITE_OFF_WRITE_DOWNOF_OTHER_ASSETS_SUPPLEMENTAL_SIX_MONTHS = 986
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_WRITE_OFF_WRITE_DOWNOF_OTHER_ASSETS_SUPPLEMENTAL_NINE_MONTHS = 987
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_WRITE_OFF_WRITE_DOWNOF_OTHER_ASSETS_SUPPLEMENTAL_TWELVE_MONTHS = 988
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSS_ON_EXTINGUISHMENTOF_DEBT_SUPPLEMENTAL_THREE_MONTHS = 989
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSS_ON_EXTINGUISHMENTOF_DEBT_SUPPLEMENTAL_SIX_MONTHS = 990
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSS_ON_EXTINGUISHMENTOF_DEBT_SUPPLEMENTAL_NINE_MONTHS = 991
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSS_ON_EXTINGUISHMENTOF_DEBT_SUPPLEMENTAL_TWELVE_MONTHS = 992
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEBT_RESTRUCTURING_SUPPLEMENTAL_THREE_MONTHS = 993
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEBT_RESTRUCTURING_SUPPLEMENTAL_SIX_MONTHS = 994
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEBT_RESTRUCTURING_SUPPLEMENTAL_NINE_MONTHS = 995
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEBT_RESTRUCTURING_SUPPLEMENTAL_TWELVE_MONTHS = 996
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LITIGATION_INCOME_EXPENSE_SUPPLEMENTAL_THREE_MONTHS = 997
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LITIGATION_INCOME_EXPENSE_SUPPLEMENTAL_SIX_MONTHS = 998
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LITIGATION_INCOME_EXPENSE_SUPPLEMENTAL_NINE_MONTHS = 999
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LITIGATION_INCOME_EXPENSE_SUPPLEMENTAL_TWELVE_MONTHS = 1000
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MERGER_AND_ACQUISITION_INCOME_EXPENSE_SUPPLEMENTAL_THREE_MONTHS = 1001
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MERGER_AND_ACQUISITION_INCOME_EXPENSE_SUPPLEMENTAL_SIX_MONTHS = 1002
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MERGER_AND_ACQUISITION_INCOME_EXPENSE_SUPPLEMENTAL_NINE_MONTHS = 1003
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MERGER_AND_ACQUISITION_INCOME_EXPENSE_SUPPLEMENTAL_TWELVE_MONTHS = 1004
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_AS_REPORTED_THREE_MONTHS = 1005
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_AS_REPORTED_SIX_MONTHS = 1006
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_AS_REPORTED_NINE_MONTHS = 1007
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_AS_REPORTED_TWELVE_MONTHS = 1008
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_AS_REPORTED_THREE_MONTHS = 1009
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_AS_REPORTED_SIX_MONTHS = 1010
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_AS_REPORTED_NINE_MONTHS = 1011
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_AS_REPORTED_TWELVE_MONTHS = 1012
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_AS_REPORTED_THREE_MONTHS = 1013
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_AS_REPORTED_SIX_MONTHS = 1014
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_AS_REPORTED_NINE_MONTHS = 1015
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_AS_REPORTED_TWELVE_MONTHS = 1016
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_AS_REPORTED_THREE_MONTHS = 1017
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_AS_REPORTED_SIX_MONTHS = 1018
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_AS_REPORTED_NINE_MONTHS = 1019
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_AS_REPORTED_TWELVE_MONTHS = 1020
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_AS_REPORTED_THREE_MONTHS = 1021
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_AS_REPORTED_SIX_MONTHS = 1022
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_AS_REPORTED_NINE_MONTHS = 1023
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_AS_REPORTED_TWELVE_MONTHS = 1024
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_OPERATING_PROFIT_AS_REPORTED_THREE_MONTHS = 1025
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_OPERATING_PROFIT_AS_REPORTED_SIX_MONTHS = 1026
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_OPERATING_PROFIT_AS_REPORTED_NINE_MONTHS = 1027
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_OPERATING_PROFIT_AS_REPORTED_TWELVE_MONTHS = 1028
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EFFECTIVE_TAX_RATE_AS_REPORTED_THREE_MONTHS = 1029
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EFFECTIVE_TAX_RATE_AS_REPORTED_SIX_MONTHS = 1030
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EFFECTIVE_TAX_RATE_AS_REPORTED_NINE_MONTHS = 1031
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EFFECTIVE_TAX_RATE_AS_REPORTED_TWELVE_MONTHS = 1032
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LITIGATION_INCOME_EXPENSE_ADJUSTMENT_THREE_MONTHS = 1033
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LITIGATION_INCOME_EXPENSE_ADJUSTMENT_SIX_MONTHS = 1034
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LITIGATION_INCOME_EXPENSE_ADJUSTMENT_NINE_MONTHS = 1035
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LITIGATION_INCOME_EXPENSE_ADJUSTMENT_TWELVE_MONTHS = 1036
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GOODWILL_IMPAIRMENT_WRITE_OFF_ADJUSTMENT_THREE_MONTHS = 1037
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GOODWILL_IMPAIRMENT_WRITE_OFF_ADJUSTMENT_SIX_MONTHS = 1038
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GOODWILL_IMPAIRMENT_WRITE_OFF_ADJUSTMENT_NINE_MONTHS = 1039
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GOODWILL_IMPAIRMENT_WRITE_OFF_ADJUSTMENT_TWELVE_MONTHS = 1040
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEBT_RESTRUCTURING_ADJUSTMENT_THREE_MONTHS = 1041
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEBT_RESTRUCTURING_ADJUSTMENT_SIX_MONTHS = 1042
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEBT_RESTRUCTURING_ADJUSTMENT_NINE_MONTHS = 1043
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEBT_RESTRUCTURING_ADJUSTMENT_TWELVE_MONTHS = 1044
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISPOSAL_OF_BUSINESSES_ADJUSTMENT_THREE_MONTHS = 1045
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISPOSAL_OF_BUSINESSES_ADJUSTMENT_SIX_MONTHS = 1046
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISPOSAL_OF_BUSINESSES_ADJUSTMENT_NINE_MONTHS = 1047
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISPOSAL_OF_BUSINESSES_ADJUSTMENT_TWELVE_MONTHS = 1048
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MERGER_AND_ACQUISITION_INCOME_EXPENSE_ADJUSTMENT_THREE_MONTHS = 1049
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MERGER_AND_ACQUISITION_INCOME_EXPENSE_ADJUSTMENT_SIX_MONTHS = 1050
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MERGER_AND_ACQUISITION_INCOME_EXPENSE_ADJUSTMENT_NINE_MONTHS = 1051
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MERGER_AND_ACQUISITION_INCOME_EXPENSE_ADJUSTMENT_TWELVE_MONTHS = 1052
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISCONTINUED_OPERATIONS_ADJUSTMENT_THREE_MONTHS = 1053
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISCONTINUED_OPERATIONS_ADJUSTMENT_SIX_MONTHS = 1054
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISCONTINUED_OPERATIONS_ADJUSTMENT_NINE_MONTHS = 1055
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DISCONTINUED_OPERATIONS_ADJUSTMENT_TWELVE_MONTHS = 1056
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IRREGULAR_INCOME_EXPENSE_THREE_MONTHS = 1057
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IRREGULAR_INCOME_EXPENSE_SIX_MONTHS = 1058
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IRREGULAR_INCOME_EXPENSE_NINE_MONTHS = 1059
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IRREGULAR_INCOME_EXPENSE_TWELVE_MONTHS = 1060
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_IRREGULAR_INCOME_EXPENSES_ADJUSTMENT_THREE_MONTHS = 1061
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_IRREGULAR_INCOME_EXPENSES_ADJUSTMENT_SIX_MONTHS = 1062
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_IRREGULAR_INCOME_EXPENSES_ADJUSTMENT_NINE_MONTHS = 1063
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_IRREGULAR_INCOME_EXPENSES_ADJUSTMENT_TWELVE_MONTHS = 1064
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_ASSET_DISPOSALS_ADJUSTMENT_THREE_MONTHS = 1065
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_ASSET_DISPOSALS_ADJUSTMENT_SIX_MONTHS = 1066
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_ASSET_DISPOSALS_ADJUSTMENT_NINE_MONTHS = 1067
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_ASSET_DISPOSALS_ADJUSTMENT_TWELVE_MONTHS = 1068
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_REORGANIZATION_EXPENSE_ADJUSTMENT_THREE_MONTHS = 1069
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_REORGANIZATION_EXPENSE_ADJUSTMENT_SIX_MONTHS = 1070
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_REORGANIZATION_EXPENSE_ADJUSTMENT_NINE_MONTHS = 1071
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_REORGANIZATION_EXPENSE_ADJUSTMENT_TWELVE_MONTHS = 1072
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOME_AFTER_TAXES_THREE_MONTHS = 1073
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOME_AFTER_TAXES_SIX_MONTHS = 1074
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOME_AFTER_TAXES_NINE_MONTHS = 1075
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOME_AFTER_TAXES_TWELVE_MONTHS = 1076
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OPERATING_PROFIT_AFTER_TAX_THREE_MONTHS = 1077
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OPERATING_PROFIT_AFTER_TAX_SIX_MONTHS = 1078
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OPERATING_PROFIT_AFTER_TAX_NINE_MONTHS = 1079
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OPERATING_PROFIT_AFTER_TAX_TWELVE_MONTHS = 1080
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_THREE_MONTHS = 1081
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_SIX_MONTHS = 1082
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_NINE_MONTHS = 1083
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_TWELVE_MONTHS = 1084
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDAR_THREE_MONTHS = 1085
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDAR_SIX_MONTHS = 1086
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDAR_NINE_MONTHS = 1087
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDAR_TWELVE_MONTHS = 1088
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDAR_THREE_MONTHS = 1089
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDAR_SIX_MONTHS = 1090
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDAR_NINE_MONTHS = 1091
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDAR_TWELVE_MONTHS = 1092
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_CURRENCY_EXCHANGE_UNREALIZED_GAINS_LOSSES_THREE_MONTHS = 1093
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_CURRENCY_EXCHANGE_UNREALIZED_GAINS_LOSSES_SIX_MONTHS = 1094
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_CURRENCY_EXCHANGE_UNREALIZED_GAINS_LOSSES_NINE_MONTHS = 1095
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_CURRENCY_EXCHANGE_UNREALIZED_GAINS_LOSSES_TWELVE_MONTHS = 1096
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FINANCIAL_ASSETS_UNREALIZED_GAINS_LOSSES_THREE_MONTHS = 1097
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FINANCIAL_ASSETS_UNREALIZED_GAINS_LOSSES_SIX_MONTHS = 1098
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FINANCIAL_ASSETS_UNREALIZED_GAINS_LOSSES_NINE_MONTHS = 1099
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FINANCIAL_ASSETS_UNREALIZED_GAINS_LOSSES_TWELVE_MONTHS = 1100
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FINANCIAL_INSTRUMENTS_AND_INVESTMENTS_GAINS_LOSSES_THREE_MONTHS = 1101
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FINANCIAL_INSTRUMENTS_AND_INVESTMENTS_GAINS_LOSSES_SIX_MONTHS = 1102
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FINANCIAL_INSTRUMENTS_AND_INVESTMENTS_GAINS_LOSSES_NINE_MONTHS = 1103
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FINANCIAL_INSTRUMENTS_AND_INVESTMENTS_GAINS_LOSSES_TWELVE_MONTHS = 1104
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DERIVATIVES_UNREALIZED_GAINS_LOSSES_THREE_MONTHS = 1105
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DERIVATIVES_UNREALIZED_GAINS_LOSSES_SIX_MONTHS = 1106
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DERIVATIVES_UNREALIZED_GAINS_LOSSES_NINE_MONTHS = 1107
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DERIVATIVES_UNREALIZED_GAINS_LOSSES_TWELVE_MONTHS = 1108
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_OPERATING_INCOME_EXPENSES_TOTAL_THREE_MONTHS = 1109
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_OPERATING_INCOME_EXPENSES_TOTAL_SIX_MONTHS = 1110
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_OPERATING_INCOME_EXPENSES_TOTAL_NINE_MONTHS = 1111
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_OPERATING_INCOME_EXPENSES_TOTAL_TWELVE_MONTHS = 1112
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_EXPENSE_THREE_MONTHS = 1113
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_EXPENSE_SIX_MONTHS = 1114
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_EXPENSE_NINE_MONTHS = 1115
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_EXPENSE_TWELVE_MONTHS = 1116
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_NET_FINANCE_INCOME_EXPENSE_THREE_MONTHS = 1117
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_NET_FINANCE_INCOME_EXPENSE_SIX_MONTHS = 1118
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_NET_FINANCE_INCOME_EXPENSE_NINE_MONTHS = 1119
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_NET_FINANCE_INCOME_EXPENSE_TWELVE_MONTHS = 1120
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_RATE_TWELVE_MONTHS = 1121
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITA_THREE_MONTHS = 1122
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITA_SIX_MONTHS = 1123
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITA_NINE_MONTHS = 1124
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITA_TWELVE_MONTHS = 1125
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_BEFORE_TAX_THREE_MONTHS = 1126
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_BEFORE_TAX_SIX_MONTHS = 1127
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_BEFORE_TAX_NINE_MONTHS = 1128
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_BEFORE_TAX_TWELVE_MONTHS = 1129
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_AFTER_TAX_THREE_MONTHS = 1130
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_AFTER_TAX_SIX_MONTHS = 1131
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_AFTER_TAX_NINE_MONTHS = 1132
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_AFTER_TAX_TWELVE_MONTHS = 1133
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_VALUE_THREE_MONTHS = 1134
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_VALUE_SIX_MONTHS = 1135
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_VALUE_NINE_MONTHS = 1136
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_VALUE_TWELVE_MONTHS = 1137
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_OPERATING_THREE_MONTHS = 1138
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_OPERATING_SIX_MONTHS = 1139
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_OPERATING_NINE_MONTHS = 1140
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_OPERATING_TWELVE_MONTHS = 1141
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNADJUSTED_REVENUE_THREE_MONTHS = 1142
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNADJUSTED_REVENUE_SIX_MONTHS = 1143
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNADJUSTED_REVENUE_NINE_MONTHS = 1144
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNADJUSTED_REVENUE_TWELVE_MONTHS = 1145
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REALIZED_INVESTMENT_GAINS_THREE_MONTHS = 1146
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REALIZED_INVESTMENT_GAINS_SIX_MONTHS = 1147
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REALIZED_INVESTMENT_GAINS_NINE_MONTHS = 1148
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REALIZED_INVESTMENT_GAINS_TWELVE_MONTHS = 1149
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BS_FILE_DATE_ONE_MONTH = 1150
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BS_FILE_DATE_THREE_MONTHS = 1151
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BS_FILE_DATE_TWELVE_MONTHS = 1152
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_ONE_MONTH = 1153
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_TWO_MONTHS = 1154
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_THREE_MONTHS = 1155
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_SIX_MONTHS = 1156
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_NINE_MONTHS = 1157
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_TWELVE_MONTHS = 1158
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_ONE_MONTH = 1159
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_TWO_MONTHS = 1160
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_THREE_MONTHS = 1161
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_SIX_MONTHS = 1162
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_NINE_MONTHS = 1163
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_TWELVE_MONTHS = 1164
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_ONE_MONTH = 1165
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_TWO_MONTHS = 1166
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_THREE_MONTHS = 1167
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_SIX_MONTHS = 1168
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_NINE_MONTHS = 1169
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_TWELVE_MONTHS = 1170
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCRUED_EXPENSES_THREE_MONTHS = 1171
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCRUED_EXPENSES_SIX_MONTHS = 1172
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCRUED_EXPENSES_NINE_MONTHS = 1173
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCRUED_EXPENSES_TWELVE_MONTHS = 1174
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INVESTMENT_INCOME_THREE_MONTHS = 1175
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INVESTMENT_INCOME_SIX_MONTHS = 1176
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INVESTMENT_INCOME_TWELVE_MONTHS = 1177
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_ONE_MONTH = 1178
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_TWO_MONTHS = 1179
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_THREE_MONTHS = 1180
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_SIX_MONTHS = 1181
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_NINE_MONTHS = 1182
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_TWELVE_MONTHS = 1183
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_ONE_MONTH = 1184
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_TWO_MONTHS = 1185
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_THREE_MONTHS = 1186
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_SIX_MONTHS = 1187
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_NINE_MONTHS = 1188
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_TWELVE_MONTHS = 1189
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_ONE_MONTH = 1190
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_TWO_MONTHS = 1191
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_THREE_MONTHS = 1192
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_SIX_MONTHS = 1193
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_NINE_MONTHS = 1194
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_TWELVE_MONTHS = 1195
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_LOANS_AND_LEASE_LOSSES_THREE_MONTHS = 1196
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_LOANS_AND_LEASE_LOSSES_SIX_MONTHS = 1197
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_LOANS_AND_LEASE_LOSSES_NINE_MONTHS = 1198
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_LOANS_AND_LEASE_LOSSES_TWELVE_MONTHS = 1199
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_AVAILABLE_FOR_SALE_SECURITIES_THREE_MONTHS = 1200
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_AVAILABLE_FOR_SALE_SECURITIES_SIX_MONTHS = 1201
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_AVAILABLE_FOR_SALE_SECURITIES_NINE_MONTHS = 1202
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_AVAILABLE_FOR_SALE_SECURITIES_TWELVE_MONTHS = 1203
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_ONE_MONTH = 1204
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_TWO_MONTHS = 1205
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_THREE_MONTHS = 1206
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_SIX_MONTHS = 1207
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_NINE_MONTHS = 1208
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_TWELVE_MONTHS = 1209
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_ONE_MONTH = 1210
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_TWO_MONTHS = 1211
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_THREE_MONTHS = 1212
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_SIX_MONTHS = 1213
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_NINE_MONTHS = 1214
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_TWELVE_MONTHS = 1215
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_EQUIVALENTS_THREE_MONTHS = 1216
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_EQUIVALENTS_SIX_MONTHS = 1217
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_EQUIVALENTS_NINE_MONTHS = 1218
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_EQUIVALENTS_TWELVE_MONTHS = 1219
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_ONE_MONTH = 1220
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_TWO_MONTHS = 1221
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_THREE_MONTHS = 1222
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_SIX_MONTHS = 1223
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_NINE_MONTHS = 1224
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_TWELVE_MONTHS = 1225
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_DUE_FROM_BANKS_THREE_MONTHS = 1226
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_DUE_FROM_BANKS_SIX_MONTHS = 1227
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_DUE_FROM_BANKS_NINE_MONTHS = 1228
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_DUE_FROM_BANKS_TWELVE_MONTHS = 1229
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_TWO_MONTHS = 1230
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_THREE_MONTHS = 1231
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_SIX_MONTHS = 1232
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_NINE_MONTHS = 1233
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_TWELVE_MONTHS = 1234
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_ONE_MONTH = 1235
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_TWO_MONTHS = 1236
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_THREE_MONTHS = 1237
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_SIX_MONTHS = 1238
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_NINE_MONTHS = 1239
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_TWELVE_MONTHS = 1240
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_ONE_MONTH = 1241
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_TWO_MONTHS = 1242
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_THREE_MONTHS = 1243
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_SIX_MONTHS = 1244
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_NINE_MONTHS = 1245
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_TWELVE_MONTHS = 1246
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_ONE_MONTH = 1247
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_TWO_MONTHS = 1248
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_THREE_MONTHS = 1249
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_SIX_MONTHS = 1250
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_NINE_MONTHS = 1251
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_TWELVE_MONTHS = 1252
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_ONE_MONTH = 1253
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_TWO_MONTHS = 1254
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_THREE_MONTHS = 1255
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_SIX_MONTHS = 1256
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_NINE_MONTHS = 1257
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_TWELVE_MONTHS = 1258
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_ONE_MONTH = 1259
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_TWO_MONTHS = 1260
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_THREE_MONTHS = 1261
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_SIX_MONTHS = 1262
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_NINE_MONTHS = 1263
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_TWELVE_MONTHS = 1264
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_ONE_MONTH = 1265
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_TWO_MONTHS = 1266
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_THREE_MONTHS = 1267
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_SIX_MONTHS = 1268
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_NINE_MONTHS = 1269
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_TWELVE_MONTHS = 1270
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_ONE_MONTH = 1271
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_TWO_MONTHS = 1272
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_THREE_MONTHS = 1273
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_SIX_MONTHS = 1274
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_NINE_MONTHS = 1275
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_TWELVE_MONTHS = 1276
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_ASSETS_THREE_MONTHS = 1277
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_ASSETS_SIX_MONTHS = 1278
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_ASSETS_NINE_MONTHS = 1279
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_ASSETS_TWELVE_MONTHS = 1280
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_ONE_MONTH = 1281
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_TWO_MONTHS = 1282
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_THREE_MONTHS = 1283
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_SIX_MONTHS = 1284
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_NINE_MONTHS = 1285
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_TWELVE_MONTHS = 1286
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_ONE_MONTH = 1287
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_TWO_MONTHS = 1288
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_THREE_MONTHS = 1289
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_SIX_MONTHS = 1290
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_NINE_MONTHS = 1291
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_TWELVE_MONTHS = 1292
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_ONE_MONTH = 1293
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_TWO_MONTHS = 1294
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_THREE_MONTHS = 1295
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_SIX_MONTHS = 1296
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_NINE_MONTHS = 1297
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_TWELVE_MONTHS = 1298
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_POLICY_ACQUISITION_COSTS_THREE_MONTHS = 1299
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_POLICY_ACQUISITION_COSTS_SIX_MONTHS = 1300
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_POLICY_ACQUISITION_COSTS_NINE_MONTHS = 1301
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_POLICY_ACQUISITION_COSTS_TWELVE_MONTHS = 1302
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_ONE_MONTH = 1303
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_TWO_MONTHS = 1304
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_THREE_MONTHS = 1305
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_SIX_MONTHS = 1306
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_NINE_MONTHS = 1307
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_TWELVE_MONTHS = 1308
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_ONE_MONTH = 1309
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_TWO_MONTHS = 1310
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_THREE_MONTHS = 1311
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_SIX_MONTHS = 1312
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_NINE_MONTHS = 1313
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_TWELVE_MONTHS = 1314
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_ASSETS_THREE_MONTHS = 1315
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_ASSETS_SIX_MONTHS = 1316
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_ASSETS_NINE_MONTHS = 1317
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_ASSETS_TWELVE_MONTHS = 1318
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_ONE_MONTH = 1319
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_TWO_MONTHS = 1320
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_THREE_MONTHS = 1321
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_SIX_MONTHS = 1322
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_NINE_MONTHS = 1323
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_TWELVE_MONTHS = 1324
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_LIABILITIES_THREE_MONTHS = 1325
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_LIABILITIES_SIX_MONTHS = 1326
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_LIABILITIES_NINE_MONTHS = 1327
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_LIABILITIES_TWELVE_MONTHS = 1328
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_ONE_MONTH = 1329
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_TWO_MONTHS = 1330
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_THREE_MONTHS = 1331
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_SIX_MONTHS = 1332
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_NINE_MONTHS = 1333
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_TWELVE_MONTHS = 1334
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_ONE_MONTH = 1335
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_TWO_MONTHS = 1336
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_THREE_MONTHS = 1337
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_SIX_MONTHS = 1338
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_NINE_MONTHS = 1339
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_TWELVE_MONTHS = 1340
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_INVESTMENTS_THREE_MONTHS = 1341
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_INVESTMENTS_NINE_MONTHS = 1342
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_INVESTMENTS_TWELVE_MONTHS = 1343
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_AND_SECURITIES_SOLD_UNDER_AGREEMENT_TO_REPURCHASE_THREE_MONTHS = 1344
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_AND_SECURITIES_SOLD_UNDER_AGREEMENT_TO_REPURCHASE_SIX_MONTHS = 1345
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_AND_SECURITIES_SOLD_UNDER_AGREEMENT_TO_REPURCHASE_TWELVE_MONTHS = 1346
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_THREE_MONTHS = 1347
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_SIX_MONTHS = 1348
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_NINE_MONTHS = 1349
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_TWELVE_MONTHS = 1350
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_MATURITY_INVESTMENTS_THREE_MONTHS = 1351
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_MATURITY_INVESTMENTS_SIX_MONTHS = 1352
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_MATURITY_INVESTMENTS_NINE_MONTHS = 1353
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_MATURITY_INVESTMENTS_TWELVE_MONTHS = 1354
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FUTURE_POLICY_BENEFITS_THREE_MONTHS = 1355
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FUTURE_POLICY_BENEFITS_TWELVE_MONTHS = 1356
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GENERAL_PARTNERSHIP_CAPITAL_THREE_MONTHS = 1357
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GENERAL_PARTNERSHIP_CAPITAL_SIX_MONTHS = 1358
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GENERAL_PARTNERSHIP_CAPITAL_TWELVE_MONTHS = 1359
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_ONE_MONTH = 1360
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_TWO_MONTHS = 1361
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_THREE_MONTHS = 1362
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_SIX_MONTHS = 1363
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_NINE_MONTHS = 1364
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_TWELVE_MONTHS = 1365
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_ONE_MONTH = 1366
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_TWO_MONTHS = 1367
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_THREE_MONTHS = 1368
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_SIX_MONTHS = 1369
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_NINE_MONTHS = 1370
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_TWELVE_MONTHS = 1371
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_LOAN_THREE_MONTHS = 1372
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_LOAN_SIX_MONTHS = 1373
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_LOAN_NINE_MONTHS = 1374
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_LOAN_TWELVE_MONTHS = 1375
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_ONE_MONTH = 1376
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_TWO_MONTHS = 1377
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_THREE_MONTHS = 1378
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_SIX_MONTHS = 1379
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_NINE_MONTHS = 1380
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_TWELVE_MONTHS = 1381
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_HELD_TO_MATURITY_SECURITIES_THREE_MONTHS = 1382
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_HELD_TO_MATURITY_SECURITIES_SIX_MONTHS = 1383
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_HELD_TO_MATURITY_SECURITIES_NINE_MONTHS = 1384
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_HELD_TO_MATURITY_SECURITIES_TWELVE_MONTHS = 1385
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_ONE_MONTH = 1386
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_THREE_MONTHS = 1387
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_SIX_MONTHS = 1388
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_NINE_MONTHS = 1389
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_TWELVE_MONTHS = 1390
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_LIABILITIES_THREE_MONTHS = 1391
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_LIABILITIES_SIX_MONTHS = 1392
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_LIABILITIES_NINE_MONTHS = 1393
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_LIABILITIES_TWELVE_MONTHS = 1394
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_ONE_MONTH = 1395
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_TWO_MONTHS = 1396
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_THREE_MONTHS = 1397
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_SIX_MONTHS = 1398
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_NINE_MONTHS = 1399
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_TWELVE_MONTHS = 1400
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_ASSETS_THREE_MONTHS = 1401
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_ASSETS_SIX_MONTHS = 1402
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_ASSETS_NINE_MONTHS = 1403
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_ASSETS_TWELVE_MONTHS = 1404
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_ONE_MONTH = 1405
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_TWO_MONTHS = 1406
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_THREE_MONTHS = 1407
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_SIX_MONTHS = 1408
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_NINE_MONTHS = 1409
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_TWELVE_MONTHS = 1410
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_ONE_MONTH = 1411
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_TWO_MONTHS = 1412
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_THREE_MONTHS = 1413
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_SIX_MONTHS = 1414
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_NINE_MONTHS = 1415
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_TWELVE_MONTHS = 1416
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIMITED_PARTNERSHIP_CAPITAL_THREE_MONTHS = 1417
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIMITED_PARTNERSHIP_CAPITAL_SIX_MONTHS = 1418
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIMITED_PARTNERSHIP_CAPITAL_TWELVE_MONTHS = 1419
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_ONE_MONTH = 1420
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_TWO_MONTHS = 1421
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_THREE_MONTHS = 1422
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_SIX_MONTHS = 1423
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_NINE_MONTHS = 1424
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_TWELVE_MONTHS = 1425
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_ONE_MONTH = 1426
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_TWO_MONTHS = 1427
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_THREE_MONTHS = 1428
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_SIX_MONTHS = 1429
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_NINE_MONTHS = 1430
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_TWELVE_MONTHS = 1431
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_INVESTMENTS_THREE_MONTHS = 1432
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_INVESTMENTS_SIX_MONTHS = 1433
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_INVESTMENTS_TWELVE_MONTHS = 1434
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_ONE_MONTH = 1435
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_TWO_MONTHS = 1436
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_THREE_MONTHS = 1437
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_SIX_MONTHS = 1438
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_NINE_MONTHS = 1439
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_TWELVE_MONTHS = 1440
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_ONE_MONTH = 1441
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_TWO_MONTHS = 1442
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_THREE_MONTHS = 1443
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_SIX_MONTHS = 1444
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_NINE_MONTHS = 1445
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_TWELVE_MONTHS = 1446
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MONEY_MARKET_INVESTMENTS_THREE_MONTHS = 1447
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MONEY_MARKET_INVESTMENTS_SIX_MONTHS = 1448
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MONEY_MARKET_INVESTMENTS_NINE_MONTHS = 1449
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MONEY_MARKET_INVESTMENTS_TWELVE_MONTHS = 1450
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_LOAN_THREE_MONTHS = 1451
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_LOAN_SIX_MONTHS = 1452
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_LOAN_NINE_MONTHS = 1453
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_LOAN_TWELVE_MONTHS = 1454
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_ONE_MONTH = 1455
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_TWO_MONTHS = 1456
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_THREE_MONTHS = 1457
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_SIX_MONTHS = 1458
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_NINE_MONTHS = 1459
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_TWELVE_MONTHS = 1460
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_DEPOSITS_THREE_MONTHS = 1461
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_DEPOSITS_SIX_MONTHS = 1462
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_DEPOSITS_NINE_MONTHS = 1463
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_DEPOSITS_TWELVE_MONTHS = 1464
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_ONE_MONTH = 1465
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_TWO_MONTHS = 1466
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_THREE_MONTHS = 1467
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_SIX_MONTHS = 1468
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_NINE_MONTHS = 1469
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_TWELVE_MONTHS = 1470
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NOTES_RECEIVABLE_THREE_MONTHS = 1471
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NOTES_RECEIVABLE_SIX_MONTHS = 1472
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NOTES_RECEIVABLE_TWELVE_MONTHS = 1473
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_NOTE_RECEIVABLES_THREE_MONTHS = 1474
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_NOTE_RECEIVABLES_SIX_MONTHS = 1475
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_NOTE_RECEIVABLES_NINE_MONTHS = 1476
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_NOTE_RECEIVABLES_TWELVE_MONTHS = 1477
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_ONE_MONTH = 1478
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_TWO_MONTHS = 1479
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_THREE_MONTHS = 1480
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_SIX_MONTHS = 1481
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_NINE_MONTHS = 1482
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_TWELVE_MONTHS = 1483
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_ONE_MONTH = 1484
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_TWO_MONTHS = 1485
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_THREE_MONTHS = 1486
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_SIX_MONTHS = 1487
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_NINE_MONTHS = 1488
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_TWELVE_MONTHS = 1489
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_ONE_MONTH = 1490
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_THREE_MONTHS = 1491
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_SIX_MONTHS = 1492
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_NINE_MONTHS = 1493
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_TWELVE_MONTHS = 1494
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_ONE_MONTH = 1495
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_TWO_MONTHS = 1496
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_THREE_MONTHS = 1497
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_SIX_MONTHS = 1498
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_NINE_MONTHS = 1499
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_TWELVE_MONTHS = 1500
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_ONE_MONTH = 1501
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_TWO_MONTHS = 1502
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_THREE_MONTHS = 1503
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_SIX_MONTHS = 1504
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_NINE_MONTHS = 1505
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_TWELVE_MONTHS = 1506
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_RESERVES_BENEFITS_THREE_MONTHS = 1507
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_RESERVES_BENEFITS_SIX_MONTHS = 1508
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_RESERVES_BENEFITS_NINE_MONTHS = 1509
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_RESERVES_BENEFITS_TWELVE_MONTHS = 1510
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICYHOLDER_FUNDS_THREE_MONTHS = 1511
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICYHOLDER_FUNDS_TWELVE_MONTHS = 1512
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_ONE_MONTH = 1513
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_THREE_MONTHS = 1514
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_SIX_MONTHS = 1515
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_NINE_MONTHS = 1516
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_TWELVE_MONTHS = 1517
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_ONE_MONTH = 1518
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_TWO_MONTHS = 1519
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_THREE_MONTHS = 1520
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_SIX_MONTHS = 1521
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_NINE_MONTHS = 1522
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_TWELVE_MONTHS = 1523
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_ONE_MONTH = 1524
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_TWO_MONTHS = 1525
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_THREE_MONTHS = 1526
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_SIX_MONTHS = 1527
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_NINE_MONTHS = 1528
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_TWELVE_MONTHS = 1529
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PREPAID_ASSETS_ONE_MONTH = 1530
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PREPAID_ASSETS_THREE_MONTHS = 1531
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PREPAID_ASSETS_SIX_MONTHS = 1532
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PREPAID_ASSETS_TWELVE_MONTHS = 1533
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_ONE_MONTH = 1534
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_TWO_MONTHS = 1535
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_THREE_MONTHS = 1536
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_SIX_MONTHS = 1537
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_NINE_MONTHS = 1538
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_TWELVE_MONTHS = 1539
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_RECOVERABLE_THREE_MONTHS = 1540
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_RECOVERABLE_TWELVE_MONTHS = 1541
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_ONE_MONTH = 1542
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_TWO_MONTHS = 1543
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_THREE_MONTHS = 1544
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_SIX_MONTHS = 1545
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_NINE_MONTHS = 1546
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_TWELVE_MONTHS = 1547
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_LENDING_COLLATERAL_THREE_MONTHS = 1548
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_LENDING_COLLATERAL_TWELVE_MONTHS = 1549
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_AGREE_TO_BE_RESELL_THREE_MONTHS = 1550
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_AGREE_TO_BE_RESELL_TWELVE_MONTHS = 1551
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_SOLD_NOT_YET_REPURCHASED_THREE_MONTHS = 1552
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_SOLD_NOT_YET_REPURCHASED_TWELVE_MONTHS = 1553
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SEPARATE_ACCOUNT_ASSETS_THREE_MONTHS = 1554
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SEPARATE_ACCOUNT_ASSETS_TWELVE_MONTHS = 1555
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SEPARATE_ACCOUNT_BUSINESS_THREE_MONTHS = 1556
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SEPARATE_ACCOUNT_BUSINESS_TWELVE_MONTHS = 1557
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_AVAILABLE_FOR_SALE_THREE_MONTHS = 1558
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_AVAILABLE_FOR_SALE_TWELVE_MONTHS = 1559
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_HELD_TO_MATURITY_THREE_MONTHS = 1560
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_HELD_TO_MATURITY_TWELVE_MONTHS = 1561
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_TRADING_THREE_MONTHS = 1562
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_TRADING_TWELVE_MONTHS = 1563
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_ONE_MONTH = 1564
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_TWO_MONTHS = 1565
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_THREE_MONTHS = 1566
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_SIX_MONTHS = 1567
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_NINE_MONTHS = 1568
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_TWELVE_MONTHS = 1569
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_ONE_MONTH = 1570
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_TWO_MONTHS = 1571
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_THREE_MONTHS = 1572
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_SIX_MONTHS = 1573
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_NINE_MONTHS = 1574
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_TWELVE_MONTHS = 1575
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_ONE_MONTH = 1576
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_TWO_MONTHS = 1577
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_THREE_MONTHS = 1578
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_SIX_MONTHS = 1579
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_NINE_MONTHS = 1580
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_TWELVE_MONTHS = 1581
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEPOSITS_THREE_MONTHS = 1582
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEPOSITS_SIX_MONTHS = 1583
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEPOSITS_NINE_MONTHS = 1584
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEPOSITS_TWELVE_MONTHS = 1585
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_INVESTMENTS_THREE_MONTHS = 1586
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_INVESTMENTS_SIX_MONTHS = 1587
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_INVESTMENTS_TWELVE_MONTHS = 1588
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_ONE_MONTH = 1589
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_TWO_MONTHS = 1590
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_THREE_MONTHS = 1591
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_SIX_MONTHS = 1592
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_NINE_MONTHS = 1593
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_TWELVE_MONTHS = 1594
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_PARTNERSHIP_CAPITAL_THREE_MONTHS = 1595
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_PARTNERSHIP_CAPITAL_SIX_MONTHS = 1596
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_PARTNERSHIP_CAPITAL_TWELVE_MONTHS = 1597
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_ASSETS_THREE_MONTHS = 1598
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_ASSETS_TWELVE_MONTHS = 1599
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_LIABILITIES_THREE_MONTHS = 1600
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_LIABILITIES_TWELVE_MONTHS = 1601
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_SECURITIES_THREE_MONTHS = 1602
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_SECURITIES_SIX_MONTHS = 1603
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_SECURITIES_TWELVE_MONTHS = 1604
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_ONE_MONTH = 1605
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_TWO_MONTHS = 1606
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_THREE_MONTHS = 1607
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_SIX_MONTHS = 1608
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_NINE_MONTHS = 1609
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_TWELVE_MONTHS = 1610
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_INCOME_THREE_MONTHS = 1611
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_INCOME_SIX_MONTHS = 1612
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_INCOME_NINE_MONTHS = 1613
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_INCOME_TWELVE_MONTHS = 1614
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_PREMIUMS_THREE_MONTHS = 1615
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_PREMIUMS_SIX_MONTHS = 1616
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_PREMIUMS_NINE_MONTHS = 1617
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_PREMIUMS_TWELVE_MONTHS = 1618
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNPAID_LOSS_AND_LOSS_RESERVE_THREE_MONTHS = 1619
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNPAID_LOSS_AND_LOSS_RESERVE_SIX_MONTHS = 1620
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNPAID_LOSS_AND_LOSS_RESERVE_NINE_MONTHS = 1621
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNPAID_LOSS_AND_LOSS_RESERVE_TWELVE_MONTHS = 1622
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_ONE_MONTH = 1623
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_TWO_MONTHS = 1624
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_THREE_MONTHS = 1625
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_SIX_MONTHS = 1626
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_NINE_MONTHS = 1627
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_TWELVE_MONTHS = 1628
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_ONE_MONTH = 1629
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_TWO_MONTHS = 1630
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_THREE_MONTHS = 1631
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_SIX_MONTHS = 1632
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_NINE_MONTHS = 1633
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_TWELVE_MONTHS = 1634
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_ONE_MONTH = 1635
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_TWO_MONTHS = 1636
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_THREE_MONTHS = 1637
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_SIX_MONTHS = 1638
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_NINE_MONTHS = 1639
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_TWELVE_MONTHS = 1640
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_TWO_MONTHS = 1641
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_THREE_MONTHS = 1642
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_SIX_MONTHS = 1643
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_NINE_MONTHS = 1644
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_TWELVE_MONTHS = 1645
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_ONE_MONTH = 1646
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_TWO_MONTHS = 1647
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_THREE_MONTHS = 1648
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_SIX_MONTHS = 1649
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_NINE_MONTHS = 1650
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_TWELVE_MONTHS = 1651
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_ONE_MONTH = 1652
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_TWO_MONTHS = 1653
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_THREE_MONTHS = 1654
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_SIX_MONTHS = 1655
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_NINE_MONTHS = 1656
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_TWELVE_MONTHS = 1657
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_ONE_MONTH = 1658
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_TWO_MONTHS = 1659
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_THREE_MONTHS = 1660
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_SIX_MONTHS = 1661
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_NINE_MONTHS = 1662
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_TWELVE_MONTHS = 1663
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_ACCOUNTS_RECEIVABLE_THREE_MONTHS = 1664
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_ACCOUNTS_RECEIVABLE_TWELVE_MONTHS = 1665
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCOUNTS_RECEIVABLE_THREE_MONTHS = 1666
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCOUNTS_RECEIVABLE_SIX_MONTHS = 1667
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCOUNTS_RECEIVABLE_NINE_MONTHS = 1668
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCOUNTS_RECEIVABLE_TWELVE_MONTHS = 1669
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_TWO_MONTHS = 1670
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_THREE_MONTHS = 1671
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_SIX_MONTHS = 1672
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_NINE_MONTHS = 1673
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_TWELVE_MONTHS = 1674
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCE_FROM_FEDERAL_HOME_LOAN_BANKS_THREE_MONTHS = 1675
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCE_FROM_FEDERAL_HOME_LOAN_BANKS_SIX_MONTHS = 1676
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCE_FROM_FEDERAL_HOME_LOAN_BANKS_NINE_MONTHS = 1677
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCE_FROM_FEDERAL_HOME_LOAN_BANKS_TWELVE_MONTHS = 1678
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_DOUBTFUL_ACCOUNTS_RECEIVABLE_THREE_MONTHS = 1679
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_DOUBTFUL_ACCOUNTS_RECEIVABLE_TWELVE_MONTHS = 1680
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_NOTES_RECEIVABLE_THREE_MONTHS = 1681
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_NOTES_RECEIVABLE_TWELVE_MONTHS = 1682
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_THREE_MONTHS = 1683
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_TWELVE_MONTHS = 1684
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_OF_DISCONTINUED_OPERATIONS_THREE_MONTHS = 1685
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_OF_DISCONTINUED_OPERATIONS_TWELVE_MONTHS = 1686
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_INDEBTEDNESS_THREE_MONTHS = 1687
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_INDEBTEDNESS_TWELVE_MONTHS = 1688
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_OWNED_LIFE_INSURANCE_THREE_MONTHS = 1689
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_OWNED_LIFE_INSURANCE_SIX_MONTHS = 1690
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_OWNED_LIFE_INSURANCE_NINE_MONTHS = 1691
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_OWNED_LIFE_INSURANCE_TWELVE_MONTHS = 1692
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_BORROWED_THREE_MONTHS = 1693
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_BORROWED_TWELVE_MONTHS = 1694
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_ONE_MONTH = 1695
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_TWO_MONTHS = 1696
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_THREE_MONTHS = 1697
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_SIX_MONTHS = 1698
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_NINE_MONTHS = 1699
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_TWELVE_MONTHS = 1700
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_LOAN_THREE_MONTHS = 1701
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_LOAN_SIX_MONTHS = 1702
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_LOAN_NINE_MONTHS = 1703
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_LOAN_TWELVE_MONTHS = 1704
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_PAPER_THREE_MONTHS = 1705
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_PAPER_TWELVE_MONTHS = 1706
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_ONE_MONTH = 1707
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_TWO_MONTHS = 1708
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_THREE_MONTHS = 1709
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_SIX_MONTHS = 1710
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_NINE_MONTHS = 1711
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_TWELVE_MONTHS = 1712
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_ONE_MONTH = 1713
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_TWO_MONTHS = 1714
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_THREE_MONTHS = 1715
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_SIX_MONTHS = 1716
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_NINE_MONTHS = 1717
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_TWELVE_MONTHS = 1718
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSUMER_LOAN_THREE_MONTHS = 1719
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSUMER_LOAN_SIX_MONTHS = 1720
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSUMER_LOAN_NINE_MONTHS = 1721
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSUMER_LOAN_TWELVE_MONTHS = 1722
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINIMUM_PENSION_LIABILITIES_THREE_MONTHS = 1723
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINIMUM_PENSION_LIABILITIES_TWELVE_MONTHS = 1724
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CUSTOMER_ACCEPTANCES_THREE_MONTHS = 1725
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CUSTOMER_ACCEPTANCES_TWELVE_MONTHS = 1726
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFINED_PENSION_BENEFIT_THREE_MONTHS = 1727
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFINED_PENSION_BENEFIT_SIX_MONTHS = 1728
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFINED_PENSION_BENEFIT_TWELVE_MONTHS = 1729
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_ONE_MONTH = 1730
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_TWO_MONTHS = 1731
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_THREE_MONTHS = 1732
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_SIX_MONTHS = 1733
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_NINE_MONTHS = 1734
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_TWELVE_MONTHS = 1735
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_ASSETS_THREE_MONTHS = 1736
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_ASSETS_SIX_MONTHS = 1737
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_ASSETS_TWELVE_MONTHS = 1738
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_ONE_MONTH = 1739
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_TWO_MONTHS = 1740
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_THREE_MONTHS = 1741
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_NINE_MONTHS = 1742
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_TWELVE_MONTHS = 1743
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_TWO_MONTHS = 1744
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_THREE_MONTHS = 1745
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_SIX_MONTHS = 1746
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_NINE_MONTHS = 1747
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_TWELVE_MONTHS = 1748
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_THREE_MONTHS = 1749
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_TWELVE_MONTHS = 1750
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_THREE_MONTHS = 1751
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_SIX_MONTHS = 1752
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_TWELVE_MONTHS = 1753
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_HOME_LOAN_BANK_STOCK_THREE_MONTHS = 1754
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_HOME_LOAN_BANK_STOCK_SIX_MONTHS = 1755
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_HOME_LOAN_BANK_STOCK_NINE_MONTHS = 1756
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_HOME_LOAN_BANK_STOCK_TWELVE_MONTHS = 1757
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_THREE_MONTHS = 1758
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_NINE_MONTHS = 1759
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_TWELVE_MONTHS = 1760
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_INSTRUMENTS_SOLD_UNDER_AGREEMENTS_TO_REPURCHASE_THREE_MONTHS = 1761
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_INSTRUMENTS_SOLD_UNDER_AGREEMENTS_TO_REPURCHASE_SIX_MONTHS = 1762
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_INSTRUMENTS_SOLD_UNDER_AGREEMENTS_TO_REPURCHASE_TWELVE_MONTHS = 1763
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_ONE_MONTH = 1764
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_TWO_MONTHS = 1765
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_THREE_MONTHS = 1766
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_SIX_MONTHS = 1767
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_NINE_MONTHS = 1768
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_TWELVE_MONTHS = 1769
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FLIGHT_FLEET_VEHICLE_AND_RELATED_EQUIPMENTS_THREE_MONTHS = 1770
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FLIGHT_FLEET_VEHICLE_AND_RELATED_EQUIPMENTS_SIX_MONTHS = 1771
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FLIGHT_FLEET_VEHICLE_AND_RELATED_EQUIPMENTS_TWELVE_MONTHS = 1772
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FORECLOSED_ASSETS_THREE_MONTHS = 1773
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FORECLOSED_ASSETS_NINE_MONTHS = 1774
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FORECLOSED_ASSETS_TWELVE_MONTHS = 1775
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_TWO_MONTHS = 1776
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_THREE_MONTHS = 1777
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_SIX_MONTHS = 1778
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_NINE_MONTHS = 1779
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_TWELVE_MONTHS = 1780
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORIES_ADJUSTMENTS_ALLOWANCES_THREE_MONTHS = 1781
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORIES_ADJUSTMENTS_ALLOWANCES_SIX_MONTHS = 1782
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORIES_ADJUSTMENTS_ALLOWANCES_NINE_MONTHS = 1783
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORIES_ADJUSTMENTS_ALLOWANCES_TWELVE_MONTHS = 1784
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_IN_OTHER_VENTURES_UNDER_EQUITY_METHOD_THREE_MONTHS = 1785
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_IN_OTHER_VENTURES_UNDER_EQUITY_METHOD_TWELVE_MONTHS = 1786
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_ONE_MONTH = 1787
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_TWO_MONTHS = 1788
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_THREE_MONTHS = 1789
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_SIX_MONTHS = 1790
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_NINE_MONTHS = 1791
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_TWELVE_MONTHS = 1792
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_ONE_MONTH = 1793
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_TWO_MONTHS = 1794
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_THREE_MONTHS = 1795
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_SIX_MONTHS = 1796
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_NINE_MONTHS = 1797
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_TWELVE_MONTHS = 1798
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_OF_DISCONTINUED_OPERATIONS_THREE_MONTHS = 1799
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_OF_DISCONTINUED_OPERATIONS_TWELVE_MONTHS = 1800
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LINE_OF_CREDIT_ONE_MONTH = 1801
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LINE_OF_CREDIT_THREE_MONTHS = 1802
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LINE_OF_CREDIT_NINE_MONTHS = 1803
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LINE_OF_CREDIT_TWELVE_MONTHS = 1804
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_HELD_FOR_SALE_THREE_MONTHS = 1805
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_HELD_FOR_SALE_SIX_MONTHS = 1806
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_HELD_FOR_SALE_NINE_MONTHS = 1807
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_HELD_FOR_SALE_TWELVE_MONTHS = 1808
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_TWO_MONTHS = 1809
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_THREE_MONTHS = 1810
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_SIX_MONTHS = 1811
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_NINE_MONTHS = 1812
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_TWELVE_MONTHS = 1813
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_ONE_MONTH = 1814
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_TWO_MONTHS = 1815
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_THREE_MONTHS = 1816
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_SIX_MONTHS = 1817
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_NINE_MONTHS = 1818
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_TWELVE_MONTHS = 1819
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MATERIALS_AND_SUPPLIES_THREE_MONTHS = 1820
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MATERIALS_AND_SUPPLIES_TWELVE_MONTHS = 1821
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINERAL_PROPERTIES_THREE_MONTHS = 1822
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINERAL_PROPERTIES_SIX_MONTHS = 1823
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINERAL_PROPERTIES_NINE_MONTHS = 1824
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINERAL_PROPERTIES_TWELVE_MONTHS = 1825
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_LOAN_THREE_MONTHS = 1826
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_LOAN_SIX_MONTHS = 1827
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_LOAN_NINE_MONTHS = 1828
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_LOAN_TWELVE_MONTHS = 1829
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_AND_CONSUMERLOANS_THREE_MONTHS = 1830
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_AND_CONSUMERLOANS_TWELVE_MONTHS = 1831
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_NOTES_RECEIVABLE_THREE_MONTHS = 1832
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_NOTES_RECEIVABLE_TWELVE_MONTHS = 1833
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_TWO_MONTHS = 1834
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_THREE_MONTHS = 1835
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_SIX_MONTHS = 1836
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_NINE_MONTHS = 1837
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_TWELVE_MONTHS = 1838
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CAPITAL_STOCK_ONE_MONTH = 1839
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CAPITAL_STOCK_THREE_MONTHS = 1840
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CAPITAL_STOCK_NINE_MONTHS = 1841
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CAPITAL_STOCK_TWELVE_MONTHS = 1842
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_ONE_MONTH = 1843
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_TWO_MONTHS = 1844
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_THREE_MONTHS = 1845
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_SIX_MONTHS = 1846
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_NINE_MONTHS = 1847
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_TWELVE_MONTHS = 1848
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_BORROWINGS_THREE_MONTHS = 1849
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_BORROWINGS_SIX_MONTHS = 1850
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_BORROWINGS_NINE_MONTHS = 1851
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_BORROWINGS_TWELVE_MONTHS = 1852
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_ADJUSTMENTS_TWO_MONTHS = 1853
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_ADJUSTMENTS_THREE_MONTHS = 1854
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_ADJUSTMENTS_SIX_MONTHS = 1855
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_ADJUSTMENTS_TWELVE_MONTHS = 1856
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_ONE_MONTH = 1857
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_THREE_MONTHS = 1858
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_SIX_MONTHS = 1859
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_NINE_MONTHS = 1860
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_TWELVE_MONTHS = 1861
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVESTED_ASSETS_THREE_MONTHS = 1862
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVESTED_ASSETS_TWELVE_MONTHS = 1863
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_ONE_MONTH = 1864
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_TWO_MONTHS = 1865
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_THREE_MONTHS = 1866
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_SIX_MONTHS = 1867
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_NINE_MONTHS = 1868
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_TWELVE_MONTHS = 1869
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_ONE_MONTH = 1870
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_THREE_MONTHS = 1871
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_SIX_MONTHS = 1872
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_NINE_MONTHS = 1873
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_TWELVE_MONTHS = 1874
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_REAL_ESTATE_OWNED_THREE_MONTHS = 1875
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_REAL_ESTATE_OWNED_SIX_MONTHS = 1876
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_REAL_ESTATE_OWNED_NINE_MONTHS = 1877
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_REAL_ESTATE_OWNED_TWELVE_MONTHS = 1878
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_TWO_MONTHS = 1879
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_THREE_MONTHS = 1880
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_SIX_MONTHS = 1881
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_NINE_MONTHS = 1882
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_TWELVE_MONTHS = 1883
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_TWO_MONTHS = 1884
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_THREE_MONTHS = 1885
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_SIX_MONTHS = 1886
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_NINE_MONTHS = 1887
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_TWELVE_MONTHS = 1888
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_LOANS_THREE_MONTHS = 1889
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_LOANS_TWELVE_MONTHS = 1890
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_ONE_MONTH = 1891
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_TWO_MONTHS = 1892
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_THREE_MONTHS = 1893
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_SIX_MONTHS = 1894
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_NINE_MONTHS = 1895
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_TWELVE_MONTHS = 1896
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PROPERTIES_THREE_MONTHS = 1897
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PROPERTIES_TWELVE_MONTHS = 1898
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PROVISIONS_TWO_MONTHS = 1899
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PROVISIONS_THREE_MONTHS = 1900
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PROVISIONS_SIX_MONTHS = 1901
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PROVISIONS_TWELVE_MONTHS = 1902
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_PROVISIONS_THREE_MONTHS = 1903
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_PROVISIONS_SIX_MONTHS = 1904
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_PROVISIONS_NINE_MONTHS = 1905
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_PROVISIONS_TWELVE_MONTHS = 1906
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_TWO_MONTHS = 1907
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_THREE_MONTHS = 1908
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_SIX_MONTHS = 1909
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_NINE_MONTHS = 1910
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_TWELVE_MONTHS = 1911
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_ADJUSTMENTS_ALLOWANCES_THREE_MONTHS = 1912
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_ADJUSTMENTS_ALLOWANCES_NINE_MONTHS = 1913
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_ADJUSTMENTS_ALLOWANCES_TWELVE_MONTHS = 1914
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REGULATORY_ASSETS_THREE_MONTHS = 1915
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REGULATORY_ASSETS_TWELVE_MONTHS = 1916
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REGULATORY_LIABILITIES_THREE_MONTHS = 1917
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REGULATORY_LIABILITIES_TWELVE_MONTHS = 1918
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_BALANCES_PAYABLE_THREE_MONTHS = 1919
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_BALANCES_PAYABLE_TWELVE_MONTHS = 1920
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_ONE_MONTH = 1921
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_TWO_MONTHS = 1922
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_THREE_MONTHS = 1923
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_SIX_MONTHS = 1924
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_NINE_MONTHS = 1925
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_TWELVE_MONTHS = 1926
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_CASH_EQUIVALENTS_THREE_MONTHS = 1927
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_CASH_EQUIVALENTS_SIX_MONTHS = 1928
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_CASH_EQUIVALENTS_NINE_MONTHS = 1929
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_CASH_EQUIVALENTS_TWELVE_MONTHS = 1930
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_INVESTMENTS_THREE_MONTHS = 1931
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_INVESTMENTS_SIX_MONTHS = 1932
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_INVESTMENTS_NINE_MONTHS = 1933
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_INVESTMENTS_TWELVE_MONTHS = 1934
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_COMMON_STOCK_THREE_MONTHS = 1935
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_COMMON_STOCK_NINE_MONTHS = 1936
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_COMMON_STOCK_TWELVE_MONTHS = 1937
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_INVESTMENTS_THREE_MONTHS = 1938
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_INVESTMENTS_TWELVE_MONTHS = 1939
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_TWO_MONTHS = 1940
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_THREE_MONTHS = 1941
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_SIX_MONTHS = 1942
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_NINE_MONTHS = 1943
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_TWELVE_MONTHS = 1944
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_ONE_MONTH = 1945
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_TWO_MONTHS = 1946
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_THREE_MONTHS = 1947
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_SIX_MONTHS = 1948
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_NINE_MONTHS = 1949
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_TWELVE_MONTHS = 1950
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEFERRED_CREDITS_AND_OTHER_NON_CURRENT_LIABILITIES_THREE_MONTHS = 1951
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEFERRED_CREDITS_AND_OTHER_NON_CURRENT_LIABILITIES_SIX_MONTHS = 1952
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEFERRED_CREDITS_AND_OTHER_NON_CURRENT_LIABILITIES_NINE_MONTHS = 1953
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEFERRED_CREDITS_AND_OTHER_NON_CURRENT_LIABILITIES_TWELVE_MONTHS = 1954
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNBILLED_RECEIVABLES_THREE_MONTHS = 1955
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNBILLED_RECEIVABLES_TWELVE_MONTHS = 1956
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNREALIZED_GAIN_LOSS_THREE_MONTHS = 1957
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNREALIZED_GAIN_LOSS_SIX_MONTHS = 1958
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNREALIZED_GAIN_LOSS_TWELVE_MONTHS = 1959
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_ONE_MONTH = 1960
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_TWO_MONTHS = 1961
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_THREE_MONTHS = 1962
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_SIX_MONTHS = 1963
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_NINE_MONTHS = 1964
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_TWELVE_MONTHS = 1965
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_ONE_MONTH = 1966
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_TWO_MONTHS = 1967
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_THREE_MONTHS = 1968
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_SIX_MONTHS = 1969
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_NINE_MONTHS = 1970
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_TWELVE_MONTHS = 1971
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_ONE_MONTH = 1972
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_TWO_MONTHS = 1973
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_THREE_MONTHS = 1974
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_SIX_MONTHS = 1975
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_NINE_MONTHS = 1976
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_TWELVE_MONTHS = 1977
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_TWO_MONTHS = 1978
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_THREE_MONTHS = 1979
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_SIX_MONTHS = 1980
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_NINE_MONTHS = 1981
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_TWELVE_MONTHS = 1982
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_ONE_MONTH = 1983
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_TWO_MONTHS = 1984
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_THREE_MONTHS = 1985
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_SIX_MONTHS = 1986
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_NINE_MONTHS = 1987
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_TWELVE_MONTHS = 1988
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_ONE_MONTH = 1989
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_TWO_MONTHS = 1990
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_THREE_MONTHS = 1991
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_SIX_MONTHS = 1992
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_NINE_MONTHS = 1993
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_TWELVE_MONTHS = 1994
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_ONE_MONTH = 1995
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_TWO_MONTHS = 1996
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_THREE_MONTHS = 1997
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_SIX_MONTHS = 1998
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_NINE_MONTHS = 1999
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_TWELVE_MONTHS = 2000
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_ONE_MONTH = 2001
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_TWO_MONTHS = 2002
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_THREE_MONTHS = 2003
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_SIX_MONTHS = 2004
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_NINE_MONTHS = 2005
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_TWELVE_MONTHS = 2006
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_ONE_MONTH = 2007
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_TWO_MONTHS = 2008
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_THREE_MONTHS = 2009
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_SIX_MONTHS = 2010
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_NINE_MONTHS = 2011
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_TWELVE_MONTHS = 2012
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_UTILITY_PLANT_THREE_MONTHS = 2013
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_UTILITY_PLANT_NINE_MONTHS = 2014
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_UTILITY_PLANT_TWELVE_MONTHS = 2015
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ELECTRIC_UTILITY_PLANT_THREE_MONTHS = 2016
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ELECTRIC_UTILITY_PLANT_TWELVE_MONTHS = 2017
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NATURAL_GAS_FUEL_AND_OTHER_THREE_MONTHS = 2018
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NATURAL_GAS_FUEL_AND_OTHER_TWELVE_MONTHS = 2019
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_UTILITY_PLANT_THREE_MONTHS = 2020
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_UTILITY_PLANT_NINE_MONTHS = 2021
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_UTILITY_PLANT_TWELVE_MONTHS = 2022
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WATER_PRODUCTION_THREE_MONTHS = 2023
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WATER_PRODUCTION_TWELVE_MONTHS = 2024
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ORDINARY_SHARES_NUMBER_THREE_MONTHS = 2025
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ORDINARY_SHARES_NUMBER_TWELVE_MONTHS = 2026
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SHARES_NUMBER_THREE_MONTHS = 2027
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SHARES_NUMBER_TWELVE_MONTHS = 2028
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_SHARES_NUMBER_THREE_MONTHS = 2029
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_SHARES_NUMBER_TWELVE_MONTHS = 2030
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_AND_OTHER_RECEIVABLE_THREE_MONTHS = 2031
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_AND_OTHER_RECEIVABLE_TWELVE_MONTHS = 2032
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_ATTRIBUTABLE_TO_OWNERS_OF_PARENT_TWO_MONTHS = 2033
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_ATTRIBUTABLE_TO_OWNERS_OF_PARENT_THREE_MONTHS = 2034
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_ATTRIBUTABLE_TO_OWNERS_OF_PARENT_TWELVE_MONTHS = 2035
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_LOANED_THREE_MONTHS = 2036
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_LOANED_TWELVE_MONTHS = 2037
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_ONE_MONTH = 2038
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_TWO_MONTHS = 2039
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_THREE_MONTHS = 2040
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_SIX_MONTHS = 2041
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_NINE_MONTHS = 2042
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_TWELVE_MONTHS = 2043
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUEFROM_RELATED_PARTIES_CURRENT_THREE_MONTHS = 2044
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUEFROM_RELATED_PARTIES_CURRENT_TWELVE_MONTHS = 2045
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUEFROM_RELATED_PARTIES_NON_CURRENT_THREE_MONTHS = 2046
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUEFROM_RELATED_PARTIES_NON_CURRENT_TWELVE_MONTHS = 2047
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_THREE_MONTHS = 2048
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_TWELVE_MONTHS = 2049
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_CURRENT_THREE_MONTHS = 2050
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_CURRENT_TWELVE_MONTHS = 2051
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_NON_CURRENT_THREE_MONTHS = 2052
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_NON_CURRENT_TWELVE_MONTHS = 2053
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENT_PROPERTIES_THREE_MONTHS = 2054
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENT_PROPERTIES_TWELVE_MONTHS = 2055
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_SUBSIDIARIESAT_COST_THREE_MONTHS = 2056
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_SUBSIDIARIESAT_COST_TWELVE_MONTHS = 2057
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_ASSOCIATESAT_COST_THREE_MONTHS = 2058
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_ASSOCIATESAT_COST_TWELVE_MONTHS = 2059
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_JOINT_VENTURESAT_COST_THREE_MONTHS = 2060
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_JOINT_VENTURESAT_COST_TWELVE_MONTHS = 2061
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTIN_FINANCIAL_ASSETS_TWO_MONTHS = 2062
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTIN_FINANCIAL_ASSETS_THREE_MONTHS = 2063
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTIN_FINANCIAL_ASSETS_TWELVE_MONTHS = 2064
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_THREE_MONTHS = 2065
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_TWELVE_MONTHS = 2066
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_CURRENT_TWELVE_MONTHS = 2067
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_CURRENT_THREE_MONTHS = 2068
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_CURRENT_TWELVE_MONTHS = 2069
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_CURRENT_THREE_MONTHS = 2070
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_CURRENT_TWELVE_MONTHS = 2071
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_THREE_MONTHS = 2072
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_TWELVE_MONTHS = 2073
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_NON_CURRENT_THREE_MONTHS = 2074
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_NON_CURRENT_TWELVE_MONTHS = 2075
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_NON_CURRENT_THREE_MONTHS = 2076
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_NON_CURRENT_TWELVE_MONTHS = 2077
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RESERVES_THREE_MONTHS = 2078
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RESERVES_TWELVE_MONTHS = 2079
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANSAND_ADVANCESTO_BANK_THREE_MONTHS = 2080
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANSAND_ADVANCESTO_BANK_TWELVE_MONTHS = 2081
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANSAND_ADVANCESTO_CUSTOMER_THREE_MONTHS = 2082
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANSAND_ADVANCESTO_CUSTOMER_TWELVE_MONTHS = 2083
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_BILLSAND_OTHER_ELIGIBLE_BILLS_THREE_MONTHS = 2084
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_BILLSAND_OTHER_ELIGIBLE_BILLS_TWELVE_MONTHS = 2085
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_SHARES_INVESTMENTS_THREE_MONTHS = 2086
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_SHARES_INVESTMENTS_TWELVE_MONTHS = 2087
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITSBY_BANK_THREE_MONTHS = 2088
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITSBY_BANK_TWELVE_MONTHS = 2089
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CUSTOMER_ACCOUNTS_THREE_MONTHS = 2090
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CUSTOMER_ACCOUNTS_TWELVE_MONTHS = 2091
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ITEMSIN_THE_COURSEOF_TRANSMISSIONTO_OTHER_BANKS_THREE_MONTHS = 2092
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ITEMSIN_THE_COURSEOF_TRANSMISSIONTO_OTHER_BANKS_TWELVE_MONTHS = 2093
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADINGAND_FINANCIAL_LIABILITIES_THREE_MONTHS = 2094
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADINGAND_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 2095
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_SECURITIESIN_ISSUE_THREE_MONTHS = 2096
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_SECURITIESIN_ISSUE_TWELVE_MONTHS = 2097
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SUBORDINATED_LIABILITIES_THREE_MONTHS = 2098
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SUBORDINATED_LIABILITIES_TWELVE_MONTHS = 2099
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PROVISIONS_TOTAL_THREE_MONTHS = 2100
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PROVISIONS_TOTAL_TWELVE_MONTHS = 2101
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OPERATING_LEASE_ASSETS_THREE_MONTHS = 2102
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OPERATING_LEASE_ASSETS_TWELVE_MONTHS = 2103
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CLAIMS_OUTSTANDING_THREE_MONTHS = 2104
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CLAIMS_OUTSTANDING_TWELVE_MONTHS = 2105
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_CURRENT_THREE_MONTHS = 2106
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_CURRENT_TWELVE_MONTHS = 2107
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_NON_CURRENT_THREE_MONTHS = 2108
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_NON_CURRENT_TWELVE_MONTHS = 2109
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_SECURITIES_THREE_MONTHS = 2110
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_SECURITIES_TWELVE_MONTHS = 2111
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_FINANCIAL_LEASE_OBLIGATIONS_THREE_MONTHS = 2112
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_FINANCIAL_LEASE_OBLIGATIONS_TWELVE_MONTHS = 2113
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_CURRENT_THREE_MONTHS = 2114
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_CURRENT_TWELVE_MONTHS = 2115
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_NON_CURRENT_THREE_MONTHS = 2116
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_NON_CURRENT_TWELVE_MONTHS = 2117
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_CURRENT_THREE_MONTHS = 2118
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_CURRENT_TWELVE_MONTHS = 2119
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_NON_CURRENT_THREE_MONTHS = 2120
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_NON_CURRENT_TWELVE_MONTHS = 2121
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_CURRENT_THREE_MONTHS = 2122
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_CURRENT_TWELVE_MONTHS = 2123
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_NON_CURRENT_THREE_MONTHS = 2124
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_NON_CURRENT_TWELVE_MONTHS = 2125
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_DESIGNATEDAS_FAIR_VALUE_THROUGH_PROFITOR_LOSS_TOTAL_THREE_MONTHS = 2126
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_DESIGNATEDAS_FAIR_VALUE_THROUGH_PROFITOR_LOSS_TOTAL_TWELVE_MONTHS = 2127
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_ASSETS_CURRENT_THREE_MONTHS = 2128
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_ASSETS_CURRENT_TWELVE_MONTHS = 2129
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_INTEREST_THREE_MONTHS = 2130
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_INTEREST_TWELVE_MONTHS = 2131
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_BORROWINGS_NON_CURRENT_THREE_MONTHS = 2132
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_BORROWINGS_NON_CURRENT_TWELVE_MONTHS = 2133
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_NON_CURRENT_THREE_MONTHS = 2134
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_NON_CURRENT_TWELVE_MONTHS = 2135
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADEAND_OTHER_PAYABLES_NON_CURRENT_THREE_MONTHS = 2136
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADEAND_OTHER_PAYABLES_NON_CURRENT_TWELVE_MONTHS = 2137
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_CURRENT_THREE_MONTHS = 2138
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_CURRENT_TWELVE_MONTHS = 2139
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PENSIONAND_OTHER_POST_RETIREMENT_BENEFIT_PLANS_CURRENT_THREE_MONTHS = 2140
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PENSIONAND_OTHER_POST_RETIREMENT_BENEFIT_PLANS_CURRENT_TWELVE_MONTHS = 2141
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOAN_ASSETS_THREE_MONTHS = 2142
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOAN_ASSETS_TWELVE_MONTHS = 2143
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_PLEDGEDAS_COLLATERAL_SUBJECTTO_SALEOR_REPLEDGING_TOTAL_THREE_MONTHS = 2144
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_PLEDGEDAS_COLLATERAL_SUBJECTTO_SALEOR_REPLEDGING_TOTAL_TWELVE_MONTHS = 2145
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAX_ASSETS_TOTAL_THREE_MONTHS = 2146
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAX_ASSETS_TOTAL_TWELVE_MONTHS = 2147
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCESFROM_CENTRAL_BANKS_THREE_MONTHS = 2148
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCESFROM_CENTRAL_BANKS_TWELVE_MONTHS = 2149
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSIT_CERTIFICATES_THREE_MONTHS = 2150
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSIT_CERTIFICATES_TWELVE_MONTHS = 2151
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_TOTAL_THREE_MONTHS = 2152
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_TOTAL_TWELVE_MONTHS = 2153
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_BORROWED_FUNDS_THREE_MONTHS = 2154
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_BORROWED_FUNDS_TWELVE_MONTHS = 2155
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_DESIGNATEDAS_FAIR_VALUE_THROUGH_PROFITOR_LOSS_TOTAL_THREE_MONTHS = 2156
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_DESIGNATEDAS_FAIR_VALUE_THROUGH_PROFITOR_LOSS_TOTAL_TWELVE_MONTHS = 2157
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_MEASUREDAT_AMORTIZED_COST_TOTAL_THREE_MONTHS = 2158
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_MEASUREDAT_AMORTIZED_COST_TOTAL_TWELVE_MONTHS = 2159
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_LIABILITIES_TOTAL_TWO_MONTHS = 2160
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_LIABILITIES_TOTAL_THREE_MONTHS = 2161
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_LIABILITIES_TOTAL_TWELVE_MONTHS = 2162
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_INCOME_TOTAL_THREE_MONTHS = 2163
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_INCOME_TOTAL_TWELVE_MONTHS = 2164
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_LIABILITIES_TOTAL_THREE_MONTHS = 2165
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_LIABILITIES_TOTAL_TWELVE_MONTHS = 2166
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_ASSETS_THREE_MONTHS = 2167
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_ASSETS_TWELVE_MONTHS = 2168
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITS_MADEUNDER_ASSUMED_REINSURANCE_CONTRACT_THREE_MONTHS = 2169
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITS_MADEUNDER_ASSUMED_REINSURANCE_CONTRACT_TWELVE_MONTHS = 2170
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_CONTRACT_ASSETS_THREE_MONTHS = 2171
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_CONTRACT_ASSETS_TWELVE_MONTHS = 2172
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_CONTRACT_LIABILITIES_THREE_MONTHS = 2173
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_CONTRACT_LIABILITIES_TWELVE_MONTHS = 2174
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITS_RECEIVEDUNDER_CEDED_INSURANCE_CONTRACT_THREE_MONTHS = 2175
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITS_RECEIVEDUNDER_CEDED_INSURANCE_CONTRACT_TWELVE_MONTHS = 2176
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENT_CONTRACT_LIABILITIES_THREE_MONTHS = 2177
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENT_CONTRACT_LIABILITIES_TWELVE_MONTHS = 2178
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_TOTAL_THREE_MONTHS = 2179
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_TOTAL_TWELVE_MONTHS = 2180
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_TOTAL_THREE_MONTHS = 2181
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_TOTAL_TWELVE_MONTHS = 2182
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_HEDGING_ASSETS_CURRENT_THREE_MONTHS = 2183
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_HEDGING_ASSETS_CURRENT_TWELVE_MONTHS = 2184
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_TOTAL_THREE_MONTHS = 2185
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_TOTAL_TWELVE_MONTHS = 2186
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_TOTAL_THREE_MONTHS = 2187
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_TOTAL_TWELVE_MONTHS = 2188
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_TOTAL_THREE_MONTHS = 2189
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_TOTAL_TWELVE_MONTHS = 2190
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_FUNDS_NON_CURRENT_THREE_MONTHS = 2191
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_FUNDS_NON_CURRENT_TWELVE_MONTHS = 2192
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_TOTAL_THREE_MONTHS = 2193
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_TOTAL_TWELVE_MONTHS = 2194
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COM_TRE_SHA_NUM_THREE_MONTHS = 2195
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COM_TRE_SHA_NUM_TWELVE_MONTHS = 2196
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PRE_TRE_SHA_NUM_THREE_MONTHS = 2197
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PRE_TRE_SHA_NUM_TWELVE_MONTHS = 2198
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_ONE_MONTH = 2199
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_TWO_MONTHS = 2200
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_THREE_MONTHS = 2201
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_SIX_MONTHS = 2202
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_NINE_MONTHS = 2203
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_TWELVE_MONTHS = 2204
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHARE_ISSUED_THREE_MONTHS = 2205
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHARE_ISSUED_TWELVE_MONTHS = 2206
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_CURRENT_THREE_MONTHS = 2207
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_CURRENT_TWELVE_MONTHS = 2208
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_NON_CURRENT_THREE_MONTHS = 2209
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_NON_CURRENT_TWELVE_MONTHS = 2210
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BIOLOGICAL_ASSETS_THREE_MONTHS = 2211
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BIOLOGICAL_ASSETS_TWELVE_MONTHS = 2212
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_RESTRICTED_OR_PLEDGED_THREE_MONTHS = 2213
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_RESTRICTED_OR_PLEDGED_TWELVE_MONTHS = 2214
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_NON_CURRENT_THREE_MONTHS = 2215
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_NON_CURRENT_TWELVE_MONTHS = 2216
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_OR_DERIVATIVE_INVESTMENT_CURRENT_LIABILITIES_THREE_MONTHS = 2217
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_OR_DERIVATIVE_INVESTMENT_CURRENT_LIABILITIES_TWELVE_MONTHS = 2218
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVESTMENTS_THREE_MONTHS = 2219
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVESTMENTS_TWELVE_MONTHS = 2220
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADE_AND_OTHER_RECEIVABLES_NON_CURRENT_THREE_MONTHS = 2221
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADE_AND_OTHER_RECEIVABLES_NON_CURRENT_TWELVE_MONTHS = 2222
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUE_FROM_RELATED_PARTIES_THREE_MONTHS = 2223
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUE_FROM_RELATED_PARTIES_TWELVE_MONTHS = 2224
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNALLOCATED_SURPLUS_THREE_MONTHS = 2225
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNALLOCATED_SURPLUS_TWELVE_MONTHS = 2226
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_1_THREE_MONTHS = 2227
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_1_TWELVE_MONTHS = 2228
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_2_THREE_MONTHS = 2229
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_2_TWELVE_MONTHS = 2230
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_5_THREE_MONTHS = 2231
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_5_TWELVE_MONTHS = 2232
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_BEYOND_THREE_MONTHS = 2233
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_BEYOND_TWELVE_MONTHS = 2234
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_IN_MATURITY_SCHEDULE_THREE_MONTHS = 2235
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_IN_MATURITY_SCHEDULE_TWELVE_MONTHS = 2236
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_ASSETS_REVALUATION_RESERVE_THREE_MONTHS = 2237
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_ASSETS_REVALUATION_RESERVE_TWELVE_MONTHS = 2238
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_OTHER_FINANCIAL_LIABILITIES_THREE_MONTHS = 2239
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_OTHER_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 2240
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_OTHER_FINANCIAL_LIABILITIES_THREE_MONTHS = 2241
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_OTHER_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 2242
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_FINANCIAL_LIABILITIES_THREE_MONTHS = 2243
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 2244
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_AS_REPORTED_THREE_MONTHS = 2245
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_AS_REPORTED_TWELVE_MONTHS = 2246
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_AS_REPORTED_THREE_MONTHS = 2247
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_AS_REPORTED_TWELVE_MONTHS = 2248
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_PREFERRED_THREE_MONTHS = 2249
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_PREFERRED_TWELVE_MONTHS = 2250
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_AND_EQUITY_THREE_MONTHS = 2251
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_AND_EQUITY_TWELVE_MONTHS = 2252
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_OPERATING_ASSETS_THREE_MONTHS = 2253
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_OPERATING_ASSETS_TWELVE_MONTHS = 2254
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_CALCULATED_THREE_MONTHS = 2255
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_CALCULATED_TWELVE_MONTHS = 2256
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAID_IN_CAPITAL_THREE_MONTHS = 2257
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAID_IN_CAPITAL_TWELVE_MONTHS = 2258
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_VALUE_THREE_MONTHS = 2259
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_VALUE_TWELVE_MONTHS = 2260
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PORTION_OF_LONG_TERM_DEBT_AND_CAPITAL_LEASE_THREE_MONTHS = 2261
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PORTION_OF_LONG_TERM_DEBT_AND_CAPITAL_LEASE_TWELVE_MONTHS = 2262
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_THREE_MONTHS = 2263
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_TWELVE_MONTHS = 2264
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_CURRENT_THREE_MONTHS = 2265
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_CURRENT_TWELVE_MONTHS = 2266
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASED_PROPERTY_PLANT_AND_EQUIPMENT_THREE_MONTHS = 2267
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASED_PROPERTY_PLANT_AND_EQUIPMENT_TWELVE_MONTHS = 2268
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_VALUE_THREE_MONTHS = 2269
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_VALUE_TWELVE_MONTHS = 2270
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FURNITURE_FIXTURES_AND_OFFICE_EQUIPMENT_THREE_MONTHS = 2271
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FURNITURE_FIXTURES_AND_OFFICE_EQUIPMENT_TWELVE_MONTHS = 2272
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_ONE_MONTH = 2273
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_TWO_MONTHS = 2274
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_THREE_MONTHS = 2275
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_SIX_MONTHS = 2276
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_NINE_MONTHS = 2277
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_TWELVE_MONTHS = 2278
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PERIOD_ENDING_DATE_THREE_MONTHS = 2279
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PERIOD_ENDING_DATE_SIX_MONTHS = 2280
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PERIOD_ENDING_DATE_NINE_MONTHS = 2281
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PERIOD_ENDING_DATE_TWELVE_MONTHS = 2282
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PERIOD_ENDING_DATE_THREE_MONTHS = 2283
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PERIOD_ENDING_DATE_SIX_MONTHS = 2284
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PERIOD_ENDING_DATE_NINE_MONTHS = 2285
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PERIOD_ENDING_DATE_TWELVE_MONTHS = 2286
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PERIOD_ENDING_DATE_THREE_MONTHS = 2287
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PERIOD_ENDING_DATE_SIX_MONTHS = 2288
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PERIOD_ENDING_DATE_NINE_MONTHS = 2289
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PERIOD_ENDING_DATE_TWELVE_MONTHS = 2290
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_ONE_MONTH = 2291
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_TWO_MONTHS = 2292
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_THREE_MONTHS = 2293
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_SIX_MONTHS = 2294
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_NINE_MONTHS = 2295
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_TWELVE_MONTHS = 2296
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_ONE_MONTH = 2297
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_TWO_MONTHS = 2298
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_THREE_MONTHS = 2299
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_SIX_MONTHS = 2300
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_NINE_MONTHS = 2301
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_TWELVE_MONTHS = 2302
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_ONE_MONTH = 2303
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_TWO_MONTHS = 2304
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_THREE_MONTHS = 2305
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_SIX_MONTHS = 2306
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_NINE_MONTHS = 2307
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_TWELVE_MONTHS = 2308
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_TWO_MONTHS = 2309
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_THREE_MONTHS = 2310
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_SIX_MONTHS = 2311
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_NINE_MONTHS = 2312
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_TWELVE_MONTHS = 2313
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_TWO_MONTHS = 2314
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_THREE_MONTHS = 2315
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_SIX_MONTHS = 2316
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_NINE_MONTHS = 2317
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_TWELVE_MONTHS = 2318
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_TWO_MONTHS = 2319
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_THREE_MONTHS = 2320
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_SIX_MONTHS = 2321
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_NINE_MONTHS = 2322
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2323
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_DISCONTINUED_OPERATION_THREE_MONTHS = 2324
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_DISCONTINUED_OPERATION_SIX_MONTHS = 2325
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_DISCONTINUED_OPERATION_NINE_MONTHS = 2326
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_DISCONTINUED_OPERATION_TWELVE_MONTHS = 2327
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_ONE_MONTH = 2328
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_TWO_MONTHS = 2329
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_THREE_MONTHS = 2330
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_SIX_MONTHS = 2331
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_NINE_MONTHS = 2332
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_TWELVE_MONTHS = 2333
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_ONE_MONTH = 2334
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_TWO_MONTHS = 2335
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_THREE_MONTHS = 2336
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_SIX_MONTHS = 2337
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_NINE_MONTHS = 2338
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_TWELVE_MONTHS = 2339
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_ONE_MONTH = 2340
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_TWO_MONTHS = 2341
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_THREE_MONTHS = 2342
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_SIX_MONTHS = 2343
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_NINE_MONTHS = 2344
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_TWELVE_MONTHS = 2345
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_ONE_MONTH = 2346
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_TWO_MONTHS = 2347
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_THREE_MONTHS = 2348
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_SIX_MONTHS = 2349
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_NINE_MONTHS = 2350
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_TWELVE_MONTHS = 2351
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_ONE_MONTH = 2352
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_TWO_MONTHS = 2353
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_THREE_MONTHS = 2354
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_SIX_MONTHS = 2355
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_NINE_MONTHS = 2356
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_TWELVE_MONTHS = 2357
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_FINANCING_ACTIVITIES_THREE_MONTHS = 2358
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_FINANCING_ACTIVITIES_SIX_MONTHS = 2359
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_FINANCING_ACTIVITIES_NINE_MONTHS = 2360
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_FINANCING_ACTIVITIES_TWELVE_MONTHS = 2361
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_INVESTING_ACTIVITIES_THREE_MONTHS = 2362
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_INVESTING_ACTIVITIES_SIX_MONTHS = 2363
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_INVESTING_ACTIVITIES_NINE_MONTHS = 2364
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_INVESTING_ACTIVITIES_TWELVE_MONTHS = 2365
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_ONE_MONTH = 2366
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_TWO_MONTHS = 2367
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_THREE_MONTHS = 2368
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_SIX_MONTHS = 2369
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_NINE_MONTHS = 2370
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_TWELVE_MONTHS = 2371
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_ONE_MONTH = 2372
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_TWO_MONTHS = 2373
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_THREE_MONTHS = 2374
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_SIX_MONTHS = 2375
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_NINE_MONTHS = 2376
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_TWELVE_MONTHS = 2377
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_ONE_MONTH = 2378
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_TWO_MONTHS = 2379
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_THREE_MONTHS = 2380
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_SIX_MONTHS = 2381
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_NINE_MONTHS = 2382
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_TWELVE_MONTHS = 2383
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_INVESTMENT_INCOME_THREE_MONTHS = 2384
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_INVESTMENT_INCOME_SIX_MONTHS = 2385
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_INVESTMENT_INCOME_NINE_MONTHS = 2386
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_INVESTMENT_INCOME_TWELVE_MONTHS = 2387
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_ONE_MONTH = 2388
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_TWO_MONTHS = 2389
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_THREE_MONTHS = 2390
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_SIX_MONTHS = 2391
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_NINE_MONTHS = 2392
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_TWELVE_MONTHS = 2393
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_ACQUISITION_COSTS_THREE_MONTHS = 2394
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_ACQUISITION_COSTS_SIX_MONTHS = 2395
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_ACQUISITION_COSTS_NINE_MONTHS = 2396
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_ACQUISITION_COSTS_TWELVE_MONTHS = 2397
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FEDERAL_FUNDS_AND_SECURITIES_SOLD_FOR_REPURCHASE_THREE_MONTHS = 2398
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FEDERAL_FUNDS_AND_SECURITIES_SOLD_FOR_REPURCHASE_SIX_MONTHS = 2399
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FEDERAL_FUNDS_AND_SECURITIES_SOLD_FOR_REPURCHASE_NINE_MONTHS = 2400
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FEDERAL_FUNDS_AND_SECURITIES_SOLD_FOR_REPURCHASE_TWELVE_MONTHS = 2401
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FUNDS_WITHHELD_THREE_MONTHS = 2402
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FUNDS_WITHHELD_SIX_MONTHS = 2403
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FUNDS_WITHHELD_NINE_MONTHS = 2404
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FUNDS_WITHHELD_TWELVE_MONTHS = 2405
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_ONE_MONTH = 2406
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_TWO_MONTHS = 2407
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_THREE_MONTHS = 2408
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_SIX_MONTHS = 2409
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_NINE_MONTHS = 2410
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_TWELVE_MONTHS = 2411
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_ONE_MONTH = 2412
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_TWO_MONTHS = 2413
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_THREE_MONTHS = 2414
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_SIX_MONTHS = 2415
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_NINE_MONTHS = 2416
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_TWELVE_MONTHS = 2417
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_ONE_MONTH = 2418
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_TWO_MONTHS = 2419
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_THREE_MONTHS = 2420
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_SIX_MONTHS = 2421
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_NINE_MONTHS = 2422
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_TWELVE_MONTHS = 2423
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOANS_THREE_MONTHS = 2424
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOANS_SIX_MONTHS = 2425
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOANS_NINE_MONTHS = 2426
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOANS_TWELVE_MONTHS = 2427
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOSS_AND_LOSS_ADJUSTMENT_EXPENSE_RESERVES_THREE_MONTHS = 2428
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOSS_AND_LOSS_ADJUSTMENT_EXPENSE_RESERVES_SIX_MONTHS = 2429
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOSS_AND_LOSS_ADJUSTMENT_EXPENSE_RESERVES_NINE_MONTHS = 2430
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOSS_AND_LOSS_ADJUSTMENT_EXPENSE_RESERVES_TWELVE_MONTHS = 2431
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_ONE_MONTH = 2432
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_TWO_MONTHS = 2433
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_THREE_MONTHS = 2434
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_SIX_MONTHS = 2435
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_NINE_MONTHS = 2436
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_TWELVE_MONTHS = 2437
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_ONE_MONTH = 2438
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_TWO_MONTHS = 2439
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_THREE_MONTHS = 2440
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_SIX_MONTHS = 2441
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_NINE_MONTHS = 2442
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_TWELVE_MONTHS = 2443
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_ONE_MONTH = 2444
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_TWO_MONTHS = 2445
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_THREE_MONTHS = 2446
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_SIX_MONTHS = 2447
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_NINE_MONTHS = 2448
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_TWELVE_MONTHS = 2449
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_ONE_MONTH = 2450
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_TWO_MONTHS = 2451
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_THREE_MONTHS = 2452
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_SIX_MONTHS = 2453
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_NINE_MONTHS = 2454
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_TWELVE_MONTHS = 2455
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_REINSURANCE_RECOVERABLE_ON_PAID_AND_UNPAID_LOSSES_THREE_MONTHS = 2456
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_REINSURANCE_RECOVERABLE_ON_PAID_AND_UNPAID_LOSSES_SIX_MONTHS = 2457
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_REINSURANCE_RECOVERABLE_ON_PAID_AND_UNPAID_LOSSES_NINE_MONTHS = 2458
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_REINSURANCE_RECOVERABLE_ON_PAID_AND_UNPAID_LOSSES_TWELVE_MONTHS = 2459
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RESTRICTED_CASH_SIX_MONTHS = 2460
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RESTRICTED_CASH_TWELVE_MONTHS = 2461
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TRADING_ACCOUNT_SECURITIES_THREE_MONTHS = 2462
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TRADING_ACCOUNT_SECURITIES_SIX_MONTHS = 2463
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TRADING_ACCOUNT_SECURITIES_NINE_MONTHS = 2464
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TRADING_ACCOUNT_SECURITIES_TWELVE_MONTHS = 2465
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_ONE_MONTH = 2466
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_TWO_MONTHS = 2467
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_THREE_MONTHS = 2468
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_SIX_MONTHS = 2469
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_NINE_MONTHS = 2470
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_TWELVE_MONTHS = 2471
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_ONE_MONTH = 2472
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_TWO_MONTHS = 2473
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_THREE_MONTHS = 2474
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_SIX_MONTHS = 2475
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_NINE_MONTHS = 2476
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_TWELVE_MONTHS = 2477
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_ONE_MONTH = 2478
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_TWO_MONTHS = 2479
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_THREE_MONTHS = 2480
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_SIX_MONTHS = 2481
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_NINE_MONTHS = 2482
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_TWELVE_MONTHS = 2483
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPLETION_THREE_MONTHS = 2484
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPLETION_SIX_MONTHS = 2485
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPLETION_NINE_MONTHS = 2486
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPLETION_TWELVE_MONTHS = 2487
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_ONE_MONTH = 2488
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_TWO_MONTHS = 2489
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_THREE_MONTHS = 2490
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_SIX_MONTHS = 2491
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_NINE_MONTHS = 2492
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_TWELVE_MONTHS = 2493
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_ONE_MONTH = 2494
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_TWO_MONTHS = 2495
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_THREE_MONTHS = 2496
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_SIX_MONTHS = 2497
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_NINE_MONTHS = 2498
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_TWELVE_MONTHS = 2499
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_ONE_MONTH = 2500
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_TWO_MONTHS = 2501
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_THREE_MONTHS = 2502
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_SIX_MONTHS = 2503
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_NINE_MONTHS = 2504
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_TWELVE_MONTHS = 2505
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_ONE_MONTH = 2506
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_TWO_MONTHS = 2507
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_THREE_MONTHS = 2508
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_SIX_MONTHS = 2509
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_NINE_MONTHS = 2510
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_TWELVE_MONTHS = 2511
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_DEPOSIT_THREE_MONTHS = 2512
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_DEPOSIT_SIX_MONTHS = 2513
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_DEPOSIT_NINE_MONTHS = 2514
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_DEPOSIT_TWELVE_MONTHS = 2515
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_ONE_MONTH = 2516
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_TWO_MONTHS = 2517
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_THREE_MONTHS = 2518
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_SIX_MONTHS = 2519
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_NINE_MONTHS = 2520
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_TWELVE_MONTHS = 2521
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_ONE_MONTH = 2522
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_TWO_MONTHS = 2523
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_THREE_MONTHS = 2524
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_SIX_MONTHS = 2525
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_NINE_MONTHS = 2526
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_TWELVE_MONTHS = 2527
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_ONE_MONTH = 2528
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_TWO_MONTHS = 2529
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_THREE_MONTHS = 2530
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_SIX_MONTHS = 2531
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_NINE_MONTHS = 2532
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_TWELVE_MONTHS = 2533
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_ONE_MONTH = 2534
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_TWO_MONTHS = 2535
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_THREE_MONTHS = 2536
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_SIX_MONTHS = 2537
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_NINE_MONTHS = 2538
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_TWELVE_MONTHS = 2539
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_ONE_MONTH = 2540
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_TWO_MONTHS = 2541
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_THREE_MONTHS = 2542
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_SIX_MONTHS = 2543
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_NINE_MONTHS = 2544
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_TWELVE_MONTHS = 2545
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_CASH_FROM_DISCONTINUED_OPERATIONS_THREE_MONTHS = 2546
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_CASH_FROM_DISCONTINUED_OPERATIONS_SIX_MONTHS = 2547
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_CASH_FROM_DISCONTINUED_OPERATIONS_NINE_MONTHS = 2548
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_CASH_FROM_DISCONTINUED_OPERATIONS_TWELVE_MONTHS = 2549
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_ONE_MONTH = 2550
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_THREE_MONTHS = 2551
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_SIX_MONTHS = 2552
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_NINE_MONTHS = 2553
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_TWELVE_MONTHS = 2554
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_ONE_MONTH = 2555
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_TWO_MONTHS = 2556
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_THREE_MONTHS = 2557
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_SIX_MONTHS = 2558
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_NINE_MONTHS = 2559
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_TWELVE_MONTHS = 2560
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENT_FOR_LOANS_THREE_MONTHS = 2561
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENT_FOR_LOANS_SIX_MONTHS = 2562
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENT_FOR_LOANS_NINE_MONTHS = 2563
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENT_FOR_LOANS_TWELVE_MONTHS = 2564
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_ONE_MONTH = 2565
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_TWO_MONTHS = 2566
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_THREE_MONTHS = 2567
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_SIX_MONTHS = 2568
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_NINE_MONTHS = 2569
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_TWELVE_MONTHS = 2570
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_ONE_MONTH = 2571
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_THREE_MONTHS = 2572
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_SIX_MONTHS = 2573
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_NINE_MONTHS = 2574
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_TWELVE_MONTHS = 2575
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_ONE_MONTH = 2576
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_TWO_MONTHS = 2577
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_THREE_MONTHS = 2578
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_SIX_MONTHS = 2579
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_NINE_MONTHS = 2580
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_TWELVE_MONTHS = 2581
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_ONE_MONTH = 2582
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_TWO_MONTHS = 2583
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_THREE_MONTHS = 2584
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_SIX_MONTHS = 2585
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_NINE_MONTHS = 2586
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_TWELVE_MONTHS = 2587
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_LOANS_THREE_MONTHS = 2588
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_LOANS_SIX_MONTHS = 2589
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_LOANS_NINE_MONTHS = 2590
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_LOANS_TWELVE_MONTHS = 2591
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_ONE_MONTH = 2592
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_TWO_MONTHS = 2593
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_THREE_MONTHS = 2594
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_SIX_MONTHS = 2595
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_NINE_MONTHS = 2596
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_TWELVE_MONTHS = 2597
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_ONE_MONTH = 2598
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_TWO_MONTHS = 2599
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_THREE_MONTHS = 2600
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_SIX_MONTHS = 2601
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_NINE_MONTHS = 2602
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_TWELVE_MONTHS = 2603
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_ONE_MONTH = 2604
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_TWO_MONTHS = 2605
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_THREE_MONTHS = 2606
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_SIX_MONTHS = 2607
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_NINE_MONTHS = 2608
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_TWELVE_MONTHS = 2609
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_ONE_MONTH = 2610
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_TWO_MONTHS = 2611
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_THREE_MONTHS = 2612
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_SIX_MONTHS = 2613
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_NINE_MONTHS = 2614
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_TWELVE_MONTHS = 2615
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_ONE_MONTH = 2616
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_TWO_MONTHS = 2617
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_THREE_MONTHS = 2618
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_SIX_MONTHS = 2619
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_NINE_MONTHS = 2620
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_TWELVE_MONTHS = 2621
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PROCEEDS_PAYMENT_FOR_LOAN_THREE_MONTHS = 2622
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PROCEEDS_PAYMENT_FOR_LOAN_SIX_MONTHS = 2623
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PROCEEDS_PAYMENT_FOR_LOAN_NINE_MONTHS = 2624
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PROCEEDS_PAYMENT_FOR_LOAN_TWELVE_MONTHS = 2625
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_THREE_MONTHS = 2626
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_SIX_MONTHS = 2627
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_NINE_MONTHS = 2628
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_TWELVE_MONTHS = 2629
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_ONE_MONTH = 2630
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_TWO_MONTHS = 2631
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_THREE_MONTHS = 2632
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_SIX_MONTHS = 2633
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_NINE_MONTHS = 2634
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_TWELVE_MONTHS = 2635
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_ONE_MONTH = 2636
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_TWO_MONTHS = 2637
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_THREE_MONTHS = 2638
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_SIX_MONTHS = 2639
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_NINE_MONTHS = 2640
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_TWELVE_MONTHS = 2641
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_ONE_MONTH = 2642
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_TWO_MONTHS = 2643
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_THREE_MONTHS = 2644
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_SIX_MONTHS = 2645
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_NINE_MONTHS = 2646
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_TWELVE_MONTHS = 2647
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_ONE_MONTH = 2648
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_TWO_MONTHS = 2649
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_THREE_MONTHS = 2650
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_SIX_MONTHS = 2651
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_NINE_MONTHS = 2652
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_TWELVE_MONTHS = 2653
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_ONE_MONTH = 2654
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_TWO_MONTHS = 2655
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_THREE_MONTHS = 2656
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_SIX_MONTHS = 2657
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_NINE_MONTHS = 2658
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_TWELVE_MONTHS = 2659
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_ONE_MONTH = 2660
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_TWO_MONTHS = 2661
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_THREE_MONTHS = 2662
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_SIX_MONTHS = 2663
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_NINE_MONTHS = 2664
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_TWELVE_MONTHS = 2665
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_ONE_MONTH = 2666
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_TWO_MONTHS = 2667
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_THREE_MONTHS = 2668
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_SIX_MONTHS = 2669
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_NINE_MONTHS = 2670
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_TWELVE_MONTHS = 2671
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_ONE_MONTH = 2672
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_TWO_MONTHS = 2673
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_THREE_MONTHS = 2674
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_SIX_MONTHS = 2675
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_NINE_MONTHS = 2676
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_TWELVE_MONTHS = 2677
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_ONE_MONTH = 2678
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_TWO_MONTHS = 2679
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_THREE_MONTHS = 2680
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_SIX_MONTHS = 2681
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_NINE_MONTHS = 2682
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_TWELVE_MONTHS = 2683
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_ONE_MONTH = 2684
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_THREE_MONTHS = 2685
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_SIX_MONTHS = 2686
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_NINE_MONTHS = 2687
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_TWELVE_MONTHS = 2688
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_ONE_MONTH = 2689
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_TWO_MONTHS = 2690
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_THREE_MONTHS = 2691
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_SIX_MONTHS = 2692
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_NINE_MONTHS = 2693
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_TWELVE_MONTHS = 2694
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_ONE_MONTH = 2695
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_TWO_MONTHS = 2696
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_THREE_MONTHS = 2697
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_SIX_MONTHS = 2698
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_NINE_MONTHS = 2699
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_TWELVE_MONTHS = 2700
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_ONE_MONTH = 2701
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_TWO_MONTHS = 2702
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_THREE_MONTHS = 2703
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_SIX_MONTHS = 2704
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_NINE_MONTHS = 2705
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_TWELVE_MONTHS = 2706
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_ONE_MONTH = 2707
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_TWO_MONTHS = 2708
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_THREE_MONTHS = 2709
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_SIX_MONTHS = 2710
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_NINE_MONTHS = 2711
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_TWELVE_MONTHS = 2712
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_ONE_MONTH = 2713
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_TWO_MONTHS = 2714
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_THREE_MONTHS = 2715
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_SIX_MONTHS = 2716
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_NINE_MONTHS = 2717
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_TWELVE_MONTHS = 2718
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_ONE_MONTH = 2719
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_TWO_MONTHS = 2720
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_THREE_MONTHS = 2721
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_SIX_MONTHS = 2722
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_NINE_MONTHS = 2723
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_TWELVE_MONTHS = 2724
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DIVIDEND_PAYABLE_THREE_MONTHS = 2725
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DIVIDEND_PAYABLE_SIX_MONTHS = 2726
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DIVIDEND_PAYABLE_NINE_MONTHS = 2727
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DIVIDEND_PAYABLE_TWELVE_MONTHS = 2728
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_CHARGES_THREE_MONTHS = 2729
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_CHARGES_SIX_MONTHS = 2730
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_CHARGES_NINE_MONTHS = 2731
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_CHARGES_TWELVE_MONTHS = 2732
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_ONE_MONTH = 2733
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_TWO_MONTHS = 2734
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_THREE_MONTHS = 2735
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_SIX_MONTHS = 2736
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_NINE_MONTHS = 2737
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_TWELVE_MONTHS = 2738
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_ONE_MONTH = 2739
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_TWO_MONTHS = 2740
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_THREE_MONTHS = 2741
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_SIX_MONTHS = 2742
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_NINE_MONTHS = 2743
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_TWELVE_MONTHS = 2744
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_ONE_MONTH = 2745
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_TWO_MONTHS = 2746
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_THREE_MONTHS = 2747
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_SIX_MONTHS = 2748
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_NINE_MONTHS = 2749
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_TWELVE_MONTHS = 2750
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_UNEARNED_PREMIUMS_THREE_MONTHS = 2751
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_UNEARNED_PREMIUMS_SIX_MONTHS = 2752
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_UNEARNED_PREMIUMS_NINE_MONTHS = 2753
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_UNEARNED_PREMIUMS_TWELVE_MONTHS = 2754
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_ONE_MONTH = 2755
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_TWO_MONTHS = 2756
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_THREE_MONTHS = 2757
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_SIX_MONTHS = 2758
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_NINE_MONTHS = 2759
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_TWELVE_MONTHS = 2760
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_ONE_MONTH = 2761
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_TWO_MONTHS = 2762
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_THREE_MONTHS = 2763
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_SIX_MONTHS = 2764
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_NINE_MONTHS = 2765
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_TWELVE_MONTHS = 2766
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_TWO_MONTHS = 2767
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_THREE_MONTHS = 2768
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_SIX_MONTHS = 2769
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_NINE_MONTHS = 2770
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_TWELVE_MONTHS = 2771
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_ONE_MONTH = 2772
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_TWO_MONTHS = 2773
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_THREE_MONTHS = 2774
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_SIX_MONTHS = 2775
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_NINE_MONTHS = 2776
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_TWELVE_MONTHS = 2777
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_ONE_MONTH = 2778
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_TWO_MONTHS = 2779
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_THREE_MONTHS = 2780
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_SIX_MONTHS = 2781
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_NINE_MONTHS = 2782
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_TWELVE_MONTHS = 2783
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_ONE_MONTH = 2784
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_TWO_MONTHS = 2785
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_THREE_MONTHS = 2786
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_SIX_MONTHS = 2787
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_NINE_MONTHS = 2788
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_TWELVE_MONTHS = 2789
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_CREDITED_ON_POLICYHOLDER_DEPOSITS_THREE_MONTHS = 2790
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_CREDITED_ON_POLICYHOLDER_DEPOSITS_SIX_MONTHS = 2791
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_CREDITED_ON_POLICYHOLDER_DEPOSITS_NINE_MONTHS = 2792
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_CREDITED_ON_POLICYHOLDER_DEPOSITS_TWELVE_MONTHS = 2793
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_OPERATING_ACTIVITIES_THREE_MONTHS = 2794
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_OPERATING_ACTIVITIES_SIX_MONTHS = 2795
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_OPERATING_ACTIVITIES_NINE_MONTHS = 2796
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2797
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_ONE_MONTH = 2798
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_TWO_MONTHS = 2799
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_THREE_MONTHS = 2800
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_SIX_MONTHS = 2801
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_NINE_MONTHS = 2802
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_TWELVE_MONTHS = 2803
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_ONE_MONTH = 2804
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_TWO_MONTHS = 2805
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_THREE_MONTHS = 2806
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_SIX_MONTHS = 2807
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_NINE_MONTHS = 2808
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_TWELVE_MONTHS = 2809
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_ONE_MONTH = 2810
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_TWO_MONTHS = 2811
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_THREE_MONTHS = 2812
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_SIX_MONTHS = 2813
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_NINE_MONTHS = 2814
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_TWELVE_MONTHS = 2815
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_ONE_MONTH = 2816
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_TWO_MONTHS = 2817
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_THREE_MONTHS = 2818
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_SIX_MONTHS = 2819
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_NINE_MONTHS = 2820
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_TWELVE_MONTHS = 2821
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_ONE_MONTH = 2822
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_TWO_MONTHS = 2823
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_THREE_MONTHS = 2824
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_SIX_MONTHS = 2825
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_NINE_MONTHS = 2826
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_TWELVE_MONTHS = 2827
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_ONE_MONTH = 2828
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_TWO_MONTHS = 2829
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_THREE_MONTHS = 2830
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_SIX_MONTHS = 2831
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_NINE_MONTHS = 2832
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_TWELVE_MONTHS = 2833
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASED_UNDER_AGREEMENT_TO_RESELL_THREE_MONTHS = 2834
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASED_UNDER_AGREEMENT_TO_RESELL_SIX_MONTHS = 2835
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASED_UNDER_AGREEMENT_TO_RESELL_NINE_MONTHS = 2836
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASED_UNDER_AGREEMENT_TO_RESELL_TWELVE_MONTHS = 2837
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISION_FOR_LOAN_LEASE_AND_OTHER_LOSSES_THREE_MONTHS = 2838
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISION_FOR_LOAN_LEASE_AND_OTHER_LOSSES_SIX_MONTHS = 2839
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISION_FOR_LOAN_LEASE_AND_OTHER_LOSSES_NINE_MONTHS = 2840
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISION_FOR_LOAN_LEASE_AND_OTHER_LOSSES_TWELVE_MONTHS = 2841
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_ONE_MONTH = 2842
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_THREE_MONTHS = 2843
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_SIX_MONTHS = 2844
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_NINE_MONTHS = 2845
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_TWELVE_MONTHS = 2846
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_ONE_MONTH = 2847
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_TWO_MONTHS = 2848
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_THREE_MONTHS = 2849
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_SIX_MONTHS = 2850
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_NINE_MONTHS = 2851
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_TWELVE_MONTHS = 2852
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_ONE_MONTH = 2853
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_TWO_MONTHS = 2854
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_THREE_MONTHS = 2855
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_SIX_MONTHS = 2856
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_NINE_MONTHS = 2857
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_TWELVE_MONTHS = 2858
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAINS_LOSSES_ON_DERIVATIVES_THREE_MONTHS = 2859
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAINS_LOSSES_ON_DERIVATIVES_TWELVE_MONTHS = 2860
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_ONE_MONTH = 2861
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_TWO_MONTHS = 2862
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_THREE_MONTHS = 2863
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_SIX_MONTHS = 2864
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_NINE_MONTHS = 2865
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_TWELVE_MONTHS = 2866
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_ONE_MONTH = 2867
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_TWO_MONTHS = 2868
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_THREE_MONTHS = 2869
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_SIX_MONTHS = 2870
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_NINE_MONTHS = 2871
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_TWELVE_MONTHS = 2872
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_ONE_MONTH = 2873
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_TWO_MONTHS = 2874
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_THREE_MONTHS = 2875
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_SIX_MONTHS = 2876
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_NINE_MONTHS = 2877
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_TWELVE_MONTHS = 2878
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_ONE_MONTH = 2879
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_TWO_MONTHS = 2880
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_THREE_MONTHS = 2881
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_SIX_MONTHS = 2882
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_NINE_MONTHS = 2883
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_TWELVE_MONTHS = 2884
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_ONE_MONTH = 2885
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_TWO_MONTHS = 2886
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_THREE_MONTHS = 2887
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_SIX_MONTHS = 2888
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_NINE_MONTHS = 2889
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_TWELVE_MONTHS = 2890
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_ONE_MONTH = 2891
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_TWO_MONTHS = 2892
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_THREE_MONTHS = 2893
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_SIX_MONTHS = 2894
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_NINE_MONTHS = 2895
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_TWELVE_MONTHS = 2896
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_ONE_MONTH = 2897
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_TWO_MONTHS = 2898
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_THREE_MONTHS = 2899
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_SIX_MONTHS = 2900
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_NINE_MONTHS = 2901
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_TWELVE_MONTHS = 2902
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_ONE_MONTH = 2903
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_TWO_MONTHS = 2904
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_THREE_MONTHS = 2905
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_SIX_MONTHS = 2906
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_NINE_MONTHS = 2907
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_TWELVE_MONTHS = 2908
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DECREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_THREE_MONTHS = 2909
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DECREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_SIX_MONTHS = 2910
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DECREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_NINE_MONTHS = 2911
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DECREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_TWELVE_MONTHS = 2912
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_THREE_MONTHS = 2913
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_SIX_MONTHS = 2914
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_NINE_MONTHS = 2915
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_TWELVE_MONTHS = 2916
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFO_THREE_MONTHS = 2917
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFO_SIX_MONTHS = 2918
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFO_NINE_MONTHS = 2919
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFO_TWELVE_MONTHS = 2920
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFO_THREE_MONTHS = 2921
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFO_SIX_MONTHS = 2922
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFO_NINE_MONTHS = 2923
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFO_TWELVE_MONTHS = 2924
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_SUBSIDIARIES_THREE_MONTHS = 2925
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_SUBSIDIARIES_SIX_MONTHS = 2926
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_SUBSIDIARIES_NINE_MONTHS = 2927
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_SUBSIDIARIES_TWELVE_MONTHS = 2928
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_JOINT_VENTURE_ASSOCIATE_THREE_MONTHS = 2929
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_JOINT_VENTURE_ASSOCIATE_SIX_MONTHS = 2930
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_JOINT_VENTURE_ASSOCIATE_NINE_MONTHS = 2931
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_JOINT_VENTURE_ASSOCIATE_TWELVE_MONTHS = 2932
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_SUBSIDIARIES_SIX_MONTHS = 2933
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_SUBSIDIARIES_TWELVE_MONTHS = 2934
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_JOINT_VENTURE_ASSOCIATE_THREE_MONTHS = 2935
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_JOINT_VENTURE_ASSOCIATE_SIX_MONTHS = 2936
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_JOINT_VENTURE_ASSOCIATE_NINE_MONTHS = 2937
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_JOINT_VENTURE_ASSOCIATE_TWELVE_MONTHS = 2938
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_LEASE_FINANCING_THREE_MONTHS = 2939
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_LEASE_FINANCING_SIX_MONTHS = 2940
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_LEASE_FINANCING_NINE_MONTHS = 2941
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_LEASE_FINANCING_TWELVE_MONTHS = 2942
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_LEASE_FINANCING_SIX_MONTHS = 2943
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_LEASE_FINANCING_TWELVE_MONTHS = 2944
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_IN_LEASE_FINANCING_THREE_MONTHS = 2945
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_IN_LEASE_FINANCING_SIX_MONTHS = 2946
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_IN_LEASE_FINANCING_NINE_MONTHS = 2947
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_IN_LEASE_FINANCING_TWELVE_MONTHS = 2948
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHARE_OF_ASSOCIATES_THREE_MONTHS = 2949
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHARE_OF_ASSOCIATES_SIX_MONTHS = 2950
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHARE_OF_ASSOCIATES_NINE_MONTHS = 2951
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHARE_OF_ASSOCIATES_TWELVE_MONTHS = 2952
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROFIT_ON_DISPOSALS_THREE_MONTHS = 2953
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROFIT_ON_DISPOSALS_SIX_MONTHS = 2954
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROFIT_ON_DISPOSALS_NINE_MONTHS = 2955
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROFIT_ON_DISPOSALS_TWELVE_MONTHS = 2956
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REORGANIZATION_OTHER_COSTS_THREE_MONTHS = 2957
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REORGANIZATION_OTHER_COSTS_SIX_MONTHS = 2958
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REORGANIZATION_OTHER_COSTS_NINE_MONTHS = 2959
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REORGANIZATION_OTHER_COSTS_TWELVE_MONTHS = 2960
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OUTWARD_LOANS_TWELVE_MONTHS = 2961
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_TWO_MONTHS = 2962
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_THREE_MONTHS = 2963
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_SIX_MONTHS = 2964
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_NINE_MONTHS = 2965
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_TWELVE_MONTHS = 2966
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEPOSITSBY_BANKSAND_CUSTOMERS_TWELVE_MONTHS = 2967
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_ONE_MONTH = 2968
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_THREE_MONTHS = 2969
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_SIX_MONTHS = 2970
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_NINE_MONTHS = 2971
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_TWELVE_MONTHS = 2972
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_ONE_MONTH = 2973
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_THREE_MONTHS = 2974
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_SIX_MONTHS = 2975
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_NINE_MONTHS = 2976
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2977
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_ONE_MONTH = 2978
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_THREE_MONTHS = 2979
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_SIX_MONTHS = 2980
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_NINE_MONTHS = 2981
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2982
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_ONE_MONTH = 2983
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_THREE_MONTHS = 2984
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_SIX_MONTHS = 2985
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_NINE_MONTHS = 2986
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_TWELVE_MONTHS = 2987
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSTO_SUPPLIERSFOR_GOODSAND_SERVICES_THREE_MONTHS = 2988
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSTO_SUPPLIERSFOR_GOODSAND_SERVICES_SIX_MONTHS = 2989
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSTO_SUPPLIERSFOR_GOODSAND_SERVICES_NINE_MONTHS = 2990
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSTO_SUPPLIERSFOR_GOODSAND_SERVICES_TWELVE_MONTHS = 2991
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSON_BEHALFOF_EMPLOYEES_THREE_MONTHS = 2992
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSON_BEHALFOF_EMPLOYEES_SIX_MONTHS = 2993
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSON_BEHALFOF_EMPLOYEES_NINE_MONTHS = 2994
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSON_BEHALFOF_EMPLOYEES_TWELVE_MONTHS = 2995
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_ONE_MONTH = 2996
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_THREE_MONTHS = 2997
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_SIX_MONTHS = 2998
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_NINE_MONTHS = 2999
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_TWELVE_MONTHS = 3000
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_PAID_DIRECT_TWELVE_MONTHS = 3001
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_DIRECT_THREE_MONTHS = 3002
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_DIRECT_SIX_MONTHS = 3003
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_DIRECT_NINE_MONTHS = 3004
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_DIRECT_TWELVE_MONTHS = 3005
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_DIRECT_THREE_MONTHS = 3006
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_DIRECT_SIX_MONTHS = 3007
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_DIRECT_NINE_MONTHS = 3008
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_DIRECT_TWELVE_MONTHS = 3009
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_DIRECT_THREE_MONTHS = 3010
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_DIRECT_SIX_MONTHS = 3011
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_DIRECT_NINE_MONTHS = 3012
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_DIRECT_TWELVE_MONTHS = 3013
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_DIRECT_THREE_MONTHS = 3014
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_DIRECT_SIX_MONTHS = 3015
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_DIRECT_NINE_MONTHS = 3016
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_DIRECT_TWELVE_MONTHS = 3017
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_TWO_MONTHS = 3018
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_THREE_MONTHS = 3019
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_SIX_MONTHS = 3020
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_NINE_MONTHS = 3021
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_TWELVE_MONTHS = 3022
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IMPAIRMENT_LOSS_REVERSAL_RECOGNIZEDIN_PROFITOR_LOSS_THREE_MONTHS = 3023
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IMPAIRMENT_LOSS_REVERSAL_RECOGNIZEDIN_PROFITOR_LOSS_SIX_MONTHS = 3024
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IMPAIRMENT_LOSS_REVERSAL_RECOGNIZEDIN_PROFITOR_LOSS_NINE_MONTHS = 3025
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IMPAIRMENT_LOSS_REVERSAL_RECOGNIZEDIN_PROFITOR_LOSS_TWELVE_MONTHS = 3026
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDEND_PAID_CFO_TWELVE_MONTHS = 3027
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDEND_RECEIVED_CFO_SIX_MONTHS = 3028
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDEND_RECEIVED_CFO_TWELVE_MONTHS = 3029
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_THREE_MONTHS = 3030
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_SIX_MONTHS = 3031
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_NINE_MONTHS = 3032
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_TWELVE_MONTHS = 3033
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_OPERATING_INFLOWS_OUTFLOWSOF_CASH_THREE_MONTHS = 3034
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_OPERATING_INFLOWS_OUTFLOWSOF_CASH_SIX_MONTHS = 3035
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_OPERATING_INFLOWS_OUTFLOWSOF_CASH_NINE_MONTHS = 3036
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_OPERATING_INFLOWS_OUTFLOWSOF_CASH_TWELVE_MONTHS = 3037
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_ADVANCESAND_LOANS_MADETO_OTHER_PARTIES_TWELVE_MONTHS = 3038
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_REPAYMENTOF_ADVANCESAND_LOANS_MADETO_OTHER_PARTIES_SIX_MONTHS = 3039
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_REPAYMENTOF_ADVANCESAND_LOANS_MADETO_OTHER_PARTIES_TWELVE_MONTHS = 3040
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_CFI_THREE_MONTHS = 3041
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_CFI_SIX_MONTHS = 3042
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_CFI_NINE_MONTHS = 3043
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_CFI_TWELVE_MONTHS = 3044
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFI_THREE_MONTHS = 3045
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFI_SIX_MONTHS = 3046
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFI_NINE_MONTHS = 3047
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFI_TWELVE_MONTHS = 3048
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFF_THREE_MONTHS = 3049
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFF_SIX_MONTHS = 3050
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFF_NINE_MONTHS = 3051
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFF_TWELVE_MONTHS = 3052
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ACCRUED_INCOME_THREE_MONTHS = 3053
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ACCRUED_INCOME_SIX_MONTHS = 3054
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ACCRUED_INCOME_NINE_MONTHS = 3055
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ACCRUED_INCOME_TWELVE_MONTHS = 3056
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_ASSETS_TWELVE_MONTHS = 3057
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ADVANCESFROM_CENTRAL_BANKS_THREE_MONTHS = 3058
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ADVANCESFROM_CENTRAL_BANKS_SIX_MONTHS = 3059
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ADVANCESFROM_CENTRAL_BANKS_NINE_MONTHS = 3060
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ADVANCESFROM_CENTRAL_BANKS_TWELVE_MONTHS = 3061
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_LIABILITIES_THREE_MONTHS = 3062
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_LIABILITIES_SIX_MONTHS = 3063
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_LIABILITIES_NINE_MONTHS = 3064
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 3065
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_ASSETS_THREE_MONTHS = 3066
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_ASSETS_SIX_MONTHS = 3067
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_ASSETS_NINE_MONTHS = 3068
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_ASSETS_TWELVE_MONTHS = 3069
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_REINSURANCE_RECEIVABLES_THREE_MONTHS = 3070
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_REINSURANCE_RECEIVABLES_SIX_MONTHS = 3071
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_REINSURANCE_RECEIVABLES_NINE_MONTHS = 3072
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_REINSURANCE_RECEIVABLES_TWELVE_MONTHS = 3073
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEFERRED_ACQUISITION_COSTS_NET_THREE_MONTHS = 3074
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEFERRED_ACQUISITION_COSTS_NET_SIX_MONTHS = 3075
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEFERRED_ACQUISITION_COSTS_NET_NINE_MONTHS = 3076
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEFERRED_ACQUISITION_COSTS_NET_TWELVE_MONTHS = 3077
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_FUNDS_THREE_MONTHS = 3078
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_FUNDS_SIX_MONTHS = 3079
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_FUNDS_NINE_MONTHS = 3080
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_FUNDS_TWELVE_MONTHS = 3081
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_LIABILITIES_THREE_MONTHS = 3082
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_LIABILITIES_SIX_MONTHS = 3083
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_LIABILITIES_NINE_MONTHS = 3084
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_LIABILITIES_TWELVE_MONTHS = 3085
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_LIABILITIES_THREE_MONTHS = 3086
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_LIABILITIES_SIX_MONTHS = 3087
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_LIABILITIES_NINE_MONTHS = 3088
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_LIABILITIES_TWELVE_MONTHS = 3089
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISIONAND_WRITE_OFFOF_ASSETS_THREE_MONTHS = 3090
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISIONAND_WRITE_OFFOF_ASSETS_SIX_MONTHS = 3091
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISIONAND_WRITE_OFFOF_ASSETS_NINE_MONTHS = 3092
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISIONAND_WRITE_OFFOF_ASSETS_TWELVE_MONTHS = 3093
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_CUSTOMERS_THREE_MONTHS = 3094
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_CUSTOMERS_SIX_MONTHS = 3095
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_CUSTOMERS_NINE_MONTHS = 3096
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_CUSTOMERS_TWELVE_MONTHS = 3097
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_GOVERNMENT_GRANTS_THREE_MONTHS = 3098
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_GOVERNMENT_GRANTS_SIX_MONTHS = 3099
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_GOVERNMENT_GRANTS_NINE_MONTHS = 3100
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_GOVERNMENT_GRANTS_TWELVE_MONTHS = 3101
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_MINORITY_INTEREST_TWELVE_MONTHS = 3102
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_ONE_MONTH = 3103
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_TWO_MONTHS = 3104
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_THREE_MONTHS = 3105
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_SIX_MONTHS = 3106
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_NINE_MONTHS = 3107
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_TWELVE_MONTHS = 3108
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_TAX_REFUNDS_THREE_MONTHS = 3109
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_TAX_REFUNDS_SIX_MONTHS = 3110
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_TAX_REFUNDS_NINE_MONTHS = 3111
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_TAX_REFUNDS_TWELVE_MONTHS = 3112
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_ONE_MONTH = 3113
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_THREE_MONTHS = 3114
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_SIX_MONTHS = 3115
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_NINE_MONTHS = 3116
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_TWELVE_MONTHS = 3117
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_ONE_MONTH = 3118
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_THREE_MONTHS = 3119
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_SIX_MONTHS = 3120
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_NINE_MONTHS = 3121
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_TWELVE_MONTHS = 3122
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_ONE_MONTH = 3123
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_THREE_MONTHS = 3124
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_SIX_MONTHS = 3125
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_NINE_MONTHS = 3126
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_TWELVE_MONTHS = 3127
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_FEESAND_COMMISSIONS_THREE_MONTHS = 3128
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_FEESAND_COMMISSIONS_SIX_MONTHS = 3129
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_FEESAND_COMMISSIONS_NINE_MONTHS = 3130
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_FEESAND_COMMISSIONS_TWELVE_MONTHS = 3131
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_ONE_MONTH = 3132
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_THREE_MONTHS = 3133
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_SIX_MONTHS = 3134
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_NINE_MONTHS = 3135
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_TWELVE_MONTHS = 3136
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_LOANS_THREE_MONTHS = 3137
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_LOANS_SIX_MONTHS = 3138
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_LOANS_NINE_MONTHS = 3139
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_LOANS_TWELVE_MONTHS = 3140
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTERESTAND_COMMISSION_PAID_THREE_MONTHS = 3141
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTERESTAND_COMMISSION_PAID_SIX_MONTHS = 3142
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTERESTAND_COMMISSION_PAID_NINE_MONTHS = 3143
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTERESTAND_COMMISSION_PAID_TWELVE_MONTHS = 3144
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_ONE_MONTH = 3145
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_THREE_MONTHS = 3146
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_SIX_MONTHS = 3147
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_NINE_MONTHS = 3148
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_TWELVE_MONTHS = 3149
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIVEDFROM_INSURANCE_ACTIVITIES_THREE_MONTHS = 3150
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIVEDFROM_INSURANCE_ACTIVITIES_SIX_MONTHS = 3151
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIVEDFROM_INSURANCE_ACTIVITIES_NINE_MONTHS = 3152
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIVEDFROM_INSURANCE_ACTIVITIES_TWELVE_MONTHS = 3153
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREMIUM_RECEIVED_THREE_MONTHS = 3154
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREMIUM_RECEIVED_SIX_MONTHS = 3155
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREMIUM_RECEIVED_NINE_MONTHS = 3156
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREMIUM_RECEIVED_TWELVE_MONTHS = 3157
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REINSURANCEAND_OTHER_RECOVERIES_RECEIVED_THREE_MONTHS = 3158
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REINSURANCEAND_OTHER_RECOVERIES_RECEIVED_SIX_MONTHS = 3159
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REINSURANCEAND_OTHER_RECOVERIES_RECEIVED_NINE_MONTHS = 3160
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REINSURANCEAND_OTHER_RECOVERIES_RECEIVED_TWELVE_MONTHS = 3161
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_POLICYHOLDER_DEPOSIT_INVESTMENT_RECEIVED_THREE_MONTHS = 3162
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_POLICYHOLDER_DEPOSIT_INVESTMENT_RECEIVED_SIX_MONTHS = 3163
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_POLICYHOLDER_DEPOSIT_INVESTMENT_RECEIVED_NINE_MONTHS = 3164
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_POLICYHOLDER_DEPOSIT_INVESTMENT_RECEIVED_TWELVE_MONTHS = 3165
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDFOR_INSURANCE_ACTIVITIES_THREE_MONTHS = 3166
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDFOR_INSURANCE_ACTIVITIES_SIX_MONTHS = 3167
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDFOR_INSURANCE_ACTIVITIES_NINE_MONTHS = 3168
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDFOR_INSURANCE_ACTIVITIES_TWELVE_MONTHS = 3169
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLAIMS_PAID_THREE_MONTHS = 3170
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLAIMS_PAID_SIX_MONTHS = 3171
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLAIMS_PAID_NINE_MONTHS = 3172
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLAIMS_PAID_TWELVE_MONTHS = 3173
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMISSION_PAID_THREE_MONTHS = 3174
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMISSION_PAID_SIX_MONTHS = 3175
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMISSION_PAID_NINE_MONTHS = 3176
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMISSION_PAID_TWELVE_MONTHS = 3177
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDTO_REINSURERS_THREE_MONTHS = 3178
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDTO_REINSURERS_SIX_MONTHS = 3179
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDTO_REINSURERS_NINE_MONTHS = 3180
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDTO_REINSURERS_TWELVE_MONTHS = 3181
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_UNDERWRITING_EXPENSES_PAID_THREE_MONTHS = 3182
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_UNDERWRITING_EXPENSES_PAID_SIX_MONTHS = 3183
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_UNDERWRITING_EXPENSES_PAID_NINE_MONTHS = 3184
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_UNDERWRITING_EXPENSES_PAID_TWELVE_MONTHS = 3185
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_FOR_MINORITIES_THREE_MONTHS = 3186
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_FOR_MINORITIES_SIX_MONTHS = 3187
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_FOR_MINORITIES_NINE_MONTHS = 3188
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_FOR_MINORITIES_TWELVE_MONTHS = 3189
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_GENERATEDFROM_OPERATING_ACTIVITIES_THREE_MONTHS = 3190
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_GENERATEDFROM_OPERATING_ACTIVITIES_SIX_MONTHS = 3191
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_GENERATEDFROM_OPERATING_ACTIVITIES_NINE_MONTHS = 3192
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_GENERATEDFROM_OPERATING_ACTIVITIES_TWELVE_MONTHS = 3193
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FUND_FROM_OPERATION_THREE_MONTHS = 3194
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FUND_FROM_OPERATION_SIX_MONTHS = 3195
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FUND_FROM_OPERATION_NINE_MONTHS = 3196
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FUND_FROM_OPERATION_TWELVE_MONTHS = 3197
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PROPERTIES_PURCHASE_AND_SALE_THREE_MONTHS = 3198
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PROPERTIES_PURCHASE_AND_SALE_SIX_MONTHS = 3199
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PROPERTIES_PURCHASE_AND_SALE_NINE_MONTHS = 3200
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PROPERTIES_PURCHASE_AND_SALE_TWELVE_MONTHS = 3201
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_PROPERTIES_THREE_MONTHS = 3202
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_PROPERTIES_SIX_MONTHS = 3203
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_PROPERTIES_NINE_MONTHS = 3204
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_PROPERTIES_TWELVE_MONTHS = 3205
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_PROPERTIES_THREE_MONTHS = 3206
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_PROPERTIES_SIX_MONTHS = 3207
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_PROPERTIES_NINE_MONTHS = 3208
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_PROPERTIES_TWELVE_MONTHS = 3209
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_INCLUDED_INTO_CHANGEIN_CASH_THREE_MONTHS = 3210
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_INCLUDED_INTO_CHANGEIN_CASH_SIX_MONTHS = 3211
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_INCLUDED_INTO_CHANGEIN_CASH_NINE_MONTHS = 3212
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_INCLUDED_INTO_CHANGEIN_CASH_TWELVE_MONTHS = 3213
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_EXCLUDE_FROM_CHANGEIN_CASH_THREE_MONTHS = 3214
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_EXCLUDE_FROM_CHANGEIN_CASH_SIX_MONTHS = 3215
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_EXCLUDE_FROM_CHANGEIN_CASH_NINE_MONTHS = 3216
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_EXCLUDE_FROM_CHANGEIN_CASH_TWELVE_MONTHS = 3217
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_CASH_SUPPLEMENTAL_AS_REPORTED_THREE_MONTHS = 3218
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_CASH_SUPPLEMENTAL_AS_REPORTED_SIX_MONTHS = 3219
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_CASH_SUPPLEMENTAL_AS_REPORTED_NINE_MONTHS = 3220
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_CASH_SUPPLEMENTAL_AS_REPORTED_TWELVE_MONTHS = 3221
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_AND_DEPLETION_THREE_MONTHS = 3222
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_AND_DEPLETION_SIX_MONTHS = 3223
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_AND_DEPLETION_NINE_MONTHS = 3224
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_AND_DEPLETION_TWELVE_MONTHS = 3225
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_PREFERRED_STOCK_THREE_MONTHS = 3226
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_PREFERRED_STOCK_SIX_MONTHS = 3227
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_PREFERRED_STOCK_NINE_MONTHS = 3228
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_PREFERRED_STOCK_TWELVE_MONTHS = 3229
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_PREFERRED_STOCK_THREE_MONTHS = 3230
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_PREFERRED_STOCK_SIX_MONTHS = 3231
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_PREFERRED_STOCK_NINE_MONTHS = 3232
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_PREFERRED_STOCK_TWELVE_MONTHS = 3233
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_LEASE_FINANCING_THREE_MONTHS = 3234
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_LEASE_FINANCING_SIX_MONTHS = 3235
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_LEASE_FINANCING_NINE_MONTHS = 3236
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_LEASE_FINANCING_TWELVE_MONTHS = 3237
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_LONG_TERM_DEBT_THREE_MONTHS = 3238
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_LONG_TERM_DEBT_SIX_MONTHS = 3239
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_LONG_TERM_DEBT_NINE_MONTHS = 3240
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_LONG_TERM_DEBT_TWELVE_MONTHS = 3241
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_LONG_TERM_DEBT_THREE_MONTHS = 3242
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_LONG_TERM_DEBT_SIX_MONTHS = 3243
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_LONG_TERM_DEBT_NINE_MONTHS = 3244
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_LONG_TERM_DEBT_TWELVE_MONTHS = 3245
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_COMMON_STOCK_THREE_MONTHS = 3246
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_COMMON_STOCK_SIX_MONTHS = 3247
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_COMMON_STOCK_NINE_MONTHS = 3248
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_COMMON_STOCK_TWELVE_MONTHS = 3249
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_SHORT_TERM_DEBT_THREE_MONTHS = 3250
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_SHORT_TERM_DEBT_SIX_MONTHS = 3251
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_SHORT_TERM_DEBT_NINE_MONTHS = 3252
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_SHORT_TERM_DEBT_TWELVE_MONTHS = 3253
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_COMMON_STOCK_THREE_MONTHS = 3254
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_COMMON_STOCK_SIX_MONTHS = 3255
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_COMMON_STOCK_NINE_MONTHS = 3256
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_COMMON_STOCK_TWELVE_MONTHS = 3257
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_SHORT_TERM_DEBT_THREE_MONTHS = 3258
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_SHORT_TERM_DEBT_SIX_MONTHS = 3259
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_SHORT_TERM_DEBT_NINE_MONTHS = 3260
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_SHORT_TERM_DEBT_TWELVE_MONTHS = 3261
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_LEASE_FINANCING_THREE_MONTHS = 3262
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_LEASE_FINANCING_SIX_MONTHS = 3263
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_LEASE_FINANCING_NINE_MONTHS = 3264
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_LEASE_FINANCING_TWELVE_MONTHS = 3265
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_TO_EQUITY_HOLDERS_THREE_MONTHS = 3266
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_TO_EQUITY_HOLDERS_SIX_MONTHS = 3267
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_TO_EQUITY_HOLDERS_NINE_MONTHS = 3268
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_TO_EQUITY_HOLDERS_TWELVE_MONTHS = 3269
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_OPERATIONS_THREE_MONTHS = 3270
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_OPERATIONS_SIX_MONTHS = 3271
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_OPERATIONS_NINE_MONTHS = 3272
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_OPERATIONS_TWELVE_MONTHS = 3273
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_LOSS_BEFORE_NON_CASH_ADJUSTMENT_THREE_MONTHS = 3274
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_LOSS_BEFORE_NON_CASH_ADJUSTMENT_SIX_MONTHS = 3275
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_LOSS_BEFORE_NON_CASH_ADJUSTMENT_NINE_MONTHS = 3276
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_LOSS_BEFORE_NON_CASH_ADJUSTMENT_TWELVE_MONTHS = 3277
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IRREGULAR_INCOME_LOSS_NON_CASH_ADJUSTMENT_THREE_MONTHS = 3278
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IRREGULAR_INCOME_LOSS_NON_CASH_ADJUSTMENT_SIX_MONTHS = 3279
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IRREGULAR_INCOME_LOSS_NON_CASH_ADJUSTMENT_NINE_MONTHS = 3280
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IRREGULAR_INCOME_LOSS_NON_CASH_ADJUSTMENT_TWELVE_MONTHS = 3281
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_INCOME_LOSS_NON_CASH_ADJUSTMENT_THREE_MONTHS = 3282
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_INCOME_LOSS_NON_CASH_ADJUSTMENT_SIX_MONTHS = 3283
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_INCOME_LOSS_NON_CASH_ADJUSTMENT_NINE_MONTHS = 3284
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_INCOME_LOSS_NON_CASH_ADJUSTMENT_TWELVE_MONTHS = 3285
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_DISPOSALS_NON_CASH_ADJUSTMENT_THREE_MONTHS = 3286
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_DISPOSALS_NON_CASH_ADJUSTMENT_SIX_MONTHS = 3287
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_DISPOSALS_NON_CASH_ADJUSTMENT_NINE_MONTHS = 3288
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_DISPOSALS_NON_CASH_ADJUSTMENT_TWELVE_MONTHS = 3289
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_AND_INTEREST_PAID_THREE_MONTHS = 3290
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_AND_INTEREST_PAID_SIX_MONTHS = 3291
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_AND_INTEREST_PAID_NINE_MONTHS = 3292
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_AND_INTEREST_PAID_TWELVE_MONTHS = 3293
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_OPERATING_CAPITAL_THREE_MONTHS = 3294
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_OPERATING_CAPITAL_SIX_MONTHS = 3295
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_OPERATING_CAPITAL_NINE_MONTHS = 3296
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_OPERATING_CAPITAL_TWELVE_MONTHS = 3297
-
-    FINANCIAL_STATEMENTS_COMMON_EQUITY_TIER_1_CAPITAL_RATIO_ONE_MONTH = 3298
-
-    FINANCIAL_STATEMENTS_COMMON_EQUITY_TIER_1_CAPITAL_RATIO_THREE_MONTHS = 3299
-
-    FINANCIAL_STATEMENTS_COMMON_EQUITY_TIER_1_CAPITAL_RATIO_SIX_MONTHS = 3300
-
-    FINANCIAL_STATEMENTS_COMMON_EQUITY_TIER_1_CAPITAL_RATIO_NINE_MONTHS = 3301
-
-    FINANCIAL_STATEMENTS_COMMON_EQUITY_TIER_1_CAPITAL_RATIO_TWELVE_MONTHS = 3302
-
-    FINANCIAL_STATEMENTS_COMMON_EQUITY_TIER_1_CAPITAL_ONE_MONTH = 3303
-
-    FINANCIAL_STATEMENTS_COMMON_EQUITY_TIER_1_CAPITAL_THREE_MONTHS = 3304
-
-    FINANCIAL_STATEMENTS_COMMON_EQUITY_TIER_1_CAPITAL_SIX_MONTHS = 3305
-
-    FINANCIAL_STATEMENTS_COMMON_EQUITY_TIER_1_CAPITAL_NINE_MONTHS = 3306
-
-    FINANCIAL_STATEMENTS_COMMON_EQUITY_TIER_1_CAPITAL_TWELVE_MONTHS = 3307
-
-    FINANCIAL_STATEMENTS_LIQUIDITY_COVERAGE_RATIO_ONE_MONTH = 3308
-
-    FINANCIAL_STATEMENTS_LIQUIDITY_COVERAGE_RATIO_THREE_MONTHS = 3309
-
-    FINANCIAL_STATEMENTS_LIQUIDITY_COVERAGE_RATIO_SIX_MONTHS = 3310
-
-    FINANCIAL_STATEMENTS_LIQUIDITY_COVERAGE_RATIO_NINE_MONTHS = 3311
-
-    FINANCIAL_STATEMENTS_LIQUIDITY_COVERAGE_RATIO_TWELVE_MONTHS = 3312
-
-    FINANCIAL_STATEMENTS_NET_INTEREST_MARGIN_ONE_MONTH = 3313
-
-    FINANCIAL_STATEMENTS_NET_INTEREST_MARGIN_THREE_MONTHS = 3314
-
-    FINANCIAL_STATEMENTS_NET_INTEREST_MARGIN_SIX_MONTHS = 3315
-
-    FINANCIAL_STATEMENTS_NET_INTEREST_MARGIN_NINE_MONTHS = 3316
-
-    FINANCIAL_STATEMENTS_NET_INTEREST_MARGIN_TWELVE_MONTHS = 3317
-
-    FINANCIAL_STATEMENTS_NET_INTEREST_SPREAD_ONE_MONTH = 3318
-
-    FINANCIAL_STATEMENTS_NET_INTEREST_SPREAD_THREE_MONTHS = 3319
-
-    FINANCIAL_STATEMENTS_NET_INTEREST_SPREAD_SIX_MONTHS = 3320
-
-    FINANCIAL_STATEMENTS_NET_INTEREST_SPREAD_NINE_MONTHS = 3321
-
-    FINANCIAL_STATEMENTS_NET_INTEREST_SPREAD_TWELVE_MONTHS = 3322
-
-    FINANCIAL_STATEMENTS_NON_PERFORMING_ASSETS_LOANS_ONE_MONTH = 3323
-
-    FINANCIAL_STATEMENTS_NON_PERFORMING_ASSETS_LOANS_THREE_MONTHS = 3324
-
-    FINANCIAL_STATEMENTS_NON_PERFORMING_ASSETS_LOANS_SIX_MONTHS = 3325
-
-    FINANCIAL_STATEMENTS_NON_PERFORMING_ASSETS_LOANS_NINE_MONTHS = 3326
-
-    FINANCIAL_STATEMENTS_NON_PERFORMING_ASSETS_LOANS_TWELVE_MONTHS = 3327
-
-    FINANCIAL_STATEMENTS_RISK_WEIGHTED_ASSET_ONE_MONTH = 3328
-
-    FINANCIAL_STATEMENTS_RISK_WEIGHTED_ASSET_THREE_MONTHS = 3329
-
-    FINANCIAL_STATEMENTS_RISK_WEIGHTED_ASSET_SIX_MONTHS = 3330
-
-    FINANCIAL_STATEMENTS_RISK_WEIGHTED_ASSET_NINE_MONTHS = 3331
-
-    FINANCIAL_STATEMENTS_RISK_WEIGHTED_ASSET_TWELVE_MONTHS = 3332
-
-    FINANCIAL_STATEMENTS_TIER_1_CAPITAL_RATIO_ONE_MONTH = 3333
-
-    FINANCIAL_STATEMENTS_TIER_1_CAPITAL_RATIO_THREE_MONTHS = 3334
-
-    FINANCIAL_STATEMENTS_TIER_1_CAPITAL_RATIO_SIX_MONTHS = 3335
-
-    FINANCIAL_STATEMENTS_TIER_1_CAPITAL_RATIO_NINE_MONTHS = 3336
-
-    FINANCIAL_STATEMENTS_TIER_1_CAPITAL_RATIO_TWELVE_MONTHS = 3337
-
-    FINANCIAL_STATEMENTS_TIER_1_CAPITAL_ONE_MONTH = 3338
-
-    FINANCIAL_STATEMENTS_TIER_1_CAPITAL_THREE_MONTHS = 3339
-
-    FINANCIAL_STATEMENTS_TIER_1_CAPITAL_SIX_MONTHS = 3340
-
-    FINANCIAL_STATEMENTS_TIER_1_CAPITAL_NINE_MONTHS = 3341
-
-    FINANCIAL_STATEMENTS_TIER_1_CAPITAL_TWELVE_MONTHS = 3342
-
-    FINANCIAL_STATEMENTS_TIER_1_LEVERAGE_RATIO_ONE_MONTH = 3343
-
-    FINANCIAL_STATEMENTS_TIER_1_LEVERAGE_RATIO_THREE_MONTHS = 3344
-
-    FINANCIAL_STATEMENTS_TIER_1_LEVERAGE_RATIO_SIX_MONTHS = 3345
-
-    FINANCIAL_STATEMENTS_TIER_1_LEVERAGE_RATIO_NINE_MONTHS = 3346
-
-    FINANCIAL_STATEMENTS_TIER_1_LEVERAGE_RATIO_TWELVE_MONTHS = 3347
-
-    FINANCIAL_STATEMENTS_TIER_2_CAPITAL_RATIO_ONE_MONTH = 3348
-
-    FINANCIAL_STATEMENTS_TIER_2_CAPITAL_RATIO_THREE_MONTHS = 3349
-
-    FINANCIAL_STATEMENTS_TIER_2_CAPITAL_RATIO_SIX_MONTHS = 3350
-
-    FINANCIAL_STATEMENTS_TIER_2_CAPITAL_RATIO_NINE_MONTHS = 3351
-
-    FINANCIAL_STATEMENTS_TIER_2_CAPITAL_RATIO_TWELVE_MONTHS = 3352
-
-    FINANCIAL_STATEMENTS_TIER_2_CAPITAL_ONE_MONTH = 3353
-
-    FINANCIAL_STATEMENTS_TIER_2_CAPITAL_THREE_MONTHS = 3354
-
-    FINANCIAL_STATEMENTS_TIER_2_CAPITAL_SIX_MONTHS = 3355
-
-    FINANCIAL_STATEMENTS_TIER_2_CAPITAL_NINE_MONTHS = 3356
-
-    FINANCIAL_STATEMENTS_TIER_2_CAPITAL_TWELVE_MONTHS = 3357
-
-    FINANCIAL_STATEMENTS_TOTAL_CAPITAL_ONE_MONTH = 3358
-
-    FINANCIAL_STATEMENTS_TOTAL_CAPITAL_THREE_MONTHS = 3359
-
-    FINANCIAL_STATEMENTS_TOTAL_CAPITAL_SIX_MONTHS = 3360
-
-    FINANCIAL_STATEMENTS_TOTAL_CAPITAL_NINE_MONTHS = 3361
-
-    FINANCIAL_STATEMENTS_TOTAL_CAPITAL_TWELVE_MONTHS = 3362
-
-    FINANCIAL_STATEMENTS_ADJUSTED_BASIC_NET_ASSET_VALUE_ONE_MONTH = 3363
-
-    FINANCIAL_STATEMENTS_ADJUSTED_BASIC_NET_ASSET_VALUE_THREE_MONTHS = 3364
-
-    FINANCIAL_STATEMENTS_ADJUSTED_BASIC_NET_ASSET_VALUE_SIX_MONTHS = 3365
-
-    FINANCIAL_STATEMENTS_ADJUSTED_BASIC_NET_ASSET_VALUE_NINE_MONTHS = 3366
-
-    FINANCIAL_STATEMENTS_ADJUSTED_BASIC_NET_ASSET_VALUE_TWELVE_MONTHS = 3367
-
-    FINANCIAL_STATEMENTS_ADJUSTED_DILUTED_NET_ASSET_VALUE_ONE_MONTH = 3368
-
-    FINANCIAL_STATEMENTS_ADJUSTED_DILUTED_NET_ASSET_VALUE_THREE_MONTHS = 3369
-
-    FINANCIAL_STATEMENTS_ADJUSTED_DILUTED_NET_ASSET_VALUE_SIX_MONTHS = 3370
-
-    FINANCIAL_STATEMENTS_ADJUSTED_DILUTED_NET_ASSET_VALUE_NINE_MONTHS = 3371
-
-    FINANCIAL_STATEMENTS_ADJUSTED_DILUTED_NET_ASSET_VALUE_TWELVE_MONTHS = 3372
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_ADJUSTED_FUND_FROM_OPERATIONS_ONE_MONTH = 3373
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_ADJUSTED_FUND_FROM_OPERATIONS_THREE_MONTHS = 3374
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_ADJUSTED_FUND_FROM_OPERATIONS_SIX_MONTHS = 3375
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_ADJUSTED_FUND_FROM_OPERATIONS_NINE_MONTHS = 3376
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_ADJUSTED_FUND_FROM_OPERATIONS_TWELVE_MONTHS = 3377
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_ADJUSTED_FUND_FROM_OPERATIONS_ONE_MONTH = 3378
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_ADJUSTED_FUND_FROM_OPERATIONS_THREE_MONTHS = 3379
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_ADJUSTED_FUND_FROM_OPERATIONS_SIX_MONTHS = 3380
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_ADJUSTED_FUND_FROM_OPERATIONS_NINE_MONTHS = 3381
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_ADJUSTED_FUND_FROM_OPERATIONS_TWELVE_MONTHS = 3382
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_FUND_FROM_OPERATIONS_ONE_MONTH = 3383
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_FUND_FROM_OPERATIONS_THREE_MONTHS = 3384
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_FUND_FROM_OPERATIONS_SIX_MONTHS = 3385
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_FUND_FROM_OPERATIONS_NINE_MONTHS = 3386
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_FUND_FROM_OPERATIONS_TWELVE_MONTHS = 3387
-
-    FINANCIAL_STATEMENTS_ADJUSTED_BASIC_NET_ASSET_VALUE_PER_SHARE_ONE_MONTH = 3388
-
-    FINANCIAL_STATEMENTS_ADJUSTED_BASIC_NET_ASSET_VALUE_PER_SHARE_THREE_MONTHS = 3389
-
-    FINANCIAL_STATEMENTS_ADJUSTED_BASIC_NET_ASSET_VALUE_PER_SHARE_SIX_MONTHS = 3390
-
-    FINANCIAL_STATEMENTS_ADJUSTED_BASIC_NET_ASSET_VALUE_PER_SHARE_NINE_MONTHS = 3391
-
-    FINANCIAL_STATEMENTS_ADJUSTED_BASIC_NET_ASSET_VALUE_PER_SHARE_TWELVE_MONTHS = 3392
-
-    FINANCIAL_STATEMENTS_ADJUSTED_DILUTED_NET_ASSET_VALUE_PER_SHARE_ONE_MONTH = 3393
-
-    FINANCIAL_STATEMENTS_ADJUSTED_DILUTED_NET_ASSET_VALUE_PER_SHARE_THREE_MONTHS = 3394
-
-    FINANCIAL_STATEMENTS_ADJUSTED_DILUTED_NET_ASSET_VALUE_PER_SHARE_SIX_MONTHS = 3395
-
-    FINANCIAL_STATEMENTS_ADJUSTED_DILUTED_NET_ASSET_VALUE_PER_SHARE_NINE_MONTHS = 3396
-
-    FINANCIAL_STATEMENTS_ADJUSTED_DILUTED_NET_ASSET_VALUE_PER_SHARE_TWELVE_MONTHS = 3397
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_ADJUSTED_FUND_FROM_OPERATIONS_PER_SHARE_ONE_MONTH = 3398
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_ADJUSTED_FUND_FROM_OPERATIONS_PER_SHARE_THREE_MONTHS = 3399
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_ADJUSTED_FUND_FROM_OPERATIONS_PER_SHARE_SIX_MONTHS = 3400
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_ADJUSTED_FUND_FROM_OPERATIONS_PER_SHARE_NINE_MONTHS = 3401
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_ADJUSTED_FUND_FROM_OPERATIONS_PER_SHARE_TWELVE_MONTHS = 3402
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_FUND_FROM_OPERATIONS_PER_SHARE_ONE_MONTH = 3403
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_FUND_FROM_OPERATIONS_PER_SHARE_THREE_MONTHS = 3404
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_FUND_FROM_OPERATIONS_PER_SHARE_SIX_MONTHS = 3405
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_FUND_FROM_OPERATIONS_PER_SHARE_NINE_MONTHS = 3406
-
-    FINANCIAL_STATEMENTS_REPORTED_BASIC_FUND_FROM_OPERATIONS_PER_SHARE_TWELVE_MONTHS = 3407
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_ADJUSTED_FUND_FROM_OPERATIONS_PER_SHARE_ONE_MONTH = 3408
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_ADJUSTED_FUND_FROM_OPERATIONS_PER_SHARE_THREE_MONTHS = 3409
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_ADJUSTED_FUND_FROM_OPERATIONS_PER_SHARE_SIX_MONTHS = 3410
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_ADJUSTED_FUND_FROM_OPERATIONS_PER_SHARE_NINE_MONTHS = 3411
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_ADJUSTED_FUND_FROM_OPERATIONS_PER_SHARE_TWELVE_MONTHS = 3412
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_FUND_FROM_OPERATIONS_PER_SHARE_ONE_MONTH = 3413
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_FUND_FROM_OPERATIONS_PER_SHARE_THREE_MONTHS = 3414
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_FUND_FROM_OPERATIONS_PER_SHARE_SIX_MONTHS = 3415
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_FUND_FROM_OPERATIONS_PER_SHARE_NINE_MONTHS = 3416
-
-    FINANCIAL_STATEMENTS_REPORTED_DILUTED_FUND_FROM_OPERATIONS_PER_SHARE_TWELVE_MONTHS = 3417
-
-    EARNING_REPORTS_PERIOD_ENDING_DATE_ONE_MONTH = 3418
-
-    EARNING_REPORTS_PERIOD_ENDING_DATE_TWO_MONTHS = 3419
-
-    EARNING_REPORTS_PERIOD_ENDING_DATE_THREE_MONTHS = 3420
-
-    EARNING_REPORTS_PERIOD_ENDING_DATE_SIX_MONTHS = 3421
-
-    EARNING_REPORTS_PERIOD_ENDING_DATE_NINE_MONTHS = 3422
-
-    EARNING_REPORTS_PERIOD_ENDING_DATE_TWELVE_MONTHS = 3423
-
-    EARNING_REPORTS_FILE_DATE_ONE_MONTH = 3424
-
-    EARNING_REPORTS_FILE_DATE_TWO_MONTHS = 3425
-
-    EARNING_REPORTS_FILE_DATE_THREE_MONTHS = 3426
-
-    EARNING_REPORTS_FILE_DATE_SIX_MONTHS = 3427
-
-    EARNING_REPORTS_FILE_DATE_NINE_MONTHS = 3428
-
-    EARNING_REPORTS_FILE_DATE_TWELVE_MONTHS = 3429
-
-    EARNING_REPORTS_ACCESSION_NUMBER_ONE_MONTH = 3430
-
-    EARNING_REPORTS_ACCESSION_NUMBER_TWO_MONTHS = 3431
-
-    EARNING_REPORTS_ACCESSION_NUMBER_THREE_MONTHS = 3432
-
-    EARNING_REPORTS_ACCESSION_NUMBER_SIX_MONTHS = 3433
-
-    EARNING_REPORTS_ACCESSION_NUMBER_NINE_MONTHS = 3434
-
-    EARNING_REPORTS_ACCESSION_NUMBER_TWELVE_MONTHS = 3435
-
-    EARNING_REPORTS_FORM_TYPE_ONE_MONTH = 3436
-
-    EARNING_REPORTS_FORM_TYPE_TWO_MONTHS = 3437
-
-    EARNING_REPORTS_FORM_TYPE_THREE_MONTHS = 3438
-
-    EARNING_REPORTS_FORM_TYPE_SIX_MONTHS = 3439
-
-    EARNING_REPORTS_FORM_TYPE_NINE_MONTHS = 3440
-
-    EARNING_REPORTS_FORM_TYPE_TWELVE_MONTHS = 3441
-
-    EARNING_REPORTS_PERIOD_TYPE_ONE_MONTH = 3442
-
-    EARNING_REPORTS_PERIOD_TYPE_TWO_MONTHS = 3443
-
-    EARNING_REPORTS_PERIOD_TYPE_THREE_MONTHS = 3444
-
-    EARNING_REPORTS_PERIOD_TYPE_SIX_MONTHS = 3445
-
-    EARNING_REPORTS_PERIOD_TYPE_NINE_MONTHS = 3446
-
-    EARNING_REPORTS_PERIOD_TYPE_TWELVE_MONTHS = 3447
-
-    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_ONE_MONTH = 3448
-
-    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_TWO_MONTHS = 3449
-
-    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_THREE_MONTHS = 3450
-
-    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_SIX_MONTHS = 3451
-
-    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_NINE_MONTHS = 3452
-
-    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_TWELVE_MONTHS = 3453
-
-    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_ONE_MONTH = 3454
-
-    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_TWO_MONTHS = 3455
-
-    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_THREE_MONTHS = 3456
-
-    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_SIX_MONTHS = 3457
-
-    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_NINE_MONTHS = 3458
-
-    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_TWELVE_MONTHS = 3459
-
-    EARNING_REPORTS_BASIC_EXTRAORDINARY_ONE_MONTH = 3460
-
-    EARNING_REPORTS_BASIC_EXTRAORDINARY_TWO_MONTHS = 3461
-
-    EARNING_REPORTS_BASIC_EXTRAORDINARY_THREE_MONTHS = 3462
-
-    EARNING_REPORTS_BASIC_EXTRAORDINARY_SIX_MONTHS = 3463
-
-    EARNING_REPORTS_BASIC_EXTRAORDINARY_NINE_MONTHS = 3464
-
-    EARNING_REPORTS_BASIC_EXTRAORDINARY_TWELVE_MONTHS = 3465
-
-    EARNING_REPORTS_BASIC_ACCOUNTING_CHANGE_THREE_MONTHS = 3466
-
-    EARNING_REPORTS_BASIC_ACCOUNTING_CHANGE_SIX_MONTHS = 3467
-
-    EARNING_REPORTS_BASIC_ACCOUNTING_CHANGE_NINE_MONTHS = 3468
-
-    EARNING_REPORTS_BASIC_ACCOUNTING_CHANGE_TWELVE_MONTHS = 3469
-
-    EARNING_REPORTS_BASIC_EPS_ONE_MONTH = 3470
-
-    EARNING_REPORTS_BASIC_EPS_TWO_MONTHS = 3471
-
-    EARNING_REPORTS_BASIC_EPS_THREE_MONTHS = 3472
-
-    EARNING_REPORTS_BASIC_EPS_SIX_MONTHS = 3473
-
-    EARNING_REPORTS_BASIC_EPS_NINE_MONTHS = 3474
-
-    EARNING_REPORTS_BASIC_EPS_TWELVE_MONTHS = 3475
-
-    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_ONE_MONTH = 3476
-
-    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_TWO_MONTHS = 3477
-
-    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_THREE_MONTHS = 3478
-
-    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_SIX_MONTHS = 3479
-
-    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_NINE_MONTHS = 3480
-
-    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_TWELVE_MONTHS = 3481
-
-    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_ONE_MONTH = 3482
-
-    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_TWO_MONTHS = 3483
-
-    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_THREE_MONTHS = 3484
-
-    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_SIX_MONTHS = 3485
-
-    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_NINE_MONTHS = 3486
-
-    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_TWELVE_MONTHS = 3487
-
-    EARNING_REPORTS_DILUTED_EXTRAORDINARY_ONE_MONTH = 3488
-
-    EARNING_REPORTS_DILUTED_EXTRAORDINARY_TWO_MONTHS = 3489
-
-    EARNING_REPORTS_DILUTED_EXTRAORDINARY_THREE_MONTHS = 3490
-
-    EARNING_REPORTS_DILUTED_EXTRAORDINARY_SIX_MONTHS = 3491
-
-    EARNING_REPORTS_DILUTED_EXTRAORDINARY_NINE_MONTHS = 3492
-
-    EARNING_REPORTS_DILUTED_EXTRAORDINARY_TWELVE_MONTHS = 3493
-
-    EARNING_REPORTS_DILUTED_ACCOUNTING_CHANGE_THREE_MONTHS = 3494
-
-    EARNING_REPORTS_DILUTED_ACCOUNTING_CHANGE_SIX_MONTHS = 3495
-
-    EARNING_REPORTS_DILUTED_ACCOUNTING_CHANGE_NINE_MONTHS = 3496
-
-    EARNING_REPORTS_DILUTED_ACCOUNTING_CHANGE_TWELVE_MONTHS = 3497
-
-    EARNING_REPORTS_DILUTED_EPS_ONE_MONTH = 3498
-
-    EARNING_REPORTS_DILUTED_EPS_TWO_MONTHS = 3499
-
-    EARNING_REPORTS_DILUTED_EPS_THREE_MONTHS = 3500
-
-    EARNING_REPORTS_DILUTED_EPS_SIX_MONTHS = 3501
-
-    EARNING_REPORTS_DILUTED_EPS_NINE_MONTHS = 3502
-
-    EARNING_REPORTS_DILUTED_EPS_TWELVE_MONTHS = 3503
-
-    EARNING_REPORTS_BASIC_AVERAGE_SHARES_ONE_MONTH = 3504
-
-    EARNING_REPORTS_BASIC_AVERAGE_SHARES_TWO_MONTHS = 3505
-
-    EARNING_REPORTS_BASIC_AVERAGE_SHARES_THREE_MONTHS = 3506
-
-    EARNING_REPORTS_BASIC_AVERAGE_SHARES_SIX_MONTHS = 3507
-
-    EARNING_REPORTS_BASIC_AVERAGE_SHARES_NINE_MONTHS = 3508
-
-    EARNING_REPORTS_BASIC_AVERAGE_SHARES_TWELVE_MONTHS = 3509
-
-    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_ONE_MONTH = 3510
-
-    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_TWO_MONTHS = 3511
-
-    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_THREE_MONTHS = 3512
-
-    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_SIX_MONTHS = 3513
-
-    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_NINE_MONTHS = 3514
-
-    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_TWELVE_MONTHS = 3515
-
-    EARNING_REPORTS_DIVIDEND_PER_SHARE_ONE_MONTH = 3516
-
-    EARNING_REPORTS_DIVIDEND_PER_SHARE_TWO_MONTHS = 3517
-
-    EARNING_REPORTS_DIVIDEND_PER_SHARE_THREE_MONTHS = 3518
-
-    EARNING_REPORTS_DIVIDEND_PER_SHARE_SIX_MONTHS = 3519
-
-    EARNING_REPORTS_DIVIDEND_PER_SHARE_NINE_MONTHS = 3520
-
-    EARNING_REPORTS_DIVIDEND_PER_SHARE_TWELVE_MONTHS = 3521
-
-    EARNING_REPORTS_BASIC_EPS_OTHER_GAINS_LOSSES_THREE_MONTHS = 3522
-
-    EARNING_REPORTS_BASIC_EPS_OTHER_GAINS_LOSSES_SIX_MONTHS = 3523
-
-    EARNING_REPORTS_BASIC_EPS_OTHER_GAINS_LOSSES_NINE_MONTHS = 3524
-
-    EARNING_REPORTS_BASIC_EPS_OTHER_GAINS_LOSSES_TWELVE_MONTHS = 3525
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_ONE_MONTH = 3526
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_TWO_MONTHS = 3527
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_THREE_MONTHS = 3528
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_SIX_MONTHS = 3529
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_NINE_MONTHS = 3530
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_TWELVE_MONTHS = 3531
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_BASIC_EPS_THREE_MONTHS = 3532
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_BASIC_EPS_SIX_MONTHS = 3533
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_BASIC_EPS_NINE_MONTHS = 3534
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_BASIC_EPS_TWELVE_MONTHS = 3535
-
-    EARNING_REPORTS_DILUTED_EPS_OTHER_GAINS_LOSSES_THREE_MONTHS = 3536
-
-    EARNING_REPORTS_DILUTED_EPS_OTHER_GAINS_LOSSES_SIX_MONTHS = 3537
-
-    EARNING_REPORTS_DILUTED_EPS_OTHER_GAINS_LOSSES_NINE_MONTHS = 3538
-
-    EARNING_REPORTS_DILUTED_EPS_OTHER_GAINS_LOSSES_TWELVE_MONTHS = 3539
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_ONE_MONTH = 3540
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_TWO_MONTHS = 3541
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_THREE_MONTHS = 3542
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_SIX_MONTHS = 3543
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_NINE_MONTHS = 3544
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_TWELVE_MONTHS = 3545
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_DILUTED_EPS_THREE_MONTHS = 3546
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_DILUTED_EPS_SIX_MONTHS = 3547
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_DILUTED_EPS_NINE_MONTHS = 3548
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_DILUTED_EPS_TWELVE_MONTHS = 3549
-
-    EARNING_REPORTS_NORMALIZED_BASIC_EPS_ONE_MONTH = 3550
-
-    EARNING_REPORTS_NORMALIZED_BASIC_EPS_TWO_MONTHS = 3551
-
-    EARNING_REPORTS_NORMALIZED_BASIC_EPS_THREE_MONTHS = 3552
-
-    EARNING_REPORTS_NORMALIZED_BASIC_EPS_SIX_MONTHS = 3553
-
-    EARNING_REPORTS_NORMALIZED_BASIC_EPS_NINE_MONTHS = 3554
-
-    EARNING_REPORTS_NORMALIZED_BASIC_EPS_TWELVE_MONTHS = 3555
-
-    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_ONE_MONTH = 3556
-
-    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_TWO_MONTHS = 3557
-
-    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_THREE_MONTHS = 3558
-
-    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_SIX_MONTHS = 3559
-
-    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_NINE_MONTHS = 3560
-
-    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_TWELVE_MONTHS = 3561
-
-    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_ONE_MONTH = 3562
-
-    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_TWO_MONTHS = 3563
-
-    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_THREE_MONTHS = 3564
-
-    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_SIX_MONTHS = 3565
-
-    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_NINE_MONTHS = 3566
-
-    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_TWELVE_MONTHS = 3567
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_BASIC_EPS_THREE_MONTHS = 3568
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_BASIC_EPS_SIX_MONTHS = 3569
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_BASIC_EPS_NINE_MONTHS = 3570
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_BASIC_EPS_TWELVE_MONTHS = 3571
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_DILUTED_EPS_THREE_MONTHS = 3572
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_DILUTED_EPS_SIX_MONTHS = 3573
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_DILUTED_EPS_NINE_MONTHS = 3574
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_DILUTED_EPS_TWELVE_MONTHS = 3575
-
-    EARNING_REPORTS_DIVIDEND_COVERAGE_RATIO_THREE_MONTHS = 3576
-
-    EARNING_REPORTS_DIVIDEND_COVERAGE_RATIO_SIX_MONTHS = 3577
-
-    EARNING_REPORTS_DIVIDEND_COVERAGE_RATIO_NINE_MONTHS = 3578
-
-    EARNING_REPORTS_DIVIDEND_COVERAGE_RATIO_TWELVE_MONTHS = 3579
-
-    EARNING_REPORTS_NORMALIZED_EPS_THREE_MONTHS = 3580
-
-    EARNING_REPORTS_NORMALIZED_EPS_SIX_MONTHS = 3581
-
-    EARNING_REPORTS_NORMALIZED_EPS_NINE_MONTHS = 3582
-
-    EARNING_REPORTS_NORMALIZED_EPS_TWELVE_MONTHS = 3583
-
-    EARNING_REPORTS_CAPITAL_EXPENDITURE_PER_SHARE_THREE_MONTHS = 3584
-
-    EARNING_REPORTS_CAPITAL_EXPENDITURE_PER_SHARE_SIX_MONTHS = 3585
-
-    EARNING_REPORTS_CAPITAL_EXPENDITURE_PER_SHARE_NINE_MONTHS = 3586
-
-    EARNING_REPORTS_CAPITAL_EXPENDITURE_PER_SHARE_TWELVE_MONTHS = 3587
-
-    EARNING_REPORTS_EBIT_PER_SHARE_THREE_MONTHS = 3588
-
-    EARNING_REPORTS_EBIT_PER_SHARE_SIX_MONTHS = 3589
-
-    EARNING_REPORTS_EBIT_PER_SHARE_NINE_MONTHS = 3590
-
-    EARNING_REPORTS_EBIT_PER_SHARE_TWELVE_MONTHS = 3591
-
-    EARNING_REPORTS_NORMALIZED_EBIT_PER_SHARE_THREE_MONTHS = 3592
-
-    EARNING_REPORTS_NORMALIZED_EBIT_PER_SHARE_SIX_MONTHS = 3593
-
-    EARNING_REPORTS_NORMALIZED_EBIT_PER_SHARE_NINE_MONTHS = 3594
-
-    EARNING_REPORTS_NORMALIZED_EBIT_PER_SHARE_TWELVE_MONTHS = 3595
-
-    EARNING_REPORTS_EBITDAR_PER_SHARE_THREE_MONTHS = 3596
-
-    EARNING_REPORTS_EBITDAR_PER_SHARE_SIX_MONTHS = 3597
-
-    EARNING_REPORTS_EBITDAR_PER_SHARE_NINE_MONTHS = 3598
-
-    EARNING_REPORTS_EBITDAR_PER_SHARE_TWELVE_MONTHS = 3599
-
-    EARNING_REPORTS_NORMALIZED_EBITDA_PER_SHARE_THREE_MONTHS = 3600
-
-    EARNING_REPORTS_NORMALIZED_EBITDA_PER_SHARE_SIX_MONTHS = 3601
-
-    EARNING_REPORTS_NORMALIZED_EBITDA_PER_SHARE_NINE_MONTHS = 3602
-
-    EARNING_REPORTS_NORMALIZED_EBITDA_PER_SHARE_TWELVE_MONTHS = 3603
-
-    EARNING_REPORTS_EBITDA_PER_SHARE_THREE_MONTHS = 3604
-
-    EARNING_REPORTS_EBITDA_PER_SHARE_SIX_MONTHS = 3605
-
-    EARNING_REPORTS_EBITDA_PER_SHARE_NINE_MONTHS = 3606
-
-    EARNING_REPORTS_EBITDA_PER_SHARE_TWELVE_MONTHS = 3607
-
-    EARNING_REPORTS_NORMALIZED_EBITDAR_PER_SHARE_THREE_MONTHS = 3608
-
-    EARNING_REPORTS_NORMALIZED_EBITDAR_PER_SHARE_SIX_MONTHS = 3609
-
-    EARNING_REPORTS_NORMALIZED_EBITDAR_PER_SHARE_NINE_MONTHS = 3610
-
-    EARNING_REPORTS_NORMALIZED_EBITDAR_PER_SHARE_TWELVE_MONTHS = 3611
-
-    EARNING_REPORTS_TOTAL_UNUSUAL_ITEMS_PER_SHARE_THREE_MONTHS = 3612
-
-    EARNING_REPORTS_TOTAL_UNUSUAL_ITEMS_PER_SHARE_SIX_MONTHS = 3613
-
-    EARNING_REPORTS_TOTAL_UNUSUAL_ITEMS_PER_SHARE_NINE_MONTHS = 3614
-
-    EARNING_REPORTS_TOTAL_UNUSUAL_ITEMS_PER_SHARE_TWELVE_MONTHS = 3615
-
-    OPERATION_RATIOS_REVENUE_GROWTH_ONE_YEAR = 3616
-
-    OPERATION_RATIOS_REVENUE_GROWTH_THREE_YEARS = 3617
-
-    OPERATION_RATIOS_REVENUE_GROWTH_THREE_MONTHS = 3618
-
-    OPERATION_RATIOS_REVENUE_GROWTH_FIVE_YEARS = 3619
-
-    OPERATION_RATIOS_OPERATION_INCOME_GROWTH_ONE_YEAR = 3620
-
-    OPERATION_RATIOS_OPERATION_INCOME_GROWTH_THREE_YEARS = 3621
-
-    OPERATION_RATIOS_OPERATION_INCOME_GROWTH_THREE_MONTHS = 3622
-
-    OPERATION_RATIOS_OPERATION_INCOME_GROWTH_FIVE_YEARS = 3623
-
-    OPERATION_RATIOS_NET_INCOME_GROWTH_ONE_YEAR = 3624
-
-    OPERATION_RATIOS_NET_INCOME_GROWTH_THREE_YEARS = 3625
-
-    OPERATION_RATIOS_NET_INCOME_GROWTH_THREE_MONTHS = 3626
-
-    OPERATION_RATIOS_NET_INCOME_GROWTH_FIVE_YEARS = 3627
-
-    OPERATION_RATIOS_NET_INCOME_CONT_OPS_GROWTH_ONE_YEAR = 3628
-
-    OPERATION_RATIOS_NET_INCOME_CONT_OPS_GROWTH_THREE_YEARS = 3629
-
-    OPERATION_RATIOS_NET_INCOME_CONT_OPS_GROWTH_THREE_MONTHS = 3630
-
-    OPERATION_RATIOS_NET_INCOME_CONT_OPS_GROWTH_FIVE_YEARS = 3631
-
-    OPERATION_RATIOS_CFO_GROWTH_ONE_YEAR = 3632
-
-    OPERATION_RATIOS_CFO_GROWTH_THREE_YEARS = 3633
-
-    OPERATION_RATIOS_CFO_GROWTH_FIVE_YEARS = 3634
-
-    OPERATION_RATIOS_FCF_GROWTH_ONE_YEAR = 3635
-
-    OPERATION_RATIOS_FCF_GROWTH_THREE_YEARS = 3636
-
-    OPERATION_RATIOS_FCF_GROWTH_FIVE_YEARS = 3637
-
-    OPERATION_RATIOS_OPERATION_REVENUE_GROWTH_3_MONTH_AVG_ONE_YEAR = 3638
-
-    OPERATION_RATIOS_OPERATION_REVENUE_GROWTH_3_MONTH_AVG_THREE_YEARS = 3639
-
-    OPERATION_RATIOS_OPERATION_REVENUE_GROWTH_3_MONTH_AVG_THREE_MONTHS = 3640
-
-    OPERATION_RATIOS_OPERATION_REVENUE_GROWTH_3_MONTH_AVG_FIVE_YEARS = 3641
-
-    OPERATION_RATIOS_GROSS_MARGIN_ONE_YEAR = 3642
-
-    OPERATION_RATIOS_GROSS_MARGIN_ONE_MONTH = 3643
-
-    OPERATION_RATIOS_GROSS_MARGIN_TWO_MONTHS = 3644
-
-    OPERATION_RATIOS_GROSS_MARGIN_THREE_MONTHS = 3645
-
-    OPERATION_RATIOS_GROSS_MARGIN_SIX_MONTHS = 3646
-
-    OPERATION_RATIOS_GROSS_MARGIN_NINE_MONTHS = 3647
-
-    OPERATION_RATIOS_OPERATION_MARGIN_ONE_YEAR = 3648
-
-    OPERATION_RATIOS_OPERATION_MARGIN_ONE_MONTH = 3649
-
-    OPERATION_RATIOS_OPERATION_MARGIN_TWO_MONTHS = 3650
-
-    OPERATION_RATIOS_OPERATION_MARGIN_THREE_MONTHS = 3651
-
-    OPERATION_RATIOS_OPERATION_MARGIN_SIX_MONTHS = 3652
-
-    OPERATION_RATIOS_OPERATION_MARGIN_NINE_MONTHS = 3653
-
-    OPERATION_RATIOS_PRETAX_MARGIN_ONE_YEAR = 3654
-
-    OPERATION_RATIOS_PRETAX_MARGIN_ONE_MONTH = 3655
-
-    OPERATION_RATIOS_PRETAX_MARGIN_TWO_MONTHS = 3656
-
-    OPERATION_RATIOS_PRETAX_MARGIN_THREE_MONTHS = 3657
-
-    OPERATION_RATIOS_PRETAX_MARGIN_SIX_MONTHS = 3658
-
-    OPERATION_RATIOS_PRETAX_MARGIN_NINE_MONTHS = 3659
-
-    OPERATION_RATIOS_NET_MARGIN_ONE_YEAR = 3660
-
-    OPERATION_RATIOS_NET_MARGIN_ONE_MONTH = 3661
-
-    OPERATION_RATIOS_NET_MARGIN_TWO_MONTHS = 3662
-
-    OPERATION_RATIOS_NET_MARGIN_THREE_MONTHS = 3663
-
-    OPERATION_RATIOS_NET_MARGIN_SIX_MONTHS = 3664
-
-    OPERATION_RATIOS_NET_MARGIN_NINE_MONTHS = 3665
-
-    OPERATION_RATIOS_TAX_RATE_ONE_YEAR = 3666
-
-    OPERATION_RATIOS_TAX_RATE_ONE_MONTH = 3667
-
-    OPERATION_RATIOS_TAX_RATE_TWO_MONTHS = 3668
-
-    OPERATION_RATIOS_TAX_RATE_THREE_MONTHS = 3669
-
-    OPERATION_RATIOS_TAX_RATE_SIX_MONTHS = 3670
-
-    OPERATION_RATIOS_TAX_RATE_NINE_MONTHS = 3671
-
-    OPERATION_RATIOS_EBIT_MARGIN_ONE_YEAR = 3672
-
-    OPERATION_RATIOS_EBIT_MARGIN_ONE_MONTH = 3673
-
-    OPERATION_RATIOS_EBIT_MARGIN_TWO_MONTHS = 3674
-
-    OPERATION_RATIOS_EBIT_MARGIN_THREE_MONTHS = 3675
-
-    OPERATION_RATIOS_EBIT_MARGIN_SIX_MONTHS = 3676
-
-    OPERATION_RATIOS_EBIT_MARGIN_NINE_MONTHS = 3677
-
-    OPERATION_RATIOS_EBITDA_MARGIN_ONE_YEAR = 3678
-
-    OPERATION_RATIOS_EBITDA_MARGIN_ONE_MONTH = 3679
-
-    OPERATION_RATIOS_EBITDA_MARGIN_TWO_MONTHS = 3680
-
-    OPERATION_RATIOS_EBITDA_MARGIN_THREE_MONTHS = 3681
-
-    OPERATION_RATIOS_EBITDA_MARGIN_SIX_MONTHS = 3682
-
-    OPERATION_RATIOS_EBITDA_MARGIN_NINE_MONTHS = 3683
-
-    OPERATION_RATIOS_SALES_PER_EMPLOYEE_ONE_YEAR = 3684
-
-    OPERATION_RATIOS_SALES_PER_EMPLOYEE_ONE_MONTH = 3685
-
-    OPERATION_RATIOS_SALES_PER_EMPLOYEE_TWO_MONTHS = 3686
-
-    OPERATION_RATIOS_SALES_PER_EMPLOYEE_THREE_MONTHS = 3687
-
-    OPERATION_RATIOS_SALES_PER_EMPLOYEE_SIX_MONTHS = 3688
-
-    OPERATION_RATIOS_SALES_PER_EMPLOYEE_NINE_MONTHS = 3689
-
-    OPERATION_RATIOS_CURRENT_RATIO_ONE_YEAR = 3690
-
-    OPERATION_RATIOS_CURRENT_RATIO_ONE_MONTH = 3691
-
-    OPERATION_RATIOS_CURRENT_RATIO_TWO_MONTHS = 3692
-
-    OPERATION_RATIOS_CURRENT_RATIO_THREE_MONTHS = 3693
-
-    OPERATION_RATIOS_CURRENT_RATIO_SIX_MONTHS = 3694
-
-    OPERATION_RATIOS_CURRENT_RATIO_NINE_MONTHS = 3695
-
-    OPERATION_RATIOS_QUICK_RATIO_ONE_YEAR = 3696
-
-    OPERATION_RATIOS_QUICK_RATIO_ONE_MONTH = 3697
-
-    OPERATION_RATIOS_QUICK_RATIO_TWO_MONTHS = 3698
-
-    OPERATION_RATIOS_QUICK_RATIO_THREE_MONTHS = 3699
-
-    OPERATION_RATIOS_QUICK_RATIO_SIX_MONTHS = 3700
-
-    OPERATION_RATIOS_QUICK_RATIO_NINE_MONTHS = 3701
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_ONE_YEAR = 3702
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_ONE_MONTH = 3703
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_TWO_MONTHS = 3704
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_THREE_MONTHS = 3705
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_SIX_MONTHS = 3706
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_NINE_MONTHS = 3707
-
-    OPERATION_RATIOS_INTEREST_COVERAGE_ONE_YEAR = 3708
-
-    OPERATION_RATIOS_INTEREST_COVERAGE_ONE_MONTH = 3709
-
-    OPERATION_RATIOS_INTEREST_COVERAGE_TWO_MONTHS = 3710
-
-    OPERATION_RATIOS_INTEREST_COVERAGE_THREE_MONTHS = 3711
-
-    OPERATION_RATIOS_INTEREST_COVERAGE_SIX_MONTHS = 3712
-
-    OPERATION_RATIOS_INTEREST_COVERAGE_NINE_MONTHS = 3713
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_ONE_YEAR = 3714
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_ONE_MONTH = 3715
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_TWO_MONTHS = 3716
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_THREE_MONTHS = 3717
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_SIX_MONTHS = 3718
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_NINE_MONTHS = 3719
-
-    OPERATION_RATIOS_FINANCIAL_LEVERAGE_ONE_YEAR = 3720
-
-    OPERATION_RATIOS_FINANCIAL_LEVERAGE_ONE_MONTH = 3721
-
-    OPERATION_RATIOS_FINANCIAL_LEVERAGE_TWO_MONTHS = 3722
-
-    OPERATION_RATIOS_FINANCIAL_LEVERAGE_THREE_MONTHS = 3723
-
-    OPERATION_RATIOS_FINANCIAL_LEVERAGE_SIX_MONTHS = 3724
-
-    OPERATION_RATIOS_FINANCIAL_LEVERAGE_NINE_MONTHS = 3725
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_ONE_YEAR = 3726
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_ONE_MONTH = 3727
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_TWO_MONTHS = 3728
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_THREE_MONTHS = 3729
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_SIX_MONTHS = 3730
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_NINE_MONTHS = 3731
-
-    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_ONE_YEAR = 3732
-
-    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_ONE_MONTH = 3733
-
-    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_TWO_MONTHS = 3734
-
-    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_THREE_MONTHS = 3735
-
-    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_SIX_MONTHS = 3736
-
-    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_NINE_MONTHS = 3737
-
-    OPERATION_RATIOS_DAYS_IN_SALES_ONE_YEAR = 3738
-
-    OPERATION_RATIOS_DAYS_IN_SALES_THREE_MONTHS = 3739
-
-    OPERATION_RATIOS_DAYS_IN_SALES_SIX_MONTHS = 3740
-
-    OPERATION_RATIOS_DAYS_IN_INVENTORY_ONE_YEAR = 3741
-
-    OPERATION_RATIOS_DAYS_IN_INVENTORY_THREE_MONTHS = 3742
-
-    OPERATION_RATIOS_DAYS_IN_INVENTORY_SIX_MONTHS = 3743
-
-    OPERATION_RATIOS_DAYS_IN_PAYMENT_ONE_YEAR = 3744
-
-    OPERATION_RATIOS_DAYS_IN_PAYMENT_THREE_MONTHS = 3745
-
-    OPERATION_RATIOS_DAYS_IN_PAYMENT_SIX_MONTHS = 3746
-
-    OPERATION_RATIOS_CASH_CONVERSION_CYCLE_ONE_YEAR = 3747
-
-    OPERATION_RATIOS_CASH_CONVERSION_CYCLE_THREE_MONTHS = 3748
-
-    OPERATION_RATIOS_CASH_CONVERSION_CYCLE_SIX_MONTHS = 3749
-
-    OPERATION_RATIOS_RECEIVABLE_TURNOVER_ONE_YEAR = 3750
-
-    OPERATION_RATIOS_RECEIVABLE_TURNOVER_THREE_MONTHS = 3751
-
-    OPERATION_RATIOS_RECEIVABLE_TURNOVER_SIX_MONTHS = 3752
-
-    OPERATION_RATIOS_INVENTORY_TURNOVER_ONE_YEAR = 3753
-
-    OPERATION_RATIOS_INVENTORY_TURNOVER_THREE_MONTHS = 3754
-
-    OPERATION_RATIOS_INVENTORY_TURNOVER_SIX_MONTHS = 3755
-
-    OPERATION_RATIOS_PAYMENT_TURNOVER_ONE_YEAR = 3756
-
-    OPERATION_RATIOS_PAYMENT_TURNOVER_THREE_MONTHS = 3757
-
-    OPERATION_RATIOS_PAYMENT_TURNOVER_SIX_MONTHS = 3758
-
-    OPERATION_RATIOS_FIX_ASSETS_TURONVER_ONE_YEAR = 3759
-
-    OPERATION_RATIOS_FIX_ASSETS_TURONVER_THREE_MONTHS = 3760
-
-    OPERATION_RATIOS_FIX_ASSETS_TURONVER_SIX_MONTHS = 3761
-
-    OPERATION_RATIOS_ASSETS_TURNOVER_ONE_YEAR = 3762
-
-    OPERATION_RATIOS_ASSETS_TURNOVER_THREE_MONTHS = 3763
-
-    OPERATION_RATIOS_ASSETS_TURNOVER_SIX_MONTHS = 3764
-
-    OPERATION_RATIOS_ROE_ONE_YEAR = 3765
-
-    OPERATION_RATIOS_ROE_THREE_MONTHS = 3766
-
-    OPERATION_RATIOS_ROE_SIX_MONTHS = 3767
-
-    OPERATION_RATIOS_ROA_ONE_YEAR = 3768
-
-    OPERATION_RATIOS_ROA_THREE_MONTHS = 3769
-
-    OPERATION_RATIOS_ROA_SIX_MONTHS = 3770
-
-    OPERATION_RATIOS_ROIC_ONE_YEAR = 3771
-
-    OPERATION_RATIOS_ROIC_THREE_MONTHS = 3772
-
-    OPERATION_RATIOS_ROIC_SIX_MONTHS = 3773
-
-    OPERATION_RATIOS_FCF_SALES_RATIO_ONE_YEAR = 3774
-
-    OPERATION_RATIOS_FCF_NET_INCOME_RATIO_ONE_YEAR = 3775
-
-    OPERATION_RATIOS_CAP_EX_SALES_RATIO_ONE_YEAR = 3776
-
-    OPERATION_RATIOS_DEBT_TO_ASSETS_ONE_YEAR = 3777
-
-    OPERATION_RATIOS_DEBT_TO_ASSETS_ONE_MONTH = 3778
-
-    OPERATION_RATIOS_DEBT_TO_ASSETS_TWO_MONTHS = 3779
-
-    OPERATION_RATIOS_DEBT_TO_ASSETS_THREE_MONTHS = 3780
-
-    OPERATION_RATIOS_DEBT_TO_ASSETS_SIX_MONTHS = 3781
-
-    OPERATION_RATIOS_DEBT_TO_ASSETS_NINE_MONTHS = 3782
-
-    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_ONE_YEAR = 3783
-
-    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_ONE_MONTH = 3784
-
-    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_TWO_MONTHS = 3785
-
-    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_THREE_MONTHS = 3786
-
-    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_SIX_MONTHS = 3787
-
-    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_NINE_MONTHS = 3788
-
-    OPERATION_RATIOS_CAPITAL_EXPENDITURE_ANNUAL_5_YR_GROWTH_ONE_YEAR = 3789
-
-    OPERATION_RATIOS_CAPITAL_EXPENDITURE_ANNUAL_5_YR_GROWTH_THREE_YEARS = 3790
-
-    OPERATION_RATIOS_CAPITAL_EXPENDITURE_ANNUAL_5_YR_GROWTH_FIVE_YEARS = 3791
-
-    OPERATION_RATIOS_GROSS_PROFIT_ANNUAL_5_YR_GROWTH_ONE_YEAR = 3792
-
-    OPERATION_RATIOS_GROSS_PROFIT_ANNUAL_5_YR_GROWTH_THREE_YEARS = 3793
-
-    OPERATION_RATIOS_GROSS_PROFIT_ANNUAL_5_YR_GROWTH_FIVE_YEARS = 3794
-
-    OPERATION_RATIOS_GROSS_MARGIN_5_YR_AVG_FIVE_YEARS = 3795
-
-    OPERATION_RATIOS_POST_TAX_MARGIN_5_YR_AVG_FIVE_YEARS = 3796
-
-    OPERATION_RATIOS_PRE_TAX_MARGIN_5_YR_AVG_FIVE_YEARS = 3797
-
-    OPERATION_RATIOS_PROFIT_MARGIN_5_YR_AVG_FIVE_YEARS = 3798
-
-    OPERATION_RATIOS_ROE_5_YR_AVG_FIVE_YEARS = 3799
-
-    OPERATION_RATIOS_ROA_5_YR_AVG_FIVE_YEARS = 3800
-
-    OPERATION_RATIOS_AVG_5_YRS_ROIC_FIVE_YEARS = 3801
-
-    OPERATION_RATIOS_NORMALIZED_ROIC_ONE_YEAR = 3802
-
-    OPERATION_RATIOS_NORMALIZED_ROIC_THREE_MONTHS = 3803
-
-    OPERATION_RATIOS_NORMALIZED_ROIC_SIX_MONTHS = 3804
-
-    OPERATION_RATIOS_REGRESSION_GROWTH_OPERATING_REVENUE_5_YEARS_FIVE_YEARS = 3805
-
-    OPERATION_RATIOS_CASH_RATIO_ONE_YEAR = 3806
-
-    OPERATION_RATIOS_CASH_RATIO_THREE_MONTHS = 3807
-
-    OPERATION_RATIOS_CASHTO_TOTAL_ASSETS_ONE_YEAR = 3808
-
-    OPERATION_RATIOS_CASHTO_TOTAL_ASSETS_THREE_MONTHS = 3809
-
-    OPERATION_RATIOS_CAPITAL_EXPENDITURETO_EBITDA_ONE_YEAR = 3810
-
-    OPERATION_RATIOS_FC_FTO_CFO_ONE_YEAR = 3811
-
-    OPERATION_RATIOS_STOCKHOLDERS_EQUITY_GROWTH_ONE_YEAR = 3812
-
-    OPERATION_RATIOS_STOCKHOLDERS_EQUITY_GROWTH_THREE_YEARS = 3813
-
-    OPERATION_RATIOS_STOCKHOLDERS_EQUITY_GROWTH_FIVE_YEARS = 3814
-
-    OPERATION_RATIOS_TOTAL_ASSETS_GROWTH_ONE_YEAR = 3815
-
-    OPERATION_RATIOS_TOTAL_ASSETS_GROWTH_THREE_YEARS = 3816
-
-    OPERATION_RATIOS_TOTAL_ASSETS_GROWTH_FIVE_YEARS = 3817
-
-    OPERATION_RATIOS_TOTAL_LIABILITIES_GROWTH_ONE_YEAR = 3818
-
-    OPERATION_RATIOS_TOTAL_LIABILITIES_GROWTH_THREE_YEARS = 3819
-
-    OPERATION_RATIOS_TOTAL_LIABILITIES_GROWTH_FIVE_YEARS = 3820
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_GROWTH_ONE_YEAR = 3821
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_GROWTH_THREE_YEARS = 3822
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_GROWTH_FIVE_YEARS = 3823
-
-    OPERATION_RATIOS_CASH_RATIO_GROWTH_ONE_YEAR = 3824
-
-    OPERATION_RATIOS_CASH_RATIO_GROWTH_THREE_YEARS = 3825
-
-    OPERATION_RATIOS_CASH_RATIO_GROWTH_FIVE_YEARS = 3826
-
-    OPERATION_RATIOS_EBITDA_GROWTH_ONE_YEAR = 3827
-
-    OPERATION_RATIOS_EBITDA_GROWTH_THREE_YEARS = 3828
-
-    OPERATION_RATIOS_EBITDA_GROWTH_FIVE_YEARS = 3829
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_FINANCING_GROWTH_ONE_YEAR = 3830
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_FINANCING_GROWTH_THREE_YEARS = 3831
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_FINANCING_GROWTH_FIVE_YEARS = 3832
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_INVESTING_GROWTH_ONE_YEAR = 3833
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_INVESTING_GROWTH_THREE_YEARS = 3834
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_INVESTING_GROWTH_FIVE_YEARS = 3835
-
-    OPERATION_RATIOS_CAP_EX_GROWTH_ONE_YEAR = 3836
-
-    OPERATION_RATIOS_CAP_EX_GROWTH_THREE_YEARS = 3837
-
-    OPERATION_RATIOS_CAP_EX_GROWTH_FIVE_YEARS = 3838
-
-    OPERATION_RATIOS_CURRENT_RATIO_GROWTH_ONE_YEAR = 3839
-
-    OPERATION_RATIOS_CURRENT_RATIO_GROWTH_THREE_YEARS = 3840
-
-    OPERATION_RATIOS_CURRENT_RATIO_GROWTH_FIVE_YEARS = 3841
-
-    OPERATION_RATIOS_WORKING_CAPITAL_TURNOVER_RATIO_ONE_YEAR = 3842
-
-    OPERATION_RATIOS_WORKING_CAPITAL_TURNOVER_RATIO_THREE_MONTHS = 3843
-
-    OPERATION_RATIOS_NET_INCOME_PER_EMPLOYEE_ONE_YEAR = 3844
-
-    OPERATION_RATIOS_NET_INCOME_PER_EMPLOYEE_THREE_MONTHS = 3845
-
-    OPERATION_RATIOS_SOLVENCY_RATIO_ONE_YEAR = 3846
-
-    OPERATION_RATIOS_SOLVENCY_RATIO_THREE_MONTHS = 3847
-
-    OPERATION_RATIOS_EXPENSE_RATIO_ONE_YEAR = 3848
-
-    OPERATION_RATIOS_EXPENSE_RATIO_THREE_MONTHS = 3849
-
-    OPERATION_RATIOS_LOSS_RATIO_ONE_YEAR = 3850
-
-    OPERATION_RATIOS_LOSS_RATIO_THREE_MONTHS = 3851
-
-    OPERATION_RATIOS_TOTAL_DEBT_TO_INVESTED_CAPITAL_RATIO_THREE_MONTHS = 3852
-
-    OPERATION_RATIOS_TOTAL_DEBT_TO_INVESTED_CAPITAL_RATIO_ONE_YEAR = 3853
-
-    OPERATION_RATIOS_NORMALIZED_RETURN_ON_ASSET_ONE_YEAR = 3854
-
-    OPERATION_RATIOS_EQUITY_MULTIPLIER_RATIO_THREE_MONTHS = 3855
-
-    OPERATION_RATIOS_EQUITY_MULTIPLIER_RATIO_ONE_YEAR = 3856
-
-    OPERATION_RATIOS_CASH_FLOW_TO_DEBT_RATIO_ONE_YEAR = 3857
-
-    OPERATION_RATIOS_NORMALIZED_RETURN_ON_EQUITY_ONE_YEAR = 3858
-
-    OPERATION_RATIOS_NET_OPERATING_ASSETS_TURNOVER_ONE_YEAR = 3859
-
-    OPERATION_RATIOS_RETURN_ON_NET_OPERATING_ASSETS_ONE_YEAR = 3860
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TO_ASSETS_RATIO_THREE_MONTHS = 3861
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TO_ASSETS_RATIO_ONE_YEAR = 3862
-
-    OPERATION_RATIOS_INTEREST_AS_A_PERCENT_OF_INVESTED_CAPITAL_RATIO_ONE_YEAR = 3863
-
-    OPERATION_RATIOS_BOOK_VALUE_TO_REVENUE_RATIO_ONE_YEAR = 3864
-
-    OPERATION_RATIOS_CASH_TURNOVER_RATIO_ONE_YEAR = 3865
-
-    OPERATION_RATIOS_RETURN_ON_CAPITAL_EMPLOYED_ONE_YEAR = 3866
-
-    OPERATION_RATIOS_EQUITY_TURNOVER_RATIO_ONE_YEAR = 3867
-
-    OPERATION_RATIOS_SELLING_GENERAL_ADMINISTRATIVE_EXPENSE_MARGIN_THREE_MONTHS = 3868
-
-    OPERATION_RATIOS_SELLING_GENERAL_ADMINISTRATIVE_EXPENSE_MARGIN_SIX_MONTHS = 3869
-
-    OPERATION_RATIOS_SELLING_GENERAL_ADMINISTRATIVE_EXPENSE_MARGIN_NINE_MONTHS = 3870
-
-    OPERATION_RATIOS_SELLING_GENERAL_ADMINISTRATIVE_EXPENSE_MARGIN_ONE_YEAR = 3871
-
-    OPERATION_RATIOS_FREE_CASH_FLOW_INTEREST_COVERAGE_ONE_YEAR = 3872
-
-    OPERATION_RATIOS_EBITDA_NET_CAPITAL_EXPENDITURE_TO_INTEREST_EXPENSES_RATIO_ONE_YEAR = 3873
-
-    OPERATION_RATIOS_EBITDA_INTEREST_COVERAGE_ONE_YEAR = 3874
-
-    OPERATION_RATIOS_EXCESS_CASH_MARGIN_THREE_MONTHS = 3875
-
-    OPERATION_RATIOS_EXCESS_CASH_MARGIN_SIX_MONTHS = 3876
-
-    OPERATION_RATIOS_EXCESS_CASH_MARGIN_NINE_MONTHS = 3877
-
-    OPERATION_RATIOS_EXCESS_CASH_MARGIN_ONE_YEAR = 3878
-
-    OPERATION_RATIOS_NORMALIZED_EBIT_MARGIN_THREE_MONTHS = 3879
-
-    OPERATION_RATIOS_NORMALIZED_EBIT_MARGIN_SIX_MONTHS = 3880
-
-    OPERATION_RATIOS_NORMALIZED_EBIT_MARGIN_NINE_MONTHS = 3881
-
-    OPERATION_RATIOS_NORMALIZED_EBIT_MARGIN_ONE_YEAR = 3882
-
-    OPERATION_RATIOS_NORMALIZED_EBITDA_MARGIN_THREE_MONTHS = 3883
-
-    OPERATION_RATIOS_NORMALIZED_EBITDA_MARGIN_SIX_MONTHS = 3884
-
-    OPERATION_RATIOS_NORMALIZED_EBITDA_MARGIN_NINE_MONTHS = 3885
-
-    OPERATION_RATIOS_NORMALIZED_EBITDA_MARGIN_ONE_YEAR = 3886
-
-    OPERATION_RATIOS_EBITDAR_MARGIN_THREE_MONTHS = 3887
-
-    OPERATION_RATIOS_EBITDAR_MARGIN_SIX_MONTHS = 3888
-
-    OPERATION_RATIOS_EBITDAR_MARGIN_NINE_MONTHS = 3889
-
-    OPERATION_RATIOS_EBITDAR_MARGIN_ONE_YEAR = 3890
-
-    OPERATION_RATIOS_NORMALIZED_EBITDAR_MARGIN_THREE_MONTHS = 3891
-
-    OPERATION_RATIOS_NORMALIZED_EBITDAR_MARGIN_SIX_MONTHS = 3892
-
-    OPERATION_RATIOS_NORMALIZED_EBITDAR_MARGIN_NINE_MONTHS = 3893
-
-    OPERATION_RATIOS_NORMALIZED_EBITDAR_MARGIN_ONE_YEAR = 3894
-
-    OPERATION_RATIOS_NORMALIZED_INCOME_PER_FULL_TIME_EMPLOYEE_ONE_YEAR = 3895
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_OPERATING_ACTIVITIES_PER_FULL_TIME_EMPLOYEE_ONE_YEAR = 3896
-
-    OPERATION_RATIOS_BOOK_VALUE_TO_NET_INCOME_RATIO_ONE_YEAR = 3897
-
-    OPERATION_RATIOS_DEGREE_OF_OPERATING_LEVERAGE_ONE_YEAR = 3898
-
-    OPERATION_RATIOS_FREE_CASH_FLOW_TO_ASSETS_RATIO_ONE_YEAR = 3899
-
-    OPERATION_RATIOS_FREE_CASH_FLOW_TO_DEBT_RATIO_ONE_YEAR = 3900
-
-    OPERATION_RATIOS_TOTAL_DEBT_TO_EBITDA_RATIO_ONE_YEAR = 3901
-
-    OPERATION_RATIOS_NET_DEBT_TO_EBITDA_RATIO_ONE_YEAR = 3902
-
-    OPERATION_RATIOS_FREE_CASH_FLOW_TO_EQUITY_RATIO_ONE_YEAR = 3903
-
-    OPERATION_RATIOS_EBITA_MARGIN_THREE_MONTHS = 3904
-
-    OPERATION_RATIOS_EBITA_MARGIN_SIX_MONTHS = 3905
-
-    OPERATION_RATIOS_EBITA_MARGIN_NINE_MONTHS = 3906
-
-    OPERATION_RATIOS_EBITA_MARGIN_ONE_YEAR = 3907
-
-    OPERATION_RATIOS_BOOK_VALUE_TO_EBITDA_RATIO_ONE_YEAR = 3908
-
-    OPERATION_RATIOS_BOOK_VALUE_TO_EBIT_RATIO_ONE_YEAR = 3909
-
-    OPERATION_RATIOS_NET_INCOME_AFTER_MINORITY_INTEREST_GROWTH_THREE_MONTHS = 3910
-
-    OPERATION_RATIOS_NET_INCOME_AFTER_MINORITY_INTEREST_GROWTH_SIX_MONTHS = 3911
-
-    OPERATION_RATIOS_NET_INCOME_AFTER_MINORITY_INTEREST_GROWTH_NINE_MONTHS = 3912
-
-    OPERATION_RATIOS_NET_INCOME_AFTER_MINORITY_INTEREST_GROWTH_ONE_YEAR = 3913
-
-    OPERATION_RATIOS_NET_INCOME_AFTER_MINORITY_INTEREST_GROWTH_THREE_YEARS = 3914
-
-    OPERATION_RATIOS_NET_INCOME_AFTER_MINORITY_INTEREST_GROWTH_FIVE_YEARS = 3915
-
-    OPERATION_RATIOS_NORMALIZED_INCOME_GROWTH_ONE_YEAR = 3916
-
-    OPERATION_RATIOS_NORMALIZED_INCOME_GROWTH_THREE_YEARS = 3917
-
-    OPERATION_RATIOS_NORMALIZED_INCOME_GROWTH_FIVE_YEARS = 3918
-
-    OPERATION_RATIOS_NET_INCOME_SELECTION_GROWTH_ONE_YEAR = 3919
-
-    OPERATION_RATIOS_NET_INCOME_SELECTION_GROWTH_THREE_YEARS = 3920
-
-    OPERATION_RATIOS_NET_INCOME_SELECTION_GROWTH_FIVE_YEARS = 3921
-
-    OPERATION_RATIOS_EBIT_GROWTH_ONE_YEAR = 3922
-
-    OPERATION_RATIOS_TOTAL_OPERATING_PROFIT_LOSS_GROWTH_SIX_MONTHS = 3923
-
-    OPERATION_RATIOS_TOTAL_OPERATING_PROFIT_LOSS_GROWTH_ONE_YEAR = 3924
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_OPERATIONS_GROWTH_FIVE_YEARS = 3925
-
-    EARNING_RATIOS_DILUTED_EPS_GROWTH_ONE_YEAR = 3926
-
-    EARNING_RATIOS_DILUTED_EPS_GROWTH_THREE_YEARS = 3927
-
-    EARNING_RATIOS_DILUTED_EPS_GROWTH_THREE_MONTHS = 3928
-
-    EARNING_RATIOS_DILUTED_EPS_GROWTH_FIVE_YEARS = 3929
-
-    EARNING_RATIOS_DILUTED_CONT_EPS_GROWTH_ONE_YEAR = 3930
-
-    EARNING_RATIOS_DILUTED_CONT_EPS_GROWTH_THREE_YEARS = 3931
-
-    EARNING_RATIOS_DILUTED_CONT_EPS_GROWTH_THREE_MONTHS = 3932
-
-    EARNING_RATIOS_DILUTED_CONT_EPS_GROWTH_FIVE_YEARS = 3933
-
-    EARNING_RATIOS_DPS_GROWTH_ONE_YEAR = 3934
-
-    EARNING_RATIOS_DPS_GROWTH_THREE_MONTHS = 3935
-
-    EARNING_RATIOS_DPS_GROWTH_THREE_YEARS = 3936
-
-    EARNING_RATIOS_DPS_GROWTH_FIVE_YEARS = 3937
-
-    EARNING_RATIOS_EQUITY_PER_SHARE_GROWTH_ONE_YEAR = 3938
-
-    EARNING_RATIOS_EQUITY_PER_SHARE_GROWTH_THREE_MONTHS = 3939
-
-    EARNING_RATIOS_EQUITY_PER_SHARE_GROWTH_THREE_YEARS = 3940
-
-    EARNING_RATIOS_EQUITY_PER_SHARE_GROWTH_FIVE_YEARS = 3941
-
-    EARNING_RATIOS_REGRESSION_GROWTHOF_DIVIDENDS_5_YEARS_FIVE_YEARS = 3942
-
-    EARNING_RATIOS_FCF_PER_SHARE_GROWTH_ONE_YEAR = 3943
-
-    EARNING_RATIOS_FCF_PER_SHARE_GROWTH_THREE_YEARS = 3944
-
-    EARNING_RATIOS_FCF_PER_SHARE_GROWTH_FIVE_YEARS = 3945
-
-    EARNING_RATIOS_BOOK_VALUE_PER_SHARE_GROWTH_ONE_YEAR = 3946
-
-    EARNING_RATIOS_BOOK_VALUE_PER_SHARE_GROWTH_THREE_MONTHS = 3947
-
-    EARNING_RATIOS_BOOK_VALUE_PER_SHARE_GROWTH_THREE_YEARS = 3948
-
-    EARNING_RATIOS_BOOK_VALUE_PER_SHARE_GROWTH_FIVE_YEARS = 3949
-
-    EARNING_RATIOS_NORMALIZED_DILUTED_EPS_GROWTH_ONE_YEAR = 3950
-
-    EARNING_RATIOS_NORMALIZED_DILUTED_EPS_GROWTH_THREE_MONTHS = 3951
-
-    EARNING_RATIOS_NORMALIZED_DILUTED_EPS_GROWTH_THREE_YEARS = 3952
-
-    EARNING_RATIOS_NORMALIZED_DILUTED_EPS_GROWTH_FIVE_YEARS = 3953
-
-    EARNING_RATIOS_NORMALIZED_BASIC_EPS_GROWTH_ONE_YEAR = 3954
-
-    EARNING_RATIOS_NORMALIZED_BASIC_EPS_GROWTH_THREE_MONTHS = 3955
-
-    EARNING_RATIOS_NORMALIZED_BASIC_EPS_GROWTH_THREE_YEARS = 3956
-
-    EARNING_RATIOS_NORMALIZED_BASIC_EPS_GROWTH_FIVE_YEARS = 3957
-
-    EARNING_RATIOS_SALES_PER_SHARE_GROWTH_ONE_YEAR = 3958
-
-    EARNING_RATIOS_SALES_PER_SHARE_GROWTH_TWO_YEARS = 3959
-
-    EARNING_RATIOS_SALES_PER_SHARE_GROWTH_THREE_YEARS = 3960
-
-    EARNING_RATIOS_SALES_PER_SHARE_GROWTH_FIVE_YEARS = 3961
-
-    EARNING_RATIOS_SALES_PER_SHARE_GROWTH_TEN_YEARS = 3962
-
-    EARNING_RATIOS_EARNINGS_PER_SHARE_GROWTH_ONE_YEAR = 3963
-
-    EARNING_RATIOS_EARNINGS_PER_SHARE_GROWTH_TWO_YEARS = 3964
-
-    EARNING_RATIOS_EARNINGS_PER_SHARE_GROWTH_THREE_YEARS = 3965
-
-    EARNING_RATIOS_EARNINGS_PER_SHARE_GROWTH_FIVE_YEARS = 3966
-
-    EARNING_RATIOS_EARNINGS_PER_SHARE_GROWTH_TEN_YEARS = 3967
-
-    EARNING_RATIOS_CASH_FLOW_PER_SHARE_GROWTH_ONE_YEAR = 3968
-
-    EARNING_RATIOS_CASH_FLOW_PER_SHARE_GROWTH_TWO_YEARS = 3969
-
-    EARNING_RATIOS_CASH_FLOW_PER_SHARE_GROWTH_THREE_YEARS = 3970
-
-    VALUATION_RATIOS_PAYOUT_RATIO = 3971
-
-    VALUATION_RATIOS_SUSTAINABLE_GROWTH_RATE = 3972
-
-    VALUATION_RATIOS_CASH_RETURN = 3973
-
-    VALUATION_RATIOS_SALES_PER_SHARE = 3974
-
-    VALUATION_RATIOS_BOOK_VALUE_PER_SHARE = 3975
-
-    VALUATION_RATIOS_CFO_PER_SHARE = 3976
-
-    VALUATION_RATIOS_FCF_PER_SHARE = 3977
-
-    VALUATION_RATIOS_EARNING_YIELD = 3978
-
-    VALUATION_RATIOS_PE_RATIO = 3979
-
-    VALUATION_RATIOS_SALES_YIELD = 3980
-
-    VALUATION_RATIOS_PS_RATIO = 3981
-
-    VALUATION_RATIOS_BOOK_VALUE_YIELD = 3982
-
-    VALUATION_RATIOS_PB_RATIO = 3983
-
-    VALUATION_RATIOS_CF_YIELD = 3984
-
-    VALUATION_RATIOS_PCF_RATIO = 3985
-
-    VALUATION_RATIOS_FCF_YIELD = 3986
-
-    VALUATION_RATIOS_FCF_RATIO = 3987
-
-    VALUATION_RATIOS_TRAILING_DIVIDEND_YIELD = 3988
-
-    VALUATION_RATIOS_FORWARD_DIVIDEND_YIELD = 3989
-
-    VALUATION_RATIOS_FORWARD_EARNING_YIELD = 3990
-
-    VALUATION_RATIOS_FORWARD_PE_RATIO = 3991
-
-    VALUATION_RATIOS_PEG_RATIO = 3992
-
-    VALUATION_RATIOS_PEG_PAYBACK = 3993
-
-    VALUATION_RATIOS_TANGIBLE_BOOK_VALUE_PER_SHARE = 3994
-
-    VALUATION_RATIOS_TANGIBLE_BV_PER_SHARE_3_YR_AVG = 3995
-
-    VALUATION_RATIOS_TANGIBLE_BV_PER_SHARE_5_YR_AVG = 3996
-
-    VALUATION_RATIOS_FORWARD_DIVIDEND = 3997
-
-    VALUATION_RATIOS_WORKING_CAPITAL_PER_SHARE = 3998
-
-    VALUATION_RATIOS_WORKING_CAPITAL_PER_SHARE_3_YR_AVG = 3999
-
-    VALUATION_RATIOS_WORKING_CAPITAL_PER_SHARE_5_YR_AVG = 4000
-
-    VALUATION_RATIOS_EV_TO_EBITDA = 4001
-
-    VALUATION_RATIOS_BUY_BACK_YIELD = 4002
-
-    VALUATION_RATIOS_TOTAL_YIELD = 4003
-
-    VALUATION_RATIOS_RATIO_PE_5_YEAR_AVERAGE = 4004
-
-    VALUATION_RATIOS_PRICE_CHANGE_1M = 4005
-
-    VALUATION_RATIOS_NORMALIZED_PE_RATIO = 4006
-
-    VALUATION_RATIOS_PRICE_TO_EBITDA = 4007
-
-    VALUATION_RATIOS_DIV_YIELD_5_YEAR = 4008
-
-    VALUATION_RATIOS_FORWARD_ROE = 4009
-
-    VALUATION_RATIOS_FORWARD_ROA = 4010
-
-    VALUATION_RATIOS_TWO_YEARS_FORWARD_EARNING_YIELD = 4011
-
-    VALUATION_RATIOS_TWO_YEARS_FORWARD_PE_RATIO = 4012
-
-    VALUATION_RATIOS_FORWARD_CALCULATION_STYLE = 4013
-
-    VALUATION_RATIOS_ACTUAL_FORWARD_DIVIDEND = 4014
-
-    VALUATION_RATIOS_TRAILING_CALCULATION_STYLE = 4015
-
-    VALUATION_RATIOS_ACTUAL_TRAILING_DIVIDEND = 4016
-
-    VALUATION_RATIOS_TOTAL_ASSET_PER_SHARE = 4017
-
-    VALUATION_RATIOS_EXPECTED_DIVIDEND_GROWTH_RATE = 4018
-
-    VALUATION_RATIOS_EV_TO_REVENUE = 4019
-
-    VALUATION_RATIOS_EV_TO_PRE_TAX_INCOME = 4020
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS = 4021
-
-    VALUATION_RATIOS_EV_TO_FCF = 4022
-
-    VALUATION_RATIOS_EV_TO_EBIT = 4023
-
-    VALUATION_RATIOS_FFO_PER_SHARE = 4024
-
-    VALUATION_RATIOS_PRICE_TO_CASH_RATIO = 4025
-
-    VALUATION_RATIOS_EV_TO_FORWARD_EBITDA = 4026
-
-    VALUATION_RATIOS_EV_TO_FORWARD_REVENUE = 4027
-
-    VALUATION_RATIOS_EV_TO_FORWARD_EBIT = 4028
-
-    VALUATION_RATIOS_EV_TO_EBITDA_1_YEAR_GROWTH = 4029
-
-    VALUATION_RATIOS_EV_TO_FCF_1_YEAR_GROWTH = 4030
-
-    VALUATION_RATIOS_EV_TO_REVENUE_1_YEAR_GROWTH = 4031
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_1_YEAR_GROWTH = 4032
-
-    VALUATION_RATIOS_PFCF_RATIO_1_YEAR_GROWTH = 4033
-
-    VALUATION_RATIOS_PB_RATIO_1_YEAR_GROWTH = 4034
-
-    VALUATION_RATIOS_PE_RATIO_1_YEAR_GROWTH = 4035
-
-    VALUATION_RATIOS_PS_RATIO_1_YEAR_GROWTH = 4036
-
-    VALUATION_RATIOS_EV_TO_EBIT_3_YR_AVG = 4037
-
-    VALUATION_RATIOS_EV_TO_EBITDA_3_YR_AVG = 4038
-
-    VALUATION_RATIOS_EV_TO_FCF_3_YR_AVG = 4039
-
-    VALUATION_RATIOS_EV_TO_REVENUE_3_YR_AVG = 4040
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_3_YR_AVG = 4041
-
-    VALUATION_RATIOS_EV_TO_EBIT_3_YR_AVG_CHANGE = 4042
-
-    VALUATION_RATIOS_EV_TO_EBITDA_3_YR_AVG_CHANGE = 4043
-
-    VALUATION_RATIOS_EV_TO_FCF_3_YR_AVG_CHANGE = 4044
-
-    VALUATION_RATIOS_EV_TO_REVENUE_3_YR_AVG_CHANGE = 4045
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_3_YR_AVG_CHANGE = 4046
-
-    VALUATION_RATIOS_PFCF_RATIO_3_YR_AVG = 4047
-
-    VALUATION_RATIOS_PB_RATIO_3_YR_AVG = 4048
-
-    VALUATION_RATIOS_PS_RATIO_3_YR_AVG = 4049
-
-    VALUATION_RATIOS_P_CASH_RATIO_3_YR_AVG = 4050
-
-    VALUATION_RATIOS_PE_RATIO_3_YR_AVG = 4051
-
-    VALUATION_RATIOS_PFCF_RATIO_3_YR_AVG_CHANGE = 4052
-
-    VALUATION_RATIOS_PB_RATIO_3_YR_AVG_CHANGE = 4053
-
-    VALUATION_RATIOS_PS_RATIO_3_YR_AVG_CHANGE = 4054
-
-    VALUATION_RATIOS_PE_RATIO_3_YR_AVG_CHANGE = 4055
-
-    VALUATION_RATIOS_PE_RATIO_1_YEAR_HIGH = 4056
-
-    VALUATION_RATIOS_PE_RATIO_1_YEAR_LOW = 4057
-
-    VALUATION_RATIOS_PE_RATIO_1_YEAR_AVERAGE = 4058
-
-    VALUATION_RATIOS_PE_RATIO_5_YEAR_HIGH = 4059
-
-    VALUATION_RATIOS_PE_RATIO_5_YEAR_LOW = 4060
-
-    VALUATION_RATIOS_PE_RATIO_5_YEAR_AVERAGE = 4061
-
-    VALUATION_RATIOS_PE_RATIO_10_YEAR_HIGH = 4062
-
-    VALUATION_RATIOS_PE_RATIO_10_YEAR_LOW = 4063
-
-    VALUATION_RATIOS_PE_RATIO_10_YEAR_AVERAGE = 4064
-
-    VALUATION_RATIOS_CAPE_RATIO = 4065
-
-    VALUATION_RATIOS_EV_TO_EBITDA_3_YEAR_GROWTH = 4066
-
-    VALUATION_RATIOS_EV_TO_FCF_3_YEAR_GROWTH = 4067
-
-    VALUATION_RATIOS_EV_TO_REVENUE_3_YEAR_GROWTH = 4068
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_3_YEAR_GROWTH = 4069
-
-    VALUATION_RATIOS_PFCF_RATIO_3_YEAR_GROWTH = 4070
-
-    VALUATION_RATIOS_PB_RATIO_3_YEAR_GROWTH = 4071
-
-    VALUATION_RATIOS_PE_RATIO_3_YEAR_GROWTH = 4072
-
-    VALUATION_RATIOS_PS_RATIO_3_YEAR_GROWTH = 4073
-
-    VALUATION_RATIOS_EV_TO_EBITDA_5_YEAR_GROWTH = 4074
-
-    VALUATION_RATIOS_EV_TO_FCF_5_YEAR_GROWTH = 4075
-
-    VALUATION_RATIOS_EV_TO_REVENUE_5_YEAR_GROWTH = 4076
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_5_YEAR_GROWTH = 4077
-
-    VALUATION_RATIOS_PFCF_RATIO_5_YEAR_GROWTH = 4078
-
-    VALUATION_RATIOS_PB_RATIO_5_YEAR_GROWTH = 4079
-
-    VALUATION_RATIOS_PE_RATIO_5_YEAR_GROWTH = 4080
-
-    VALUATION_RATIOS_PS_RATIO_5_YEAR_GROWTH = 4081
-
-    VALUATION_RATIOS_EV_TO_EBITDA_10_YEAR_GROWTH = 4082
-
-    VALUATION_RATIOS_EV_TO_FCF_10_YEAR_GROWTH = 4083
-
-    VALUATION_RATIOS_EV_TO_REVENUE_10_YEAR_GROWTH = 4084
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_10_YEAR_GROWTH = 4085
-
-    VALUATION_RATIOS_PFCF_RATIO_10_YEAR_GROWTH = 4086
-
-    VALUATION_RATIOS_PB_RATIO_10_YEAR_GROWTH = 4087
-
-    VALUATION_RATIOS_PE_RATIO_10_YEAR_GROWTH = 4088
-
-    VALUATION_RATIOS_PS_RATIO_10_YEAR_GROWTH = 4089
-
-    VALUATION_RATIOS_TWO_YRS_EV_TO_FORWARD_EBIT = 4090
-
-    VALUATION_RATIOS_TWO_YRS_EV_TO_FORWARD_EBITDA = 4091
-
-    VALUATION_RATIOS_FIRST_YEAR_ESTIMATED_EPS_GROWTH = 4092
-
-    VALUATION_RATIOS_SECOND_YEAR_ESTIMATED_EPS_GROWTH = 4093
-
-    VALUATION_RATIOS_NORMALIZED_PEG_RATIO = 4094
-
-    VALUATION_RATIOS_NORMALIZED_EARNINGS_YIELD = 4095
-
-    VALUATION_RATIOS_DILUTED_EV_TO_ASSETS = 4096
-
-    VALUATION_RATIOS_DILUTED_EV_TO_REVENUE = 4097
-
-    VALUATION_RATIOS_DILUTED_EV_TO_EBITDA = 4098
-
-    VALUATION_RATIOS_DILUTED_EV_TO_EBIT = 4099
-
-    VALUATION_RATIOS_DILUTED_EV_TO_FCF = 4100
-
-    VALUATION_RATIOS_DILUTED_EV_TO_NORMALIZED_EBITDA = 4101
-
-    VALUATION_RATIOS_DILUTED_EV_TO_NORMALIZED_EBIT = 4102
-
-    VALUATION_RATIOS_NORMALIZED_EV_TO_EBITDA = 4103
-
-    VALUATION_RATIOS_NORMALIZED_EV_TO_EBIT = 4104
-
-    VALUATION_RATIOS_TOTAL_DEBT_TO_EV = 4105
-
-    VALUATION_RATIOS_EV_TO_EBITDA_5_YR_AVG = 4106
-
-    VALUATION_RATIOS_EV_TO_EBIT_5_YR_AVG = 4107
-
-    VALUATION_RATIOS_PB_RATIO_5_YR_AVG = 4108
-
-    VALUATION_RATIOS_PS_RATIO_5_YR_AVG = 4109
-
-    VALUATION_RATIOS_FCF_RATIO_1_YR_AVG = 4110
-
-    VALUATION_RATIOS_FCF_RATIO_5_YR_AVG = 4111
-
-    VALUATION_RATIOS_FCF_RATIO_10_YR_AVG = 4112
-
-    VALUATION_RATIOS_P_CASH_RATIO_5_YR_AVG = 4113
-
-    VALUATION_RATIOS_EARNING_YIELD_5_YR_AVG = 4114
-
-    VALUATION_RATIOS_BUY_BACK_YIELD_5_YR_AVG = 4115
-
-    VALUATION_RATIOS_TOTAL_YIELD_5_YR_AVG = 4116
-
-    VALUATION_RATIOS_CASH_AND_CASH_EQUIVALENTS_PER_SHARE = 4117
-
-    VALUATION_RATIOS_RETENTION_RATE = 4118
-
-    VALUATION_RATIOS_NORMALIZED_RETENTION_RATE = 4119
-
-    VALUATION_RATIOS_NORMALIZED_DIVIDEND_PAY_OUT_RATIO = 4120
-
-    VALUATION_RATIOS_REINVESTMENT_RATE = 4121
-
-    VALUATION_RATIOS_NORMALIZED_REINVESTMENT_RATE = 4122
-
-    VALUATION_RATIOS_CASH_CASH_EQUIVALENTS_AND_SHORT_TERM_INVESTMENTS_PER_SHARE = 4123
-
-    VALUATION_RATIOS_SALES_PER_SHARE_MOMENTUM = 4124
-
-    VALUATION_RATIOS_PRICE_TO_TANGIBLE_BOOK_VALUE_RATIO = 4125
-
-    VALUATION_RATIOS_NET_INTANGIBLE_ASSETS_PER_SHARE = 4126
-
-    VALUATION_RATIOS_EARNINGS_PER_SHARE_MOMENTUM = 4127
-
-    VALUATION_RATIOS_CASH_FLOW_PER_SHARE_MOMENTUM = 4128
-
-    VALUATION_RATIOS_EBITDA_PER_SHARE_MOMENTUM = 4129
-
-    VALUATION_RATIOS_NORMALIZED_EBITDA_PER_SHARE_MOMENTUM = 4130
-
-    VALUATION_RATIOS_PRICE_TO_EBITDAR_RATIO = 4131
-
-    VALUATION_RATIOS_NORMALIZED_PRICE_TO_EBITDAR_RATIO = 4132
-
-    VALUATION_RATIOS_NORMALIZED_PRICE_TO_EBITDA_RATIO = 4133
-
-    VALUATION_RATIOS_PRICE_TO_EBIT_RATIO = 4134
-
-    VALUATION_RATIOS_NORMALIZED_PRICE_TO_EBIT_RATIO = 4135
-
-    VALUATION_RATIOS_DIVIDEND_PAYOUT_RATIO_5_YR_AVG = 4136
-
-    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_1 = 4137
-
-    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_2 = 4138
-
-    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_3 = 4139
-
-    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_4 = 4140
-
-    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_5 = 4141
-
-    COMPANY_PROFILE_HEADQUARTER_CITY = 4142
-
-    COMPANY_PROFILE_HEADQUARTER_PROVINCE = 4143
-
-    COMPANY_PROFILE_HEADQUARTER_COUNTRY = 4144
-
-    COMPANY_PROFILE_HEADQUARTER_POSTAL_CODE = 4145
-
-    COMPANY_PROFILE_HEADQUARTER_PHONE = 4146
-
-    COMPANY_PROFILE_HEADQUARTER_FAX = 4147
-
-    COMPANY_PROFILE_HEADQUARTER_HOMEPAGE = 4148
-
-    COMPANY_PROFILE_TOTAL_EMPLOYEE_NUMBER = 4149
-
-    COMPANY_PROFILE_CONTACT_EMAIL = 4150
-
-    COMPANY_PROFILE_AVERAGE_EMPLOYEE_NUMBER = 4151
-
-    COMPANY_PROFILE_REGISTERED_ADDRESS_LINE_1 = 4152
-
-    COMPANY_PROFILE_REGISTERED_ADDRESS_LINE_2 = 4153
-
-    COMPANY_PROFILE_REGISTERED_ADDRESS_LINE_3 = 4154
-
-    COMPANY_PROFILE_REGISTERED_ADDRESS_LINE_4 = 4155
-
-    COMPANY_PROFILE_REGISTERED_CITY = 4156
-
-    COMPANY_PROFILE_REGISTERED_PROVINCE = 4157
-
-    COMPANY_PROFILE_REGISTERED_COUNTRY = 4158
-
-    COMPANY_PROFILE_REGISTERED_POSTAL_CODE = 4159
-
-    COMPANY_PROFILE_REGISTERED_PHONE = 4160
-
-    COMPANY_PROFILE_REGISTERED_FAX = 4161
-
-    COMPANY_PROFILE_IS_HEAD_OFFICE_SAME_WITH_REGISTERED_OFFICE_FLAG = 4162
-
-    COMPANY_PROFILE_SHARES_OUTSTANDING = 4163
-
-    COMPANY_PROFILE_MARKET_CAP = 4164
-
-    COMPANY_PROFILE_ENTERPRISE_VALUE = 4165
-
-    COMPANY_PROFILE_SHARE_CLASS_LEVEL_SHARES_OUTSTANDING = 4166
-
-    COMPANY_PROFILE_SHARES_OUTSTANDING_WITH_BALANCE_SHEET_ENDING_DATE = 4167
-
-    COMPANY_PROFILE_REASONOF_SHARES_CHANGE = 4168
-
-    COMPANY_PROFILE_DILUTED_MARKET_CAP = 4169
-
-    COMPANY_PROFILE_LONG_DESCRIPTION = 4170
-
-    COMPANY_PROFILE_FLOAT = 4171
-
-    COMPANY_PROFILE_FULL_TIME_EMPLOYEE_NUMBER = 4172
-
-    COMPANY_PROFILE_PART_TIME_EMPLOYEE_NUMBER = 4173
-
-    COMPANY_PROFILE_TREASURY_SHARES = 4174
-
-    ASSET_CLASSIFICATION_STOCK_TYPE = 4175
-
-    ASSET_CLASSIFICATION_STYLE_BOX = 4176
-
-    ASSET_CLASSIFICATION_GROWTH_GRADE = 4177
-
-    ASSET_CLASSIFICATION_FINANCIAL_HEALTH_GRADE = 4178
-
-    ASSET_CLASSIFICATION_PROFITABILITY_GRADE = 4179
-
-    ASSET_CLASSIFICATION_MORNINGSTAR_INDUSTRY_CODE = 4180
-
-    ASSET_CLASSIFICATION_MORNINGSTAR_INDUSTRY_GROUP_CODE = 4181
-
-    ASSET_CLASSIFICATION_MORNINGSTAR_SECTOR_CODE = 4182
-
-    ASSET_CLASSIFICATION_MORNINGSTAR_ECONOMY_SPHERE_CODE = 4183
-
-    ASSET_CLASSIFICATION_SIC = 4184
-
-    ASSET_CLASSIFICATION_NAICS = 4185
-
-    ASSET_CLASSIFICATION_STYLE_SCORE = 4186
-
-    ASSET_CLASSIFICATION_SIZE_SCORE = 4187
-
-    ASSET_CLASSIFICATION_GROWTH_SCORE = 4188
-
-    ASSET_CLASSIFICATION_VALUE_SCORE = 4189
-
-    ASSET_CLASSIFICATION_NACE = 4190
-
-    ASSET_CLASSIFICATION_CANNAICS = 4191
-
-    ASSET_CLASSIFICATION_DISTANCE_TO_DEFAULT = 4192
-
-    ASSET_CLASSIFICATION_PROBABILITY_OF_DEFAULT = 4193
 
 

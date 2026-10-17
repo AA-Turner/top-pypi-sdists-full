@@ -41,6 +41,49 @@ M  V30 END CTAB
 M  END
 ";
 
+#[test]
+fn dative_carbonyl_does_not_emit_fictitious_ez_direction() {
+    // Minimal form of stress-v1.smi line 3945, written as 2D V3000 by
+    // RDKit 2025.09.3. Oxygen-to-sodium is a coordinate bond, not an E/Z
+    // substituent on the C=O bond.
+    let input = "\
+dative carbonyl
+     RDKit          2D
+
+  0  0  0  0  0  0  0  0  0  0999 V3000
+M  V30 BEGIN CTAB
+M  V30 COUNTS 5 4 0 0 0
+M  V30 BEGIN ATOM
+M  V30 1 C -1.818653 0.750000 0.000000 0
+M  V30 2 C -0.519615 0.000000 0.000000 0
+M  V30 3 N -0.519615 -1.500000 0.000000 0
+M  V30 4 O 0.779423 0.750000 0.000000 0
+M  V30 5 Na 2.078461 -0.000000 0.000000 0 VAL=1
+M  V30 END ATOM
+M  V30 BEGIN BOND
+M  V30 1 1 1 2
+M  V30 2 1 2 3
+M  V30 3 2 2 4
+M  V30 4 9 4 5
+M  V30 END BOND
+M  V30 END CTAB
+M  END
+";
+    let (mol, _) = parse_mol_v3000(input).expect("parse RDKit V3000");
+    let (dative, bond) = mol.bond_between(AtomIdx(3), AtomIdx(4)).unwrap();
+    assert_eq!(bond.order, BondOrder::Dative);
+    assert_eq!(mol.bond_direction(dative), None);
+    let written = chematic_smiles::write(&mol);
+    assert!(
+        written.contains("->") || written.contains("<-"),
+        "{written}"
+    );
+    assert!(
+        !written.contains('/') && !written.contains('\\'),
+        "{written}"
+    );
+}
+
 // -----------------------------------------------------------------------
 // Test 1: methane — 1 atom, 0 bonds
 // -----------------------------------------------------------------------
@@ -371,6 +414,48 @@ M  END
     let written = write_mol_v3000(&mol, &meta, &[]);
     assert!(written.contains("M  V30 1 5 1 2"), "{written}");
     assert!(written.contains("M  V30 2 8 3 4"), "{written}");
+}
+
+#[test]
+fn dative_bonds_do_not_hide_unspecified_double_bond_stereo() {
+    // RDKit 2025.09.3 reads these unmarked V3000 bonds as E/Z when
+    // depiction leaves out CFG=2. Dative bonds do not close small stereo
+    // rings or count as E/Z substituents in this writer path.
+    for (smiles, bonds) in [
+        (
+            "CC(C)C[C@H](NC(=O)C1=C(C2->CC=CC3=CC=CC=C23)C=C(CNC)C=C1)C(=O)O.CNC=N.O",
+            &[12][..],
+        ),
+        (
+            "N1=[C]2(C3C(=CC=C(C=3SC3<-C2=CC=CC=3)NCCNCCO)N1CCN)[Pt@@]",
+            &[12, 14, 16],
+        ),
+        (
+            "CC1=CC(C)=CC(OP(=O)(CN[C@@H](C[C]2=CC<-C(C3=CC=CC=C3)C=C2)C(=O)O)OC2=CC(C)=CC(C)=C2)=C1",
+            &[14, 25],
+        ),
+        (
+            "N#CC1=CC=C->C=C1C1=CC=C(C[C@H](NC(=O)[C@@H]2[C@@H](O)CCN2S(=O)(=O)C2=CC(Cl)=CC(Cl)=C2)C(=O)O)C=C1",
+            &[2],
+        ),
+    ] {
+        let mol = chematic_smiles::parse(smiles).unwrap();
+        let either = crate::stereo_depiction::undeclared_stereo_double_bonds(&mol);
+        for &bond in bonds {
+            assert!(
+                either.contains(&chematic_core::BondIdx(bond)),
+                "unmarked bond {bond} in {smiles}: {either:?}"
+            );
+        }
+        let block = write_mol_v3000(&mol, &crate::mol2000::MolMetadata::default(), &[]);
+        for &bond in bonds {
+            let line = block
+                .lines()
+                .find(|line| line.starts_with(&format!("M  V30 {} 2 ", bond + 1)))
+                .unwrap_or_else(|| panic!("missing double bond {bond} in {smiles}"));
+            assert!(line.contains("CFG=2"), "{smiles}: {line}");
+        }
+    }
 }
 
 // -----------------------------------------------------------------------

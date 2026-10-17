@@ -1046,6 +1046,7 @@ def remove_interior_rings(geom):
 PRIMARY_SEASON_NAMES = [
     "Long", "Gu", "Season A", "First", "1st Season",
     "Main", "Meher", "Main harvest", "Summer", "Wet",
+    "Boro",  # Bangladesh rice: season 1 of the rice calendar
 ]
 SECONDARY_SEASON_NAMES = [
     "Short", "Deyr", "Season B", "Second", "2nd Season",

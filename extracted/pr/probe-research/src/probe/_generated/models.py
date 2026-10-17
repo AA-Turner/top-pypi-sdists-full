@@ -118,6 +118,7 @@ class AgentSessionOut(BaseModel):
     session_id: str = Field(..., title='Session Id')
     src_id: UUID | None = Field(None, title='Src Id')
     src_type: str | None = Field(None, title='Src Type')
+    title: str | None = Field(None, title='Title')
 
 
 class AgentSessionsOut(BaseModel):
@@ -157,10 +158,6 @@ class AnchorType(StrEnum):
     trial = 'trial'
 
 
-class Notes(RootModel[str]):
-    root: str = Field(..., max_length=4000, title='Notes')
-
-
 class AnchoredMultipartCreate(BaseModel):
     """
     Open a multipart upload at a project, experiment, workspace or Shared:
@@ -174,7 +171,12 @@ class AnchoredMultipartCreate(BaseModel):
     content_hash: str = Field(..., title='Content Hash')
     content_type: str | None = Field(None, title='Content Type')
     name: str = Field(..., title='Name')
-    notes: Notes | None = Field(None, title='Notes')
+    notes: str | None = Field(
+        None,
+        deprecated=True,
+        description='Deprecated and ignored: notes on files and sweep groups were removed on 2026-10-16. Accepted so installed clients keep working; never stored.',
+        title='Notes',
+    )
     size_bytes: int = Field(..., gt=0, le=5497558138880, title='Size Bytes')
 
 
@@ -191,7 +193,12 @@ class ArtifactCreate(BaseModel):
     labels: dict[str, Any] | None = Field(None, title='Labels')
     meta: dict[str, Any] | None = Field(None, title='Meta')
     name: str = Field(..., title='Name')
-    notes: Notes | None = Field(None, title='Notes')
+    notes: str | None = Field(
+        None,
+        deprecated=True,
+        description='Deprecated and ignored: notes on files and sweep groups were removed on 2026-10-16. Accepted so installed clients keep working; never stored.',
+        title='Notes',
+    )
     size_bytes: SizeBytes | None = Field(None, title='Size Bytes')
     span_id: UUID | None = Field(None, title='Span Id')
     step_index: int | None = Field(None, title='Step Index')
@@ -241,10 +248,6 @@ class ArtifactOut(BaseModel):
     kind: str = Field(..., title='Kind')
     meta: dict[str, Any] | None = Field(None, title='Meta')
     name: str = Field(..., title='Name')
-    notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(4000, title='Notes Limit Chars')
-    notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
-    notes_version: int | None = Field(None, title='Notes Version')
     paper_id: UUID | None = Field(None, title='Paper Id')
     path: str | None = Field('', title='Path')
     project_id: UUID | None = Field(None, title='Project Id')
@@ -261,12 +264,24 @@ class ArtifactOut(BaseModel):
     workspace_id: UUID | None = Field(None, title='Workspace Id')
 
 
-class NotesAppend(RootModel[str]):
-    root: str = Field(..., max_length=4000, title='Notes Append')
+class ArtifactPatch(BaseModel):
+    """
+    `PATCH /v1/artifacts/{id}`: nothing about a registered artifact is editable.
 
+    It used to edit the file's NOTES (0124), the one field a person could change
+    after registration. File notes were removed on 2026-10-16, so a body naming
+    any notes write answers 410 (`app.core.notes.notes_carrier_removed`) -- the
+    fields stay declared for exactly that, typed loosely so an installed
+    client's write is told what happened instead of being 422'd over a value
+    nothing stores. An empty PATCH still answers the artifact, as it always did.
+    """
 
-class OpKey(RootModel[str]):
-    root: str = Field(..., max_length=128, title='Op Key')
+    base_version: int | None = Field(None, deprecated=True, title='Base Version')
+    force: bool | None = Field(False, deprecated=True, title='Force')
+    notes: str | None = Field(None, deprecated=True, title='Notes')
+    notes_append: str | None = Field(None, deprecated=True, title='Notes Append')
+    notes_edit: dict[str, Any] | None = Field(None, deprecated=True, title='Notes Edit')
+    op_key: str | None = Field(None, deprecated=True, title='Op Key')
 
 
 class ArtifactScope(StrEnum):
@@ -926,6 +941,56 @@ class CodeUnavailableReason(StrEnum):
     ref_unavailable = 'ref_unavailable'
 
 
+class WorkingFolder(RootModel[str]):
+    root: str = Field(..., max_length=1024)
+
+
+class CommandCheckIn(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    command: str = Field(
+        ...,
+        description='The command, whole.',
+        max_length=1000,
+        min_length=1,
+        title='Command',
+    )
+    cwd: str = Field(
+        ..., description='The folder it runs in.', max_length=1024, title='Cwd'
+    )
+    reason: str | None = Field(
+        '',
+        description="Why the daemon's safe list did not run it (the checker's own words).",
+        max_length=1000,
+        title='Reason',
+    )
+    working_folders: list[WorkingFolder] | None = Field(
+        None,
+        description="The session's working folders.",
+        max_length=16,
+        title='Working Folders',
+    )
+
+
+class CommandCheckOut(BaseModel):
+    approve: bool = Field(
+        ...,
+        description='May the daemon run it without asking? Only in mode on, every score clear.',
+        title='Approve',
+    )
+    mode: str = Field(
+        ...,
+        description="The check's mode for this team: off, shadow or on.",
+        title='Mode',
+    )
+    scores: dict[str, float | None] = Field(
+        ...,
+        description="Jev's probability per question; null: no answer.",
+        title='Scores',
+    )
+
+
 class CommitAuthor(BaseModel):
     login: str | None = Field(None, title='Login')
     name: str | None = Field(None, title='Name')
@@ -1511,10 +1576,6 @@ class ExperimentGroupOut(BaseModel):
     id: UUID = Field(..., title='Id')
     kind: str = Field(..., title='Kind')
     name: str = Field(..., title='Name')
-    notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(4000, title='Notes Limit Chars')
-    notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
-    notes_version: int | None = Field(None, title='Notes Version')
     project_id: UUID = Field(
         ...,
         description='The project the experiment is filed under.',
@@ -2289,6 +2350,21 @@ class LinkedCommitRow(BaseModel):
     short_sha: str = Field(..., title='Short Sha')
 
 
+class LinkedSessionsOut(BaseModel):
+    """
+    One page of an entity's session links, walkable past the first.
+
+    `next_after`: the `session_id` of the last row when the entity holds more
+    rows past it in this order; pass it back as `after=` for the next page.
+    Null on the last page. Keyset, not offset: a session linked between two
+    reads shifts nothing already read.
+    """
+
+    next_after: str | None = Field(None, title='Next After')
+    session_total: int | None = Field(0, title='Session Total')
+    sessions: list[AgentSessionOut] | None = Field(None, title='Sessions')
+
+
 class LiveState(StrEnum):
     paused = 'paused'
     idle = 'idle'
@@ -2595,7 +2671,12 @@ class MultipartCreate(BaseModel):
     kind: str | None = Field(None, title='Kind')
     meta: dict[str, Any] | None = Field(None, title='Meta')
     name: str = Field(..., title='Name')
-    notes: Notes | None = Field(None, title='Notes')
+    notes: str | None = Field(
+        None,
+        deprecated=True,
+        description='Deprecated and ignored: notes on files and sweep groups were removed on 2026-10-16. Accepted so installed clients keep working; never stored.',
+        title='Notes',
+    )
     size_bytes: int = Field(..., gt=0, le=5497558138880, title='Size Bytes')
     span_id: UUID | None = Field(None, title='Span Id')
     step_index: int | None = Field(None, title='Step Index')
@@ -2639,9 +2720,12 @@ class NoteKind(StrEnum):
     it has no /v1/{plural} entity path, no NOTE_LIMIT_BY_KIND entry (its cap
     is its PARENT carrier's — a sub-note kind has no single cap), and no
     entry in app/notes/service.py::CARRIERS. Code keyed exhaustively on the
-    carrier kinds must not learn it by accident, which is why both dicts
-    keep their five/six entries and the sub-note paths derive from the
-    parent instead.
+    carrier kinds must not learn it by accident, which is why the sub-note
+    paths derive from the parent instead.
+
+    Sweep groups and files carry no notes (2026-10-16); their kinds left this
+    enum when 0374 dropped their storage (PLAN P3). A `parent_kind` of either
+    is now an enum-validation 422.
     """
 
     team_note = 'team_note'
@@ -3321,7 +3405,12 @@ class ProjectArtifactCreate(BaseModel):
     kind: str | None = Field('other', title='Kind')
     meta: dict[str, Any] | None = Field(None, title='Meta')
     name: str = Field(..., title='Name')
-    notes: Notes | None = Field(None, title='Notes')
+    notes: str | None = Field(
+        None,
+        deprecated=True,
+        description='Deprecated and ignored: notes on files and sweep groups were removed on 2026-10-16. Accepted so installed clients keep working; never stored.',
+        title='Notes',
+    )
     size_bytes: SizeBytes | None = Field(None, title='Size Bytes')
     uri: str | None = Field(None, title='Uri')
 
@@ -3438,14 +3527,29 @@ class ProjectExperimentMutationOut(BaseModel):
         title='Name',
     )
     notes_limit_chars: int | None = Field(
-        100000,
-        description="The notes' size cap, in characters.",
+        150000,
+        description="The notes' character backstop; the cap is `notes_limit_tokens`.",
         title='Notes Limit Chars',
+    )
+    notes_limit_tokens: int | None = Field(
+        30000,
+        description="The notes' size cap, in tokens: a write past it is refused.",
+        title='Notes Limit Tokens',
     )
     notes_remaining_chars: int | None = Field(
         None,
-        description='Room left in the notes before `notes_limit_chars` refuses the next write: whether the next edit fits, without echoing the text.',
+        description='Room left in the notes before the `notes_limit_chars` backstop refuses the next write, without echoing the text. The cap that refuses first is in tokens (`notes_remaining_tokens`).',
         title='Notes Remaining Chars',
+    )
+    notes_remaining_tokens: int | None = Field(
+        None,
+        description='Tokens left before `notes_limit_tokens`; null when `notes_tokens` is.',
+        title='Notes Remaining Tokens',
+    )
+    notes_tokens: int | None = Field(
+        None,
+        description='How full the notes are, in o200k_base tokens, against `notes_limit_tokens`; 0 for empty notes; null when the count is unknown (a list never counts).',
+        title='Notes Tokens',
     )
     notes_updated_at: AwareDatetime | None = Field(None, title='Notes Updated At')
     notes_version: int | None = Field(
@@ -3514,6 +3618,21 @@ class ProjectExperimentOut(BaseModel):
         ...,
         description='Display name. An unnamed experiment reads as its slug.',
         title='Name',
+    )
+    notes_limit_tokens: int | None = Field(
+        30000,
+        description="The notes' size cap, in tokens: a write past it is refused.",
+        title='Notes Limit Tokens',
+    )
+    notes_remaining_tokens: int | None = Field(
+        None,
+        description='Tokens left before `notes_limit_tokens`; null when `notes_tokens` is.',
+        title='Notes Remaining Tokens',
+    )
+    notes_tokens: int | None = Field(
+        None,
+        description='How full the notes are, in o200k_base tokens, against `notes_limit_tokens`; 0 for empty notes; null when the count is unknown (a list never counts).',
+        title='Notes Tokens',
     )
     project_id: UUID = Field(
         ...,
@@ -3584,11 +3703,11 @@ class Name7(RootModel[str]):
     )
 
 
-class Notes5(RootModel[str]):
+class Notes(RootModel[str]):
     root: str = Field(
         ...,
-        description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`, or `force`.',
-        max_length=100000,
+        description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`, or `force`. Capped at 30,000 o200k_base tokens (a 422 past it); `max_length` is the character backstop.',
+        max_length=150000,
         title='Notes',
     )
 
@@ -3639,9 +3758,9 @@ class ProjectExperimentPatch(BaseModel):
         description='The new display name. Generation never renames it afterwards, unless `authored_by` is `agent` and no person has named it before.',
         title='Name',
     )
-    notes: Notes5 | None = Field(
+    notes: Notes | None = Field(
         None,
-        description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`, or `force`.',
+        description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`, or `force`. Capped at 30,000 o200k_base tokens (a 422 past it); `max_length` is the character backstop.',
         title='Notes',
     )
     parallel_coordinates_panel_v1: dict[str, Any] | None = Field(
@@ -3694,8 +3813,11 @@ class ProjectMutationOut(BaseModel):
     kind: str | None = Field('general', title='Kind')
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
     name: str = Field(..., title='Name')
-    notes_limit_chars: int | None = Field(100000, title='Notes Limit Chars')
+    notes_limit_chars: int | None = Field(150000, title='Notes Limit Chars')
+    notes_limit_tokens: int | None = Field(30000, title='Notes Limit Tokens')
     notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
+    notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
+    notes_tokens: int | None = Field(None, title='Notes Tokens')
     notes_version: int | None = Field(None, title='Notes Version')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
     read_setting: str | None = Field('inherit', title='Read Setting')
@@ -3721,6 +3843,9 @@ class ProjectOut(BaseModel):
     kind: str | None = Field('general', title='Kind')
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
     name: str = Field(..., title='Name')
+    notes_limit_tokens: int | None = Field(30000, title='Notes Limit Tokens')
+    notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
+    notes_tokens: int | None = Field(None, title='Notes Tokens')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
     read_setting: str | None = Field('inherit', title='Read Setting')
     repo: str | None = Field(None, title='Repo')
@@ -3744,12 +3869,16 @@ class Name8(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Name')
 
 
-class Notes6(RootModel[str]):
-    root: str = Field(..., max_length=100000, title='Notes')
+class Notes1(RootModel[str]):
+    root: str = Field(..., max_length=150000, title='Notes')
 
 
-class NotesAppend1(RootModel[str]):
-    root: str = Field(..., max_length=100000, title='Notes Append')
+class NotesAppend(RootModel[str]):
+    root: str = Field(..., max_length=150000, title='Notes Append')
+
+
+class OpKey(RootModel[str]):
+    root: str = Field(..., max_length=128, title='Op Key')
 
 
 class ProjectPatch(BaseModel):
@@ -3772,8 +3901,8 @@ class ProjectPatch(BaseModel):
     kind: ProjectKind | None = None
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
     name: Name8 | None = Field(None, title='Name')
-    notes: Notes6 | None = Field(None, title='Notes')
-    notes_append: NotesAppend1 | None = Field(None, title='Notes Append')
+    notes: Notes1 | None = Field(None, title='Notes')
+    notes_append: NotesAppend | None = Field(None, title='Notes Append')
     notes_edit: NotesEdit | None = None
     op_key: OpKey | None = Field(None, title='Op Key')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
@@ -4540,14 +4669,19 @@ class Name9(RootModel[str]):
     root: str = Field(..., min_length=1, title='Name')
 
 
-class Notes7(RootModel[str]):
-    root: str = Field(..., max_length=4000, title='Notes')
+class Notes2(RootModel[str]):
+    root: str = Field(..., max_length=10000, title='Notes')
 
 
 class RunGroupCreate(BaseModel):
     kind: str | None = Field('group', title='Kind')
     name: str = Field(..., title='Name')
-    notes: Notes7 | None = Field(None, title='Notes')
+    notes: str | None = Field(
+        None,
+        deprecated=True,
+        description='Deprecated and ignored: notes on files and sweep groups were removed on 2026-10-16. Accepted so installed clients keep working; never stored.',
+        title='Notes',
+    )
     spec: dict[str, Any] | None = Field(None, title='Spec')
 
 
@@ -4558,29 +4692,28 @@ class RunGroupOut(BaseModel):
     id: UUID = Field(..., title='Id')
     kind: str = Field(..., title='Kind')
     name: str = Field(..., title='Name')
-    notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(4000, title='Notes Limit Chars')
-    notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
-    notes_version: int | None = Field(None, title='Notes Version')
     spec: dict[str, Any] | None = Field(None, title='Spec')
-
-
-class NotesAppend2(RootModel[str]):
-    root: str = Field(..., max_length=4000, title='Notes Append')
 
 
 class RunGroupPatch(BaseModel):
     """
     Field-replace PATCH (D9). Only provided fields change; None = untouched.
+
+    `name` and `spec` are the group's editable fields. The notes fields are
+    declared only so an installed client's notes write answers 410
+    (`app.core.notes.notes_carrier_removed`) instead of a 200 that wrote
+    nothing -- these models do not forbid extra fields. Typed loosely, so a
+    stale client is told what happened rather than 422'd over a value nothing
+    stores.
     """
 
-    base_version: int | None = Field(None, title='Base Version')
-    force: bool | None = Field(False, title='Force')
+    base_version: int | None = Field(None, deprecated=True, title='Base Version')
+    force: bool | None = Field(False, deprecated=True, title='Force')
     name: Name9 | None = Field(None, title='Name')
-    notes: Notes7 | None = Field(None, title='Notes')
-    notes_append: NotesAppend2 | None = Field(None, title='Notes Append')
-    notes_edit: NotesEdit | None = None
-    op_key: OpKey | None = Field(None, title='Op Key')
+    notes: str | None = Field(None, deprecated=True, title='Notes')
+    notes_append: str | None = Field(None, deprecated=True, title='Notes Append')
+    notes_edit: dict[str, Any] | None = Field(None, deprecated=True, title='Notes Edit')
+    op_key: str | None = Field(None, deprecated=True, title='Op Key')
     spec: dict[str, Any] | None = Field(None, title='Spec')
 
 
@@ -4739,6 +4872,10 @@ class RunOutputsWriteOut(BaseModel):
     accepted: int = Field(..., title='Accepted')
     run_id: UUID = Field(..., title='Run Id')
     truncated: bool | None = Field(False, title='Truncated')
+
+
+class NotesAppend1(RootModel[str]):
+    root: str = Field(..., max_length=10000, title='Notes Append')
 
 
 class ProjectId(RootModel[str]):
@@ -4984,7 +5121,12 @@ class ScopedUploadRequest(BaseModel):
     content_hash: str = Field(..., title='Content Hash')
     content_type: str | None = Field(None, title='Content Type')
     name: str = Field(..., title='Name')
-    notes: Notes7 | None = Field(None, title='Notes')
+    notes: str | None = Field(
+        None,
+        deprecated=True,
+        description='Deprecated and ignored: notes on files and sweep groups were removed on 2026-10-16. Accepted so installed clients keep working; never stored.',
+        title='Notes',
+    )
     size_bytes: SizeBytes5 | None = Field(None, title='Size Bytes')
 
 
@@ -5297,6 +5439,25 @@ class SessionMediaOut(BaseModel):
     url: str = Field(..., title='Url')
 
 
+class SessionOrder(StrEnum):
+    """
+    Which way an entity's session list runs.
+
+    `oldest`: by `first_seen_at` ascending -- when each session first touched
+    THIS entity, so at run level the first row is the session the run
+    originated in. The order every list has always had, and the default.
+
+    `newest`: by `last_seen_at` descending -- the session most recently active
+    first, which is what a recorder catching up on an entity reads. The key
+    MOVES while a session runs, so a walk through a live entity can show a
+    session twice or skip the one that just woke; a page is a snapshot, not a
+    ledger.
+    """
+
+    oldest = 'oldest'
+    newest = 'newest'
+
+
 class SessionTrajectoryOut(BaseModel):
     """
     One page of a captured session's ATIF trajectory.
@@ -5493,22 +5654,26 @@ class SubNoteCreate(BaseModel):
     a titled empty tab someone will type into — and records no version.
     """
 
-    body: str | None = Field('', max_length=100000, title='Body')
+    body: str | None = Field('', max_length=150000, title='Body')
     title: str = Field(..., max_length=120, min_length=1, title='Title')
 
 
 class SubNoteListItem(BaseModel):
     """
     One tab in the strip: label, fullness, identity. NO body — the list is
-    for choosing, and `chars` is the stored column so choosing never detoasts.
+    for choosing, and `chars` / `tokens` are stored columns so choosing never
+    detoasts.
     """
 
     chars: int = Field(..., title='Chars')
     created_at: AwareDatetime = Field(..., title='Created At')
     id: UUID = Field(..., title='Id')
     limit_chars: int = Field(..., title='Limit Chars')
+    limit_tokens: int = Field(..., title='Limit Tokens')
     notes_version: int = Field(..., title='Notes Version')
+    remaining_tokens: int | None = Field(None, title='Remaining Tokens')
     title: str = Field(..., title='Title')
+    tokens: int | None = Field(None, title='Tokens')
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
@@ -5532,18 +5697,21 @@ class SubNoteOut(BaseModel):
     created_at: AwareDatetime = Field(..., title='Created At')
     id: UUID = Field(..., title='Id')
     limit_chars: int = Field(..., title='Limit Chars')
+    limit_tokens: int = Field(..., title='Limit Tokens')
     notes_version: int = Field(..., title='Notes Version')
     remaining_chars: int = Field(..., title='Remaining Chars')
+    remaining_tokens: int | None = Field(None, title='Remaining Tokens')
     title: str = Field(..., title='Title')
+    tokens: int | None = Field(None, title='Tokens')
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
 class Body(RootModel[str]):
-    root: str = Field(..., max_length=100000, title='Body')
+    root: str = Field(..., max_length=150000, title='Body')
 
 
 class BodyAppend(RootModel[str]):
-    root: str = Field(..., max_length=100000, title='Body Append')
+    root: str = Field(..., max_length=150000, title='Body Append')
 
 
 class Title2(RootModel[str]):
@@ -5601,9 +5769,12 @@ class SubNoteWriteOut(BaseModel):
     created_at: AwareDatetime = Field(..., title='Created At')
     id: UUID = Field(..., title='Id')
     limit_chars: int = Field(..., title='Limit Chars')
+    limit_tokens: int = Field(..., title='Limit Tokens')
     notes_version: int = Field(..., title='Notes Version')
     remaining_chars: int = Field(..., title='Remaining Chars')
+    remaining_tokens: int | None = Field(None, title='Remaining Tokens')
     title: str = Field(..., title='Title')
+    tokens: int | None = Field(None, title='Tokens')
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
@@ -5806,7 +5977,10 @@ class TeamNoteOut(BaseModel):
 
     body: str = Field(..., title='Body')
     id: UUID | None = Field(None, title='Id')
+    limit_tokens: int | None = Field(30000, title='Limit Tokens')
     remaining_chars: int = Field(..., title='Remaining Chars')
+    remaining_tokens: int | None = Field(None, title='Remaining Tokens')
+    tokens: int | None = Field(None, title='Tokens')
     updated_at: AwareDatetime | None = Field(None, title='Updated At')
     updated_by: str | None = Field('', title='Updated By')
     version: int = Field(..., title='Version')
@@ -5836,7 +6010,7 @@ class TeamNoteReplace(BaseModel):
     Modelled as optional here so the router can tell "absent" from "wrong".
     """
 
-    body: str = Field(..., max_length=100000, title='Body')
+    body: str = Field(..., max_length=150000, title='Body')
     version: Version | None = Field(None, title='Version')
 
 
@@ -5847,8 +6021,8 @@ class TeamNoteSpan(BaseModel):
     stale line it can see.
     """
 
-    new_text: str | None = Field('', max_length=100000, title='New Text')
-    old_text: str = Field(..., max_length=100000, min_length=1, title='Old Text')
+    new_text: str | None = Field('', max_length=150000, title='New Text')
+    old_text: str = Field(..., max_length=150000, min_length=1, title='Old Text')
 
 
 class TeamNoteSync(BaseModel):
@@ -5863,7 +6037,7 @@ class TeamNoteSync(BaseModel):
     """
 
     base_version: int = Field(..., ge=0, title='Base Version')
-    body: str = Field(..., max_length=100000, title='Body')
+    body: str = Field(..., max_length=150000, title='Body')
 
 
 class TeamNoteSyncOut(BaseModel):
@@ -5874,9 +6048,12 @@ class TeamNoteSyncOut(BaseModel):
     """
 
     body: str | None = Field(None, title='Body')
+    limit_tokens: int | None = Field(30000, title='Limit Tokens')
     merged: bool | None = Field(False, title='Merged')
     remaining_chars: int = Field(..., title='Remaining Chars')
+    remaining_tokens: int | None = Field(None, title='Remaining Tokens')
     state: str = Field(..., title='State')
+    tokens: int | None = Field(None, title='Tokens')
     version: int = Field(..., title='Version')
 
 
@@ -6152,7 +6329,12 @@ class UploadRequest(BaseModel):
     kind: str | None = Field(None, title='Kind')
     meta: dict[str, Any] | None = Field(None, title='Meta')
     name: str = Field(..., title='Name')
-    notes: Notes7 | None = Field(None, title='Notes')
+    notes: str | None = Field(
+        None,
+        deprecated=True,
+        description='Deprecated and ignored: notes on files and sweep groups were removed on 2026-10-16. Accepted so installed clients keep working; never stored.',
+        title='Notes',
+    )
     size_bytes: SizeBytes5 | None = Field(None, title='Size Bytes')
     span_id: UUID | None = Field(None, title='Span Id')
     step_index: int | None = Field(None, title='Step Index')
@@ -6692,10 +6874,6 @@ class ArtifactDetailOut(BaseModel):
     kind: str = Field(..., title='Kind')
     meta: dict[str, Any] | None = Field(None, title='Meta')
     name: str = Field(..., title='Name')
-    notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(4000, title='Notes Limit Chars')
-    notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
-    notes_version: int | None = Field(None, title='Notes Version')
     paper_id: UUID | None = Field(None, title='Paper Id')
     path: str | None = Field('', title='Path')
     project_id: UUID | None = Field(None, title='Project Id')
@@ -6710,25 +6888,6 @@ class ArtifactDetailOut(BaseModel):
     step_index: int | None = Field(None, title='Step Index')
     uri: str | None = Field(None, title='Uri')
     workspace_id: UUID | None = Field(None, title='Workspace Id')
-
-
-class ArtifactPatch(BaseModel):
-    """
-    The only editable thing about a registered artifact: its notes (0124).
-
-    Nothing else here on purpose -- see `patch_artifact` in the router for why
-    identity and provenance are not client-editable. The three writes are mutually
-    exclusive, same contract as every other notes carrier: `notes` replaces the
-    whole value (the human write, `""` clears), `notes_append` extends it, and
-    `notes_edit` replaces one exact span.
-    """
-
-    base_version: int | None = Field(None, title='Base Version')
-    force: bool | None = Field(False, title='Force')
-    notes: Notes | None = Field(None, title='Notes')
-    notes_append: NotesAppend | None = Field(None, title='Notes Append')
-    notes_edit: NotesEdit | None = None
-    op_key: OpKey | None = Field(None, title='Op Key')
 
 
 class ArtifactPinImpact(BaseModel):
@@ -7334,14 +7493,29 @@ class ExperimentForkOut(BaseModel):
         title='Name',
     )
     notes_limit_chars: int | None = Field(
-        100000,
-        description="The notes' size cap, in characters.",
+        150000,
+        description="The notes' character backstop; the cap is `notes_limit_tokens`.",
         title='Notes Limit Chars',
+    )
+    notes_limit_tokens: int | None = Field(
+        30000,
+        description="The notes' size cap, in tokens: a write past it is refused.",
+        title='Notes Limit Tokens',
     )
     notes_remaining_chars: int | None = Field(
         None,
-        description='Room left in the notes before `notes_limit_chars` refuses the next write: whether the next edit fits, without echoing the text.',
+        description='Room left in the notes before the `notes_limit_chars` backstop refuses the next write, without echoing the text. The cap that refuses first is in tokens (`notes_remaining_tokens`).',
         title='Notes Remaining Chars',
+    )
+    notes_remaining_tokens: int | None = Field(
+        None,
+        description='Tokens left before `notes_limit_tokens`; null when `notes_tokens` is.',
+        title='Notes Remaining Tokens',
+    )
+    notes_tokens: int | None = Field(
+        None,
+        description='How full the notes are, in o200k_base tokens, against `notes_limit_tokens`; 0 for empty notes; null when the count is unknown (a list never counts).',
+        title='Notes Tokens',
     )
     notes_updated_at: AwareDatetime | None = Field(None, title='Notes Updated At')
     notes_version: int | None = Field(
@@ -7932,7 +8106,9 @@ class NoteCatalogItem(BaseModel):
     id: UUID | None = Field(None, title='Id')
     kind: NoteKind
     limit_chars: int = Field(..., title='Limit Chars')
+    limit_tokens: int = Field(..., title='Limit Tokens')
     title: str = Field(..., title='Title')
+    tokens: int | None = Field(None, title='Tokens')
     updated_at: AwareDatetime | None = Field(None, title='Updated At')
 
 
@@ -8059,14 +8235,29 @@ class ProjectExperimentDetailOut(BaseModel):
         None, description='Free-text Markdown notes on the experiment.', title='Notes'
     )
     notes_limit_chars: int | None = Field(
-        100000,
-        description="The notes' size cap, in characters.",
+        150000,
+        description="The notes' character backstop; the cap is `notes_limit_tokens`.",
         title='Notes Limit Chars',
+    )
+    notes_limit_tokens: int | None = Field(
+        30000,
+        description="The notes' size cap, in tokens: a write past it is refused.",
+        title='Notes Limit Tokens',
     )
     notes_remaining_chars: int | None = Field(
         None,
-        description='Room left in the notes before `notes_limit_chars` refuses the next write.',
+        description='Room left in the notes before the `notes_limit_chars` backstop refuses the next write. The cap that refuses first is in tokens (`notes_remaining_tokens`).',
         title='Notes Remaining Chars',
+    )
+    notes_remaining_tokens: int | None = Field(
+        None,
+        description='Tokens left before `notes_limit_tokens`; null when `notes_tokens` is.',
+        title='Notes Remaining Tokens',
+    )
+    notes_tokens: int | None = Field(
+        None,
+        description='How full the notes are, in o200k_base tokens, against `notes_limit_tokens`; 0 for empty notes; null when the count is unknown (a list never counts).',
+        title='Notes Tokens',
     )
     notes_updated_at: AwareDatetime | None = Field(None, title='Notes Updated At')
     notes_version: int | None = Field(
@@ -8392,8 +8583,11 @@ class RunDetailOut(BaseModel):
     name: str = Field(..., title='Name')
     name_customized: bool | None = Field(False, title='Name Customized')
     notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(4000, title='Notes Limit Chars')
+    notes_limit_chars: int | None = Field(10000, title='Notes Limit Chars')
+    notes_limit_tokens: int | None = Field(2000, title='Notes Limit Tokens')
     notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
+    notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
+    notes_tokens: int | None = Field(None, title='Notes Tokens')
     notes_version: int | None = Field(None, title='Notes Version')
     observer_heartbeat_at: AwareDatetime | None = Field(
         None, title='Observer Heartbeat At'
@@ -8450,8 +8644,11 @@ class RunLineageNodeOut(BaseModel):
     name: str = Field(..., title='Name')
     name_customized: bool | None = Field(False, title='Name Customized')
     notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(4000, title='Notes Limit Chars')
+    notes_limit_chars: int | None = Field(10000, title='Notes Limit Chars')
+    notes_limit_tokens: int | None = Field(2000, title='Notes Limit Tokens')
     notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
+    notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
+    notes_tokens: int | None = Field(None, title='Notes Tokens')
     notes_version: int | None = Field(None, title='Notes Version')
     observer_heartbeat_at: AwareDatetime | None = Field(
         None, title='Observer Heartbeat At'
@@ -8536,8 +8733,11 @@ class RunPageDetailOut(BaseModel):
     name: str = Field(..., title='Name')
     name_customized: bool | None = Field(False, title='Name Customized')
     notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(4000, title='Notes Limit Chars')
+    notes_limit_chars: int | None = Field(10000, title='Notes Limit Chars')
+    notes_limit_tokens: int | None = Field(2000, title='Notes Limit Tokens')
     notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
+    notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
+    notes_tokens: int | None = Field(None, title='Notes Tokens')
     notes_version: int | None = Field(None, title='Notes Version')
     observer_heartbeat_at: AwareDatetime | None = Field(
         None, title='Observer Heartbeat At'
@@ -8583,8 +8783,8 @@ class RunPatch(BaseModel):
         None, title='Metric Expectations'
     )
     name: Name9 | None = Field(None, title='Name')
-    notes: Notes7 | None = Field(None, title='Notes')
-    notes_append: NotesAppend2 | None = Field(None, title='Notes Append')
+    notes: Notes2 | None = Field(None, title='Notes')
+    notes_append: NotesAppend1 | None = Field(None, title='Notes Append')
     notes_edit: NotesEdit | None = None
     op_key: OpKey | None = Field(None, title='Op Key')
     parent_relation: ParentRelation | None = None
@@ -9271,8 +9471,11 @@ class ProjectDetailOut(BaseModel):
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
     name: str = Field(..., title='Name')
     notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(100000, title='Notes Limit Chars')
+    notes_limit_chars: int | None = Field(150000, title='Notes Limit Chars')
+    notes_limit_tokens: int | None = Field(30000, title='Notes Limit Tokens')
     notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
+    notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
+    notes_tokens: int | None = Field(None, title='Notes Tokens')
     notes_version: int | None = Field(None, title='Notes Version')
     paper_count: int | None = Field(0, title='Paper Count')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
@@ -9458,7 +9661,7 @@ class RunCreate(BaseModel):
     liveness_protocol: LivenessProtocol | None = Field(None, title='Liveness Protocol')
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
     name: Name9 | None = Field(None, title='Name')
-    notes: Notes7 | None = Field(None, title='Notes')
+    notes: Notes2 | None = Field(None, title='Notes')
     offline: bool | None = Field(False, title='Offline')
     parent_provenance: ParentProvenance | None = None
     parent_relation: ParentRelation | None = None

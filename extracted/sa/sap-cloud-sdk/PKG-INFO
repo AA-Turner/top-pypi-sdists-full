@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sap-cloud-sdk
-Version: 0.59.0
+Version: 0.60.0
 Summary: SAP Cloud SDK for Python
 Author-email: SAP SE <ospo@sap.com>
 License-Expression: Apache-2.0
@@ -11,7 +11,7 @@ Requires-Dist: grpcio<2,>=1.60.0
 Requires-Dist: hatchling~=1.27.0
 Requires-Dist: httpx<1,>=0.27.0
 Requires-Dist: mcp<2,>=1.1.0
-Requires-Dist: minio<7.2.17,>=7.2.16
+Requires-Dist: minio<7.2.21,>=7.2.16
 Requires-Dist: opentelemetry-api~=1.44.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc~=1.44.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.44.0
@@ -39,9 +39,9 @@ Requires-Dist: traceloop-sdk~=0.61.0
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp<4,>=3.9.0; extra == 'aiohttp'
 Provides-Extra: django
-Requires-Dist: django<5,>=4.0; extra == 'django'
+Requires-Dist: django<6,>=4.0; extra == 'django'
 Provides-Extra: extensibility
-Requires-Dist: a2a-sdk<2,>=0.2.0; extra == 'extensibility'
+Requires-Dist: a2a-sdk<1.0,>=0.2.0; extra == 'extensibility'
 Provides-Extra: fastapi
 Requires-Dist: fastapi<1,>=0.100.0; extra == 'fastapi'
 Provides-Extra: flask

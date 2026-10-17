@@ -1,6 +1,5 @@
 """Example to fetch local authentication tokens."""
 
-import json
 from os import getenv
 
 from glocaltokens.client import GLocalAuthenticationTokens
@@ -8,6 +7,8 @@ from glocaltokens.client import GLocalAuthenticationTokens
 # Creds to use when logging in
 GOOGLE_USERNAME = getenv("GOOGLE_USERNAME", None)
 GOOGLE_PASSWORD = getenv("GOOGLE_PASSWORD", None)
+# Or the oauth_token cookie from a browser sign-in, see the README
+GOOGLE_OAUTH_TOKEN = getenv("GOOGLE_OAUTH_TOKEN", None)
 
 # Optional Overrides (Set to None to ignore)
 DEVICE_ID = getenv("DEVICE_ID", None)
@@ -28,10 +29,10 @@ if __name__ == "__main__":
        Needs Master token to generate.
     3. Local authentication tokens - Are individual google device local
     authentication tokens used to send requests to specific google assistant
-    devidevices
+    devices.
 
     If you do not want to store the Google account password in plaintext,
-    get the master token once, and set it as an override value.
+    get the master token once, and set it as GOOGLE_MASTER_TOKEN.
 
     It's safer/easier to generate an app password and
     use it instead of the actual password.
@@ -46,6 +47,7 @@ if __name__ == "__main__":
         username=GOOGLE_USERNAME,
         password=GOOGLE_PASSWORD,
         master_token=GOOGLE_MASTER_TOKEN,
+        oauth_token=GOOGLE_OAUTH_TOKEN,
         android_id=DEVICE_ID,
         verbose=True,
     )
@@ -59,6 +61,4 @@ if __name__ == "__main__":
     # Get google device local authentication tokens (live about 1 day)
     print("\n[*] Google devices local authentication tokens")
     google_devices = client.get_google_devices_json()
-    # Pretty print json data
-    google_devices_str = json.dumps(google_devices, indent=2)
-    print("[*] Google devices", google_devices_str)
+    print("[*] Google devices", google_devices)

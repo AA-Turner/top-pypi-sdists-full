@@ -4,6 +4,7 @@ import fnmatch
 import hmac
 import json
 import re
+from dataclasses import replace
 from enum import Enum
 from os import getenv
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
@@ -725,23 +726,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if scope_mappings is not None and self.authorization is None:
             self.authorization = True
 
-        # Build final scope mappings (additive approach)
-        if self.authorization:
-            # Start with default scope mappings
-            self.scope_mappings = get_default_scope_mappings()
-
-            # Merge user-provided scope mappings (overrides defaults)
-            if scope_mappings is not None:
-                self.scope_mappings.update(scope_mappings)
-        else:
-            self.scope_mappings = scope_mappings or {}
-
-        # Service account scopes are enforced even when authorization is disabled
-        # (they are this instance's own ACL data, not third-party claims), so keep
-        # a fully merged scope map regardless of the authorization flag.
-        self.service_account_scope_mappings = get_default_scope_mappings()
-        if scope_mappings is not None:
-            self.service_account_scope_mappings.update(scope_mappings)
+        self._set_scope_mappings(scope_mappings)
 
         self.service_account_verifier = service_account_verifier
         # Static credential for non-JWT deployments (OS_SECURITY_KEY). Only consulted
@@ -780,6 +765,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
         )
         self.admin_scope = admin_scope or AgentOSScope.ADMIN.value
         self.user_isolation = user_isolation
+
+    def _set_scope_mappings(self, scope_mappings: Optional[Dict[str, List[str]]]) -> None:
+        """Merge standalone middleware overrides with the default route scopes."""
+        mappings = get_default_scope_mappings()
+        if scope_mappings is not None:
+            mappings.update(scope_mappings)
+        self.scope_mappings = mappings if self.authorization else (scope_mappings or {})
+        # Service-account ACLs apply even when JWT authorization is disabled.
+        self.service_account_scope_mappings = mappings
 
     def _get_default_excluded_routes(self) -> List[str]:
         """Get default routes that should be excluded from RBAC checks."""
@@ -1826,6 +1820,29 @@ class AuthMiddleware(BaseHTTPMiddleware):
         run rather than silently skipping.
         """
         from agno.db.schemas.scheduler import SCHEDULE_OWNER_HEADER
+        from agno.os.authz.run_context import request_authorization
+        from agno.run.authorization import AUTHORIZATION_HEADER
+
+        # A persisted caller snapshot limits the target as well as its nested
+        # tools. The executor's transport credential is not the caller's grant.
+        if request.headers.get(AUTHORIZATION_HEADER):
+            try:
+                authority = request_authorization(request)
+                resource_type, resource_id = get_resource_context_from_path(path)
+                required = self._get_required_scopes(method, path)
+                if authority is not None and required:
+                    ctx = replace(
+                        authority.context,
+                        resource_type=resource_type,
+                        resource_id=resource_id,
+                        action=_route_action(required),
+                    )
+                    if not await authority.provider.aauthorize_route(ctx, required):
+                        raise PermissionError("Scheduled target is not permitted")
+            except Exception:
+                return self._create_error_response(
+                    403, "Insufficient permissions for scheduled target", origin, cors_allowed_origins
+                )
 
         raw = request.headers.get(SCHEDULE_OWNER_HEADER)
         if raw is None:

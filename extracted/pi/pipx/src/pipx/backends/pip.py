@@ -85,14 +85,13 @@ class PipBackend(Backend):
         upgrade: bool = False,
         log_pip_errors: bool = True,
         verbose: bool = False,
-        progress: bool = False,
     ) -> CompletedProcess[str]:
         cmd: list[str] = [str(venv_python), "-m", "pip", "--no-input", "install"]
         if upgrade:
             cmd.append("--upgrade")
         if no_deps:
             cmd.append("--no-dependencies")
-        if verbose or progress:
+        if verbose:
             cmd.append("--progress-bar=on")
         cmd += [*pip_args, *requirements]
         process = shared_libs.run_repairing_pip(
@@ -101,13 +100,13 @@ class PipBackend(Backend):
                 log_stdout=not log_pip_errors,
                 log_stderr=not log_pip_errors,
                 run_dir=str(venv_root),
-                stream_output=verbose or progress,
+                stream_output=verbose,
             ),
             pip_args=pip_args,
             verbose=verbose,
         )
         if log_pip_errors:
-            subprocess_post_check_handle_pip_error(process)
+            subprocess_post_check_handle_pip_error(process, streamed=verbose)
         return process
 
     @staticmethod

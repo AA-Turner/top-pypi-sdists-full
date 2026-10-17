@@ -149,9 +149,7 @@ def chat_prompt_template():
 
 async def test_current_tenant_is_owner(langsmith_client: AsyncClient):
     settings = await langsmith_client._get_settings()
-    assert await langsmith_client._current_tenant_is_owner(
-        settings.tenant_handle or "-"
-    )
+    assert await langsmith_client._current_tenant_is_owner(settings.tenant_handle or "-")
     assert await langsmith_client._current_tenant_is_owner("-")
     assert not await langsmith_client._current_tenant_is_owner("non_existent_owner")
 
@@ -164,9 +162,7 @@ async def test_list_prompts(langsmith_client: AsyncClient):
 
 
 @skip_if_rate_limited
-async def test_get_prompt(
-    langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate
-):
+async def test_get_prompt(langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate):
     prompt_name = f"test_prompt_{uuid4().hex[:8]}"
     url = await langsmith_client.push_prompt(prompt_name, object=prompt_template_1)
     assert isinstance(url, str)
@@ -180,9 +176,7 @@ async def test_get_prompt(
 
 
 @skip_if_rate_limited
-async def test_prompt_exists(
-    langsmith_client: AsyncClient, prompt_template_2: ChatPromptTemplate
-):
+async def test_prompt_exists(langsmith_client: AsyncClient, prompt_template_2: ChatPromptTemplate):
     non_existent_prompt = f"non_existent_{uuid4().hex[:8]}"
     assert not await langsmith_client._prompt_exists(non_existent_prompt)
 
@@ -193,9 +187,7 @@ async def test_prompt_exists(
 
 
 @skip_if_rate_limited
-async def test_update_prompt(
-    langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate
-):
+async def test_update_prompt(langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate):
     prompt_name = f"test_prompt_{uuid4().hex[:8]}"
     await langsmith_client.push_prompt(prompt_name, object=prompt_template_1)
 
@@ -216,9 +208,7 @@ async def test_update_prompt(
     await langsmith_client.delete_prompt(prompt_name)
 
 
-async def test_delete_prompt(
-    langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate
-):
+async def test_delete_prompt(langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate):
     prompt_name = f"test_prompt_{uuid4().hex[:8]}"
     await langsmith_client.push_prompt(prompt_name, object=prompt_template_1)
 
@@ -228,9 +218,7 @@ async def test_delete_prompt(
 
 
 @skip_if_rate_limited
-async def test_pull_prompt_object(
-    langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate
-):
+async def test_pull_prompt_object(langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate):
     prompt_name = f"test_prompt_{uuid4().hex[:8]}"
     await langsmith_client.push_prompt(prompt_name, object=prompt_template_1)
 
@@ -242,18 +230,14 @@ async def test_pull_prompt_object(
 
 
 @skip_if_rate_limited
-async def test_pull_prompt(
-    langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate
-):
+async def test_pull_prompt(langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate):
     prompt_name = f"test_prompt_{uuid4().hex[:8]}"
     await langsmith_client.push_prompt(prompt_name, object=prompt_template_1)
 
     # test pulling with just prompt name
     pulled_prompt = await langsmith_client.pull_prompt(prompt_name)
     assert isinstance(pulled_prompt, ChatPromptTemplate)
-    assert (
-        pulled_prompt.metadata and pulled_prompt.metadata["lc_hub_repo"] == prompt_name
-    )
+    assert pulled_prompt.metadata and pulled_prompt.metadata["lc_hub_repo"] == prompt_name
 
     # test pulling with private owner (-) and name
     pulled_prompt_2 = await langsmith_client.pull_prompt(f"-/{prompt_name}")
@@ -265,10 +249,7 @@ async def test_pull_prompt(
         f"{tenant_handle}/{prompt_name}", dangerously_pull_public_prompt=True
     )
     assert pulled_prompt.metadata and pulled_prompt_3.metadata
-    assert (
-        pulled_prompt.metadata["lc_hub_commit_hash"]
-        == pulled_prompt_3.metadata["lc_hub_commit_hash"]
-    )
+    assert pulled_prompt.metadata["lc_hub_commit_hash"] == pulled_prompt_3.metadata["lc_hub_commit_hash"]
     assert pulled_prompt_3.metadata["lc_hub_owner"] == tenant_handle
 
     # test pulling with handle, name and commit hash
@@ -284,23 +265,16 @@ async def test_pull_prompt(
         f"{prompt_name}:{pulled_prompt_4.metadata['lc_hub_commit_hash']}"
     )
     assert pulled_prompt_5.metadata
-    assert (
-        pulled_prompt_4.metadata["lc_hub_commit_hash"]
-        == pulled_prompt_5.metadata["lc_hub_commit_hash"]
-    )
+    assert pulled_prompt_4.metadata["lc_hub_commit_hash"] == pulled_prompt_5.metadata["lc_hub_commit_hash"]
 
     await langsmith_client.delete_prompt(prompt_name)
 
 
 @skip_if_rate_limited
-async def test_push_and_pull_prompt(
-    langsmith_client: AsyncClient, prompt_template_2: ChatPromptTemplate
-):
+async def test_push_and_pull_prompt(langsmith_client: AsyncClient, prompt_template_2: ChatPromptTemplate):
     prompt_name = f"test_prompt_{uuid4().hex[:8]}"
 
-    push_result = await langsmith_client.push_prompt(
-        prompt_name, object=prompt_template_2
-    )
+    push_result = await langsmith_client.push_prompt(prompt_name, object=prompt_template_2)
     assert isinstance(push_result, str)
 
     pulled_prompt = await langsmith_client.pull_prompt(prompt_name)
@@ -310,15 +284,11 @@ async def test_push_and_pull_prompt(
 
     # should fail
     with pytest.raises(ls_utils.LangSmithUserError):
-        await langsmith_client.push_prompt(
-            f"random_handle/{prompt_name}", object=prompt_template_2
-        )
+        await langsmith_client.push_prompt(f"random_handle/{prompt_name}", object=prompt_template_2)
 
 
 @skip_if_rate_limited
-async def test_pull_prompt_include_model(
-    langsmith_client: AsyncClient, prompt_with_model: dict
-):
+async def test_pull_prompt_include_model(langsmith_client: AsyncClient, prompt_with_model: dict):
     prompt_name = f"test_prompt_with_model_{uuid4().hex[:8]}"
     await langsmith_client.push_prompt(prompt_name, object=prompt_with_model)
 
@@ -335,9 +305,7 @@ async def test_pull_prompt_include_model(
 
 
 @skip_if_rate_limited
-async def test_get_latest_commit_hash(
-    langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate
-):
+async def test_get_latest_commit_hash(langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate):
     prompt_name = f"test_prompt_{uuid4().hex[:8]}"
     await langsmith_client.push_prompt(prompt_name, object=prompt_template_1)
 
@@ -376,9 +344,7 @@ async def test_create_commit(
     prompt_name = f"test_create_commit_{uuid4().hex[:8]}"
     try:
         # this should fail because the prompt does not exist
-        commit_url = await langsmith_client.create_commit(
-            prompt_name, object=prompt_template_2
-        )
+        commit_url = await langsmith_client.create_commit(prompt_name, object=prompt_template_2)
         pytest.fail("Expected LangSmithNotFoundError was not raised")
     except ls_utils.LangSmithNotFoundError as e:
         assert str(e) == "Prompt does not exist, you must create it first."
@@ -386,9 +352,7 @@ async def test_create_commit(
         pytest.fail(f"Unexpected exception raised: {e}")
 
     await langsmith_client.push_prompt(prompt_name, object=prompt_template_3)
-    commit_url = await langsmith_client.create_commit(
-        prompt_name, object=prompt_template_2
-    )
+    commit_url = await langsmith_client.create_commit(prompt_name, object=prompt_template_2)
     assert isinstance(commit_url, str)
     assert prompt_name in commit_url
 
@@ -399,9 +363,7 @@ async def test_create_commit(
     # try submitting different types of unaccepted manifests
     try:
         # this should fail
-        commit_url = await langsmith_client.create_commit(
-            prompt_name, object={"hi": "hello"}
-        )
+        commit_url = await langsmith_client.create_commit(prompt_name, object={"hi": "hello"})
     except ls_utils.LangSmithError as e:
         err = str(e)
         assert "Manifest must have an id field" in err
@@ -411,9 +373,7 @@ async def test_create_commit(
 
     try:
         # this should fail
-        commit_url = await langsmith_client.create_commit(
-            prompt_name, object={"id": ["hi"]}
-        )
+        commit_url = await langsmith_client.create_commit(prompt_name, object={"id": ["hi"]})
     except ls_utils.LangSmithError as e:
         err = str(e)
         assert "Manifest type hi is not supported" in err
@@ -482,13 +442,9 @@ async def test_list_prompts_filter(
     expected_count: int,
 ):
     prompt_name = f"test_list_filter_{uuid4().hex[:8]}"
-    await langsmith_client.push_prompt(
-        prompt_name, object=prompt_template_1, is_public=is_public
-    )
+    await langsmith_client.push_prompt(prompt_name, object=prompt_template_1, is_public=is_public)
 
-    response = await langsmith_client.list_prompts(
-        is_public=is_public, query=prompt_name
-    )
+    response = await langsmith_client.list_prompts(is_public=is_public, query=prompt_name)
 
     assert response.total == expected_count
     if expected_count > 0:
@@ -498,9 +454,7 @@ async def test_list_prompts_filter(
 
 
 @skip_if_rate_limited
-async def test_update_prompt_archive(
-    langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate
-):
+async def test_update_prompt_archive(langsmith_client: AsyncClient, prompt_template_1: ChatPromptTemplate):
     prompt_name = f"test_archive_{uuid4().hex[:8]}"
     await langsmith_client.push_prompt(prompt_name, object=prompt_template_1)
 
@@ -534,14 +488,10 @@ async def test_list_prompts_sorting(
     for name in prompt_names:
         await langsmith_client.push_prompt(name, object=prompt_template_1)
 
-    response = await langsmith_client.list_prompts(
-        sort_field=sort_field, sort_direction=sort_direction, limit=10
-    )
+    response = await langsmith_client.list_prompts(sort_field=sort_field, sort_direction=sort_direction, limit=10)
 
     assert len(response.repos) >= 3
-    sorted_names = [
-        repo.repo_handle for repo in response.repos if repo.repo_handle in prompt_names
-    ]
+    sorted_names = [repo.repo_handle for repo in response.repos if repo.repo_handle in prompt_names]
     assert sorted_names == sorted(sorted_names, reverse=(sort_direction == "desc"))
 
     for name in prompt_names:

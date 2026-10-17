@@ -2,6 +2,7 @@ import json
 from typing import Any
 from typing import AnyStr
 from typing import IO
+from typing import Self
 
 from .build_constants import BUILD_GCLOUD_REST
 from .session import SyncSession
@@ -156,7 +157,7 @@ class IamClient:
     def close(self) -> None:
         self.session.close()
 
-    def __enter__(self) -> 'IamClient':
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *args: Any) -> None:

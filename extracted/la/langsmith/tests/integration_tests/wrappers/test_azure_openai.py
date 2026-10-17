@@ -11,9 +11,7 @@ from langsmith.wrappers import wrap_openai
 
 
 @pytest.mark.parametrize("stream", [False, True])
-@pytest.mark.skipif(
-    os.getenv("AZURE_OPENAI_API_KEY") is None, reason="AZURE_OPENAI_API_KEY is not set"
-)
+@pytest.mark.skipif(os.getenv("AZURE_OPENAI_API_KEY") is None, reason="AZURE_OPENAI_API_KEY is not set")
 def test_chat_sync_api(stream: bool):
     from openai import AzureOpenAI  # noqa
 
@@ -66,9 +64,7 @@ def test_chat_sync_api(stream: bool):
 
 
 @pytest.mark.parametrize("stream", [False, True])
-@pytest.mark.skipif(
-    os.getenv("AZURE_OPENAI_API_KEY") is None, reason="AZURE_OPENAI_API_KEY is not set"
-)
+@pytest.mark.skipif(os.getenv("AZURE_OPENAI_API_KEY") is None, reason="AZURE_OPENAI_API_KEY is not set")
 async def test_chat_async_api(stream: bool):
     from openai import AsyncAzureOpenAI  # noqa
 

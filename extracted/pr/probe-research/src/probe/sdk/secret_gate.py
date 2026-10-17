@@ -753,7 +753,7 @@ def _read_source(path, *, scan_policy: ScanPolicy | None = None, inspect: bool) 
 
 
 def read_upload_redacted(
-    path, *, scan_policy: ScanPolicy | None = None, full_scan: bool = False
+    path, *, scan_policy: ScanPolicy | None = None, full_scan: bool = False, verbatim: bool = False
 ) -> tuple[bytes, InspectionResult]:
     """`(bytes to upload, what was found)` -- the ONLY redacting reader.
 
@@ -769,7 +769,7 @@ def read_upload_redacted(
     # and then `redact_bytes` inspected the same bytes again -- and inspection
     # expands archives up to `max_expanded_bytes`, beside a training loop.
     raw = _read_source(path, scan_policy=scan_policy, inspect=False)
-    return _redact_read(raw, scan_policy=scan_policy, full_scan=full_scan)
+    return _redact_read(raw, scan_policy=scan_policy, full_scan=full_scan, verbatim=verbatim)
 
 
 def read_upload_redacted_sourced(
@@ -791,11 +791,27 @@ def read_upload_redacted_sourced(
 
 
 def _redact_read(
-    raw: bytes, *, scan_policy: ScanPolicy | None, full_scan: bool
+    raw: bytes, *, scan_policy: ScanPolicy | None, full_scan: bool, verbatim: bool = False
 ) -> tuple[bytes, InspectionResult]:
     if full_scan or strict_policy():
-        return redact_bytes(raw, scan_policy=scan_policy)
-    return redact_quick_bytes(raw)
+        data, result = redact_bytes(raw, scan_policy=scan_policy)
+    else:
+        data, result = redact_quick_bytes(raw)
+    if verbatim:
+        refuse_rewrite(result)
+    return data, result
+
+
+def refuse_rewrite(result: InspectionResult) -> None:
+    """Refuse bytes that must arrive byte-for-byte (a checkpoint's files) when
+    the gate would replace a span in them. A masked `tokenizer.json` is not
+    valid JSON, and a checkpoint that silently differs from what was saved is
+    worse than one that says it was not stored."""
+    if result.rewritten:
+        _refuse(
+            "a credential was found in a file that must be stored byte-for-byte "
+            "(a checkpoint file), and masking it would change the file"
+        )
 
 
 #: The marker `redact` writes. Value-free and self-describing, which is what
@@ -849,7 +865,7 @@ class PreparedUpload:
 
 
 @contextmanager
-def prepare_upload(path, *, is_reference: bool = False):
+def prepare_upload(path, *, is_reference: bool = False, verbatim: bool = False):
     """Yield the bytes that should actually be uploaded, redacted if needed.
 
     THE ORDER IS THE WHOLE POINT. The server signs a sha256 and refuses bytes
@@ -865,7 +881,7 @@ def prepare_upload(path, *, is_reference: bool = False):
     if path is None or is_reference:
         yield PreparedUpload(path=path, result=InspectionResult())
         return
-    raw, result = read_upload_redacted(path)
+    raw, result = read_upload_redacted(path, verbatim=verbatim)
     if not result.rewritten:
         yield PreparedUpload(path=os.fspath(path), result=result)
         return
@@ -903,10 +919,10 @@ def check_upload(path, *, force: bool = False, is_reference: bool = False) -> No
     _check_source(info)
 
 
-def safe_snapshot_file(source, destination) -> None:
+def safe_snapshot_file(source, destination, *, verbatim: bool = False) -> None:
     # Redacted: the outbox hashes this snapshot, not the source, so the
     # credential must be gone before the digest is taken.
-    raw, _ = read_upload_redacted(source)
+    raw, _ = read_upload_redacted(source, verbatim=verbatim)
     # No destination exists until ALL bytes have passed inspection.
     fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600)
     with os.fdopen(fd, "wb") as stream:

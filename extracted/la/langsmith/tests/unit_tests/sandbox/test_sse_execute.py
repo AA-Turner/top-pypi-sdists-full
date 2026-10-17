@@ -9,7 +9,7 @@ import json
 import pytest
 
 from langsmith import _features
-from langsmith._openapi_client._httpx import httpx
+from langsmith._httpx import httpx
 from langsmith.sandbox import (
     CommandTimeoutError,
     SandboxClient,
@@ -72,9 +72,7 @@ def server() -> Server:
 
 @pytest.fixture
 def sandbox(server: Server):
-    client = SandboxClient(
-        api_endpoint="http://test-server:8080", api_key="test-key", max_retries=0
-    )
+    client = SandboxClient(api_endpoint="http://test-server:8080", api_key="test-key", max_retries=0)
     client._http = httpx.Client(transport=httpx.MockTransport(server.handle))
     return Sandbox.from_dict(
         data={"name": "test-sandbox", "dataplane_url": DATAPLANE},
@@ -85,9 +83,7 @@ def sandbox(server: Server):
 
 @pytest.fixture
 def async_sandbox(server: Server):
-    client = AsyncSandboxClient(
-        api_endpoint="http://test-server:8080", api_key="test-key", max_retries=0
-    )
+    client = AsyncSandboxClient(api_endpoint="http://test-server:8080", api_key="test-key", max_retries=0)
     client._http = httpx.AsyncClient(transport=httpx.MockTransport(server.handle))
     return AsyncSandbox.from_dict(
         data={"name": "test-sandbox", "dataplane_url": DATAPLANE},
@@ -283,9 +279,7 @@ class TestRun:
 
         assert sandbox.run("x").stdout == "ab�"
 
-    def test_acknowledgement_without_output_still_spends_the_budget(
-        self, server: Server, sandbox
-    ):
+    def test_acknowledgement_without_output_still_spends_the_budget(self, server: Server, sandbox):
         """A resume that only re-acknowledges must not retry forever."""
         server.on(START_PATH, sse(started(), ("stdout", out(0, b"a"))))
         server.on(RESUME_PATH, sse(started()))
@@ -322,9 +316,7 @@ class TestRun:
 
 
 class TestUnsupportedOptions:
-    @pytest.mark.parametrize(
-        "kwargs", [{"pty": True}, {"close_input": False}, {"kill_on_disconnect": True}]
-    )
+    @pytest.mark.parametrize("kwargs", [{"pty": True}, {"close_input": False}, {"kill_on_disconnect": True}])
     def test_rejected_with_a_pointer_to_the_websocket(self, sandbox, kwargs):
         with pytest.raises(ValueError, match="exec WebSocket"):
             sandbox.run("x", **kwargs)
@@ -359,9 +351,7 @@ class TestReconnect:
     def test_missing_command_is_not_restarted(self, server: Server, sandbox):
         server.on(
             RESUME_PATH,
-            httpx.Response(
-                404, json={"detail": {"error": "CommandNotFound", "message": "gone"}}
-            ),
+            httpx.Response(404, json={"detail": {"error": "CommandNotFound", "message": "gone"}}),
         )
 
         with pytest.raises(SandboxOperationError, match="Command not found: cmd-1"):
@@ -409,9 +399,7 @@ class TestAsyncRun:
 
 
 class TestTransportSelection:
-    def test_missing_websockets_without_the_feature_raises(
-        self, monkeypatch: pytest.MonkeyPatch, sandbox
-    ):
+    def test_missing_websockets_without_the_feature_raises(self, monkeypatch: pytest.MonkeyPatch, sandbox):
         monkeypatch.delenv(_features.ENV_VAR, raising=False)
         monkeypatch.setattr("langsmith.sandbox._sandbox.WEBSOCKETS_AVAILABLE", False)
 
@@ -426,9 +414,7 @@ class TestTransportSelection:
         self, monkeypatch: pytest.MonkeyPatch, async_sandbox
     ):
         monkeypatch.delenv(_features.ENV_VAR, raising=False)
-        monkeypatch.setattr(
-            "langsmith.sandbox._async_sandbox.WEBSOCKETS_AVAILABLE", False
-        )
+        monkeypatch.setattr("langsmith.sandbox._async_sandbox.WEBSOCKETS_AVAILABLE", False)
 
         with pytest.raises(ImportError, match="langsmith\\[sandbox\\]"):
             await async_sandbox.run("x")
@@ -439,9 +425,7 @@ class TestFeatureFlags:
         monkeypatch.delenv(_features.ENV_VAR, raising=False)
         assert not _features.enabled(_features.SANDBOX_SSE_EXEC)
 
-    @pytest.mark.parametrize(
-        "value", ["sandbox_sse_exec", "sandbox-sse-exec", " SANDBOX_SSE_EXEC , "]
-    )
+    @pytest.mark.parametrize("value", ["sandbox_sse_exec", "sandbox-sse-exec", " SANDBOX_SSE_EXEC , "])
     def test_enabled_by_name(self, monkeypatch: pytest.MonkeyPatch, value):
         monkeypatch.setenv(_features.ENV_VAR, value)
         assert _features.enabled(_features.SANDBOX_SSE_EXEC)
@@ -450,9 +434,7 @@ class TestFeatureFlags:
         monkeypatch.setenv(_features.ENV_VAR, "sandbox_sse_exec,nosandbox_sse_exec")
         assert not _features.enabled(_features.SANDBOX_SSE_EXEC)
 
-    def test_unknown_name_warns_and_is_ignored(
-        self, monkeypatch: pytest.MonkeyPatch, caplog
-    ):
+    def test_unknown_name_warns_and_is_ignored(self, monkeypatch: pytest.MonkeyPatch, caplog):
         monkeypatch.setenv(_features.ENV_VAR, "not_a_feature,sandbox_sse_exec")
 
         assert _features.enabled(_features.SANDBOX_SSE_EXEC)

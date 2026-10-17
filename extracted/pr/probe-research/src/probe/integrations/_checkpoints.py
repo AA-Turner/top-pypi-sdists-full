@@ -376,6 +376,9 @@ def upload_set(
                 step_index=step,
                 meta={MEMBER_OF_KEY: index},
                 strict=False,
+                # Never masked: a rewritten tokenizer.json is not valid JSON,
+                # and the download would still verify against its hash.
+                verbatim=True,
             )
         index_meta[MEMBERS_KEY] = [rel for rel, _full in files]
         index_meta[UPLOAD_KEY] = UPLOAD_REQUESTED

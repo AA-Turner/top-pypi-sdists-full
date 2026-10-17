@@ -42,6 +42,10 @@ class TeamMembersClient:
         status: typing.Optional[ListTeamMembersRequestStatus] = None,
         user_id: typing.Optional[str] = None,
         role: typing.Optional[ListTeamMembersRequestRole] = None,
+        query: typing.Optional[str] = None,
+        reports_to_id: typing.Optional[str] = None,
+        direct_reports_min: typing.Optional[int] = None,
+        direct_reports_max: typing.Optional[int] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
         order: typing.Optional[ListTeamMembersRequestOrder] = None,
@@ -53,7 +57,7 @@ class TeamMembersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[TeamMember, ListTeamMembersResponse]:
         """
-        Lists an account's team members, including pending invites. A user credential with `company:basic:read` may list only its own joined membership by passing its own `user_id` and `status=joined`. Listing `role=workforce` is also allowed with the `bounty:create` scope.
+        Lists an account's team members, including pending invites. A user credential with `company:basic:read` may list only its own joined membership by passing its own `user_id` and `status=joined`. Listing `role=workforce` is also allowed with the `bounty:create` scope. Members with the view-only Partner role are listed after all other members.
 
         Parameters
         ----------
@@ -69,6 +73,18 @@ class TeamMembersClient:
         role : typing.Optional[ListTeamMembersRequestRole]
             Only return members with this role. `custom` matches members on a dashboard-managed custom role.
 
+        query : typing.Optional[str]
+            Only return members whose name or username contains this text, and invites whose email contains it.
+
+        reports_to_id : typing.Optional[str]
+            Only return the direct reports of this team member, prefixed `ausr_`. Pass the account ID, prefixed `biz_`, for the members who report to the business directly. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
+
+        direct_reports_min : typing.Optional[int]
+            Only return members with at least this many direct reports. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
+
+        direct_reports_max : typing.Optional[int]
+            Only return members with at most this many direct reports; `0` returns the people who manage no one. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
+
         created_before : typing.Optional[str]
             Only return members added before this ISO 8601 timestamp.
 
@@ -76,7 +92,7 @@ class TeamMembersClient:
             Only return members added after this ISO 8601 timestamp.
 
         order : typing.Optional[ListTeamMembersRequestOrder]
-            Field used to sort members.
+            Field used to sort members. Members with the view-only Partner role are listed after all other members whichever way the list is sorted.
 
         direction : typing.Optional[ListTeamMembersRequestDirection]
             Sort direction. Defaults to `desc`.
@@ -106,7 +122,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -124,6 +140,10 @@ class TeamMembersClient:
             status=status,
             user_id=user_id,
             role=role,
+            query=query,
+            reports_to_id=reports_to_id,
+            direct_reports_min=direct_reports_min,
+            direct_reports_max=direct_reports_max,
             created_before=created_before,
             created_after=created_after,
             order=order,
@@ -174,7 +194,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -210,7 +230,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -243,7 +263,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -285,7 +305,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -319,6 +339,10 @@ class AsyncTeamMembersClient:
         status: typing.Optional[ListTeamMembersRequestStatus] = None,
         user_id: typing.Optional[str] = None,
         role: typing.Optional[ListTeamMembersRequestRole] = None,
+        query: typing.Optional[str] = None,
+        reports_to_id: typing.Optional[str] = None,
+        direct_reports_min: typing.Optional[int] = None,
+        direct_reports_max: typing.Optional[int] = None,
         created_before: typing.Optional[str] = None,
         created_after: typing.Optional[str] = None,
         order: typing.Optional[ListTeamMembersRequestOrder] = None,
@@ -330,7 +354,7 @@ class AsyncTeamMembersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[TeamMember, ListTeamMembersResponse]:
         """
-        Lists an account's team members, including pending invites. A user credential with `company:basic:read` may list only its own joined membership by passing its own `user_id` and `status=joined`. Listing `role=workforce` is also allowed with the `bounty:create` scope.
+        Lists an account's team members, including pending invites. A user credential with `company:basic:read` may list only its own joined membership by passing its own `user_id` and `status=joined`. Listing `role=workforce` is also allowed with the `bounty:create` scope. Members with the view-only Partner role are listed after all other members.
 
         Parameters
         ----------
@@ -346,6 +370,18 @@ class AsyncTeamMembersClient:
         role : typing.Optional[ListTeamMembersRequestRole]
             Only return members with this role. `custom` matches members on a dashboard-managed custom role.
 
+        query : typing.Optional[str]
+            Only return members whose name or username contains this text, and invites whose email contains it.
+
+        reports_to_id : typing.Optional[str]
+            Only return the direct reports of this team member, prefixed `ausr_`. Pass the account ID, prefixed `biz_`, for the members who report to the business directly. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
+
+        direct_reports_min : typing.Optional[int]
+            Only return members with at least this many direct reports. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
+
+        direct_reports_max : typing.Optional[int]
+            Only return members with at most this many direct reports; `0` returns the people who manage no one. Pending invites are excluded, and the list pages in `created_at` order without moving Partner-role members last.
+
         created_before : typing.Optional[str]
             Only return members added before this ISO 8601 timestamp.
 
@@ -353,7 +389,7 @@ class AsyncTeamMembersClient:
             Only return members added after this ISO 8601 timestamp.
 
         order : typing.Optional[ListTeamMembersRequestOrder]
-            Field used to sort members.
+            Field used to sort members. Members with the view-only Partner role are listed after all other members whichever way the list is sorted.
 
         direction : typing.Optional[ListTeamMembersRequestDirection]
             Sort direction. Defaults to `desc`.
@@ -385,7 +421,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -410,6 +446,10 @@ class AsyncTeamMembersClient:
             status=status,
             user_id=user_id,
             role=role,
+            query=query,
+            reports_to_id=reports_to_id,
+            direct_reports_min=direct_reports_min,
+            direct_reports_max=direct_reports_max,
             created_before=created_before,
             created_after=created_after,
             order=order,
@@ -462,7 +502,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -506,7 +546,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -549,7 +589,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -599,7 +639,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

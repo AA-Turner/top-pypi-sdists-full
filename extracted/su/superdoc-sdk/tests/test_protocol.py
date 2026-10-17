@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import pytest
 
 from superdoc.protocol import (
+    apply_operation_param_aliases,
     apply_default_change_mode,
     apply_default_user,
     build_cli_invoke_payload,
@@ -469,6 +470,25 @@ class TestTablesSplitLegacyNormalization:
 # ---------------------------------------------------------------------------
 # Integration tests with real generated contract
 # ---------------------------------------------------------------------------
+
+class TestSharedParameterAliases:
+    @pytest.mark.parametrize('operation_id,canonical,alias', [
+        ('doc.tables.split', 'rowIndex', 'atRowIndex'),
+        ('doc.comments.create', 'parentId', 'parentCommentId'),
+    ])
+    def test_shared_alias_preserves_input_and_rejects_conflicts(self, operation_id, canonical, alias):
+        original = {alias: 'value'}
+        assert apply_operation_param_aliases({'operationId': operation_id}, original) == {canonical: 'value'}
+        assert original == {alias: 'value'}
+        assert apply_operation_param_aliases(
+            {'operationId': operation_id}, {canonical: 'same', alias: 'same'},
+        ) == {canonical: 'same'}
+        conflicting = {canonical: 'first', alias: 'second'}
+        with pytest.raises(SuperDocError, match=f'cannot provide both {canonical} and {alias}') as caught:
+            apply_operation_param_aliases({'operationId': operation_id}, conflicting)
+        assert caught.value.code == 'INVALID_ARGUMENT'
+        assert conflicting == {canonical: 'first', alias: 'second'}
+
 
 class TestRealContractUserInjection:
     """Verify user identity injection against the real generated OPERATION_INDEX."""

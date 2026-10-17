@@ -220,16 +220,48 @@ async def web_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
 
 def _stamp_read_engine(result: Any, page: dict[str, Any]) -> dict[str, Any]:
-    """Carry the reader's announcement onto the tool page: which engine answered
-    (``site_data`` when a site-data dataset served the URL) and, when the
-    site-data lane failed and the page was read directly, the notice saying so."""
+    """Carry the reader's announcement onto the tool page: which engine answered (``advanced_read``
+    when the organization's advanced fallback opened a page our scraper could not) and what it said."""
     if isinstance(result, dict):
         if result.get("provenance"):
             page["engine"] = result.get("engine")
             page["provenance"] = result["provenance"]
-        if result.get("site_data_notice"):
-            page["site_data_notice"] = result["site_data_notice"]
+        if result.get("advanced_read"):
+            page["engine"] = result.get("engine") or page.get("engine")
+            page["advanced_read"] = result["advanced_read"]
+        if result.get("notice"):
+            page["notice"] = result["notice"]
     return page
+
+
+def _failed_page(result: Any, text: str, *, url: str, chars: int) -> dict[str, Any]:
+    """A page our reader could not open: the honest error plus, when the read was judged, the
+    ``verdict`` and the ``coverage`` (which readers could get it, speed, points) — the UI's
+    "Try advanced reader" button and the agent hint both read these."""
+    page = window_page_content("", url=url, offset=0, chars=chars, success=False,
+                               error=text or "Sorry could not access this page.")
+    if isinstance(result, dict):
+        for key in ("verdict", "coverage", "advanced_read"):
+            if result.get(key):
+                page[key] = result[key]
+    return page
+
+
+def coverage_hint(pages: list[dict[str, Any]]) -> str | None:
+    """ONE line for the model when failed pages are covered by a paid reader (``None`` otherwise)."""
+    try:
+        from matrx_scraper.coverage import hint_line
+    except ImportError:  # pragma: no cover - matrx_scraper is how these tools read at all
+        return None
+    return hint_line([(str(p.get("url") or ""), p.get("coverage") or []) for p in pages
+                      if not p.get("success") and not (p.get("advanced_read") or {}).get("ok")])
+
+
+def _with_hint(result: ToolResult, pages: list[dict[str, Any]]) -> ToolResult:
+    line = coverage_hint(pages)
+    if line:
+        result.model_notices.append(line)
+    return result
 
 
 async def land_agent_read(result: Any, ctx: ToolContext, page: dict[str, Any]) -> dict[str, Any]:
@@ -308,16 +340,7 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     (url, text[:SUMMARIZE_MAX_INPUT_CHARS], len(text) > SUMMARIZE_MAX_INPUT_CHARS)
                 )
             if isinstance(result, dict) and result.get("status") == "error":
-                pages.append(
-                    window_page_content(
-                        "",
-                        url=url,
-                        offset=0,
-                        chars=chars,
-                        success=False,
-                        error=text or "Sorry could not access this page.",
-                    )
-                )
+                pages.append(_failed_page(result, text, url=url, chars=chars))
                 continue
             pages.append(
                 _stamp_read_engine(
@@ -407,7 +430,7 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     f"\n\n[Summary shortened from {info.total_chars:,} to "
                     f"{info.shown_chars:,} characters.]"
                 )
-            return ToolResult(
+            return _with_hint(ToolResult(
                 success=True,
                 output=capped_summary,
                 child_usages=child_usages,
@@ -416,7 +439,7 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 tool_name="web_read",
                 call_id=ctx.call_id,
                 output_self_capped=True,
-            )
+            ), pages)
 
         output = enforce_result_budget(
             {
@@ -427,7 +450,7 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             },
             budget=RESULT_BUDGET_CHARS,
         )
-        return ToolResult(
+        return _with_hint(ToolResult(
             success=True,
             output=output,
             started_at=started_at,
@@ -435,7 +458,7 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             tool_name="web_read",
             call_id=ctx.call_id,
             output_self_capped=True,
-        )
+        ), pages)
 
     except ImportError as exc:
         return ToolResult(
@@ -518,6 +541,8 @@ async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         # containing only URLs not yet seen — eliminating the TOCTOU that would
         # arise from sharing a mutable set across concurrent asyncio tasks.
         seen_urls: set[str] = set()
+        #: Pages judged failed (bot wall, HTTP error, empty, JS shell, sign-in wall) with their coverage.
+        read_failures: list[dict[str, Any]] = []
         scraping_tasks: list[asyncio.Task[list[dict[str, Any]]]] = []
         scraping_start_time: float | None = None
 
@@ -565,6 +590,7 @@ async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     good_scrape_threshold=good_scrape_threshold,
                     emitter=ctx.emitter,
                     call_id=ctx.call_id,
+                    failures=read_failures,
                 )
             )
             scraping_tasks.append(scraping_task)
@@ -747,14 +773,15 @@ async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if final_truncated:
             timing["final_result_truncated"] = True
 
-        return ToolResult(
+        return _with_hint(ToolResult(
             success=True,
             output=final_text,
             child_usages=agent_child_usages,
             started_at=started_at,
             completed_at=time.time(),
             output_self_capped=True,
-        )
+        ), [{"url": f["url"], "success": False, "coverage": f.get("coverage") or [],
+             "advanced_read": f.get("advanced_read")} for f in read_failures])
 
     except ImportError as exc:
         return ToolResult(
@@ -843,14 +870,7 @@ async def _web_batch_read(args: dict[str, Any], ctx: ToolContext, started_at: fl
                 result = await read_page_mcp_quick(url=url)
                 text = extract_page_text(result)
                 if isinstance(result, dict) and result.get("status") == "error":
-                    return window_page_content(
-                        "",
-                        url=url,
-                        offset=0,
-                        chars=chars,
-                        success=False,
-                        error=text or "Sorry could not access this page.",
-                    )
+                    return _failed_page(result, text, url=url, chars=chars)
                 return _stamp_read_engine(
                     result,
                     await land_agent_read(
@@ -888,7 +908,7 @@ async def _web_batch_read(args: dict[str, Any], ctx: ToolContext, started_at: fl
             },
             budget=RESULT_BUDGET_CHARS,
         )
-        return ToolResult(
+        return _with_hint(ToolResult(
             success=True,
             output=output,
             started_at=started_at,
@@ -896,7 +916,7 @@ async def _web_batch_read(args: dict[str, Any], ctx: ToolContext, started_at: fl
             tool_name="web",
             call_id=ctx.call_id,
             output_self_capped=True,
-        )
+        ), pages)
 
     except ImportError as exc:
         return ToolResult(

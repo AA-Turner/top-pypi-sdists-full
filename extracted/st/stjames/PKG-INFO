@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: stjames
-Version: 0.0.283
+Version: 0.0.284
 Summary: structured JSON atom/molecule encoding scheme
 Project-URL: Homepage, https://github.com/rowansci/stjames
 Project-URL: Bug Tracker, https://github.com/rowansci/stjames/issues

@@ -12,6 +12,8 @@ license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
     "Click>=8.2.0",
+    # Pin exact cwevals version during preview as API is subject to change.
+    "cwevals==0.0.1b1",
     "requests>=2.0.0,<3",
     "protobuf>=5,!=5.28.0,!=5.29.0,<8",
     "PyYAML",
@@ -36,6 +38,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Go",
     "Programming Language :: Rust",
@@ -78,6 +81,8 @@ media = [
     "rdkit",
 ]
 sweeps = ["sweeps>=0.2.0"]
+optuna = ["optuna>=4.0.0"]
+ax = ["ax-platform>=1.3.1; python_version >= '3.11'"]
 launch = [
     "wandb[aws]",
     "awscli",
@@ -290,7 +295,7 @@ ignore-decorators = [
 "wandb/apis/public/**" = ["UP032"]
 
 # TODO: Fix these lints and remove the ignores.
-"xpu/hatch.py" = ["W505"]
+"symon/hatch.py" = ["W505"]
 "noxfile.py" = ["W505"]
 "wandb/cli/cli.py" = ["C901", "W505"]
 "wandb/integration/metaflow/metaflow.py" = ["F811"]

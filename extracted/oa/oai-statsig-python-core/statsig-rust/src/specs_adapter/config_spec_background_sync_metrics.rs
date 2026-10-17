@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use chrono::Utc;
 
-use crate::networking::api_from_url;
+use super::response_format::{SpecsResponseFormat, get_specs_response_format};
+use crate::networking::{ResponseData, api_from_url, config_specs_url};
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
 use crate::observability::ops_stats::OpsStatsForInstance;
+use crate::specs_response::spec_types::SpecsResponseNoUpdates;
 
 const CONFIG_SYNC_OVERALL_LATENCY_METRIC: &str = "config_sync_overall.latency";
 const CONFIG_SYNC_OVERALL_FORMAT_TAG: &str = "format";
@@ -19,6 +22,116 @@ const CONFIG_SYNC_FULL_FALLBACK_COUNT_METRIC: &str = "config_sync_full_fallback.
 const CONFIG_SYNC_FULL_FALLBACK_REASON_TAG: &str = "fallback_reason";
 const CONFIG_SYNC_FULL_FALLBACK_SOURCE_TAG: &str = "fallback_source";
 const CONFIG_SYNC_FULL_FALLBACK_CURSOR_STATE_TAG: &str = "cursor_state";
+
+const DELTA_FALLBACK_REASON_HEADER: &str = "x-statsig-delta-fallback-reason";
+const DELTA_FALLBACK_SOURCE_HEADER: &str = "x-statsig-delta-fallback-source";
+
+pub(super) enum ConfigSyncResponseType {
+    Delta,
+    Full,
+    NoUpdate,
+    NetworkError,
+    JsonBody(Arc<AtomicBool>),
+}
+
+impl ConfigSyncResponseType {
+    pub(super) fn from_headers(data: &ResponseData) -> Option<Self> {
+        if is_true_header(data, "x-cache-hit") {
+            return Some(Self::NoUpdate);
+        }
+        data.get_header_ref("x-deltas-used").map(|_| Self::Delta)
+    }
+
+    pub(super) fn from_response_data(data: &mut ResponseData) -> Self {
+        if let Some(response_type) = Self::from_headers(data) {
+            return response_type;
+        }
+
+        let response_type = match data.deserialize_into::<SpecsResponseNoUpdates>() {
+            Ok(response) if !response.has_updates => Self::NoUpdate,
+            _ => Self::Full,
+        };
+        let _ = data.rewind();
+        response_type
+    }
+
+    pub(super) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Delta => "delta",
+            Self::Full => "full",
+            Self::NoUpdate => "no_update",
+            Self::NetworkError => "network_error",
+            Self::JsonBody(has_updates) => {
+                if has_updates.load(Ordering::Relaxed) {
+                    "full"
+                } else {
+                    "no_update"
+                }
+            }
+        }
+    }
+}
+
+pub(super) struct ConfigSyncMetrics {
+    pub(super) source_api: String,
+    pub(super) response_format: SpecsResponseFormat,
+    pub(super) network_success: bool,
+    pub(super) deltas_used: bool,
+    pub(super) delta_fallback_reason: DeltaFallbackReason,
+    pub(super) delta_fallback_source: DeltaFallbackSource,
+    pub(super) response_type: ConfigSyncResponseType,
+}
+
+impl ConfigSyncMetrics {
+    pub(super) fn from_response_headers(
+        data: &ResponseData,
+        source_api: &str,
+        requested_deltas: bool,
+    ) -> Self {
+        let response_type =
+            ConfigSyncResponseType::from_headers(data).unwrap_or(ConfigSyncResponseType::Full);
+        Self {
+            source_api: source_api.to_owned(),
+            response_format: get_specs_response_format(data),
+            network_success: true,
+            deltas_used: requested_deltas,
+            delta_fallback_reason: get_delta_fallback_reason(data),
+            delta_fallback_source: get_delta_fallback_source(data),
+            response_type,
+        }
+    }
+
+    pub(super) fn from_network_error(source_url: &str, requested_deltas: bool) -> Self {
+        Self {
+            source_api: api_from_url(&config_specs_url(source_url)),
+            response_format: SpecsResponseFormat::Unknown,
+            network_success: false,
+            deltas_used: requested_deltas,
+            delta_fallback_reason: DeltaFallbackReason::MissingHeader,
+            delta_fallback_source: DeltaFallbackSource::MissingHeader,
+            response_type: ConfigSyncResponseType::NetworkError,
+        }
+    }
+}
+
+fn is_true_header(data: &ResponseData, key: &str) -> bool {
+    data.get_header_ref(key)
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+}
+
+fn get_delta_fallback_reason(data: &ResponseData) -> DeltaFallbackReason {
+    DeltaFallbackReason::from_header(
+        data.get_header_ref(DELTA_FALLBACK_REASON_HEADER)
+            .map(String::as_str),
+    )
+}
+
+fn get_delta_fallback_source(data: &ResponseData) -> DeltaFallbackSource {
+    DeltaFallbackSource::from_header(
+        data.get_header_ref(DELTA_FALLBACK_SOURCE_HEADER)
+            .map(String::as_str),
+    )
+}
 
 // This is a bounded response contract with Statsig Forward Proxy. Keep the
 // header parsing exact so arbitrary response values cannot become metric tags.
@@ -214,198 +327,5 @@ pub fn log_config_sync_full_fallback_count(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::observability::ops_stats::{OpsStatsEvent, OpsStatsForInstance};
-
-    #[test]
-    fn delta_fallback_reason_round_trips_sfp_headers() {
-        let cases = [
-            ("deltas_disabled", DeltaFallbackReason::DeltasDisabled),
-            (
-                "deltas_store_unavailable",
-                DeltaFallbackReason::DeltasStoreUnavailable,
-            ),
-            (
-                "sdk_key_not_registered",
-                DeltaFallbackReason::SdkKeyNotRegistered,
-            ),
-            ("no_cached", DeltaFallbackReason::NoCached),
-            (
-                "before_earliest_lcut",
-                DeltaFallbackReason::BeforeEarliestLcut,
-            ),
-            (
-                "first_baseline_checksum_mismatch",
-                DeltaFallbackReason::FirstBaselineChecksumMismatch,
-            ),
-            (
-                "same_lcut_baseline_missing",
-                DeltaFallbackReason::SameLcutBaselineMissing,
-            ),
-            (
-                "first_selected_base_mismatch",
-                DeltaFallbackReason::FirstSelectedBaseMismatch,
-            ),
-            (
-                "missing_caller_checksum",
-                DeltaFallbackReason::MissingCallerChecksum,
-            ),
-            (
-                "adjacent_checksum_chain_gap",
-                DeltaFallbackReason::AdjacentChecksumChainGap,
-            ),
-            (
-                "supports_proto_required",
-                DeltaFallbackReason::SupportsProtoRequired,
-            ),
-            (
-                "serialization_failed",
-                DeltaFallbackReason::SerializationFailed,
-            ),
-            ("unsupported_path", DeltaFallbackReason::UnsupportedPath),
-            ("unclassified", DeltaFallbackReason::Unclassified),
-        ];
-
-        for (header, expected) in cases {
-            assert_eq!(DeltaFallbackReason::from_header(Some(header)), expected);
-            assert_eq!(expected.as_str(), header);
-        }
-    }
-
-    #[test]
-    fn delta_fallback_reason_preserves_header_sentinels() {
-        assert_eq!(
-            DeltaFallbackReason::from_header(None),
-            DeltaFallbackReason::MissingHeader
-        );
-        assert_eq!(
-            DeltaFallbackReason::MissingHeader.as_str(),
-            "missing_header"
-        );
-        for header in ["", "BEFORE_EARLIEST_LCUT", "free_form_reason"] {
-            assert_eq!(
-                DeltaFallbackReason::from_header(Some(header)),
-                DeltaFallbackReason::InvalidHeader
-            );
-        }
-        assert_eq!(
-            DeltaFallbackReason::InvalidHeader.as_str(),
-            "invalid_header"
-        );
-    }
-
-    #[test]
-    fn delta_fallback_source_round_trips_sfp_headers() {
-        let cases = [
-            ("local_compute", DeltaFallbackSource::LocalCompute),
-            ("legacy_store", DeltaFallbackSource::LegacyStore),
-            ("no_store", DeltaFallbackSource::NoStore),
-            ("unclassified", DeltaFallbackSource::Unclassified),
-        ];
-
-        for (header, expected) in cases {
-            assert_eq!(DeltaFallbackSource::from_header(Some(header)), expected);
-            assert_eq!(expected.as_str(), header);
-        }
-    }
-
-    #[test]
-    fn delta_fallback_source_preserves_header_sentinels() {
-        assert_eq!(
-            DeltaFallbackSource::from_header(None),
-            DeltaFallbackSource::MissingHeader
-        );
-        assert_eq!(
-            DeltaFallbackSource::MissingHeader.as_str(),
-            "missing_header"
-        );
-        for header in ["", "LOCAL_COMPUTE", "raw-unbounded-source"] {
-            assert_eq!(
-                DeltaFallbackSource::from_header(Some(header)),
-                DeltaFallbackSource::InvalidHeader
-            );
-        }
-        assert_eq!(
-            DeltaFallbackSource::InvalidHeader.as_str(),
-            "invalid_header"
-        );
-    }
-
-    #[tokio::test]
-    async fn full_fallback_counter_emits_for_requested_delta_full() {
-        let ops_stats = Arc::new(OpsStatsForInstance::new());
-        let mut receiver = ops_stats.subscribe_for_test();
-
-        log_config_sync_full_fallback_count(
-            &ops_stats,
-            "datastore",
-            true,
-            "full",
-            DeltaFallbackReason::BeforeEarliestLcut,
-            DeltaFallbackSource::LocalCompute,
-            "incremental",
-        );
-
-        let event = receiver.recv().await.unwrap();
-        let OpsStatsEvent::Observability(event) = event else {
-            panic!("expected observability event");
-        };
-
-        assert_eq!(event.metric_name, CONFIG_SYNC_FULL_FALLBACK_COUNT_METRIC);
-        assert_eq!(event.value, 1.0);
-        let tags = event.tags.unwrap();
-        assert_eq!(
-            tags.get(CONFIG_SYNC_OVERALL_SOURCE_API_TAG),
-            Some(&"datastore".to_string())
-        );
-        assert_eq!(
-            tags.get(CONFIG_SYNC_FULL_FALLBACK_REASON_TAG),
-            Some(&"before_earliest_lcut".to_string())
-        );
-        assert_eq!(
-            tags.get(CONFIG_SYNC_FULL_FALLBACK_SOURCE_TAG),
-            Some(&"local_compute".to_string())
-        );
-        assert_eq!(
-            tags.get(CONFIG_SYNC_FULL_FALLBACK_CURSOR_STATE_TAG),
-            Some(&"incremental".to_string())
-        );
-    }
-
-    #[test]
-    fn full_fallback_counter_skips_other_sync_outcomes() {
-        let ops_stats = Arc::new(OpsStatsForInstance::new());
-        let mut receiver = ops_stats.subscribe_for_test();
-
-        log_config_sync_full_fallback_count(
-            &ops_stats,
-            "datastore",
-            false,
-            "full",
-            DeltaFallbackReason::MissingHeader,
-            DeltaFallbackSource::MissingHeader,
-            "initial",
-        );
-        log_config_sync_full_fallback_count(
-            &ops_stats,
-            "datastore",
-            true,
-            "delta",
-            DeltaFallbackReason::MissingHeader,
-            DeltaFallbackSource::MissingHeader,
-            "initial",
-        );
-        log_config_sync_full_fallback_count(
-            &ops_stats,
-            "datastore",
-            true,
-            "no_update",
-            DeltaFallbackReason::MissingHeader,
-            DeltaFallbackSource::MissingHeader,
-            "initial",
-        );
-
-        assert!(receiver.try_recv().is_err());
-    }
-}
+#[path = "__tests__/config_spec_background_sync_metrics_tests.rs"]
+mod tests;

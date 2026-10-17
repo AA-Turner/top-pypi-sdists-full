@@ -57,7 +57,7 @@ class StatsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -106,6 +106,7 @@ class StatsClient:
         event: typing.Optional[str] = None,
         business_type: typing.Optional[str] = None,
         industry_type: typing.Optional[str] = None,
+        product_category: typing.Optional[str] = None,
         issuer: typing.Optional[str] = None,
         conversion_window: typing.Optional[str] = None,
         mature_only: typing.Optional[bool] = None,
@@ -257,6 +258,9 @@ class StatsClient:
 
         industry_type : typing.Optional[str]
             Filter to one industry type, for example `options_trading`. Pair with `breakdown_by=industry_type` to split by industry type. Available on metrics that list `industry_type`.
+
+        product_category : typing.Optional[str]
+            Filter to one product category, for example `algo_trading_course`. Pair with `breakdown_by=product_category` to split by product category. Available on metrics that list `product_category`.
 
         issuer : typing.Optional[str]
             Filter to one card-issuing bank, named as the processor reports it, for example JPMORGAN CHASE BANK N A, or unknown for payments with no reported bank. Available on metrics that list issuer.
@@ -373,7 +377,7 @@ class StatsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -424,6 +428,7 @@ class StatsClient:
             event=event,
             business_type=business_type,
             industry_type=industry_type,
+            product_category=product_category,
             issuer=issuer,
             conversion_window=conversion_window,
             mature_only=mature_only,
@@ -518,7 +523,7 @@ class AsyncStatsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -573,6 +578,7 @@ class AsyncStatsClient:
         event: typing.Optional[str] = None,
         business_type: typing.Optional[str] = None,
         industry_type: typing.Optional[str] = None,
+        product_category: typing.Optional[str] = None,
         issuer: typing.Optional[str] = None,
         conversion_window: typing.Optional[str] = None,
         mature_only: typing.Optional[bool] = None,
@@ -725,6 +731,9 @@ class AsyncStatsClient:
         industry_type : typing.Optional[str]
             Filter to one industry type, for example `options_trading`. Pair with `breakdown_by=industry_type` to split by industry type. Available on metrics that list `industry_type`.
 
+        product_category : typing.Optional[str]
+            Filter to one product category, for example `algo_trading_course`. Pair with `breakdown_by=product_category` to split by product category. Available on metrics that list `product_category`.
+
         issuer : typing.Optional[str]
             Filter to one card-issuing bank, named as the processor reports it, for example JPMORGAN CHASE BANK N A, or unknown for payments with no reported bank. Available on metrics that list issuer.
 
@@ -842,7 +851,7 @@ class AsyncStatsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -899,6 +908,7 @@ class AsyncStatsClient:
             event=event,
             business_type=business_type,
             industry_type=industry_type,
+            product_category=product_category,
             issuer=issuer,
             conversion_window=conversion_window,
             mature_only=mature_only,

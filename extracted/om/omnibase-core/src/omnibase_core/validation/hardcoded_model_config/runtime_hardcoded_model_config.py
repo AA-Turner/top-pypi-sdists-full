@@ -18,7 +18,9 @@ Ratchet contract, with ``--baseline <file>``:
   run and is named, so the baseline shrinks as the values are removed;
 * a retired lab value (family R) can never be baselined, on write or on read;
 * ``--base <ref>`` also fails when the baseline carries an entry that the same
-  file at ``<ref>`` did not: entries only leave.
+  file at ``<ref>`` did not: entries only leave. The one admitted growth is a
+  line that already stood in its file at ``<ref>``, which a tightened policy
+  now reports (OMN-21147); a line the change itself adds never enters.
 
 There is no suppression marker, no skip flag and no advisory mode.
 
@@ -30,6 +32,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from collections import Counter
 from importlib import resources
 from pathlib import Path
 from typing import Final
@@ -45,6 +48,7 @@ from omnibase_core.validation.hardcoded_model_config.handler import (
     HandlerHardcodedModelConfigCompute,
     added_entries,
     compare_with_baseline,
+    content_sha1,
 )
 from omnibase_core.validation.hardcoded_model_config.models import (
     ModelHardcodedModelConfigBaseline,
@@ -60,6 +64,7 @@ __all__ = [
     "load_policy",
     "main",
     "read_baseline_at_ref",
+    "read_file_at_ref",
 ]
 
 _POLICY_RESOURCE: Final[str] = "policy.yaml"
@@ -132,8 +137,9 @@ def _workspace_config_root() -> Path | None:
     return None
 
 
-def _lab_denylist_values() -> tuple[str, ...]:
-    """Dead lab endpoints from the private vocabulary, when it is present.
+def _lab_denylist() -> ModelHardcodedModelConfigLabDenylist | None:
+    """Dead lab endpoints and lab deployment facts from the private vocabulary,
+    when it is present.
 
     An absent file is the neutral case (shape rules only). A file that is
     present and unreadable or malformed stops the gate: a denylist that
@@ -141,17 +147,27 @@ def _lab_denylist_values() -> tuple[str, ...]:
     """
     root = _workspace_config_root()
     if root is None:
-        return ()
+        return None
     path = root / _LAB_DENYLIST_REL
     if not path.is_file():
-        return ()
+        return None
     try:
-        document = load_yaml_content_as_model(
+        return load_yaml_content_as_model(
             path.read_text(encoding="utf-8"), ModelHardcodedModelConfigLabDenylist
         )
     except (OSError, ModelOnexError) as exc:
         raise _InputError(f"{path}: lab denylist is invalid: {exc}") from exc
-    return document.retired_values
+
+
+def _union[T](first: tuple[T, ...], second: tuple[T, ...]) -> tuple[T, ...]:
+    return first + tuple(v for v in second if v not in first)
+
+
+def unjudged_families(policy: ModelHardcodedModelConfigPolicy) -> frozenset[str]:
+    """Families this run cannot detect, whose baseline entries it must not judge."""
+    if policy.lab_host_names or policy.lab_ports:
+        return frozenset()
+    return frozenset({"D"})
 
 
 def load_policy() -> ModelHardcodedModelConfigPolicy:
@@ -165,10 +181,18 @@ def load_policy() -> ModelHardcodedModelConfigPolicy:
     last = policy.path_classes[-1] if policy.path_classes else None
     if last is None or last.name != "SOURCE" or last.globs != ("**",):
         raise _InputError("policy.yaml must end with a SOURCE class globbing '**'")
-    extra = tuple(v for v in _lab_denylist_values() if v not in policy.retired_values)
-    if extra:
+    denylist = _lab_denylist()
+    if denylist is not None:
         policy = policy.model_copy(
-            update={"retired_values": policy.retired_values + extra}
+            update={
+                "retired_values": _union(
+                    policy.retired_values, denylist.retired_values
+                ),
+                "lab_host_names": _union(
+                    policy.lab_host_names, denylist.lab_host_names
+                ),
+                "lab_ports": _union(policy.lab_ports, denylist.lab_ports),
+            }
         )
     return policy
 
@@ -235,6 +259,41 @@ def read_baseline_at_ref(ref: str, path: str) -> str | None:
     if show.returncode != 0:
         raise _InputError(f"git show {ref}:{path} failed: {show.stderr.strip()}")
     return show.stdout
+
+
+def read_file_at_ref(ref: str, path: str) -> str | None:
+    """Return ``path``'s text at ``ref``, or None when it is absent there."""
+    show = subprocess.run(
+        ["git", "show", f"{ref}:{path}"], capture_output=True, text=True, check=False
+    )
+    return show.stdout if show.returncode == 0 else None
+
+
+def _split_growth(
+    ref: str,
+    grown: list[ModelHardcodedModelConfigBaselineEntry],
+    head: list[ModelHardcodedModelConfigBaselineEntry],
+) -> tuple[
+    list[ModelHardcodedModelConfigBaselineEntry],
+    list[ModelHardcodedModelConfigBaselineEntry],
+]:
+    """Split grown entries into (lines that already stood at ``ref``, new lines).
+
+    A grown entry is pre-existing only while its file at ``ref`` holds at least
+    as many lines with its content hash as the head baseline lists for its key,
+    so a copy of an old line that the change adds is still new.
+    """
+    head_counts = Counter(e.key() for e in head)
+    at_ref: dict[str, Counter[str]] = {}
+    old: list[ModelHardcodedModelConfigBaselineEntry] = []
+    new: list[ModelHardcodedModelConfigBaselineEntry] = []
+    for entry in grown:
+        if entry.path not in at_ref:
+            text = read_file_at_ref(ref, entry.path) or ""
+            at_ref[entry.path] = Counter(content_sha1(ln) for ln in text.splitlines())
+        held = at_ref[entry.path][entry.content_sha1]
+        (old if held >= head_counts[entry.key()] else new).append(entry)
+    return old, new
 
 
 def _write_baseline(
@@ -345,7 +404,13 @@ def _run(args: argparse.Namespace) -> int:
         )
 
     missing = frozenset(e.path for e in baseline if not Path(e.path).is_file())
-    new, stale = compare_with_baseline(findings, baseline, frozenset(files), missing)
+    new, stale = compare_with_baseline(
+        findings,
+        baseline,
+        frozenset(files),
+        missing,
+        unjudged_families=unjudged_families(policy),
+    )
 
     grown: list[ModelHardcodedModelConfigBaselineEntry] = []
     if args.base:
@@ -359,7 +424,15 @@ def _run(args: argparse.Namespace) -> int:
             )
         else:
             base_entries = _parse_baseline(base_raw, f"{args.base}:{args.baseline}")
-            grown = added_entries(base_entries, baseline)
+            reclassified, grown = _split_growth(
+                args.base, added_entries(base_entries, baseline), baseline
+            )
+            for entry in reclassified:
+                print(
+                    f"NOTE: {entry.path}: baseline entry family={entry.family} "
+                    f"content_sha1={entry.content_sha1} names a line that existed "
+                    f"at {args.base}; a tightened policy reports it now."
+                )
 
     for finding in new:
         _print_finding(finding)

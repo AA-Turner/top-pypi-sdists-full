@@ -9,18 +9,20 @@ import datetime as dt
 from dataclasses import dataclass
 
 from openpyxl.pivot.cache import CacheDefinition, CacheField
-from openpyxl.pivot.fields import Index
 from openpyxl.pivot.table import FieldItem, TableDefinition
 from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 
+from excel_mcp.config import Limits
 from excel_mcp.errors import InvalidArgumentError
+from excel_mcp.operations.pivot_cache import cache_value
 from excel_mcp.operations.pivot_definition import date_filter
 from excel_mcp.operations.pivot_fields import distinct, item_text
 from excel_mcp.operations.pivot_index import sheet_pivots
 from excel_mcp.operations.pivot_options import DatePeriod
 from excel_mcp.operations.pivot_rebuild import can_rebuild, field_labels, rebuild
-from excel_mcp.operations.pivot_source import Value
+from excel_mcp.operations.pivot_source import Results, Value
+from excel_mcp.package.lazy_records import LazyRecords
 from excel_mcp.text import quoted
 from excel_mcp.workspace import worksheets
 
@@ -56,15 +58,15 @@ def ensure_items(cache: CacheDefinition, position: int) -> None:
         return
     if field.sharedItems._fields or cache.records is None:  # pyright: ignore[reportAttributeAccessIssue]
         return
-    records = cache.records.r
-    inline = [record._fields[position] for record in records]
-    shared = distinct([getattr(item, "v", None) for item in inline])
+    records = cache.records
+    assert isinstance(records, LazyRecords)
+    inline = records.column(position)
+    shared = distinct([cache_value(item) for item in inline])
     first_seen = {}
     for item, index in zip(inline, shared.index, strict=True):
         first_seen.setdefault(index, item)
     field.sharedItems._fields = [first_seen[i] for i in range(len(first_seen))]  # pyright: ignore[reportAttributeAccessIssue]
-    for record, index in zip(records, shared.index, strict=True):
-        record._fields[position] = Index(v=index)
+    records.share(position, shared.index)
 
 
 def item_order(cache: CacheDefinition, position: int) -> list[int]:
@@ -163,7 +165,12 @@ def prepare(group: list[Connected], position: int) -> None:
 
 
 def show_only(
-    workbook: Workbook, group: list[Connected], position: int, chosen: set[int], max_cells: int
+    workbook: Workbook,
+    group: list[Connected],
+    position: int,
+    chosen: set[int],
+    limits: Limits,
+    results: Results,
 ) -> bool:
     """Limit the field to the chosen items in every PivotTable of the group.
 
@@ -176,7 +183,7 @@ def show_only(
                 hide = item.x not in chosen
                 changed |= bool(item.h) != hide
                 item.h = True if hide else None
-    return changed and _apply(workbook, group, lambda request: request, max_cells)
+    return changed and _apply(workbook, group, lambda request: request, limits, results)
 
 
 def limit_dates(
@@ -184,7 +191,8 @@ def limit_dates(
     group: list[Connected],
     position: int,
     period: tuple[dt.datetime, dt.datetime] | None,
-    max_cells: int,
+    limits: Limits,
+    results: Results,
 ) -> bool:
     """Keep the records dated within the period in every PivotTable of the group.
 
@@ -193,14 +201,14 @@ def limit_dates(
     name = group[0].pivot.cache.cacheFields[position].name
     if not all(can_rebuild(c.pivot) for c in group):
         _set_period(group, position, name, period)
-        return _apply(workbook, group, lambda request: request, max_cells)
+        return _apply(workbook, group, lambda request: request, limits, results)
 
     def change(request):
         others = [p for p in request.periods if p.field != name]
         kept = [DatePeriod(name, *period)] if period else []
         return type(request)(**{**vars(request), "periods": [*others, *kept]})
 
-    return _apply(workbook, group, change, max_cells)
+    return _apply(workbook, group, change, limits, results)
 
 
 def _set_period(
@@ -217,34 +225,45 @@ def _set_period(
             pivot.filters.append(date_filter(position, DatePeriod(name, *period), number))
 
 
-def _apply(workbook, group, change, max_cells) -> bool:
+def _apply(workbook, group, change, limits, results) -> bool:
     """Recalculate the cells of the PivotTables, or for PivotTables this server did not make,
     leave them and ask Excel to refresh when the file is opened. True when recalculated."""
     if not all(can_rebuild(c.pivot) for c in group):
         group[0].pivot.cache.refreshOnLoad = True
         return False
-    _rebuild_all(workbook, group, change, max_cells)
+    _rebuild_all(workbook, group, change, limits, results)
     return True
 
 
-def _rebuild_all(workbook, group, change, max_cells) -> None:
-    made = [rebuild(workbook, c.sheet, c.pivot, change, max_cells) for c in group]
+def _rebuild_all(workbook, group, change, limits, results) -> None:
+    made = [rebuild(workbook, c.sheet, c.pivot, change, limits, results) for c in group]
     for connected, pivot in zip(group, made, strict=True):
         pivot.cache = made[0].cache
         connected.pivot.cache = made[0].cache
     group[:] = [Connected(c.sheet, p) for c, p in zip(group, made, strict=True)]
 
 
+def _only_dates(field: CacheField) -> bool:
+    """Whether the field holds dates and nothing else (blanks aside), as a timeline needs."""
+    shared = field.sharedItems
+    return (
+        shared is not None
+        and bool(shared.containsDate)
+        and shared.containsNonDate is False
+        and shared.minDate is not None
+        and shared.maxDate is not None
+    )
+
+
 def data_dates(cache: CacheDefinition, position: int) -> tuple[dt.datetime, dt.datetime]:
     shared = cache.cacheFields[position].sharedItems
-    if shared is None or shared.minDate is None or shared.maxDate is None:
-        dates = [
-            f.name for f in cache.cacheFields if f.sharedItems is not None and f.sharedItems.minDate
-        ]
+    if shared is None or not _only_dates(cache.cacheFields[position]):
+        dates = [f.name for f in cache.cacheFields if _only_dates(f)]
         raise InvalidArgumentError(
             f"Field {cache.cacheFields[position].name!r} is not a date field, so it cannot "
             f"have a timeline. Date fields: {quoted(dates) if dates else 'none'}."
         )
+    assert shared.minDate is not None and shared.maxDate is not None
     return shared.minDate, shared.maxDate
 
 

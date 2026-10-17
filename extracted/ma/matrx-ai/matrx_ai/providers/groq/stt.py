@@ -14,6 +14,7 @@ from matrx_ai.processing.audio.stt import (
     STTRequest,
     STTResult,
     STTUsage,
+    clamp_words_monotonic,
     prepare_audio_file,
 )
 from matrx_ai.providers.errors import mark_billing_checked
@@ -46,6 +47,9 @@ def _client() -> AsyncGroq:
 
 class GroqSTT:
     """Catalog-dispatched Groq speech-to-text client."""
+
+    #: Honors ``timestamp_granularities=["word"]`` (see ``words_status_for``).
+    supports_word_timestamps = True
 
     async def execute(self, request: STTRequest, profile: ResolvedCallProfile) -> STTResult:
         stt_meta = profile.offering_metadata.get("stt", {})
@@ -103,7 +107,7 @@ class GroqSTT:
         else:
             raw = {
                 key: getattr(response, key)
-                for key in ("text", "language", "duration", "segments")
+                for key in ("text", "language", "duration", "segments", "words")
                 if getattr(response, key, None) is not None
             }
         duration = float(raw.get("duration") or 0.0)
@@ -129,10 +133,17 @@ class GroqSTT:
             file_size_mb=file_size_mb,
             response_format=request.response_format,
         )
+        raw_words = raw.get("words")
+        words = (
+            clamp_words_monotonic(raw_words)
+            if isinstance(raw_words, list) and raw_words
+            else None
+        )
         return STTResult(
             text=str(raw.get("text") or ""),
             usage=usage,
             segments=segments if isinstance(segments, list) else None,
+            words=words,
             language=raw.get("language") or request.language,
             duration=duration,
             quality_metrics=quality,

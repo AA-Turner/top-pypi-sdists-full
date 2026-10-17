@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: lmnr
-Version: 0.7.67
+Version: 0.8.0
 Summary: Python SDK for Laminar
 Author: lmnr.ai
 Author-email: lmnr.ai <founders@lmnr.ai>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -23,61 +22,57 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.39.0,<2.0.0
 Requires-Dist: opentelemetry-instrumentation>=0.54b0,<1.0.0
 Requires-Dist: opentelemetry-instrumentation-threading>=0.54b0,<1.0.0
 Requires-Dist: opentelemetry-semantic-conventions>=0.62b1,<1.0.0
-Requires-Dist: opentelemetry-semantic-conventions-ai==0.4.13
+Requires-Dist: opentelemetry-semantic-conventions-ai==0.5.1
 Requires-Dist: orjson>=3.0.0,<4.0.0
 Requires-Dist: packaging>=22.0,<27.0
 Requires-Dist: pydantic>=2.0.3,<3.0.0
 Requires-Dist: python-dotenv>=1.0,<2.0
 Requires-Dist: tqdm>=4.0,<5.0
 Requires-Dist: tenacity>=8.0,<10.0
-Requires-Dist: wrapt>=1.14,<2.0.0
-Requires-Dist: opentelemetry-instrumentation-alephalpha==0.52.4 ; extra == 'alephalpha'
-Requires-Dist: opentelemetry-instrumentation-alephalpha==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-bedrock==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-chromadb==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-cohere==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-crewai==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-haystack==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-lancedb==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-langchain==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-llamaindex==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-marqo==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-mcp==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-milvus==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-mistralai==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-ollama==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-pinecone==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-qdrant==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-replicate==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-sagemaker==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-together==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-transformers==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-vertexai==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-watsonx==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-weaviate==0.52.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-bedrock==0.52.4 ; extra == 'bedrock'
-Requires-Dist: opentelemetry-instrumentation-chromadb==0.52.4 ; extra == 'chromadb'
-Requires-Dist: opentelemetry-instrumentation-cohere==0.52.4 ; extra == 'cohere'
-Requires-Dist: opentelemetry-instrumentation-crewai==0.52.4 ; extra == 'crewai'
-Requires-Dist: opentelemetry-instrumentation-haystack==0.52.4 ; extra == 'haystack'
-Requires-Dist: opentelemetry-instrumentation-lancedb==0.52.4 ; extra == 'lancedb'
-Requires-Dist: opentelemetry-instrumentation-langchain==0.52.4 ; extra == 'langchain'
-Requires-Dist: opentelemetry-instrumentation-llamaindex==0.52.4 ; extra == 'llamaindex'
-Requires-Dist: opentelemetry-instrumentation-marqo==0.52.4 ; extra == 'marqo'
-Requires-Dist: opentelemetry-instrumentation-mcp==0.52.4 ; extra == 'mcp'
-Requires-Dist: opentelemetry-instrumentation-milvus==0.52.4 ; extra == 'milvus'
-Requires-Dist: opentelemetry-instrumentation-mistralai==0.52.4 ; extra == 'mistralai'
-Requires-Dist: opentelemetry-instrumentation-ollama==0.52.4 ; extra == 'ollama'
-Requires-Dist: opentelemetry-instrumentation-pinecone==0.52.4 ; extra == 'pinecone'
-Requires-Dist: opentelemetry-instrumentation-qdrant==0.52.4 ; extra == 'qdrant'
-Requires-Dist: opentelemetry-instrumentation-replicate==0.52.4 ; extra == 'replicate'
-Requires-Dist: opentelemetry-instrumentation-sagemaker==0.52.4 ; extra == 'sagemaker'
-Requires-Dist: opentelemetry-instrumentation-together==0.52.4 ; extra == 'together'
-Requires-Dist: opentelemetry-instrumentation-transformers==0.52.4 ; extra == 'transformers'
-Requires-Dist: opentelemetry-instrumentation-vertexai==0.52.4 ; extra == 'vertexai'
-Requires-Dist: opentelemetry-instrumentation-watsonx==0.52.4 ; extra == 'watsonx'
-Requires-Dist: opentelemetry-instrumentation-weaviate==0.52.4 ; extra == 'weaviate'
-Requires-Python: >=3.10, <4
+Requires-Dist: wrapt>=1.14,<3.0.0
+Requires-Dist: opentelemetry-instrumentation-alephalpha==0.62.4 ; extra == 'alephalpha'
+Requires-Dist: opentelemetry-instrumentation-alephalpha==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-bedrock==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-chromadb==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-cohere==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-crewai==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-haystack==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-lancedb==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-langchain==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-llamaindex==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-marqo==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-mcp==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-mistralai==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-ollama==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-qdrant==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-replicate==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-sagemaker==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-together==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-transformers==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-vertexai==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-watsonx==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-weaviate==0.62.4 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-bedrock==0.62.4 ; extra == 'bedrock'
+Requires-Dist: opentelemetry-instrumentation-chromadb==0.62.4 ; extra == 'chromadb'
+Requires-Dist: opentelemetry-instrumentation-cohere==0.62.4 ; extra == 'cohere'
+Requires-Dist: opentelemetry-instrumentation-crewai==0.62.4 ; extra == 'crewai'
+Requires-Dist: opentelemetry-instrumentation-haystack==0.62.4 ; extra == 'haystack'
+Requires-Dist: opentelemetry-instrumentation-lancedb==0.62.4 ; extra == 'lancedb'
+Requires-Dist: opentelemetry-instrumentation-langchain==0.62.4 ; extra == 'langchain'
+Requires-Dist: opentelemetry-instrumentation-llamaindex==0.62.4 ; extra == 'llamaindex'
+Requires-Dist: opentelemetry-instrumentation-marqo==0.62.4 ; extra == 'marqo'
+Requires-Dist: opentelemetry-instrumentation-mcp==0.62.4 ; extra == 'mcp'
+Requires-Dist: opentelemetry-instrumentation-mistralai==0.62.4 ; extra == 'mistralai'
+Requires-Dist: opentelemetry-instrumentation-ollama==0.62.4 ; extra == 'ollama'
+Requires-Dist: opentelemetry-instrumentation-qdrant==0.62.4 ; extra == 'qdrant'
+Requires-Dist: opentelemetry-instrumentation-replicate==0.62.4 ; extra == 'replicate'
+Requires-Dist: opentelemetry-instrumentation-sagemaker==0.62.4 ; extra == 'sagemaker'
+Requires-Dist: opentelemetry-instrumentation-together==0.62.4 ; extra == 'together'
+Requires-Dist: opentelemetry-instrumentation-transformers==0.62.4 ; extra == 'transformers'
+Requires-Dist: opentelemetry-instrumentation-vertexai==0.62.4 ; extra == 'vertexai'
+Requires-Dist: opentelemetry-instrumentation-watsonx==0.62.4 ; extra == 'watsonx'
+Requires-Dist: opentelemetry-instrumentation-weaviate==0.62.4 ; extra == 'weaviate'
+Requires-Python: >=3.11, <4
 Provides-Extra: alephalpha
 Provides-Extra: all
 Provides-Extra: bedrock
@@ -90,10 +85,8 @@ Provides-Extra: langchain
 Provides-Extra: llamaindex
 Provides-Extra: marqo
 Provides-Extra: mcp
-Provides-Extra: milvus
 Provides-Extra: mistralai
 Provides-Extra: ollama
-Provides-Extra: pinecone
 Provides-Extra: qdrant
 Provides-Extra: replicate
 Provides-Extra: sagemaker
@@ -180,6 +173,7 @@ Laminar.initialize(project_api_key=os.environ["LMNR_PROJECT_API_KEY"])
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
+
 def poem_writer(topic: str):
     prompt = f"write a poem about {topic}"
     messages = [
@@ -195,6 +189,7 @@ def poem_writer(topic: str):
     poem = response.choices[0].message.content
 
     return poem
+
 
 @observe()
 def generate_poems():
@@ -228,7 +223,10 @@ For example, if you want to only instrument OpenAI and Anthropic, then do the fo
 ```python
 from lmnr import Laminar, Instruments
 
-Laminar.initialize(project_api_key=os.environ["LMNR_PROJECT_API_KEY"], instruments={Instruments.OPENAI, Instruments.ANTHROPIC})
+Laminar.initialize(
+    project_api_key=os.environ["LMNR_PROJECT_API_KEY"],
+    instruments={Instruments.OPENAI, Instruments.ANTHROPIC},
+)
 ```
 
 If you want to fully disable any kind of autoinstrumentation, pass an empty set as `instruments=set()` to `.initialize()`. 
@@ -250,11 +248,14 @@ Create a file named `my_first_eval.py` with the following code:
 ```python
 from lmnr import evaluate
 
+
 def write_poem(data):
     return f"This is a good poem about {data['topic']}"
 
+
 def contains_poem(output, target):
-    return 1 if output in target['poem'] else 0
+    return 1 if output in target["poem"] else 0
+
 
 # Evaluation data
 data = [
@@ -265,10 +266,8 @@ data = [
 evaluate(
     data=data,
     executor=write_poem,
-    evaluators={
-        "containsPoem": contains_poem
-    },
-    group_id="my_first_feature"
+    evaluators={"containsPoem": contains_poem},
+    group_id="my_first_feature",
 )
 ```
 
@@ -312,9 +311,7 @@ from lmnr import LaminarClient
 
 client = LaminarClient(project_api_key="<YOUR_PROJECT_API_KEY>")
 
-response = client.agent.run(
-    prompt="What is the weather in London today?"
-)
+response = client.agent.run(prompt="What is the weather in London today?")
 
 print(response.result.content)
 ```
@@ -328,13 +325,10 @@ from lmnr import LaminarClient
 
 client = LaminarClient(project_api_key="<YOUR_PROJECT_API_KEY>")
 
-for chunk in client.agent.run(
-    prompt="What is the weather in London today?",
-    stream=True
-):
-    if chunk.chunk_type == 'step':
+for chunk in client.agent.run(prompt="What is the weather in London today?", stream=True):
+    if chunk.chunk_type == "step":
         print(chunk.summary)
-    elif chunk.chunk_type == 'finalOutput':
+    elif chunk.chunk_type == "finalOutput":
         print(chunk.content.result.content)
 ```
 
@@ -345,9 +339,7 @@ from lmnr import AsyncLaminarClient
 
 client = AsyncLaminarClient(project_api_key="<YOUR_PROJECT_API_KEY>")
 
-response = await client.agent.run(
-    prompt="What is the weather in London today?"
-)
+response = await client.agent.run(prompt="What is the weather in London today?")
 
 print(response.result.content)
 ```
@@ -360,16 +352,10 @@ from lmnr import AsyncLaminarClient
 client = AsyncLaminarClient(project_api_key="<YOUR_PROJECT_API_KEY>")
 
 # Note that you need to await the operation even though we use `async for` below
-response = await client.agent.run(
-    prompt="What is the weather in London today?",
-    stream=True
-)
-async for chunk in client.agent.run(
-    prompt="What is the weather in London today?",
-    stream=True
-):
-    if chunk.chunk_type == 'step':
+response = await client.agent.run(prompt="What is the weather in London today?", stream=True)
+async for chunk in client.agent.run(prompt="What is the weather in London today?", stream=True):
+    if chunk.chunk_type == "step":
         print(chunk.summary)
-    elif chunk.chunk_type == 'finalOutput':
+    elif chunk.chunk_type == "finalOutput":
         print(chunk.content.result.content)
 ```

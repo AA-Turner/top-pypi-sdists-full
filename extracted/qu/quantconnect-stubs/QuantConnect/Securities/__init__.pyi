@@ -5,7 +5,6 @@ import datetime
 import typing
 import warnings
 
-import Common.Util
 import QuantConnect
 import QuantConnect.Algorithm.Framework.Portfolio
 import QuantConnect.Brokerages
@@ -26,6 +25,7 @@ import QuantConnect.Securities.Interfaces
 import QuantConnect.Securities.Option
 import QuantConnect.Securities.Positions
 import QuantConnect.Securities.Volatility
+import QuantConnect.Util
 import System
 import System.Collections.Concurrent
 import System.Collections.Generic
@@ -7648,7 +7648,7 @@ class UniverseManagerChanged(System.Object):
         ...
 
 
-class UniverseManager(Common.Util.BaseExtendedDictionary[QuantConnect.Symbol, QuantConnect.Data.UniverseSelection.Universe, System.Collections.Concurrent.ConcurrentDictionary[QuantConnect.Symbol, QuantConnect.Data.UniverseSelection.Universe]]):
+class UniverseManager(QuantConnect.Util.BaseExtendedDictionary[QuantConnect.Symbol, QuantConnect.Data.UniverseSelection.Universe, System.Collections.Concurrent.ConcurrentDictionary[QuantConnect.Symbol, QuantConnect.Data.UniverseSelection.Universe]]):
     """Manages the algorithm's collection of universes"""
 
     @property
@@ -7661,27 +7661,67 @@ class UniverseManager(Common.Util.BaseExtendedDictionary[QuantConnect.Symbol, Qu
         ...
 
     @property
-    def active_securities(self) -> Common.Util.ReadOnlyExtendedDictionary[QuantConnect.Symbol, QuantConnect.Securities.Security]:
+    def active_securities(self) -> QuantConnect.Util.ReadOnlyExtendedDictionary[QuantConnect.Symbol, QuantConnect.Securities.Security]:
         """
         Read-only dictionary containing all active securities. An active security is
         a security that is currently selected by the universe or has holdings or open orders.
         """
         ...
 
+    def __contains__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Determines whether the dictionary contains the specified key
+        
+        :param key: The key to locate in the dictionary
+        :returns: true if the dictionary contains an element with the specified key; otherwise, false.
+        """
+        ...
+
+    @overload
     def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.UniverseSelection.Universe:
         """Gets or sets the element with the specified key"""
+        ...
+
+    @overload
+    def __getitem__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Gets or sets the value associated with the specified key
+        
+        :param key: The key of the value to get or set
+        :returns: The value associated with the specified key.
+        """
         ...
 
     def __init__(self) -> None:
         """Initializes a new instance of the UniverseManager class"""
         ...
 
+    @overload
     def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect.Data.UniverseSelection.Universe) -> None:
         """Gets or sets the element with the specified key"""
         ...
 
+    @overload
+    def __setitem__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect.Data.UniverseSelection.Universe) -> None:
+        """
+        Gets or sets the value associated with the specified key
+        
+        :param key: The key of the value to get or set
+        :returns: The value associated with the specified key.
+        """
+        ...
+
     def add(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect.Data.UniverseSelection.Universe) -> None:
         """Adds an element with the provided key and value to the dictionary"""
+        ...
+
+    def contains_key(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Determines whether the dictionary contains the specified key
+        
+        :param key: The key to locate in the dictionary
+        :returns: true if the dictionary contains an element with the specified key; otherwise, false.
+        """
         ...
 
     def on_collection_changed(self, e: QuantConnect.Securities.UniverseManagerChanged) -> None:
@@ -7699,6 +7739,16 @@ class UniverseManager(Common.Util.BaseExtendedDictionary[QuantConnect.Symbol, Qu
 
     def remove(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
         """Removes the element with the specified key from the dictionary"""
+        ...
+
+    def try_get_value(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: typing.Optional[QuantConnect.Data.UniverseSelection.Universe]) -> typing.Tuple[bool, QuantConnect.Data.UniverseSelection.Universe]:
+        """
+        Gets the value associated with the specified key
+        
+        :param key: The key whose value to get
+        :param value: When this method returns, the value associated with the specified key
+        :returns: true if the key was found; otherwise, false.
+        """
         ...
 
     def update(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect.Data.UniverseSelection.Universe, action: System.Collections.Specialized.NotifyCollectionChangedAction) -> None:

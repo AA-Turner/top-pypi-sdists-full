@@ -129,3 +129,43 @@ __all__ = [
     "dispatch_timeout_ceiling",
     "tool_dispatch_knob",
 ]
+
+
+# ── Paused / delegated request abandonment (feature ``persistence``) ──────────────────────────
+PERSISTENCE_FEATURE = "persistence"
+PAUSED_ABANDON_DAYS_KEY = "paused_request_abandon_days"
+#: KNOB MIRROR of platform.feature_knob "persistence" "paused_request_abandon_days"
+PAUSED_ABANDON_DAYS_MIRROR = 30
+
+_persistence_reader: Callable[[str], Any] | None = None
+
+
+def configure_persistence_knobs(reader: Callable[[str], Any] | None) -> None:
+    """Bind the host's reader (``key -> value`` for feature ``persistence``); ``None`` unbinds."""
+    global _persistence_reader
+    _persistence_reader = reader
+
+
+def delegated_call_abandon_seconds() -> int:
+    """How long a delegated tool call may wait for the person's app before its ledger row expires.
+
+    Reads ``persistence.paused_request_abandon_days`` (the same knob the watchdog closes paused
+    requests by, so the row and the request expire together). Unreadable -> the announced mirror.
+    """
+    days: float = float(PAUSED_ABANDON_DAYS_MIRROR)
+    if _persistence_reader is None:
+        print(
+            "[matrx_ai] no host knob reader bound for 'persistence'; using the mirrored 30-day "
+            "abandon window (bind one with configure_persistence_knobs())",
+            file=sys.stderr,
+        )
+    else:
+        try:
+            days = _positive_float(_persistence_reader(PAUSED_ABANDON_DAYS_KEY), days)
+        except Exception as exc:  # noqa: BLE001 — announced, never a crashed tool call
+            print(
+                f"[matrx_ai] host knob reader failed for 'persistence'.{PAUSED_ABANDON_DAYS_KEY!r}: "
+                f"{exc!r}; using the mirrored {PAUSED_ABANDON_DAYS_MIRROR} days",
+                file=sys.stderr,
+            )
+    return int(days * 24 * 60 * 60)

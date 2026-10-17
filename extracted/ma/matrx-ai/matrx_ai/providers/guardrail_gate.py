@@ -210,12 +210,41 @@ def admit_guardrails(profile: Any = None, config: Any = None) -> None:
         raise stop
 
 
-async def note_paid_result(result: Any) -> None:
+def _usage_named_by_profile(usage: Any, profile: Any) -> Any:
+    """``usage`` as a catalog-priceable ``TokenUsage`` named by the dispatched route.
+
+    A provider whose wire usage carries only counters (TypeSafe's ``{input_tokens, output_tokens}``
+    on a decision call) has no model name, so pricing it read "unknown model" and raised a false
+    ``model_call_unpriced`` alarm on every decision call (2026-10-16, Jev decisions) while the
+    same call was priced correctly a step later. The dispatcher already knows the route: name it."""
+    if usage is None or profile is None or getattr(usage, "matrx_model_name", None):
+        return usage
+    model_name = getattr(profile, "model_name", None)
+    if not model_name:
+        return usage
+    from matrx_ai.config.usage_config import TokenUsage
+
+    input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+    output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+    return TokenUsage(
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        matrx_model_name=str(model_name),
+        provider_model_name=str(getattr(profile, "provider_model_id", None) or model_name),
+        api=str(getattr(profile, "vendor", "") or ""),
+        offering_id=str(getattr(profile, "offering_id", None) or ""),
+        offering_route=str(getattr(profile, "resolution_route", None) or ""),
+        raw_usage={"input_tokens": input_tokens, "output_tokens": output_tokens},
+    )
+
+
+async def note_paid_result(result: Any, *, profile: Any = None) -> None:
     """After a paid call: add its catalog cost to the guarded run. Never raises.
 
     An UNPRICED call (no resolvable catalog price) is never accrued as $0: it accrues a
     conservative estimate (``conservative_unpriced_cost``) and is reported to the host's
-    ``every_call_unpriced`` hook, which alarms."""
+    ``every_call_unpriced`` hook, which alarms. ``profile`` (the dispatched route) names a usage
+    whose provider reported only counters, so it prices against the right offering."""
     if (
         _accrue is None
         and _every_call_accrue is None
@@ -239,6 +268,14 @@ async def note_paid_result(result: Any) -> None:
         from matrx_ai.providers.unified_client import catalog_cost_or_none
 
         usage = getattr(result, "usage", None)
+        if usage is not None:
+            from matrx_ai.providers.unified_client import billable_usage
+
+            try:
+                usage = billable_usage(usage)  # STT carries seconds: price it in its basis's units
+            except Exception:  # noqa: BLE001 — an unconvertible usage stays unpriced and alarms
+                pass
+            usage = _usage_named_by_profile(usage, profile)
         priced = await catalog_cost_or_none(usage)
         if priced is None and usage is not None:
             from matrx_ai.config.usage_config import conservative_unpriced_cost

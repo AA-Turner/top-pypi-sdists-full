@@ -63,8 +63,10 @@ def test_regions_with_yields_admin_2(stats_env):
     keep = regions_with_yields(
         tmp_path, "United States Of America", "Maize", "admin_2", parser=parser
     )
-    # ghost (all-NaN yield) and flagged (qc_flag!=0) must be absent
-    assert keep == {"iowa adair", "missouri adair"}
+    # ghost (all-NaN yield) and flagged (qc_flag!=0) must be absent; each
+    # name also comes in its "<admin_1> <admin_2>" form (geoprepare's region
+    # name when admin_2 names repeat)
+    assert keep == {"iowa adair", "missouri adair", "iowa iowa adair", "missouri missouri adair"}
 
 
 def test_regions_with_yields_admin_1(stats_env):

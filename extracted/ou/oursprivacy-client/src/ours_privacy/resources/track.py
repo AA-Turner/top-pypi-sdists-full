@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Union, Mapping, Iterable, Optional
 
 import httpx
 
 from ..types import track_event_params
-from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -51,7 +51,98 @@ class TrackResource(SyncAPIResource):
         default_properties: Optional[track_event_params.DefaultProperties] | Omit = omit,
         distinct_id: Optional[str] | Omit = omit,
         email: Optional[str] | Omit = omit,
-        event_properties: Optional[Dict[str, Optional[str]]] | Omit = omit,
+        event_properties: Optional[
+            Mapping[
+                str,
+                Union[
+                    Optional[str],
+                    float,
+                    bool,
+                    SequenceNotStr[
+                        Union[Optional[str], float, bool, Iterable[object], Mapping[str, object], int, None]
+                    ],
+                    Mapping[
+                        str,
+                        Union[
+                            Optional[str],
+                            float,
+                            bool,
+                            SequenceNotStr[
+                                Union[Optional[str], float, bool, Iterable[object], Mapping[str, object], int, None]
+                            ],
+                            Mapping[
+                                str,
+                                Union[
+                                    Optional[str],
+                                    float,
+                                    bool,
+                                    SequenceNotStr[
+                                        Union[
+                                            Optional[str],
+                                            float,
+                                            bool,
+                                            Iterable[object],
+                                            Mapping[str, object],
+                                            int,
+                                            None,
+                                        ]
+                                    ],
+                                    Mapping[
+                                        str,
+                                        Union[
+                                            Optional[str],
+                                            float,
+                                            bool,
+                                            SequenceNotStr[
+                                                Union[
+                                                    Optional[str],
+                                                    float,
+                                                    bool,
+                                                    Iterable[object],
+                                                    Mapping[str, object],
+                                                    int,
+                                                    None,
+                                                ]
+                                            ],
+                                            Mapping[
+                                                str,
+                                                Union[
+                                                    Optional[str],
+                                                    float,
+                                                    bool,
+                                                    SequenceNotStr[
+                                                        Union[
+                                                            Optional[str],
+                                                            float,
+                                                            bool,
+                                                            Iterable[object],
+                                                            Mapping[str, object],
+                                                            int,
+                                                            None,
+                                                        ]
+                                                    ],
+                                                    int,
+                                                    None,
+                                                ],
+                                            ],
+                                            int,
+                                            None,
+                                        ],
+                                    ],
+                                    int,
+                                    None,
+                                ],
+                            ],
+                            int,
+                            None,
+                        ],
+                    ],
+                    int,
+                    None,
+                ],
+            ]
+        ]
+        | Omit = omit,
         external_id: Optional[str] | Omit = omit,
         identity_context: Optional[track_event_params.IdentityContext] | Omit = omit,
         time: Optional[float] | Omit = omit,
@@ -80,10 +171,11 @@ class TrackResource(SyncAPIResource):
         common pitfalls.
 
         Args:
-          token: The token for your Source. You can find this in the dashboard.
+          token: The token for your Source. You can find this in the dashboard. Leading and
+              trailing whitespace is removed before validation.
 
           event: The name of the event you're tracking. This must be whitelisted in the Ours
-              dashboard.
+              dashboard. Leading and trailing whitespace is removed before validation.
 
           default_properties: These properties are used throughout the Ours app to pass known values onto
               destinations
@@ -91,20 +183,29 @@ class TrackResource(SyncAPIResource):
           distinct_id: A unique identifier for this event used for deduplication. Highly recommended —
               if omitted, Ours will generate one for you, but supplying your own gives you
               stronger idempotency guarantees (e.g. a Stripe payment intent ID or your
-              internal order ID).
+              internal order ID). Non-string input is converted to text before validation;
+              clients should send a string. Leading and trailing whitespace is removed before
+              validation.
 
           email: The email address of a user. When userId is absent and externalId does not
               resolve a visitor, we search your account for a visitor with this email. If no
               match is found, we try userProperties.phone_number before creating a new
-              visitor.
+              visitor. Leading and trailing whitespace is removed before validation.
 
-          event_properties: Any additional event properties you want to pass along.
+          event_properties: Any additional event properties you want to pass along. Use at most 200 nonempty
+              property keys and five object levels. Array contents do not count toward the
+              object-depth limit. Empty keys are removed recursively, arrays are truncated to
+              250 entries, and top-level numbers outside the safe integer range become
+              strings. After normalization, the serialized JSON must be shorter than 1,048,576
+              UTF-16 code units.
 
           external_id: Your system's unique identifier for this user. When userId is absent, we search
               your account for an existing visitor with this externalId. If no match is found,
               we try email and then userProperties.phone_number before creating a new visitor.
               If you also have the userId from cookies or local storage, send both — it
-              removes the lookup round-trip.
+              removes the lookup round-trip. Non-string input is converted to text before
+              validation; clients should send a string. Leading and trailing whitespace is
+              removed before validation.
 
           identity_context: End-user network context for server-side calls. Required for probabilistic
               identity resolution when the caller is a backend server rather than an end-user
@@ -116,7 +217,8 @@ class TrackResource(SyncAPIResource):
           user_id: The Ours Visitor ID stored in local storage and cookies on your web properties.
               When present, this is used directly — no lookup by externalId, email, or phone
               is performed. If you have both a userId and an externalId, send both so the
-              event is attached to the right visitor without any lookup overhead.
+              event is attached to the right visitor without any lookup overhead. Leading and
+              trailing whitespace is removed before validation.
 
           user_properties: Properties to set on the visitor. (optional) You can also update these
               properties via the identify endpoint.
@@ -182,7 +284,98 @@ class AsyncTrackResource(AsyncAPIResource):
         default_properties: Optional[track_event_params.DefaultProperties] | Omit = omit,
         distinct_id: Optional[str] | Omit = omit,
         email: Optional[str] | Omit = omit,
-        event_properties: Optional[Dict[str, Optional[str]]] | Omit = omit,
+        event_properties: Optional[
+            Mapping[
+                str,
+                Union[
+                    Optional[str],
+                    float,
+                    bool,
+                    SequenceNotStr[
+                        Union[Optional[str], float, bool, Iterable[object], Mapping[str, object], int, None]
+                    ],
+                    Mapping[
+                        str,
+                        Union[
+                            Optional[str],
+                            float,
+                            bool,
+                            SequenceNotStr[
+                                Union[Optional[str], float, bool, Iterable[object], Mapping[str, object], int, None]
+                            ],
+                            Mapping[
+                                str,
+                                Union[
+                                    Optional[str],
+                                    float,
+                                    bool,
+                                    SequenceNotStr[
+                                        Union[
+                                            Optional[str],
+                                            float,
+                                            bool,
+                                            Iterable[object],
+                                            Mapping[str, object],
+                                            int,
+                                            None,
+                                        ]
+                                    ],
+                                    Mapping[
+                                        str,
+                                        Union[
+                                            Optional[str],
+                                            float,
+                                            bool,
+                                            SequenceNotStr[
+                                                Union[
+                                                    Optional[str],
+                                                    float,
+                                                    bool,
+                                                    Iterable[object],
+                                                    Mapping[str, object],
+                                                    int,
+                                                    None,
+                                                ]
+                                            ],
+                                            Mapping[
+                                                str,
+                                                Union[
+                                                    Optional[str],
+                                                    float,
+                                                    bool,
+                                                    SequenceNotStr[
+                                                        Union[
+                                                            Optional[str],
+                                                            float,
+                                                            bool,
+                                                            Iterable[object],
+                                                            Mapping[str, object],
+                                                            int,
+                                                            None,
+                                                        ]
+                                                    ],
+                                                    int,
+                                                    None,
+                                                ],
+                                            ],
+                                            int,
+                                            None,
+                                        ],
+                                    ],
+                                    int,
+                                    None,
+                                ],
+                            ],
+                            int,
+                            None,
+                        ],
+                    ],
+                    int,
+                    None,
+                ],
+            ]
+        ]
+        | Omit = omit,
         external_id: Optional[str] | Omit = omit,
         identity_context: Optional[track_event_params.IdentityContext] | Omit = omit,
         time: Optional[float] | Omit = omit,
@@ -211,10 +404,11 @@ class AsyncTrackResource(AsyncAPIResource):
         common pitfalls.
 
         Args:
-          token: The token for your Source. You can find this in the dashboard.
+          token: The token for your Source. You can find this in the dashboard. Leading and
+              trailing whitespace is removed before validation.
 
           event: The name of the event you're tracking. This must be whitelisted in the Ours
-              dashboard.
+              dashboard. Leading and trailing whitespace is removed before validation.
 
           default_properties: These properties are used throughout the Ours app to pass known values onto
               destinations
@@ -222,20 +416,29 @@ class AsyncTrackResource(AsyncAPIResource):
           distinct_id: A unique identifier for this event used for deduplication. Highly recommended —
               if omitted, Ours will generate one for you, but supplying your own gives you
               stronger idempotency guarantees (e.g. a Stripe payment intent ID or your
-              internal order ID).
+              internal order ID). Non-string input is converted to text before validation;
+              clients should send a string. Leading and trailing whitespace is removed before
+              validation.
 
           email: The email address of a user. When userId is absent and externalId does not
               resolve a visitor, we search your account for a visitor with this email. If no
               match is found, we try userProperties.phone_number before creating a new
-              visitor.
+              visitor. Leading and trailing whitespace is removed before validation.
 
-          event_properties: Any additional event properties you want to pass along.
+          event_properties: Any additional event properties you want to pass along. Use at most 200 nonempty
+              property keys and five object levels. Array contents do not count toward the
+              object-depth limit. Empty keys are removed recursively, arrays are truncated to
+              250 entries, and top-level numbers outside the safe integer range become
+              strings. After normalization, the serialized JSON must be shorter than 1,048,576
+              UTF-16 code units.
 
           external_id: Your system's unique identifier for this user. When userId is absent, we search
               your account for an existing visitor with this externalId. If no match is found,
               we try email and then userProperties.phone_number before creating a new visitor.
               If you also have the userId from cookies or local storage, send both — it
-              removes the lookup round-trip.
+              removes the lookup round-trip. Non-string input is converted to text before
+              validation; clients should send a string. Leading and trailing whitespace is
+              removed before validation.
 
           identity_context: End-user network context for server-side calls. Required for probabilistic
               identity resolution when the caller is a backend server rather than an end-user
@@ -247,7 +450,8 @@ class AsyncTrackResource(AsyncAPIResource):
           user_id: The Ours Visitor ID stored in local storage and cookies on your web properties.
               When present, this is used directly — no lookup by externalId, email, or phone
               is performed. If you have both a userId and an externalId, send both so the
-              event is attached to the right visitor without any lookup overhead.
+              event is attached to the right visitor without any lookup overhead. Leading and
+              trailing whitespace is removed before validation.
 
           user_properties: Properties to set on the visitor. (optional) You can also update these
               properties via the identify endpoint.

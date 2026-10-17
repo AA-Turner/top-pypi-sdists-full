@@ -13,6 +13,16 @@ from linearmodels.iv import IV2SLS, IVGMM, IVGMMCUE, IVLIML
 from linearmodels.iv._utility import IVFormulaParser
 from linearmodels.shared.exceptions import IndexWarning
 
+# IVGMMCUE minimizes its objective with BFGS. Fits that only differ by the rounding
+# of the linear algebra stop at estimates whose R-squared differ by 1e-8 or less. The
+# R-squared of the other models differ by 1e-13 or less
+RSQUARED_RTOL = {IVGMMCUE: 1e-6}
+
+
+def assert_same_rsquared(model, res, expected):
+    rtol = RSQUARED_RTOL.get(model, 1e-10)
+    assert_allclose(res.rsquared, expected.rsquared, rtol=rtol)
+
 
 @pytest.fixture(
     scope="module",
@@ -78,19 +88,19 @@ def test_formula(data, model_and_func, formula):
     endog = data[["x1", "x2"]]
     instr = data[["z1", "z2", "z3"]]
     res2 = model(data.y, exog, endog, instr).fit()
-    assert res.rsquared == res2.rsquared
+    assert_same_rsquared(model, res, res2)
     assert mod.formula == formula
 
     mod = func(formula, data)
     res = mod.fit()
-    assert res.rsquared == res2.rsquared
+    assert_same_rsquared(model, res, res2)
     assert mod.formula == formula
 
     pmod = pickle.loads(pickle.dumps(mod))
     ppres = pmod.fit()
     pres = pickle.loads(pickle.dumps(res))
-    assert pres.rsquared == res2.rsquared
-    assert ppres.rsquared == res2.rsquared
+    assert_same_rsquared(model, pres, res2)
+    assert_same_rsquared(model, ppres, res2)
 
 
 def test_formula_weights(data, model_and_func, formula):
@@ -101,20 +111,22 @@ def test_formula_weights(data, model_and_func, formula):
     endog = data[["x1", "x2"]]
     instr = data[["z1", "z2", "z3"]]
     res2 = model(data.y, exog, endog, instr, weights=data.weights).fit()
-    assert res.rsquared == res2.rsquared
+    assert_same_rsquared(model, res, res2)
     assert mod.formula == formula
 
     mod = func(formula, data, weights=data.weights)
     res = mod.fit()
-    assert res.rsquared == res2.rsquared
+    assert_same_rsquared(model, res, res2)
     assert mod.formula == formula
 
 
+# IVGMM and IVGMMCUE warn about the default bandwidth, which is tested in
+# test_gmm_kernel_bandwidth.py, so the bandwidth is given
 def test_formula_kernel(data, model_and_func, formula):
     model, func = model_and_func
     mod = model.from_formula(formula, data)
-    mod.fit(cov_type="kernel")
-    func(formula, data).fit(cov_type="kernel")
+    mod.fit(cov_type="kernel", bandwidth=5)
+    func(formula, data).fit(cov_type="kernel", bandwidth=5)
 
 
 def test_formula_ols(data, model_and_func):
@@ -126,8 +138,8 @@ def test_formula_ols(data, model_and_func):
     res = model.from_formula(formula, data).fit()
     res3 = func(formula, data).fit()
 
-    assert res.rsquared == res2.rsquared
-    assert res.rsquared == res3.rsquared
+    assert_same_rsquared(model, res, res2)
+    assert_same_rsquared(model, res, res3)
 
 
 def test_formula_ols_weights(data, model_and_func):
@@ -139,8 +151,8 @@ def test_formula_ols_weights(data, model_and_func):
     res = model.from_formula(formula, data, weights=data.weights).fit()
     res3 = func(formula, data, weights=data.weights).fit()
 
-    assert res.rsquared == res2.rsquared
-    assert res.rsquared == res3.rsquared
+    assert_same_rsquared(model, res, res2)
+    assert_same_rsquared(model, res, res3)
 
 
 def test_no_exog(data, model_and_func):
@@ -150,7 +162,7 @@ def test_no_exog(data, model_and_func):
     res = mod.fit()
     res2 = func(formula, data).fit()
 
-    assert res.rsquared == res2.rsquared
+    assert_same_rsquared(model, res, res2)
     assert mod.formula == formula
 
     mod2 = model(data.y, None, data[["x1", "x2"]], data[["z1", "z2", "z3"]])
@@ -210,7 +222,9 @@ def test_predict_formula(data, model_and_func, formula):
     assert_frame_equal(pred, pred2)
     assert_allclose(res.fitted_values, pred)
 
-    with pytest.raises(ValueError, match=r"exog and endog or data must be provided"):
+    with pytest.raises(
+        ValueError, match=r"At least one of exog, endog, or data must be provided"
+    ):
         mod.predict(res.params)
 
 
@@ -404,3 +418,37 @@ def test_formula_categorical_equiv(data, model_and_func, dtype):
         "x2",
         "x3",
     ]
+
+
+def test_predict_no_rhs(data, model_and_func):
+    model, _ = model_and_func
+    mod = model.from_formula("y ~", data)
+    res = mod.fit()
+    pred0 = res.predict()
+    pred1 = res.predict(data=data)
+    pred1.columns = pred0.columns
+    assert_frame_equal(pred0, pred1)
+
+
+@pytest.mark.parametrize(
+    "fmla",
+    [
+        "y ~ 1",
+        "y ~ 1 + x3",
+        "y ~ [x1 + x2 ~ 1 + z1 + z2 + z3]",
+        "y ~ 1 + [x1 + x2 ~ z1 + z2 + z3]",
+    ],
+)
+def test_formula_single(data, model_and_func, fmla):
+    model, func = model_and_func
+    res = model.from_formula(fmla, data).fit()
+    pred0 = res.predict()
+    pred1 = res.predict(data=data)
+
+    mod2 = func(fmla, data)
+    res2 = mod2.fit()
+    pred2 = res2.predict(data=data)
+    pred1.columns = pred0.columns
+    pred2.columns = pred0.columns
+    assert_frame_equal(pred1, pred2)
+    assert_frame_equal(pred0, pred1)

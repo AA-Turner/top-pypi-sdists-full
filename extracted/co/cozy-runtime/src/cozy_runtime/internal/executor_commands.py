@@ -127,12 +127,6 @@ class Revoke(Command, frozen=True, kw_only=True, tag="revoke"):
     regions: tuple[int, ...] = ()
 
 
-class Prefetch(Command, frozen=True, kw_only=True, tag="prefetch"):
-    """Fill one loaded construction's host tier now, before its attempt holds the device."""
-
-    construction: str
-
-
 class Map(Command, frozen=True, kw_only=True, tag="map"):
     """Map one loaded construction's weights onto the GPU now, inside `cap_bytes`, as its
     first stages would (`MAP`): nothing runs, and they stay mapped as after a call."""
@@ -197,10 +191,20 @@ class CallInterface(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=Tru
     unavailable: str = ""
     builtin: str = ""
     self_call: bool = msgspec.field(default=False, name="self")
-    kind: Literal["entrypoint", "job"] = "job"
+
+
+class Construction(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
+    """One constructed model slot a session will load: its checkpoint and declared components."""
+
+    #: `<fn>.models.<param>`
+    path: str
+    manifest: _MANIFEST
+    #: the slot's `components=`; empty is every component
+    components: tuple[str, ...] = ()
 
 
 class Start(Command, frozen=True, kw_only=True, tag="start"):
+    #: The session's GPUs; empty runs on the CPU and never opens CUDA (`accelerator=False`).
     devices: str = ""
     sequence_parallel_degree: int = 1
     application: str = ""
@@ -214,8 +218,10 @@ class Start(Command, frozen=True, kw_only=True, tag="start"):
     #: follower's at formation, hands it to its owner (`BudgetCell.rank`) and to the follower.
     rank_cells: bool = False
     #: The callables its attempts may call: their proxies are installed before the package is
-    #: imported, and every attempt gets the call broker over them, as a job's does.
+    #: imported, and every attempt gets the call broker over them.
     call_interfaces: tuple[CallInterface, ...] = ()
+    #: What its loads will construct, known before anything heavy is imported.
+    constructions: tuple[Construction, ...] = ()
 
     def release(self) -> Release:
         return Release(application=self.application, package_interface=self.package_interface)
@@ -323,8 +329,6 @@ class Load(Command, frozen=True, kw_only=True, tag="load"):
     #: A follower's half: rank 0's hardware plan and, in a many-model load, which model.
     group: GroupHardware | UnsetType = UNSET
     model_key: str | UnsetType = UNSET
-    #: The owner retains shared CPU weight buffers (`HostTier` exchanges).
-    host_tier: bool = False
     #: The pinned host tier's budget (`LOAD_PINNED`), applied before any weight set registers,
     #: so a fill never pins past it; -1: none, the executor sizes its tier from the host.
     pinned_bytes: int = -1
@@ -388,10 +392,14 @@ class PrepareRequest(_Attempt, frozen=True, kw_only=True, tag="prepare_request")
     payload: Json
     construction: str = ""
     attention_kernel: str = ""
+    #: The request's precision (16|8|4; 0: the rules choose): 16 holds every attention site at
+    #: level 16 (`attention.EXACT`).
+    bits: int = 0
     input_metadata: dict[str, InputMetadata] = {}
 
 
-class _Run(_Attempt, frozen=True, kw_only=True):
+class Invoke(_Attempt, frozen=True, kw_only=True, tag="invoke"):
+    entrypoint: str
     spool: str
     deadline_s: float | None
     inputs: dict[str, InputFile] = {}
@@ -400,12 +408,9 @@ class _Run(_Attempt, frozen=True, kw_only=True):
     max_output_bytes: int = MAX_OUTPUT_BYTES
     #: None honors installed per-field bounds; zero retains the older default ceiling.
     max_input_bytes: int | None = None
-
-
-class Invoke(_Run, frozen=True, kw_only=True, tag="invoke"):
-    entrypoint: str
     construction: str = ""
     attention_kernel: str = ""
+    bits: int = 0  # as `PrepareRequest.bits`
     #: The weight plane's device budget for this attempt; -1: the executor derives it.
     plane_budget_bytes: int = -1
     #: The process's device cap for this attempt (`PROCESS_CAP`); -1: none
@@ -429,35 +434,10 @@ class Invoke(_Run, frozen=True, kw_only=True, tag="invoke"):
     headroom_bytes: int = 0
     scope_headroom_bytes: dict[str, int] = {}
     measured_scopes: tuple[str, ...] = ()
-
-
-class ModelManifest(msgspec.Struct, frozen=True, kw_only=True, rename={"class_key": "class"}):
-    """One job Model parameter: a derive-only Manifest capability."""
-
-    class_key: str
-    manifest: _MANIFEST
-    length: Annotated[int, msgspec.Meta(gt=0)]
-
-
-class JobBudget(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
-    gpu_rate_micro_usd_per_hour: int = 0
-    gpu_count: int = 0
-    cap_micro_usd: int = 0
-
-
-class RunJob(_Run, frozen=True, kw_only=True, tag="run_job"):
-    job: str
-    payload: Json
-    application: str
-    package_interface: str
-    scratch: str = ""
-    models: dict[str, ModelManifest] = {}
-    call_interfaces: tuple[CallInterface, ...] = ()
-    publish_to: str = ""
-    budget: JobBudget = JobBudget()
-    #: The owner grants source/output writer channels. The installed TensorFS build never
-    #: supplies this authority; absent channels refuse only operations that require them.
-    weights: bool = False
+    #: Each `Weights[M]` parameter's checkpoint, read through the owner's source channel.
+    sources: dict[str, _MANIFEST] = {}
+    #: The weights outputs this attempt may write, and each one's granted new bytes.
+    weights: dict[str, int] = {}
 
 
 type KnownCommand = (
@@ -474,7 +454,6 @@ type KnownCommand = (
     | Budget
     | Share
     | Revoke
-    | Prefetch
     | Map
     | Unload
     | Activate
@@ -483,7 +462,6 @@ type KnownCommand = (
     | Load
     | PrepareRequest
     | Invoke
-    | RunJob
 )
 
 

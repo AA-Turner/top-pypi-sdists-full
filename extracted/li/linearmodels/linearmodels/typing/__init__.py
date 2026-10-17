@@ -1,3 +1,7 @@
+"""
+Type aliases used in the annotations of linearmodels.
+"""
+
 from collections.abc import Hashable, Sequence
 from typing import Any, Optional, Union
 
@@ -41,7 +45,6 @@ AnyPandas = Union[Series, DataFrame]
 Label = Optional[Hashable]
 
 NumericArray = Union[  # pragma: no cover
-    np.ndarray[tuple[int, ...], np.dtype[np.signedinteger[Any]]],  # pragma: no cover
-    np.ndarray[tuple[int, ...], np.dtype[np.unsignedinteger[Any]]],  # pragma: no cover
+    np.ndarray[tuple[int, ...], np.dtype[np.integer[Any]]],  # pragma: no cover
     np.ndarray[tuple[int, ...], np.dtype[np.floating[Any]]],  # pragma: no cover
 ]  # pragma: no cover

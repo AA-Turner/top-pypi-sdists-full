@@ -31,6 +31,12 @@ class _FakeAgent:
 
     def __init__(self) -> None:
         self.config = SimpleNamespace(messages=[SimpleNamespace(role="user", authored=True)])
+        # How many messages the config held when the first-turn pass ran.
+        self.pass_saw: list[int] = []
+
+    async def run_first_turn_pass(self) -> _FakeAgent:
+        self.pass_saw.append(len(self.config.messages))
+        return self
 
 
 def _history(*positions: int) -> list[SimpleNamespace]:
@@ -188,6 +194,9 @@ async def test_snapshot_seeds_history_before_authored_messages(harness) -> None:
     assert harness["history_loads"] == [CALLER_CONV]
     seeded = harness["agent"].config.messages
     assert [getattr(m, "authored", None) for m in seeded] == [False, False, False, True]
+    # The child's first-turn pass ran over its authored message ALONE, before the
+    # borrowed history joined — history is data and is never filled.
+    assert harness["agent"].pass_saw == [1]
     # Snapshot runs in the fresh child conversation — no override.
     assert harness["run_kwargs"]["conversation_id"] is None
     assert result.output["history"] == {

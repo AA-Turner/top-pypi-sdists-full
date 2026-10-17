@@ -1,5 +1,3 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
 # This file is part of gcovr 8.3+main, a parsing and reporting tool for gcov.
@@ -17,8 +15,10 @@
 #
 # ****************************************************************************
 
+"""GCOVR JSON format version."""
+
 FORMAT_VERSION = (
     # BEGIN version
-    "0.14"
+    "0.15"
     # END version
 )

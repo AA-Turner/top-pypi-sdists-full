@@ -603,3 +603,135 @@ def test_every_digest_program_reads_the_file_it_names(levels, program):
     # `read` note and the off check alike. md5sum was listed already: the control.
     files, trees = exclusions_mod.command_reads(f"{program} a.py", str(levels / "src"))
     assert files == [str(levels / "src" / "a.py")] and trees == [], program
+
+
+@pytest.mark.parametrize("program", ["gzip -cd", "gunzip -c", "zcat"])
+def test_every_gzip_reader_reads_the_file_it_names(levels, program):
+    # The daemon's shell runs these at once as readers (D1); gzip and zcat were listed: the control.
+    (levels / "src" / "a.gz").write_bytes(b"")
+    files, trees = exclusions_mod.command_reads(f"{program} a.gz", str(levels / "src"))
+    assert files == [str(levels / "src" / "a.gz")] and trees == [], program
+
+
+def test_the_daemon_shell_reads_outside_the_folders_but_never_an_off_path_there(levels, tmp_path):
+    """A read program reads outside the working folders (D1), and a `.probe.config`
+    there is read as one inside is: its `off` files and the trees that hold them
+    are refused in every mode."""
+    from probe.daemon import shell as sh
+
+    other = tmp_path / "other-repo"  # outside the working folder and $HOME
+    (other / "private").mkdir(parents=True)
+    (other / "private" / "keys.txt").write_text("PRIVATE")
+    (other / "src").mkdir()
+    (other / "src" / "a.py").write_text("ok")
+    (other / ".probe.config").write_text("private/\n")
+    checker = pc.Checker(cwd=str(levels), legacy=True)
+    kw = dict(workdirs=[levels], home=levels.parent, cwd=levels, hidden=lambda p: checker.check(p).hidden,
+              off_inside=lambda folder: pc.off_inside(folder, legacy=True))
+    for command in (f"cat {other}/src/a.py", f"ls {other}/src", f"find {other}/src -name '*.py'",
+                    f"cd {other} && cat src/a.py", f"ls {other}"):
+        verdict = sh.classify(command, **kw)
+        assert verdict.safe, (command, verdict.reason)
+    for command in (f"cat {other}/private/keys.txt", f"ls {other}/private", f"cd {other} && cat private/keys.txt",
+                    f"cd {other}/private && ls", f"find {other} -name x", f"du -sh {other}", f"ls -R {other}",
+                    # [review 5] a tree named past find's leading options, or by an abbreviated option
+                    f"find -H {other} -printf '%f\\n'", f"find -- {other}", f"ls --rec {other}",
+                    f"cd {other} && ls -laR --ig {other}/src"):
+        verdict = sh.classify(command, **kw)
+        assert verdict.refused, (command, verdict.reason)
+
+
+@pytest.mark.parametrize("command, tree", [
+    ("find -H . -printf x", "."),
+    ("find -P -O2 -D tree . -name x", "."),
+    ("find -- .", "."),
+    ("find -f . -name x", "."),  # BSD's -f PATH
+    ("find -fstype nfs", "."),  # GNU's test: no start folder
+    ("ls --rec .", "."),
+    ("ls --recursive .", "."),
+    ("ls -laR --ig src", "."),  # `--ignore=src`: ls walks the current folder
+    ("du --max 1", "."),
+    ("grep --dir rec x", "."),
+    ("grep -d rec x src", "src"),
+    ("grep -nd recurse x", "."),
+    ("grep --directories=r x", "."),
+    ("diff --rec src src", "src"),
+])
+def test_every_tree_read_shape_names_its_tree(levels, command, tree):
+    """The trees `command_reads` names are the ones the `.probe.config` tree check
+    (`off_inside`) is asked about, in every mode."""
+    _files, trees = exclusions_mod.command_reads(command, str(levels))
+    assert levels / tree in {Path(t) for t in trees}, (command, trees)
+
+
+@pytest.mark.parametrize("command, tree", [
+    # [round 2] a short cluster ending in a value letter takes the next word: `.` is walked
+    ("ls -RaI src", "."),
+    ("ls -lRw src", "."),  # -w COLS takes `src`: the tree is `.`, though `src` is a folder
+    # [round 3] the last part of a pipeline under `shopt -s lastpipe` runs here: its `cd` adds a folder
+    ("shopt -s lastpipe; true | cd src; rg x .", "src"),
+    ("shopt -s lastpipe; true | cd src; rg x .", "."),
+    ("true|cd src;rg -I x .", "src"),  # stuck operators split as bash splits them
+    ("du -sd src", "."),
+    ("du -shI src", "."),  # BSD's -I MASK
+    # [round 2] a `cd` moves the search only when chained, never in a pipeline
+    ("cd src | rg x .", "."),
+    ("cd /does-not-exist | rg -I TOKEN .", "."),
+    ("echo x | cd src && rg x .", "."),
+    ("cd src && rg x .", "src"),
+    ("cd src; rg x .", "."),  # the cd may have failed...
+    ("cd src; rg x .", "src"),  # ...or not
+])
+def test_a_tree_read_is_looked_for_where_bash_runs_it(levels, command, tree):
+    _files, trees = exclusions_mod.command_reads(command, str(levels))
+    assert levels / tree in {Path(t) for t in trees}, (command, trees)
+
+
+def test_a_cd_in_a_pipeline_or_a_real_name_moves_no_tree(levels):
+    for command, tree in [("cd src | rg x .", "src"), ("cd src && rg x .", "."), ("du -d 1 src", "."),
+                          ("ls -RaIx src", ".")]:
+        _files, trees = exclusions_mod.command_reads(command, str(levels))
+        assert levels / tree not in {Path(t) for t in trees}, (command, trees)
+
+
+def test_the_daemon_shell_reads_the_tree_a_piped_cd_leaves_it_in(levels):
+    """[round 2] `cd /x | rg -I KEY .` searches the working folder, which holds an
+    `off` file: refused in every mode; and `rg -I` / `grep -h` (no file names, which
+    the output filter goes by) are checked from every folder they may run in."""
+    from probe.daemon import shell as sh
+
+    checker = pc.Checker(cwd=str(levels), legacy=True)
+    kw = dict(workdirs=[levels], home=levels.parent, cwd=levels, hidden=lambda p: checker.check(p).hidden,
+              off_inside=lambda folder: pc.off_inside(folder, legacy=True))
+    for command in ("cd /does-not-exist | rg -I TOKEN .", "cd src | rg TOKEN .", "echo x | cd src && rg TOKEN .",
+                    "cd /tmp |& grep -rh TOKEN .", "cd src && rg -I TOKEN .", "cd src && grep -rh TOKEN .",
+                    "cd src | ls -RaI x"):
+        verdict = sh.classify(command, **kw)
+        assert verdict.refused, (command, verdict.reason)
+    for command in ("cd src && rg TOKEN .", "rg -n TOKEN src", "cd notebooks && rg TOKEN ."):  # controls
+        verdict = sh.classify(command, **kw)
+        assert verdict.safe, (command, verdict.reason)
+
+
+def test_a_lastpipe_cd_or_a_stuck_semicolon_still_reaches_the_off_folder(levels):
+    """[round 3] From `src` (no `off` path below it): a lastpipe `cd ../secret` adds
+    that folder to where the search may run, and `cd ../secret;` (the `;` stuck)
+    is still a `cd` to `secret` for the words naming its files."""
+    from probe.daemon import shell as sh
+
+    src = levels / "src"
+    checker = pc.Checker(cwd=str(src), legacy=True)
+    kw = dict(workdirs=[levels], home=levels.parent, cwd=src, hidden=lambda p: checker.check(p).hidden,
+              off_inside=lambda folder: pc.off_inside(folder, legacy=True))
+    for command in ("shopt -s lastpipe; true | cd ../secret; rg TOKEN .",
+                    "shopt -s lastpipe;true|cd ../secret;rg -I TOKEN .",
+                    "cd ../secret;python3 -c 'print(open(\"keys.txt\").read())'"):
+        verdict = sh.classify(command, **kw)
+        assert verdict.refused, (command, verdict.reason)
+    for command in ("rg TOKEN .", "cd ../secret | rg TOKEN ."):  # controls: the search runs in src
+        assert not sh.classify(command, **kw).refused, command
+
+
+def test_grep_reading_or_skipping_folders_is_no_tree_read(levels):
+    for command in ("grep -d skip x src", "grep --directories=read x src/a.py", "grep -n x src/a.py"):
+        assert exclusions_mod.command_reads(command, str(levels))[1] == [], command

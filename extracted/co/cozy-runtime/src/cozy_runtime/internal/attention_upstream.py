@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
     from torch import Tensor
 
-from cozy_runtime.internal import attention_fp8
+from cozy_runtime.internal import arch, attention_fp8
 from cozy_runtime.internal.attention_ulysses import Local, Options
 
 # Optional dependencies are named under TYPE_CHECKING so base imports stay Torch-free.
@@ -116,6 +116,8 @@ def sdpa_impl(query: Tensor, key: Tensor, value: Tensor, options: Options) -> st
     import torch
     from torch.nn.attention import SDPBackend
 
+    if query.is_mps:  # MPS has no backend choice: its SDPA is its own fused kernel
+        return "mps"
     q, k, v = (tensor.transpose(1, 2) for tensor in (query, key, value))
     mask = options["attn_mask"]
     if mask is not None and mask.ndim == 2:
@@ -250,6 +252,23 @@ def fa4(
     return _first(cute.flash_attn_func(query, key, value, softmax_scale=scale, causal=is_causal))
 
 
+def _hadamard(t: Tensor) -> Tensor:
+    """`t` times the orthonormal Hadamard of its head dimension (a power of two)."""
+    import torch
+
+    found = _HADAMARD.get((t.shape[-1], t.dtype, t.device))
+    if found is None:
+        h = torch.ones(1, 1, dtype=torch.float32)
+        while h.shape[0] < t.shape[-1]:
+            h = torch.cat([torch.cat([h, h], 1), torch.cat([h, -h], 1)])
+        found = (h / math.sqrt(t.shape[-1])).to(t.device, t.dtype)
+        _HADAMARD[(t.shape[-1], t.dtype, t.device)] = found
+    return torch.matmul(t, found)
+
+
+_HADAMARD: dict[tuple[int, object, object], Tensor] = {}
+
+
 def fa4_fp8(
     query: Tensor,
     key: Tensor,
@@ -263,13 +282,20 @@ def fa4_fp8(
 ) -> Tensor:
     """FlashAttention-4's SM100 e4m3 forward with FA3's per-(batch, head) descales; the kernel
     returns BF16. The public `flash_attn_func` takes no descales, so this calls the forward it
-    wraps, as upstream's own FP8 benchmark does. Every scale is per head: head-local."""
+    wraps, as upstream's own FP8 benchmark does. Every scale is per head: head-local.
+
+    Q and K are rotated by one orthonormal Hadamard first. QK^T is unchanged, and a key
+    channel outlier spreads over the head before its per-head scale is taken: on H3's real
+    Q/K/V (B200, h3-b200-attention) 0.029 -> 0.026 rel L2 at block 25 and 0.26-0.41 -> 0.09-0.10
+    at block 49, for 1-2 ms of a 205 ms call."""
     import torch
 
     _options("flash-attn4-fp8", attn_mask, dropout_p, scale)
     if query.dtype != torch.bfloat16:
         raise ValueError("flash-attn4-fp8 returns BF16 and requires BF16 inputs")
-    q8, k8, v8, descales = _e4m3(query, key, value)
+    if query.shape[-1] & (query.shape[-1] - 1):
+        raise ValueError("flash-attn4-fp8 rotates Q/K by a Hadamard: head dimension 2^n")
+    q8, k8, v8, descales = _e4m3(_hadamard(query), _hadamard(key), value)
     interface = import_module("flash_attn.cute.interface")
     return _first(
         interface._flash_attn_fwd(q8, k8, v8, softmax_scale=scale, causal=is_causal, **descales)
@@ -279,11 +305,11 @@ def fa4_fp8(
 # --------------------------------------------------------------------- quantized kernels
 
 
-def _sage(modes: dict[int, tuple[str, str, str]]) -> Local:
-    """SageAttention2 through one named entry per SM: `sm -> (entry, qk_quant_gran,
-    pv_accum_dtype)`, upstream's own per-architecture choice, selected by the query's card.
-    INT8 Q/K with smoothed K; `entry` fixes the P/V precision. Its scales reduce within one
-    head."""
+def _sage(modes: dict[str, tuple[str, str, str]]) -> Local:
+    """SageAttention2 through one named entry per row: `row -> (entry, qk_quant_gran,
+    pv_accum_dtype)`, upstream's own per-architecture choice, selected by the query's card's
+    row (`_sage_row`). INT8 Q/K with smoothed K; `entry` fixes the P/V precision. Its scales
+    reduce within one head."""
 
     def mode(query: Tensor) -> tuple[str, str, str]:
         import torch
@@ -291,10 +317,9 @@ def _sage(modes: dict[int, tuple[str, str, str]]) -> Local:
         if query.device.type != "cuda":
             raise ValueError("sageattention serves CUDA devices only")
         major, minor = torch.cuda.get_device_capability(query.device)
-        found = modes.get(major * 10 + minor)
+        found = modes.get(_sage_row(arch.row(major * 10 + minor)))
         if found is None:
-            served = sorted(modes)
-            raise ValueError(f"sageattention has no mode for sm{major}{minor}; it serves {served}")
+            raise ValueError(f"sageattention has no mode for sm{major}{minor}; it serves {modes}")
         return found
 
     def forward(
@@ -330,8 +355,14 @@ def _sage(modes: dict[int, tuple[str, str, str]]) -> Local:
     return Local(forward, impl)
 
 
-#: Kitchen's wheel carries device code for sm_75 up; these are the cards Runtime admits.
-KITCHEN_SMS = ((8, 0), (8, 6), (8, 7), (8, 9), (9, 0), (10, 0), (10, 3), (11, 0), (12, 0), (12, 1))
+def _sage_row(row: arch.Row) -> str:
+    """Upstream's Sage2 kernel family for a row: its sm90 kernel on wgmma, its sm89 one on fp8
+    mma.sync, per warp where the mma.sync is block-scaled (fp4 rows), as upstream's sm120."""
+    if row.family == arch.WGMMA:
+        return "wgmma"
+    if row.family == arch.MMA_SYNC and row.fp8:
+        return "mma.sync+fp4" if row.fp4 else "mma.sync"
+    return ""
 
 
 def _cuda_inputs(
@@ -341,7 +372,6 @@ def _cuda_inputs(
     enable_gqa: bool,
     *,
     name: str,
-    admitted: tuple[tuple[int, int], ...],
     dims: Collection[int] = range(1, 257),
     bf16: bool = False,
 ) -> None:
@@ -374,9 +404,6 @@ def _cuda_inputs(
         raise ValueError("attention Q/K/V must be on the same CUDA device")
     if getattr(torch.version, "hip", None):
         raise ValueError("these attention adapters currently admit NVIDIA CUDA devices only")
-    capability = torch.cuda.get_device_capability(query.device)
-    if capability not in admitted:
-        raise ValueError(f"{name} admits {admitted}, not {capability}")
     if torch.is_grad_enabled() and any(x.requires_grad for x in (query, key, value)):
         raise ValueError("this attention adapter is inference-only")
 
@@ -397,7 +424,7 @@ def kitchen_int8(
     if is_causal:
         raise ValueError("kitchen-int8 serves noncausal attention only")
     _options("kitchen-int8", attn_mask, dropout_p, scale, masks=True)
-    _cuda_inputs(query, key, value, enable_gqa, name="kitchen-int8", admitted=KITCHEN_SMS)
+    _cuda_inputs(query, key, value, enable_gqa, name="kitchen-int8")
     kitchen = import_module("comfy_kitchen")
     tensors = [x if x.stride(-1) == 1 else x.contiguous() for x in (query, key, value)]
     output = kitchen.int8_attention(
@@ -431,7 +458,6 @@ def flashinfer_mixed(
         value,
         enable_gqa,
         name="flashinfer-bf16-fp8",
-        admitted=((10, 0), (10, 3)),
         dims=(128,),
         bf16=True,
     )
@@ -532,7 +558,6 @@ def sage3_fp4_fixed_means(
         value,
         enable_gqa,
         name="sageattention3-fp4-fixed-means",
-        admitted=((12, 0),),
         dims=(128,),
         bf16=True,
     )
@@ -586,10 +611,7 @@ def _sage3_fp4(
     import torch
 
     _options("sageattention3-fp4", attn_mask, dropout_p, scale)
-    admitted = ((12, 0), (12, 1))
-    _cuda_inputs(
-        query, key, value, enable_gqa, name="sageattention3-fp4", admitted=admitted, dims=(64, 128)
-    )
+    _cuda_inputs(query, key, value, enable_gqa, name="sageattention3-fp4", dims=(64, 128))
     if query.shape[2] != key.shape[2]:
         raise ValueError("sageattention3-fp4 needs equal Q/KV head counts")
     if scale is not None and not math.isclose(scale, query.shape[-1] ** -0.5, rel_tol=1e-6):
@@ -623,13 +645,13 @@ FA4_FP8 = Local(fa4_fp8, _named("flash_attn.cute.interface._flash_attn_fwd e4m3 
 #: accumulation only) and the SM89 kernel, per warp on consumer Blackwell.
 SAGE = _sage(
     {
-        89: ("sageattn_qk_int8_pv_fp8_cuda", "per_thread", "fp32+fp16"),
-        90: ("sageattn_qk_int8_pv_fp8_cuda_sm90", "per_thread", "fp32+fp32"),
-        120: ("sageattn_qk_int8_pv_fp8_cuda", "per_warp", "fp32+fp16"),
+        "mma.sync": ("sageattn_qk_int8_pv_fp8_cuda", "per_thread", "fp32+fp16"),
+        "wgmma": ("sageattn_qk_int8_pv_fp8_cuda_sm90", "per_thread", "fp32+fp32"),
+        "mma.sync+fp4": ("sageattn_qk_int8_pv_fp8_cuda", "per_warp", "fp32+fp16"),
     }
 )
 #: FP16 P/V at upstream's default (and most accurate) FP32 accumulation; BF16 V is cast to FP16.
-SAGE_FP16PV = _sage({90: ("sageattn_qk_int8_pv_fp16_cuda", "per_thread", "fp32")})
+SAGE_FP16PV = _sage({"wgmma": ("sageattn_qk_int8_pv_fp16_cuda", "per_thread", "fp32")})
 KITCHEN = Local(kitchen_int8, _named("comfy_kitchen.int8_attention"))
 FLASHINFER = Local(flashinfer_mixed, _named("cute_dsl_fmha_ragged_prefill jit, e4m3 V per-head"))
 SAGE3 = Local(sage3_fp4, _named("sageattn3.sageattn3_blackwell(nvfp4, per_block_mean)"))

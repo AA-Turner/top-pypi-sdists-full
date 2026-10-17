@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: govrail
-Version: 0.51.0
+Version: 0.52.0
 Summary: A language-agnostic governance plane for agent-driven development: gates and notes, delivered by the gov CLI (pip install govrail → command: gov → first step: gov init).
 Author: govrail
 License: MIT

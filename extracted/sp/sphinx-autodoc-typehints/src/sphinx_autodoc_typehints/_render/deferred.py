@@ -1,0 +1,220 @@
+"""
+Alias choices wait until every document is read.
+
+A marker role holds each one in the doctree, and a post-transform then puts in the link to the alias or its expanded
+value.
+"""
+
+from __future__ import annotations
+
+from contextlib import suppress
+from hashlib import blake2s
+from typing import TYPE_CHECKING, Final, override
+from weakref import WeakValueDictionary
+
+from docutils import nodes
+from sphinx import addnodes
+from sphinx.environment.collectors import EnvironmentCollector
+from sphinx.errors import NoUri
+from sphinx.transforms.post_transforms import SphinxPostTransform
+from sphinx.util import logging
+from sphinx.util.rst import default_role
+
+from .._private_imports import sphinx_domains
+from .._state import alias_choices, document_alias_choices, recorded_alias_choices
+from .context import render_context
+from .rst import parse, unescape
+
+if TYPE_CHECKING:
+    from collections.abc import Set as AbstractSet
+
+    from docutils.nodes import Node
+    from docutils.parsers.rst import states
+    from sphinx.application import Sphinx
+    from sphinx.builders import Builder
+    from sphinx.config import Config
+    from sphinx.environment import BuildEnvironment
+
+
+ALIAS_CHOICE_ROLE: Final[str] = "sphinx_autodoc_typehints_alias"
+_ALIAS_CHOICE_KEY: Final[str] = "sphinx_autodoc_typehints_alias_key"
+_DEFAULT_DOMAIN_KEY: Final[str] = "sphinx_autodoc_typehints_default_domain"
+_DEFAULT_ROLE_KEY: Final[str] = "sphinx_autodoc_typehints_default_role"
+_REF_CONTEXT_KEY: Final[str] = "sphinx_autodoc_typehints_ref_context"
+# a post-transform reaches the builder only through the deprecated `app` or the private `env._app`, so each app's
+# builder is kept by the id of its environment; the builder holds that environment, so the entry goes before the id can
+# be reused, and an attribute on the environment would end up in its pickle
+_BUILDERS: Final[WeakValueDictionary[int, Builder]] = WeakValueDictionary()
+
+
+def alias_choice_role(
+    _role: str,
+    _rawtext: str,
+    text: str,
+    lineno: int,
+    inliner: states.Inliner,
+    _options: dict[str, object] | None = None,
+    _content: list[str] | None = None,
+) -> tuple[list[Node], list[Node]]:
+    # `replace_self` would copy any classes onto whichever rendering wins
+    node = nodes.inline("", "")
+    node[_ALIAS_CHOICE_KEY] = unescape(text)
+    # the docstring the marker came from, which the field list transform no longer keeps on the nodes around it
+    node.source, node.line = inliner.reporter.get_source_and_line(lineno)
+    # the renderings hold roles written for this spot, such as a formatter's :class:, which the write phase parses
+    # outside any document, so it needs the domain they would have resolved in here
+    env = inliner.document.settings.env
+    if (domain := env.current_document.default_domain) is not None:
+        node[_DEFAULT_DOMAIN_KEY] = domain.name
+    # and the role bare backticks, as a formatter may write, get from `default_role` or a `default-role` directive
+    node[_DEFAULT_ROLE_KEY] = env.current_document.default_role
+    # and the module and class an `automodule` or a class body set, which the Python roles resolve a name within
+    node[_REF_CONTEXT_KEY] = {key: env.ref_context.get(key) for key in ("py:module", "py:class")}
+    return [node], []
+
+
+def defer_alias_choice(config: Config, linked: str, expanded: str, *, objtype: str | None = None) -> str | None:
+    """
+    Emit a marker the resolve phase replaces with `linked` or `expanded`, or `None` if it cannot.
+
+    With `objtype`, `linked` wins only where the py domain documents its target as that kind of object.
+
+    The py domain learns a target only once Sphinx reads its document, so while Sphinx still reads documents it cannot
+    tell whether an alias has one. Deciding here would tie the rendering of a signature to where its document sorts
+    (and to how `-j` hands documents out), so both renderings go to the post-transform, which runs once every
+    document is in.
+    """
+    # signature text is final once written, and names an alias the way Python writes it
+    if (context := render_context(config)).signature:
+        return linked
+    if (env := context.env) is None or linked == expanded:
+        return None
+    choice = (linked, expanded) if objtype is None else (linked, expanded, objtype)
+    # content-addressed, so a doctree read in an earlier build still finds its choice
+    key = blake2s("\n".join(choice).encode(), digest_size=8).hexdigest()
+    alias_choices(env)[key] = choice
+    return f":{ALIAS_CHOICE_ROLE}:`{key}`"
+
+
+class AliasChoiceCollector(EnvironmentCollector):
+    """File the choices recorded while reading a document under it, so rereading or removing it replaces them."""
+
+    @override
+    def process_doc(self, app: Sphinx, doctree: nodes.document) -> None:
+        del doctree
+        if choices := alias_choices(app.env):
+            document_alias_choices(app.env)[app.env.docname] = dict(choices)
+
+    @override
+    def clear_doc(self, app: Sphinx, env: BuildEnvironment, docname: str) -> None:
+        del app
+        document_alias_choices(env).pop(docname, None)
+
+    @override
+    def merge_other(
+        self, app: Sphinx, env: BuildEnvironment, docnames: AbstractSet[str], other: BuildEnvironment
+    ) -> None:
+        del app
+        document_alias_choices(env).update({
+            docname: choices for docname in docnames if (choices := recorded_alias_choices(other, docname))
+        })
+
+
+def note_builder(app: Sphinx) -> None:
+    _BUILDERS[id(app.env)] = app.builder
+
+
+class DeferAliasChoice(SphinxPostTransform):
+    """
+    Replace every alias marker once the domain and the inventories can answer for every document.
+
+    It runs ahead of `ReferencesResolver` (priority 10), which still resolves the references this leaves behind.
+    """
+
+    default_priority = 5
+
+    @override
+    def run(self, **kwargs: object) -> None:
+        choices = recorded_alias_choices(self.env, self.env.docname)
+        pending = self._markers(self.document)
+        while pending:
+            node = pending.pop()
+            if (choice := choices.get(node[_ALIAS_CHOICE_KEY])) is None:
+                # a doctree an older version wrote holds markers with no recorded choice
+                node.replace_self([])
+                continue
+            linked, expanded, *objtypes = choice
+            doc = self._parse(node, linked)
+            # the target is the first reference, and the type arguments after it resolve, or not, like any other
+            target = next(doc.findall(addnodes.pending_xref))
+            # a role resolves to whatever object has the name, as :py:type: does to a class, looking in the module and
+            # class it was written in
+            documented = self.env.domains.python_domain.find_obj(
+                self.env, target.get("py:module"), target.get("py:class"), target["reftarget"], None
+            )
+            resolved: Node | None = None
+            if not objtypes or any(entry.objtype in objtypes for _, entry in documented):
+                contnode = target.children[0].deepcopy() if target.children else nodes.literal(text=target["reftarget"])
+                with suppress(NoUri):
+                    resolved = self.env.domains[target["refdomain"]].resolve_xref(
+                        self.env,
+                        target["refdoc"],
+                        _BUILDERS[id(self.env)],
+                        target["reftype"],
+                        target["reftarget"],
+                        target,
+                        contnode,
+                    )
+                    if resolved is None:  # give `missing-reference` handlers (e.g. qualname overrides) their say
+                        resolved = self.env.events.emit_firstresult(
+                            "missing-reference", self.env, target, contnode, allowed_exceptions=(NoUri,)
+                        )
+            if resolved is not None:
+                target.replace_self(resolved)
+                replacement = doc.children[0].children
+            else:
+                replacement = self._parse(node, expanded).children[0].children
+            # either rendering can name further aliases, as an alias subscripted by itself does, each with its own
+            # choice pending
+            pending.extend(marker for child in replacement for marker in self._markers(child))
+            node.replace_self(list(replacement))
+
+    @staticmethod
+    def _markers(node: Node) -> list[nodes.Element]:
+        return [n for n in node.findall(nodes.inline) if _ALIAS_CHOICE_KEY in n]
+
+    def _parse(self, marker: nodes.Element, rst: str) -> nodes.document:
+        current = self.env.current_document
+        default_domain, role = current.default_domain, current.default_role
+        current.default_domain = self.env.domains.get(marker.get(_DEFAULT_DOMAIN_KEY, ""))
+        current.default_role = marker.get(_DEFAULT_ROLE_KEY, "")
+        ref_context = self.env.ref_context.copy()
+        self.env.ref_context.update(marker.get(_REF_CONTEXT_KEY, {}))
+        try:
+            with sphinx_domains(self.env), default_role(self.env.docname, current.default_role):
+                doc = parse(rst, self.env)
+        finally:
+            current.default_domain = default_domain
+            current.default_role = role
+            self.env.ref_context.clear()
+            self.env.ref_context.update(ref_context)
+        for message in doc.findall(nodes.system_message):
+            if message["level"] >= doc.settings.report_level:
+                logging.getLogger(__name__).log(
+                    message["type"], message.children[0].astext(), location=marker, type="docutils"
+                )
+        for nested in self._markers(doc):
+            nested.source, nested.line = marker.source, marker.line
+        for xref in doc.findall(addnodes.pending_xref):
+            xref.setdefault("refdoc", self.env.docname)
+        return doc
+
+
+__all__ = [
+    "ALIAS_CHOICE_ROLE",
+    "AliasChoiceCollector",
+    "DeferAliasChoice",
+    "alias_choice_role",
+    "defer_alias_choice",
+    "note_builder",
+]

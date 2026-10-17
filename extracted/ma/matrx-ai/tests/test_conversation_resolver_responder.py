@@ -39,6 +39,9 @@ async def test_a_responder_supplies_the_config_and_the_conversation_supplies_his
     class _Responder:
         config = responder_config
 
+        async def run_first_turn_pass(self) -> "_Responder":
+            return self
+
     async def from_agent(agent_id: str, **_kwargs: object) -> _Responder:
         assert agent_id == RESPONDER
         return _Responder()

@@ -14,12 +14,15 @@ from typing import Any
 from kafka import KafkaProducer
 
 from deploy_agent.events import (
+    TOPIC_DEV_LANE_DRIFT,
+    TOPIC_DEV_TAG_HEARTBEAT,
     TOPIC_REBUILD_COMPLETED,
     ModelComposeInvocation,
     ModelContainerResidue,
     ModelDepsConvergenceFinding,
     ModelHealthCheck,
     ModelLaneMirrorReceipt,
+    ModelOneShotRerun,
     ModelOnexApiDelivery,
     ModelRebuildCompleted,
     ModelRecreateSupervision,
@@ -90,6 +93,7 @@ def build_completion_payload(
     deps_convergence: list[ModelDepsConvergenceFinding] | None = None,
     compose_invocations: list[ModelComposeInvocation] | None = None,
     verify_recreate: list[ModelVerifyRecreate] | None = None,
+    oneshot_reruns: list[ModelOneShotRerun] | None = None,
     onex_api_delivery: ModelOnexApiDelivery | None = None,
     lane_mirror: ModelLaneMirrorReceipt | None = None,
 ) -> dict[str, Any]:
@@ -147,6 +151,9 @@ def build_completion_payload(
     positive fact -- verification found nothing to repair -- which is what
     makes the field's absence from an older event distinguishable from a
     deploy that repaired nothing.
+
+    OMN-19911 adds ``oneshot_reruns``: the control-plane one-shots a runtime
+    rebuild re-ran because their config hash moved, each with its exit code.
     """
     started_at = job.accepted_at
     completed_at = job.completed_at or datetime.now(UTC)
@@ -188,35 +195,76 @@ def build_completion_payload(
         deps_convergence=list(deps_convergence or []),
         compose_invocations=list(compose_invocations or []),
         verify_recreate=list(verify_recreate or []),
+        oneshot_reruns=list(oneshot_reruns or []),
         onex_api_delivery=onex_api_delivery,
         lane_mirror=lane_mirror,
     )
     return completed.model_dump(mode="json")
 
 
-def publish_result(
-    payload: dict[str, Any], kafka_config: ModelDeployAgentKafkaConfig
+def _produce(
+    topic: str,
+    key: str,
+    payload: dict[str, Any],
+    kafka_config: ModelDeployAgentKafkaConfig,
 ) -> bool:
-    """Publish completion event to the same control bus consumed by deploy-agent."""
+    """Produce one JSON record on the agent's control bus; False when it failed."""
     try:
         producer = KafkaProducer(
             **kafka_config.producer_kwargs(),
             value_serializer=lambda v: json.dumps(v, default=str).encode("utf-8"),
             key_serializer=lambda v: str(v).encode("utf-8"),
         )
-        correlation_id = payload.get("correlation_id", "")
-        producer.send(
-            apply_topic_namespace(TOPIC_REBUILD_COMPLETED),
-            key=f"deploy-result/{correlation_id}",
-            value=payload,
-        )
+        producer.send(apply_topic_namespace(topic), key=key, value=payload)
         producer.flush(timeout=30)
         producer.close()
-        logger.info("Published result for %s", correlation_id)
+        logger.info("Published %s", key)
         return True
     except Exception as e:  # noqa: BLE001
-        logger.warning("Publish failed: %s", e)
+        logger.warning("Publish of %s failed: %s", key, e)
         return False
+
+
+def publish_result(
+    payload: dict[str, Any], kafka_config: ModelDeployAgentKafkaConfig
+) -> bool:
+    """Publish completion event to the same control bus consumed by deploy-agent."""
+    correlation_id = payload.get("correlation_id", "")
+    return _produce(
+        TOPIC_REBUILD_COMPLETED,
+        f"deploy-result/{correlation_id}",
+        payload,
+        kafka_config,
+    )
+
+
+def publish_dev_lane_drift(
+    payload: dict[str, Any], kafka_config: ModelDeployAgentKafkaConfig
+) -> bool:
+    """Publish a dev-lane drift event (OMN-21146), keyed by instance and repository.
+
+    One attempt, no retry: the agent publishes the lane's drift again on its
+    next check while the lane stays overdue, so a lost event is replaced by a
+    newer one rather than replayed.
+    """
+    key = (
+        f"dev-lane-drift/{payload.get('instance', '')}/{payload.get('repository', '')}"
+    )
+    return _produce(TOPIC_DEV_LANE_DRIFT, key, payload, kafka_config)
+
+
+def publish_dev_tag_heartbeat(
+    payload: dict[str, Any], kafka_config: ModelDeployAgentKafkaConfig
+) -> bool:
+    """Publish a dev-tag heartbeat (OMN-19998), keyed by instance and repository.
+
+    One attempt, no retry: the next heartbeat replaces a lost one.
+    """
+    key = (
+        f"dev-tag-heartbeat/{payload.get('instance', '')}/"
+        f"{payload.get('repository', '')}"
+    )
+    return _produce(TOPIC_DEV_TAG_HEARTBEAT, key, payload, kafka_config)
 
 
 def publish_with_retry(

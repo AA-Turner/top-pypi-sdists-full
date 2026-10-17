@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linearmodels
-Version: 7.0
+Version: 7.1
 Summary: Linear Panel, Instrumental Variable, Asset Pricing, and System Regression models for Python
 Keywords: linear models,regression,instrumental variables,IV,panel,fixed effects,clustered,heteroskedasticity,endogeneity,instruments,statistics,statistical inference,econometrics
 Author-Email: Kevin Sheppard <kevin.k.sheppard@gmail.com>
@@ -15,6 +15,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
@@ -26,37 +28,37 @@ Project-URL: documentation, https://bashtage.github.io/linearmodels/
 Project-URL: repository, https://github.com/bashtage/linearmodels
 Project-URL: changelog, https://bashtage.github.io/linearmodels/changes.html
 Requires-Python: >=3.10
-Requires-Dist: numpy<3,>=1.22.3
+Requires-Dist: numpy<3,>=1.23.5
 Requires-Dist: pandas>=1.4.0
 Requires-Dist: scipy>=1.8.0
-Requires-Dist: statsmodels>=0.13.0
+Requires-Dist: statsmodels>=0.14.6
 Requires-Dist: mypy_extensions>=0.4
-Requires-Dist: pyhdfe>=0.1
+Requires-Dist: pyhdfe>=0.2.0
 Requires-Dist: formulaic>=1.2.1
+Requires-Dist: packaging
 Provides-Extra: test
-Requires-Dist: pytest<9,>=8.4.1; extra == "test"
+Requires-Dist: pytest<10,>=9; extra == "test"
 Requires-Dist: pytest-randomly; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: coverage[toml]; extra == "test"
+Requires-Dist: xarray>=0.16; extra == "test"
 Requires-Dist: meson; extra == "test"
 Requires-Dist: ninja; extra == "test"
 Provides-Extra: doc
 Requires-Dist: setuptools>=61; extra == "doc"
 Requires-Dist: wheel; extra == "doc"
-Requires-Dist: setuptools_scm[toml]<9,>=8.0.3; extra == "doc"
-Requires-Dist: oldest-supported-numpy; extra == "doc"
-Requires-Dist: cython<4,>=3.0.13; extra == "doc"
-Requires-Dist: numpy>=1.22; extra == "doc"
+Requires-Dist: setuptools_scm[toml]<10,>=9.2.0; extra == "doc"
+Requires-Dist: cython<4,>=3.1.0; extra == "doc"
+Requires-Dist: numpy>=1.23.5; extra == "doc"
 Requires-Dist: scipy>=1.5.0; extra == "doc"
 Requires-Dist: ipython>=8.0.1; extra == "doc"
 Requires-Dist: matplotlib>=3.0; extra == "doc"
-Requires-Dist: patsy>=0.5.3; extra == "doc"
-Requires-Dist: statsmodels>=0.13.5; extra == "doc"
+Requires-Dist: statsmodels>=0.14.6; extra == "doc"
 Requires-Dist: jinja2; extra == "doc"
 Requires-Dist: sphinx>=7; extra == "doc"
 Requires-Dist: seaborn; extra == "doc"
-Requires-Dist: numpydoc>=1.0.0; extra == "doc"
+Requires-Dist: numpydoc>=1.10; extra == "doc"
 Requires-Dist: nbsphinx; extra == "doc"
 Requires-Dist: sphinx-immaterial; extra == "doc"
 Requires-Dist: jupyter; extra == "doc"
@@ -64,35 +66,32 @@ Requires-Dist: notebook; extra == "doc"
 Requires-Dist: sphinx-autodoc-typehints; extra == "doc"
 Requires-Dist: fonttools>=4.43.0; extra == "doc"
 Requires-Dist: jupyterlab>=4.4.8; extra == "doc"
-Requires-Dist: ipython>=7; extra == "doc"
-Requires-Dist: sphinx_immaterial; extra == "doc"
 Requires-Dist: nbconvert; extra == "doc"
 Requires-Dist: pickleshare; extra == "doc"
-Requires-Dist: pandas~=2.3.3; extra == "doc"
 Requires-Dist: sphinxcontrib-spelling; extra == "doc"
-Requires-Dist: sphinx_autodoc_typehints; extra == "doc"
 Provides-Extra: dev
 Requires-Dist: xarray>=0.16; extra == "dev"
-Requires-Dist: pandas-stubsl; extra == "dev"
+Requires-Dist: pandas-stubs; extra == "dev"
 Requires-Dist: wheel; extra == "dev"
 Requires-Dist: setuptools_scm[toml]<10,>=9.2.0; extra == "dev"
 Requires-Dist: packaging; extra == "dev"
-Requires-Dist: cython>=3.0.10; extra == "dev"
+Requires-Dist: cython<4,>=3.1.0; extra == "dev"
 Requires-Dist: numba>=0.55; extra == "dev"
 Requires-Dist: matplotlib>=3; extra == "dev"
 Requires-Dist: seaborn; extra == "dev"
-Requires-Dist: pytest<9,>=8.4.1; extra == "dev"
+Requires-Dist: pytest<10,>=9; extra == "dev"
 Requires-Dist: pytest-randomly; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: black[jupyter]~=25.9.0; extra == "dev"
-Requires-Dist: isort~=6.0; extra == "dev"
+Requires-Dist: black[jupyter]~=26.5.0; extra == "dev"
+Requires-Dist: isort~=9.0; extra == "dev"
 Requires-Dist: colorama; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
 Requires-Dist: flake8-bugbear; extra == "dev"
 Requires-Dist: mypy>=1.3; extra == "dev"
-Requires-Dist: ruff>=0.8.6; extra == "dev"
+Requires-Dist: ruff>=0.16.0; extra == "dev"
 Requires-Dist: pyupgrade>=3.4.0; extra == "dev"
+Requires-Dist: numpydoc>=1.10; extra == "dev"
 Requires-Dist: jupyterlab-code-formatter; extra == "dev"
 Requires-Dist: jupyterlab>=4.4.8; extra == "dev"
 Requires-Dist: zipp>=3.19.1; extra == "dev"
@@ -115,12 +114,15 @@ estimating asset prices:
 
 -   **Panel models**:
     -   Fixed effects (maximum two-way)
+    -   Random effects
     -   First difference regression
     -   Between estimator for panel data
     -   Pooled regression for panel data
     -   Fama-MacBeth estimation of panel models
+    -   Specification tests: the Hausman test of random effects against
+        fixed effects and the Pesaran CD test of cross-sectional dependence
 
--   **High-dimensional Regresssion**:
+-   **High-dimensional Regression**:
     -   Absorbing Least Squares
 
 -   **Instrumental Variable estimators**
@@ -128,6 +130,9 @@ estimating asset prices:
     -   Limited Information Maximum Likelihood
     -   k-class Estimators
     -   Generalized Method of Moments, also with continuously updating
+    -   Jackknife IV (JIVE)
+    -   Specification tests: the Cragg-Donald and Kleibergen-Paap rank tests
+        of the first stage (underidentification)
 
 -   **Factor Asset Pricing Models**:
     -   2- and 3-step estimation
@@ -189,7 +194,7 @@ mod = IV2SLS.from_formula('np.log(wage) ~ 1 + exper + exper ** 2 + [educ ~ mothe
 The expressions in the `[ ]` indicate endogenous regressors (before `~`)
 and the instruments.
 
-## Installing
+## Installation
 
 The latest release can be installed using pip
 
@@ -197,7 +202,13 @@ The latest release can be installed using pip
 pip install linearmodels
 ```
 
-The main branch can be installed by cloning the repo and running setup
+Binary wheels are available for Windows, macOS and Linux. Without a wheel, pip
+builds linearmodels from source, which requires a C compiler.
+
+The main branch can be installed by cloning the repo and building it with pip.
+The build uses [meson-python](https://mesonbuild.com/meson-python/), and pip
+installs the other build requirements (Cython, NumPy and setuptools_scm)
+automatically.
 
 ```bash
 git clone https://github.com/bashtage/linearmodels
@@ -205,18 +216,23 @@ cd linearmodels
 pip install .
 ```
 
+To work on linearmodels, install the requirements and then build an editable
+install
+
+```bash
+python -m pip install -r requirements.txt -r requirements-dev.txt
+python -m pip install -e . --no-build-isolation
+```
+
 ## Documentation
 
 [Stable Documentation](https://bashtage.github.io/linearmodels/) is
-built on every tagged version using
-[doctr](https://github.com/drdoctr/doctr).
+built by [GitHub Actions](https://github.com/bashtage/linearmodels/blob/main/.github/workflows/generate-documentation.yml)
+when a release is published.
 [Development Documentation](https://bashtage.github.io/linearmodels/devel)
-is automatically built on every successful build of main.
+is built by the same workflow on every push to main.
 
 ## Plan and status
-
-Should eventually add some useful linear model estimators such as panel
-regression. Currently only the single variable IV estimators are polished.
 
 -   Linear Instrumental variable estimation - **complete**
 -   Linear Panel model estimation - **complete**
@@ -228,21 +244,34 @@ regression. Currently only the single variable IV estimators are polished.
 
 ## Requirements
 
+**linearmodels 7.1 is the last release that supports Python 3.10 and NumPy 1.x
+(NumPy < 2).** Later releases will raise the minimum supported versions of
+Python, NumPy and the other dependencies.
+
 ### Running
 
 -   Python 3.10+
--   NumPy (1.22+)
+-   NumPy (1.23.5+)
 -   SciPy (1.8+)
 -   pandas (1.4+)
--   statsmodels (0.13.1+)
--   formulaic (1.0.0+)
+-   statsmodels (0.14.6+)
+-   formulaic (1.2.1+)
+-   pyhdfe (0.2.0+)
+-   mypy_extensions (0.4+)
+-   packaging
 -   xarray (0.16+, optional)
--   Cython (3.0.10+, optional)
 
+### Building from source
+
+-   A C compiler
+-   Cython (3.1.0+)
+-   meson-python
+-   NumPy (2.0+)
+-   setuptools_scm (9.2+)
 
 ### Testing
 
--   py.test
+-   pytest (9.0+)
 
 ### Documentation
 

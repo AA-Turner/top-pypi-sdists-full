@@ -154,9 +154,7 @@ class TestLangSmithSpanExporter:
         event = self._make_event(
             "gen_ai.tool.message",
             {
-                "content": json.dumps(
-                    {"mode": "view", "path": "otel_strands_share.py"}
-                ),
+                "content": json.dumps({"mode": "view", "path": "otel_strands_share.py"}),
                 "id": "tooluse_123",
             },
         )
@@ -506,9 +504,7 @@ class TestSetupLangsmithTelemetry:
     @patch("langsmith.integrations.strands_agents.exporter.StrandsTelemetry")
     @patch("langsmith.integrations.strands_agents.exporter.BatchSpanProcessor")
     @patch("langsmith.integrations.strands_agents.exporter.create_langsmith_exporter")
-    def test_setup_adds_processor(
-        self, mock_create_exporter, mock_batch_processor, mock_strands_telemetry
-    ):
+    def test_setup_adds_processor(self, mock_create_exporter, mock_batch_processor, mock_strands_telemetry):
         """Test that setup adds the batch processor to the tracer provider."""
         from langsmith.integrations.strands_agents import setup_langsmith_telemetry
 
@@ -525,9 +521,7 @@ class TestSetupLangsmithTelemetry:
 
         mock_create_exporter.assert_called_once()
         mock_batch_processor.assert_called_once_with(mock_exporter)
-        mock_telemetry.tracer_provider.add_span_processor.assert_called_once_with(
-            mock_processor
-        )
+        mock_telemetry.tracer_provider.add_span_processor.assert_called_once_with(mock_processor)
 
     @patch("langsmith.integrations.strands_agents.exporter.StrandsTelemetry")
     @patch("langsmith.integrations.strands_agents.exporter.SimpleSpanProcessor")

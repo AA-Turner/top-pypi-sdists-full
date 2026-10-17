@@ -26,11 +26,11 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
           - "3.14"
+          - "3.15"
         pandas-version:
           - "2.3.*"
           - "3.0.*"
@@ -40,9 +40,11 @@ jobs:
             pandas-version: "none"
           - python-version: "3.14t"
             pandas-version: "3.0.*"
-        exclude:
-          - python-version: "3.10"
+          - python-version: "3.15t"
             pandas-version: "3.0.*"
+        exclude:
+          - python-version: "3.15"
+            pandas-version: "2.3.*"
 
     runs-on: ubuntu-latest
 
@@ -108,6 +110,8 @@ jobs:
         include:
           - python-version: "3.14"
             pylock-suffix: "314"
+          - python-version: "3.15"
+            pylock-suffix: "315"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -121,7 +125,7 @@ jobs:
           enable-cache: true # zizmor: ignore[cache-poisoning] -- Job does not produce release artifacts and does not have sensitive permissions
 
       - name: get dist artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: python_calamine_pypi_files_pyemscripten_${{ matrix.python-version }}
           path: dist
@@ -212,15 +216,15 @@ jobs:
           - os: linux
             manylinux: auto
             target: armv7
-            interpreter: 3.10 3.11 3.12 3.13 3.14 3.14t
+            interpreter: 3.11 3.12 3.13 3.14 3.14t 3.15 3.15t
           - os: linux
             manylinux: auto
             target: ppc64le
-            interpreter: 3.10 3.11 3.12 3.13 3.14 3.14t
+            interpreter: 3.11 3.12 3.13 3.14 3.14t 3.15 3.15t
           - os: linux
             manylinux: auto
             target: s390x
-            interpreter: 3.10 3.11 3.12 3.13 3.14 3.14t
+            interpreter: 3.11 3.12 3.13 3.14 3.14t 3.15 3.15t
 
           # musllinux
           - os: linux
@@ -242,10 +246,10 @@ jobs:
           # windows
           - os: windows
             target: x86_64
-            interpreter: 3.10 3.11 3.12 3.13 3.14 3.14t
+            interpreter: 3.11 3.12 3.13 3.14 3.14t 3.15 3.15t
           - os: windows
             target: i686
-            interpreter: 3.10 3.11 3.12 3.13 3.14
+            interpreter: 3.11 3.12 3.13 3.14 3.15
           - os: windows
             target: aarch64
             runs-on: windows-11-arm
@@ -284,14 +288,14 @@ jobs:
         with:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux || 'auto' }}
-          args: --release --out dist --interpreter ${{ matrix.interpreter || '3.10 3.11 3.12 3.13 3.14 3.14t pypy3.11' }}
+          args: --release --out dist --interpreter ${{ matrix.interpreter || '3.11 3.12 3.13 3.14 3.14t 3.15 3.15t pypy3.11' }}
           rust-toolchain: stable
 
       - run: ${{ (matrix.os == 'windows' && 'dir') || 'ls -lh' }} dist/
 
       - run: twine check --strict dist/*
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: python_calamine_pypi_files_${{ matrix.os }}_${{ matrix.target }}_${{ matrix.manylinux || 'auto' }}
           path: dist
@@ -304,6 +308,7 @@ jobs:
       matrix:
         include:
           - python-version: "3.14"
+          - python-version: "3.15"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -349,7 +354,7 @@ jobs:
 
       - run: ls -lh dist/
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: python_calamine_pypi_files_pyemscripten_${{ matrix.python-version }}
           path: dist
@@ -369,7 +374,7 @@ jobs:
 
     steps:
       - name: Download All Artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: dist
           pattern: python_calamine_pypi_files_*
@@ -389,7 +394,7 @@ jobs:
 
     steps:
       - name: Download All Artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: dist
           pattern: python_calamine_pypi_files_*

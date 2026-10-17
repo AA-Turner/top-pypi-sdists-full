@@ -92,7 +92,7 @@ class HistoryItem(BaseModel):
     thoughts: list[Thought] | None = Field(default_factory=list)
     workflowExecutionRef: str | bool | None = None
     executionId: str | None = None
-    # WorkflowExecutionStatusEnum value, e.g. "In Progress" (EPMCDME-14075)
+    # WorkflowExecutionStatusEnum value, e.g. "In Progress"
     executionStatus: str | None = None
 
 
@@ -322,7 +322,7 @@ class AdminConversationListResponse(BaseModel):
     pagination: ConversationPagination
 
 
-# Feedback on assistant messages (EPMCDME-14625)
+# Feedback on assistant messages
 
 
 class FeedbackMark(str, Enum):
@@ -345,7 +345,7 @@ class FeedbackCreateRequest(BaseModel):
 
     ``response`` is required by the backend even though the client already has
     the text elsewhere: omitting it returns a 422 ``response: Field required``
-    error. This was the root cause of EPMCDME-14625, where the frontend built
+    error. This was the root cause of an earlier bug, where the frontend built
     the payload without it and negative feedback could never be submitted.
     Callers must always populate ``response`` -- an empty string is a valid
     value for incomplete, failed, or technical-error assistant responses.

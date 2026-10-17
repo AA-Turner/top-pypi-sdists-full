@@ -58,6 +58,8 @@ class ResolvedBlock:
     source_kind: str
     bound_tool: str | None
     skill_id: str | None = None
+    #: Why the block sends nothing, said out loud (Model view, log); ``None`` when it is on.
+    off: str | None = None
 
     def report(self) -> dict[str, Any]:
         return {
@@ -69,4 +71,5 @@ class ResolvedBlock:
             "bound_tool": self.bound_tool,
             "skill_id": self.skill_id,
             "chars": len(self.text),
+            "off": self.off,
         }

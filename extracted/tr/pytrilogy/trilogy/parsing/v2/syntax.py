@@ -283,6 +283,8 @@ class SyntaxNodeKind(str, Enum):
     COLUMN_LIST = "column_list"
     GRAIN_CLAUSE = "grain_clause"
     ADDRESS = "address"
+    ADDRESS_ARGUMENTS = "address_arguments"
+    ADDRESS_ARGUMENT = "address_argument"
     QUERY = "query"
     FILE = "file"
     FILE_PATH_LIST = "file_path_list"
@@ -345,6 +347,7 @@ class SyntaxTokenKind(str, Enum):
     CURRENT_TIMESTAMP = "current_timestamp"
     SHORTHAND_MODIFIER = "shorthand_modifier"
     JOIN_TYPE = "join_type"
+    MERGE_RELATION = "merge_relation"
     WILDCARD_IDENTIFIER = "wildcard_identifier"
     DATASOURCE_PARTIAL = "datasource_partial"
     PERSIST_MODE = "persist_mode"
@@ -607,6 +610,8 @@ LARK_NODE_KIND: dict[str, SyntaxNodeKind] = {
     "column_list": SyntaxNodeKind.COLUMN_LIST,
     "grain_clause": SyntaxNodeKind.GRAIN_CLAUSE,
     "address": SyntaxNodeKind.ADDRESS,
+    "address_arguments": SyntaxNodeKind.ADDRESS_ARGUMENTS,
+    "address_argument": SyntaxNodeKind.ADDRESS_ARGUMENT,
     "query": SyntaxNodeKind.QUERY,
     "file": SyntaxNodeKind.FILE,
     "file_path_list": SyntaxNodeKind.FILE_PATH_LIST,
@@ -697,6 +702,7 @@ LARK_TOKEN_KIND: dict[str, SyntaxTokenKind] = {
     "CURRENT_TIMESTAMP": SyntaxTokenKind.CURRENT_TIMESTAMP,
     "SHORTHAND_MODIFIER": SyntaxTokenKind.SHORTHAND_MODIFIER,
     "JOIN_TYPE": SyntaxTokenKind.JOIN_TYPE,
+    "MERGE_RELATION": SyntaxTokenKind.MERGE_RELATION,
     "WILDCARD_IDENTIFIER": SyntaxTokenKind.WILDCARD_IDENTIFIER,
     "DATASOURCE_PARTIAL": SyntaxTokenKind.DATASOURCE_PARTIAL,
     "PERSIST_MODE": SyntaxTokenKind.PERSIST_MODE,

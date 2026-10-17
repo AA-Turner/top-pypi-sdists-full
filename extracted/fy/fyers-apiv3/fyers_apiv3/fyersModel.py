@@ -87,7 +87,7 @@ class FyersServiceSync:
         self.session = requests.Session()
 
 
-    def post_call(self, api: str, header: str, data=None) -> dict:
+    def post_call(self, api: str, header: str, data=None, data_flag=False) -> dict:
         """
         Makes a POST request to the specified API.
 
@@ -95,12 +95,13 @@ class FyersServiceSync:
             api: The API endpoint to make the request to.
             header: The authorization header for the request.
             data: The data to send in the request payload.
+            data_flag: A flag indicating whether to use custom data URLs.
 
         Returns:
             The response JSON as a dictionary, or the response object if an error occurs.
         """
         try:
-            URL = Config.API + api 
+            URL = (Config.DATA_API if data_flag else Config.API) + api
             response = self.session.post(
                 URL,
                 data=json.dumps(data),
@@ -359,7 +360,7 @@ class FyersServiceAsync:
         self._session_created_here = True
 
 
-    async def post_async_call(self, api: str, header: str, data=None) -> dict:
+    async def post_async_call(self, api: str, header: str, data=None, data_flag=False) -> dict:
         """
         Makes an asynchronous POST request to the specified API.
 
@@ -367,12 +368,13 @@ class FyersServiceAsync:
             api: The API endpoint to make the request to.
             header: The authorization header for the request.
             data: The data to send in the request payload.
+            data_flag: A flag indicating whether to use custom data URLs.
 
         Returns:
             The response JSON as a dictionary, or the response object if an error occurs.
         """
         try:
-            url = Config.API + api
+            url = (Config.DATA_API if data_flag else Config.API) + api
             # Create session on first use if not provided
             if self.session is None:
                 self.session = aiohttp.ClientSession()
@@ -1265,6 +1267,26 @@ class FyersModel:
             
         else:
             response = self.service.get_call(
+                Config.quotes, self.header, data, data_flag=True
+            )
+        return response
+
+    def quotes_v2(self, data=None):
+        """
+        Fetches quotes data for multiple symbols via POST /data/apiv3/quotes.
+
+        Parameters:
+            symbols (list): List of symbols. Eg: ['NSE:SBIN-EQ', 'NSE:HDFC-EQ'].
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.post_async_call(
+                Config.quotes, self.header, data, data_flag=True
+            )
+        else:
+            response = self.service.post_call(
                 Config.quotes, self.header, data, data_flag=True
             )
         return response

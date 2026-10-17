@@ -26,8 +26,7 @@ def _align_oriented_corners(corners: np.ndarray, reference: np.ndarray) -> np.nd
 
 
 class DetectionsSmoother:
-    """
-    A utility class for smoothing detections over multiple frames in video tracking.
+    """A utility class for smoothing detections over multiple frames in video tracking.
     It maintains a history of detections for each track and provides smoothed
     predictions based on these histories.
 
@@ -39,8 +38,9 @@ class DetectionsSmoother:
 
     !!! warning
 
-        - `DetectionsSmoother` requires the `tracker_id` for each detection. Refer to
-          [Roboflow Trackers](/latest/trackers/) for
+        - :class:`~supervision.detection.tools.smoother.DetectionsSmoother`
+          requires the `tracker_id` for each detection. Refer to
+          [Roboflow Trackers](https://trackers.roboflow.com/latest/) for
           information on integrating tracking into your inference pipeline.
         - This class is not compatible with segmentation models.
         - When detections in a frame disagree on confidence presence — some tracks
@@ -78,13 +78,18 @@ class DetectionsSmoother:
         import supervision as sv
 
         from rfdetr import RFDETRMedium
+        from trackers import ByteTrackTracker
 
         video_info = sv.VideoInfo.from_video_path(video_path="<SOURCE_FILE_PATH>")
         frame_generator = sv.get_video_frames_generator(
             source_path="<SOURCE_FILE_PATH>")
 
         model = RFDETRMedium()
-        tracker = sv.ByteTrack(frame_rate=video_info.fps)
+        tracker = ByteTrackTracker(
+            frame_rate=video_info.fps,
+            track_activation_threshold=0.25,
+            minimum_consecutive_frames=1,
+        )
         smoother = sv.DetectionsSmoother()
 
         box_annotator = sv.BoxAnnotator()
@@ -92,7 +97,8 @@ class DetectionsSmoother:
         with sv.VideoSink("<TARGET_FILE_PATH>", video_info=video_info) as sink:
             for frame in frame_generator:
                 detections = model.predict(frame[:, :, ::-1])
-                detections = tracker.update_with_detections(detections)
+                detections = tracker.update(detections)
+                detections = detections[detections.tracker_id != -1]
                 detections = smoother.update_with_detections(detections)
 
                 annotated_frame = box_annotator.annotate(frame.copy(), detections)
@@ -104,18 +110,17 @@ class DetectionsSmoother:
         """
         Args:
             length: The maximum number of frames to consider for smoothing
-                detections. Every call to `update_with_detections` counts as one
-                frame, including frames without tracker IDs. Defaults to 5.
+                detections. Each update counts as one frame, including frames
+                without tracker IDs. Defaults to 5.
         """
         self.tracks: defaultdict[int, deque[Detections | None]] = defaultdict(
             lambda: deque(maxlen=length)
         )
 
     def reset(self) -> None:
-        """
-        Clears the per-track detection history so the smoother can be reused
-        across independent streams without carrying over frames from a
-        previous stream. The configured window `length` is preserved.
+        """Clears the per-track detection history so the smoother can be reused across
+        independent streams without carrying over frames from a previous stream. The
+        configured window `length` is preserved.
 
         Examples:
             ```pycon
@@ -139,8 +144,7 @@ class DetectionsSmoother:
         self.tracks.clear()
 
     def update_with_detections(self, detections: Detections) -> Detections:
-        """
-        Updates the smoother with a new set of detections from a frame.
+        """Updates the smoother with a new set of detections from a frame.
 
         Every call counts as one frame toward the window `length`. Frames without
         tracker IDs, including empty ones, still age the cached history, but their
@@ -159,7 +163,7 @@ class DetectionsSmoother:
         if tracker_ids is None:
             warnings.warn(
                 "Smoothing skipped. DetectionsSmoother requires tracker_id. Refer to "
-                "https://supervision.roboflow.com/latest/trackers for more "
+                "https://trackers.roboflow.com/latest/ for more "
                 "information.",
                 category=SupervisionWarnings,
             )
@@ -191,7 +195,8 @@ class DetectionsSmoother:
                 del self.tracks[track_id]
 
     def get_track(self, track_id: int) -> Detections | None:
-        """Return the smoothed `Detections` for a single track.
+        """Return the smoothed :class:`~supervision.detection.core.Detections` for a
+        single track.
 
         Averages `xyxy` over all valid (non-`None`) frames in the track window.
         `confidence` is averaged only over frames that carry it; frames with
@@ -207,8 +212,9 @@ class DetectionsSmoother:
             track_id: The tracker ID whose smoothed detection to retrieve.
 
         Returns:
-            Smoothed `Detections` for the track, or `None` if the track is
-            unknown or all frames in its window are empty.
+            Smoothed :class:`~supervision.detection.core.Detections` for the
+            track, or `None` if the track is unknown or all frames in its window
+            are empty.
         """
         track = self.tracks.get(track_id, None)
         if track is None:

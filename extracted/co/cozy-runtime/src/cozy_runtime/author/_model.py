@@ -1,12 +1,12 @@
-"""The `Model` boundary: role classes, the one class keyword, component-use scopes, the
+"""The `Model` boundary: role classes, the class keywords, component-use scopes, the
 construction transaction, and construction-identity coalescing.
 
 THE SIGNATURE IS THE SLOT (§1.1): a bare typed parameter (`model: Fl2VAModel`) is the whole
 declaration and its derived canonical path (`generate.models.model`) is the binding point.
 There is no slot object, no `artifacts=` dict, and the `Annotated` override-marker plane is
-EMPTY at launch. The CLASS carries exactly one keyword, `encoded_leaves`; there are no
-stamps, no `task=`/`objective=`/`structure=`, and no model or release name anywhere in code
-(model-code-fit §1, D1). A semantic twin is a component name or a config fact.
+EMPTY at launch. The CLASS carries closed keywords (`encoded_leaves`, `min_bits`, `phase`,
+`attention_bits`); there are no stamps, no `task=`/`objective=`/`structure=`, and no model or
+release name anywhere in code (model-code-fit §1, D1). A semantic twin is a component name or a config fact.
 
 Construction identity is (package release, model class, exact artifact snapshot + immutable
 config, construction/provider variant). Equal identities coalesce ONE single-flight model
@@ -36,7 +36,6 @@ from typing import (
     final,
 )
 
-from cozy_runtime.author._attention import AttentionContext
 from cozy_runtime.author._context import AdapterRef, Context, Device, RequestView, derive_seed
 from cozy_runtime.author._errors import (
     CapabilityError,
@@ -114,6 +113,44 @@ ENCODED_LEAVES: Mapping[str, str] = {
     "no `.weight` read, no per-module dtype walk, no submodule rebuilt from one — so a "
     "linear op may be replaced by a module whose weight is the stored role set",
 }
+
+#: `min_bits=`: the lowest weight precision the machine's lane rules may pick by themselves.
+MIN_BITS: Mapping[int, str] = {
+    16: "16-bit unless the request asks for fewer bits",
+    8: "8-bit by default (the default)",
+    4: "4-bit for a decode slot, or when the 8-bit weights exceed the GPU budget",
+}
+
+#: `phase=`: what bounds the slot's time, so the lane rules know when bytes matter most.
+PHASES: Mapping[str, str] = {
+    "compute": "diffusion or prefill, bound by arithmetic (the default)",
+    "decode": "an LM's token loop, bound by weight bytes",
+}
+
+
+def closed(vocabulary: Collection[object], value: object) -> bool:
+    """`value` is one of `vocabulary`'s keys, of the key's own type (no `8.0`, no `True`)."""
+    return any(type(value) is type(key) and value == key for key in vocabulary)
+
+
+def attention_bits(owner: str, value: object) -> int | dict[str, int]:
+    """`attention_bits=`: the lowest attention precision the model's sites tolerate (16|8|4),
+    whole or per component-qualified module prefix (`"fl2va_dit"`,
+    `"transformer.single_transformer_blocks."`; the longest wins, unlisted sites 16)."""
+    if closed(MIN_BITS, value):
+        return cast(int, value)
+    if (
+        isinstance(value, Mapping)
+        and value
+        and all(type(k) is str and k and closed(MIN_BITS, v) for k, v in value.items())
+    ):
+        return dict(value)
+    raise ConformanceError(
+        f"class {owner}(attention_bits={value!r}): 16, 8 or 4, or a mapping of "
+        "component-qualified module prefixes to them",
+        code="attention_bits_value",
+    )
+
 
 #: Keyword names an author-facing model method may not declare. Every one of them names a
 #: residency, placement or conversion decision the runtime owns (§1.1/§7).
@@ -239,6 +276,13 @@ class Residency(Protocol):
         be."""
         ...
 
+    def hold_stage(
+        self, component: str, blocks: Collection[Any]
+    ) -> tuple[bool, tuple[object, ...]]:
+        """`held` for the rest of the open stage, entered once per component: whether it holds,
+        and `layout` as it holds them."""
+        ...
+
     def layout(self, component: str, blocks: Collection[Any]) -> tuple[object, ...]:
         """Where `component`'s common weights and `blocks` are bound now: a graph recorded over
         them replays only while this is unchanged."""
@@ -248,6 +292,13 @@ class Residency(Protocol):
         """A fact about how this attempt executed, reported with its memory facts."""
         ...
 
+    def allocatable(self) -> int:
+        """Device bytes torch can allocate now without the plane unmapping a weight."""
+        ...
+
+    #: How many attempts (requests) it has opened.
+    attempts: int
+
 
 #: A component's root module -> the residency that places it and the component's name, so a
 #: Runtime mechanism handed the module (`cozy_runtime.lm`) reaches its placement.
@@ -256,6 +307,35 @@ PLACED: weakref.WeakKeyDictionary[object, tuple[Residency, str]] = weakref.WeakK
 #: callables that drop it and say whether there was any: the plane calls them before it unmaps
 #: weights for room.
 RELEASERS: list[Callable[[], bool]] = []
+#: Kernel builds this process loaded after it started (a boot build landing): calls may take a
+#: faster path from each on, so graphs record them again. None loads while a graph records.
+LANDED: list[int] = [0]
+#: Warnings Runtime's speed mechanisms raise (a graph that would not record or replayed wrong),
+#: as (message, fields): the executor puts each in the run it served and clears them.
+WARNINGS: list[tuple[str, dict[str, str | bool | int | float | None]]] = []
+
+
+def uncaptured(*names: str) -> Callable[[type[ModelT]], type[ModelT]]:
+    """Declare components whose calls Runtime never records as CUDA graphs: a component whose
+    calls depend on state outside their arguments (a cache it mutates, a host-side branch on
+    tensor values) runs as written."""
+    if not names or any(
+        not isinstance(name, str) or not name.replace("_", "").isalnum() for name in names
+    ):
+        raise ConformanceError(
+            f"@uncaptured{names!r}: name one or more components by plain identifier",
+            code="uncaptured_components",
+        )
+
+    def decorate(cls: type[ModelT]) -> type[ModelT]:
+        if not (inspect.isclass(cls) and issubclass(cls, Model)):
+            raise ConformanceError(
+                "@uncaptured decorates a Model class", code="uncaptured_components"
+            )
+        cls.__uncaptured__ = tuple(dict.fromkeys(names))
+        return cls
+
+    return decorate
 
 
 class Placement(Protocol):
@@ -348,8 +428,13 @@ def uses_components(
             )
         _check_signature(fn)
         wrapper = _async_wrapper(fn, components) if _is_async(fn) else _sync_wrapper(fn, components)
-        if memoize or memo_version is not None or memo_dependencies:
-            declare(fn, memoize=memoize, version=memo_version, dependencies=memo_dependencies)
+        if not memoize and (memo_version is not None or memo_dependencies):
+            raise ConformanceError(
+                "a stage's memo_version and memo_dependencies need memoize=True",
+                code="invocable_memoize",
+            )
+        if memoize:
+            declare(fn, version=memo_version, dependencies=memo_dependencies)
             wrapper = memoized(fn, wrapper, components, is_async=_is_async(fn))
         declared: _Declared = cast("_Declared", wrapper)
         declared.__uses_components__ = components
@@ -499,6 +584,8 @@ class Model[PipelineT]:
 
     __placeable__: tuple[str, ...] = ()
     """`@placeable(...)`: components the runtime may host on another GPU of the group."""
+    __uncaptured__: tuple[str, ...] = ()
+    """`@uncaptured(...)`: components whose calls are never recorded as CUDA graphs."""
 
     __encoded_leaves__: str = "refuse"
     """The class's `encoded_leaves=` declaration, defaulted to the conservative answer.
@@ -507,6 +594,13 @@ class Model[PipelineT]:
     written before the native rung existed cannot have thought about whether its code
     survives leaf replacement, and reading its silence as "yes" would be the runtime
     deciding a question only the author can answer."""
+
+    __min_bits__: int = 8
+    """`min_bits=`: the lowest weight precision the lane rules may pick (`MIN_BITS`)."""
+    __phase__: str = "compute"
+    """`phase=`: "decode" for an LM's token loop, else "compute" (`PHASES`)."""
+    __attention_bits__: int | dict[str, int] = 16
+    """`attention_bits=`: the attention precision its sites tolerate (`attention_bits`)."""
 
     __adapter_compatibility__: tuple[AdapterCompatibility, ...] = ()
     """Closed generic adapter declarations; empty means overlays are refused."""
@@ -517,7 +611,6 @@ class Model[PipelineT]:
     authority. Model-scoped because it is construction identity."""
 
     _cozy_ready = False
-    _cozy_derive_only = False
     _cozy_loading = False
     _cozy_active: tuple[str, tuple[str, ...]] | None = None
     _cozy_harness: ModelTestHarness | None = None
@@ -527,42 +620,48 @@ class Model[PipelineT]:
     _cozy_caches: tuple[DerivedCache, ...] = ()
     _cozy_adapters: tuple[AdapterRef, ...] = ()
     _cozy_residency: Residency | None = None
-    """Runtime-installed. Absent under `for_test` and in derive mode, which is the whole
+    """Runtime-installed. Absent under `for_test`, which is the whole
     reason a scope works without one: a test double has no bytes to stage."""
     _cozy_placement: Placement | None = None
     """Runtime-installed on the first GPU of a group that hosts a component on another."""
     _cozy_memo: StageMemo | None = None
     """Runtime-installed: where `memoize=True` methods look before their scope opens."""
 
-    def __init_subclass__(cls, /, **keywords: str) -> None:
-        """The class-keyword plane is exactly `encoded_leaves` (model-code-fit §1): the
-        closed consent about what the runtime may substitute. A package's own fused plan is
-        its `execution_plan`.
+    def __init_subclass__(cls, /, **keywords: object) -> None:
+        """The class-keyword plane: `encoded_leaves` (model-code-fit §1), the closed consent
+        about what the runtime may substitute, and the precision tolerances `min_bits`, `phase`
+        and `attention_bits` (xs-042). Each is inherited by subclasses. A package's own fused
+        plan is its `execution_plan`.
 
         Anything else refuses typed: the open stamp vocabulary (`task=`, `objective=`),
         `structure=` and `self_loading=` are deleted (D1), and a keyword the runtime does not
         read is not a fact anyone else would look for.
         """
         super().__init_subclass__()
-        for keyword, vocabulary, attribute in (
+        vocabularies: tuple[tuple[str, Mapping[Any, str], str], ...] = (
             ("encoded_leaves", ENCODED_LEAVES, "__encoded_leaves__"),
-        ):
+            ("min_bits", MIN_BITS, "__min_bits__"),
+            ("phase", PHASES, "__phase__"),
+        )
+        for keyword, vocabulary, attribute in vocabularies:
             if keyword in keywords:
                 value = keywords.pop(keyword)
-                if value not in vocabulary:
+                if not closed(vocabulary, value):
                     raise ConformanceError(
                         f"class {cls.__name__}({keyword}={value!r}): the vocabulary is CLOSED — "
                         + " | ".join(f"{k!r}: {why}" for k, why in vocabulary.items()),
                         code=f"{keyword}_value",
                     )
                 setattr(cls, attribute, value)
+        if "attention_bits" in keywords:
+            cls.__attention_bits__ = attention_bits(cls.__name__, keywords.pop("attention_bits"))
         if keywords:
             names = ", ".join(f"{key}=…" for key in keywords)
             raise ConformanceError(
-                f"class {cls.__name__}({names}): a Model class carries exactly one keyword, "
-                "encoded_leaves — fusion=, stamps, task=, objective= and structure= are "
-                "deleted (model-code-fit D1); a semantic twin is a component name or a config "
-                "fact",
+                f"class {cls.__name__}({names}): a Model class carries encoded_leaves, "
+                "min_bits, phase and attention_bits — fusion=, stamps, task=, objective= and "
+                "structure= are deleted (model-code-fit D1); a semantic twin is a component "
+                "name or a config fact",
                 code="class_keyword",
                 fields=sorted(keywords),
             )
@@ -576,19 +675,6 @@ class Model[PipelineT]:
             "loader.construct(T, factory=…) — the one construction primitive (§1.1)",
             code="no_load",
         )
-
-    def choose_attention(self, context: AttentionContext) -> str | Sequence[str] | None:
-        """Select an eligible backend before warm-up, or retain Runtime's recommendation.
-
-        This hook chooses a name, not a kernel implementation or device operation.
-        A name is an explicit choice: validated and never silently replaced. A sequence
-        of names is a preference: Runtime takes the first one this site, device,
-        environment and numerical probe admit on each GPU, records why each earlier
-        one was skipped, and falls back to its recommendation when none serves.
-        Approximate attention remains the model author's quality decision, independent
-        of FP8 checkpoint storage. Developer request overrides take precedence.
-        """
-        return None
 
     def execution_plan(self, plan: Plan) -> str:
         """Install this model's execution plan on its filled components: its own fused
@@ -720,13 +806,6 @@ class Model[PipelineT]:
 
     def _cozy_require_ready(self, what: str) -> None:
         if not self._cozy_ready:
-            if self._cozy_derive_only:
-                raise CapabilityError(
-                    f"{type(self).__name__}.{what}: a job receives this model's identity "
-                    "only, never a running model; run it in an entrypoint (or a script's "
-                    "main) or call one",
-                    code="model_derive_only",
-                )
             raise CapabilityError(
                 f"{type(self).__name__}.{what}: no generation is Ready — construction is "
                 "transactional and nothing is observable before it completes (§1.1)",
@@ -781,40 +860,6 @@ def _declared_state(cls: type) -> tuple[str, ...]:
             if not name.startswith("_") and name not in names:
                 names.append(name)
     return tuple(names)
-
-
-def _derive_model[M: Model[Any]](cls: type[M], checkpoint_ref: str) -> M:
-    """A PLAIN RECORD carrying one exact Manifest identity, typed as the author's class.
-
-    No construction runs, so the instance carries `checkpoint_ref` and nothing else: a
-    component the load never built is simply absent, and reading one raises the ordinary
-    `AttributeError` that names it. Nothing is intercepted to say so — a `__getattribute__`
-    that tested a derive-only flag on EVERY attribute read of EVERY model, serving ones
-    included, bought a nicer message for the one case at the cost of a branch on the other
-    million, and `object.__setattr__` walked around it anyway. `for_request` and component
-    methods refuse `model_derive_only` from the `not_ready` gate, because no generation is Ready.
-    """
-    if not checkpoint_ref.startswith("sha256:") or len(checkpoint_ref) != 71:
-        raise ConformanceError(
-            "derive-only Model requires one lowercase sha256 Manifest identity",
-            code="derive_model_manifest_invalid",
-        )
-    try:
-        raw = bytes.fromhex(checkpoint_ref[7:])
-    except ValueError as exc:
-        raise ConformanceError(
-            "derive-only Model Manifest identity is malformed",
-            code="derive_model_manifest_invalid",
-        ) from exc
-    if len(raw) != 32 or checkpoint_ref != "sha256:" + raw.hex():
-        raise ConformanceError(
-            "derive-only Model Manifest identity is not canonical",
-            code="derive_model_manifest_invalid",
-        )
-    model = object.__new__(cls)
-    object.__setattr__(model, "checkpoint_ref", checkpoint_ref)
-    object.__setattr__(model, "_cozy_derive_only", True)
-    return model
 
 
 @final

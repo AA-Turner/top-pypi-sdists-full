@@ -39,7 +39,9 @@ async fn initialize_hydrates_remote_dynamic_config_before_evaluation() {
     )
     .await;
 
-    let statsig = Statsig::new(SDK_KEY, Some(options_for(&server)));
+    let mut options = options_for(&server);
+    Arc::make_mut(&mut options).disable_disk_access = Some(true);
+    let statsig = Statsig::new(SDK_KEY, Some(options));
     statsig.initialize().await.unwrap();
 
     let config = statsig.get_dynamic_config(&StatsigUser::with_user_id("a-user"), "large_config");

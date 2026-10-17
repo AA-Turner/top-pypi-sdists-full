@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-__all__ = ('about', 'about_from_setup')
+__all__ = ("about", "about_from_setup")
 
 import sys
 import os
@@ -173,11 +173,6 @@ def __get_pkg_metadata(version: packaging.version.Version,
     return pkg_metadata
 
 
-adict.__module__ = __package__
-version_info.__module__ = __package__
-about.__module__ = __package__
-about_from_setup.__module__ = __package__
-
 __release_levels: dict[str, str] = dict(
     a     = "alpha",
     b     = "beta",
@@ -187,3 +182,8 @@ __release_levels: dict[str, str] = dict(
     local = "local",
     final = "final",
 )
+
+adict.__module__ = __package__
+version_info.__module__ = __package__
+about.__module__ = __package__
+about_from_setup.__module__ = __package__

@@ -211,7 +211,7 @@ def NotFiniteNumberException__ctor(__unit: Unit = UNIT) -> NotFiniteNumberExcept
     return NotFiniteNumberException__ctor_Z721C83C5(SR_Arg_NotFiniteNumberException)
 
 
-def _expr183() -> TypeInfo:
+def _expr184() -> TypeInfo:
     return class_type("System.NotImplementedException", None, NotImplementedException, class_type("System.Exception"))
 
 
@@ -221,7 +221,7 @@ class NotImplementedException(NotImplementedErrorBase):
         pass
 
 
-NotImplementedException_reflection = _expr183
+NotImplementedException_reflection = _expr184
 
 
 def NotImplementedException__ctor_Z721C83C5(message: str) -> NotImplementedException:
@@ -232,7 +232,7 @@ def NotImplementedException__ctor(__unit: Unit = UNIT) -> NotImplementedExceptio
     return NotImplementedException__ctor_Z721C83C5(SR_Arg_NotImplementedException)
 
 
-def _expr184() -> TypeInfo:
+def _expr185() -> TypeInfo:
     return class_type("System.NotSupportedException", None, NotSupportedException, class_type("System.Exception"))
 
 
@@ -242,7 +242,7 @@ class NotSupportedException(ExceptionBase):
         pass
 
 
-NotSupportedException_reflection = _expr184
+NotSupportedException_reflection = _expr185
 
 
 def NotSupportedException__ctor_Z721C83C5(message: str) -> NotSupportedException:
@@ -253,7 +253,7 @@ def NotSupportedException__ctor(__unit: Unit = UNIT) -> NotSupportedException:
     return NotSupportedException__ctor_Z721C83C5(SR_Arg_NotSupportedException)
 
 
-def _expr185() -> TypeInfo:
+def _expr186() -> TypeInfo:
     return class_type("System.NullReferenceException", None, NullReferenceException, class_type("System.Exception"))
 
 
@@ -263,7 +263,7 @@ class NullReferenceException(ExceptionBase):
         pass
 
 
-NullReferenceException_reflection = _expr185
+NullReferenceException_reflection = _expr186
 
 
 def NullReferenceException__ctor_Z721C83C5(message: str) -> NullReferenceException:
@@ -274,7 +274,7 @@ def NullReferenceException__ctor(__unit: Unit = UNIT) -> NullReferenceException:
     return NullReferenceException__ctor_Z721C83C5(SR_Arg_NullReferenceException)
 
 
-def _expr186() -> TypeInfo:
+def _expr187() -> TypeInfo:
     return class_type("System.OutOfMemoryException", None, OutOfMemoryException, class_type("System.Exception"))
 
 
@@ -284,7 +284,7 @@ class OutOfMemoryException(MemoryErrorBase):
         pass
 
 
-OutOfMemoryException_reflection = _expr186
+OutOfMemoryException_reflection = _expr187
 
 
 def OutOfMemoryException__ctor_Z721C83C5(message: str) -> OutOfMemoryException:
@@ -295,7 +295,7 @@ def OutOfMemoryException__ctor(__unit: Unit = UNIT) -> OutOfMemoryException:
     return OutOfMemoryException__ctor_Z721C83C5(SR_Arg_OutOfMemoryException)
 
 
-def _expr187() -> TypeInfo:
+def _expr188() -> TypeInfo:
     return class_type("System.OverflowException", None, OverflowException, class_type("System.Exception"))
 
 
@@ -305,7 +305,7 @@ class OverflowException(OverflowErrorBase):
         pass
 
 
-OverflowException_reflection = _expr187
+OverflowException_reflection = _expr188
 
 
 def OverflowException__ctor_Z721C83C5(message: str) -> OverflowException:
@@ -316,7 +316,7 @@ def OverflowException__ctor(__unit: Unit = UNIT) -> OverflowException:
     return OverflowException__ctor_Z721C83C5(SR_Arg_OverflowException)
 
 
-def _expr188() -> TypeInfo:
+def _expr189() -> TypeInfo:
     return class_type("System.RankException", None, RankException, class_type("System.Exception"))
 
 
@@ -326,7 +326,7 @@ class RankException(ExceptionBase):
         pass
 
 
-RankException_reflection = _expr188
+RankException_reflection = _expr189
 
 
 def RankException__ctor_Z721C83C5(message: str) -> RankException:
@@ -337,7 +337,7 @@ def RankException__ctor(__unit: Unit = UNIT) -> RankException:
     return RankException__ctor_Z721C83C5(SR_Arg_RankException)
 
 
-def _expr189() -> TypeInfo:
+def _expr190() -> TypeInfo:
     return class_type("System.StackOverflowException", None, StackOverflowException, class_type("System.Exception"))
 
 
@@ -347,7 +347,7 @@ class StackOverflowException(ExceptionBase):
         pass
 
 
-StackOverflowException_reflection = _expr189
+StackOverflowException_reflection = _expr190
 
 
 def StackOverflowException__ctor_Z721C83C5(message: str) -> StackOverflowException:
@@ -358,7 +358,7 @@ def StackOverflowException__ctor(__unit: Unit = UNIT) -> StackOverflowException:
     return StackOverflowException__ctor_Z721C83C5(SR_Arg_StackOverflowException)
 
 
-def _expr190() -> TypeInfo:
+def _expr191() -> TypeInfo:
     return class_type("System.TimeoutException", None, TimeoutException, class_type("System.Exception"))
 
 
@@ -368,7 +368,7 @@ class TimeoutException(TimeoutErrorBase):
         pass
 
 
-TimeoutException_reflection = _expr190
+TimeoutException_reflection = _expr191
 
 
 def TimeoutException__ctor_Z721C83C5(message: str) -> TimeoutException:
@@ -379,7 +379,7 @@ def TimeoutException__ctor(__unit: Unit = UNIT) -> TimeoutException:
     return TimeoutException__ctor_Z721C83C5(SR_Arg_TimeoutException)
 
 
-def _expr191() -> TypeInfo:
+def _expr192() -> TypeInfo:
     return class_type("System.ArgumentException", None, ArgumentException, class_type("System.Exception"))
 
 
@@ -392,7 +392,7 @@ class ArgumentException(ValueErrorBase):
         self.param_name: str = param_name
 
 
-ArgumentException_reflection = _expr191
+ArgumentException_reflection = _expr192
 
 
 def ArgumentException__ctor_Z60A2B367(message: str, param_name: str, inner_exception: Exception) -> ArgumentException:
@@ -419,7 +419,7 @@ def ArgumentException__get_ParamName(_: ArgumentException) -> str:
     return _.param_name
 
 
-def _expr192() -> TypeInfo:
+def _expr194() -> TypeInfo:
     return class_type("System.ArgumentNullException", None, ArgumentNullException, ArgumentException_reflection())
 
 
@@ -429,7 +429,7 @@ class ArgumentNullException(ArgumentException):
         pass
 
 
-ArgumentNullException_reflection = _expr192
+ArgumentNullException_reflection = _expr194
 
 
 def ArgumentNullException__ctor_Z384F8060(param_name: str, message: str) -> ArgumentNullException:
@@ -444,7 +444,7 @@ def ArgumentNullException__ctor(__unit: Unit = UNIT) -> ArgumentNullException:
     return ArgumentNullException__ctor_Z721C83C5("")
 
 
-def _expr193() -> TypeInfo:
+def _expr195() -> TypeInfo:
     return class_type(
         "System.ArgumentOutOfRangeException", None, ArgumentOutOfRangeException, ArgumentException_reflection()
     )
@@ -456,7 +456,7 @@ class ArgumentOutOfRangeException(ArgumentException):
         pass
 
 
-ArgumentOutOfRangeException_reflection = _expr193
+ArgumentOutOfRangeException_reflection = _expr195
 
 
 def ArgumentOutOfRangeException__ctor_Z384F8060(param_name: str, message: str) -> ArgumentOutOfRangeException:

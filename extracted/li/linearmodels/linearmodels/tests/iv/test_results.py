@@ -1,7 +1,7 @@
 from numpy import asarray
 from numpy.testing import assert_allclose
 from pandas import DataFrame
-from pandas.testing import assert_series_equal
+from pandas.testing import assert_frame_equal, assert_series_equal
 import pytest
 
 from linearmodels.iv.data import IVData
@@ -34,9 +34,12 @@ def result_checker(res):
             _attr()
         else:
             assert isinstance(_attr, object)
-            str(_attr)
+            assert isinstance(str(_attr), str)
 
 
+# IVGMM and IVGMMCUE warn about the default bandwidth of the kernel
+# covariance, which is tested in test_gmm_kernel_bandwidth.py, so the bandwidth
+# is given
 def test_results(data, model):
     mod = model(data.dep, data.exog, data.endog, data.instr)
     # OLS-like results
@@ -44,7 +47,7 @@ def test_results(data, model):
 
     result_checker(mod.fit(cov_type="unadjusted"))
     result_checker(mod.fit(cov_type="robust"))
-    result_checker(mod.fit(cov_type="kernel"))
+    result_checker(mod.fit(cov_type="kernel", bandwidth=5))
     result_checker(mod.fit(cov_type="clustered", clusters=data.clusters))
 
 
@@ -52,7 +55,7 @@ def test_results_single(data, model):
     mod = model(data.dep, data.exog[:, 0], data.endog[:, 0], data.instr[:, 0])
     result_checker(mod.fit(cov_type="unadjusted"))
     result_checker(mod.fit(cov_type="robust"))
-    result_checker(mod.fit(cov_type="kernel"))
+    result_checker(mod.fit(cov_type="kernel", bandwidth=5))
     result_checker(mod.fit(cov_type="clustered", clusters=data.clusters))
 
 
@@ -60,7 +63,7 @@ def test_results_no_exog(data, model):
     mod = model(data.dep, None, data.endog[:, 0], data.instr[:, 0])
     result_checker(mod.fit(cov_type="unadjusted"))
     result_checker(mod.fit(cov_type="robust"))
-    result_checker(mod.fit(cov_type="kernel"))
+    result_checker(mod.fit(cov_type="kernel", bandwidth=5))
     result_checker(mod.fit(cov_type="clustered", clusters=data.clusters))
 
 
@@ -96,3 +99,36 @@ def test_predict_no_selection(data, model):
     res = mod.fit()
     with pytest.raises(ValueError, match=r"At least one output must be selected"):
         res.predict(fitted=False, idiosyncratic=False, missing=True)
+
+
+@pytest.mark.parametrize("include_vars", ["exog", "both", "endog"])
+def test_fitted_predict_combinations(data, model, include_vars):
+    args = (data.dep,)
+    if include_vars in ("exog", "both"):
+        args += (data.exog,)
+    else:
+        args += (None,)
+    if include_vars in ("endog", "both"):
+        args += (data.endog, data.instr)
+    else:
+        args += (None, None)
+
+    mod = model(*args)
+    res = mod.fit()
+    assert_series_equal(res.idiosyncratic, res.resids)
+    y = mod.dependent.pandas
+    expected = asarray(y) - asarray(res.resids)[:, None]
+    expected = DataFrame(expected, y.index, ["fitted_values"])
+    assert_frame_similar(expected, res.fitted_values)
+    assert_allclose(expected, res.fitted_values)
+    pred = res.predict()
+    pred2 = res.predict(exog=args[1], endog=args[2])
+    pred2.columns = pred.columns
+    assert_frame_equal(pred, pred2)
+    nobs = res.resids.shape[0]
+    assert isinstance(pred, DataFrame)
+    assert pred.shape == (nobs, 1)
+    pred = res.predict(idiosyncratic=True, missing=True)
+    nobs = IVData(data.dep).pandas.shape[0]
+    assert pred.shape == (nobs, 2)
+    assert list(pred.columns) == ["fitted_values", "residual"]

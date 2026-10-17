@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,11 +15,14 @@
 #
 # ****************************************************************************
 
+"""Gcovr Markdown report."""
+
 from typing import Any
 
 from jinja2 import (
     Environment,
     PackageLoader,
+    StrictUndefined,
 )
 
 from ...data_model.container import CoverageContainer
@@ -42,13 +43,14 @@ def templates() -> Environment:
         autoescape=True,
         trim_blocks=True,
         lstrip_blocks=True,
+        undefined=StrictUndefined,
     )
 
 
 def write_report(
     covdata: CoverageContainer, output_file: str, options: Options
 ) -> None:
-    """Produce the gcovr report in markdown."""
+    """Produce the gcovr report in Markdown."""
     data = {
         "title": options.markdown_title,
         "heading_level": options.markdown_heading_level,
@@ -56,15 +58,16 @@ def write_report(
         "summary": _summary_from_stats(covdata.stats, options),
     }
 
-    sorted_keys = covdata.sort_coverage(
+    filecov_list = covdata.sorted_filecov(
         sort_key=options.sort_key,
         sort_reverse=options.sort_reverse,
         by_metric="branch" if options.sort_branches else "line",
+        recurse=True,
     )
     data["entries"] = list[dict[str, Any]]()
-    for key in sorted_keys:
-        summary = _summary_from_stats(covdata[key].stats, options)
-        summary["filename"] = covdata[key].presentable_filename(options.root_filter)
+    for filecov in filecov_list:
+        summary = _summary_from_stats(filecov.stats, options)
+        summary["filename"] = filecov.presentable_filename(options.root_filter)
         data["entries"].append(summary)
 
     markdown_string = templates().get_template("report_template.md.j2").render(**data)
@@ -76,7 +79,7 @@ def write_report(
 def write_summary_report(
     covdata: CoverageContainer, output_file: str, options: Options
 ) -> None:
-    """Produce the gcovr summary report in markdown."""
+    """Produce the gcovr summary report in Markdown."""
     data = {
         "title": options.markdown_title,
         "heading_level": options.markdown_heading_level,

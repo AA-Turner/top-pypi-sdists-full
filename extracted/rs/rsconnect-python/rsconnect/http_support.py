@@ -10,10 +10,12 @@ import os
 import re
 import socket
 import ssl
+import threading
+import time
 from http import client as http
 from http.cookies import SimpleCookie
 from typing import IO, Any, Dict, List, Mapping, Optional, Tuple, Union, cast
-from urllib.parse import urlencode, urljoin, urlparse
+from urllib.parse import unquote_plus, urlencode, urljoin, urlparse
 from warnings import warn
 
 from . import VERSION
@@ -49,6 +51,7 @@ _SENSITIVE_HEADERS = {
     "x-auth-token",
     "x-auth-signature",
     "x-rsc-authorization",
+    "location",
 }
 _SENSITIVE_FIELDS = (
     "client_secret",
@@ -70,6 +73,8 @@ _SENSITIVE_FIELDS = (
     "subject_token",
     # PKCE (RFC 7636).
     "code_verifier",
+    "error_description",
+    "user_code",
     # The bootstrap response body carries a freshly minted admin API key.
     "api_key",
     "id_token",
@@ -80,6 +85,7 @@ _SENSITIVE_FIELD_SET = frozenset(_SENSITIVE_FIELDS)
 # redaction: in JSON bodies a bare "code" key is an error code (Connect,
 # shinyapps.io), which the debug log must keep readable.
 _SENSITIVE_FORM_ONLY_FIELDS = _SENSITIVE_FIELDS + ("code",)
+_SENSITIVE_QUERY_FIELDS = frozenset(_SENSITIVE_FORM_ONLY_FIELDS)
 _SENSITIVE_FORM_FIELD = re.compile(r"\b(%s)=[^&\s'\"]*" % "|".join(_SENSITIVE_FORM_ONLY_FIELDS), re.IGNORECASE)
 _SENSITIVE_JSON_FIELD = re.compile(r'"(%s)"\s*:\s*"[^"]*"' % "|".join(_SENSITIVE_FIELDS), re.IGNORECASE)
 
@@ -94,8 +100,26 @@ def _redacted_header_for_log(key: str, value: str) -> str:
 
 
 def _redacted_uri_for_log(uri: str) -> str:
-    """Redact credential-bearing query parameters, e.g. a presigned upload URL's."""
-    return _SENSITIVE_FORM_FIELD.sub(r"\1=<redacted>", uri)
+    """Redact credential fields in query strings and OAuth-style fragments."""
+    uri = _SENSITIVE_FORM_FIELD.sub(r"\1=<redacted>", uri)
+    before_fragment, fragment_marker, fragment = uri.partition("#")
+    suffix = fragment_marker + _redacted_query_for_log(fragment) if fragment_marker else ""
+    path, query_marker, query = before_fragment.partition("?")
+    if not query_marker:
+        return before_fragment + suffix
+    return path + query_marker + _redacted_query_for_log(query) + suffix
+
+
+def _redacted_query_for_log(query: str) -> str:
+    """Redact sensitive query values while preserving parameter spelling and order."""
+    parameters: list[str] = []
+    for parameter in query.split("&"):
+        name, separator, _ = parameter.partition("=")
+        if separator and unquote_plus(name).casefold() in _SENSITIVE_QUERY_FIELDS:
+            parameters.append(name + "=<redacted>")
+        else:
+            parameters.append(parameter)
+    return "&".join(parameters)
 
 
 def _redact_json_value(value: JsonData) -> JsonData:
@@ -119,8 +143,8 @@ def _redacted_body_for_log(body: object) -> object:
     Only affects what is logged; the body itself is sent untouched. Streams and
     other non-text bodies are logged as their repr, which carries no content.
     JSON bodies are parsed and redacted structurally, since a secret containing
-    an escaped quote would leak past a regex; everything else falls back to the
-    form-encoded pattern.
+    an escaped quote would leak past a regex. Malformed JSON is logged as a
+    placeholder instead of falling back to patterns that may miss escaped data.
     """
     if isinstance(body, bytes):
         text = body.decode("utf-8", errors="replace")
@@ -134,7 +158,7 @@ def _redacted_body_for_log(body: object) -> object:
         try:
             return json.dumps(_redact_json_value(json.loads(text)))
         except (json.JSONDecodeError, ValueError):
-            pass
+            return "<invalid JSON>"
 
     text = _SENSITIVE_FORM_FIELD.sub(r"\1=<redacted>", text)
     return _SENSITIVE_JSON_FIELD.sub(r'"\1": "<redacted>"', text)
@@ -314,6 +338,28 @@ def create_multipart_form_data(
     return body, content_type
 
 
+def _interrupt_socket(sock: Optional[socket.socket]) -> None:
+    if sock is not None:
+        try:
+            sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+
+
+def _close_failed_request(
+    connection: Union[http.HTTPConnection, http.HTTPSConnection], response: Optional[http.HTTPResponse]
+) -> None:
+    if response is not None:
+        try:
+            response.close()
+        except OSError:
+            pass
+    try:
+        connection.close()
+    except OSError:
+        pass
+
+
 class HTTPResponse(object):
     """
     This class represents the result of executing an HTTP request.
@@ -387,6 +433,8 @@ class HTTPServer(object):
         disable_tls_check: bool = False,
         ca_data: Optional[str | bytes] = None,
         cookies: Optional[CookieJar] = None,
+        request_timeout: Optional[float] = None,
+        request_deadline: Optional[float] = None,
     ):
         """
         Constructs an HTTPServer object.
@@ -399,6 +447,9 @@ class HTTPServer(object):
         certificates.
         :param cookies: an optional cookie jar.  Must be of type `CookieJar` defined in this
         same file (i.e., not the one Python provides).
+        :param request_timeout: an optional socket timeout for this client, in seconds.
+        :param request_deadline: an optional absolute time.monotonic() deadline across requests.
+            When omitted, CONNECT_REQUEST_TIMEOUT supplies the timeout.
         """
         self._url = urlparse(url)
 
@@ -410,6 +461,9 @@ class HTTPServer(object):
         self._cookies = cookies if cookies is not None else CookieJar()
         self._headers = {"User-Agent": _user_agent}
         self._conn = None
+        self.request_timeout = request_timeout
+        self.request_deadline = request_deadline
+        self._suppress_oauth_response_logging = False
         self._proxy_headers = _get_proxy_headers()
 
         self._inject_cookies()
@@ -446,6 +500,8 @@ class HTTPServer(object):
             self._disable_tls_check,
             self._ca_data,
         )
+        if self.request_timeout is not None:
+            self._conn.timeout = self.request_timeout
         return self
 
     def __exit__(self, *args: object):
@@ -524,6 +580,115 @@ class HTTPServer(object):
     def get_extra_headers(self, url: str, method: str, body: str | bytes | IO[bytes] | None) -> dict[str, str]:
         return {}
 
+    def _apply_request_deadline(self) -> None:
+        if self.request_deadline is None:
+            return
+        remaining = self.request_deadline - time.monotonic()
+        if remaining <= 0:
+            raise socket.timeout("HTTP request deadline exceeded.")
+        timeout = self.request_timeout if self.request_timeout is not None else get_request_timeout()
+        self.request_timeout = min(timeout, remaining) if timeout else remaining
+        if self._conn is not None:
+            self._conn.timeout = self.request_timeout
+            if self._conn.sock is not None:
+                self._conn.sock.settimeout(self.request_timeout)
+
+    def _request_with_deadline(
+        self,
+        connection: Union[http.HTTPConnection, http.HTTPSConnection],
+        method: str,
+        full_uri: str,
+        body: str | bytes | IO[bytes] | None,
+        headers: dict[str, str],
+    ) -> Tuple[http.HTTPResponse, bytes]:
+        deadline = self.request_deadline
+        if deadline is None:
+            connection.request(method, full_uri, body, headers)
+            response = connection.getresponse()
+            return response, response.read()
+
+        self._apply_request_deadline()
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise socket.timeout("HTTP request deadline exceeded.")
+
+        # ponytail: shutdown cannot cancel OS DNS or blocked source reads; revisit if either must fit this deadline.
+        request_socket = connection.sock
+        request_completed = False
+        request_lock = threading.Lock()
+
+        def interrupt_request() -> None:
+            with request_lock:
+                if not request_completed:
+                    _interrupt_socket(request_socket if request_socket is not None else connection.sock)
+
+        timer = threading.Timer(remaining, interrupt_request)
+        timer.daemon = True
+        timer.start()
+        response: Optional[http.HTTPResponse] = None
+        try:
+            connection.request(method, full_uri, body, headers)
+            with request_lock:
+                request_socket = connection.sock or request_socket
+                if time.monotonic() >= deadline:
+                    raise socket.timeout("HTTP request deadline exceeded.")
+            response = connection.getresponse()
+            with request_lock:
+                if time.monotonic() >= deadline:
+                    raise socket.timeout("HTTP request deadline exceeded.")
+            response_body = response.read()
+            with request_lock:
+                # A complete token response must reach its checkpoint even after the deadline.
+                request_completed = True
+            return response, response_body
+        except Exception:
+            if time.monotonic() >= deadline:
+                raise socket.timeout("HTTP request deadline exceeded.") from None
+            raise
+        finally:
+            timer.cancel()
+            timer.join()
+            if not request_completed:
+                _close_failed_request(connection, response)
+
+    def _log_request(
+        self,
+        method: str,
+        full_uri: str,
+        headers: dict[str, str],
+        body: str | bytes | IO[bytes] | None,
+        suppress_uri_logging: bool,
+    ) -> None:
+        if not logger.is_debugging():
+            return
+        private_uri = suppress_uri_logging or self._suppress_oauth_response_logging
+        logged_uri = "<OAuth endpoint>" if private_uri else _redacted_uri_for_log(full_uri)
+        logger.debug(f"Request: {method} {logged_uri}")
+        logger.debug("Headers:")
+        for key, value in headers.items():
+            logger.debug(f"--> {key}: {_redacted_header_for_log(key, value)}")
+        logger.debug("Body:")
+        logger.debug(f"--> {_redacted_body_for_log(body) if body is not None else '<no body>'}")
+
+    def _log_response(self, response: http.HTTPResponse, response_body: str | bytes) -> None:
+        if not logger.is_debugging():
+            return
+        logger.debug(f"Response: {response.status}")
+        logger.debug("Headers:")
+        if self._suppress_oauth_response_logging:
+            logger.debug("--> <OAuth response headers omitted>")
+        else:
+            for key, value in response.getheaders():
+                logger.debug(f"--> {key}: {_redacted_header_for_log(key, value)}")
+        logger.debug("Body:")
+        if self._suppress_oauth_response_logging:
+            logger.debug("--> <OAuth response body omitted>")
+        elif response.getheader("Content-Type", "").startswith("application/json"):
+            # Only print JSON responses. Otherwise we end up dumping entire web pages to the log.
+            logger.debug(f"--> {_redacted_body_for_log(response_body)}")
+        else:
+            logger.debug("--> <non-json-response>")
+
     def _do_request(
         self,
         method: str,
@@ -533,6 +698,7 @@ class HTTPServer(object):
         maximum_redirects: int,
         extra_headers: dict[str, str],
         decode_response: bool = True,
+        _suppress_uri_logging: bool = False,
     ) -> JsonData | HTTPResponse:
         full_uri = path
         if query_params is not None:
@@ -545,13 +711,8 @@ class HTTPServer(object):
         local_connection = False
 
         try:
-            if logger.is_debugging():
-                logger.debug(f"Request: {method} {_redacted_uri_for_log(full_uri)}")
-                logger.debug("Headers:")
-                for key, value in headers.items():
-                    logger.debug(f"--> {key}: {_redacted_header_for_log(key, value)}")
-                logger.debug("Body:")
-                logger.debug(f"--> {_redacted_body_for_log(body) if body is not None else '<no body>'}")
+            self._apply_request_deadline()
+            self._log_request(method, full_uri, headers, body, _suppress_uri_logging)
 
             # if we weren't called under a `with` statement, we'll need to manage the
             # connection here.
@@ -563,62 +724,23 @@ class HTTPServer(object):
             conn = cast(Union[http.HTTPConnection, http.HTTPSConnection], self._conn)
 
             try:
-                conn.request(method, full_uri, body, headers)
-
-                response = conn.getresponse()
-                response_body = response.read()
+                response, response_body = self._request_with_deadline(conn, method, full_uri, body, headers)
                 if decode_response:
                     response_body = response_body.decode("utf-8").strip()
 
-                if logger.is_debugging():
-                    logger.debug(f"Response: {response.status} {response.reason}")
-                    logger.debug("Headers:")
-                    for key, value in response.getheaders():
-                        logger.debug(f"--> {key}: {_redacted_header_for_log(key, value)}")
-                    logger.debug("Body:")
-                    if response.getheader("Content-Type", "").startswith("application/json"):
-                        # Only print JSON responses.
-                        # Otherwise we end up dumping entire web pages to the log.
-                        try:
-                            logger.debug(f"--> {_redacted_body_for_log(response_body)}")
-                        except json.JSONDecodeError:
-                            logger.debug("--> <invalid JSON>")
-                    else:
-                        logger.debug("--> <non-json-response>")
+                self._log_response(response, response_body)
             finally:
                 if local_connection:
                     self.__exit__()
 
             # Handle any redirects.
             if 300 <= response.status < 400:
-                if maximum_redirects == 0:
-                    raise http.CannotSendRequest("Too many redirects")
-
-                location = response.getheader("Location")
-
-                if location is None:
-                    raise http.CannotSendRequest("Redirect response missing Location header")
-
-                # Assume the redirect location will always be on the same domain.
-                if location.startswith("http"):
-                    parsed_location = urlparse(location)
-                    if parsed_location.query:
-                        next_url = f"{parsed_location.path}?{parsed_location.query}"
-                    else:
-                        next_url = parsed_location.path
-                else:
-                    next_url = location
-
-                logger.debug(f"--> Redirected to: {_redacted_uri_for_log(urljoin(self._url.geturl(), location))}")
-
-                redirect_extra_headers = self.get_extra_headers(next_url, "GET", body)
-                return self._do_request(
-                    "GET",
-                    next_url,
+                return self._follow_redirect(
+                    response,
                     query_params,
                     body,
-                    maximum_redirects - 1,
-                    {**extra_headers, **redirect_extra_headers},
+                    maximum_redirects,
+                    extra_headers,
                 )
 
             self._handle_set_cookie(response)
@@ -634,20 +756,68 @@ class HTTPServer(object):
             socket.gaierror,
             socket.timeout,
         ) as exception:
-            logger.debug("An exception occurred processing the HTTP request.", exc_info=True)
+            logger.debug("An exception occurred processing the HTTP request (%s)." % type(exception).__name__)
             return HTTPResponse(full_uri, exception=exception)
+
+    def _follow_redirect(
+        self,
+        response: http.HTTPResponse,
+        query_params: Optional[Mapping[str, JsonData]],
+        body: str | bytes | IO[bytes] | None,
+        maximum_redirects: int,
+        extra_headers: dict[str, str],
+    ) -> JsonData | HTTPResponse:
+        if maximum_redirects == 0:
+            raise http.CannotSendRequest("Too many redirects")
+
+        location = response.getheader("Location")
+        if location is None:
+            raise http.CannotSendRequest("Redirect response missing Location header")
+
+        # Assume the redirect location will always be on the same domain.
+        if location.startswith("http"):
+            parsed_location = urlparse(location)
+            if parsed_location.query:
+                next_url = f"{parsed_location.path}?{parsed_location.query}"
+            else:
+                next_url = parsed_location.path
+        else:
+            next_url = location
+
+        if self._suppress_oauth_response_logging:
+            logger.debug("--> Following HTTP redirect")
+        else:
+            logger.debug(f"--> Redirected to: {_redacted_uri_for_log(urljoin(self._url.geturl(), location))}")
+
+        redirect_extra_headers = self.get_extra_headers(next_url, "GET", body)
+        return self._do_request(
+            "GET",
+            next_url,
+            query_params,
+            body,
+            maximum_redirects - 1,
+            {**extra_headers, **redirect_extra_headers},
+            _suppress_uri_logging=self._suppress_oauth_response_logging,
+        )
 
     # noinspection PyMethodMayBeStatic
     def _tweak_response(self, response: HTTPResponse) -> JsonData | HTTPResponse:
         return response
 
     def _handle_set_cookie(self, response: http.HTTPResponse):
-        self._cookies.store_cookies(response)
+        if self._suppress_oauth_response_logging:
+            self._cookies.store_cookies(response, suppress_logs=True)
+        else:
+            self._cookies.store_cookies(response)
         self._inject_cookies()
 
     def _inject_cookies(self):
         if len(self._cookies) > 0:
-            self._headers["Cookie"] = self._cookies.get_cookie_header_value()
+            self._headers["Cookie"] = (
+                self._cookies.get_cookie_header_value(suppress_logs=True)
+                if self._suppress_oauth_response_logging
+                else self._cookies.get_cookie_header_value()
+            )
         elif "Cookie" in self._headers:
             del self._headers["Cookie"]
 
@@ -725,7 +895,7 @@ class CookieJar(object):
         self._content: dict[str, str] = {}
         self._reference = SimpleCookie()
 
-    def store_cookies(self, response: http.HTTPResponse):
+    def store_cookies(self, response: http.HTTPResponse, *, suppress_logs: bool = False):
         headers = filter(lambda h: h[0].lower() == "set-cookie", response.getheaders())
 
         for header in headers:
@@ -734,14 +904,14 @@ class CookieJar(object):
                 if morsel.key not in self._keys:
                     self._keys.append(morsel.key)
                 self._content[morsel.key] = morsel.value
-                # Cookies are session credentials; names only, like the header log.
-                logger.debug(f"--> Set cookie {morsel.key}: <redacted>")
 
-        logger.debug(f"CookieJar contents: {self._keys}")
+        if not suppress_logs:
+            logger.debug("CookieJar contains %d cookie(s).", len(self._keys))
 
-    def get_cookie_header_value(self):
+    def get_cookie_header_value(self, *, suppress_logs: bool = False):
         result = "; ".join([f"{key}={self._reference.value_encode(self._content[key])[1]}" for key in self._keys])
-        logger.debug(f"Cookie: {'; '.join(f'{key}=<redacted>' for key in self._keys)}")
+        if not suppress_logs:
+            logger.debug("Sending Cookie header with %d cookie(s).", len(self._keys))
         return result
 
     def as_dict(self):

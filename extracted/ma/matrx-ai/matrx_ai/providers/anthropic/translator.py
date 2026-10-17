@@ -23,7 +23,13 @@ from matrx_ai.config.tool_result_guard import (
     report_tool_result_duplicates,
 )
 from matrx_ai.providers.base_translator import BaseTranslator
+from matrx_ai.config.cache_marks import (
+    MAX_ANTHROPIC_CACHE_MARKS,
+    cache_control,
+    long_cache_note,
+)
 from matrx_ai.providers.cache_guard import PROMPT_CACHING_ENABLED
+from matrx_ai.providers.request_capture import note_capture
 from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 from matrx_ai.providers.structured_output_findings import response_format_identity
 
@@ -37,6 +43,8 @@ from matrx_ai.providers.structured_output_findings import response_format_identi
 
 class AnthropicTranslator(BaseTranslator):
     """Translates between unified format and Anthropic Messages API"""
+
+    TURN_CONTEXT_AFTER_CACHE_LINE = True
 
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)
@@ -65,20 +73,28 @@ class AnthropicTranslator(BaseTranslator):
         messages = []
         from matrx_ai.config.message_flags import flags_of
 
-        # Message FLAGS: a `cache_boundary` message gets a breakpoint on its last
-        # cacheable block; a trailing `prefill` assistant turn is sent AS the
-        # prefill (the dispatch gate already refused / converted it for a model
-        # without the `assistant_prefill` capability).
-        boundary_blocks: list[dict[str, Any]] = []
+        # Message FLAGS: a trailing `prefill` assistant turn is sent AS the prefill
+        # (the dispatch gate already refused / converted it for a model without the
+        # `assistant_prefill` capability). Cache marks are the platform's alone
+        # (config/cache_marks.py): system, end of the authored template, rolling.
+        from matrx_ai.config.cache_marks import template_mark_index
+
+        long_cache = bool(getattr(config, "extended_prompt_cache", False))
+        template_block: dict[str, Any] | None = None
         trailing_prefill = False
-        wire_messages = list(config.messages)
+        # A history system message (kept in place as data) has no Anthropic role: it goes
+        # in place as a marked note in the user turn — never dropped, never filled.
+        from matrx_ai.providers.system_notes import history_system_messages_as_notes
+
+        wire_messages = history_system_messages_as_notes(config.messages, provider="anthropic")
+        template_position = template_mark_index(wire_messages) if PROMPT_CACHING_ENABLED else None
         for position, msg in enumerate(wire_messages):
             message_content = msg.to_anthropic_blocks()
             flags = flags_of(msg)
-            if message_content and flags.get("cache_boundary") and PROMPT_CACHING_ENABLED:
-                marked = self._mark_blocks_cacheable(message_content)
-                if marked is not None:
-                    boundary_blocks.append(marked)
+            if message_content and position == template_position:
+                # TEMPLATE MARK: the end of the authored messages the fill left unchanged —
+                # few-shot pairs and fixed turns cache across runs that differ only in input.
+                template_block = self._mark_blocks_cacheable(message_content, long=long_cache)
             if position == len(wire_messages) - 1 and flags.get("prefill") and msg.role == "assistant":
                 trailing_prefill = True
 
@@ -224,11 +240,15 @@ class AnthropicTranslator(BaseTranslator):
             "messages": messages,
         }
 
-        # The system channel is sent in TWO parts so the per-turn context block
-        # can ride it without costing a prompt cache: the stable instruction
-        # carries the cache breakpoint, the per-turn block follows it uncached.
+        # 🚨 THE CACHE LINE LAW (Arman, 2026-10-16): the system channel is the
+        # frozen prompt ALONE. The per-turn context block used to ride here as a
+        # second, "uncached" system block — but Anthropic's prefix order is
+        # tools -> system -> messages, so a system block that changes every turn
+        # sits IN FRONT of the whole cached history and invalidated it on every
+        # turn (conversation 3787dd66 read 53,807 tokens and re-wrote 49k-150k
+        # of history per turn). It now rides after the rolling breakpoint, on
+        # the newest user-role message, as its own block (see TRAILING below).
         system_text = self.get_stable_system_text(config)
-        turn_context_text = self.get_turn_context_text(config)
         all_tools = self.build_provider_tools(config, "anthropic")
         if config.internal_web_search and not any(
             isinstance(tool, dict) and tool.get("type") == "web_search_20250305"
@@ -268,52 +288,69 @@ class AnthropicTranslator(BaseTranslator):
                     {
                         "type": "text",
                         "text": system_text,
-                        "cache_control": {"type": "ephemeral"},
+                        "cache_control": cache_control(long=long_cache),
                     }
                 ]
-                if turn_context_text:
-                    # AFTER the breakpoint, deliberately uncached: this block is
-                    # rebuilt every turn, so caching it would invalidate the
-                    # prefix on every single call.
-                    system_blocks.append({"type": "text", "text": turn_context_text})
                 anthropic_request["system"] = system_blocks
                 if all_tools:
                     anthropic_request["tools"] = all_tools
             elif all_tools:
                 # No system prompt — put the static-prefix breakpoint on the
                 # last tool so the tools block still caches.
-                all_tools = self._mark_last_tool_cacheable(all_tools)
+                all_tools = self._mark_last_tool_cacheable(all_tools, long=long_cache)
                 anthropic_request["tools"] = all_tools
-            if not system_text and turn_context_text:
-                anthropic_request["system"] = [{"type": "text", "text": turn_context_text}]
             # Rolling breakpoint on the last message → incremental history cache.
             # With a trailing prefill the rolling breakpoint sits on the turn
             # before it (the prefill is not history that will be replayed).
             self._mark_last_message_cacheable(messages[:-1] if trailing_prefill else messages)
-            # Anthropic allows at most 4 breakpoints per request. System (or last
-            # tool) + rolling take up to 2; authored boundaries keep the LATEST
-            # ones (a later boundary's prefix covers every earlier one).
-            self._enforce_breakpoint_ceiling(anthropic_request, messages, boundary_blocks)
+            # Anthropic allows at most 4 marks per request; the platform places at
+            # most 3 (system, template, rolling). Anything past 4 (a mark that rode in
+            # on a content block) is dropped LOUDLY, never silently.
+            self._enforce_breakpoint_ceiling(anthropic_request, messages, template_block)
+            if long_cache:
+                note_capture(
+                    long_cache_note(
+                        "anthropic",
+                        config.model,
+                        applied='the system and template cache marks are kept for 1 hour '
+                        '(ttl "1h"); the rolling history mark stays at 5 minutes',
+                    )
+                )
         else:
-            joined_system = "\n\n".join(p for p in (system_text, turn_context_text) if p)
-            if joined_system:
-                anthropic_request["system"] = joined_system
+            if system_text:
+                anthropic_request["system"] = system_text
             if all_tools:
                 anthropic_request["tools"] = all_tools
 
-        # TAIL CHANNEL (config/live_plan.py): appended AFTER the rolling
-        # breakpoint was placed, so it is a separate, uncached text block after
-        # the newest tool_result — the cached prefix ends exactly where the last
-        # request's did, and the block sits where the model is looking.
-        tail_text = self.get_tail_context_text(config)
-        if (
-            tail_text
-            and not trailing_prefill
-            and messages
-            and messages[-1]["role"] == "user"
-            and isinstance(messages[-1].get("content"), list)
-        ):
-            messages[-1]["content"].append({"type": "text", "text": tail_text})
+        # TRAILING CHANNEL — this turn's context block, then the tail channel
+        # (config/live_plan.py). Appended AFTER the rolling breakpoint was
+        # placed, as separate, uncached text blocks on the newest user-role
+        # message (the person's turn, or the newest tool_result mid-loop) —
+        # never concatenated into an existing block. The cached prefix ends
+        # exactly where the last request's did, so the next turn reads it.
+        trailing_text = self.get_trailing_context_text(config)
+        if trailing_text:
+            anchor = messages[-2] if trailing_prefill and len(messages) >= 2 else (
+                None if trailing_prefill else (messages[-1] if messages else None)
+            )
+            if anchor is not None and anchor.get("role") == "user":
+                if isinstance(anchor.get("content"), str):
+                    anchor["content"] = [{"type": "text", "text": anchor["content"]}]
+                if isinstance(anchor.get("content"), list):
+                    anchor["content"].append({"type": "text", "text": trailing_text})
+                    anchor = "placed"
+            if anchor != "placed":
+                # No user-role message to carry it (an empty conversation): there
+                # is no cached history to protect, so the system channel is safe.
+                fallback = self.get_turn_context_text(config)
+                if fallback:
+                    system = anthropic_request.get("system")
+                    if isinstance(system, list):
+                        system.append({"type": "text", "text": fallback})
+                    elif isinstance(system, str) and system:
+                        anthropic_request["system"] = f"{system}\n\n{fallback}"
+                    else:
+                        anthropic_request["system"] = [{"type": "text", "text": fallback}]
 
         # vcprint("\n================\n\nREMOVE THIS: Adding fake uuids to cause failures for testing", color="red")
         # anthropic_request["tools"] = ["9935dadd-2afc-41db-aeac-fc15ee842812", "2b0f6a3a-4cdb-40cb-9063-4c12d6c097f5"]
@@ -370,30 +407,33 @@ class AnthropicTranslator(BaseTranslator):
     # content-block dicts shared across calls. Mutating them in place would
     # poison those caches for every future request.
 
-    _CACHE_CONTROL_EPHEMERAL = {"type": "ephemeral"}
     _NON_CACHEABLE_MESSAGE_BLOCK_TYPES = frozenset({"thinking", "redacted_thinking"})
 
     @classmethod
-    def _mark_last_tool_cacheable(cls, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _mark_last_tool_cacheable(
+        cls, tools: list[dict[str, Any]], *, long: bool = False
+    ) -> list[dict[str, Any]]:
         """Return a copy of ``tools`` with a cache_control breakpoint on the
         last declaration (used only when there is no system prompt to carry it)."""
         if not tools:
             return tools
         out = list(tools)
-        out[-1] = {**out[-1], "cache_control": dict(cls._CACHE_CONTROL_EPHEMERAL)}
+        out[-1] = {**out[-1], "cache_control": cache_control(long=long)}
         return out
 
-    _MAX_CACHE_BREAKPOINTS = 4
+    _MAX_CACHE_BREAKPOINTS = MAX_ANTHROPIC_CACHE_MARKS
 
     @classmethod
-    def _mark_blocks_cacheable(cls, content: list[dict[str, Any]]) -> dict[str, Any] | None:
+    def _mark_blocks_cacheable(
+        cls, content: list[dict[str, Any]], *, long: bool = False
+    ) -> dict[str, Any] | None:
         """Put a breakpoint on the last cacheable block of ONE message's blocks
         (replacing the dict in place in ``content``); returns the marked block."""
         for index in range(len(content) - 1, -1, -1):
             block = content[index]
             if not isinstance(block, dict) or block.get("type") in cls._NON_CACHEABLE_MESSAGE_BLOCK_TYPES:
                 continue
-            content[index] = {**block, "cache_control": dict(cls._CACHE_CONTROL_EPHEMERAL)}
+            content[index] = {**block, "cache_control": cache_control(long=long)}
             return content[index]
         return None
 
@@ -413,41 +453,48 @@ class AnthropicTranslator(BaseTranslator):
         cls,
         request: dict[str, Any],
         messages: list[dict[str, Any]],
-        boundary_blocks: list[dict[str, Any]],
-    ) -> None:
-        """Drop the EARLIEST authored boundaries beyond Anthropic's 4-breakpoint cap, loudly."""
+        template_block: dict[str, Any] | None = None,
+    ) -> int:
+        """Keep at most 4 cache marks, LOUDLY. Returns how many were dropped.
 
-        def _count(blocks: Any) -> int:
-            return sum(
-                1 for b in blocks or [] if isinstance(b, dict) and "cache_control" in b
-            )
+        The platform places at most 3 (system, template, rolling). A 4th+ can only ride in
+        on a content block that already carried ``cache_control``; those are dropped first
+        (earliest first), then the template mark. The system and rolling marks are kept.
+        Every drop is said: console, the Model view's capture notes.
+        """
 
-        total = _count(request.get("system") if isinstance(request.get("system"), list) else [])
-        total += _count(request.get("tools"))
+        def _marked(blocks: Any) -> list[dict[str, Any]]:
+            return [b for b in blocks or [] if isinstance(b, dict) and "cache_control" in b]
+
+        system = request.get("system") if isinstance(request.get("system"), list) else []
+        total = len(_marked(system)) + len(_marked(request.get("tools")))
+        message_marks: list[tuple[list[Any], int]] = []
         for m in messages:
-            total += _count(m.get("content") if isinstance(m.get("content"), list) else [])
+            content = m.get("content") if isinstance(m.get("content"), list) else []
+            for i, b in enumerate(content):
+                if isinstance(b, dict) and "cache_control" in b:
+                    message_marks.append((content, i))
+        total += len(message_marks)
         excess = total - cls._MAX_CACHE_BREAKPOINTS
         if excess <= 0:
-            return
+            return 0
+        rolling = message_marks[-1] if message_marks else None
+        stray = [mm for mm in message_marks[:-1] if mm[0][mm[1]] is not template_block]
+        template = [mm for mm in message_marks[:-1] if mm[0][mm[1]] is template_block]
         dropped = 0
-        for marked in boundary_blocks:
-            if dropped >= excess:
+        for content, i in stray + template:
+            if dropped >= excess or (content, i) == rolling:
                 break
-            for m in messages:
-                content = m.get("content")
-                if not isinstance(content, list):
-                    continue
-                for i, b in enumerate(content):
-                    if b is marked:
-                        content[i] = {k: v for k, v in b.items() if k != "cache_control"}
-                        dropped += 1
-                        break
-        vcprint(
-            f"[message flags] {dropped} earlier cache boundary(ies) not sent — Anthropic "
-            f"allows {cls._MAX_CACHE_BREAKPOINTS} cache breakpoints per request and a later "
-            "boundary already caches everything before it.",
-            color="yellow",
+            content[i] = {k: v for k, v in content[i].items() if k != "cache_control"}
+            dropped += 1
+        note = (
+            f"Cache marks: {total} were placed but Anthropic takes at most "
+            f"{cls._MAX_CACHE_BREAKPOINTS} per request, so the {dropped} earliest message "
+            "mark(s) were not sent. The system and rolling marks were kept."
         )
+        vcprint(note, "[cache marks]", color="red")
+        note_capture(note)
+        return dropped
 
     @classmethod
     def _mark_last_message_cacheable(cls, messages: list[dict[str, Any]]) -> None:
@@ -463,9 +510,11 @@ class AnthropicTranslator(BaseTranslator):
                 continue
             if block.get("type") in cls._NON_CACHEABLE_MESSAGE_BLOCK_TYPES:
                 continue
+            if "cache_control" in block:
+                return  # the template mark already sits here (it may carry the 1h ttl)
             content[index] = {
                 **block,
-                "cache_control": dict(cls._CACHE_CONTROL_EPHEMERAL),
+                "cache_control": cache_control(long=False),
             }
             return
 

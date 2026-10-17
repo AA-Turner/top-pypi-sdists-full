@@ -22,9 +22,7 @@ EXEC_URL = "https://sandbox-router.example.com/sb-123/execute/stream/start"
 
 def sse_response(httpx_mock: HTTPXMock, *events: tuple[str, object]) -> None:
     """Queue an SSE exec stream for the sandbox's start endpoint."""
-    httpx_mock.add_response(
-        method="POST", url=EXEC_URL, content=sse_bytes(*events), headers=SSE_HEADERS
-    )
+    httpx_mock.add_response(method="POST", url=EXEC_URL, content=sse_bytes(*events), headers=SSE_HEADERS)
 
 
 @pytest.fixture(autouse=True)
@@ -239,9 +237,7 @@ class TestSandboxRun:
     """
 
     def test_run_command_success(self, sandbox, httpx_mock: HTTPXMock):
-        sse_response(
-            httpx_mock, started(), ("stdout", out(0, b"hello world\n")), exited(0)
-        )
+        sse_response(httpx_mock, started(), ("stdout", out(0, b"hello world\n")), exited(0))
 
         result = sandbox.run("echo hello world")
 
@@ -267,16 +263,12 @@ class TestSandboxRun:
         """A dial that keeps failing is retried, then reported."""
         import httpx
 
-        httpx_mock.add_exception(
-            httpx.ConnectError("Connection refused"), is_reusable=True
-        )
+        httpx_mock.add_exception(httpx.ConnectError("Connection refused"), is_reusable=True)
 
         with pytest.raises(SandboxConnectionError):
             sandbox.run("echo hello")
 
-    def test_run_starting_sandbox_raises_not_ready(
-        self, sandbox, httpx_mock: HTTPXMock
-    ):
+    def test_run_starting_sandbox_raises_not_ready(self, sandbox, httpx_mock: HTTPXMock):
         """Router startup refusals map to SandboxNotReadyError."""
         httpx_mock.add_response(
             method="POST",
@@ -521,9 +513,7 @@ class TestSandboxContextManager:
         assert len(requests) == 1
         assert requests[0].method == "DELETE"
 
-    def test_no_delete_when_auto_delete_false(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_no_delete_when_auto_delete_false(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test sandbox is not deleted when auto_delete is False."""
         sandbox = Sandbox.from_dict(
             data={
@@ -565,7 +555,5 @@ class TestSandboxService:
 
         result = sb.service(port=3000, expires_in_seconds=1800)
 
-        client.service.assert_called_once_with(
-            "test-sandbox", 3000, expires_in_seconds=1800, headers=None
-        )
+        client.service.assert_called_once_with("test-sandbox", 3000, expires_in_seconds=1800, headers=None)
         assert result is mock_svc

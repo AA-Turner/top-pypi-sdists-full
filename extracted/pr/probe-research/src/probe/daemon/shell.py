@@ -14,7 +14,7 @@ The daemon gets a real `shell(command)` tool. Before anything runs, `classify`
 reads the command as text, in plain code, and returns a `Verdict`:
 
     safe          every piece is on the safe list with allowed options, and every
-                  file it names is inside the working folders: it runs at once
+                  file it names may be read (Files, below): it runs at once
     not safe      anything else: the caller asks the researcher, showing `reason`
     probe_argv    the whole command is one `probe ...` call: the caller sends it to
                   the checks every `probe` command gets; it is never run from here
@@ -41,6 +41,12 @@ check never sees), and so does a word starting with + (shasum, a Perl script,
 reads `+c` as -c).
 `du` without --files0-from, -X / --exclude-from (they read a file), -L -H -D
 --dereference (they follow symlinks out of the folders) or -0 / --null.
+`gzip` and `gunzip` as readers only, with only the options their list holds:
+`gzip -cd` / `gunzip -c` print what they decompress, -l lists, -t tests; a bare
+gzip or gunzip writes a file, `gzip -c` alone compresses (bytes the output
+scrubber can't read), -r reads a whole tree, and a name that is not a file asks
+(gzip would read NAME.gz in its place). `zcat`, the same reader, on Linux only:
+macOS's adds .Z to every name it is given.
 
 How a command is read:
 - It is split on |, &&, ||, ; and newlines, and every piece must pass.
@@ -51,27 +57,66 @@ How a command is read:
   `#` comments, `X=1 cmd`, wrappers that run another command (bash -c, env, sudo,
   xargs, nohup, timeout, ...), a program named by its path (./cat, /bin/cat), and
   a name that PATH resolves to a program inside the working folders.
-- Redirects: `2>&1`-style and `> /dev/null` only; `< file` is checked like any
-  file read. Other writes, heredocs and here-strings are refused, except one form
-  for editing checked-out Probe notes: the whole command is
+- Redirects: `2>&1`-style and `> /dev/null` only; `< file` is checked as a
+  file the program reads. Other writes, heredocs and here-strings are refused,
+  except one form for editing checked-out Probe notes: the whole command is
   `cat > FILE <<'TAG'` (or >>, <<-, "TAG") with a QUOTED delimiter, so bash
   expands nothing in the body, and FILE inside `write_dirs`. The body is data;
   it is never read as commands.
 
 Files. Every argument that could name a file (it has a /, starts with . or ~,
 names something that exists, or is an option's attached value) is resolved the
-way the kernel would (~, the current folder, `cd`, symlinks followed) and must
-land inside a working folder or the starting folder. $HOME, and any folder above
-it, never counts as one. Never allowed, even inside: credential-shaped paths
-(~/.ssh ~/.aws ~/.gnupg ~/.config/gcloud ~/.kube ~/.docker ~/.netrc ~/.pgpass
-~/.git-credentials, Probe's config and key files, anything in `protected`,
-.env* files, *.pem, *.key, id_*), and hidden folders. The one exception is the
+way the kernel would (~, the current folder, `cd`, symlinks followed), and is
+read without a question where:
+- it lands inside a working folder or the starting folder ($HOME, and any
+  folder above it, never counts as one); or
+- the program is a READ program (cat head tail nl wc stat ls find du diff grep
+  rg cut paste sort uniq tr tac numfmt jq, the digests, gzip / gunzip / zcat as
+  readers, and `cd` to a folder they then read), anywhere on the machine, with
+  these exceptions outside the working folders, which ask: a hidden file or
+  folder (any part of its path starting with .); ~/Library, macOS's app data
+  (cookies, mail, messages, keychains); for a content reader, a folder
+  (`rg x DIR`, `cat DIR`: every file in it read) and a name nothing is at;
+  and a walk for names (`find`, `du`, `ls -R`) of a folder that holds $HOME
+  or a credential place (`find ~`, `du -sh /`). Names and metadata of any
+  other tree run (`ls`, `find`, `du`). Commands that read the current folder
+  by themselves follow the same rules: `ls`, `du` and `find` with no name read
+  it as if named (and when a word may be an option's value instead: `ls -R
+  --ig /tmp`, `ls -RaI /tmp` walk it), while `rg` with no path and git need it
+  inside.
+Anywhere, inside the working folders too, a file a content read NAMES (an
+argument or a `<`) must be an ordinary file with one name: a pipe, socket or
+device asks, and so does a file with a second name (a hard link, which
+realpath can't see through to ~/.ssh/id_rsa). A pnpm or uv tree hard-linked
+from a store into a repository therefore asks for a read of a named file's
+text: accepted friction. The files a search walks to inside the working
+folders (`rg KEY nested`) are not checked one by one.
+Never read at once, even inside (Probe's key and state, the home credential
+folders and `off` paths are refused in every mode; the rest asks):
+credential-shaped paths (~/.ssh ~/.aws ~/.gnupg ~/.config/gcloud ~/.kube
+~/.docker ~/.netrc ~/.pgpass ~/.git-credentials, Probe's config and key files,
+anything in `protected`, .env* files, *.pem, *.key, id_*, in any case),
+shell and REPL history (.zsh_history .bash_history .sh_history .python_history
+.node_repl_history .psql_history .mysql_history .sqlite_history .lesshst
+.viminfo), /proc (a process's environment, command line, memory, open files;
+the kernel's), /sys, /dev, a container's secrets (/run/secrets), a user's
+runtime files (/run/user), /etc/shadow, /etc/gshadow and /etc/ssh, a path a
+`.probe.config` sets `off`, and hidden folders. The one exception is the
 coding agent's own instructions and memory, read-only: ~/.claude/CLAUDE.md,
 ~/.claude/projects/*/memory/**, ~/.claude/skills/**, ~/.codex/AGENTS.md,
 ~/.pi/agent/AGENTS.md, and CLAUDE.md / CLAUDE.local.md / AGENTS.md anywhere in
-the working folders. Commands that read the current folder by themselves (`ls`
-or `du` with no path, `find` with no start folder, `rg`, git) need it inside. The
-checked-out Probe notes (`write_dirs`) may be read too, by any reader.
+the working folders. The checked-out Probe notes (`write_dirs`) may be read
+too, by any reader. Every place here is matched in every spelling macOS gives
+it: any case (its disks ignore it, and realpath keeps a name as written),
+/System/Volumes/Data/... (the data volume's firmlink) and /private/etc,
+/private/var, /private/tmp.
+Not covered, by design of a check that reads a command's text before bash runs
+it: a bind mount of a private place, a second path to it no check here can
+see; a hard link to a key that a folder walk inside the working folders
+reaches (`rg KEY nested` over `nested/k`, a second name of ~/.ssh/id_rsa: only
+named files are stat-ed); and a swap between the check and the open (a file
+replaced by a symlink to a key after its stat), since there is no checked file
+descriptor to hand bash.
 
 Recursive readers. `grep -r` and `diff -r` read every file below a folder, keys
 and .env files included, so they ask; `rg` without -u / --no-ignore skips hidden
@@ -96,9 +141,13 @@ keeps the head and the tail.
 
 Where this differs from Codex:
 - git read verbs are allowed (Codex: never), hardened as above.
-- `grep -R`, `rg -L/--follow` and `find -L/-follow` are refused: they follow
-  symlinks out of the working folders. `rg --hidden`/`-.`/`-u`/`--no-ignore` are
-  refused: they read hidden or ignored files (.env, keys), which `cat` may not.
+- `grep -R`, `rg -L/--follow`, `find -L/-follow` and `ls -R` with -L /
+  --dereference are refused: they follow symlinks out of the working folders.
+  find's start folders are read past its leading options and a `--` (GNU's
+  -H -P -D -O, BSD's -E -X -d -s -x and `-f PATH`, in clusters as macOS reads
+  them), and each is checked as a walk.
+  `rg --hidden`/`-.`/`-u`/`--no-ignore` are refused: they read hidden or
+  ignored files (.env, keys), which `cat` may not.
   `grep -r` is refused (use rg). `find -files0-from` is refused.
 - `uniq IN OUT` is refused: the second name is an output file uniq writes.
 - `sed -n Np` with an option in the file slot (`sed -n 1p -ewFILE`) is refused:
@@ -107,11 +156,12 @@ Where this differs from Codex:
   so `./cat` (any script called cat) passed.
 - Codex unwrapped `bash -lc SCRIPT`; our tool receives SCRIPT itself, so the
   wrappers are refused and SCRIPT is what gets checked.
-- File arguments are checked against the working folders (Codex relied on its
-  sandbox for that), short-option clusters are read (`rg -nz`), and long
-  options match GNU-style abbreviations (`--out=` is `--output=`).
-- `2>&1`, `> /dev/null`, and `< file` inside the folders are allowed; Codex
-  refused every redirect.
+- File arguments are checked (Codex relied on its sandbox for that): inside the
+  working folders, or for a read program anywhere but the places that ask or
+  are never read (Files, above). Short-option clusters are read (`rg -nz`), and
+  long options match GNU-style abbreviations (`--out=` is `--output=`).
+- `2>&1`, `> /dev/null`, and `< file` are allowed (a file outside the folders
+  only into a read program); Codex refused every redirect.
 - `base64` only decodes: encoding turns a file's text (a key in it included)
   into characters the output scrubber cannot recognise. (`xxd`, `od`, `hexdump`
   were never on the list.) For the same reason `rev` asks, `tr` asks when what
@@ -140,9 +190,10 @@ import re
 import shlex
 import shutil
 import signal
+import stat
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterator, Sequence
 
@@ -193,6 +244,15 @@ class Verdict:
     refused: bool = False
     # True: one flag away from safe (`_Fix`) -- not a question; the daemon adds it.
     fixable: bool = False
+    # True on a question (neither safe nor refused): a word of the command, or a
+    # path-shaped piece of one, names a credential-shaped file (`_secret`), or the
+    # command can't be read word by word (`_Checker.names_credential`). Such a
+    # question is the researcher's alone: never put to Jev (`tools._jev_approval`).
+    credential: bool = False
+    # True on a question about a read Jev can't judge (`_Checker.names_private`): a
+    # path inside a hidden file or folder, or a whole tree's contents. Also never
+    # put to Jev: its `no_secrets` scores these like any harmless read.
+    private: bool = False
 
 
 @dataclass
@@ -203,6 +263,8 @@ class ShellResult:
     timed_out: bool
     #: Why `run` stopped it early (its `watch` said so), or None.
     stopped: str | None = None
+    #: False: stopped before the launch, so nothing ran (`_run_shell_write` logs it not run).
+    started: bool = True
 
 
 # --- the lists -------------------------------------------------------------
@@ -237,12 +299,32 @@ _DIGESTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
     # of every program here (a `sha256sum` wrapper may run shasum).
     "shasum": ("btU", "a", ("--algorithm", "--binary", "--text", "--UNIVERSAL", "--tag", "--help", "--version")),
 }  # fmt: skip
-#: Read the files they are given; no option writes or runs anything.
+#: gzip and gunzip as readers only, their options a list as the digests' are: the
+#: decompressed text to stdout (gzip -cd, gunzip -c), a list (-l) or a test (-t),
+#: quietly or not. Anything else asks: no -c writes a file, gzip -c without -d
+#: compresses (bytes the output scrubber can't read), -r reads a whole tree, -f
+#: copies what isn't compressed, -S reads other names. zcat is `gzip -cd`.
+_GZIP_FLAGS = "cdltqvhV"
+_GZIP_LONGS = {"--stdout": "c", "--to-stdout": "c", "--decompress": "d", "--uncompress": "d", "--list": "l",
+               "--test": "t", "--quiet": "q", "--verbose": "v", "--help": "h", "--version": "V"}
+#: Read the files they are given; an option that writes or runs something is
+#: refused, and gzip and the digests run only with the options their lists hold.
 _READERS = frozenset(
-    {"cat", "cut", "diff", "du", "grep", "head", "ls", "nl", "paste", "stat", "tail", "wc", *_DIGESTS}
+    {"cat", "cut", "diff", "du", "grep", "gunzip", "gzip", "head", "ls", "nl", "paste", "stat", "tail", "wc",
+     *_DIGESTS}
 )
-#: Codex allows these on Linux only (their BSD versions differ).
-_LINUX_ONLY = frozenset({"numfmt", "tac"})
+#: Codex allows these on Linux only (their BSD versions differ). zcat too: macOS's
+#: (compress's) reads NAME.Z for every NAME it is given, a file the check never sees.
+_LINUX_ONLY = frozenset({"numfmt", "tac", "zcat"})
+#: The read programs: a file or folder they name may be outside the working folders
+#: (`_check_path`'s `anywhere`), past the places that still ask or are never read.
+_READ_ANYWHERE = _READERS | {"find", "jq", "numfmt", "rg", "sort", "tac", "tr", "uniq", "zcat"}
+#: How far a read program reaches outside the working folders (`anywhere`). None:
+#: nowhere (every other program, git included). _FILES: one ordinary file with one
+#: name (`_outside`; a folder there would be read whole). _NAMES: a file or folder,
+#: for its names and metadata (ls, stat, cd, find's tests). _TREE: a folder walked
+#: for names (find, du, ls -R), unless the walk goes through $HOME or a credential.
+_FILES, _NAMES, _TREE = "files", "names", "tree"
 #: Checked by their own method below.
 _SPECIAL = frozenset({"base64", "cd", "find", "git", "jq", "rg", "sed", "sort", "uniq"})
 #: Bash builtins: PATH is never consulted for them.
@@ -266,7 +348,7 @@ _TEXT_OPTIONS: dict[str, tuple[str, ...]] = {
     "du": ("-B", "--block-size", "-d", "--max-depth", "-t", "--threshold", "--exclude", "--time-style"),
     "grep": ("-e", "--regexp", "--include", "--exclude", "--exclude-dir", "--label",
              "--group-separator"),
-    "ls": ("-I", "--ignore", "--hide", "--time-style"),
+    "ls": ("-I", "--ignore", "--hide", "--time-style"),  # BSD ls (macOS) reads -I as a flag (`_reader`)
     "nl": ("-d", "--section-delimiter", "-s", "--number-separator"),
     "paste": ("-d", "--delimiters"),
     "rg": ("-e", "--regexp", "-g", "--glob", "--iglob", "-t", "--type", "-T", "--type-not",
@@ -294,6 +376,10 @@ _RG_SELECTORS = ("--glob", "--iglob", "--type", "--type-add", "--ignore-file")
 
 # Ours.
 _FIND_UNSAFE_OURS = ("-L", "-follow", "-files0-from")
+#: A word of find's leading options: GNU's -H -L -P, BSD's -E -X -d -s -x too, in a
+#: cluster, ending in BSD's -f whose value (attached, or the next word) is a start
+#: folder. Group 2: None without -f.
+_FIND_LEADING = re.compile(r"-([EHLPXdsx]*)(?:f(.*))?")
 #: find predicates whose value is a pattern or a format, not a file.
 _FIND_PATTERNS = (
     "-name", "-iname", "-path", "-ipath", "-wholename", "-iwholename", "-regex", "-iregex",
@@ -303,6 +389,9 @@ _GREP_VALUE_LETTERS = "efmABCdD"
 _RG_VALUE_LETTERS = "ABCEMTdefgjmrt"
 _SORT_VALUE_LETTERS = "koStT"
 _DU_VALUE_LETTERS = "BdtX"
+#: ls's and du's short options that take a value, GNU's and BSD's (BSD ls -D FORMAT,
+#: BSD du -I MASK), for which word may be a value rather than a name (`_listed`).
+_LISTED_VALUE_LETTERS = {"ls": "DITw", "du": "BIXdt"}
 _JQ_SHORT_FLAGS = frozenset("nrjascCMSRehVb")
 _JQ_LONG_FLAGS = frozenset(
     {
@@ -351,6 +440,34 @@ _HOME_SECRETS = (
     ".git-credentials", ".config/probe",
 )  # fmt: skip
 _SECRET_NAMES = frozenset({".netrc", ".pgpass", ".git-credentials", ".pypirc", ".npmrc"})
+#: Shell and REPL history: every command typed, the passwords and keys in them too.
+_HISTORY_NAMES = frozenset({
+    ".zsh_history", ".bash_history", ".sh_history", ".python_history", ".node_repl_history", ".psql_history",
+    ".mysql_history", ".sqlite_history", ".lesshst", ".viminfo",
+})
+#: Private like a credential wherever they are (`_private`), in `_canon`'s spelling:
+#: devices, the kernel's and every process's own files (environment, memory, open
+#: files), the secrets a container is given, a user's runtime files, and the
+#: system's own keys and password hashes.
+_SYSTEM_PRIVATE = (
+    ("/dev", "a device (/dev)"),
+    ("/proc", "a process's or the kernel's own files (/proc)"),
+    ("/sys", "the kernel's own files (/sys)"),
+    ("/run/secrets", "a container's secrets (/run/secrets)"),
+    ("/var/run/secrets", "a container's secrets (/var/run/secrets)"),
+    # XDG_RUNTIME_DIR: the session's sockets and keyrings, podman's registry login.
+    ("/run/user", "a user's runtime files (/run/user: sockets, keyrings, registry logins)"),
+    # Readable by root only, and a daemon may run as root (a cloud GPU box, a container).
+    ("/etc/shadow", "the system's password hashes"),
+    ("/etc/gshadow", "the system's password hashes"),
+    ("/etc/ssh", "the machine's SSH keys (/etc/ssh)"),
+)
+#: macOS's second spellings of one place, folded: the data volume's firmlink
+#: (/System/Volumes/Data/Users/x is /Users/x), which realpath keeps as written, and
+#: the /private folders /etc, /var and /tmp link to, which a command may name
+#: itself. `_canon` takes them off, in this order.
+_MACOS_ALIASES = (("/system/volumes/data", ""), ("/private/etc", "/etc"), ("/private/var", "/var"),
+                  ("/private/tmp", "/tmp"))
 #: Harness instruction files allowed even inside a hidden folder of a working folder.
 _HARNESS_NAMES = frozenset({"CLAUDE.md", "CLAUDE.local.md", "AGENTS.md"})
 _HARNESS_FILES = (
@@ -396,6 +513,7 @@ _R_SLICE = (
 _R_GREP_R = (
     "grep -r reads every file under the folder, .env files and keys included."
 )
+_OUTSIDE = "outside the working folders"
 
 
 class _Refuse(Exception):
@@ -723,6 +841,27 @@ def _norm(path: str) -> str:
     return "/" + path.lstrip("/") if path.startswith("//") else path
 
 
+def _canon(path: str) -> str:
+    """One spelling for one place, for the private and credential checks: folded to
+    one case (macOS's disks ignore it, and realpath keeps a name as written:
+    ~/library is ~/Library there) and with macOS's second spellings taken off
+    (`_MACOS_ALIASES`: /private/etc/ssh is /etc/ssh)."""
+    out = path.casefold()
+    for alias, real in _MACOS_ALIASES:
+        if out == alias or out.startswith(alias + "/"):
+            out = real + out[len(alias) :]
+    return out or "/"
+
+
+def _spellings(path: str) -> list[str]:
+    """Every spelling of `path` (`_canon`'s) a folder above it may be named by: a walk
+    of /System/Volumes or /private goes through it by its second spelling."""
+    canon = _canon(path)
+    forms = [canon, *(alias + canon[len(real) :] for alias, real in _MACOS_ALIASES
+                      if real and (canon == real or canon.startswith(real + "/")))]
+    return sorted({form for spelled in forms for form in (spelled, _MACOS_ALIASES[0][0] + spelled)})
+
+
 def _long(arg: str, names: Sequence[str]) -> str | None:
     """The listed long option `arg` spells, counting GNU abbreviations (`--out=` is `--output=`)."""
     if not arg.startswith("--") or arg == "--":
@@ -854,6 +993,16 @@ class _Checker:
         self.secret_prefixes = sorted(
             {v for p in secrets for v in (_norm(os.path.abspath(p)), os.path.realpath(p))}
         )
+        # A read outside the working folders runs at once, so what it must not reach is
+        # matched in one spelling (`_canon`), whatever spelling the command uses.
+        self.protected_canon = sorted({_canon(p) for p in self.secret_prefixes})
+        self.app_data = sorted({_canon(os.path.join(h, "Library")) for h in homes})
+        #: What a walk for names outside the working folders must not go through, and how
+        #: it is named: $HOME (its hidden folders, history, ~/Library) and the credential
+        #: places wherever they are, in every spelling a folder above them may use
+        #: (`_spellings`). A walk of / or /Users goes through $HOME.
+        places = [*(("your home folder (~)", h) for h in homes), *((p, p) for p in self.secret_prefixes)]
+        self.walk_private = [(form, shown) for shown, path in places for form in _spellings(path)]
         self.moved_harness_files = _moved_harness_files()
 
     # -- whole command --
@@ -863,6 +1012,7 @@ class _Checker:
             raise _Refuse("The command is empty.")
         if "\0" in command:
             raise _Refuse("The command contains a NUL byte.")
+        self._never_bookkeeping(command)
         try:
             note = self._note_write(command)
         except _Refuse as refusal:
@@ -932,6 +1082,28 @@ class _Checker:
                     if form in rest:
                         raise _Never(f"It names {form}: Probe's own key or state, or a credential folder.")
                 return
+
+    def _never_bookkeeping(self, command: str) -> None:
+        """No mode touches a checkout's bookkeeping (`_BOOKKEEPING`) in the
+        folders open for writing: a command line naming one of those folders and
+        such a file is refused before anything else reads it, so neither an
+        unquoted heredoc nor bypass mode gets past it (`_check_write` alone sat
+        behind the quoted-heredoc check). A heredoc's body is data, not read."""
+        first = command.partition("\n")[0]
+        text = first if "<<" in first else command
+        if not _BOOKKEEPING_NAMED.search(text):
+            return
+        forms: set[str] = set()
+        for folder in self.write_dirs:
+            forms.add(folder)
+            for home in (self.home, self.home_real):
+                if _inside(folder, home) and folder != home:
+                    rel = os.path.relpath(folder, home)
+                    forms |= {f"~/{rel}", f"$HOME/{rel}", f"${{HOME}}/{rel}"}
+        cwd = os.path.realpath(self.cwd)
+        if any(form in text for form in forms) or any(_inside(cwd, d) for d in self.write_dirs):
+            raise _Never("It names a checkout's base copy, version or lock in Probe's notes or summaries, which "
+                         "only `probe` writes.")
 
     def _never_heredoc(self, command: str) -> None:
         """The every-mode refusals for a heredoc `_note_write` refused, piece by
@@ -1202,16 +1374,20 @@ class _Checker:
             raise _Refuse(f"It writes {shown}, which isn't a file in an existing folder.")
         if not any(_inside(real, d) and real != d for d in self.write_dirs):
             raise _Refuse(f"It writes {shown}, outside the folders open for writing.")
+        if os.path.basename(real).endswith(_BOOKKEEPING) or os.path.basename(lex).endswith(_BOOKKEEPING):
+            # Never, not Refuse: bypass mode approves a Refuse, and this one guards the erasure check.
+            raise _Never(f"It writes {shown}: a checkout's base copy, version or lock, which only `probe` writes.")
         return real
 
     # -- one command --
 
     def _part(self, part: _Part, cands: list[str]) -> None:
+        name = part.words[0].value if part.words else ""
         for op, target in part.redirects:
-            self._redirect(op, target, cands)
+            # What `<` opens is what the program reads: a read program's may be outside.
+            self._redirect(op, target, cands, anywhere=_FILES if name in _READ_ANYWHERE else None)
         if not part.words:
             raise _Refuse("A redirect has no command in front of it.")
-        name = part.words[0].value
         args = part.words[1:]
         if _ASSIGNMENT.match(name):
             raise _Refuse(f"It sets an environment variable ({name.split('=')[0]}=...) first.")
@@ -1234,7 +1410,7 @@ class _Checker:
         if as_value is not None:
             readings.append(as_value)
         for words in readings:
-            if name in _READERS or name == "tac":
+            if name in _READERS or name in ("tac", "zcat"):
                 self._reader(name, words, cands)
             else:
                 getattr(self, f"_{name}")(words, cands)
@@ -1250,7 +1426,7 @@ class _Checker:
                     f"`{name}` is a program inside the working folders ({real})."
                 )
 
-    def _redirect(self, op: _Op, target: _Word, cands: list[str]) -> None:
+    def _redirect(self, op: _Op, target: _Word, cands: list[str], *, anywhere: str | None = None) -> None:
         if op.op in (">", ">>", ">|", "&>", "&>>"):
             if target.value == "/dev/null" and not target.tilde:
                 return
@@ -1260,7 +1436,7 @@ class _Checker:
                 return
             raise _Refuse(f"`>&{target.value}` sends output to a file - only 2>&1-style is allowed.")
         if op.op == "<":
-            self._check_path(target.value, target.tilde, cands)
+            self._check_path(target.value, target.tilde, cands, anywhere=anywhere)
             return
         if op.op in ("<<", "<<-"):
             raise _Refuse(_R_HEREDOC)
@@ -1271,18 +1447,76 @@ class _Checker:
     # -- paths --
 
     def _protected(self, path: str) -> bool:
-        """Inside Probe's config, the daemon's state, or a home credential folder."""
-        return any(_inside(path, prefix) for prefix in self.secret_prefixes)
+        """Inside Probe's config, the daemon's state, or a home credential folder, in
+        any spelling (`_canon`)."""
+        canon = _canon(path)
+        return any(_inside(canon, prefix) for prefix in self.protected_canon)
 
     def _secret(self, path: str) -> bool:
-        if self._protected(path):
+        if self._protected(path) or self._private(path):
             return True
-        name = os.path.basename(path)
+        # In any case: macOS's disks read client.PEM as client.pem.
+        name = os.path.basename(path).casefold()
         return (
             name.startswith((".env", "id_"))
             or name.endswith((".pem", ".key"))
             or name in _SECRET_NAMES
         )
+
+    def _private(self, path: str) -> str | None:
+        """What is private like a credential wherever it is, as a clause, else None:
+        shell and REPL history, and `_SYSTEM_PRIVATE`'s places, in any spelling."""
+        canon = _canon(path)
+        if os.path.basename(canon) in _HISTORY_NAMES:
+            return "shell or REPL history, which keeps the passwords and keys typed into it"
+        return next((what for place, what in _SYSTEM_PRIVATE if _inside(canon, place)), None)
+
+    def names_private(self, command: str) -> bool:
+        """Is `command` a read Jev can't judge (`Verdict.private`)? A word of it,
+        or a path-shaped piece of one, lands in a hidden file or folder (below a
+        working folder when inside one, from `/` when not; the coding agent's
+        instruction files excepted), or it reads a whole tree's contents (`rg`,
+        `grep -r`, `diff -r`). True when the command can't be read word by word."""
+        commands = _held_commands(command)
+        if commands is None:
+            return True
+        dirs = _held_dirs(commands, self.cwd, self.home)
+        for c in commands:
+            if _tree_read(c.words):
+                return True
+            for word in [*c.words, *c.stdin, *c.targets]:
+                for piece in {word, *_PATH_PIECES.split(word)}:
+                    # Only what exists: a piece of code (`.read()` in `python3 -c`) is no path.
+                    if piece and any(self._in_hidden(real) and os.path.lexists(real)
+                                     for real in _held_resolve(piece, dirs, self.home)):
+                        return True
+        return False
+
+    def _in_hidden(self, real: str) -> bool:
+        if self._harness(real):
+            return False
+        root = next((r for r in self.roots if _inside(real, r)), "")
+        comps = [c for c in real[len(root):].split("/") if c]
+        return any(c.startswith(".") for c in comps)
+
+    def names_credential(self, command: str) -> bool:
+        """Does any word of `command`, or a path-shaped piece of one
+        (`open('.env')`, `--key=id_rsa`), name a credential-shaped file
+        (`_secret`: `.env*`, `id_*`, `*.pem`, `*.key`, `.netrc`..., a home
+        credential folder, Probe's key and state), in any folder a `cd` may
+        reach? Every word, not only the one the checks stopped at: `cat
+        outside.txt .env` is asked about `outside.txt`. True when the command
+        can't be read word by word."""
+        commands = _held_commands(command)
+        if commands is None:
+            return True
+        dirs = _held_dirs(commands, self.cwd, self.home)
+        for c in commands:
+            for word in [*c.words, *c.stdin, *c.targets]:
+                for piece in {word, *_PATH_PIECES.split(word)}:
+                    if piece and any(self._secret(real) for real in _held_resolve(piece, dirs, self.home)):
+                        return True
+        return False
 
     def _harness(self, real: str) -> bool:
         """The coding agent's own instructions and memory, read-only (S7)."""
@@ -1301,8 +1535,9 @@ class _Checker:
             return False
         return not any(comp.startswith(".") for comp in rest)
 
-    def _place(self, real: str) -> str | None:
-        """None when `real` may be read; else how it fails, as a clause."""
+    def _place(self, real: str, anywhere: str | None = None) -> str | None:
+        """None when `real` may be read; else how it fails, as a clause. `anywhere`: a
+        read program's reach outside the working folders (`_outside`)."""
         if self._harness(real):
             return None
         if any(_inside(real, d) for d in self.write_dirs):
@@ -1320,7 +1555,47 @@ class _Checker:
             hidden = bad
         if hidden:
             return f"inside a hidden folder ({hidden})"
-        return "outside the working folders"
+        return _OUTSIDE if anywhere is None else self._outside(real, anywhere)
+
+    def _outside(self, real: str, anywhere: str) -> str | None:
+        """A read program's read outside the working folders: None when it runs at
+        once; else how it fails, as a clause. Hidden names and macOS's app data ask
+        wherever they are out here, and a walk for names asks when it would go
+        through $HOME or a credential place. (What a content read reads is
+        `_content`'s.)"""
+        hidden = next((comp for comp in real.split("/") if comp.startswith(".")), None)
+        if hidden:
+            return f"{_OUTSIDE}, and {hidden} is hidden"
+        canon = _canon(real)
+        if any(_inside(canon, place) for place in self.app_data):
+            return "macOS app data (~/Library: cookies, mail, messages, keychains)"
+        if anywhere == _TREE and os.path.isdir(real):
+            folded = real.casefold()
+            through = next((shown for place, shown in self.walk_private
+                            if _inside(place, folded) or _inside(place, canon)), None)
+            if through:
+                return f"{_OUTSIDE}, and a walk of it goes through {through}"
+        return None
+
+    def _content(self, real: str, outside: bool) -> str | None:
+        """A file a content read names must be one ordinary file with one name,
+        inside the working folders too (what a walk reaches is not checked here):
+        a pipe or socket waits for what someone writes (or is a device), and a
+        second name (a hard link: realpath can't see that ~/.ssh/id_rsa is it) may
+        be a credential's. Outside them, a folder would be read whole and a name
+        nothing is at can't be checked either. None when it may be read; else how
+        it fails, as a clause."""
+        try:
+            st = os.stat(real)
+        except OSError:
+            return f"{_OUTSIDE}, and no file there can be checked" if outside else None
+        if stat.S_ISDIR(st.st_mode):
+            return f"a folder {_OUTSIDE}, and every file in it would be read" if outside else None
+        if not stat.S_ISREG(st.st_mode):
+            return "not an ordinary file (a pipe, a socket or a device)"
+        if st.st_nlink > 1:
+            return f"the file has {st.st_nlink} names (hard links): another may be a credential's"
+        return None
 
     def _check_path(
         self,
@@ -1330,6 +1605,7 @@ class _Checker:
         *,
         logical: bool = False,
         verb: str = "It reads",
+        anywhere: str | None = None,
     ) -> None:
         path = self.home + text[1:] if tilde else text
         for cand in cands:
@@ -1343,15 +1619,21 @@ class _Checker:
                     raise _Never(f"{verb} {text}: Probe's own key or state, or a credential folder.")
                 if self.hidden is not None and (self.hidden(lex) or self.hidden(real)):
                     raise _Never(f"{verb} {text}: a .probe.config sets it to off, so Probe never reads it.")
+                # Both spellings: /dev/stdin resolves in THIS process, bash's is the command's.
+                private = self._private(lex) or self._private(real)
+                if private:
+                    raise _Refuse(f"{verb} {text}: {private}.")
                 if self._secret(lex) or self._secret(real):
                     raise _Refuse(
                         f"{verb} {text}, which looks like a credential or Probe's key file."
                     )
-                problem = self._place(real)
+                problem = self._place(real, anywhere)
+                if problem is None and anywhere not in (_NAMES, _TREE):  # what it reads is the file's text
+                    problem = self._content(real, outside=self._place(real) is not None)
                 if problem:
                     raise _Refuse(f"{verb} {text}: {problem}.")
 
-    def _maybe_path(self, text: str, tilde: bool, cands: list[str]) -> None:
+    def _maybe_path(self, text: str, tilde: bool, cands: list[str], anywhere: str | None = None) -> None:
         """Check `text` if it could name a file."""
         if not text:
             return
@@ -1361,7 +1643,7 @@ class _Checker:
             or text[0] in ".~"
             or any(os.path.lexists(os.path.join(c, text)) for c in cands)
         ):
-            self._check_path(text, tilde, cands)
+            self._check_path(text, tilde, cands, anywhere=anywhere)
 
     def _args(
         self,
@@ -1370,8 +1652,10 @@ class _Checker:
         *,
         text_options: Sequence[str] = (),
         word_options: Sequence[str] = (),
+        anywhere: str | None = None,
     ) -> None:
-        """Check every argument that could name a file a reader opens."""
+        """Check every argument that could name a file a reader opens (`anywhere`: as
+        far as `_check_path` lets it reach outside the working folders)."""
         skip_next = False
         names_only = False  # after `--`
         for w in words:
@@ -1381,7 +1665,7 @@ class _Checker:
                 continue
             if names_only or v == "-" or not v.startswith("-"):
                 if v != "-":
-                    self._maybe_path(v, w.tilde, cands)
+                    self._maybe_path(v, w.tilde, cands, anywhere)
                 continue
             if v == "--":
                 names_only = True
@@ -1395,24 +1679,26 @@ class _Checker:
                     skip_next = not eq
                     continue
                 if eq:
-                    self._maybe_path(value, False, cands)
+                    self._maybe_path(value, False, cands, anywhere)
             else:
                 if v[:2] in text_options:
                     skip_next = len(v) == 2
                     continue
                 for k in range(2, len(v)):  # a value attached to a short option: -fFILE
-                    self._maybe_path(v[k:], False, cands)
+                    self._maybe_path(v[k:], False, cands, anywhere)
             # A tool that stops reading options early would open the word itself.
-            self._maybe_path(v, False, cands)
+            self._maybe_path(v, False, cands, anywhere)
 
-    def _require_cwd(self, cands: list[str], what: str) -> None:
-        """`what` (ls, rg, git...) reads the current folder: it must be a working folder."""
+    def _require_cwd(self, cands: list[str], what: str, *, anywhere: str | None = None) -> None:
+        """`what` (ls, rg, git...) reads the current folder: it must be a working folder,
+        or for ls, du and find (`anywhere`) a folder they could be given by name."""
         for cand in cands:
             real = os.path.realpath(cand)
             if self._protected(real):
                 raise _Never(f"It reads the current folder {cand}: Probe's own key or state, or a credential folder.")
-            problem = "a credential folder" if self._secret(real) else None
-            problem = problem or self._place(real)
+            problem = self._private(_norm(cand)) or self._private(real)
+            problem = problem or ("a credential folder" if self._secret(real) else None)
+            problem = problem or self._place(real, anywhere)
             if problem:
                 raise _Refuse(f"It reads the current folder {cand}: {problem}.")
 
@@ -1462,7 +1748,13 @@ class _Checker:
 
     def _reader(self, name: str, args: list[_Word], cands: list[str]) -> None:
         options = _options(args)
+        text_options = _TEXT_OPTIONS.get(name, ())
+        if name == "ls" and not _LINUX:
+            # BSD ls (macOS) reads -I as a flag, so the word after it is a name it lists.
+            text_options = tuple(o for o in text_options if o != "-I")
         self._slices(name, options, args)
+        if name in ("gzip", "gunzip", "zcat"):
+            self._gzip(name, options, args, cands)
         if name in ("wc", "sort") and any(_long(v, ("--files0-from",)) for v in options):
             raise _Refuse(f"`{name} --files0-from` reads a list of files the check never sees.")
         if name in _DIGESTS:
@@ -1494,48 +1786,123 @@ class _Checker:
                 if bad == "--null" or "0" in letters:
                     raise _Refuse("du -0 / --null prints its names NUL-separated on one line, past the line-based "
                                   "checks on its output.")
-            # As for ls: every name du is given is a folder or file it reads; with none, the current folder.
-            names = _positionals(args, _TEXT_OPTIONS["du"])
-            for word in names:
-                self._check_path(word.value, word.tilde, cands)
-            if not names:
-                self._require_cwd(cands, "du")
+            self._listed("du", args, cands, text_options, _TREE)
         if name == "grep":
             for v in options:
                 letters = _short_letters(v, _GREP_VALUE_LETTERS)
                 if "R" in letters or _long(v, ("--dereference-recursive",)):
                     raise _Refuse("grep -R follows symlinks out of the working folders.")
-                if "r" in letters or _long(v, ("--recursive",)) or v.endswith("recurse"):
+                if "r" in letters or _long(v, ("--recursive",)):
                     raise _Refuse(_R_GREP_R)
-            # `-d recurse` / `--directories recurse`: the value is its own word.
-            if any(a.value == "recurse" and b.value in ("-d", "--directories") for b, a in zip(args, args[1:])):
-                raise _Refuse(_R_GREP_R)
+            # `-d ACTION` / `--directories=ACTION`, attached or its own word: GNU grep takes
+            # any unambiguous start of `recurse` (`-d rec`, `--dir rec`) and BSD's any case,
+            # and with no name either walks the current folder. Only `read` and `skip` run.
+            for k, w in enumerate(args):
+                v, value = w.value, None
+                if v == "--":
+                    break
+                if _long(v, ("--directories",)):
+                    value = v.split("=", 1)[1] if "=" in v else None
+                    value = value if value is not None else (args[k + 1].value if k + 1 < len(args) else "")
+                elif v.startswith("-") and not v.startswith("--"):
+                    letters = _short_letters(v, _GREP_VALUE_LETTERS)
+                    if letters.endswith("d"):
+                        value = v[1 + len(letters):] or (args[k + 1].value if k + 1 < len(args) else "")
+                if value is not None and value not in ("read", "skip"):
+                    raise _Refuse(_R_GREP_R)
         if name == "diff":
             for v in options:
                 if "r" in _short_letters(v, "CUDFILSWXx") or _long(v, ("--recursive", "--new-file",
                                                                          "--unidirectional-new-file")) \
                         or "N" in _short_letters(v, "CUDFILSWXx"):
                     raise _Refuse("diff -r reads every file under a folder, keys included.")
+                if "l" in _short_letters(v, "CUDFILSWXx") or _long(v, ("--paginate",)):
+                    raise _Refuse("diff -l passes its output through `pr`, a program PATH picks.")
             for word in _positionals(args, _TEXT_OPTIONS["diff"]):
                 path = _expand(word, self.home)
                 if any(os.path.isdir(os.path.join(c, path)) for c in cands):
                     raise _Refuse(f"diff of the folder {word.value} reads every file in it.")
         if name == "ls":
-            # Every name ls is given is a folder or file it lists, so each is checked as
-            # a path (a value of an option this list doesn't know then lands in the
-            # current folder and is checked there); with none, ls lists the current folder.
-            names = _positionals(args, _TEXT_OPTIONS["ls"])
-            for word in names:
-                self._check_path(word.value, word.tilde, cands)
-            if not names:
-                self._require_cwd(cands, "ls")
-        self._args(args, cands, text_options=_TEXT_OPTIONS.get(name, ()))
+            # A cluster is read whole: which letters take a value differs between GNU and BSD ls.
+            letters = "".join(v[1:] for v in options if v.startswith("-") and not v.startswith("--"))
+            recursive = "R" in letters or any(_long(v, ("--recursive",)) for v in options)
+            if recursive and ("L" in letters or any(_long(v, ("--dereference",)) for v in options)):
+                raise _Refuse("ls -R -L follows symlinks out of the working folders.")
+            self._listed("ls", args, cands, text_options, _TREE if recursive else _NAMES)
+        self._args(args, cands, text_options=text_options,
+                   anywhere=_NAMES if name in ("du", "ls", "stat") else _FILES)
+
+    def _listed(self, name: str, args: list[_Word], cands: list[str], text_options: Sequence[str],
+                anywhere: str) -> None:
+        """ls and du: every name they are given is a folder or file they read, so each
+        is checked as a path (a value of an option the list doesn't know then lands in
+        the current folder and is checked there); with none, they read the current
+        folder. Given a word that may be an option's value instead, they read the
+        current folder, so that is checked too: any word after an abbreviated option
+        that takes a value (`ls -R --ig /tmp` is `--ignore=/tmp`; the word is still
+        checked as a name as well: `du --time` takes none), and for a walk (`du`,
+        `ls -R`) a word that names no folder here (`du --max 1`, `ls -R --sort size`)."""
+        names = _positionals(args, text_options)
+        for word in names:
+            self._check_path(word.value, word.tilde, cands, anywhere=anywhere)
+        longs = [o for o in text_options if o.startswith("--")]
+        walked = any(v.startswith("--") and "=" not in v and v not in text_options and _long(v, longs)
+                     for v in _options(args))
+        # Read the other way too: a short cluster ending in a letter that takes a value
+        # (`-RaI /tmp`: GNU's -I PATTERN) takes the next word, so no name may be left.
+        left, skip, names_only = 0, False, False
+        for w in args:
+            v = w.value
+            if skip or w.synthetic:
+                skip = False
+            elif names_only or v == "-" or not v.startswith("-"):
+                left += 1
+            elif v == "--":
+                names_only = True
+            elif v.startswith("--"):
+                skip = "=" not in v and bool(_long(v, longs))
+            else:
+                skip = v[-1] in _LISTED_VALUE_LETTERS[name]
+        walked = walked or not left
+        if anywhere == _TREE and not walked:
+            plain = [w.value for w in names if not w.tilde and not w.value.startswith("/")]
+            walked = not all(os.path.isdir(os.path.join(c, v)) for v in plain for c in cands)
+        if not names or walked:
+            self._require_cwd(cands, name, anywhere=anywhere)
+
+    def _gzip(self, name: str, options: list[str], args: list[_Word], cands: list[str]) -> None:
+        """gzip, gunzip and zcat as readers only (`_GZIP_FLAGS`); and every name they
+        are given must be a file: for one that isn't there, they read NAME.gz (or .z,
+        .tgz...) in its place, a file the check never sees."""
+        letters = ""
+        for v in options:
+            if not v.startswith("-") or v == "-":
+                continue
+            long = _long(v, tuple(_GZIP_LONGS)) if v.startswith("--") and "=" not in v else None
+            if long:
+                letters += _GZIP_LONGS[long]
+            elif v.startswith("--") or not set(v[1:]) <= set(_GZIP_FLAGS):
+                raise _Refuse(f"`{name} {v.split('=', 1)[0]}` isn't on the safe list: of its options only -c, -d, "
+                              "-l, -t, -q and -v run at once.")
+            else:
+                letters += v[1:]
+        reads = name == "zcat" or "l" in letters or "t" in letters or (
+            "c" in letters and (name == "gunzip" or "d" in letters))
+        if not reads:
+            raise _Refuse(f"`{name}` runs at once only as a reader (gzip -cd, gunzip -c, -l, -t): this writes a file, "
+                          "or compresses one into bytes the output scrubber can't read.")
+        for word in _positionals(args, ()):
+            path = _expand(word, self.home)
+            if word.value != "-" and not all(os.path.isfile(os.path.join(c, path)) for c in cands):
+                raise _Refuse(f"{name} {word.value}: it names no file here, so {name} would read {word.value}.gz or "
+                              "another name in its place, which the check never sees.")
 
     def _cd(self, args: list[_Word], cands: list[str]) -> None:
         word = _cd_word(_Part([_Word("cd", "cd"), *args], [], ""))
         if word is None:
             raise _Refuse("cd takes exactly one folder (no options, no bare `cd`, no `cd -`).")
-        self._check_path(word.value, word.tilde, cands, logical=True, verb="It moves into")
+        # A folder a read program could name: what runs there is checked in it (`_walk`).
+        self._check_path(word.value, word.tilde, cands, logical=True, verb="It moves into", anywhere=_NAMES)
 
     def _find(self, args: list[_Word], cands: list[str]) -> None:
         values = [w.value for w in args]
@@ -1545,26 +1912,45 @@ class _Checker:
             if v in _FIND_UNSAFE_OURS:
                 why = "reads a list of start folders" if v == "-files0-from" else "follows symlinks"
                 raise _Refuse(f"find {v} {why} the check can't see.")
-        # find [-H] [-P] [-D opts] [-Olevel] [start folder...] [expression]
-        k = 0
+        # find [-H] [-P] [-D opts] [-Olevel] [--] [start folder...] [expression]; BSD find
+        # (macOS) also takes -E -X -d -s -x, in clusters, and `-f PATH`, a start folder.
+        k, starts, walks_cwd = 0, 0, False
         while k < len(values):
-            if values[k] in ("-H", "-P") or values[k].startswith("-O"):
+            v = values[k]
+            if v == "--":
                 k += 1
-            elif values[k] == "-D":
-                k += 2
-            else:
                 break
-        starts = 0
+            if v == "-D":
+                k += 2
+                continue
+            if v.startswith("-O"):
+                k += 1
+                continue
+            flags = _FIND_LEADING.fullmatch(v)
+            if not flags or not (flags.group(1) or flags.group(2) is not None):
+                break
+            if "L" in flags.group(1):
+                raise _Refuse(f"find {v} follows symlinks the check can't see.")
+            k += 1
+            if flags.group(2) is None:
+                continue
+            if flags.group(2):  # `-f/etc`: BSD's start folder, or GNU's test (`-fstype`), which walks `.`
+                self._check_path(flags.group(2), False, cands, anywhere=_TREE)
+                walks_cwd = True
+            elif k < len(args):
+                self._check_path(args[k].value, args[k].tilde, cands, anywhere=_TREE)
+                k += 1
+            starts += 1
         while k < len(values) and values[k][:1] not in ("-", "(", ")", "!", ","):
             if args[k].synthetic:
                 k += 1
                 continue
-            self._check_path(args[k].value, args[k].tilde, cands)
+            self._check_path(args[k].value, args[k].tilde, cands, anywhere=_TREE)
             starts += 1
             k += 1
-        if not starts:
-            self._require_cwd(cands, "find with no start folder")
-        self._args(args, cands, word_options=_FIND_PATTERNS)
+        if not starts or walks_cwd:
+            self._require_cwd(cands, "find with no start folder", anywhere=_TREE)
+        self._args(args, cands, word_options=_FIND_PATTERNS, anywhere=_NAMES)
 
     def _rg(self, args: list[_Word], cands: list[str]) -> None:
         for v in (w.value for w in args):  # Codex's rule, verbatim: any argument
@@ -1595,8 +1981,8 @@ class _Checker:
                     "rg -u / --no-ignore reads ignored and hidden files (.env files and keys usually are)."
                 )
         self._slices("rg", _options(args), args)
-        self._require_cwd(cands, "rg")
-        self._args(args, cands, text_options=_TEXT_OPTIONS["rg"])
+        self._require_cwd(cands, "rg")  # searched whole: it must be a working folder
+        self._args(args, cands, text_options=_TEXT_OPTIONS["rg"], anywhere=_FILES)
 
     def _sed(self, args: list[_Word], cands: list[str]) -> None:
         # Codex: `sed -n {N|M,N}p [FILE]`, nothing else. Ours: the FILE may not be an option.
@@ -1661,7 +2047,7 @@ class _Checker:
                 skip_next = bool(letters) and letters[-1] in "fsw" and len(letters) == len(v) - 1
         if names > 1:
             raise _Refuse("uniq with a second file name writes its output there.")
-        self._args(args, cands)
+        self._args(args, cands, anywhere=_FILES)
 
     def _jq(self, args: list[_Word], cands: list[str]) -> None:
         program_seen = False
@@ -1704,7 +2090,7 @@ class _Checker:
                 if _JQ_SLICERS.search(v):
                     raise _Refuse(_R_SLICE.format(what="jq's string slicing (.[m:n], split, sub, ltrimstr, match...)"))
             elif not string_args:
-                self._check_path(v, w.tilde, cands)
+                self._check_path(v, w.tilde, cands, anywhere=_FILES)
 
     def _git(self, args: list[_Word], cands: list[str]) -> None:
         dirs = list(cands)
@@ -1825,7 +2211,8 @@ def classify(
     except _Fix as refusal:
         return Verdict(False, str(refusal), fixable=True)
     except _Refuse as refusal:
-        return Verdict(False, str(refusal))
+        return Verdict(False, str(refusal), credential=checker.names_credential(command),
+                       private=checker.names_private(command))
 
 
 def _config_refusal(command: str, cwd: Path, hidden: Callable[[str], bool] | None,
@@ -1833,11 +2220,15 @@ def _config_refusal(command: str, cwd: Path, hidden: Callable[[str], bool] | Non
     """`.probe.config`: a command that reads an `off` file its words name only
     bare (`cat secret.txt`), or a whole tree holding one (`rg x .`, `grep -r`,
     `find`, `ls -R`, a repo-wide `git diff`), is refused in every mode: its output
-    cannot be trusted to name what it read (`rg -I`). Named files are checked
-    again, with everything else, by `_Checker._check_path`."""
+    cannot be trusted to name what it read (`rg -I`). The tree is looked for where
+    bash runs the read (`command_reads`: a `cd` in a pipeline moves nothing but
+    may, as its last part under `shopt -s lastpipe`, add a folder), and a
+    tree read printing no file names (`rg -I`, `grep -h`) from every folder it may
+    run in. Named files are checked again, with everything else, by
+    `_Checker._check_path`."""
     if hidden is None and off_inside is None:
         return None
-    from probe.daemon.exclusions import command_bases, command_reads, named_off
+    from probe.daemon.exclusions import command_bases, command_reads, drops_file_names, named_off
 
     files, trees = command_reads(command, str(cwd))
     for path in files:
@@ -1850,6 +2241,10 @@ def _config_refusal(command: str, cwd: Path, hidden: Callable[[str], bool] | Non
 
         if named_off(command, command_bases(command, str(cwd)), _Hidden(), lambda name, base: [name]):
             return "It names a file a .probe.config sets to off, so Probe never reads it."
+    if trees and drops_file_names(command):
+        # `rg -I` / `grep -h` drop the file names the output filter goes by, so a tree read
+        # of theirs is checked from every folder a `cd` in it may have left it in.
+        trees = [*trees, *(base for base in command_bases(command, str(cwd)) if base not in trees)]
     for tree in trees:
         if off_inside is not None and off_inside(tree):
             return (f"It reads every file below {tree}, which holds a path a .probe.config sets to off or is "
@@ -1870,10 +2265,11 @@ def read_refusal(
     hidden: Callable[[str], bool] | None = None,
 ) -> tuple[str, bool] | None:
     """Why the daemon's file reader may not read `path` at once, or None: the
-    rules of a safe `cat PATH` (inside the working folders or the checked-out
+    rules of a safe `cat PATH` inside the working folders (or the checked-out
     notes, the coding agent's instructions and memory; never a hidden folder, a
     credential-shaped name, Probe's own key and state), and the read-only
-    `read_dirs` (the Probe skills) besides. `(reason, never)`: `never` when no
+    `read_dirs` (the Probe skills) besides. Not the shell's reach outside the
+    working folders: the reader stays in them. `(reason, never)`: `never` when no
     mode may read it (Probe's own key and state)."""
     checker = _Checker(workdirs=workdirs, home=home, cwd=cwd, protected=protected, write_dirs=write_dirs,
                        read_dirs=read_dirs, hidden=hidden)
@@ -1916,6 +2312,9 @@ _RUNNER_OPTIONS: dict[str, tuple[frozenset[str], frozenset[str]]] = {
 _WRAPPER_VALUES = frozenset({"-u", "-g", "-C", "-D", "-h", "-p", "-r", "-t", "-U", "-S", "-s", "-k", "-n", "-i",
                              "-o", "-e", "-w"})  # fmt: skip
 _PUNCT = frozenset("();<>|&")
+#: What splits a word into the pieces a path may hide in (`open('.env')`,
+#: `--key=id_rsa`, `a.pem,b.pem`): the characters a file name in practice never holds.
+_PATH_PIECES = re.compile(r"[^\w.~/+@%-]+")
 
 
 @dataclass
@@ -1923,6 +2322,72 @@ class _Held:
     words: list[str]
     stdin: list[str]  # the targets of its `<` redirects
     piped: bool  # after a `|`: its input is the previous command's output
+    #: The targets of its other redirects (`> f`, `>> ~/.zshrc`): files it writes,
+    #: which a scan of what a command names must see too.
+    targets: list[str] = field(default_factory=list)
+
+
+def _tree_read(words: list[str]) -> bool:
+    """Does this simple command read a whole tree's contents? Any `rg` (it
+    searches a tree unless every name is a file); `grep`/`egrep`/`fgrep`/`diff`
+    with anything that can mean recursive, read wider than the programs do, so
+    a false yes only asks: a short cluster holding `r` or `R` anywhere (a `--`
+    may be an option's value: `grep -e -- -r .`), a long option any prefix of
+    `--recursive` or `--dereference-recursive` from `--rec` / `--der` on, and
+    any word holding `recurse` (`-d recurse`, `--directories=recurse`)."""
+    while words and "=" in words[0] and not words[0].startswith("-"):  # `X=1 grep -rn ...`
+        words = words[1:]
+    if not words:
+        return False
+    name = os.path.basename(words[0])
+    if name == "rg":
+        return True
+    if name not in ("grep", "egrep", "fgrep", "diff"):
+        return False
+    for word in words[1:]:
+        if "recurse" in word or (len(word) >= 3 and "recurse".startswith(word.split("=")[-1].lstrip("-"))):
+            return True  # `-d recurse`, `--directories=recurse`, and GNU's prefixes of it (`-d rec`)
+        if name != "diff" and (word in ("-d", "-D") or word.startswith(("-d", "--d"))):
+            return True  # grep's `-d ACTION` / `--directories=ACTION` / `--devices`: read wide, it only asks
+        if word.startswith("--"):
+            opt = word.split("=", 1)[0]
+            if (len(opt) >= 5 and "--recursive".startswith(opt)) or (
+                    len(opt) >= 5 and "--dereference-recursive".startswith(opt)):
+                return True
+        elif word.startswith("-") and ("r" in word[1:] or "R" in word[1:]):
+            return True
+    return False
+
+
+def strict_names(command: str, *, workdirs: list[Path], home: Path, cwd: Path, protected: Sequence[Path] = (),
+                 write_dirs: Sequence[Path] = ()) -> tuple[bool, bool] | None:
+    """`(credential, private)` as the checker's STRICT reading reads `command`
+    (`_split(_tokenize(...))`): each part's words, and its redirects' targets,
+    resolved against the folder the `cd DIR`s before it lead to, every
+    path-shaped piece of each word too. The lenient scans
+    (`_Checker.names_credential`, `names_private`) can be led astray by a
+    quoted `'>'`, which they take for a redirect, swallowing the `;` and the
+    `cd` after it. None when the strict reading refuses the command."""
+    try:
+        parts = _split(_tokenize(command))
+    except _Refuse:
+        return None
+    checker = _Checker(workdirs=list(workdirs), home=home, cwd=cwd, protected=protected, write_dirs=write_dirs)
+    here, home_s = os.path.realpath(cwd), str(home)
+    credential = private = False
+    for part in parts:
+        words = [w.value for w in part.words]
+        if words[:1] == ["cd"] and len(words) == 2:
+            target = home_s + words[1][1:] if words[1] == "~" or words[1].startswith("~/") else words[1]
+            here = os.path.realpath(os.path.join(here, target))
+            continue
+        private = private or _tree_read(words)
+        for word in [*words, *(t.value for _op, t in part.redirects)]:
+            for piece in {word, *_PATH_PIECES.split(word)}:
+                for real in _held_resolve(piece, [here], home_s) if piece else ():
+                    credential = credential or checker._secret(real)
+                    private = private or (checker._in_hidden(real) and os.path.lexists(real))
+    return credential, private
 
 
 def _held_commands(command: str) -> list[_Held] | None:
@@ -1945,6 +2410,8 @@ def _held_commands(command: str) -> list[_Held] | None:
                 target = tokens[k + 1] if k + 1 < len(tokens) else ""
                 if tok == "<" and target:
                     out[-1].stdin.append(target)
+                elif target:
+                    out[-1].targets.append(target)
                 k += 2
                 continue
             out.append(_Held([], [], tok in ("|", "|&")))
@@ -1956,7 +2423,10 @@ def _held_commands(command: str) -> list[_Held] | None:
 
 def _held_dirs(commands: list[_Held], cwd: str, home: str) -> list[str]:
     """Every folder the command may run in: its own, and every `cd` / `pushd` target
-    (read against all the folders seen so far: an over-approximation)."""
+    (read against all the folders seen so far: an over-approximation). A `cd` in a
+    pipeline moves nothing in bash, and is counted all the same: that only adds a
+    folder to look in (its own is never dropped), the safe side for what this
+    feeds (`names_writable`, `held_scripts`)."""
     dirs = [cwd]
     for c in commands:
         if c.words[0] in ("cd", "pushd") and len(c.words) > 1:
@@ -1976,6 +2446,14 @@ def _held_resolve(word: str, dirs: list[str], home: str) -> list[str]:
             if path not in out:
                 out.append(path)
     return out
+
+
+#: The files `probe` keeps beside a checked-out document (`note_sync.Paths`: the
+#: base copy, its version and owner, the lock; `summary_cli`'s visuals version):
+#: never the daemon's to write. A forged version would push stale text past the
+#: server's concurrent-edit and erasure checks.
+_BOOKKEEPING = (".base", ".meta.json", ".lock", ".owner")
+_BOOKKEEPING_NAMED = re.compile(r"""[^\s'"`;|&<>()=]*(?:\.base|\.meta\.json|\.lock|\.owner)(?=$|[\s'"`;|&<>()])""")
 
 
 def names_writable(command: str, *, cwd: Path, home: Path, folders: Sequence[Path]) -> str | None:
@@ -2004,7 +2482,7 @@ def names_writable(command: str, *, cwd: Path, home: Path, folders: Sequence[Pat
         return None  # the caller refuses a command it cannot read (`held_scripts`)
     dirs = _held_dirs(commands, os.path.realpath(str(cwd)), home_s)
     for c in commands:
-        for word in [*c.words, *c.stdin]:
+        for word in [*c.words, *c.stdin, *c.targets]:
             for piece in {word, *re.split(r"[=:]", word)}:
                 if not piece:
                     continue
@@ -2155,6 +2633,10 @@ def minimal_env(env_extra: dict[str, str] | None = None) -> dict[str, str]:
         "LC_ALL": "C.UTF-8",
         "TERM": "dumb",
         "NO_COLOR": "1",
+        # `python -c` imports nothing from the folder it runs in (Python 3.11+), and
+        # writes no `.pyc`: a command Jev approved runs only the code its text shows.
+        "PYTHONSAFEPATH": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
         "PAGER": "cat",
         "GIT_PAGER": "cat",
         "GIT_TERMINAL_PROMPT": "0",
@@ -2333,7 +2815,8 @@ async def run(
     # and the answer may have changed meanwhile. A stop now starts nothing.
     stopped = watch() if watch is not None else None
     if stopped is not None:
-        return ShellResult(exit_code=None, output="", truncated=False, timed_out=False, stopped=stopped)
+        return ShellResult(exit_code=None, output="", truncated=False, timed_out=False, stopped=stopped,
+                           started=False)
     source = None
     if stdin is not None:
         source = tempfile.TemporaryFile()

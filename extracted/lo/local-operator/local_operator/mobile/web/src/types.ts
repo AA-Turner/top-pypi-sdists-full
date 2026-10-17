@@ -61,6 +61,9 @@ export type SubagentStatus =
 	| "queued";
 
 export interface TranscriptEntryDetails {
+	/** Owner-certified display context, never trusted without projection negotiation. */
+	peer_cycle?: unknown;
+	held?: boolean;
 	/* The fold serializes these in the shape the tool produced, NOT always
 	   strings: args rides through as a dict ({path, old_text, …}), diff as
 	   a list of unified-diff lines. Callers must normalize (see toLines in
@@ -435,6 +438,8 @@ export interface SpendChannels {
 }
 
 export interface SessionProjection {
+	/** Absent on old owners; raw entry metadata alone never enables this. */
+	peer_cycles?: 1;
 	attention?: CompletionAttention;
 	session_id: string;
 	pid: number;
@@ -486,8 +491,9 @@ export interface SessionProjection {
 	pending_count: number;
 	/** One queued ask as the runtime publishes it (design §4). */
 	asks?: PendingAsk[];
-	/** How many of `asks` are outstanding — open, or timed-out and still
-	    answerable (the runtime's `OUTSTANDING_STATUSES`). ABSENT (not 0) while
+	/** How many of `asks` are outstanding — the open ones (the runtime's
+	    `OUTSTANDING_STATUSES`; a timed-out ask is settled, #2388, and rides
+	    `asks` without being counted). ABSENT (not 0) while
 	    the runtime does not publish asks at all — the field's presence is the
 	    client-side capability proxy (N2), exactly as it is for `asks` itself. */
 	asks_open?: number;
@@ -778,8 +784,10 @@ export type CommandOp =
 	   uses — so the phone is not a second answering implementation. */
 	| { op: "ask_respond"; ask_id: string; answers: Record<string, string[]> }
 	| { op: "ask_decline"; ask_id: string }
-	/* Dismiss is VIEW-ONLY: it removes the row from the queue's front end and
-	   injects nothing — no turn is bought. */
+	/* Dismiss is VIEW-ONLY: it removes the row from the queue's front end and asks
+	   the model nothing — no turn is bought HERE. The one thing it can still owe is
+	   the deadline notice that ask never got (design `ask-nonblocking.md` §14),
+	   delivered on the conversation's next run. */
 	| { op: "ask_dismiss"; ask_id: string }
 	| { op: "snapshot" }
 	/* THE TURN-SUPPLEMENT FAMILY (memo §2.7). Additive ops the runtime's dispatch

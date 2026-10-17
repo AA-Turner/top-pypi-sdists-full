@@ -80,9 +80,7 @@ async def render_agent_provider_request(agent: Any) -> RenderedAgentRequest:
     from matrx_ai.orchestrator.requests import AIMatrixRequest
     from matrx_ai.providers.unified_client import UnifiedAIClient
 
-    if not agent._variables_applied:
-        await agent.prepare_variables()  # the pre-substitution step, as execute runs it
-        agent.apply_variables()
+    await agent.run_first_turn_pass()  # idempotent; the same pass execute runs
 
     from matrx_ai.catalog.resolve import resolve_call_profile
 

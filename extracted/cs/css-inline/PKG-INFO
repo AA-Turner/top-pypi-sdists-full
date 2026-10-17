@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: css-inline
-Version: 0.22.1
+Version: 0.23.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -22,7 +22,7 @@ Keywords: css,html,email,stylesheet,inlining
 Author-email: Dmitry Dygalo <dmitry@dygalo.dev>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: homepage, https://github.com/Stranger6667/css-inline/tree/master/bindings/python
+Project-URL: homepage, https://github.com/Stranger6667/css-inline/tree/master/crates/css-inline-python
 Project-URL: repository, https://github.com/Stranger6667/css-inline
 
 # css_inline
@@ -193,6 +193,7 @@ inliner.inline("...")
 - `remove_inlined_selectors`. Remove inlined selectors from `<style>` blocks. Default: `False`
 - `apply_width_attributes`. Add `width` HTML attributes from CSS `width` properties on supported elements (`table`, `td`, `th`, `img`). Default: `False`
 - `apply_height_attributes`. Add `height` HTML attributes from CSS `height` properties on supported elements (`table`, `td`, `th`, `img`). Default: `False`
+- `resolve_css_variables`. Replace `var()` references with the values of the custom properties they refer to and drop the `--*` declarations. Default: `False`
 
 To skip CSS inlining for an HTML tag, add the `data-css-inline="ignore"` attribute:
 
@@ -331,7 +332,7 @@ inlined = etree.tostring(tree).decode(encoding="utf-8")
 `inlinestyler` 0.2.5 is not in the table: it crashes with current `lxml` (`'CSSSelector' object has no attribute 'evaluate'`).
 
 Inputs live in [`benchmarks/benchmarks.json`](https://github.com/Stranger6667/css-inline/blob/master/benchmarks/benchmarks.json): Basic is `simple`, Realistic-1 is `big_email_1`, Realistic-2 is `big_email_2`, GitHub page is `big_page`.
-Benchmark code: [`benches/bench.py`](https://github.com/Stranger6667/css-inline/blob/master/bindings/python/benches/bench.py) (`pytest-benchmark`, mean time). Environment: `rustc 1.99` (stable), Python `3.14.5`, Ryzen 9 9950X.
+Benchmark code: [`benches/bench.py`](https://github.com/Stranger6667/css-inline/blob/master/crates/css-inline-python/benches/bench.py) (`pytest-benchmark`, mean time). Environment: `rustc 1.99` (stable), Python `3.14.5`, Ryzen 9 9950X.
 
 ## Comparison with other libraries
 

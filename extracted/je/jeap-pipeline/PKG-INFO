@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: jeap_pipeline
-Version: 1.12.3
+Version: 1.13.0
 Summary: A collection of Python modules and libraries for CI/CD pipelines in the jEAP context.
 Project-URL: Homepage, https://github.com/jeap-admin-ch/jeap-python-pipeline-lib
 Project-URL: Issues, https://github.com/jeap-admin-ch/jeap-python-pipeline-lib

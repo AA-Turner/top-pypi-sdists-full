@@ -214,10 +214,29 @@ class GoogleTranslator(BaseTranslator):
         # ========================
         contents: list[Content] = []
 
-        for msg in config.messages:
+        # A history system message (kept in place as data) has no Gemini role: it goes in
+        # place as a marked note in the user turn — never dropped, never filled.
+        from matrx_ai.providers.system_notes import history_system_messages_as_notes
+
+        wire_messages = history_system_messages_as_notes(config.messages, provider="google")
+        originals = {id(m) for m in config.messages}
+        previous_was_note = False
+        for msg in wire_messages:
+            is_note = id(msg) not in originals
             google_content: Content | None = msg.to_google_content()
             if google_content:
-                contents.append(google_content)
+                if (
+                    (is_note or previous_was_note)
+                    and contents
+                    and isinstance(contents[-1], dict)
+                    and contents[-1].get("role") == google_content.get("role") == "user"
+                ):
+                    # A note joins the user turn beside it (only a note: other turns keep
+                    # their shape).
+                    contents[-1]["parts"].extend(google_content["parts"])
+                else:
+                    contents.append(google_content)
+                previous_was_note = is_note
 
         # TAIL CHANNEL (config/live_plan.py): a text part after the newest
         # function_response parts, in the same (user) turn.

@@ -81,6 +81,7 @@ ws_admin/org_id,ws_id:
     - integration_builder/org_id,ws_id
     - flow_deployer/org_id,ws_id,*
     - flow_execute_live/org_id,ws_id,*
+    - job_scheduler/org_id,ws_id
     - dh_deleter_live/org_id,ws_id
     - w:workspace_endpoint/org_id,ws_id
     - w:workspace_routing_production/org_id,ws_id

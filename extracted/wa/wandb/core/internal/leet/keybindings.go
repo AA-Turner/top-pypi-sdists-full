@@ -218,6 +218,11 @@ func RunKeyBindings() []BindingCategory[Run] {
 					Description: "Link scrubbing: arrow keys scrub all media series in sync (media pane focused)",
 				},
 				{
+					Keys: []string{"l"},
+					Description: "Link console logs and charts: the selected line and the chart " +
+						"crosshair follow each other (logs pane focused)",
+				},
+				{
 					Keys:        []string{"k"},
 					Description: "Toggle media image renderer: ANSI ↔ full-res (media pane focused)",
 				},
@@ -451,6 +456,16 @@ func WorkspaceKeyBindings() []BindingCategory[Workspace] {
 					Handler:     (*Workspace).handlePinRunKey,
 				},
 				{
+					Keys:        []string{"ctrl+a"},
+					Description: "Select all runs matching the runs filter (y to confirm)",
+					Handler:     (*Workspace).handleSelectAllRunsKey,
+				},
+				{
+					Keys:        []string{"x"},
+					Description: "Deselect all runs except the pinned one",
+					Handler:     (*Workspace).handleDeselectAllRunsKey,
+				},
+				{
 					Keys:        []string{"l"},
 					Description: "Link scrubbing: arrow keys scrub all media series in sync (media pane focused)",
 				},
@@ -487,34 +502,73 @@ func SymonKeyBindings() []BindingCategory[Symon] {
 			},
 		},
 		{
+			Name: "Panels",
+			Bindings: []KeyBinding[Symon]{
+				{
+					Keys:        []string{"["},
+					Description: "Toggle the vitals sidebar",
+					Handler:     (*Symon).handleToggleSidebar,
+				},
+				{
+					Keys:        []string{"t"},
+					Description: "Sort the processes by CPU or by memory",
+					Handler:     (*Symon).handleToggleProcessSort,
+				},
+				{
+					Keys:        []string{"drag border"},
+					Description: "Resize the sidebar with the mouse",
+				},
+				{
+					Keys:        []string{"0"},
+					Description: "Reset the sidebar width to the default",
+					Handler:     (*Symon).handleResetLayout,
+				},
+				{
+					Keys:        []string{"f"},
+					Description: "Filter the processes by name or PID",
+					Handler:     (*Symon).handleEnterProcessFilter,
+				},
+				{
+					Keys:        []string{"ctrl+f"},
+					Description: "Clear the processes filter",
+					Handler:     (*Symon).handleClearProcessFilter,
+				},
+			},
+		},
+		{
 			Name: "Navigation",
 			Bindings: []KeyBinding[Symon]{
+				{
+					Keys:        []string{"tab", "shift+tab"},
+					Description: "Cycle focus: processes ↔ charts",
+					Handler:     (*Symon).handleTab,
+				},
 				{
 					Keys: concatKeys(
 						NavKeysFor(NavIntentUp), NavKeysFor(NavIntentDown),
 						NavKeysFor(NavIntentLeft), NavKeysFor(NavIntentRight),
 					),
-					Description: "Navigate chart focus within page",
+					Description: "Move the chart focus, or the process cursor when the list has focus",
 					Handler:     (*Symon).handleGridNav,
 				},
 				{
 					Keys:        NavKeysFor(NavIntentPageUp),
-					Description: "Previous chart page",
+					Description: "Previous page of charts or processes",
 					Handler:     (*Symon).handlePrevPage,
 				},
 				{
 					Keys:        NavKeysFor(NavIntentPageDown),
-					Description: "Next chart page",
+					Description: "Next page of charts or processes",
 					Handler:     (*Symon).handleNextPage,
 				},
 				{
 					Keys:        NavKeysFor(NavIntentHome),
-					Description: "Jump to first chart page",
+					Description: "Jump to the first page",
 					Handler:     (*Symon).handleNavHome,
 				},
 				{
 					Keys:        NavKeysFor(NavIntentEnd),
-					Description: "Jump to last chart page",
+					Description: "Jump to the last page",
 					Handler:     (*Symon).handleNavEnd,
 				},
 			},

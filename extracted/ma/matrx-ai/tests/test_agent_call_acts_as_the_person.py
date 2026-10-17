@@ -110,6 +110,9 @@ def world(monkeypatch: pytest.MonkeyPatch):
         def __init__(self) -> None:
             self.config = SimpleNamespace(messages=[SimpleNamespace(role="user", authored=True)])
 
+        async def run_first_turn_pass(self):  # the real Agent fills before history joins
+            return self
+
     monkeypatch.setattr(Agent, "from_agent", classmethod(lambda _c, *_a, **_k: _value(_Child())))
 
     async def run_agent(_agent, **kwargs):

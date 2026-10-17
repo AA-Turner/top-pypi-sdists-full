@@ -168,12 +168,10 @@ class RunStatusChecker:
         interface: InterfaceBase,
         settings: Settings,
         retry_polling_interval: int = 5,
-        internal_messages_polling_interval: int = 10,
     ) -> None:
         self._run_id = run_id
         self._interface = interface
         self._retry_polling_interval = retry_polling_interval
-        self._internal_messages_polling_interval = internal_messages_polling_interval
         self._settings = settings
 
         self._join_event = threading.Event()
@@ -191,12 +189,10 @@ class RunStatusChecker:
             interface,
             settings.stop_fn or interrupt.interrupt_main,
         )
-        self._internal_messages = run_messages.RunMessages(asyncer, interface)
 
     def start(self) -> None:
         self._stop_checker.start()
         self._network_status_thread.start()
-        self._internal_messages.start()
 
     @staticmethod
     def _abandon_status_check(
@@ -292,7 +288,6 @@ class RunStatusChecker:
 
         self._stop_checker.stop_soon()
         self._network_status_thread.join()
-        self._internal_messages.stop(timeout=5)  # TODO: use finish timeout
 
 
 _P = ParamSpec("_P")
@@ -468,6 +463,7 @@ class Run:
     _exit_code: int | None
 
     _run_status_checker: RunStatusChecker | None
+    _run_messages: run_messages.RunMessages | None
 
     _sampled_history: SampledHistoryResponse | None
     _final_summary: GetSummaryResponse | None
@@ -580,6 +576,7 @@ class Run:
 
         # Created when the run "starts".
         self._run_status_checker = None
+        self._run_messages = None
 
         self._sampled_history = None
         self._final_summary = None
@@ -1691,7 +1688,7 @@ class Run:
         The previous code snippet saves the loss and accuracy to the run's
         history and updates the summary values for these metrics.
 
-        Visualize logged data in a workspace at [wandb.ai](https://wandb.ai),
+        Visualize logged data in a workspace at [CoreWeave Forge](https://forge.coreweave.com/wandb),
         or locally on a [self-hosted instance](https://docs.wandb.ai/platform/hosting)
         of the W&B app, or export data to visualize and explore locally, such as in a
         Jupyter notebook, with the [Public API](https://docs.wandb.ai/models/track/public-api-guide).
@@ -2579,15 +2576,22 @@ class Run:
             )
             self._interface.publish_python_packages(working_set())
 
-        if self._interface and not self._settings._offline:
-            assert self._settings.run_id
-            self._run_status_checker = RunStatusChecker(
-                self._settings.run_id,
-                asyncer=self._wl.asyncer,
-                interface=self._interface,
-                settings=self._settings,
+        if self._interface:
+            self._run_messages = run_messages.RunMessages(
+                self._wl.asyncer,
+                self._interface,
             )
-            self._run_status_checker.start()
+            self._run_messages.start()
+
+            if not self._settings._offline:
+                assert self._settings.run_id
+                self._run_status_checker = RunStatusChecker(
+                    self._settings.run_id,
+                    asyncer=self._wl.asyncer,
+                    interface=self._interface,
+                    settings=self._settings,
+                )
+                self._run_status_checker.start()
 
         self._console_start()
         self._begin_capturing_loggers()
@@ -2789,6 +2793,9 @@ class Run:
 
         result = final_summary_handle.wait_or(timeout=None)
         self._final_summary = result.response.get_summary_response
+
+        if self._run_messages:
+            self._run_messages.stop(timeout=5)  # TODO: use finish timeout
 
         if self._interface:
             self._interface.join()

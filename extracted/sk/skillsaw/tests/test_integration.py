@@ -251,6 +251,23 @@ def _deduplicated_fixture_dirs():
 @pytest.mark.integration
 class TestSinglePlugin:
 
+    @pytest.mark.parametrize(
+        ("fixture", "expected_errors"),
+        [("version-string", 0), ("version-number", 1)],
+    )
+    def test_plugin_version_type(self, tmp_path, fixture, expected_errors):
+        repo = copy_fixture(f"single-plugin/{fixture}", tmp_path)
+        result = run_lint(repo, "--rule", "claude-plugin-json-valid")
+
+        assert result["rc"] == expected_errors
+        assert summary(result)["errors"] == expected_errors
+        assert summary(result)["warnings"] == 0
+        if expected_errors:
+            assert len(violations(result)) == 1
+            assert violations(result)[0]["message"] == "'version' must be a string"
+        else:
+            assert violations(result) == []
+
     def test_clean_plugin_passes(self, tmp_path):
         repo = copy_fixture("single-plugin/clean", tmp_path)
         r = run_lint(repo)
@@ -309,7 +326,7 @@ class TestSinglePlugin:
         assert any("Missing frontmatter" in v["message"] for v in frontmatter)
 
         agent = grouped["claude-agent-frontmatter"]
-        assert any("name" in v["message"].lower() for v in agent)
+        assert all("Missing 'name'" not in v["message"] for v in agent)
         assert any("description" in v["message"].lower() for v in agent)
 
     def test_embedded_secrets_detected(self, tmp_path):
@@ -326,6 +343,58 @@ class TestSinglePlugin:
         # vars, hunter2placeholder, <paste-…>) must not fire — only the
         # real structured token line is a violation (issue #322).
         assert len(secrets) == 1
+
+    @pytest.mark.parametrize("dual_manifest", [False, True])
+    def test_plugin_agent_filename_fallback_keeps_project_requirements(
+        self, tmp_path, dual_manifest
+    ):
+        repo = copy_fixture("single-plugin/agent-filenames", tmp_path)
+        if dual_manifest:
+            marker = repo / ".codex-plugin"
+            marker.mkdir()
+            (marker / "plugin.json").write_text('{"name":"deployment-review"}')
+        result = run_lint(repo, "--rule", "claude-agent-frontmatter")
+
+        assert result["rc"] == 1
+        found = violations(result)
+        assert len(found) == 2
+        assert {(v["file_path"], v["message"]) for v in found} == {
+            (
+                ".claude/agents/project-reviewer.md",
+                "Missing 'name' in frontmatter",
+            ),
+            (
+                "agents/missing-description.md",
+                "Missing 'description' in frontmatter",
+            ),
+        }
+
+    @pytest.mark.parametrize("checkout_name", ["review-tools", ".claude"])
+    def test_plugin_agents_need_no_name_fix(self, tmp_path, checkout_name):
+        repo = copy_fixture("single-plugin/agent-filenames", tmp_path)
+        repo = repo.rename(tmp_path / checkout_name)
+        for path in (
+            repo / ".claude/agents/project-reviewer.md",
+            repo / "agents/missing-description.md",
+        ):
+            path.unlink()
+        before = {path: path.read_bytes() for path in (repo / "agents").glob("*.md")}
+
+        result = run_lint(repo, "--rule", "claude-agent-frontmatter")
+        assert result["rc"] == 0
+        assert violations(result) == []
+        fixed = run_cli(["fix", str(repo), "--rule", "claude-agent-frontmatter"])
+        assert fixed.returncode == 0
+        assert {path: path.read_bytes() for path in before} == before
+
+    def test_direct_project_agents_still_require_names(self, tmp_path):
+        repo = copy_fixture("single-plugin/agent-filenames", tmp_path)
+        result = run_lint(repo / ".claude", "--rule", "claude-agent-frontmatter")
+
+        assert result["rc"] == 1
+        assert [(v["file_path"], v["message"]) for v in violations(result)] == [
+            ("agents/project-reviewer.md", "Missing 'name' in frontmatter"),
+        ]
 
 
 # ── Hooks JSON ──────────────────────────────────────────────────
@@ -5244,6 +5313,27 @@ class TestApm:
         assert summary(r)["errors"] == 0
         assert summary(r)["warnings"] == 0
 
+    def test_memory_only_package_passes(self, tmp_path):
+        """APM discovers `.apm/memory/*.memory.md` as context primitives"""
+        repo = copy_fixture("apm/memory-only", tmp_path)
+        r = run_lint(repo)
+        assert r["rc"] == 0
+        assert "apm-structure-valid" not in rule_ids(r)
+        assert summary(r)["errors"] == 0
+        assert summary(r)["warnings"] == 0
+
+    def test_memory_file_is_linted_for_hidden_instructions(self, tmp_path):
+        """Memory primitives reach the Markdown parser and security rules."""
+        repo = copy_fixture("apm/memory-hidden-instructions", tmp_path)
+        r = run_lint(repo, "--strict")
+
+        assert r["rc"] == 1
+        assert "apm-structure-valid" not in rule_ids(r)
+        found = by_rule(r)["security-hidden-instructions"]
+        assert len(found) == 1
+        assert found[0]["file_path"] == ".apm/memory/payments-service.memory.md"
+        assert found[0]["line"] == 6
+
     def test_oversized_yaml_integer_is_a_normal_parse_finding(
         self, tmp_path, oversized_integer_digits
     ):
@@ -5776,6 +5866,43 @@ class TestOutputFormats:
         quiet_info = [v for v in violations(quiet) if v["severity"] == "info"]
         assert len(verbose_info) > len(quiet_info)
 
+    def test_quiet_clean_run_prints_nothing(self, tmp_path):
+        repo = copy_fixture("single-plugin/clean", tmp_path)
+        report = tmp_path / "report.json"
+        r = run_lint(repo, "--quiet", "--output", str(report), verbose=False, fmt="text")
+        assert r["rc"] == 0
+        assert r["stdout"] == ""
+        # Report files are still written in full.
+        assert "violations" in json.loads(report.read_text())
+
+    def test_quiet_prints_findings_and_summary_only(self, tmp_path):
+        repo = copy_fixture("single-plugin/broken", tmp_path)
+        loud = run_lint(repo, verbose=False, fmt="text")
+        r = run_lint(repo, "-q", verbose=False, fmt="text")
+        assert r["rc"] == loud["rc"] == 1
+        assert "skillsaw " not in r["stdout"].splitlines()[0]
+        assert "Linting:" not in r["stdout"]
+        assert "Scanned:" not in r["stdout"]
+        assert "Errors:" in r["stdout"]
+        assert "Summary:" in r["stdout"]
+        finding_lines = [line for line in loud["stdout"].splitlines() if line.startswith("  ✗")]
+        assert finding_lines
+        assert all(line in r["stdout"] for line in finding_lines)
+
+    def test_quiet_with_verbose_shows_info_findings(self, tmp_path):
+        repo = copy_fixture("single-plugin/clean", tmp_path)
+        r = run_lint(repo, "-q", verbose=True, fmt="text")
+        assert r["rc"] == 0
+        assert "Info:" in r["stdout"]
+        assert "Scanned:" not in r["stdout"]
+        assert "All checks passed" in r["stdout"]
+
+    def test_quiet_leaves_json_output_unchanged(self, tmp_path):
+        repo = copy_fixture("single-plugin/clean", tmp_path)
+        r = run_lint(repo, "-q", verbose=False)
+        assert "stats" in r["out"]
+        assert "summary" in r["out"]
+
     def test_sarif_output(self, tmp_path):
         repo = copy_fixture("single-plugin/broken", tmp_path)
         sarif_path = tmp_path / "report.sarif"
@@ -5907,6 +6034,7 @@ BROKEN_FIXTURES = [
     "codex/broken",
     "codex/hooks-broken",
     "codex/config-hooks-broken",
+    "codex/mcp-headers-broken",
     "cursor-rules/broken-frontmatter",
     "cursor-rules/broken-hooks",
     "cursor-rules/prompt-hooks",
@@ -5948,6 +6076,7 @@ CLEAN_FIXTURES = [
     "codex/clean",
     "codex/hooks-clean",
     "codex/config-hooks-clean",
+    "codex/mcp-headers-clean",
     "cursor-rules/clean",
     "copilot-agents-clean",
     "devin/valid",
@@ -6018,6 +6147,14 @@ class TestRuleCoverage:
             "openclaw-resources",
         )
         fired |= rule_ids(r)
+
+        repo = copy_fixture("pi/mcp-invalid", tmp_path / "pi_mcp_invalid")
+        fired |= rule_ids(run_lint(repo, "--rule", "pi-mcp-valid"))
+
+        repo = copy_fixture("goose/broken", tmp_path / "goose_broken")
+        fired |= rule_ids(
+            run_lint(repo, "--rule", "goose-recipe-valid", "--rule", "goose-subrecipe-references")
+        )
 
         missing = all_rule_ids - fired
         assert not missing, (
@@ -8314,7 +8451,7 @@ class TestLintFixLoop:
         m = re.search(r"\[\*\] (\d+) violation\(s\) fixable with `skillsaw fix`", r["stdout"])
         assert m, f"missing fixable summary line in:\n{r['stdout']}"
         # The count matches the [*]-marked violation lines above it.
-        assert int(m.group(1)) == r["stdout"].count("[*]") - 1
+        assert int(m.group(1)) == r["stdout"][: m.start()].count("[*]")
 
     def test_json_lint_reports_fixable_per_violation(self, tmp_path):
         repo = copy_fixture(self.FIXTURE, tmp_path)
@@ -10869,3 +11006,187 @@ def test_pi_skill_description_routing_fallback_when_native_rule_disabled(tmp_pat
         ("content-description-routing", "skills/missing/SKILL.md"),
         ("content-description-routing", "skills/nulled/SKILL.md"),
     ]
+
+
+class TestGoose:
+    def test_valid_recipes_and_monorepo_discovery(self, tmp_path):
+        from skillsaw.blocks.base import ContentBlock
+        from skillsaw.blocks.goose import GooseRecipeBlock, GooseRecipeProseBlock
+        from skillsaw.context import RepositoryContext
+
+        repo = copy_fixture("goose/clean", tmp_path)
+        result = run_lint(
+            repo, "--rule", "goose-recipe-valid", "--rule", "goose-subrecipe-references"
+        )
+        assert result["rc"] == 0
+        assert violations(result) == []
+        assert result["out"]["stats"]["repo_types"] == ["goose"]
+        tree = RepositoryContext(repo).lint_tree
+        recipes = tree.find(GooseRecipeBlock)
+        assert {block.path.relative_to(repo).as_posix() for block in recipes} == {
+            ".goose/recipes/review.yaml",
+            ".goose/recipes/checks/child.yaml",
+            ".goose/recipes/summary.json",
+            ".goose/recipes/desktop.yml",
+            ".goose/recipes/scalars.yaml",
+            "packages/web/.goose/recipes/check.yaml",
+            "packages/web/followup.yaml",
+        }
+        assert all(not isinstance(block, ContentBlock) for block in recipes)
+        assert len(tree.find(GooseRecipeProseBlock)) == 9
+
+    def test_static_defects_are_consolidated_and_located(self, tmp_path):
+        repo = copy_fixture("goose/broken", tmp_path)
+        result = run_lint(
+            repo, "--rule", "goose-recipe-valid", "--rule", "goose-subrecipe-references"
+        )
+        assert result["rc"] == 1
+        findings = by_rule(result)
+        fields = next(
+            v for v in findings["goose-recipe-valid"] if v["file_path"].endswith("fields.yaml")
+        )
+        assert fields["line"] == 3
+        assert fields["severity"] == "error"
+        assert "prompt: expected a string" in fields["message"]
+        assert "file parameters cannot have a default" in fields["message"]
+        assert len(findings["goose-recipe-valid"]) == 2
+        references = findings["goose-subrecipe-references"]
+        assert len(references) == 1
+        assert references[0]["line"] == 22
+        assert "sub_recipes[0].path" in references[0]["message"]
+        assert "generated.yaml" not in references[0]["message"]
+
+    def test_prose_reference_lines_and_safe_fix(self, tmp_path):
+        repo = copy_fixture("goose/broken", tmp_path)
+        path = repo / ".goose/recipes/security.yaml"
+        before = path.read_bytes()
+        result = run_lint(
+            repo, "--rule", "content-broken-internal-reference", "--rule", "content-weak-language"
+        )
+        findings = by_rule(result)
+        assert {v["line"] for v in findings["content-broken-internal-reference"]} == {5, 9}
+        assert {v["line"] for v in findings["content-weak-language"]} == {6}
+        _fix_widened(
+            repo, "--rule", "content-broken-internal-reference", "--rule", "content-weak-language"
+        )
+        assert path.read_bytes() == before
+        _run_fix(
+            repo, "--rule", "content-broken-internal-reference", "--rule", "content-weak-language"
+        )
+        assert path.read_bytes() == before
+
+    def test_mcp_security_survives_disabling_format_rule(self, tmp_path):
+        repo = copy_fixture("goose/broken", tmp_path)
+        result = run_lint(repo, "--skip-rule", "goose-recipe-valid")
+        findings = [
+            v for v in by_rule(result)["mcp-valid-json"] if v["file_path"].endswith("security.yaml")
+        ]
+        assert len(findings) == 3
+        assert {v["line"] for v in findings} == {13, 15, 21}
+        assert any("user information" in v["message"] for v in findings)
+        assert all("committed-secret-value" not in v["message"] for v in findings)
+
+    def test_mcp_policy_counts_external_extensions(self, tmp_path):
+        repo = copy_fixture("goose/clean", tmp_path)
+        findings = by_rule(run_lint(repo, "--rule", "mcp-prohibited"))["mcp-prohibited"]
+        assert len(findings) == 1
+        assert findings[0]["line"] == 13
+        assert findings[0]["file_path"] == ".goose/recipes/review.yaml"
+
+    def test_explicit_directory_and_unmarked_yaml(self, tmp_path):
+        repo = copy_fixture("goose/explicit", tmp_path)
+        assert violations(run_lint(repo)) == []
+        assert run_lint(repo)["out"]["stats"]["repo_types"] == ["unknown"]
+        result = run_lint(repo, "--type", "goose", "--rule", "content-broken-internal-reference")
+        assert [v["file_path"] for v in violations(result)] == ["review.yaml"]
+        assert result["out"]["stats"]["repo_types"] == ["goose"]
+
+    def test_opt_in_and_severity_override(self, tmp_path):
+        repo = copy_fixture("goose/broken", tmp_path)
+        assert not {"goose-recipe-valid", "goose-subrecipe-references"} & rule_ids(run_lint(repo))
+        (repo / ".skillsaw.yaml").write_text(
+            "rules:\n  goose-recipe-valid:\n    enabled: true\n    severity: warning\n"
+        )
+        assert {v["severity"] for v in by_rule(run_lint(repo))["goose-recipe-valid"]} == {"warning"}
+
+    def test_forced_discovery_skips_project_config_files(self, tmp_path):
+        from skillsaw.blocks.goose import GooseRecipeBlock
+        from skillsaw.context import RepositoryContext, RepositoryType
+
+        repo = copy_fixture("goose/explicit-configs", tmp_path)
+        result = run_lint(repo, "--type", "goose")
+        assert result["rc"] == 1
+        found = violations(result)
+        assert len(found) == 1
+        assert found[0]["rule_id"] == "goose-recipe-valid"
+        assert found[0]["file_path"] == "broken.yaml"
+        recipes = RepositoryContext(repo, repo_types={RepositoryType.GOOSE}).lint_tree.find(
+            GooseRecipeBlock
+        )
+        assert {block.path.name for block in recipes} == {"review.yaml", "broken.yaml"}
+        recipe_dir = repo / ".goose/recipes"
+        recipe_dir.mkdir(parents=True)
+        (repo / "package.json").rename(recipe_dir / "package.json")
+        automatic = RepositoryContext(repo).lint_tree.find(GooseRecipeBlock)
+        assert {block.path.relative_to(repo).as_posix() for block in automatic} == {
+            ".goose/recipes/package.json"
+        }
+
+    def test_exclusions_and_cycles(self, tmp_path):
+        from skillsaw.blocks.goose import GooseRecipeBlock
+        from skillsaw.context import RepositoryContext
+
+        repo = copy_fixture("goose/clean", tmp_path)
+        path = repo / ".goose/recipes/checks/child.yaml"
+        with path.open("a") as stream:
+            stream.write(
+                '  sub_recipes:\n    - name: parent\n      path: "{{ recipe_dir }}/../review.yaml"\n'
+            )
+        assert len(RepositoryContext(repo).lint_tree.find(GooseRecipeBlock)) == 7
+        context = RepositoryContext(repo, exclude_patterns=[".goose/**", "packages/**/.goose/**"])
+        assert context.lint_tree.find(GooseRecipeBlock) == []
+        assert "goose" not in context.repo_type_names()
+
+    def test_symlink_and_traversal_do_not_read_outside(self, tmp_path):
+        from skillsaw.blocks.goose import GooseRecipeBlock
+        from skillsaw.context import RepositoryContext
+
+        repo = copy_fixture("goose/explicit", tmp_path / "repo")
+        outside = tmp_path / "outside.yaml"
+        outside.write_text("title: Outside\ndescription: Private recipe\nprompt: private-marker\n")
+        (repo / "linked.yaml").symlink_to(outside)
+        with (repo / "review.yaml").open("a") as stream:
+            stream.write(
+                "  - name: outside\n    path: ../outside.yaml\n  - name: link\n    path: linked.yaml\n"
+            )
+        from skillsaw.context import RepositoryType
+
+        recipes = RepositoryContext(repo, repo_types={RepositoryType.GOOSE}).lint_tree.find(
+            GooseRecipeBlock
+        )
+        assert {block.path.name for block in recipes} == {"review.yaml", "check.yaml"}
+        result = run_lint(repo, "--type", "goose", "--rule", "goose-subrecipe-references")
+        assert result["rc"] == 0
+        assert violations(result) == []
+
+    def test_json_diagnostics_are_file_level_and_fields_are_distinct(self, tmp_path):
+        repo = copy_fixture("goose/clean", tmp_path)
+        path = repo / ".goose/recipes/summary.json"
+        content = json.loads(path.read_text())
+        content["instructions"] = "Read [the guide](missing.md)."
+        content["prompt"] = "Read [the guide](missing.md)."
+        path.write_text(json.dumps(content))
+        result = run_lint(repo, "--rule", "content-broken-internal-reference")
+        found = [v for v in violations(result) if v["file_path"].endswith("summary.json")]
+        assert len(found) == 2
+        assert all(not v.get("line") for v in found)
+        from skillsaw.blocks.goose import GooseRecipeProseBlock
+        from skillsaw.context import RepositoryContext
+
+        blocks = [
+            b
+            for b in RepositoryContext(repo).lint_tree.find(GooseRecipeProseBlock)
+            if b.path == path
+        ]
+        assert len(set(blocks)) == 2
+        assert len({b.fingerprint_identity(1) for b in blocks}) == 2

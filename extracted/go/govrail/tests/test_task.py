@@ -250,9 +250,39 @@ def test_close_refusal_carries_the_run_evidence(tmp_path, monkeypatch,
                       "--timeout", "60"]) == 1
     err = capsys.readouterr().err
     assert "THIS close's own gate run" in err
-    assert "(boom)" in err
+    assert "failed: boom" in err, (
+        "#420: the refusal partitions WHAT was not green — a FAIL reads "
+        "differently from a SKIP that was never evaluated")
     assert "run: --- summary:" in err, "the runner's report tail rides along"
     assert ".gov/last-run/boom.log" in err
+
+
+def test_close_refusal_partitions_skip_from_fail(tmp_path, monkeypatch,
+                                                 capsys):
+    """#420: SKIP was never evaluated — a close receipt must cover the
+    run with no skips — and the refusal must say so SEPARATELY from the
+    real failure, instead of naming both identically (six names for one
+    failure and five dependency-taken-down gates)."""
+    proj = _project(tmp_path)
+    (proj / "gates.json").write_text(json.dumps({
+        "modes": {"all": ["boom", "child"]},
+        "gates": [
+            {"id": "boom", "command": FAIL},
+            {"id": "child", "command": PASS, "needs": ["boom"]},
+        ],
+    }), encoding="utf-8")
+    from gov import verify_plane as _vp
+    _vp.baseline(proj)
+    monkeypatch.chdir(proj)
+    _open_card(proj, cid="T-0001", slug="alpha", checklist=["x"])
+    assert task.main(["tick", "T-0001", "1"]) == 0
+    capsys.readouterr()
+    assert task.main(["close", "T-0001", "--mode", "all",
+                      "--timeout", "60"]) == 1
+    err = capsys.readouterr().err
+    assert "failed: boom" in err
+    assert "skipped, not evaluated: child" in err
+    assert "SKIP is not green evidence" in err
 
 
 def test_uncommitted_reminder_throttles_per_card(tmp_path, monkeypatch,
@@ -1069,6 +1099,10 @@ def test_close_batch_one_run_shared_receipt(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "closed T-0001 (T-0001-alpha)" in out
     assert "closed T-0002 (T-0002-beta)" in out
+    # #423: the success line names ITS bar, so a later `gov receipt
+    # verify` decline (stricter clean-tree bar) is not a contradiction
+    assert out.count("green bar: task's own") == 1, \
+        "the bar is stated once for the batch's shared run"
     assert marker.read_text(encoding="utf-8") == "x", \
         "the batch must cost exactly ONE gate run"
     a = json.loads((proj / ".gov/tasks/T-0001-alpha.json")
@@ -1178,10 +1212,12 @@ def test_repin_advances_a_stale_brief_and_records_it(tmp_path, monkeypatch,
     capsys.readouterr()
     assert task.main(["check"]) == 1                     # STALE blocks
     err = capsys.readouterr().err
-    assert "gov task re-pin T-0001 --reason" in err, (
-        "the stale report must name the remedy (#368)")
+    assert "gov task repin T-0001 --reason" in err, (
+        "the stale report must name the remedy (#368) — and the verb it "
+        "names must be the implemented one (#401: the old hint said "
+        "'re-pin', a subcommand that does not exist)")
     assert task.main(["close", "T-0001"]) == 1           # close refuses
-    assert "gov task re-pin T-0001 --reason" in capsys.readouterr().err
+    assert "gov task repin T-0001 --reason" in capsys.readouterr().err
 
     with pytest.raises(SystemExit):                      # --reason required
         task.main(["repin", "T-0001"])
@@ -1211,3 +1247,96 @@ def test_repin_refuses_non_open_and_needs_reason(tmp_path, monkeypatch,
     assert "not open" in capsys.readouterr().err
     with pytest.raises(SystemExit):                     # --reason is required
         task.main(["repin", "T-0001"])
+
+
+# ── #431/#435/#436/#442 ───────────────────────────────────────────────
+
+def test_new_refuses_duplicate_open_brief(tmp_path, monkeypatch, capsys):
+    """#431: an accidental second `task new` with the same brief minted
+    a silent empty twin that surfaced only at close. An OPEN card with
+    the identical title refuses with its id; --force mints on purpose."""
+    proj = _project(tmp_path)
+    monkeypatch.chdir(proj)
+    _open_card(proj, cid="T-0001", slug="alpha", title="same brief",
+               checklist=["x"])
+    assert task.main(["new", "same", "brief"]) == 2
+    err = capsys.readouterr().err
+    assert "already carries this exact title: T-0001" in err
+    assert "--force" in err
+    # a voided twin does not block: retire the first brief, mint again
+    assert task.main(["void", "T-0001", "--reason", "retired for the "
+                      "guard test"]) == 0
+    capsys.readouterr()
+    assert task.main(["new", "same", "brief"]) == 0
+
+
+def test_mint_marker_claims_across_sibling_mints(tmp_path, monkeypatch):
+    """#435: four sibling worktrees of one clone each computed the same
+    'next id' and minted four same-id cards. The claim is an O_EXCL
+    marker in the SHARED common dir: first mint wins, the loser's
+    re-allocation bumps past it."""
+    proj = _project(tmp_path)
+    monkeypatch.chdir(proj)
+    subprocess.run(["git", "init", "-q", "."], cwd=proj, check=True,
+                   capture_output=True)
+    common = task._common_dir_quiet()
+    assert common is not None
+    assert task._mint_marker("T-0001", common) is True
+    assert task._mint_marker("T-0001", common) is False, \
+        "the same id cannot be claimed twice in one clone"
+    assert task._mint_marker("T-0002", common) is True
+    marker = common / "gov-task-minted" / "T-0001.spent"
+    assert marker.exists()
+
+
+def test_resolve_miss_names_checkout_context(tmp_path, monkeypatch, capsys):
+    """#436: 'no card matches' reads as 'does not exist' — cards are
+    per-checkout until merged. The miss names the branch and, when the
+    id ever existed in history, says so instead of inviting a re-create."""
+    proj = _project(tmp_path)
+    monkeypatch.chdir(proj)
+    subprocess.run(["git", "init", "-q", "."], cwd=proj, check=True,
+                   capture_output=True)
+    subprocess.run(["git", "config", "user.email", "t@t"], cwd=proj,
+                   check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "t"], cwd=proj,
+                   check=True, capture_output=True)
+    _open_card(proj, cid="T-0001", slug="alpha", checklist=["x"])
+    subprocess.run(["git", "add", "-A"], cwd=proj, check=True,
+                   capture_output=True)
+    subprocess.run(["git", "-c", "commit.gpgsign=false", "commit", "-qm",
+                    "card"], cwd=proj, check=True, capture_output=True)
+    (proj / ".gov" / "tasks" / "T-0001-alpha.json").unlink()
+    with pytest.raises(SystemExit):
+        task.main(["show", "T-0001"])
+    err = capsys.readouterr().err
+    assert "no card matches 'T-0001' in this checkout (branch" in err
+    assert "may live on another branch or worktree" in err
+    assert "existed in git history" in err
+
+
+def test_close_timeout_names_the_abandonment(tmp_path, monkeypatch, capsys):
+    """#442: a close run killed by its budget was reported as eleven
+    'not green' gates — the run never finished and nothing was judged.
+    The timeout names the abandonment and the escape; the default is
+    unbounded (the close run IS the receipt run)."""
+    proj = _project(tmp_path)
+    (proj / "gates.json").write_text(json.dumps({
+        "modes": {"all": ["slow"]},
+        "gates": [{"id": "slow",
+                   "command": [sys.executable, "-c", "import time; "
+                               "time.sleep(5)"]}],
+    }), encoding="utf-8")
+    from gov import verify_plane as _vp
+    _vp.baseline(proj)
+    monkeypatch.chdir(proj)
+    _open_card(proj, cid="T-0001", slug="alpha", checklist=["x"])
+    assert task.main(["tick", "T-0001", "1"]) == 0
+    capsys.readouterr()
+    assert task.main(["close", "T-0001", "--timeout", "1"]) == 1
+    err = capsys.readouterr().err
+    assert "hit the 1s budget and was abandoned partway" in err
+    assert "nothing was judged" in err
+    card = json.loads((proj / ".gov/tasks/T-0001-alpha.json")
+                      .read_text(encoding="utf-8"))
+    assert card["status"] == "open", "an abandoned run changes nothing"

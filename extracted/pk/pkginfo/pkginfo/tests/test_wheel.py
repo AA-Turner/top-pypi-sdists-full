@@ -2,6 +2,21 @@ import zipfile
 
 import pytest
 
+def _make_archive(filename, root_is_purelib=None):
+    metadata = (
+        b'Metadata-Version: 2.0\n'
+        b'Name: mypackage\n'
+        b'Version: 0.1\n')
+
+    with zipfile.ZipFile(filename, 'w') as zipf:
+        zipf.writestr('mypackage-0.1.dist-info/METADATA', metadata)
+        if root_is_purelib is not None:
+            zipf.writestr(
+                'mypackage-0.1.dist-info/WHEEL',
+                'Wheel-Version: 1.0\n'
+                'Root-Is-Purelib: %s\n' % ('true' if root_is_purelib
+                                           else 'false'))
+
 def _make_wheel(filename, metadata_version=None):
     from pkginfo.wheel import Wheel
 
@@ -88,6 +103,55 @@ def test_wheel_ctor_w_installed_wheel(examples_dir):
     assert(wheel.metadata_version == '2.0')
     _checkSample(wheel, filename)
     _checkClassifiers(wheel)
+
+def test_wheel_filename_tags_w_valid_wheel(test_wheel):
+    wheel = _make_wheel(str(test_wheel))
+
+    # LP #2015657 / GH #11
+    assert(wheel.python_tag == 'cp26')
+    assert(wheel.abi_tag == 'none')
+    assert(wheel.platform_tag == 'linux_x86_64')
+    assert(wheel.build_tag == None)
+
+def test_wheel_purelib_w_platlib_wheel(test_wheel):
+    wheel = _make_wheel(str(test_wheel))
+
+    assert(wheel.purelib is False)   # from the archive's 'WHEEL' file
+
+def test_wheel_purelib_w_pure_wheel(examples_dir):
+    filename = str(examples_dir / 'distlib-0.3.1-py2.py3-none-any.whl')
+
+    wheel = _make_wheel(filename)
+
+    assert(wheel.python_tag == 'py2.py3')
+    assert(wheel.platform_tag == 'any')
+    assert(wheel.purelib is True)
+
+def test_wheel_filename_tags_w_build_tag(tmp_path):
+    filename = str(tmp_path /
+                   'mypackage-0.1-1-cp39-cp39-'
+                   'manylinux1_x86_64.manylinux1_i686.whl')
+
+    _make_archive(filename, root_is_purelib=False)
+
+    wheel = _make_wheel(filename)
+
+    assert(wheel.python_tag == 'cp39')
+    assert(wheel.abi_tag == 'cp39')
+    assert(wheel.platform_tag == 'manylinux1_x86_64.manylinux1_i686')
+    assert(wheel.build_tag == '1')
+    assert(wheel.purelib is False)
+
+def test_wheel_filename_tags_w_unparseable(examples_dir):
+    # Unpacked .dist-info directories don't carry filename tags, and the
+    # fixture lacks a 'WHEEL' file.
+    filename = str(examples_dir / 'mypackage-0.1.dist-info')
+
+    wheel = _make_wheel(filename)
+
+    assert(wheel.python_tag == None)
+    assert(wheel.build_tag == None)
+    assert(wheel.purelib == None)
 
 def test_wheel_ctor_w_valid_installed_wheel(temp_dir, test_wheel):
 

@@ -70,12 +70,13 @@ def test_each_kind_has_a_compact_glance_and_exact_record_without_extra_reads(kin
     assert len(str(card)) < 4500
     assert "completeness" not in card
     assert "next_cursor" not in card
-    if kind in {
-        EntityType.PROJECT, EntityType.EXPERIMENT, EntityType.RUN,
-        EntityType.GROUP, EntityType.ARTIFACT,
-    }:
+    if kind in {EntityType.PROJECT, EntityType.EXPERIMENT, EntityType.RUN}:
         assert card["data"]["notes"]["text"].startswith("Caveat: this is the held-out split.")
         assert card["data"]["notes"]["truncated"] is True
+    else:
+        # Files and sweep groups no longer carry notes: an older server's
+        # `notes` stays in the record and is never excerpted onto the card.
+        assert "notes" not in card["data"]
 
     record = service.get_entity(f"{kind}:one", view=View.RECORD, token_budget=1000000)
     assert record["data"]["record"] == entity
@@ -92,7 +93,7 @@ def test_notes_excerpt_distinguishes_absence_and_complete_short_notes(text):
         assert excerpt == {"text": text, "truncated": False}
 
 
-@pytest.mark.parametrize("kind", [EntityType.PROJECT, EntityType.EXPERIMENT, EntityType.RUN, EntityType.GROUP])
+@pytest.mark.parametrize("kind", [EntityType.PROJECT, EntityType.EXPERIMENT, EntityType.RUN])
 def test_existing_note_carriers_keep_their_supported_detail_door(kind):
     source = EntitySource(kind, {"id": "one", "notes": "caveat\n" * 500})
     service = ResearchReadService(source)
@@ -102,22 +103,19 @@ def test_existing_note_carriers_keep_their_supported_detail_door(kind):
     assert View.NOTES in data["available_views"]
 
 
-@pytest.mark.parametrize("body", ["Do not reuse: scorer used the stale split.", "Caveat: stale split.\n" * 500])
-def test_artifact_card_keeps_authored_notes_with_a_valid_record_detail_door(body):
-    source = EntitySource(EntityType.ARTIFACT, {"id": "one", "name": "scorer.py", "notes": body})
+@pytest.mark.parametrize("kind", [EntityType.ARTIFACT, EntityType.GROUP])
+def test_files_and_sweep_groups_carry_no_notes_on_their_card_or_views(kind):
+    """Files and sweep groups no longer carry notes. A server one release behind
+    may still send a `notes` field: the card neither excerpts it nor offers a
+    `notes` view, and asking for one is refused by name."""
+    source = EntitySource(kind, {"id": "one", "name": "scorer.py", "notes": "stale caveat"})
     service = ResearchReadService(source)
-    data = service.get_entity("artifact:one")["data"]
-    assert data["notes"]["text"] == body[:_NOTES_CARD_EXCERPT]
-    assert data["notes"]["truncated"] is (len(body) > _NOTES_CARD_EXCERPT)
+    data = service.get_entity(f"{kind}:one")["data"]
+    assert "notes" not in data
     assert View.NOTES not in data["available_views"]
-    if len(body) > _NOTES_CARD_EXCERPT:
-        assert data["notes"]["read_all"] == 'view="record", view_options={"field":"notes"}'
-    else:
-        assert "read_all" not in data["notes"]
-    assert source.reads == ["artifact:one"]
-    full = service.get_entity("artifact:one", view=View.RECORD, filters={"field": "notes"})
-    assert full["data"]["record"] == body
-    assert "notes" not in full["data"]["entity"]
+    assert (kind, View.NOTES) not in _VIEWS
+    with pytest.raises(errors.ValidationError, match="not available"):
+        service.get_entity(f"{kind}:one", view=View.NOTES)
 
 
 def test_nonshared_artifact_actual_id_resolution_preserves_its_limitation(client, app):

@@ -110,7 +110,7 @@ async def test_an_independent_run_under_a_recordless_request_carries_no_dangling
 
     seen: list[dict[str, Any]] = []
 
-    async def _run(user_input: Any = None, *, max_iterations: Any = None) -> Any:
+    async def _run(user_input: Any = None, *, max_iterations: Any = None, **_: Any) -> Any:
         seen.append(dict(get_app_context().metadata))
         return SimpleNamespace(output="ok", assistant_response=None, config=SimpleNamespace(model="m", metadata={}),
                                usage=None, usage_history=[], metadata={})
@@ -144,7 +144,7 @@ async def test_a_lineage_link_is_written_in_the_form_rows_carry() -> None:
 
     seen: list[dict[str, Any]] = []
 
-    async def _run(user_input: Any = None, *, max_iterations: Any = None) -> Any:
+    async def _run(user_input: Any = None, *, max_iterations: Any = None, **_: Any) -> Any:
         seen.append(dict(get_app_context().metadata))
         return SimpleNamespace(output="ok", assistant_response=None, config=SimpleNamespace(model="m", metadata={}),
                                usage=None, usage_history=[], metadata={})

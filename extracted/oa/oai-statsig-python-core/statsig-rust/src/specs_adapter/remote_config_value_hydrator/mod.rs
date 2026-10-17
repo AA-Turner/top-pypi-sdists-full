@@ -17,6 +17,7 @@ mod json;
 mod metadata;
 mod protobuf;
 mod telemetry;
+mod verified_values;
 
 use download::{
     GLOBAL_RESPONSE_HYDRATION_BUDGET, MAX_ACTIVE_RESPONSE_RESERVATION_BYTES,
@@ -26,13 +27,16 @@ use errors::HydrationTimeoutStep;
 use telemetry::{HydrationOutcome, HydrationResult};
 
 pub(crate) use download::DOWNLOAD_CONCURRENCY;
+pub(crate) use json::{HydratedJsonStoreUpdate, JsonStoreHydrationContext};
 pub(crate) use protobuf::{
-    ProtobufHydrationSession, VerifiedRemoteValues,
+    ProtobufHydrationSession,
+    protobuf_spec_has_remote_metadata as protobuf_spec_bytes_have_remote_metadata,
     protobuf_top_level_has_hydrated_sidecar_provenance,
     remote_metadata_marker_without_metadata_error, rewrite_decoded_dynamic_config_envelope,
     rewrite_top_level_envelope,
 };
 pub(crate) use telemetry::HydrationPhase;
+pub(crate) use verified_values::VerifiedRemoteValues;
 
 const TAG: &str = "RemoteConfigValueHydrator";
 const HYDRATION_TIMEOUT: Duration = Duration::from_secs(30);
@@ -68,6 +72,32 @@ impl RemoteConfigValueHydrator {
         source_url: &'a str,
     ) -> ProtobufHydrationSession<'a> {
         protobuf::begin_session(self, source_url)
+    }
+
+    /// Build a candidate JSON snapshot using provenance from the same immutable
+    /// store base. The store must reject publication if that base has changed.
+    /// `None` means hydration was not needed; the caller should parse normally.
+    pub(crate) async fn prepare_json_store_update(
+        &self,
+        data: &mut ResponseData,
+        context: JsonStoreHydrationContext<'_>,
+    ) -> Result<Option<HydratedJsonStoreUpdate>, StatsigErr> {
+        let started_at = Instant::now();
+        let mut hydration_result = HydrationResult::new(self);
+        let result = timeout(
+            HYDRATION_TIMEOUT,
+            json::hydrate_response_for_store(self, data, context, &mut hydration_result),
+        )
+        .await
+        .map_err(|_| self.total_timeout_error(started_at, HydrationTimeoutStep::Response))
+        .and_then(|result| result);
+        hydration_result.finish(result.as_ref().map(|_| ()));
+        match &result {
+            Ok(Some(_)) => self.log_hydration_outcome(started_at, HydrationOutcome::Success),
+            Ok(None) => {}
+            Err(_) => self.log_hydration_outcome(started_at, HydrationOutcome::Failure),
+        }
+        result
     }
 
     /// Rewrites any remote-backed values in data to their verified JSON

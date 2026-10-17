@@ -2,10 +2,6 @@ from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
-from deprecate import (  # type: ignore[import-untyped,unused-ignore]
-    TargetMode,
-    deprecated,
-)
 
 from supervision.detection.utils.iou_and_nms import box_iou_batch
 from supervision.geometry.core import Position
@@ -18,8 +14,7 @@ def clip_boxes(
     xyxy: npt.NDArray[np.number],
     resolution_wh: tuple[int, int],
 ) -> npt.NDArray[np.number]:
-    """
-    Clips bounding boxes coordinates to fit within the frame resolution.
+    """Clips bounding boxes coordinates to fit within the frame resolution.
 
     Args:
         xyxy: A numpy array of shape `(N, 4)` where each
@@ -61,8 +56,7 @@ def pad_boxes(
     px: int,
     py: int | None = None,
 ) -> npt.NDArray[np.number]:
-    """
-    Pads bounding boxes coordinates with a constant padding.
+    """Pads bounding boxes coordinates with a constant padding.
 
     Args:
         xyxy: A numpy array of shape `(N, 4)` where each
@@ -126,20 +120,12 @@ def pad_boxes(
     return cast(npt.NDArray[np.number], result)
 
 
-@deprecated(  # type: ignore[untyped-decorator]
-    target=TargetMode.ARGS_REMAP,
-    deprecated_in="0.27.0",
-    remove_in="0.31.0",
-    args_mapping={"normalized_xyxy": "xyxy"},
-)
 def denormalize_boxes(
     xyxy: npt.NDArray[np.number],
     resolution_wh: tuple[int, int],
     normalization_factor: float = 1.0,
-    normalized_xyxy: npt.NDArray[np.number] | None = None,
 ) -> npt.NDArray[np.number]:
-    """
-    Convert normalized bounding box coordinates to absolute pixel coordinates.
+    """Convert normalized bounding box coordinates to absolute pixel coordinates.
 
     Multiplies each bounding box coordinate by image size and divides by
     `normalization_factor`, mapping values from normalized `[0, normalization_factor]`
@@ -201,11 +187,12 @@ def _sort_box_corners(
     """Order each box's corners so that `x_min <= x_max` and `y_min <= y_max`.
 
     `Detections.xyxy` is defined as `(x_min, y_min, x_max, y_max)`, and every
-    box operation in the library relies on that ordering: `box_iou_batch`
+    box operation in the library relies on that ordering:
+    :func:`~supervision.detection.utils.iou_and_nms.box_iou_batch`
     clamps its intersection widths at zero, so a box whose corners arrive
-    swapped scores an IoU of `0` even against itself. `box_area` hides the
-    problem rather than surfacing it, because negating both sides leaves their
-    product positive. Sorting the corner pairs restores the invariant without
+    swapped scores an IoU of `0` even against itself. The box area calculation
+    hides the problem rather than surfacing it, because negating both sides leaves
+    their product positive. Sorting the corner pairs restores the invariant without
     moving the region a box describes; a correctly ordered box is unchanged.
 
     Args:
@@ -234,10 +221,74 @@ def _sort_box_corners(
     return cast(npt.NDArray[np.number], np.stack([x_min, y_min, x_max, y_max], axis=-1))
 
 
+def _add_integer_offset(
+    coordinates: npt.NDArray[np.number], offset: npt.NDArray[np.integer]
+) -> npt.NDArray[np.number]:
+    """Add an offset to coordinates without wrapping integer values.
+
+    Integer inputs are added without integer wraparound. The result uses
+    `int64` when all translated values fit; otherwise, it uses `float64`, which
+    may round values outside the exact integer range. If either input is
+    non-integer, addition follows NumPy's usual behavior.
+
+    Args:
+        coordinates: Coordinate array to translate.
+        offset: Integer offset, broadcastable to the shape of `coordinates`.
+
+    Returns:
+        Translated coordinates.
+
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> coordinates = np.array([[1, 2], [3, 4]])
+        >>> _add_integer_offset(coordinates, np.array([5, 6]))
+        array([[ 6,  8],
+               [ 8, 10]])
+
+        ```
+    """
+    coordinates = np.asarray(coordinates)
+    offset = np.asarray(offset)
+    if not (
+        np.issubdtype(coordinates.dtype, np.integer)
+        and np.issubdtype(offset.dtype, np.integer)
+    ):
+        return coordinates + offset
+
+    limits = np.iinfo(np.int64)
+    coordinates_fit_int64 = np.issubdtype(
+        coordinates.dtype, np.signedinteger
+    ) or np.all(coordinates <= limits.max)
+    offset_fit_int64 = np.issubdtype(offset.dtype, np.signedinteger) or np.all(
+        offset <= limits.max
+    )
+    if coordinates_fit_int64 and offset_fit_int64:
+        integer_coordinates = coordinates.astype(np.int64)
+        integer_offset = offset.astype(np.int64)
+        with np.errstate(over="ignore"):
+            translated = integer_coordinates + integer_offset
+        overflow = (
+            (integer_coordinates ^ translated) & (integer_offset ^ translated)
+        ) < 0
+        if not np.any(overflow):
+            return cast(npt.NDArray[np.number], translated)
+
+    exact_translation = coordinates.astype(object) + offset.astype(object)
+    fits_int64 = np.all(
+        (exact_translation >= limits.min) & (exact_translation <= limits.max)
+    )
+    output_dtype = np.int64 if fits_int64 else np.float64
+    return cast(
+        npt.NDArray[np.number], np.asarray(exact_translation, dtype=output_dtype)
+    )
+
+
 def move_boxes(
     xyxy: npt.NDArray[np.number], offset: npt.NDArray[np.integer]
 ) -> npt.NDArray[np.number]:
-    """
+    """Move axis-aligned boxes by an `(x, y)` offset.
+
     Args:
         xyxy: An array of shape `(n, 4)` containing the
             bounding boxes coordinates in format `[x1, y1, x2, y2]`
@@ -245,7 +296,9 @@ def move_boxes(
             is `[dx, dy]`.
 
     Returns:
-        Repositioned bounding boxes.
+        Repositioned bounding boxes. Integer inputs produce `int64` output when
+        the translated coordinates fit; otherwise, they produce `float64` output.
+        Floating-point inputs preserve NumPy's existing addition behavior.
 
     Examples:
         ```pycon
@@ -262,13 +315,15 @@ def move_boxes(
 
         ```
     """
-    return xyxy + np.hstack([offset, offset])
+    offset = np.asarray(offset)
+    return _add_integer_offset(xyxy, np.hstack([offset, offset]))
 
 
 def move_oriented_boxes(
     xyxyxyxy: npt.NDArray[np.number], offset: npt.NDArray[np.integer]
 ) -> npt.NDArray[np.number]:
-    """
+    """Move oriented boxes by an `(x, y)` offset.
+
     Args:
         xyxyxyxy: An array of shape `(n, 4, 2)` containing the
         oriented bounding boxes coordinates in format
@@ -277,7 +332,9 @@ def move_oriented_boxes(
             is `[dx, dy]`.
 
     Returns:
-        Repositioned bounding boxes.
+        Repositioned bounding boxes. Integer inputs produce `int64` output when
+        the translated coordinates fit; otherwise, they produce `float64` output.
+        Floating-point inputs preserve NumPy's existing addition behavior.
 
     Examples:
         ```pycon
@@ -311,7 +368,7 @@ def move_oriented_boxes(
 
         ```
     """
-    return xyxyxyxy + offset
+    return _add_integer_offset(xyxyxyxy, np.asarray(offset))
 
 
 def obb_polygon_area(corners: npt.NDArray[np.number]) -> npt.NDArray[np.float64]:
@@ -544,8 +601,7 @@ def _box_midpoint(
 def scale_boxes(
     xyxy: npt.NDArray[np.number], factor: float
 ) -> npt.NDArray[np.floating]:
-    """
-    Scale the dimensions of bounding boxes.
+    """Scale the dimensions of bounding boxes.
 
     Args:
         xyxy: An integer or floating-point array of shape `(n, 4)` containing
@@ -624,8 +680,10 @@ def spread_out_boxes(
     xyxy: npt.NDArray[np.number],
     max_iterations: int = 100,
 ) -> npt.NDArray[np.number]:
-    """
-    Spread out boxes that overlap with each other.
+    """Spread out boxes that overlap with each other.
+
+    Overlapping boxes are pushed away from each other's centers. Boxes that share
+    a center are pushed apart vertically, the earlier box upward.
 
     Args:
         xyxy: Numpy array of shape (N, 4) where N is the number of boxes.
@@ -666,6 +724,14 @@ def spread_out_boxes(
 
         # NxNx2
         delta_centers = centers[:, np.newaxis, :] - centers[np.newaxis, :, :]
+        # Boxes that share a center give no direction to push along, so they would
+        # never move apart. Push them apart vertically, in index order, instead.
+        shared_center = np.all(delta_centers == 0, axis=2)
+        indices = np.arange(len(centers))
+        index_order = np.sign(indices[:, np.newaxis] - indices[np.newaxis, :])
+        delta_centers[..., 1] = np.where(
+            shared_center, index_order, delta_centers[..., 1]
+        )
         delta_centers *= overlap_mask[:, :, np.newaxis]
 
         # Nx2

@@ -29,18 +29,51 @@ import re
 import shutil
 import sys
 import tempfile
+import time
 
 import requests
 
 from .exceptions import ModelAccessDenied
 
 CHUNK_SIZE = 8 * 1024 * 1024  # 8 MB
+MAX_STREAM_RETRIES = 5  # retries after interruptions without new progress
+# Transient client errors that a retry with a fresh signed URL can fix.
+RETRYABLE_4XX = frozenset({408, 425, 429})
+RETRY_BACKOFF_BASE = 2.0  # seconds; doubles per consecutive retryable error
+RETRY_BACKOFF_CAP = 32.0  # upper bound for any single backoff sleep
 
 
 def _log(source, msg):
     """Write a prefixed log line to stderr."""
     sys.stderr.write("[%s] %s\n" % (source, msg))
     sys.stderr.flush()
+
+
+def _retry_after_seconds(response, cap):
+    """
+    Extract a bounded retry delay from a ``Retry-After`` header.
+
+    Supports both the delay-seconds and HTTP-date forms. Returns ``None``
+    when the header is absent or unparseable, otherwise a non-negative
+    number of seconds capped at ``cap``.
+    """
+    value = response.headers.get("retry-after") if response is not None else None
+    if not value:
+        return None
+    try:
+        delay = float(value)
+    except ValueError:
+        from datetime import datetime, timezone
+        from email.utils import parsedate_to_datetime
+
+        try:
+            then = parsedate_to_datetime(value)
+            delay = (then - datetime.now(timezone.utc)).total_seconds()
+        except (TypeError, ValueError, OverflowError):
+            return None
+    if delay <= 0:
+        return None
+    return min(delay, cap)
 
 
 # ======================================================================
@@ -556,30 +589,288 @@ class AnacondaModelClient:
         r.raise_for_status()
         return r.json()
 
-    def _stream_to_file(self, url, dest, expected_size=None):
-        """Download url to dest with chunked streaming."""
+    def _stream_to_file(self, get_url, dest, expected_size=None, expected_sha256=None):
+        """
+        Download to ``dest`` (atomic via a ``.part`` file), tolerating
+        expired signed URLs and interrupted streams.
+
+        ``get_url`` is invoked once per HTTP request so every attempt —
+        including Range resumes — gets a fresh signed URL. A plain URL
+        string is also accepted for backwards compatibility.
+
+        The initial request downloads the whole file. Interrupted streams
+        are resumed with an open-ended Range request from the bytes written,
+        with at most ``MAX_STREAM_RETRIES`` retries between advances past the
+        furthest byte written (i.e. as long as newer data chunks keep
+        arriving, we can retry forever). Partial responses are validated
+        before appending, including servers returning 200 with Content-Range.
+        A resumed 200 without Content-Range restarts from byte 0. The final
+        size must match ``expected_size`` or the size reported by the server,
+        when available. Oversized or zero-size responses raise ``IOError``.
+        Free disk space is checked against the expected size up front when
+        known, otherwise once when the server first reports a size. Other
+        4xx errors raise immediately; retriable errors (server errors
+        and 408/425/429) are retried with short exponential backoff,
+        honoring a ``Retry-After`` header when present. On terminal
+        failure the ``.part`` file is removed.
+
+        When ``expected_sha256`` is given, the digest is computed
+        incrementally from the bytes as they are written to the ``.part``
+        file (reset alongside the byte counter on a restart from byte 0),
+        so no second pass over the finished file is needed. A mismatch
+        raises ``IOError`` before the ``.part`` file is renamed into place.
+
+        Returns
+        -------
+        int
+            Number of bytes written to ``dest``.
+        """
+        if expected_size is not None and expected_size <= 0:
+            # Zero-size model artifacts indicate corrupt catalog data
+            raise IOError(
+                "Download of %s was requested with an expected size of %d bytes"
+                % (dest, expected_size)
+            )
+        if not callable(get_url):
+            fixed_url = get_url
+
+            def get_url():
+                return fixed_url
+
         tmp = dest + ".part"
         downloaded = 0
+        furthest_downloaded = 0
+        short_streams = 0
+        total = expected_size
         last_pct = -1
+        space_checked = False
+        hasher = hashlib.sha256() if expected_sha256 else None
+        if expected_size is not None:
+            _check_free_space(dest, expected_size)
+            space_checked = True
 
-        with self._session.get(url, stream=True, timeout=600) as r:
-            r.raise_for_status()
-            total = expected_size or int(r.headers.get("content-length", 0)) or None
-            with open(tmp, "wb") as f:
-                for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    if total:
-                        pct = int(downloaded * 100 / total)
-                        if pct >= last_pct + 10:
+        try:
+            while True:
+                start = downloaded
+                headers = {}
+                if start:
+                    headers["Range"] = "bytes=%d-" % start
+
+                error = None
+                try:
+                    with self._session.get(
+                        get_url(), stream=True, timeout=(30, 120), headers=headers
+                    ) as r:
+                        content_range = r.headers.get("content-range")
+                        # The catalog download server honors Range but returns 200,
+                        # not 206. Trust validated range metadata, not status alone.
+                        partial = r.status_code == 206 or content_range is not None
+                        if r.status_code == 200 and start and not partial:
+                            # Server ignored the Range header; restart from scratch.
                             _log(
                                 "download",
-                                "%d / %d MB (%d%%)"
-                                % (downloaded >> 20, total >> 20, pct),
+                                "got 200 for a ranged request; restarting from byte 0",
                             )
-                            last_pct = pct
+                            downloaded = 0
+                            if hasher is not None:
+                                hasher = hashlib.sha256()
+                            last_pct = -1
+                        r.raise_for_status()
+                        if r.status_code not in (200, 206):
+                            raise IOError(
+                                "Unexpected download status: %s" % r.status_code
+                            )
+                        content_length = r.headers.get("content-length")
+                        declared = (
+                            int(content_length) if content_length is not None else None
+                        )
 
-        os.replace(tmp, dest)
+                        if partial:
+                            # This server uses '*' for the total and may omit the
+                            # end (bytes N-/*). Recover that end from Content-Length.
+                            match = re.fullmatch(
+                                r"bytes (\d+)-(\d*)/(\d+|\*)", content_range or ""
+                            )
+                            if not match:
+                                raise IOError(
+                                    "Invalid Content-Range: %r" % content_range
+                                )
+                            range_start = int(match[1])
+                            range_end = (
+                                int(match[2])
+                                if match[2]
+                                else (
+                                    range_start + declared - 1
+                                    if declared is not None
+                                    else None
+                                )
+                            )
+                            range_total = int(match[3]) if match[3] != "*" else None
+                            if (
+                                (r.status_code == 206 and not start)
+                                or range_start != downloaded
+                                or range_end is None
+                                or range_end < range_start
+                                or (
+                                    range_total is not None and range_end >= range_total
+                                )
+                                or (total is not None and range_end >= total)
+                                or (
+                                    total is not None
+                                    and range_total is not None
+                                    and range_total != total
+                                )
+                                or (
+                                    declared is not None
+                                    and declared != range_end - range_start + 1
+                                )
+                            ):
+                                raise IOError(
+                                    "Unexpected Content-Range: %r" % content_range
+                                )
+                            if range_total is not None:
+                                total = range_total
+                            response_limit = range_end + 1
+                        elif total is None and declared is not None:
+                            total = declared
+
+                        if not partial:
+                            response_limit = declared if declared is not None else total
+
+                        # Check free space once, as soon as the total size is
+                        # known — either from the caller or from the server.
+                        if total is not None and not space_checked:
+                            space_checked = True
+                            _check_free_space(dest, total)
+
+                        if total == 0:
+                            # Treat zero-size body as corrupt catalog/server data
+                            raise IOError(
+                                "Download of %s: server reported a zero-byte file"
+                                % dest
+                            )
+
+                        if (
+                            total is not None
+                            and response_limit is not None
+                            and response_limit > total
+                        ):
+                            raise IOError(
+                                "Download of %s exceeds expected size of %d bytes"
+                                % (dest, total)
+                            )
+
+                        with open(tmp, "wb" if downloaded == 0 else "ab") as f:
+                            for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
+                                if not chunk:
+                                    continue
+                                if (
+                                    response_limit is not None
+                                    and downloaded + len(chunk) > response_limit
+                                ):
+                                    raise IOError(
+                                        "Download of %s exceeds expected size of "
+                                        "%d bytes" % (dest, response_limit)
+                                    )
+                                f.write(chunk)
+                                if hasher is not None:
+                                    hasher.update(chunk)
+                                downloaded += len(chunk)
+                                if downloaded > furthest_downloaded:
+                                    furthest_downloaded = downloaded
+                                    short_streams = 0
+                                if total:
+                                    pct = int(downloaded * 100 / total)
+                                    if pct >= last_pct + 5:
+                                        _log(
+                                            "download",
+                                            "%d / %d MB (%d%%)"
+                                            % (downloaded >> 20, total >> 20, pct),
+                                        )
+                                        last_pct = pct
+                except requests.HTTPError as e:
+                    status = e.response.status_code if e.response is not None else 0
+                    if status < 500 and status not in RETRYABLE_4XX:
+                        # A fresh signed URL was just used; most 4xx errors will
+                        # not fix themselves on retry.
+                        raise
+                    error = e
+                    # The server may be throttling or restarting: back off
+                    # before retrying instead of exhausting the retry budget
+                    # with immediate attempts. A Retry-After header wins when
+                    # present; otherwise back off exponentially.
+                    delay = _retry_after_seconds(e.response, RETRY_BACKOFF_CAP)
+                    if not delay:
+                        delay = min(
+                            RETRY_BACKOFF_CAP,
+                            RETRY_BACKOFF_BASE * (2**short_streams),
+                        )
+                    _log("download", "got %d; retrying in %.1fs" % (status, delay))
+                    time.sleep(delay)
+                except requests.RequestException as e:
+                    # Includes ChunkedEncodingError (short read), ConnectionError,
+                    # and Timeout.
+                    error = e
+
+                if total is not None:
+                    if downloaded == total:
+                        break
+                elif error is None and (not partial or downloaded == response_limit):
+                    break
+
+                # The server can cap a response even for an open-ended range.
+                # A fully received partial response is progress, not a failed
+                # stream.
+                if error is None and partial and downloaded == response_limit:
+                    continue
+
+                short_streams += 1
+                if short_streams > MAX_STREAM_RETRIES:
+                    raise IOError(
+                        "Download of %s was interrupted %d times without new "
+                        "progress; gave up after "
+                        "%d of %s bytes. Last error: %s"
+                        % (
+                            dest,
+                            short_streams,
+                            downloaded,
+                            total if total is not None else "unknown",
+                            error,
+                        )
+                    )
+                _log(
+                    "download",
+                    "short stream after %d bytes (%s); retry %d/%d since last "
+                    "new progress from byte %d "
+                    "with a fresh signed URL"
+                    % (
+                        downloaded,
+                        error,
+                        short_streams,
+                        MAX_STREAM_RETRIES,
+                        downloaded,
+                    ),
+                )
+
+            if total is not None and downloaded != total:
+                raise IOError(
+                    "Download of %s is incomplete: got %d bytes, expected %d"
+                    % (dest, downloaded, total)
+                )
+            if hasher is not None:
+                actual = hasher.hexdigest()
+                if actual != expected_sha256:
+                    raise IOError(
+                        "SHA256 mismatch for %s: expected %s, got %s"
+                        % (dest, expected_sha256, actual)
+                    )
+                _log("download", "sha256 verified: %s..." % actual[:16])
+            os.replace(tmp, dest)
+        finally:
+            # Clean up the .part file on any terminal failure. On success it
+            # has already been renamed to dest, so this is a no-op.
+            if os.path.exists(tmp):
+                os.remove(tmp)
         return downloaded
 
 
@@ -811,6 +1102,8 @@ class AnacondaModel:
         """Download the one file via keywest."""
         sha256 = self.sha256
         if self._is_present():
+            if verify_sha256 and sha256:
+                _verify_sha256(tag, self._path, sha256)
             _log(
                 tag,
                 "already on disk (%d bytes), skipping." % os.path.getsize(self._path),
@@ -818,8 +1111,10 @@ class AnacondaModel:
             self._pulled = True
             self.download_status = "skipped"
         else:
-            url = self._client.get_download_url(
-                self.model_uuid, self.selected_model["file_uuid"], model_name=self.name
+            url_fn = lambda: self._client.get_download_url(
+                self.model_uuid,
+                self.selected_model["file_uuid"],
+                model_name=self.name,
             )
             os.makedirs(self._dir, exist_ok=True)
 
@@ -828,10 +1123,12 @@ class AnacondaModel:
                 "downloading %s (%d MB) ..."
                 % (self.quant_method, (self.size or 0) >> 20),
             )
-            self._client._stream_to_file(url, self._path, expected_size=self.size)
-
-            if verify_sha256 and sha256:
-                _verify_sha256(tag, self._path, sha256)
+            self._client._stream_to_file(
+                url_fn,
+                self._path,
+                expected_size=self.size,
+                expected_sha256=sha256 if verify_sha256 else None,
+            )
 
             self._pulled = True
             self.download_status = "downloaded"
@@ -886,12 +1183,18 @@ class AnacondaModel:
                 n_skipped += 1
             else:
                 os.makedirs(os.path.dirname(local_path), exist_ok=True)
-                url = self._client.get_collection_file_url(
-                    self.model_uuid, collection_uuid, filename, model_name=self.name
+                url_fn = lambda filename=filename: self._client.get_collection_file_url(
+                    self.model_uuid,
+                    collection_uuid,
+                    filename,
+                    model_name=self.name,
                 )
-                self._client._stream_to_file(url, local_path, expected_size=size_bytes)
-                if verify_sha256 and sha256:
-                    _verify_sha256(tag, local_path, sha256)
+                self._client._stream_to_file(
+                    url_fn,
+                    local_path,
+                    expected_size=size_bytes,
+                    expected_sha256=sha256 if verify_sha256 else None,
+                )
                 status = "downloaded"
                 n_downloaded += 1
 
@@ -968,6 +1271,18 @@ class AnacondaModel:
 
 def _safe_dirname(name):
     return name.replace("/", "_").replace("\\", "_").replace(" ", "_")
+
+
+def _check_free_space(dest, needed):
+    """Raise IOError if the filesystem holding ``dest`` lacks ``needed`` bytes."""
+    target_dir = os.path.dirname(os.path.abspath(dest))
+    free = shutil.disk_usage(target_dir).free
+    if free < needed:
+        raise IOError(
+            "Insufficient disk space for %s: need %d bytes (%d MB), "
+            "but only %d bytes (%d MB) are free"
+            % (dest, needed, needed >> 20, free, free >> 20)
+        )
 
 
 def _quant_filename(model_dict, quant_dict):

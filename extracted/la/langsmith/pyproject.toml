@@ -1,53 +1,57 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
 name = "langsmith"
-dynamic = ["version"]
+version = "0.14.11"
 description = "Client library to connect to the LangSmith Observability and Evaluation Platform."
+dynamic = ["readme"]
+license = "MIT"
 authors = [
-    {name = "LangChain", email = "support@langchain.dev"},
+{ name = "LangChain", email = "" },
 ]
-license = {text = "MIT"}
-readme = "README.md"
-requires-python = ">=3.10"
-keywords = [
-    "langsmith",
-    "langchain",
-    "llm",
-    "nlp",
-    "language",
-    "translation",
-    "evaluation",
-    "tracing",
-    "platform",
-]
+
 dependencies = [
-    "pydantic>=2,<3",
-    "requests>=2.0.0",
-    "orjson>=3.9.14; platform_python_implementation != 'PyPy'",
-    "httpx2>=2,<3",
-    "requests-toolbelt>=1.0.0",
-    "zstandard>=0.23.0",
-    "packaging>=23.2",
-    "uuid-utils>=0.12.0,<1.0",
-    "xxhash>=3.0.0",
-    "websockets>=15.0",
-    # Imported at runtime by the generated _openapi_client; must be declared
-    # explicitly so distro builds that only install Requires-Dist don't fail.
-    "anyio>=3.5.0",
-    "distro>=1.7.0",
-    "sniffio>=1.1",
-    "typing_extensions>=4.0.0",
+  # hand-written client (tracing, evaluation, run trees, ...)
+  "pydantic>=2,<3",
+  "requests>=2.0.0",
+  "orjson>=3.9.14; platform_python_implementation != 'PyPy'",
+  "httpx2>=2,<3",
+  "requests-toolbelt>=1.0.0",
+  "zstandard>=0.23.0",
+  "packaging>=23.2",
+  "uuid-utils>=0.12.0,<1.0",
+  "xxhash>=3.0.0",
+  "websockets>=15.0",
+  # generated (Stainless) client
+  "typing-extensions>=4.14, <5",
+  "anyio>=3.5.0, <5",
+  "distro>=1.7.0, <2",
+  "sniffio",
+]
+
+requires-python = ">= 3.10"
+classifiers = [
+  "Typing :: Typed",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Operating System :: OS Independent",
+  "Operating System :: POSIX",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "License :: OSI Approved :: MIT License"
 ]
 
 [project.urls]
-Homepage = "https://smith.langchain.com/"
-Documentation = "https://docs.smith.langchain.com/"
-Repository = "https://github.com/langchain-ai/langsmith-sdk"
+Homepage = "https://github.com/langchain-ai/langsmith-python"
+Repository = "https://github.com/langchain-ai/langsmith-python"
 
 [project.optional-dependencies]
+aiohttp = ["aiohttp>=3.14.3,<4", "httpx_aiohttp>=0.1.9"]
+
 # Enabled via `pip install langsmith[langsmith_pyo3]`
 langsmith_pyo3 = ["langsmith-pyo3>=0.1.0rc2"]
 
@@ -125,16 +129,35 @@ vcr = ["vcrpy>=7.0.0"]
 # Kept for backward compatibility; `websockets` is now a core dependency.
 sandbox = []
 
-# Enabled via `pip install langsmith[sandbox-auth]` to verify sandbox user tokens
-# and proxy callback signatures.
+# Verify sandbox user tokens and proxy callback signatures.
 sandbox-auth = ["PyJWT[crypto]>=2.8.0"]
 
+[project.entry-points."pytest11"]
+langsmith_plugin = "langsmith.pytest_plugin"
+
+[tool.uv]
+managed = true
+required-version = ">=0.9"
+exclude-newer = "P7D"
+# livekit-agents pins an older json-repair; retain the source SDK's security floor.
+override-dependencies = ["json-repair>=0.60.1"]
+
 [dependency-groups]
-# Development dependencies
+# version pins are in uv.lock
 dev = [
-    "pytest>=8.3.5",
-    "mypy>=1.9.0",
-    "ruff>=0.6.9,<0.16.0",
+    "pyright==1.1.399",
+    "mypy==2.3.1",
+    "respx",
+    "pytest>=9.0.3",
+    "pytest-asyncio",
+    "ruff",
+    "time-machine",
+    "dirty-equals>=0.6.0",
+    "importlib-metadata>=6.7.0",
+    "rich>=13.7.1",
+    "pytest-xdist>=3.6.1",
+    # type checkers resolve the httpx2 shim against httpx (see src/langsmith/_httpx.py)
+    "httpx>=0.23.0,<1",
     "types-requests>=2.31.0.1",
     "pandas-stubs>=2.0.1.230501",
     "types-pyyaml>=6.0.12.10",
@@ -144,7 +167,6 @@ dev = [
     "freezegun>=1.2.2",
     "pytest-subtests>=0.11.0",
     "pytest-watcher>=0.3.4",
-    "pytest-xdist>=3.5.0",
     "pytest-cov>=4.1.0",
     "dataclasses-json>=0.6.4",
     "types-tqdm>=4.66.0.20240106",
@@ -156,8 +178,6 @@ dev = [
     "pyperf>=2.7.0",
     "py-spy>=0.3.14",
     "multipart>=1.0.0",
-    "httpx>=0.23.0,<0.29.0",
-    "rich>=13.9.4",
     "pytest-retry>=1.7.0",
     "pytest-dotenv>=0.5.2",
     "opentelemetry-sdk>=1.34.1",
@@ -202,86 +222,304 @@ test = [
     "anthropic>=0.45.0",
 ]
 
+[build-system]
+requires = ["hatchling==1.26.3", "hatch-fancy-pypi-readme"]
+build-backend = "hatchling.build"
 
-[project.entry-points."pytest11"]
-langsmith_plugin = "langsmith.pytest_plugin"
-
-[tool.uv]
-exclude-newer = "P7D"
-# Force `json-repair` past the patched 0.60.1 floor everywhere. `livekit-agents`
-# pins the vulnerable `json-repair==0.59.10`; uv's `override-dependencies` takes a
-# flat list of PEP 508 requirements (not a per-package map), so a global override
-# is the supported way to force the patched version over that pin.
-override-dependencies = [
-    "json-repair>=0.60.1",
+[tool.hatch.build]
+include = [
+  "src/*"
 ]
-
-[tool.hatch.version]
-path = "langsmith/__init__.py"
-
-[tool.hatch.build.targets.sdist]
-exclude = [".test", ".venv*"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["langsmith"]
+packages = ["src/langsmith"]
 
-[tool.ruff]
-exclude = ["_openapi_client"]
-lint.select = [
-  "E",    # pycodestyle
-  "F",    # pyflakes
-  "I",    # isort
-  "D",    # pydocstyle
-  "D401", # First line should be in imperative mood
-  "T201",
-  "UP",
+[tool.hatch.build.targets.sdist]
+# Basically everything except hidden files/directories (such as .github, .devcontainers, .python-version, etc)
+include = [
+  "/*.toml",
+  "/*.json",
+  "/*.lock",
+  "/*.md",
+  "/mypy.ini",
+  "/noxfile.py",
+  "bin/*",
+  "examples/*",
+  "src/*",
+  "tests/*",
 ]
-lint.ignore = [
-  "UP007",
-  "UP045",  # Allow Optional[X] instead of X | None
-  # Relax the convention by _not_ requiring documentation for every function parameter.
-  "D417",
-]
-target-version = "py39"
 
-[tool.ruff.lint.pydocstyle]
-convention = "google"
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
 
-[tool.ruff.lint.per-file-ignores]
-"langsmith/run_helpers.py" = ["E501"]
-"docs/conf.py" = ["E501"]
-"langsmith/cli/*" = ["T201", "D", "UP"]
-"docs/create_api_rst.py" = ["D101", "D103", "E501"]
-"docs/scripts/custom_formatter.py" = ["D100"]
-"langsmith/anonymizer.py" = ["E501"]
-"langsmith/async_client.py" = ["E501"]
-"langsmith/client.py" = ["E501"]
-"langsmith/schemas.py" = ["E501"]
-"tests/evaluation/__init__.py" = ["E501"]
-"tests/unit_tests/test_client.py" = ["E501"]
-"tests/*" = ["D", "UP"]
-"bench/*" = ["D", "UP", "T"]
-"docs/*" = ["T", "D"]
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
 
-[tool.ruff.format]
-docstring-code-format = true
-docstring-code-line-length = 80
-
-[tool.mypy]
-plugins = ["pydantic.mypy"]
-ignore_missing_imports = "True"
-disallow_untyped_defs = "True"
-
-[[tool.mypy.overrides]]
-module = "langsmith._openapi_client.*"
-ignore_errors = true
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+# replace relative links with absolute links
+pattern = '\[(.+?)\]\(((?!https?://)\S+?)\)'
+replacement = '[\1](https://github.com/langchain-ai/langsmith-python/tree/main/\g<2>)'
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short -n auto"
+xfail_strict = true
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+# ponytail: Stainless ships filterwarnings=["error"]; the hand-written suite
+# emits deprecation warnings it does not treat as failures. Re-enable once the
+# migrated tests are warning-clean.
+timeout = 120
+timeout_method = "thread"
 markers = [
   "slow: long-running tests",
   "require_clickhouse: test calls a legacy (pre-SmithDB) SDK method directly, so it only passes against a ClickHouse-backed deployment",
   "require_v2: test uses the autogenerated OpenAPI client (client.runs/traces/threads/public/datasets/evaluators), so it needs a deployment serving the v2 endpoints",
 ]
-timeout = 120
-timeout_method = "thread"
+
+[tool.pyright]
+# this enables practically every flag given by pyright.
+# there are a couple of flags that are still disabled by
+# default in strict mode as they are experimental and niche.
+typeCheckingMode = "strict"
+pythonVersion = "3.10"
+
+exclude = [
+    "_dev",
+    ".venv",
+    ".nox",
+    ".git",
+    # ponytail: hand-written modules migrated from langsmith-sdk were never
+    # pyright-strict; they are mypy-checked (below). Remove entries as they
+    # get typed to strict.
+    "bench",
+    "conftest.py",
+    "tests/unit_tests",
+    "tests/integration_tests",
+    "tests/evaluation",
+    "tests/external",
+    "tests/httpx2_alias",
+    "src/langsmith/_expect.py",
+    "src/langsmith/_internal",
+    "src/langsmith/_runtime_overrides.py",
+    "src/langsmith/anonymizer.py",
+    "src/langsmith/async_client.py",
+    "src/langsmith/beta",
+    "src/langsmith/cli",
+    "src/langsmith/client.py",
+    "src/langsmith/env",
+    "src/langsmith/evaluation",
+    "src/langsmith/integrations",
+    "src/langsmith/middleware.py",
+    "src/langsmith/prompt_cache.py",
+    "src/langsmith/pytest_plugin.py",
+    "src/langsmith/run_helpers.py",
+    "src/langsmith/run_trees.py",
+    "src/langsmith/sandbox",
+    "src/langsmith/schemas.py",
+    "src/langsmith/secret.py",
+    "src/langsmith/testing",
+    "src/langsmith/utils.py",
+    "src/langsmith/uuid.py",
+    "src/langsmith/wrappers",
+]
+
+reportImplicitOverride = true
+reportOverlappingOverload = false
+
+reportImportCycles = false
+reportPrivateUsage = false
+
+[tool.mypy]
+pretty = true
+show_error_codes = true
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+
+# Exclude _files.py because mypy isn't smart enough to apply
+# the correct type narrowing and as this is an internal module
+# it's fine to just use Pyright.
+#
+# We also exclude our `tests` as mypy doesn't always infer
+# types correctly and Pyright will still catch any type errors.
+exclude = ["src/langsmith/_files.py", "_dev/.*.py", "tests/.*", "bench/.*", "conftest.py"]
+
+strict_equality = true
+implicit_reexport = true
+check_untyped_defs = true
+no_implicit_optional = true
+
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+
+# Turn these options off as it could cause conflicts
+# with the Pyright options.
+warn_unused_ignores = false
+warn_redundant_casts = false
+
+disallow_any_generics = true
+disallow_untyped_defs = true
+disallow_untyped_calls = true
+disallow_subclassing_any = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+cache_fine_grained = true
+
+# By default, mypy reports an error if you assign a value to the result
+# of a function call that doesn't return anything. We do this in our test
+# cases:
+# ```
+# result = ...
+# assert result is None
+# ```
+# Changing this codegen to make mypy happy would increase complexity
+# and would not be worth it.
+disable_error_code = "func-returns-value,overload-cannot-match"
+
+# https://github.com/python/mypy/issues/12162
+[[tool.mypy.overrides]]
+module = "black.files.*"
+ignore_errors = true
+ignore_missing_imports = true
+
+# Generated files cannot be edited here; silence the two checks that only
+# fail because of this repo's config (strict_equality, pydantic mypy plugin).
+[[tool.mypy.overrides]]
+module = "langsmith._utils._compat"
+strict_equality = false
+
+[[tool.mypy.overrides]]
+module = "langsmith.types.run"
+disable_error_code = "no-redef"
+
+# Hand-written modules migrated from langsmith-sdk: keep the checks they
+# passed there (disallow_untyped_defs), relax the Stainless-strict extras.
+[[tool.mypy.overrides]]
+module = [
+    "langsmith._expect",
+    "langsmith._internal.*",
+    "langsmith._runtime_overrides",
+    "langsmith.anonymizer",
+    "langsmith.async_client",
+    "langsmith.beta.*",
+    "langsmith.client",
+    "langsmith.env.*",
+    "langsmith.evaluation.*",
+    "langsmith.integrations.*",
+    "langsmith.middleware",
+    "langsmith.prompt_cache",
+    "langsmith.pytest_plugin",
+    "langsmith.run_helpers",
+    "langsmith.run_trees",
+    "langsmith.sandbox.*",
+    "langsmith.schemas",
+    "langsmith.secret",
+    "langsmith.testing.*",
+    "langsmith.utils",
+    "langsmith.uuid",
+    "langsmith.wrappers.*",
+]
+disallow_untyped_defs = false
+check_untyped_defs = false
+disallow_any_generics = false
+disallow_untyped_calls = false
+disallow_subclassing_any = false
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false
+warn_return_any = false
+warn_unreachable = false
+
+
+[tool.ruff]
+line-length = 120
+# notebooks are docs, not library code
+extend-exclude = ["examples/*.ipynb"]
+output-format = "grouped"
+target-version = "py310"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+  # isort
+  "I",
+  # bugbear rules
+  "B",
+  # remove unused imports
+  "F401",
+  # check for missing future annotations
+  "FA102",
+  # bare except statements
+  "E722",
+  # unused arguments
+  "ARG",
+  # print statements
+  "T201",
+  "T203",
+  # misuse of typing.TYPE_CHECKING
+  "TC004",
+  # import rules
+  "TID251",
+]
+ignore = [
+  # mutable defaults
+  "B006",
+]
+unfixable = [
+  # disable auto fix for print statements
+  "T201",
+  "T203",
+]
+
+extend-safe-fixes = ["FA102"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"functools.lru_cache".msg = "This function does not retain type information for the wrapped function's arguments; The `lru_cache` function from `_utils` should be used instead"
+
+[tool.ruff.lint.isort]
+length-sort = true
+length-sort-straight = true
+combine-as-imports = true
+extra-standard-library = ["typing_extensions"]
+known-first-party = ["langsmith", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# ponytail: hand-written code follows langsmith-sdk's ruff profile (E,F,I,D,UP),
+# not Stainless' (B, ARG, TID251, length-sorted isort). Trim as files are adapted.
+"src/langsmith/_expect.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/_internal/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/_runtime_overrides.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/anonymizer.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/async_client.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/beta/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/cli/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I", "T201", "T203"]
+"src/langsmith/client.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/env/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/evaluation/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/integrations/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/middleware.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/prompt_cache.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/pytest_plugin.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/run_helpers.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/run_trees.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/sandbox/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/schemas.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/secret.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/testing/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/utils.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/uuid.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/wrappers/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"tests/unit_tests/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"tests/integration_tests/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"tests/evaluation/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"tests/external/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"tests/httpx2_alias/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"src/langsmith/__init__.py" = ["F401", "I"]
+"bench/**.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I", "T201", "T203"]
+"conftest.py" = ["ARG", "B", "TID251", "FA102", "TC004", "I"]
+"bin/**.py" = ["T201", "T203"]
+"scripts/**.py" = ["T201", "T203"]
+"tests/**.py" = ["T201", "T203"]
+"examples/**.py" = ["T201", "T203"]

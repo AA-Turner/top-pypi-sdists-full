@@ -152,7 +152,13 @@ def staff_thread(monkeypatch: pytest.MonkeyPatch):
     }
 
     async def from_agent(agent_id: str, is_version: bool = False, variables=None):
-        return SimpleNamespace(config=deepcopy(holders[str(agent_id)]))
+        holder = SimpleNamespace(config=deepcopy(holders[str(agent_id)]))
+
+        async def run_first_turn_pass():  # the real Agent fills before handing out its config
+            return holder
+
+        holder.run_first_turn_pass = run_first_turn_pass
+        return holder
 
     monkeypatch.setattr(
         "matrx_ai.agents.definition.Agent.from_agent", staticmethod(from_agent)

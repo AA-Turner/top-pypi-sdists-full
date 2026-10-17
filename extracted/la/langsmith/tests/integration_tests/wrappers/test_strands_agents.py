@@ -102,11 +102,7 @@ def _span_has_completion(span: ReadableSpan) -> bool:
 
 
 @pytest.mark.skipif(
-    not (
-        os.getenv("AWS_ACCESS_KEY_ID")
-        or os.getenv("AWS_PROFILE")
-        or os.getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
-    ),
+    not (os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("AWS_PROFILE") or os.getenv("AWS_WEB_IDENTITY_TOKEN_FILE")),
     reason="Live Strands/Bedrock integration test requires AWS credentials.",
 )
 @pytest.mark.skipif(
@@ -116,8 +112,7 @@ def _span_has_completion(span: ReadableSpan) -> bool:
 def test_exporter_transforms_live_strands_agent_spans(tmp_path, monkeypatch):
     """Invoke a real Strands Agent and transform its emitted OTEL spans."""
     (tmp_path / "otel_strands_share.py").write_text(
-        "def setup_langsmith_telemetry():\n"
-        "    return 'sets up Strands OTEL tracing for LangSmith'\n",
+        "def setup_langsmith_telemetry():\n    return 'sets up Strands OTEL tracing for LangSmith'\n",
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
@@ -126,9 +121,7 @@ def test_exporter_transforms_live_strands_agent_spans(tmp_path, monkeypatch):
     langsmith_exporter = OtelExporter()
     delegate = TeeSpanExporter(recorder, langsmith_exporter)
     provider = TracerProvider()
-    provider.add_span_processor(
-        SimpleSpanProcessor(LangSmithSpanExporter(delegate=delegate))
-    )
+    provider.add_span_processor(SimpleSpanProcessor(LangSmithSpanExporter(delegate=delegate)))
 
     import strands.telemetry.tracer as strands_tracer
 
@@ -151,9 +144,7 @@ def test_exporter_transforms_live_strands_agent_spans(tmp_path, monkeypatch):
     assert response is not None
     spans_by_name = {span.name: span for span in recorder.spans}
 
-    agent_spans = [
-        span for span in recorder.spans if span.name.startswith("invoke_agent")
-    ]
+    agent_spans = [span for span in recorder.spans if span.name.startswith("invoke_agent")]
     assert agent_spans, [span.name for span in recorder.spans]
     agent_span = agent_spans[0]
     assert agent_span.attributes["langsmith.span.kind"] == "chain"
@@ -185,9 +176,7 @@ def test_exporter_transforms_live_strands_agent_spans(tmp_path, monkeypatch):
     assert "user" in roles
     assert "system" in roles
 
-    tool_spans = [
-        span for span in recorder.spans if span.name.startswith("execute_tool")
-    ]
+    tool_spans = [span for span in recorder.spans if span.name.startswith("execute_tool")]
     assert tool_spans, [span.name for span in recorder.spans]
     for tool_span in tool_spans:
         assert tool_span.attributes["langsmith.span.kind"] == "tool"
@@ -200,11 +189,7 @@ def test_exporter_transforms_live_strands_agent_spans(tmp_path, monkeypatch):
 
 
 @pytest.mark.skipif(
-    not (
-        os.getenv("AWS_ACCESS_KEY_ID")
-        or os.getenv("AWS_PROFILE")
-        or os.getenv("AWS_WEB_IDENTITY_TOKEN_FILE")
-    ),
+    not (os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("AWS_PROFILE") or os.getenv("AWS_WEB_IDENTITY_TOKEN_FILE")),
     reason="Live Strands/Bedrock integration test requires AWS credentials.",
 )
 @pytest.mark.skipif(
@@ -214,8 +199,7 @@ def test_exporter_transforms_live_strands_agent_spans(tmp_path, monkeypatch):
 def test_exporter_transforms_thinking_blocks(tmp_path, monkeypatch):
     """Invoke a Strands Agent with extended thinking and verify thinking blocks."""
     (tmp_path / "otel_strands_share.py").write_text(
-        "def setup_langsmith_telemetry():\n"
-        "    return 'sets up Strands OTEL tracing for LangSmith'\n",
+        "def setup_langsmith_telemetry():\n    return 'sets up Strands OTEL tracing for LangSmith'\n",
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
@@ -224,9 +208,7 @@ def test_exporter_transforms_thinking_blocks(tmp_path, monkeypatch):
     langsmith_exporter = OtelExporter()
     delegate = TeeSpanExporter(recorder, langsmith_exporter)
     provider = TracerProvider()
-    provider.add_span_processor(
-        SimpleSpanProcessor(LangSmithSpanExporter(delegate=delegate))
-    )
+    provider.add_span_processor(SimpleSpanProcessor(LangSmithSpanExporter(delegate=delegate)))
 
     import strands.telemetry.tracer as strands_tracer
 
@@ -234,9 +216,7 @@ def test_exporter_transforms_thinking_blocks(tmp_path, monkeypatch):
     try:
         model = BedrockModel(
             model_id=MODEL_ID,
-            additional_request_fields={
-                "thinking": {"type": "enabled", "budget_tokens": 5000}
-            },
+            additional_request_fields={"thinking": {"type": "enabled", "budget_tokens": 5000}},
             max_tokens=16000,
         )
         agent = Agent(
@@ -281,7 +261,4 @@ def test_exporter_transforms_thinking_blocks(tmp_path, monkeypatch):
                         assert isinstance(block["thinking"], str)
                         assert len(block["thinking"]) > 0
 
-    assert found_thinking, (
-        "Expected at least one thinking block in LLM completions. "
-        f"Spans checked: {len(llm_spans)}"
-    )
+    assert found_thinking, f"Expected at least one thinking block in LLM completions. Spans checked: {len(llm_spans)}"

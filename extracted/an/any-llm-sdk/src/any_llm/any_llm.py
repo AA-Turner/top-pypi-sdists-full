@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar, cast, overload
 
 from openresponses_types import ResponseResource
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 from any_llm._files import FilesMixin
 from any_llm.constants import INSIDE_NOTEBOOK, LLMProvider, get_provider_tier
@@ -29,6 +29,7 @@ from any_llm.types.completion import (
     ParsedChatCompletion,
     ReasoningEffort,
 )
+from any_llm.types.decide import Question, QuestionsInput
 from any_llm.types.image import ImageGenerationParams, ImagesResponse
 from any_llm.types.messages import (
     MessageDelta,
@@ -52,7 +53,7 @@ from any_llm.types.responses import (
     ResponseStreamEvent,
 )
 from any_llm.utils.aio import aclose_quietly, async_coro_to_sync_iter, async_iter_to_sync_iter, run_async_in_sync
-from any_llm.utils.exception_handler import handle_exceptions
+from any_llm.utils.exception_handler import handle_exceptions, provider_exception_handler
 from any_llm.utils.structured_output import (
     build_parsed_message,
     is_structured_output_type,
@@ -63,11 +64,15 @@ from any_llm.utils.structured_output import (
 
 ResponseFormatT = TypeVar("ResponseFormatT", bound=BaseModel)
 
+# Validated as one mapping, so every invalid question is reported under its name.
+_QUESTIONS_ADAPTER: TypeAdapter[dict[str, Question]] = TypeAdapter(dict[str, Question])
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Coroutine, Iterator, Sequence
 
     from any_llm.types.batch import Batch, BatchResult
     from any_llm.types.completion import ChatCompletionChunk, CreateEmbeddingResponse
+    from any_llm.types.decide import DecideResponse, JSONContent
     from any_llm.types.model import Model
     from any_llm.types.moderation import ModerationResponse
     from any_llm.types.rerank import RerankResponse
@@ -132,6 +137,9 @@ class AnyLLM(FilesMixin, ABC):
     SUPPORTS_RERANK: bool = False
     """Rerank API - reorder documents by relevance to a query."""
 
+    SUPPORTS_DECIDE: bool = False
+    """Decide API - answer named yes/no, choice, and score questions about a state."""
+
     SUPPORTS_MESSAGES: bool = True
     """Anthropic Messages API (all providers support it via conversion)"""
 
@@ -155,6 +163,9 @@ class AnyLLM(FilesMixin, ABC):
 
     PROMPT_CACHE_KEY_SUPPORT: Literal["unsupported", "supported", "passthrough"] = "unsupported"
     """Whether prompt_cache_key is supported, forwarded to a router, or rejected."""
+
+    _READS_CACHE_CONTROL_SIDE_CHANNEL: ClassVar[bool] = False
+    """Whether the Messages bridge should pass ``cache_control`` breakpoints in ``extra_content``."""
 
     TIMEOUT_SUPPORT: Literal["unsupported", "native", "mapped"] = "unsupported"
     """How the provider honors a per-request ``timeout`` (in seconds).
@@ -212,11 +223,12 @@ class AnyLLM(FilesMixin, ABC):
         self._verify_no_missing_packages()
         if max_retries is not None:
             self._apply_max_retries(self._validate_max_retries(max_retries), kwargs)
-        self._init_client(
-            api_key=self._verify_and_set_api_key(api_key),
-            api_base=self._resolve_api_base(api_base),
-            **kwargs,
-        )
+        api_key = self._verify_and_set_api_key(api_key)
+        api_base = self._resolve_api_base(api_base)
+        try:
+            self._init_client(api_key=api_key, api_base=api_base, **kwargs)
+        except Exception as e:
+            provider_exception_handler(self)(e)
 
     @staticmethod
     def _validate_max_retries(max_retries: int) -> int:
@@ -490,13 +502,15 @@ class AnyLLM(FilesMixin, ABC):
             raise UnsupportedProviderError(provider_key, cls.get_supported_providers()) from e
 
     @classmethod
-    def split_model_provider(cls, model: str) -> tuple[str | LLMProvider, str]:
+    def split_model_provider(cls, model: str, *, stacklevel: int = 3) -> tuple[str | LLMProvider, str]:
         """Extract the provider key from the model identifier.
 
         Supports both new format 'provider:model' (e.g., 'mistral:mistral-small')
         and legacy format 'provider/model' (e.g., 'mistral/mistral-small').
 
-        The legacy format will be deprecated in version 1.0.
+        The legacy format will be deprecated in version 1.0. Its warning points
+        ``stacklevel`` frames up, at the caller of the function that called this
+        one; a helper in between should raise it by one.
 
         The provider is returned as an ``LLMProvider`` member, registry-only
         gateways included.
@@ -514,7 +528,7 @@ class AnyLLM(FilesMixin, ABC):
                 f"Model format 'provider/model' is deprecated and will be removed in version 1.0. "
                 f"Please use 'provider:model' format instead. Got: '{model}'",
                 DeprecationWarning,
-                stacklevel=3,
+                stacklevel=stacklevel,
             )
             provider, model_name = model.split("/", 1)
         else:
@@ -611,6 +625,7 @@ class AnyLLM(FilesMixin, ABC):
             audio_transcription=cls.SUPPORTS_AUDIO_TRANSCRIPTION,
             audio_speech=cls.SUPPORTS_AUDIO_SPEECH,
             rerank=cls.SUPPORTS_RERANK,
+            decide=cls.SUPPORTS_DECIDE,
             files=bool(cls.SUPPORTED_FILE_OPERATIONS),
             file_operations=tuple(sorted(cls.SUPPORTED_FILE_OPERATIONS)),
             messages=cls.SUPPORTS_MESSAGES,
@@ -1174,7 +1189,9 @@ class AnyLLM(FilesMixin, ABC):
             split_cached_input_tokens,
         )
 
-        completion_kwargs = messages_params_to_completion_params(params)
+        completion_kwargs = messages_params_to_completion_params(
+            params, cache_breakpoints=self._READS_CACHE_CONTROL_SIDE_CHANNEL
+        )
         completion_params = CompletionParams(**completion_kwargs)
         try:
             result = await self._acompletion(completion_params, **kwargs)
@@ -1713,6 +1730,73 @@ class AnyLLM(FilesMixin, ABC):
             msg = "Provider doesn't support rerank."
             raise NotImplementedError(msg)
         msg = "Subclasses must implement _arerank method"
+        raise NotImplementedError(msg)
+
+    def decide(
+        self,
+        model: str,
+        state: JSONContent,
+        questions: QuestionsInput,
+        **kwargs: Any,
+    ) -> DecideResponse:
+        """Answer named questions about a state synchronously.
+
+        See [AnyLLM.adecide][any_llm.any_llm.AnyLLM.adecide]
+        """
+        allow_running_loop = kwargs.pop("allow_running_loop", INSIDE_NOTEBOOK)
+        return run_async_in_sync(self.adecide(model, state, questions, **kwargs), allow_running_loop=allow_running_loop)
+
+    @handle_exceptions()
+    async def adecide(
+        self,
+        model: str,
+        state: JSONContent,
+        questions: QuestionsInput,
+        *,
+        timeout: float | None = None,  # noqa: ASYNC109  # forwarded to the provider SDK, which owns the timeout
+        **kwargs: Any,
+    ) -> DecideResponse:
+        """Answer named yes/no, choice, and score questions about a state.
+
+        Args:
+            model: Model identifier.
+            state: Text, a JSON object, or an array the questions refer to.
+            questions: Names mapped to `Noul`, `Choice` or `Score` questions, their dict forms, or
+                objects with the same attributes. The response uses the same names to key the answers.
+            timeout: Per-request timeout in seconds. Providers that have no per-request timeout
+                raise `UnsupportedParameterError`.
+            **kwargs: Additional provider-specific arguments.
+
+        Returns:
+            DecideResponse with one answer per question.
+
+        Raises:
+            NotImplementedError: If the provider does not support decide. Raised as is, with or
+                without unified exceptions.
+            pydantic.ValidationError: If `questions` is not a mapping of valid questions. Raised
+                before anything is sent, with or without unified exceptions.
+
+        """
+        if not self.SUPPORTS_DECIDE:
+            # Checked before the parameters, so an unsupported provider is reported as such rather
+            # than as a timeout problem.
+            msg = "Provider doesn't support decide."
+            raise NotImplementedError(msg)
+        self._validate_and_forward_timeout(timeout, kwargs)
+        # from_attributes accepts question objects of the same shape, such as the typesafe_sdk classes.
+        validated = _QUESTIONS_ADAPTER.validate_python(questions, from_attributes=True)
+        response = await self._adecide(model, state, validated, **kwargs)
+        if not response.model:
+            response.model = model
+        return response
+
+    async def _adecide(
+        self, model: str, state: JSONContent, questions: dict[str, Question], **kwargs: Any
+    ) -> DecideResponse:
+        if not self.SUPPORTS_DECIDE:
+            msg = "Provider doesn't support decide."
+            raise NotImplementedError(msg)
+        msg = "Subclasses must implement _adecide method"
         raise NotImplementedError(msg)
 
     def list_models(self, **kwargs: Any) -> Sequence[Model]:

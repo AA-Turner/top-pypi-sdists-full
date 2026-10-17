@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from importlib.metadata import EntryPoint
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = '95de638c540f93032aed6875872dac46f811ba34'
+_SKYPILOT_COMMIT_SHA = '8d91efff99c0d81e4aff6b9f1ad423ce1e19a306'
 
 
 def _get_git_commit():
@@ -45,7 +45,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20261015'
+__version__ = '1.0.0.dev20261017'
 __root_dir__ = directory_utils.get_sky_dir()
 
 
@@ -106,6 +106,7 @@ from sky.client.sdk import api_status
 from sky.client.sdk import api_stop
 from sky.client.sdk import autostop
 from sky.client.sdk import cancel
+from sky.client.sdk import cluster_job_spec
 from sky.client.sdk import cost_report
 from sky.client.sdk import create_debug_dump
 from sky.client.sdk import down
@@ -237,6 +238,7 @@ __all__ = [
     'tail_logs',
     'download_logs',
     'job_status',
+    'cluster_job_spec',
     # core APIs Storage Management
     'storage_ls',
     'storage_delete',

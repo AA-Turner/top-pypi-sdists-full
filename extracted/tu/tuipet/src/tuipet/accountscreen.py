@@ -4,6 +4,7 @@ MAX_PVP_* clamp constants (_clamp_card in lobbybout owns the real bounds) --
 was cut; the cell-width law finally reached the name field.)"""
 from __future__ import annotations
 
+from .sfx import CueQueue
 from rich.cells import cell_len
 from rich.text import Text
 
@@ -26,7 +27,7 @@ def _tail(s, w):
     return s
 
 
-class AccountPanel:
+class AccountPanel(CueQueue):
     """Name + password entry. Tab/Up/Down switch fields; Enter on the password
     confirms when both are filled. Returns ("done", (name, password)), or
     ("done", None) on Esc. Used at first launch and to recover a failed login."""
@@ -46,7 +47,7 @@ class AccountPanel:
     def strip(self):
         # "field", the grammar sweep's verb -- the lobby's login strip and
         # this one said different words for the same key (round 35)
-        return menu.hints(("TAB", "field"), ("ENTER", "sign in"), ("ESC", "back"))
+        return menu.hints(("TAB", "field"), ("ENTER", "continue"), ("ESC", "back"))
 
     def key(self, k):
         if k == "escape":
@@ -59,6 +60,12 @@ class AccountPanel:
                 self.field = "pw"
                 return None
             name = self.name_buf.strip()
+            if name and not any(c.isalnum() for c in name):
+                # a lone "-" became a real account (2026-10-16: the phone key
+                # bar's "-" sits beside ESC); the server refuses new ones too
+                self.note = "Names need a letter or number."
+                self.sfx = "error"
+                return None
             if name and self.pw_buf:
                 return ("done", (name, self.pw_buf))
             # a missing field used to fail SILENTLY (round 35)
@@ -104,10 +111,10 @@ class AccountPanel:
         return t
 
 
-FIRST_RUN_NOTE = "Have an account? Sign in to bring your pet. ESC: new pet."
+FIRST_RUN_NOTE = "New? Choose a name and password to create an account. Returning? Use your account. ESC: play locally."
 
 
-class CloudWaitPanel:
+class CloudWaitPanel(CueQueue):
     """The few seconds the first-run sign-in spends asking the cloud: a card
     that holds the screen (no pet ticks underneath, no second Enter fires a
     second sign-in) until the app closes it with the verdict."""

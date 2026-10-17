@@ -55,21 +55,14 @@ class View(StrEnum):
     CONTENT = "content"
     PAPERS = "papers"
     INHERITED = "inherited"
+    SUMMARY_HISTORY = "summary_history"
 
 
 #: What a view MEANS on a kind -- the union across both agent
 #: surfaces. Each surface serves a SUBSET and says which.
 VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
     ViewKind.ARTIFACT: frozenset(
-        {
-            View.CARD,
-            View.CONTENT,
-            View.LINEAGE,
-            View.NOTES,
-            View.RECORD,
-            View.SESSIONS,
-            View.VERSIONS,
-        }
+        {View.CARD, View.CONTENT, View.LINEAGE, View.RECORD, View.SESSIONS, View.VERSIONS}
     ),
     ViewKind.CHECKPOINT: frozenset({View.CARD, View.LINEAGE, View.RECORD, View.VERSIONS}),
     ViewKind.DATASET: frozenset({View.CARD, View.LINEAGE, View.RECORD, View.VERSIONS}),
@@ -87,10 +80,11 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.REPRODUCE,
             View.SESSIONS,
             View.SUMMARY,
+            View.SUMMARY_HISTORY,
             View.VERSIONS,
         }
     ),
-    ViewKind.GROUP: frozenset({View.CARD, View.NOTES, View.RECORD}),
+    ViewKind.GROUP: frozenset({View.CARD, View.RECORD}),
     ViewKind.PAPER: frozenset({View.CARD}),
     ViewKind.PROJECT: frozenset(
         {
@@ -105,6 +99,7 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.RECORD,
             View.SESSIONS,
             View.SUMMARY,
+            View.SUMMARY_HISTORY,
         }
     ),
     ViewKind.RUN: frozenset(
@@ -156,6 +151,7 @@ VIEW_PURPOSE: dict[View, str] = {
     View.REPRODUCE: "everything needed to run it again, plus a completeness verdict",
     View.SESSIONS: "the captured agent sessions that touched this entity",
     View.SUMMARY: "the person-written block of the Overview page (`document`)",
+    View.SUMMARY_HISTORY: "the summary's versions, newest first; view_options.version=N reads one's markdown",
     View.TRAJECTORY: "the spans themselves -- ask a TRIAL for one rollout's subtree",
     View.TRANSCRIPT: "a captured session's text; view_options.grep or view_options.start_line",
     View.TRIALS: "the run's authored trials, newest step first",

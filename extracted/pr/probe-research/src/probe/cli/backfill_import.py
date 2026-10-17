@@ -44,7 +44,7 @@ AUTO_BACKGROUND_SCHEMA = "probe.folder-auto-import-job/1"
 def enqueue_auto_import(
     *, client_factory, folder, agent, auto_approve, project=None, concurrency=None,
     source_id=None, import_changed=False, import_unverified=False, retry_dead=False,
-    wandb_approval=None,
+    review_excluded=False, wandb_approval=None,
 ):
     """Persist an explicit folder-scoped automatic approval before any scan."""
     from . import import_jobs
@@ -80,6 +80,7 @@ def enqueue_auto_import(
             "spool_dir": str(client.journal.dir),
             "import_changed": bool(import_changed), "import_unverified": bool(import_unverified),
             "retry_dead": bool(retry_dead),
+            "review_excluded": bool(review_excluded),
             **({"wandb_approval": wandb_approval} if wandb_approval is not None else {}),
         }
     # Close the admission client before registering a job: a cleanup failure
@@ -200,6 +201,7 @@ def _run_auto_import(payload, *, progress):
                         import_changed=payload["import_changed"],
                         import_unverified=payload["import_unverified"],
                         retry_dead=bool(payload.get("retry_dead")),
+                        review_excluded=bool(payload.get("review_excluded")),
                         tel=telemetry.null_context(), stats=stats, background=True,
                         progress=progress, auto_approve=True,
                     )
@@ -610,6 +612,7 @@ def execute(
     import_changed=False,
     import_unverified=False,
     retry_dead=False,
+    review_excluded=False,
     background=False,
     back_to_selection=False,
     wandb_source=None,
@@ -653,6 +656,7 @@ def execute(
                     import_changed=import_changed,
                     import_unverified=import_unverified,
                     retry_dead=retry_dead,
+                    review_excluded=review_excluded,
                     tel=tel,
                     stats=stats,
                     background=background,
@@ -823,13 +827,15 @@ def _review(
     revisions = 0
     initial = True
     while True:
-        assigned, discrepancy = plans.resolve(ev, plan)
+        left_out: dict[str, str] = {}
+        assigned, discrepancy = plans.resolve(ev, plan, left_out=left_out)
         if fixed_project:
             assigned = dict.fromkeys(assigned, fixed_project)
         if initial:
             tel.emit(
                 tm.EVENT_BACKFILL_PLAN_READY,
                 projects_count=len(set(assigned.values())), trustworthy=discrepancy.trustworthy,
+                left_out_files=len(left_out),
             )
             initial = False
         if not discrepancy.trustworthy:
@@ -838,7 +844,7 @@ def _review(
                 "Classification cannot be trusted: " + "; ".join(discrepancy.describe())
             )
         body = runner.describe_plan(
-            ev, plan, assigned, discrepancy
+            ev, plan, assigned, discrepancy, left_out=left_out
         )
         if git.evidence:
             body += [
@@ -924,6 +930,16 @@ def _finish_approved_request(coverage, client, ledger) -> list[str]:
         raise CoverageError(
             f"{len(drift)} reviewed files changed before project resolution; review this delta again."
         )
+    # Before project resolution, which needs no left-out file: a create that
+    # fails must not keep them `new`. One whose bytes moved since the review is
+    # skipped and stays `new`, so the next run reviews what it is now.
+    hashes_out = request.get("left_out_hashes") or {}
+    coverage.exclude(
+        {path: why for path, why in (request.get("left_out") or {}).items()
+         if path in rows and rows[path]["present"]
+         and rows[path]["observed_hash"] == hashes_out.get(path)},
+        changed=request["import_changed"],
+    )
     destinations = {}
     specs = {spec["slug"]: spec for spec in request["projects"]}
     for slug in sorted(set(request["assigned"].values())):
@@ -1059,6 +1075,7 @@ def _run(
     tel,
     stats,
     retry_dead=False,
+    review_excluded=False,
     background=False,
     progress=None,
     auto_approve=False,
@@ -1167,6 +1184,10 @@ def _run(
             report.add(
                 f"{revived:,} file(s) that failed every attempt will be reviewed for import again."
             )
+    if review_excluded:
+        reopened = coverage.clear_exclusions()
+        if reopened:
+            report.add(f"{reopened:,} file(s) left out as not research will be classified again.")
     known = coverage.report()
     new = set(known["new"]) - set(blocked)
     if import_unverified:
@@ -1219,13 +1240,19 @@ def _run(
         # The review includes Code sources before attachment occurs.
         report.add(*body)
         units = plans.pack(ev, assigned) + plans.pack_tails(ev, assigned)
-        hashes = {
-            row["path"]: row["observed_hash"] for row in coverage.rows() if row["path"] in assigned
-        }
+        # Settled as `excluded` rather than left `new` (re-classified every run).
+        # Hashed SEPARATELY: an edit to product code before project resolution
+        # must not block the research files' drift check below.
+        left_out: dict[str, str] = {}
+        plans.resolve(ev, plan, left_out=left_out)
+        observed = {row["path"]: row["observed_hash"] for row in coverage.rows()}
+        hashes = {path: observed[path] for path in assigned if path in observed}
         coverage.put_meta(
             "approved_request",
             {
                 "assigned": assigned,
+                "left_out": left_out,
+                "left_out_hashes": {path: observed[path] for path in left_out if path in observed},
                 "hashes": hashes,
                 "projects": [asdict(spec) for spec in plan.projects],
                 "units": [asdict(unit) for unit in units],
@@ -1400,6 +1427,11 @@ def _deliver_approved(
         and not row["manifest"]
         and row["present"]
         and row["approved_hash"] == row["observed_hash"]
+        # A left-out file is approved with NO destination. Without these it read
+        # as "approved, manifest pending" and got an agent turn and an upload to
+        # project None, every run, while the report said `excluded`.
+        and row["project_id"]
+        and not row["exclusion"]
     }
     unsampled = evidence.Evidence(
         root=str(folder),
@@ -1707,7 +1739,10 @@ def _deliver_approved(
     stats.update(
         files=final_count,
         enqueued=enqueued,
-        coverage_pct=round(100 * len(known["delivered"]) / final_count, 1) if final_count else None,
+        # Over what the import is FOR: a monorepo whose product was left out
+        # otherwise reads as 3% covered when every research file landed.
+        coverage_pct=(round(100 * len(known["delivered"]) / (final_count - len(known["excluded"])), 1)
+                      if final_count > len(known["excluded"]) else None),
     )
     if complete and previously_complete and not selected and not jobs and not enqueued:
         stats["_outcome"] = tm.BackfillOutcome.ALREADY_IMPORTED

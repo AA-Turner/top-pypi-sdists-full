@@ -183,6 +183,7 @@ ignore = [
     "FBT002",  # Boolean default value in function definition
     "FBT003",  # Boolean positional value in function call
     "FIX002",  # TODOs should typically not be in the code, but sometimes are ok
+    "ICN001",  # Enforcing the import of `datetime` as `dt` is confusing, we want to avoid abbreviations where reasonable
     "N814",    # Camelcase `PageAttributes` imported as constant `PG`
     "N817",    # CamelCase `PagesAttributes` imported as acronym `PA`
     "PERF203", # `try`-`except` within a loop incurs performance overhead
@@ -193,7 +194,6 @@ ignore = [
     "PT012",   # `pytest.raises()` block should contain a single simple statement
     "PT014",   # Ruff bug: Duplicate of test case at index 1 in `@pytest_mark.parametrize`
     "PTH123",  # `open()` should be replaced by `Path.open()`
-    "PYI042",  # Type alias `mode_str_type` should be CamelCase
     "RUF001",  # Detect confusable Unicode-to-Unicode units. Introduces bugs
     "RUF002",  # Detect confusable Unicode-to-Unicode units. Introduces bugs
     "S101",    # Use of `assert` detected
@@ -220,12 +220,10 @@ max-complexity = 30  # Recommended: 10
 [tool.ruff.lint.per-file-ignores]
 "_cryptography.py" = ["S304", "S305"]  # Use of insecure cipher / modes, aka RC4 and AES-ECB
 "_encryption.py" = ["S324"]
-"_writer.py" = ["S324"]
 "pypdf/_codecs/symbol.py" = ["A005"]  # Module shadows a Python standard-library module
 "types.py" = ["A005"]  # Module shadows a Python standard-library module
 "pypdf/_text_extraction/__init__.py" = ["PLW0603"]  # Using the global statement to update is discouraged
 "docs/conf.py" = ["INP001", "PTH100"]
-"json_consistency.py" = ["T201"]
 "make_release.py" = ["S603", "S607", "T201"]
 "pypdf/*" = ["N802", "N803"]  # We first need to deprecate old stuff
 "tests/*" = ["ANN001", "ANN201", "B017", "B018", "D103", "D104", "S105", "S106"]
@@ -237,9 +235,9 @@ convention = "google"
 [tool.ruff.lint.pylint]
 allow-magic-value-types = ["bytes", "float", "int", "str"]
 max-args = 12  # Recommended: 5
-max-branches = 36  # Recommended: 12
-max-returns = 11  # Recommended: 6
-max-statements = 176  # Recommended: 50
+max-branches = 33  # Recommended: 12
+max-returns = 9  # Recommended: 6
+max-statements = 102  # Recommended: 50
 
 [tool.docformatter]
 pre-summary-newline = true

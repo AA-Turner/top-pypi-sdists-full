@@ -6,6 +6,7 @@ Manage wandb agent.
 
 import ctypes
 import logging
+import math
 import os
 import queue
 import socket
@@ -16,8 +17,6 @@ import traceback
 from typing import Any
 
 import wandb
-from wandb.apis.public.sweeps import _agent_heartbeat, _register_agent
-from wandb.sdk.launch.sweeps import utils as sweep_utils
 from wandb.sdk.lib import config_util
 from wandb.sdk.sweeps import SweepNotFoundError
 
@@ -84,7 +83,13 @@ class Agent:
     HEARTBEAT_SLEEP_SECONDS = 5
 
     def __init__(
-        self, sweep_id=None, project=None, entity=None, function=None, count=None
+        self,
+        sweep_id=None,
+        project=None,
+        entity=None,
+        function=None,
+        count=None,
+        max_consecutive_failed_runs=None,
     ):
         self._sweep_path = sweep_id
         self._sweep_id = None
@@ -101,6 +106,11 @@ class Agent:
         self._max_initial_failures = wandb.env.get_agent_max_initial_failures(
             self.MAX_INITIAL_FAILURES
         )
+        self._max_consecutive_failed_runs = (
+            math.inf
+            if max_consecutive_failed_runs is None
+            else max_consecutive_failed_runs
+        )
         # if the directory to log to is not set, set it
         if os.environ.get(wandb.env.DIR) is None:
             os.environ[wandb.env.DIR] = os.path.abspath(os.getcwd())
@@ -108,14 +118,18 @@ class Agent:
     def _init(self):
         # These are not in constructor so that Agent instance can be rerun
         self._run_threads = {}
+        self._run_done = {}
         self._run_status = {}
         self._queue = queue.Queue()
         self._exit_flag = False
         self._sweep_not_found = False
         self._exceptions = {}
+        self._consecutive_failed_runs = 0
         self._start_time = time.time()
 
     def _register(self):
+        from wandb.apis.public.sweeps import _register_agent
+
         logger.debug("Agent._register()")
         agent = _register_agent(
             self._api,
@@ -128,6 +142,8 @@ class Agent:
         logger.debug(f"agent_id = {self._agent_id}")
 
     def _setup(self):
+        from wandb.sdk.launch.sweeps import utils as sweep_utils
+
         logger.debug("Agent._setup()")
         self._init()
         parts = dict(entity=self._entity, project=self._project, name=self._sweep_path)
@@ -163,14 +179,54 @@ class Agent:
     def _exit(self):
         self._stop_all_runs()
         self._exit_flag = True
-        # _terminate_thread(self._main_thread)
 
     def _has_running_thread(self) -> bool:
         """True while an in-process trial thread is still running."""
         return any(t.is_alive() for t in self._run_threads.values())
 
+    def _handle_errored_run(self, run_id, count) -> bool:
+        """Record errored run, emit logs if checks fail, and return whether we should stop the agent."""
+        exc = self._exceptions[run_id]
+
+        log_str, term_str = _get_exception_logger_and_term_strs(exc)
+        logger.error(f"Run {run_id} errored:\n{log_str}")
+        wandb.termerror(f"Run {run_id} errored:{term_str}")
+
+        self._consecutive_failed_runs += 1
+        if self._consecutive_failed_runs >= self._max_consecutive_failed_runs:
+            msg = f"Detected {self._consecutive_failed_runs} consecutive failed runs, killing sweep."
+            logger.error(msg)
+            wandb.termerror(msg)
+            return True
+
+        if os.getenv(wandb.env.AGENT_DISABLE_FLAPPING) == "true":
+            return True
+        elif (time.time() - self._start_time < self.FLAPPING_MAX_SECONDS) and (
+            len(self._exceptions) >= self.FLAPPING_MAX_FAILURES
+        ):
+            msg = f"Detected {self.FLAPPING_MAX_FAILURES} failed runs in the first {self.FLAPPING_MAX_SECONDS} seconds, killing sweep."
+            logger.error(msg)
+            wandb.termerror(msg)
+            wandb.termlog("To disable this check set WANDB_AGENT_DISABLE_FLAPPING=true")
+            return True
+
+        if self._max_initial_failures < len(self._exceptions) and (
+            len(self._exceptions) >= count
+        ):
+            msg = f"Detected {self._max_initial_failures} failed runs in a row at start, killing sweep."
+            logger.error(msg)
+            wandb.termerror(msg)
+            wandb.termlog(
+                "To change this value set WANDB_AGENT_MAX_INITIAL_FAILURES=val"
+            )
+            return True
+
+        return False
+
     def _heartbeat_commands(self, run_status: dict) -> list[dict[str, Any]]:
         """Fetch the next batch of agent commands from the server."""
+        from wandb.apis.public.sweeps import _agent_heartbeat
+
         if self._sweep_not_found:
             # The sweep was deleted; stop heartbeating but let the in-process
             # run finish before we shut the agent down.
@@ -178,6 +234,9 @@ class Agent:
 
         try:
             with self._api_lock:
+                # run() may have torn down the API while we waited for the lock.
+                if self._exit_flag:
+                    return []
                 return _agent_heartbeat(self._api, self._agent_id, {}, run_status)
         except SweepNotFoundError:
             self._sweep_not_found = True
@@ -202,8 +261,6 @@ class Agent:
         while True:
             if self._exit_flag:
                 return
-            # if not self._main_thread.is_alive():
-            #     return
             run_status = {
                 run: True
                 for run, status in self._run_status.items()
@@ -263,42 +320,26 @@ class Agent:
                     logger.debug(f"Spawning new thread for run {run_id}.")
                     thread = threading.Thread(target=self._run_job, args=(job,))
                     self._run_threads[run_id] = thread
-                    thread.start()
+                    self._run_done[run_id] = threading.Event()
                     self._run_status[run_id] = RunStatus.RUNNING
+                    thread.start()
+
+                    # Wait on an Event rather than join(): on Python <3.13, a
+                    # join() interrupted by Ctrl-C marks the thread stopped
+                    # while it is still running.
+                    self._run_done[run_id].wait()
+
+                    # We should still join on the thread to make sure it fully finishes
+                    # before starting the next one. Technically the wait on _run_done
+                    # doesn't guarantee that the thread is actually finished.
                     thread.join()
+                    del self._run_done[run_id]
                     logger.debug(f"Thread joined for run {run_id}.")
                     if self._run_status[run_id] == RunStatus.RUNNING:
                         self._run_status[run_id] = RunStatus.DONE
+                        self._consecutive_failed_runs = 0
                     elif self._run_status[run_id] == RunStatus.ERRORED:
-                        exc = self._exceptions[run_id]
-                        # Extract to reduce a decision point to avoid ruff c901
-                        log_str, term_str = _get_exception_logger_and_term_strs(exc)
-                        logger.error(f"Run {run_id} errored:\n{log_str}")
-                        wandb.termerror(f"Run {run_id} errored:{term_str}")
-                        if os.getenv(wandb.env.AGENT_DISABLE_FLAPPING) == "true":
-                            self._exit_flag = True
-                            return
-                        elif (
-                            time.time() - self._start_time < self.FLAPPING_MAX_SECONDS
-                        ) and (len(self._exceptions) >= self.FLAPPING_MAX_FAILURES):
-                            msg = f"Detected {self.FLAPPING_MAX_FAILURES} failed runs in the first {self.FLAPPING_MAX_SECONDS} seconds, killing sweep."
-                            logger.error(msg)
-                            wandb.termerror(msg)
-                            wandb.termlog(
-                                "To disable this check set WANDB_AGENT_DISABLE_FLAPPING=true"
-                            )
-                            self._exit_flag = True
-                            return
-                        if (
-                            self._max_initial_failures < len(self._exceptions)
-                            and len(self._exceptions) >= count
-                        ):
-                            msg = f"Detected {self._max_initial_failures} failed runs in a row at start, killing sweep."
-                            logger.error(msg)
-                            wandb.termerror(msg)
-                            wandb.termlog(
-                                "To change this value set WANDB_AGENT_MAX_INITIAL_FAILURES=val"
-                            )
+                        if self._handle_errored_run(run_id, count):
                             self._exit_flag = True
                             return
                     if self._count and self._count == count:
@@ -368,22 +409,45 @@ class Agent:
             os.environ.pop(wandb.env.RUN_ID, None)
             os.environ.pop(wandb.env.SWEEP_ID, None)
             os.environ.pop(wandb.env.SWEEP_PARAM_PATH, None)
+            self._run_done[job.run_id].set()
 
     def run(self):
         logger.info(
             f"Starting sweep agent: entity={self._entity}, project={self._project}, count={self._count}"
         )
-        self._setup()
-        # self._main_thread = threading.Thread(target=self._run_jobs_from_queue)
-        self._heartbeat_thread = threading.Thread(target=self._heartbeat)
-        self._heartbeat_thread.daemon = True
-        # self._main_thread.start()
-        self._heartbeat_thread.start()
-        # self._main_thread.join()
-        self._run_jobs_from_queue()
+        try:
+            self._setup()
+            self._heartbeat_thread = threading.Thread(target=self._heartbeat)
+            self._heartbeat_thread.daemon = True
+            self._heartbeat_thread.start()
+            self._run_jobs_from_queue()
+        finally:
+            # SWEEP_ID is exported by self._setup, so we should clear that too
+            os.environ.pop(wandb.env.SWEEP_ID, None)
+            self._teardown_last_job_session()
+
+    def _teardown_last_job_session(self):
+        if not self._run_threads:
+            return
+        self._exit_flag = True
+
+        # After Ctrl-C the job thread is still unwinding. Tearing down first
+        # would close its run with exit code 0 instead of 1.
+        for thread in self._run_threads.values():
+            thread.join()
+
+        with self._api_lock:
+            wandb.teardown()
 
 
-def pyagent(sweep_id, function, entity=None, project=None, count=None):
+def pyagent(
+    sweep_id,
+    function,
+    entity=None,
+    project=None,
+    count=None,
+    max_consecutive_failed_runs=None,
+):
     """Generic agent entrypoint, used for CLI or jupyter.
 
     Args:
@@ -392,6 +456,8 @@ def pyagent(sweep_id, function, entity=None, project=None, count=None):
         entity (str, optional): W&B Entity
         project (str, optional): W&B Project
         count (int, optional): the number of trials to run.
+        max_consecutive_failed_runs (int, optional): Shut the agent down once this
+            many runs have failed back to back.
     """
     if not callable(function):
         raise TypeError("function parameter must be callable!")
@@ -401,6 +467,7 @@ def pyagent(sweep_id, function, entity=None, project=None, count=None):
         entity=entity,
         project=project,
         count=count,
+        max_consecutive_failed_runs=max_consecutive_failed_runs,
     )
     agent.run()
 

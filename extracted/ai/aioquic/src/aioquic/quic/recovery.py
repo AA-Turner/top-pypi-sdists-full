@@ -1,6 +1,8 @@
 import logging
 import math
-from typing import Any, Callable, Iterable, Optional
+from bisect import bisect_left
+from collections.abc import Callable, Iterable
+from typing import Any, Optional
 
 from .congestion import cubic, reno  # noqa
 from .congestion.base import K_GRANULARITY, create_congestion_control
@@ -15,6 +17,12 @@ K_MICRO_SECOND = 0.000001
 K_PERSISTENT_CONGESTION_THRESHOLD = 3
 K_SECOND = 1.0
 
+# The number of ACK ranges kept. Duplicate detection accepts packets fewer than
+# twice this many below the largest received, and each range plus the gap above
+# it spans at least two, so the range dropped never holds a packet which was
+# just accepted (RFC 9000 section 13.2.1).
+MAX_ACK_RANGES = 64
+
 
 class QuicPacketNumberWindow:
     """
@@ -25,10 +33,10 @@ class QuicPacketNumberWindow:
     already been received.
     """
 
-    def __init__(self, size: int = 128) -> None:
+    def __init__(self) -> None:
         self._lower = 0
         self._received: set[int] = set()
-        self._size = size
+        self._size = 2 * MAX_ACK_RANGES
 
     def add(self, packet_number: int) -> None:
         if packet_number < self._lower:
@@ -183,7 +191,9 @@ class QuicPacketRecovery:
         if self._quic_logger is not None:
             self._log_metrics_updated()
 
-    def get_loss_detection_time(self) -> Optional[float]:
+    def get_loss_detection_time(
+        self, *, amplification_limited: bool
+    ) -> Optional[float]:
         """
         Return the time at which the loss detection timer should fire, or None
         if no timer is needed.
@@ -192,11 +202,19 @@ class QuicPacketRecovery:
         result always reflects the current state rather than being re-armed on
         specific events as in RFC 9002 appendix A.8. When the timer fires, the
         connection calls :meth:`on_loss_detection_timeout`.
+
+        If `amplification_limited` is set, the anti-amplification limit leaves no
+        room for a probe, so only the loss time is returned, not the PTO.
         """
         # loss timer
         loss_space = self._get_loss_space()
         if loss_space is not None:
             return loss_space.loss_time
+
+        # A server blocked by the anti-amplification limit does not arm the PTO
+        # until it receives a datagram (RFC 9002 section 6.2.2.1).
+        if amplification_limited:
+            return None
 
         # packet timer
         # Application data does not arm the PTO until the handshake is confirmed
@@ -253,11 +271,15 @@ class QuicPacketRecovery:
         if largest_acked > space.largest_acked_packet:
             space.largest_acked_packet = largest_acked
 
-        for packet_number in sorted(space.sent_packets.keys()):
-            if packet_number > largest_acked:
-                break
-            if packet_number in ack_rangeset:
-                # remove packet and update counters
+        # Only visit the sent packets within the acknowledged ranges, as the peer
+        # chooses how many ranges and ACK frames it sends. Packets are stored in
+        # the order they are sent, so their numbers are sorted.
+        packet_numbers = list(space.sent_packets)
+        for r in ack_rangeset:
+            start = bisect_left(packet_numbers, r.start)
+            stop = bisect_left(packet_numbers, r.stop)
+            for packet_number in packet_numbers[start:stop]:
+                # Remove the packet and update the counters.
                 packet = space.sent_packets.pop(packet_number)
                 if packet.is_ack_eliciting:
                     is_ack_eliciting = True

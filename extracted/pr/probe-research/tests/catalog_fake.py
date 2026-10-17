@@ -488,9 +488,16 @@ class CatalogFake:
                 return _json(404, {"detail": f"unknown ref {ref}"})
         composition = []
         for part in body.get("composition") or []:
-            _entry, version = self._resolve_dataset(part.get("target", ""))
+            target = part.get("target", "")
+            if target.startswith("source:"):
+                source = self._source(target)
+                if source is None:
+                    return _json(422, {"detail": f"cannot read {target}"})
+                composition.append({"source_id": source["id"], "rows": part.get("rows"), "share": part.get("share")})
+                continue
+            _entry, version = self._resolve_dataset(target)
             if version is None:
-                return _json(422, {"detail": f"cannot read {part.get('target')}"})
+                return _json(422, {"detail": f"cannot read {target}"})
             composition.append({"version_id": version["id"], "rows": part.get("rows"), "share": part.get("share")})
         spec = body[kinds[0]]
         producer_run = None

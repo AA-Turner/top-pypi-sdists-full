@@ -26,9 +26,7 @@ LOGIN_BODY = {
 
 
 def _client(body):
-    client = SandboxClient(
-        api_endpoint="http://test-server:8080", api_key="k", max_retries=0
-    )
+    client = SandboxClient(api_endpoint="http://test-server:8080", api_key="k", max_retries=0)
     response = MagicMock()
     response.raise_for_status.return_value = None
     response.json.return_value = body
@@ -81,9 +79,7 @@ class TestValidation:
 
 class TestAsyncClient:
     async def test_login_mode(self):
-        client = AsyncSandboxClient(
-            api_endpoint="http://test-server:8080", api_key="k", max_retries=0
-        )
+        client = AsyncSandboxClient(api_endpoint="http://test-server:8080", api_key="k", max_retries=0)
         response = MagicMock()
         response.raise_for_status.return_value = None
         response.json.return_value = LOGIN_BODY

@@ -20,6 +20,7 @@ from .types.update_users_request_banner import UpdateUsersRequestBanner
 from .types.update_users_request_profile_picture import UpdateUsersRequestProfilePicture
 
 if typing.TYPE_CHECKING:
+    from .fees.client import AsyncFeesClient, FeesClient
     from .oauth_grants.client import AsyncOauthGrantsClient, OauthGrantsClient
     from .passkeys.client import AsyncPasskeysClient, PasskeysClient
     from .preferences.client import AsyncPreferencesClient, PreferencesClient
@@ -34,6 +35,7 @@ class UsersClient:
         self._oauth_grants: typing.Optional[OauthGrantsClient] = None
         self._passkeys: typing.Optional[PasskeysClient] = None
         self._preferences: typing.Optional[PreferencesClient] = None
+        self._fees: typing.Optional[FeesClient] = None
 
     @property
     def with_raw_response(self) -> RawUsersClient:
@@ -89,7 +91,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -159,7 +161,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -220,7 +222,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -296,7 +298,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -364,7 +366,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -411,7 +413,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -447,7 +449,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -482,6 +484,14 @@ class UsersClient:
             self._preferences = PreferencesClient(client_wrapper=self._client_wrapper)
         return self._preferences
 
+    @property
+    def fees(self):
+        if self._fees is None:
+            from .fees.client import FeesClient  # noqa: E402
+
+            self._fees = FeesClient(client_wrapper=self._client_wrapper)
+        return self._fees
+
 
 class AsyncUsersClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -490,6 +500,7 @@ class AsyncUsersClient:
         self._oauth_grants: typing.Optional[AsyncOauthGrantsClient] = None
         self._passkeys: typing.Optional[AsyncPasskeysClient] = None
         self._preferences: typing.Optional[AsyncPreferencesClient] = None
+        self._fees: typing.Optional[AsyncFeesClient] = None
 
     @property
     def with_raw_response(self) -> AsyncRawUsersClient:
@@ -547,7 +558,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -626,7 +637,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -695,7 +706,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -779,7 +790,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -855,7 +866,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -910,7 +921,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -954,7 +965,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -994,3 +1005,11 @@ class AsyncUsersClient:
 
             self._preferences = AsyncPreferencesClient(client_wrapper=self._client_wrapper)
         return self._preferences
+
+    @property
+    def fees(self):
+        if self._fees is None:
+            from .fees.client import AsyncFeesClient  # noqa: E402
+
+            self._fees = AsyncFeesClient(client_wrapper=self._client_wrapper)
+        return self._fees

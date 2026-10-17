@@ -75,16 +75,12 @@ def _tag_seeded_version(client: Client, dataset_id: uuid.UUID) -> Optional[str]:
             try:
                 version = client.read_dataset_version(dataset_id=dataset_id, **kwargs)
                 # `update_dataset_tag` needs an exact version, not just any timestamp.
-                client.update_dataset_tag(
-                    dataset_id=dataset_id, as_of=version.as_of, tag=_VERSION_TAG
-                )
+                client.update_dataset_tag(dataset_id=dataset_id, as_of=version.as_of, tag=_VERSION_TAG)
                 return _VERSION_TAG
             except ls_utils.LangSmithNotFoundError:
                 continue
         if time.time() >= deadline:
-            logger.warning(
-                "No dataset version available after 30s; reading examples untagged."
-            )
+            logger.warning("No dataset version available after 30s; reading examples untagged.")
             return None
         time.sleep(2)
 
@@ -214,21 +210,15 @@ async def test_error_handling_evaluators(evaluate_examples: Tuple[str, Optional[
             assert eval_results[4].extra.get("error") is True
 
             assert eval_results[5].key == "eval_results_dict_key1"
-            assert (
-                "Error in EvaluationResults dict evaluator" in eval_results[5].comment
-            )
+            assert "Error in EvaluationResults dict evaluator" in eval_results[5].comment
             assert eval_results[5].extra.get("error") is True
 
             assert eval_results[6].key == "eval_results_dict_key2"
-            assert (
-                "Error in EvaluationResults dict evaluator" in eval_results[6].comment
-            )
+            assert "Error in EvaluationResults dict evaluator" in eval_results[6].comment
             assert eval_results[6].extra.get("error") is True
 
             assert eval_results[7].key == "eval_results_dict_key3"
-            assert (
-                "Error in EvaluationResults dict evaluator" in eval_results[7].comment
-            )
+            assert "Error in EvaluationResults dict evaluator" in eval_results[7].comment
             assert eval_results[7].extra.get("error") is True
 
     check_results(sync_results)
@@ -272,9 +262,7 @@ def _has_pandas() -> bool:
 
 async def test_aevaluate():
     client = Client()
-    dataset = client.clone_public_dataset(
-        "https://smith.langchain.com/public/2bbf4a10-c3d5-4868-9e96-400df97fed69/d"
-    )
+    dataset = client.clone_public_dataset("https://smith.langchain.com/public/2bbf4a10-c3d5-4868-9e96-400df97fed69/d")
 
     def accuracy(run: Run, example: Example):
         pred = run.outputs["output"]  # type: ignore

@@ -232,6 +232,22 @@ WRITE_LOST = ("Not ended: a write in this response did not land, so the run goes
               "Fix it, or say why not, then end with final_result.")
 
 
+#: The retry a writer reads when it ends a run that created a project or
+#: experiment, or set an experiment's conclusion, without pushing that summary
+#: (plan 3.5): once per run, and "say why not" ends it.
+SUMMARY_OWED = ("Not ended: these summaries were not updated in this run: {entities}. Update each "
+                "(probe summary checkout, edit the file, probe summary push), or say why not, then end with "
+                "final_result.")
+#: The same, for an eligible experiment this run concluded with no tables or
+#: charts set (plan 3.8; the checkout said so).
+VISUALS_OWED = ("Not ended: these experiments have no tables or charts set: {entities}. Set them (read "
+                "overview-visuals, then probe visuals options and probe visuals set), or say why not, then end "
+                "with final_result.")
+#: How many times the writer's output validator can send a run back: once for
+#: SUMMARY_OWED, once for VISUALS_OWED.
+OWED_SEND_BACKS = 2
+
+
 def ends_run(ctx: RunContext) -> bool:
     """Whether the response this tool call came in also calls `final_result`:
     under pydantic-ai's default 'graceful' end strategy the run ends once the
@@ -624,9 +640,38 @@ def build_agent(instructions: str, *, model, state: RunState | None = None):
         log.warning("Probe MCP unavailable: %s", exc)
     capabilities += _harness(state)
 
+    # The OUTPUT budget also pays for the two send-backs below (`summaries_owed`),
+    # and a run never refills it: past it pydantic-ai fails the whole run.
     agent = Agent(model, instructions=instructions, deps_type=tools.Deps, output_type=BiteResult,
-                  capabilities=capabilities, retries=2)
+                  capabilities=capabilities, retries={"tools": 2, "output": 2 + OWED_SEND_BACKS})
     writes = write_tools()
+
+    @agent.output_validator
+    async def summaries_owed(ctx: RunContext[tools.Deps], output: BiteResult) -> BiteResult:
+        """Send the run back once when it owes a summary (`tools.summaries_owed`).
+        Not after a stop, and not twice: the second end stands, reasons and all."""
+        from pydantic_ai import ModelRetry
+
+        if ctx.deps is None or ctx.deps.stopped is not None:
+            return output
+        owed = tools.summaries_owed(ctx.deps)
+        tables = tools.visuals_owed(ctx.deps)
+        due = (owed and not ctx.deps.summaries_owed_asked) or (tables and not ctx.deps.visuals_owed_asked)
+        if due and await tools.summaries_mode(ctx.deps, (owed or tables)[0]) != "recorder":
+            # Lane mode refuses the push, and an unknown mode is no reason to
+            # spend the rounds: the end stands.
+            tools.tally_settled(ctx.deps)
+            return output
+        if owed and not ctx.deps.summaries_owed_asked:
+            ctx.deps.summaries_owed_asked = True
+            tools.tally_save(ctx.deps)
+            raise ModelRetry(SUMMARY_OWED.format(entities=", ".join(owed)))
+        if tables and not ctx.deps.visuals_owed_asked:
+            ctx.deps.visuals_owed_asked = True
+            tools.tally_save(ctx.deps)
+            raise ModelRetry(VISUALS_OWED.format(entities=", ".join(tables)))
+        tools.tally_settled(ctx.deps)
+        return output
 
     @agent.tool(sequential="shell" in writes, description=SHELL_DESCRIPTION)
     async def shell(ctx: RunContext[tools.Deps], command: str, why: str = "") -> str:

@@ -25,6 +25,7 @@ from pathlib import Path
 import pytest
 
 from probe import skill_versions
+from tests.held_for_plugin_release import HELD_NEW_SKILLS, HELD_SKILLS, REASON
 
 _ROOT = Path(__file__).resolve().parent.parent
 
@@ -46,6 +47,9 @@ _SYNCED = (
     # one-release stub (renamed to audit-team-note 2026-09-17); drop with 0.91
     "notes-audit",
     "plan-research-review",
+    # writer-owns-summary (D2): the recorder keeps summaries and Metrics-center visuals
+    "write-summary",
+    "overview-visuals",
 )
 
 #: A fenced block, lazily matched so adjacent fences do not merge into one.
@@ -61,7 +65,11 @@ def _files(root: Path) -> dict[str, Path]:
     }
 
 
-@pytest.mark.parametrize("skill", _SYNCED)
+@pytest.mark.parametrize(
+    "skill",
+    [pytest.param(s, marks=pytest.mark.xfail(strict=True, reason=REASON)) if s in HELD_SKILLS else s
+     for s in _SYNCED],
+)
 def test_plugin_skill_copy_matches_canonical(skill: str) -> None:
     canonical, plugin = _CANONICAL / skill, _PLUGIN / skill
     assert canonical.is_dir(), f"canonical skill {skill} is missing"
@@ -92,12 +100,14 @@ def test_every_canonical_skill_is_covered_by_this_guard() -> None:
 
     Without this, adding skills/foo/ without wiring the sync would leave the plugin
     silently missing it while every parametrized case above still passed."""
-    on_disk = {path.name for path in _CANONICAL.iterdir() if path.is_dir()} - _CAPY_ONLY
+    on_disk = {path.name for path in _CANONICAL.iterdir() if path.is_dir()} - _CAPY_ONLY - HELD_NEW_SKILLS
     covered = set(_SYNCED)
     assert on_disk == covered, (
         f"skills/ holds {sorted(on_disk)} but this guard covers {sorted(covered)}; "
         "add it to _SYNCED + the Makefile"
     )
+    # A held skill the plugin already carries: D2 synced it, so empty the hold.
+    assert not {s for s in HELD_NEW_SKILLS if (_PLUGIN / s).exists()}, "empty HELD_NEW_SKILLS"
 
 
 def test_the_wheel_ships_the_canonical_skills_not_a_third_copy() -> None:
@@ -229,20 +239,19 @@ def test_workflow_skill_teaches_the_entity_prose_contract() -> None:
     """Creation-only guidance is missed once a project already exists.
 
     The tracking entry point must teach storage choice and ownership: the
-    authored Markdown below AI Summary is the researcher's by policy (the
-    `--summary` flag still exists), and agent prose goes to the hidden notes,
-    whose method is the `edit-notes` skill.
+    researcher's block on a summary (`document`, the `--summary` flag) is
+    theirs by policy, the rest of the summary is the recorder's (the
+    `write-summary` skill, writer-owns-summary), and agent prose goes to the
+    hidden notes, whose method is the `edit-notes` skill.
     """
     for skill in ("track-work",):
         text = (_CANONICAL / skill / "SKILL.md").read_text() + (
             _CANONICAL / skill / "reference.md"
         ).read_text()
         assert "description" in text
-        assert "authored Markdown" in text
-        assert "summary_markdown" in text
-        assert "the RESEARCHER's - never write it" in text
+        assert "`document`, the researcher's block on a summary, is theirs - never write it" in text
+        assert "the rest of a summary is yours (write-summary)" in text
         assert "hidden" in text and "notes" in text
-        assert "AI Summary" in text
         assert "`edit-notes`" in text
 
 

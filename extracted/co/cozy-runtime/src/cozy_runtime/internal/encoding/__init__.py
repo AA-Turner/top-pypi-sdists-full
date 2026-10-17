@@ -10,7 +10,7 @@ where the file's own sections already were, and each one now imports only the on
 * `formats.py` — the refusal vocabulary, the registry lookups, the reviewed spec digests,
   the role parts a header declares, and every provider whose answer is a FLOAT TENSOR.
 * `leaves.py` — the providers whose answer is a REPLACED MODULE (the `encoded_gemm` route),
-  the activation quantizers they dispatch through, and the swizzle their scale grids need.
+  and the activation quantizers they dispatch through.
 * `selection.py` — device and runtime identity, capability records, admission, and the
   launch table that maps reviewed digests to implementations.
 
@@ -30,14 +30,9 @@ from __future__ import annotations
 
 from cozy_runtime.internal.encoding.formats import (
     E4M3_MAX,
-    E8M0_BIAS,
-    E8M0_NAN,
-    MX_BLOCK,
     REFUSALS,
     ROW_SCALE_FLOOR,
-    SATURATION_MARGIN,
     SPEC_INT8_CONVROT256,
-    SPEC_MXFP8,
     SPEC_NVFP4,
     SPEC_PLAIN,
     SPEC_ROWWISE,
@@ -50,7 +45,6 @@ from cozy_runtime.internal.encoding.formats import (
     EncodingRefusal,
     Int8ConvRotDequant,
     LeafProvider,
-    MicroScaledDequant,
     Nvfp4Dequant,
     Provider,
     RolePart,
@@ -63,14 +57,9 @@ from cozy_runtime.internal.encoding.formats import (
     registry_digests,
 )
 from cozy_runtime.internal.encoding.leaves import (
-    ACT_SCALE_FLOOR,
     Int8ConvRotNativeLeaf,
-    MicroScaledNativeLeaf,
     Nvfp4NativeLeaf,
     RowwiseNativeLeaf,
-    quantize_activation_mx,
-    quantize_activation_rowwise,
-    to_blocked,
 )
 from cozy_runtime.internal.encoding.selection import (
     IDENTITY_SOURCES,
@@ -94,19 +83,13 @@ from cozy_runtime.internal.encoding.selection import (
 )
 
 __all__ = [
-    "ACT_SCALE_FLOOR",
     "E4M3_MAX",
-    "E8M0_BIAS",
-    "E8M0_NAN",
     "IDENTITY_SOURCES",
-    "MX_BLOCK",
     "NAMED_SEAMS",
     "OBJECTIVE_AXIS",
     "REFUSALS",
     "ROW_SCALE_FLOOR",
-    "SATURATION_MARGIN",
     "SPEC_INT8_CONVROT256",
-    "SPEC_MXFP8",
     "SPEC_NVFP4",
     "SPEC_PLAIN",
     "SPEC_ROWWISE",
@@ -123,8 +106,6 @@ __all__ = [
     "Int8ConvRotDequant",
     "Int8ConvRotNativeLeaf",
     "LeafProvider",
-    "MicroScaledDequant",
-    "MicroScaledNativeLeaf",
     "Nvfp4Dequant",
     "Nvfp4NativeLeaf",
     "Provider",
@@ -146,10 +127,7 @@ __all__ = [
     "launch_providers",
     "measure_device",
     "measure_runtime",
-    "quantize_activation_mx",
-    "quantize_activation_rowwise",
     "refuse",
     "registry_digests",
     "runtime_source_digest",
-    "to_blocked",
 ]

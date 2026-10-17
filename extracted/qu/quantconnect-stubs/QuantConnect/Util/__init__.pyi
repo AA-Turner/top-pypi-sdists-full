@@ -4,7 +4,6 @@ import abc
 import datetime
 import typing
 
-import Common.Util
 import QuantConnect
 import QuantConnect.Data
 import QuantConnect.Data.Consolidators
@@ -32,6 +31,11 @@ QuantConnect_Util_TypeChangeJsonConverter_T = typing.TypeVar("QuantConnect_Util_
 QuantConnect_Util_TypeChangeJsonConverter_TResult = typing.TypeVar("QuantConnect_Util_TypeChangeJsonConverter_TResult")
 QuantConnect_Util_BusyBlockingCollection_T = typing.TypeVar("QuantConnect_Util_BusyBlockingCollection_T")
 QuantConnect_Util_BusyCollection_T = typing.TypeVar("QuantConnect_Util_BusyCollection_T")
+QuantConnect_Util_ReadOnlyExtendedDictionary_TValue = typing.TypeVar("QuantConnect_Util_ReadOnlyExtendedDictionary_TValue")
+QuantConnect_Util_ReadOnlyExtendedDictionary_TKey = typing.TypeVar("QuantConnect_Util_ReadOnlyExtendedDictionary_TKey")
+QuantConnect_Util_BaseExtendedDictionary_TDictionary = typing.TypeVar("QuantConnect_Util_BaseExtendedDictionary_TDictionary")
+QuantConnect_Util_BaseExtendedDictionary_TKey = typing.TypeVar("QuantConnect_Util_BaseExtendedDictionary_TKey")
+QuantConnect_Util_BaseExtendedDictionary_TValue = typing.TypeVar("QuantConnect_Util_BaseExtendedDictionary_TValue")
 QuantConnect_Util_SingleValueListConverter_T = typing.TypeVar("QuantConnect_Util_SingleValueListConverter_T")
 QuantConnect_Util_CircularQueue_T = typing.TypeVar("QuantConnect_Util_CircularQueue_T")
 QuantConnect_Util_CastingEnumerable_TDerived = typing.TypeVar("QuantConnect_Util_CastingEnumerable_TDerived")
@@ -1239,6 +1243,111 @@ class DecimalJsonConverter:
         ...
 
 
+class ReadOnlyExtendedDictionary(typing.Generic[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue], QuantConnect.Util.BaseExtendedDictionary[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue, System.Collections.Generic.Dictionary[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue]], typing.Dict[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue]):
+    """Provides a read-only implementation of ExtendedDictionary"""
+
+    @property
+    def is_read_only(self) -> bool:
+        """Gets a value indicating whether the dictionary is read-only"""
+        ...
+
+    def __getitem__(self, key: QuantConnect_Util_ReadOnlyExtendedDictionary_TKey) -> QuantConnect_Util_ReadOnlyExtendedDictionary_TValue:
+        """
+        Gets or sets the value associated with the specified key
+        
+        :param key: The key of the value to get or set
+        :returns: The value associated with the specified key.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the ReadOnlyExtendedDictionary class that is empty"""
+        ...
+
+    @overload
+    def __init__(self, dictionary: System.Collections.Generic.IDictionary[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue]) -> None:
+        """
+        Initializes a new instance of the ReadOnlyExtendedDictionary class that contains elements copied from the specified dictionary
+        
+        :param dictionary: The dictionary whose elements are copied to the new dictionary
+        """
+        ...
+
+    @overload
+    def __init__(self, dictionary: System.Collections.Generic.Dictionary[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue], copy: bool) -> None:
+        """
+        Initializes a new instance of the ReadOnlyExtendedDictionary class using the specified dictionary
+        
+        :param dictionary: The dictionary to use as the data source
+        :param copy: True to copy the elements into a new dictionary, false to wrap the given instance so that any changes made to it are reflected
+        """
+        ...
+
+    @overload
+    def __init__(self, data: typing.List[QuantConnect_Util_ReadOnlyExtendedDictionary_TValue], key_selector: typing.Callable[[QuantConnect_Util_ReadOnlyExtendedDictionary_TValue], QuantConnect_Util_ReadOnlyExtendedDictionary_TKey]) -> None:
+        """
+        Initializes a new instance of the ReadOnlyExtendedDictionary class
+        using the specified data as a data source
+        
+        :param data: The data source for this dictionary
+        :param key_selector: Delegate used to select a key from the value
+        """
+        ...
+
+    def __setitem__(self, key: QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, value: QuantConnect_Util_ReadOnlyExtendedDictionary_TValue) -> None:
+        """
+        Gets or sets the value associated with the specified key
+        
+        :param key: The key of the value to get or set
+        :returns: The value associated with the specified key.
+        """
+        ...
+
+    @overload
+    def add(self, key: QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, value: QuantConnect_Util_ReadOnlyExtendedDictionary_TValue) -> None:
+        """
+        Adds an element with the provided key and value to the dictionary
+        
+        :param key: The key of the element to add
+        :param value: The value of the element to add
+        """
+        ...
+
+    @overload
+    def add(self, item: System.Collections.Generic.KeyValuePair[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue]) -> None:
+        """
+        Adds an element with the provided key-value pair to the dictionary
+        
+        :param item: The key-value pair to add
+        """
+        ...
+
+    def clear(self) -> None:
+        """Removes all items from the dictionary"""
+        ...
+
+    @overload
+    def remove(self, key: QuantConnect_Util_ReadOnlyExtendedDictionary_TKey) -> bool:
+        """
+        Removes the value with the specified key
+        
+        :param key: The key of the element to remove
+        :returns: true if the element was successfully found and removed; otherwise, false.
+        """
+        ...
+
+    @overload
+    def remove(self, item: System.Collections.Generic.KeyValuePair[QuantConnect_Util_ReadOnlyExtendedDictionary_TKey, QuantConnect_Util_ReadOnlyExtendedDictionary_TValue]) -> bool:
+        """
+        Removes the first occurrence of a specific object from the dictionary
+        
+        :param item: The key-value pair to remove
+        :returns: true if the key-value pair was successfully removed; otherwise, false.
+        """
+        ...
+
+
 class LeanData(System.Object):
     """Provides methods for generating lean data file content"""
 
@@ -2015,12 +2124,12 @@ class _Typed_LinqExtensions_ToReadOnlyExtendedDictionary(typing.Generic[QuantCon
     """"""
 
     @overload
-    def __call__(self, dictionary: System.Collections.Generic.IDictionary[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey, QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue]) -> Common.Util.ReadOnlyExtendedDictionary[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey, QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue]:
+    def __call__(self, dictionary: System.Collections.Generic.IDictionary[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey, QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue]) -> QuantConnect.Util.ReadOnlyExtendedDictionary[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey, QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue]:
         """Converts a dictionary to a ReadOnlyExtendedDictionary"""
         ...
 
     @overload
-    def __call__(self, source: typing.List[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue], key_selector: typing.Callable[[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue], QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey]) -> Common.Util.ReadOnlyExtendedDictionary[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey, QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue]:
+    def __call__(self, source: typing.List[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue], key_selector: typing.Callable[[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue], QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey]) -> QuantConnect.Util.ReadOnlyExtendedDictionary[QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TKey, QuantConnect_Util_LinqExtensions_ToReadOnlyExtendedDictionary_TValue]:
         """Creates a ReadOnlyExtendedDictionary from an IEnumerable according to specified key selector"""
         ...
 
@@ -2084,6 +2193,223 @@ class LinqExtensions(System.Object):
     to_read_only_extended_dictionary: QuantConnect.Util._LinqExtensions_ToReadOnlyExtendedDictionary
 
     to_data_dictionary: QuantConnect.Util._LinqExtensions_ToDataDictionary
+
+
+class BaseExtendedDictionary(typing.Generic[QuantConnect_Util_BaseExtendedDictionary_TKey, QuantConnect_Util_BaseExtendedDictionary_TValue, QuantConnect_Util_BaseExtendedDictionary_TDictionary], QuantConnect.ExtendedDictionary[QuantConnect_Util_BaseExtendedDictionary_TKey, QuantConnect_Util_BaseExtendedDictionary_TValue], System.Collections.Generic.IDictionary[QuantConnect_Util_BaseExtendedDictionary_TKey, QuantConnect_Util_BaseExtendedDictionary_TValue], typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect_Util_BaseExtendedDictionary_TKey, QuantConnect_Util_BaseExtendedDictionary_TValue]]):
+    """Provides a generic implementation of ExtendedDictionary with specific dictionary type"""
+
+    @property
+    def dictionary(self) -> QuantConnect_Util_BaseExtendedDictionary_TDictionary:
+        """
+        The dictionary instance
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def count(self) -> int:
+        """Gets the number of elements contained in the dictionary"""
+        ...
+
+    @property
+    def is_read_only(self) -> bool:
+        """Gets a value indicating whether the dictionary is read-only"""
+        ...
+
+    @property
+    def get_keys(self) -> typing.Iterable[QuantConnect_Util_BaseExtendedDictionary_TKey]:
+        """
+        Gets a collection containing the keys in the dictionary
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def get_values(self) -> typing.Iterable[QuantConnect_Util_BaseExtendedDictionary_TValue]:
+        """
+        Gets a collection containing the values in the dictionary
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    def __contains__(self, key: QuantConnect_Util_BaseExtendedDictionary_TKey) -> bool:
+        """
+        Determines whether the dictionary contains the specified key
+        
+        :param key: The key to locate in the dictionary
+        :returns: true if the dictionary contains an element with the specified key; otherwise, false.
+        """
+        ...
+
+    def __getitem__(self, key: QuantConnect_Util_BaseExtendedDictionary_TKey) -> QuantConnect_Util_BaseExtendedDictionary_TValue:
+        """
+        Gets or sets the value associated with the specified key
+        
+        :param key: The key of the value to get or set
+        :returns: The value associated with the specified key.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the BaseExtendedDictionary class that is empty"""
+        ...
+
+    @overload
+    def __init__(self, dictionary: QuantConnect_Util_BaseExtendedDictionary_TDictionary) -> None:
+        """
+        Initializes a new instance of the BaseExtendedDictionary class that contains elements copied from the specified dictionary
+        
+        :param dictionary: The dictionary whose elements are copied to the new dictionary
+        """
+        ...
+
+    @overload
+    def __init__(self, data: typing.List[QuantConnect_Util_BaseExtendedDictionary_TValue], key_selector: typing.Callable[[QuantConnect_Util_BaseExtendedDictionary_TValue], QuantConnect_Util_BaseExtendedDictionary_TKey]) -> None:
+        """
+        Initializes a new instance of the BaseExtendedDictionary class
+        using the specified data as a data source
+        
+        :param data: The data source for this dictionary
+        :param key_selector: Delegate used to select a key from the value
+        """
+        ...
+
+    @overload
+    def __init__(self, dictionary: System.Collections.Generic.IDictionary[QuantConnect_Util_BaseExtendedDictionary_TKey, QuantConnect_Util_BaseExtendedDictionary_TValue]) -> None:
+        """
+        Initializes a new instance of the BaseExtendedDictionary class that contains elements copied from the specified dictionary
+        
+        :param dictionary: The dictionary whose elements are copied to the new dictionary
+        """
+        ...
+
+    @overload
+    def __init__(self, dictionary: System.Collections.Generic.Dictionary[QuantConnect_Util_BaseExtendedDictionary_TKey, QuantConnect_Util_BaseExtendedDictionary_TValue], copy: bool) -> None:
+        """
+        Initializes a new instance of the BaseExtendedDictionary class using the specified dictionary
+        
+        :param dictionary: The dictionary to use as the data source
+        :param copy: True to copy the elements into a new dictionary, false to wrap the given instance so that any changes made to it are reflected
+        """
+        ...
+
+    def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[QuantConnect_Util_BaseExtendedDictionary_TKey, QuantConnect_Util_BaseExtendedDictionary_TValue]]:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def __setitem__(self, key: QuantConnect_Util_BaseExtendedDictionary_TKey, value: QuantConnect_Util_BaseExtendedDictionary_TValue) -> None:
+        """
+        Gets or sets the value associated with the specified key
+        
+        :param key: The key of the value to get or set
+        :returns: The value associated with the specified key.
+        """
+        ...
+
+    @overload
+    def add(self, key: QuantConnect_Util_BaseExtendedDictionary_TKey, value: QuantConnect_Util_BaseExtendedDictionary_TValue) -> None:
+        """
+        Adds an element with the provided key and value to the dictionary
+        
+        :param key: The key of the element to add
+        :param value: The value of the element to add
+        """
+        ...
+
+    @overload
+    def add(self, item: System.Collections.Generic.KeyValuePair[QuantConnect_Util_BaseExtendedDictionary_TKey, QuantConnect_Util_BaseExtendedDictionary_TValue]) -> None:
+        """
+        Adds an element with the provided key-value pair to the dictionary
+        
+        :param item: The key-value pair to add
+        """
+        ...
+
+    def clear(self) -> None:
+        """Removes all items from the dictionary"""
+        ...
+
+    def contains(self, item: System.Collections.Generic.KeyValuePair[QuantConnect_Util_BaseExtendedDictionary_TKey, QuantConnect_Util_BaseExtendedDictionary_TValue]) -> bool:
+        """
+        Determines whether the dictionary contains a specific key-value pair
+        
+        :param item: The key-value pair to locate
+        :returns: true if the key-value pair was found; otherwise, false.
+        """
+        ...
+
+    def contains_key(self, key: QuantConnect_Util_BaseExtendedDictionary_TKey) -> bool:
+        """
+        Determines whether the dictionary contains the specified key
+        
+        :param key: The key to locate in the dictionary
+        :returns: true if the dictionary contains an element with the specified key; otherwise, false.
+        """
+        ...
+
+    def copy_to(self, array: typing.List[System.Collections.Generic.KeyValuePair[QuantConnect_Util_BaseExtendedDictionary_TKey, QuantConnect_Util_BaseExtendedDictionary_TValue]], array_index: int) -> None:
+        """
+        Copies the elements of the dictionary to an array, starting at a particular array index
+        
+        :param array: The array to copy to
+        :param array_index: The starting index in the array
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[QuantConnect_Util_BaseExtendedDictionary_TKey, QuantConnect_Util_BaseExtendedDictionary_TValue]]:
+        """
+        Returns an enumerator that iterates through the dictionary
+        
+        :returns: An enumerator for the dictionary.
+        """
+        ...
+
+    def get_items(self) -> typing.Sequence[System.Collections.Generic.KeyValuePair[QuantConnect_Util_BaseExtendedDictionary_TKey, QuantConnect_Util_BaseExtendedDictionary_TValue]]:
+        """
+        Gets all the items in the dictionary
+        
+        :returns: All the items in the dictionary.
+        """
+        ...
+
+    @overload
+    def remove(self, key: QuantConnect_Util_BaseExtendedDictionary_TKey) -> bool:
+        """
+        Removes the value with the specified key
+        
+        :param key: The key of the element to remove
+        :returns: true if the element was successfully found and removed; otherwise, false.
+        """
+        ...
+
+    @overload
+    def remove(self, item: System.Collections.Generic.KeyValuePair[QuantConnect_Util_BaseExtendedDictionary_TKey, QuantConnect_Util_BaseExtendedDictionary_TValue]) -> bool:
+        """
+        Removes the first occurrence of a specific object from the dictionary
+        
+        :param item: The key-value pair to remove
+        :returns: true if the key-value pair was successfully removed; otherwise, false.
+        """
+        ...
+
+    def try_get_value(self, key: QuantConnect_Util_BaseExtendedDictionary_TKey, value: typing.Optional[QuantConnect_Util_BaseExtendedDictionary_TValue]) -> typing.Tuple[bool, QuantConnect_Util_BaseExtendedDictionary_TValue]:
+        """
+        Gets the value associated with the specified key
+        
+        :param key: The key whose value to get
+        :param value: When this method returns, the value associated with the specified key
+        :returns: true if the key was found; otherwise, false.
+        """
+        ...
 
 
 class LeanDataPathComponents(System.Object):

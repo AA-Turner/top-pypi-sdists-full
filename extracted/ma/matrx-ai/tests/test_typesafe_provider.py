@@ -313,3 +313,50 @@ def test_vendor_option_and_level_caps_are_refused_before_transport() -> None:
     ScoreQuestion(instructions="rate", criteria=[f"l{i}" for i in range(10)])
     with pytest.raises(ValidationError, match="at most 10"):
         ScoreQuestion(instructions="rate", criteria=[f"l{i}" for i in range(11)])
+
+
+def _thirteen_option_request() -> SystemOneRequest:
+    keys = [f"k{i}" for i in range(13)]
+    return SystemOneRequest(
+        state="one account",
+        model="jev-1.13.0",
+        questions={"relation": ChoiceQuestion(instructions="How related?", criteria={k: k for k in keys})},
+    )
+
+
+def _thirteen_option_result(probabilities: dict[str, float]) -> dict[str, object]:
+    return {
+        "model": "jev-1.13.0",
+        "usage": {"input_tokens": 900, "output_tokens": 30},
+        "answers": {
+            "relation": {"type": "choice", "choice": "k12", "probabilities": probabilities, "confidence": 0.62}
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_two_decimal_rounding_on_many_options_is_an_answer_not_a_failure() -> None:
+    """Measured live 2026-10-16: Jev reports each probability to two decimals, so a
+    13-option relation came back summing to 0.99 on 5 of 12 identical calls and the
+    client refused every one of them as a provider failure (Smart Add identity match)."""
+    rounded = {f"k{i}": 0.0 for i in range(13)} | {"k0": 0.02, "k3": 0.02, "k8": 0.13, "k11": 0.11, "k12": 0.71}
+    assert abs(sum(rounded.values()) - 0.99) < 1e-9
+    payload = _thirteen_option_result(rounded)
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload)))
+    try:
+        result = await call_system_one(_thirteen_option_request(), api_key="test-key", http=http)
+    finally:
+        await http.aclose()
+    assert result.answers["relation"].choice == "k12"
+
+
+@pytest.mark.asyncio
+async def test_a_distribution_off_by_more_than_rounding_is_still_refused() -> None:
+    skewed = {f"k{i}": 0.0 for i in range(13)} | {"k12": 0.5, "k0": 0.3}
+    payload = _thirteen_option_result(skewed)
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload)))
+    try:
+        with pytest.raises(TypeSafeProviderError, match="do not sum to one"):
+            await call_system_one(_thirteen_option_request(), api_key="test-key", http=http)
+    finally:
+        await http.aclose()

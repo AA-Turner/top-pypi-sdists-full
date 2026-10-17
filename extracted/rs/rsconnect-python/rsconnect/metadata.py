@@ -10,7 +10,9 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import sys
+from contextlib import suppress
 from datetime import datetime, timezone
 from io import BufferedWriter
 from os.path import abspath, basename, dirname, exists, join
@@ -50,6 +52,11 @@ T = TypeVar("T", bound=Mapping[str, object])
 # connect_cloud.SERVER_NAME. Used by api.ShinyappsServer as well.
 SHINYAPPS_SERVER_NAME = "shinyapps.io"
 SHINYAPPS_API_URL = "https://api.shinyapps.io"
+
+# App deployment history is small; strict reads cap it at 1 MiB.
+_MAX_METADATA_BYTES = 1024 * 1024
+
+_DEFAULT_OPEN = open
 
 
 def resolve_server_alias(url: str) -> str:
@@ -100,6 +107,13 @@ def makedirs(filepath: str):
         pass
 
 
+def _chmod_private_file(descriptor: int, path: str) -> None:
+    if hasattr(os, "fchmod"):
+        os.fchmod(descriptor, 0o600)
+    else:
+        os.chmod(path, 0o600)
+
+
 def _normalize_server_url(server_url: str):
     url = urlparse(server_url)
     return url.netloc.replace(".", "_").replace(":", "_")
@@ -111,15 +125,25 @@ class DataStore(Generic[T]):
     an optional secondary one.
     """
 
-    def __init__(self, primary_path: str, secondary_path: Optional[str] = None, chmod: bool = False):
+    def __init__(
+        self,
+        primary_path: str,
+        secondary_path: Optional[str] = None,
+        chmod: bool = False,
+        *,
+        autoload: bool = True,
+        strict_read: bool = False,
+    ):
         self._primary_path = primary_path
         self._secondary_path = secondary_path
         self._chmod = chmod
+        self._strict_read = strict_read
         self._data: dict[str, T] = {}
         self._real_path: str | None = None
         self._lock = Lock()
 
-        self.load()
+        if autoload:
+            self.load()
 
     def count(self):
         """
@@ -135,12 +159,50 @@ class DataStore(Generic[T]):
 
         Returns True if the data was successfully loaded.
         """
+        if self._strict_read:
+            return self._load_from_strict(path)
         if exists(path):
             with open(path, "rb") as f:
                 self._data = json.loads(f.read().decode("utf-8"))
                 self._real_path = path
                 return True
         return False
+
+    def _load_from_strict(self, path: str) -> bool:
+        try:
+            before = os.lstat(path)
+            if stat.S_ISLNK(before.st_mode):
+                raise OSError(f"Refusing to read symlinked metadata file: {path}")
+            if not stat.S_ISREG(before.st_mode):
+                raise OSError(f"Refusing to read non-regular metadata file: {path}")
+            if before.st_size > _MAX_METADATA_BYTES:
+                raise OSError(f"Metadata file exceeds the {_MAX_METADATA_BYTES}-byte limit: {path}")
+
+            # ponytail: Windows lacks O_NOFOLLOW; use a native opener for stronger reparse-point race protection.
+            flags = (
+                os.O_RDONLY
+                | getattr(os, "O_BINARY", 0)
+                | getattr(os, "O_NONBLOCK", 0)
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0)
+            )
+            descriptor = os.open(path, flags)
+        except (FileNotFoundError, NotADirectoryError):
+            return False
+        with os.fdopen(descriptor, "rb") as metadata_file:
+            opened = os.fstat(metadata_file.fileno())
+            if not stat.S_ISREG(opened.st_mode):
+                raise OSError(f"Refusing to read non-regular metadata file: {path}")
+            if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+                raise OSError(f"Metadata file changed while opening: {path}")
+            if opened.st_size > _MAX_METADATA_BYTES:
+                raise OSError(f"Metadata file exceeds the {_MAX_METADATA_BYTES}-byte limit: {path}")
+            data = metadata_file.read(_MAX_METADATA_BYTES + 1)
+        if len(data) > _MAX_METADATA_BYTES:
+            raise OSError(f"Metadata file exceeds the {_MAX_METADATA_BYTES}-byte limit: {path}")
+        self._data = json.loads(data.decode("utf-8"))
+        self._real_path = path
+        return True
 
     def load(self):
         """
@@ -239,13 +301,33 @@ class DataStore(Generic[T]):
     # noinspection PyShadowingBuiltins
     def save_to(self, path: str, data: bytes, open: Callable[..., BufferedWriter] = open):
         """
-        Save our data to the specified file.
+        Save our data to the specified file. Protected stores set permissions on
+        the open file before writing; supplied openers keep direct write behavior.
         """
-        with open(path, "wb") as f:
-            f.write(data)
+        if self._chmod and open is _DEFAULT_OPEN:
+            # shortcut: writes remain non-atomic to preserve links; revisit when compatibility permits replacement.
+            flags = os.O_WRONLY | os.O_CREAT | getattr(os, "O_BINARY", 0)
+            descriptor = os.open(path, flags, 0o600)
+            try:
+                stream = os.fdopen(descriptor, "wb")
+                descriptor = -1
+                with stream:
+                    _chmod_private_file(stream.fileno(), path)
+                    os.ftruncate(stream.fileno(), 0)
+                    stream.write(data)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            finally:
+                with suppress(OSError):
+                    os.close(descriptor)
+        else:
+            with open(path, "wb") as f:
+                f.write(data)
+            if self._chmod:
+                os.chmod(path, 0o600)
         self._real_path = path
 
-    def _already_holds(self, path: str, data: bytes) -> bool:
+    def _already_holds(self, path: str, data: bytes, opener: Callable[..., BufferedWriter] = open) -> bool:
         """
         Whether this store was loaded from `path` and that file already holds `data`.
 
@@ -271,18 +353,21 @@ class DataStore(Generic[T]):
         A save that would not change the file is skipped.
         """
         data = json.dumps(self._data, indent=4).encode("utf-8")
-        if not self._already_holds(self._primary_path, data):
-            try:
-                makedirs(self._primary_path)
-                self.save_to(self._primary_path, data, open)
-            except OSError:
-                if not self._secondary_path:
-                    raise
-                makedirs(self._secondary_path)
-                self.save_to(self._secondary_path, data, open)
+        if self._already_holds(self._primary_path, data, open):
+            if self._chmod and open is _DEFAULT_OPEN:
+                metadata = os.stat(self._primary_path)
+                if stat.S_ISREG(metadata.st_mode) and stat.S_IMODE(metadata.st_mode) != 0o600:
+                    os.chmod(self._primary_path, 0o600)
+            return
 
-            if self._chmod and self._real_path is not None:
-                os.chmod(self._real_path, 0o600)
+        try:
+            makedirs(self._primary_path)
+            self.save_to(self._primary_path, data, open)
+        except OSError:
+            if not self._secondary_path:
+                raise
+            makedirs(self._secondary_path)
+            self.save_to(self._secondary_path, data, open)
 
 
 class ServerDataDict(TypedDict):
@@ -774,11 +859,13 @@ class AppStore(DataStore[AppMetadata]):
     are made.
     """
 
-    def __init__(self, app_file: str, version: int = 1):
+    def __init__(self, app_file: str, version: int = 1, *, autoload: bool = True, strict_read: bool = False):
         base_name = str(basename(app_file).rsplit(".", 1)[0]) + ".json"
         super(AppStore, self).__init__(
             join(dirname(app_file), "rsconnect-python", base_name),
             join(config_dirname(), "applications", sha1(abspath(app_file)) + ".json"),
+            autoload=autoload,
+            strict_read=strict_read,
         )
         self.version = version
 

@@ -91,6 +91,7 @@ if typing.TYPE_CHECKING:
     from .account_reserve_unlock_type import AccountReserveUnlockType
     from .account_reserve_unlock_type_type import AccountReserveUnlockTypeType
     from .account_resolution_center_auto_refund_control import AccountResolutionCenterAutoRefundControl
+    from .account_search_result import AccountSearchResult
     from .account_social_link import AccountSocialLink
     from .account_social_link_website import AccountSocialLinkWebsite
     from .account_store_page_config import AccountStorePageConfig
@@ -1453,7 +1454,6 @@ if typing.TYPE_CHECKING:
     from .team_member_status import TeamMemberStatus
     from .too_many_requests_error_body import TooManyRequestsErrorBody
     from .too_many_requests_error_body_error import TooManyRequestsErrorBodyError
-    from .topup import Topup
     from .trade import Trade
     from .trade_failure_code import TradeFailureCode
     from .trade_funds_location import TradeFundsLocation
@@ -1500,6 +1500,7 @@ if typing.TYPE_CHECKING:
     from .user_banner import UserBanner
     from .user_earnings import UserEarnings
     from .user_earnings_amount import UserEarningsAmount
+    from .user_fees import UserFees
     from .user_notification_preference import UserNotificationPreference
     from .user_notification_preference_level import UserNotificationPreferenceLevel
     from .user_notification_preference_object import UserNotificationPreferenceObject
@@ -1633,6 +1634,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountReserveUnlockType": ".account_reserve_unlock_type",
     "AccountReserveUnlockTypeType": ".account_reserve_unlock_type_type",
     "AccountResolutionCenterAutoRefundControl": ".account_resolution_center_auto_refund_control",
+    "AccountSearchResult": ".account_search_result",
     "AccountSocialLink": ".account_social_link",
     "AccountSocialLinkWebsite": ".account_social_link_website",
     "AccountStorePageConfig": ".account_store_page_config",
@@ -2849,7 +2851,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TeamMemberStatus": ".team_member_status",
     "TooManyRequestsErrorBody": ".too_many_requests_error_body",
     "TooManyRequestsErrorBodyError": ".too_many_requests_error_body_error",
-    "Topup": ".topup",
     "Trade": ".trade",
     "TradeFailureCode": ".trade_failure_code",
     "TradeFundsLocation": ".trade_funds_location",
@@ -2896,6 +2897,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UserBanner": ".user_banner",
     "UserEarnings": ".user_earnings",
     "UserEarningsAmount": ".user_earnings_amount",
+    "UserFees": ".user_fees",
     "UserNotificationPreference": ".user_notification_preference",
     "UserNotificationPreferenceLevel": ".user_notification_preference_level",
     "UserNotificationPreferenceObject": ".user_notification_preference_object",
@@ -3053,6 +3055,7 @@ __all__ = [
     "AccountReserveUnlockType",
     "AccountReserveUnlockTypeType",
     "AccountResolutionCenterAutoRefundControl",
+    "AccountSearchResult",
     "AccountSocialLink",
     "AccountSocialLinkWebsite",
     "AccountStorePageConfig",
@@ -4269,7 +4272,6 @@ __all__ = [
     "TeamMemberStatus",
     "TooManyRequestsErrorBody",
     "TooManyRequestsErrorBodyError",
-    "Topup",
     "Trade",
     "TradeFailureCode",
     "TradeFundsLocation",
@@ -4316,6 +4318,7 @@ __all__ = [
     "UserBanner",
     "UserEarnings",
     "UserEarningsAmount",
+    "UserFees",
     "UserNotificationPreference",
     "UserNotificationPreferenceLevel",
     "UserNotificationPreferenceObject",

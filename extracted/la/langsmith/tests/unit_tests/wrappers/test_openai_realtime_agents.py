@@ -48,9 +48,7 @@ def mock_client() -> Client:
 
 @pytest.fixture(autouse=True)
 def _patch_cached_client(mock_client, monkeypatch):
-    monkeypatch.setattr(
-        "langsmith.run_trees.get_cached_client", lambda **_: mock_client
-    )
+    monkeypatch.setattr("langsmith.run_trees.get_cached_client", lambda **_: mock_client)
 
 
 def _item(iid, role, text):
@@ -124,12 +122,7 @@ class TestCleanAndShape:
         assert raw_input_transcript(ev) == ("u1", "hi there")
         # Wrong wrapped type, or empty transcript → None.
         assert raw_input_transcript(NS(data=NS(type="other"))) is None
-        assert (
-            raw_input_transcript(
-                NS(data=NS(type="input_audio_transcription_completed", transcript=" "))
-            )
-            is None
-        )
+        assert raw_input_transcript(NS(data=NS(type="input_audio_transcription_completed", transcript=" "))) is None
 
     def test_raw_response_usage(self):
         ev = NS(
@@ -161,9 +154,7 @@ class TestCleanAndShape:
         )
 
     def test_describe_event_variants(self):
-        name, payload, inbound = describe_event(
-            NS(type="tool_start", tool=NS(name="lookup"), arguments='{"q": 1}')
-        )
+        name, payload, inbound = describe_event(NS(type="tool_start", tool=NS(name="lookup"), arguments='{"q": 1}'))
         assert name == "tool_start"
         assert inbound is True  # a tool call is the model's request → input
         assert payload["tool"] == "lookup"
@@ -174,9 +165,7 @@ class TestCleanAndShape:
         assert payload["output"] == "sunny"
         assert inbound is False
 
-        _, payload, inbound = describe_event(
-            NS(type="history_added", item=_item("u", "user", "hi"))
-        )
+        _, payload, inbound = describe_event(NS(type="history_added", item=_item("u", "user", "hi")))
         assert (payload["role"], payload["text"]) == ("user", "hi")
         assert inbound is True
 
@@ -195,9 +184,7 @@ def _tracer(session, **kwargs):
 
 class TestTracer:
     def test_history_turn_collapses_partials_and_emits_spans(self, monkeypatch):
-        session = start_session(
-            thread_id="t", sample_rate=24_000, integration="openai-agents-realtime"
-        )
+        session = start_session(thread_id="t", sample_rate=24_000, integration="openai-agents-realtime")
         created = _spy_children(monkeypatch)
         tracer = _tracer(session)
 
@@ -205,16 +192,8 @@ class TestTracer:
         # across snapshots — the fold keeps only the final text.
         tracer.observe(_history_updated(_item("u1", "user", "weather?")))
         tracer.observe(NS(type="audio"))  # first audio → latency on the open turn
-        tracer.observe(
-            _history_updated(
-                _item("u1", "user", "weather?"), _item("a1", "assistant", "It's")
-            )
-        )
-        tracer.observe(
-            _history_updated(
-                _item("u1", "user", "weather?"), _item("a1", "assistant", "It's sunny.")
-            )
-        )
+        tracer.observe(_history_updated(_item("u1", "user", "weather?"), _item("a1", "assistant", "It's")))
+        tracer.observe(_history_updated(_item("u1", "user", "weather?"), _item("a1", "assistant", "It's sunny.")))
         tracer.flush_pending()
         session.finalize()
 
@@ -238,9 +217,7 @@ class TestTracer:
         assert "latency_to_first_audio_ms" in (turn.extra or {}).get("metadata", {})
 
     def test_hold_last_defers_final_message_until_teardown(self, monkeypatch):
-        session = start_session(
-            thread_id="t", sample_rate=24_000, integration="openai-agents-realtime"
-        )
+        session = start_session(thread_id="t", sample_rate=24_000, integration="openai-agents-realtime")
         created = _spy_children(monkeypatch)
         tracer = _tracer(session)
 
@@ -250,9 +227,7 @@ class TestTracer:
         assert not any(n == "user_message" for n, _ in created)
 
         # A following assistant item supersedes the user one → user now emits.
-        tracer.observe(
-            _history_updated(_item("u1", "user", "hi"), _item("a1", "assistant", "yo"))
-        )
+        tracer.observe(_history_updated(_item("u1", "user", "hi"), _item("a1", "assistant", "yo")))
         assert session.messages == [{"role": "user", "content": "hi"}]
         assert any(n == "user_message" for n, _ in created)
         assert not any(n == "model" for n, _ in created)  # assistant still held
@@ -263,18 +238,14 @@ class TestTracer:
         assert any(n == "model" for n, _ in created)
 
     def test_tool_start_and_end_become_one_tool_span(self, monkeypatch):
-        session = start_session(
-            thread_id="t", sample_rate=24_000, integration="openai-agents-realtime"
-        )
+        session = start_session(thread_id="t", sample_rate=24_000, integration="openai-agents-realtime")
         created = _spy_children(monkeypatch)
         tracer = _tracer(session)
 
         # A start/end pair collapses to a single tool span named for the tool,
         # carrying the args (in) and output (out). Its duration is the real gap
         # between the two events.
-        tracer.observe(
-            NS(type="tool_start", tool=NS(name="lookup"), arguments='{"city": "SF"}')
-        )
+        tracer.observe(NS(type="tool_start", tool=NS(name="lookup"), arguments='{"city": "SF"}'))
         tracer.observe(
             NS(
                 type="tool_end",
@@ -291,9 +262,7 @@ class TestTracer:
         assert tool.outputs == {"output": "sunny"}
 
     def test_tool_end_without_start_falls_back_to_point_in_time(self, monkeypatch):
-        session = start_session(
-            thread_id="t", sample_rate=24_000, integration="openai-agents-realtime"
-        )
+        session = start_session(thread_id="t", sample_rate=24_000, integration="openai-agents-realtime")
         created = _spy_children(monkeypatch)
         tracer = _tracer(session)
 
@@ -312,9 +281,7 @@ class TestTracer:
         assert tool.outputs == {"output": "sunny"}
 
     def test_orphan_tool_span_closed_with_error_at_teardown(self, monkeypatch):
-        session = start_session(
-            thread_id="t", sample_rate=24_000, integration="openai-agents-realtime"
-        )
+        session = start_session(thread_id="t", sample_rate=24_000, integration="openai-agents-realtime")
         created = _spy_children(monkeypatch)
         tracer = _tracer(session)
 
@@ -328,9 +295,7 @@ class TestTracer:
         assert tool.error
 
     def test_audio_interrupted_flags_open_turn(self, monkeypatch):
-        session = start_session(
-            thread_id="t", sample_rate=24_000, integration="openai-agents-realtime"
-        )
+        session = start_session(thread_id="t", sample_rate=24_000, integration="openai-agents-realtime")
         created = _spy_children(monkeypatch)
         tracer = _tracer(session)
 
@@ -341,9 +306,7 @@ class TestTracer:
         assert any(n == "audio_interrupted" for n, _ in created)
 
     def test_raw_model_event_user_transcript(self, monkeypatch):
-        session = start_session(
-            thread_id="t", sample_rate=24_000, integration="openai-agents-realtime"
-        )
+        session = start_session(thread_id="t", sample_rate=24_000, integration="openai-agents-realtime")
         created = _spy_children(monkeypatch)
         tracer = _tracer(session)
 
@@ -366,9 +329,7 @@ class TestTracer:
         # The SDK has no semantic usage event, but forwards the raw response.done
         # (as raw_server_event); its usage must ride on the assistant model span,
         # with audio/cached detail preserved for correct pricing.
-        session = start_session(
-            thread_id="t", sample_rate=24_000, integration="openai-agents-realtime"
-        )
+        session = start_session(thread_id="t", sample_rate=24_000, integration="openai-agents-realtime")
         created = _spy_children(monkeypatch)
         tracer = _tracer(session)
 
@@ -420,9 +381,7 @@ class TestTracer:
     def test_response_done_usage_consumed_once(self, monkeypatch):
         # Usage is cleared after it's attached, so a later assistant turn without
         # its own response.done doesn't inherit the previous turn's counts.
-        session = start_session(
-            thread_id="t", sample_rate=24_000, integration="openai-agents-realtime"
-        )
+        session = start_session(thread_id="t", sample_rate=24_000, integration="openai-agents-realtime")
         created = _spy_children(monkeypatch)
         tracer = _tracer(session)
 
@@ -447,26 +406,14 @@ class TestTracer:
         assert (models[1].extra or {}).get("metadata", {}).get("usage_metadata") is None
 
     def test_on_message_called_once_per_finalized_line(self):
-        session = start_session(
-            thread_id="t", sample_rate=24_000, integration="openai-agents-realtime"
-        )
+        session = start_session(thread_id="t", sample_rate=24_000, integration="openai-agents-realtime")
         seen: list = []
-        tracer = _tracer(
-            session, on_message=lambda role, text: seen.append((role, text))
-        )
+        tracer = _tracer(session, on_message=lambda role, text: seen.append((role, text)))
 
         # The same finalized messages reappear across snapshots; each fires once.
         tracer.observe(_history_updated(_item("u1", "user", "hi")))
-        tracer.observe(
-            _history_updated(
-                _item("u1", "user", "hi"), _item("a1", "assistant", "hello")
-            )
-        )
-        tracer.observe(
-            _history_updated(
-                _item("u1", "user", "hi"), _item("a1", "assistant", "hello")
-            )
-        )
+        tracer.observe(_history_updated(_item("u1", "user", "hi"), _item("a1", "assistant", "hello")))
+        tracer.observe(_history_updated(_item("u1", "user", "hi"), _item("a1", "assistant", "hello")))
         tracer.flush_pending()
         assert seen == [("user", "hi"), ("assistant", "hello")]
 
@@ -509,13 +456,7 @@ class FakeSession:
 
 class TestProxy:
     async def test_enters_exits_underlying_and_traces(self):
-        fake = FakeSession(
-            [
-                _history_updated(
-                    _item("u1", "user", "hi"), _item("a1", "assistant", "yo")
-                )
-            ]
-        )
+        fake = FakeSession([_history_updated(_item("u1", "user", "hi"), _item("a1", "assistant", "yo"))])
         async with wrap_realtime_session(fake, thread_id="t") as conn:
             assert fake.entered is True
             assert conn.send_audio() == "delegated"  # attribute delegation
@@ -549,9 +490,7 @@ class TestProxy:
         # If our tracing setup raises after the underlying session was entered,
         # __aenter__ must unwind it (Python won't call __aexit__) so it can't leak.
         fake = FakeSession([])
-        monkeypatch.setattr(
-            agents_mod, "start_session", mock.Mock(side_effect=RuntimeError("boom"))
-        )
+        monkeypatch.setattr(agents_mod, "start_session", mock.Mock(side_effect=RuntimeError("boom")))
         with pytest.raises(RuntimeError, match="boom"):
             async with wrap_realtime_session(fake):
                 pass
@@ -560,18 +499,14 @@ class TestProxy:
 
     async def test_finalize_failure_still_exits_underlying_session(self, monkeypatch):
         fake = FakeSession([])
-        monkeypatch.setattr(
-            EventSession, "finalize", mock.Mock(side_effect=RuntimeError("boom"))
-        )
+        monkeypatch.setattr(EventSession, "finalize", mock.Mock(side_effect=RuntimeError("boom")))
         # __aexit__ must swallow the finalize error and still exit the session.
         async with wrap_realtime_session(fake) as conn:
             assert conn is not None
         assert fake.exited is True
 
     async def test_max_audio_seconds_bounds_recording(self):
-        async with wrap_realtime_session(
-            FakeSession([]), sample_rate=10, max_audio_seconds=1.0
-        ) as conn:
+        async with wrap_realtime_session(FakeSession([]), sample_rate=10, max_audio_seconds=1.0) as conn:
             # cap = 1.0s * 10 * 2 = 20 bytes per channel.
             conn.record_user_audio(b"\x00" * 16)  # kept
             conn.record_user_audio(b"\x00" * 16)  # kept (pushes over)

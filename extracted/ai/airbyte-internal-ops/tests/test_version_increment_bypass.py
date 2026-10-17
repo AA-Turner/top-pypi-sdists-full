@@ -36,6 +36,9 @@ def mock_connector(tmp_path):
         pytest.param("integration_tests/config.json", False, id="integration-tests"),
         pytest.param("acceptance-test-config.yml", False, id="acceptance-config"),
         pytest.param("README.md", False, id="readme"),
+        pytest.param("AGENTS.md", False, id="agents-md"),
+        pytest.param("CLAUDE.md", False, id="claude-md"),
+        pytest.param("CONTRIBUTING.md", False, id="contributing"),
         pytest.param("erd/source.dbml", False, id="erd"),
         pytest.param("src/test/java/Foo.java", False, id="java-tests"),
         pytest.param("src/test-integration/java/Foo.java", False, id="java-it"),
@@ -54,17 +57,34 @@ def test_is_production_path(path, expected):
     assert _is_production_path(path) is expected
 
 
+@pytest.mark.parametrize(
+    "changed_files, expected_in_message",
+    [
+        pytest.param(
+            ["acceptance-test-config.yml", "unit_tests/test_x.py"],
+            "unit_tests/test_x.py",
+            id="tests-only",
+        ),
+        pytest.param(
+            ["AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md"],
+            "AGENTS.md",
+            id="connector-docs-only",
+        ),
+    ],
+)
 @patch(f"{_VERSION_MODULE}._get_master_metadata")
 @patch(f"{_VERSION_MODULE}._get_changed_files")
-def test_test_only_change_skips(mock_changed, mock_master, mock_connector):
+def test_test_only_change_skips(
+    mock_changed, mock_master, mock_connector, changed_files, expected_in_message
+):
     """A change limited to tests needs no version increment."""
-    mock_changed.return_value = ["acceptance-test-config.yml", "unit_tests/test_x.py"]
+    mock_changed.return_value = changed_files
 
     result = CheckVersionIncrement()._run(mock_connector)
 
     assert result.status == CheckStatus.SKIPPED
     assert "No production code changed" in result.message
-    assert "unit_tests/test_x.py" in result.message
+    assert expected_in_message in result.message
     mock_master.assert_not_called()
 
 

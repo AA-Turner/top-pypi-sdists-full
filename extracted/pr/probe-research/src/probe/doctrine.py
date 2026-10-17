@@ -35,7 +35,9 @@ CORE_DESTINATIONS: tuple[str, ...] = (
     "workspace",
     "Shared folder",
     "description",
-    "AI Summary",
+    # A project's or experiment's summary (writer-owns-summary): the
+    # researcher's block in it is theirs, the rest is the recorder's.
+    "summary",
     "question",
     "team note",
     "secrets",

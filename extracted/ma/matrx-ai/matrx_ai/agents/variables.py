@@ -254,6 +254,26 @@ def _toggle_off_label(declared: Any) -> str | None:
     return str(labels[0]) if labels else "No"
 
 
+def _cleared(value: Any) -> bool:
+    """The person emptied the field on purpose: blank or whitespace-only text, or an emptied list/dict
+    (the client sends the saved default for an untouched field and ``None`` when there is none). The
+    screen shows a whitespace-only value as blank, so it is honoured as blank: never the default."""
+    if isinstance(value, str):
+        return not value.strip()
+    return isinstance(value, (list, tuple, dict)) and not value
+
+
+def is_cleared_client_value(value: Any) -> bool:
+    """THE one cleared test (public): a client value the composition honours as ``""``."""
+    return _cleared(value)
+
+
+def is_platform_key(name: str) -> bool:
+    """A key a door adds for its own use, never a person's variable: ``vsc_*`` (editor state) or a
+    ``__name__`` dunder (``__agent_user_input__``)."""
+    return name.startswith("vsc_") or (len(name) > 4 and name.startswith("__") and name.endswith("__"))
+
+
 def compose_variable_values(
     definitions: Mapping[str, Any] | None,
     client: Mapping[str, Any] | None = None,
@@ -261,18 +281,32 @@ def compose_variable_values(
     *,
     defaults: Mapping[str, Any] | None = None,
     ignore_client: Collection[str] = (),
+    declared_only: bool | None = None,
 ) -> dict[str, Any]:
     """THE one composition of a run's first-turn values, used by every door.
 
     For each DECLARED name: explicit non-empty client value > non-empty bound value > non-empty
-    saved default > ``""``. Empty is ``template_substitution.is_empty_value``. A toggle whose
+    saved default > ``""``. Empty is ``template_substitution.is_empty_value``. The one exception
+    is intent made explicit on the wire: a client value of exactly ``""`` means the person
+    cleared the field, and is honoured as ``""`` (beats bound and default); whitespace-only text
+    and an emptied list or dict (a cleared multi-select / pick list) are the same. ``None`` / key
+    absent mean untouched and fall back. A toggle whose
     value is its off label becomes an ``OffValue`` (fills as its text, empties a section).
     ``defaults`` adds or overrides saved defaults by name (raw values); ``ignore_client`` names
-    whose client value is discarded (a locked merge field). A client key no definition declares
-    passes through unchanged."""
-    from matrx_ai.config.template_substitution import OffValue, is_empty_value
+    whose client value is discarded (a locked merge field).
+
+    Undeclared client keys (``declared_only``, default: on when ``definitions`` is non-empty): a
+    key no definition declares is DROPPED, so it can never fill the author's text. Platform keys
+    (``is_platform_key``) still pass through for their door's own use, marked
+    (``as_platform_value``, any type) so substitution never fills them. With no definitions at all (a raw ``/ai/chat`` call whose
+    ``variables`` dict IS the declaration) every client key passes through unchanged and fills:
+    today's behaviour, kept on purpose. A stored agent's door passes ``declared_only=True``: its
+    definitions are the declaration even when they declare nothing."""
+    from matrx_ai.config.template_substitution import OffValue, as_platform_value, is_empty_value
 
     definitions = definitions or {}
+    if declared_only is None:
+        declared_only = bool(definitions)
     floor: dict[str, Any] = {}
     for name, declared in definitions.items():
         value = getattr(declared, "value", None)
@@ -289,7 +323,14 @@ def compose_variable_values(
         if name in ignore_client:
             continue
         if name not in floor and name not in (bound or {}):
-            out[name] = value  # undeclared: passed through as given
+            if not declared_only:
+                out[name] = value  # no declaration at all: the client's dict IS the declaration
+            elif is_platform_key(name):
+                # A door's own key: kept for that door, never filled into text.
+                out[name] = as_platform_value(value)
+            # else: undeclared — dropped, never fills the author's text
+        elif _cleared(value):
+            out[name] = ""  # the person cleared it ("" or an emptied multi-select): honoured as "", never the default
         elif not is_empty_value(value):
             out[name] = value
     for name, declared in definitions.items():

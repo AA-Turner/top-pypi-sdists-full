@@ -183,6 +183,17 @@ class ColumnAssignment(BaseModel):
         )
 
 
+@dataclass(frozen=True)
+class AddressArgument:
+    """One argument of a table-function address. A bound argument names a
+    datasource column; the query must pin it with an equality filter, whose
+    literal is passed to the function and projected back as that column."""
+
+    value: str | int | float | bool
+    bound: bool = False
+    name: str | None = None
+
+
 @dataclass
 class Address:
     location: str
@@ -201,6 +212,24 @@ class Address:
     # Deployment environment this address has been namespaced into (see
     # trilogy.execution.envs). Doubles as the guard against double-prefixing.
     env_label: str | None = None
+    # The source a multi-source program serves (``file `x.py#name```), passed
+    # to it as ``--source name``.
+    source_name: str | None = None
+    # Set for a table-function address (``address fn(col, k := 'v')``).
+    arguments: list[AddressArgument] | None = None
+
+    @property
+    def is_table_function(self) -> bool:
+        return self.arguments is not None
+
+    @property
+    def bound_columns(self) -> list[str]:
+        return [str(a.value) for a in self.arguments or [] if a.bound]
+
+    @property
+    def source_args(self) -> str:
+        """The command line that selects this address's source of its program."""
+        return f"--source {self.source_name}" if self.source_name else ""
 
     @property
     def is_query(self):

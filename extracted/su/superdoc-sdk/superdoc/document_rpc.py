@@ -7,24 +7,16 @@ from uuid import uuid4
 
 from .errors import HOST_PROTOCOL_ERROR, SuperDocError
 from .protocol import apply_operation_param_aliases
+from .sdk_policy import SDK_POLICY
 
-DOCUMENT_RPC_FEATURES = (
-    'document.open',
-    'document.invoke',
-    'document.save',
-    'document.close',
-)
-DOCUMENT_RPC_DEFAULT_CHANGE_MODE_FEATURE = 'document.open.defaultChangeMode'
-DOCUMENT_RPC_REQUEST_TIMEOUT_FEATURE = 'host.request.timeoutMs'
-DOCUMENT_RPC_SOURCE_SAVE_FEATURE = 'document.save.source'
+DOCUMENT_RPC_FEATURES = tuple(SDK_POLICY['documentRpcFeatures'])
+DOCUMENT_RPC_DEFAULT_CHANGE_MODE_FEATURE = SDK_POLICY['features']['defaultChangeMode']
+DOCUMENT_RPC_REQUEST_TIMEOUT_FEATURE = SDK_POLICY['features']['requestTimeout']
+DOCUMENT_RPC_SOURCE_SAVE_FEATURE = SDK_POLICY['features']['sourceSave']
 
-_OPEN_FIELDS = {'doc', 'sessionId', 'runtime'}
-_INVOKE_OPTION_FIELDS = {'expectedRevision', 'changeMode', 'dryRun', 'supportCheck'}
-_REVISION_PREFLIGHT_OPERATIONS = {
-    'doc.history.redo',
-    'doc.history.undo',
-    'doc.plan.execute',
-}
+_OPEN_FIELDS = set(SDK_POLICY['documentOpenFields'])
+_INVOKE_OPTION_FIELDS = set(SDK_POLICY['documentOptionFields'])
+_REVISION_PREFLIGHT_OPERATIONS = set(SDK_POLICY['revisionPreflightOperations'])
 
 
 def _unsupported(message: str, operation_id: Optional[str] = None) -> SuperDocError:
@@ -214,7 +206,7 @@ def build_document_invoke_request(
             raise _unsupported(
                 'Structured document RPC requires out to be a non-empty path.', operation_id,
             )
-        allowed = {'sessionId', 'out', 'force', 'mode', 'inPlace'}
+        allowed = set(SDK_POLICY['documentSaveFields'])
         unknown = next(
             (name for name, value in params.items() if value is not None and name not in allowed),
             None,

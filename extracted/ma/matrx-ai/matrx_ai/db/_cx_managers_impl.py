@@ -923,7 +923,7 @@ class CxManagers:
         config_dict = {
             "model": conversation.last_model_id,
             "system_instruction": conversation.system_instruction,
-            "system_prompt_frozen": bool(conversation.system_instruction),
+            "system_prompt_frozen": conversation.system_instruction is not None,  # "" = frozen with no system prompt
             "messages": messages_rebuilt,
             **conversation.config,
         }

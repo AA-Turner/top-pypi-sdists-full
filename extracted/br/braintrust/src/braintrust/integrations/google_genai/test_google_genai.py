@@ -1009,6 +1009,117 @@ def test_interaction_materialization_only_converts_multimodal_payloads():
     assert materialized["media"]["image_url"]["url"] is materialized["media"]["data"]
 
 
+def test_interaction_materialization_preserves_pydantic_model_classes():
+    from braintrust.integrations.google_genai.tracing import _materialize_interaction_value
+    from pydantic import BaseModel
+
+    class ResponseFormat(BaseModel):
+        answer: str
+
+    assert _materialize_interaction_value(ResponseFormat) is ResponseFormat
+
+
+def test_generate_content_stream_preserves_code_execution_parts():
+    from types import SimpleNamespace
+
+    from braintrust.integrations.google_genai.tracing import _aggregate_generate_content_chunks
+
+    parts = [
+        types.Part(text="before "),
+        types.Part(executable_code=types.ExecutableCode(code="print(1)", language="PYTHON")),
+        types.Part(text=" between "),
+        types.Part(code_execution_result=types.CodeExecutionResult(outcome="OUTCOME_OK", output="1")),
+        types.Part(text=" after"),
+    ]
+    chunks = [
+        SimpleNamespace(
+            candidates=[types.Candidate(content=types.Content(parts=[part], role="model"))],
+            usage_metadata=None,
+        )
+        for part in parts
+    ]
+
+    output, _, _ = _aggregate_generate_content_chunks(chunks, time.time())
+
+    streamed_parts = output["candidates"][0]["content"]["parts"]
+    assert streamed_parts == [
+        {"text": "before "},
+        {"executable_code": parts[1].executable_code},
+        {"text": " between "},
+        {"code_execution_result": parts[3].code_execution_result},
+        {"text": " after"},
+    ]
+
+
+@pytest.mark.vcr
+def test_generate_content_stream_code_execution_part_order(memory_logger):
+    assert not memory_logger.pop()
+
+    client = Client()
+    model = "gemini-2.5-flash"
+    chunks = list(
+        client.models.generate_content_stream(
+            model=model,
+            contents=(
+                "Use the code execution tool to calculate 17 * 19. Include one short sentence before the code, "
+                "then give the answer after the code execution result."
+            ),
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(code_execution=types.ToolCodeExecution())],
+                temperature=0,
+                max_output_tokens=200,
+            ),
+        )
+    )
+
+    raw_parts = [
+        part
+        for chunk in chunks
+        for candidate in getattr(chunk, "candidates", None) or []
+        if candidate.index in (None, 0)
+        for part in (getattr(getattr(candidate, "content", None), "parts", None) or [])
+    ]
+    raw_part_kinds = []
+    for part in raw_parts:
+        field = next(
+            (
+                field
+                for field in ("text", "executable_code", "code_execution_result", "function_call")
+                if getattr(part, field, None) is not None
+            ),
+            None,
+        )
+        if field is None:
+            continue
+        kind = "thought" if field == "text" and getattr(part, "thought", None) else field
+        if kind in {"text", "thought"} and raw_part_kinds and raw_part_kinds[-1] == kind:
+            continue
+        raw_part_kinds.append(kind)
+
+    spans = memory_logger.pop()
+    assert len(spans) == 1
+    logged_parts = spans[0]["output"]["candidates"][0]["content"]["parts"]
+    logged_part_kinds = []
+    for part in logged_parts:
+        field = next(
+            (
+                field
+                for field in ("text", "executable_code", "code_execution_result", "function_call")
+                if field in part
+            ),
+            None,
+        )
+        if field is None:
+            continue
+        kind = "thought" if field == "text" and part.get("thought") else field
+        if kind in {"text", "thought"} and logged_part_kinds and logged_part_kinds[-1] == kind:
+            continue
+        logged_part_kinds.append(kind)
+
+    assert {"text", "executable_code", "code_execution_result"}.issubset(raw_part_kinds)
+    assert logged_part_kinds == raw_part_kinds
+
+
 GROUNDING_MODEL = (
     "gemini-2.5-flash" if os.environ.get("BRAINTRUST_TEST_PACKAGE_VERSION") == "latest" else "gemini-2.0-flash-001"
 )

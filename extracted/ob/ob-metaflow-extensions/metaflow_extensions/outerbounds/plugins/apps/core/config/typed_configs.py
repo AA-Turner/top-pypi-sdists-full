@@ -24,6 +24,7 @@ else:
     if TYPE_CHECKING:
         # for the benefit of type-checkers
         from typing import TypedDict  # noqa: F401
+
     # runtime no-op TypedDict shim
     class _TypedDictMeta(type):
         def __new__(cls, name, bases, namespace, total=True):
@@ -153,6 +154,9 @@ class TypedCoreConfig:
     force_upgrade : bool, optional
         Force upgrade the app even if it is currently being upgraded.
 
+    suspend : bool, optional
+        True suspends the app; false (the default, also used when omitted) resumes it. A suspended deploy returns before traffic readiness.
+
     use_base_image_command : bool, optional
         When True, skip providing startup commands and rely on the container's entrypoint/CMD. Only available in the programmatic API. In CLI mode, use `--no-deps` along side passing no command to enable this behavior.
 
@@ -211,6 +215,7 @@ class TypedCoreConfig:
         replicas: Optional[ReplicaConfigDict] = None,
         code_package: Optional[tuple] = None,
         force_upgrade: Optional[bool] = None,
+        suspend: Optional[bool] = None,
         use_base_image_command: Optional[bool] = None,
         skip_code_package: Optional[bool] = None,
         capsule_type: Optional[str] = None,
@@ -240,6 +245,7 @@ class TypedCoreConfig:
             "replicas": replicas,
             "code_package": code_package,
             "force_upgrade": force_upgrade,
+            "suspend": suspend,
             "use_base_image_command": use_base_image_command,
             "skip_code_package": skip_code_package,
             "capsule_type": capsule_type,

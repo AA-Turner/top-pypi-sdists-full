@@ -7,7 +7,7 @@ requires = [ "setuptools>=81.0.0", "packaging>=26.3.0" ]
 
 [project]
 name = "pkg_about"
-version = "2.5.0"
+version = "2.5.1"
 description = "Unified access to Python package metadata at runtime."
 keywords = [ "pkg_about", "pkg-about", "__about__", "packaging" ]
 license = "Zlib"

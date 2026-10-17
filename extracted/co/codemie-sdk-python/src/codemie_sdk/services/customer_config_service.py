@@ -1,6 +1,6 @@
 """Customer config service implementation.
 
-Wraps four endpoints introduced in EPMCDME-13983:
+Wraps four customer-config endpoints:
   GET  /v1/config/declarations            — list dynamic-config declarations (admin/maintainer)
   PUT  /v1/config/declarations/{id}       — save override settings for a component
   DELETE /v1/config/declarations/{id}     — reset component to YAML default (idempotent)

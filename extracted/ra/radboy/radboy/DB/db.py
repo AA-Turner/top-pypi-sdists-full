@@ -10360,3 +10360,50 @@ try:
 except Exception as e:
     Holidays.__table__.drop(ENGINE)
     Holidays.metadata.create_all(ENGINE)
+
+class AuthenticatorTools(BASE,Template):
+    __tablename__="AuthenticatorTools"    
+    
+    secret=Column(String,default=None)
+    secret_code=Column(String,default=None)
+
+    name=Column(String,default=None)
+    issuer=Column(String,default=None)
+    
+    interval=Column(Integer,default=30)
+    algorithm_digest=Column(String,default="sha1")
+    digits_integer=Column(Integer,default=6)
+
+    TYPE=Column(String,default='TOTP')
+    
+    counter=Column(Integer,default=0)
+    
+    group_id=Column(String)
+    geolocation=Column(String,default=None)
+    photograph_links=Column(String,default='')
+    dtoe=Column(DateTime,default=datetime.now())
+    comment=Column(String,default=None)
+    emoid=Column(Integer,primary_key=True)
+    
+    def as_json(self,excludes=[]):
+        dd={str(d.name):self.__dict__[d.name] for d in self.__table__.columns if d.name not in excludes}
+        return json.dumps(dd)
+
+    def asID(self):
+        return f"{self.__class__.__name__}(emoid={self.emoid})"
+
+    def __init__(self,**kwargs):
+        if 'dtoe' not in kwargs:
+            self.dtoe=datetime.now()
+
+        for k in kwargs.keys():
+            if k in [s.name for s in self.__table__.columns]:
+                setattr(self,k,kwargs.get(k))
+
+        self.photograph_links=detectGetOrSet('AuthenticatorTools photograph_links','',setValue=False,literal=True)
+        self.PersonnelResponsible=detectGetOrSet('AuthenticatorTools PersonnelResponsible','Carl J Hirner III',setValue=False,literal=True)
+try:
+    AuthenticatorTools.metadata.create_all(ENGINE)
+except Exception as e:
+    AuthenticatorTools.__table__.drop(ENGINE)
+    AuthenticatorTools.metadata.create_all(ENGINE)

@@ -210,6 +210,7 @@ def test_plain_text():
     assert plain_text("%%C") == "Ø"  # alt-0216
     assert plain_text("%%D") == "°"  # alt-0176
     assert plain_text("%%P") == "±"  # alt-0177
+    assert plain_text("%%%") == "%"  # literal percent sign
     # underline
     assert plain_text("%%u") == ""
     assert plain_text("%%utext%%u") == "text"
@@ -389,7 +390,8 @@ class TestIsTextVerticalStacked:
     """
 
     @pytest.fixture(scope="class")
-    def doc(self):
+    @classmethod
+    def doc(cls):
         d = ezdxf.new()
         style = d.styles.new("Stacked")
         style.is_vertical_stacked = True

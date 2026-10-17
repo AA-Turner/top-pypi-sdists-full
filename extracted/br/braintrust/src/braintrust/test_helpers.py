@@ -1,9 +1,10 @@
+import dataclasses
 import os
 from contextlib import contextmanager
 
 import pytest
 from braintrust import logger
-from braintrust.logger import ObjectMetadata, OrgProjectMetadata, ProjectExperimentMetadata
+from braintrust.logger import BaseAttachment, ObjectMetadata, OrgProjectMetadata, ProjectExperimentMetadata
 from braintrust.util import LazyValue
 
 
@@ -59,9 +60,12 @@ def with_simulate_login():
 
 
 @pytest.fixture
-def with_memory_logger():
+def with_memory_logger(monkeypatch):
     logger._state.reset_parent_state()
     with logger._internal_with_memory_background_logger() as bgl:
+        # The override is thread-local. Worker threads need the same fallback
+        # so they cannot start HTTP uploads that outlive the test and race VCR.
+        monkeypatch.setattr(logger._state, "_global_bg_logger", LazyValue(lambda: bgl, use_mutex=False))
         yield bgl
     # Clean up global state to prevent test contamination
     logger._state.reset_parent_state()
@@ -127,6 +131,32 @@ def find_span_by_name(spans, name):
             return span
     available_names = [span["span_attributes"]["name"] for span in spans]
     raise AssertionError(f"Expected span named {name!r}. Available spans: {available_names}")
+
+
+@dataclasses.dataclass
+class DataclassAttachment(BaseAttachment):
+    """A `BaseAttachment` subclass that is also a dataclass, for serialization tests."""
+
+    key: str
+
+    @property
+    def reference(self):
+        return {
+            "type": "braintrust_attachment",
+            "key": self.key,
+            "filename": "file.txt",
+            "content_type": "text/plain",
+        }
+
+    @property
+    def data(self):
+        return b"data"
+
+    def upload(self):
+        raise AssertionError("Tests must not upload attachments")
+
+    def debug_info(self):
+        return {"key": self.key}
 
 
 def init_test_exp(experiment_name: str, project_name: str = None):

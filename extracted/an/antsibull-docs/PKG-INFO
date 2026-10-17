@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: antsibull-docs
-Version: 2.27.0
+Version: 2.28.0
 Summary: Tools for building Ansible documentation
 Project-URL: Documentation, https://docs.ansible.com/projects/antsibull-docs/
 Project-URL: Source code, https://github.com/ansible-community/antsibull-docs
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Requires-Dist: aiohttp>=3.0.0

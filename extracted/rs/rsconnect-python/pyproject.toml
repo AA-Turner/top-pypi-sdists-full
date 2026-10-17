@@ -2,13 +2,14 @@
 name = "rsconnect_python"
 description = "The Posit Connect command-line interface."
 requires-python = ">=3.8"
-version = "1.31.1"
+version = "1.32.0"
 dependencies = [
     "typing-extensions>=4.8.0",
     "pip>=10.0.0",
     "uv>=0.9.0",
     "semver>=2.0.0,<4.0.0",
-    "pyjwt>=2.4.0",
+    "pyjwt>=2.4.0; python_version < '3.9'",
+    "pyjwt>=2.15.0; python_version >= '3.9'",
     "click>=8.0.0",
     "packaging>=20.0",
     "toml>=0.10; python_version < '3.11'",

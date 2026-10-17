@@ -65,7 +65,21 @@ from probe.version_policy import state_dir
 CONFLICT_MARKER = re.compile(r"^(<{7}|={7}|>{7})", re.M)
 
 
-def paths_for(settings, kind: str, entity_id: str, sub_note_id: str | None = None) -> Paths:
+#: The state-dir folder each kind of checked-out document lives under: an
+#: entity's note, and a project's or experiment's summary (`probe summary`).
+NOTES_ROOT = "notes"
+SUMMARIES_ROOT = "summaries"
+
+
+def paths_for(
+    settings,
+    kind: str,
+    entity_id: str,
+    sub_note_id: str | None = None,
+    *,
+    root: str = NOTES_ROOT,
+    draft: str | None = None,
+) -> Paths:
     """Where one entity note's three files live.
 
     ENTITY-ADDRESSED on purpose: `push` then finds the file from `--run <slug>`
@@ -76,10 +90,16 @@ def paths_for(settings, kind: str, entity_id: str, sub_note_id: str | None = Non
     status, incident history" verbatim, and cwd is usually a git work tree on a
     shared host -- one `git add -A` from committing a customer's prose. 0600 in
     the state dir is the same answer `team_note_file` already gives.
+
+    `root` names the folder under the state dir (`summaries` for `probe
+    summary`), and `draft` the file's stem in place of `note`: a summary is one
+    draft PER SESSION (`<session id>.md`), because two sessions on one machine
+    could both check out a clean shared file and overwrite each other before
+    either pushes -- `claim` refuses only a dirty one.
     """
-    root = state_dir() / "notes" / kind / entity_id
-    stem = sub_note_id or "note"
-    base_dir = root if sub_note_id is None else root / "sub"
+    folder = state_dir() / root / kind / entity_id
+    stem = sub_note_id or draft or "note"
+    base_dir = folder if sub_note_id is None else folder / "sub"
     document = base_dir / f"{stem}.md"
     return Paths(
         document=document,

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jsonpath-ng"
-version = "1.10.1"
+version = "1.11.0"
 description="A final implementation of JSONPath for Python that aims to be standard compliant, including arithmetic and binary comparison operators and providing clear AST for metaprogramming."
 authors = [
     {name = "Tomas Aparicio", email = "tomas@aparicio.me"},
@@ -52,7 +52,7 @@ dev = [
 # ---------
 
 [tool.codespell]
-skip = '.git,.gitignore,.gitattributes,*.pdf,*.svg,*.css,*.min.*,_ply,./.venv'
+skip = '.git,.gitignore,.gitattributes,*.pdf,*.svg,*.css,*.min.*,_ply,./.venv,./docs/rfc9535'
 check-hidden = true
 ignore-words-list = 'nd'
 
@@ -81,7 +81,7 @@ source = [
 
 [tool.coverage.report]
 skip_covered = true
-fail_under = 82
+fail_under = 90
 
 
 # flake8
@@ -140,6 +140,7 @@ filterwarnings = [
 [tool.scriv]
 version = "literal: pyproject.toml: project.version"
 categories = [
+    "Breaking changes",
     "Python support",
     "Added",
     "Fixed",

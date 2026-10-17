@@ -36,7 +36,7 @@ class GenerateVideoInput(BaseModel):
         description=(
             "Video model id. Examples: 'veo-3.1-generate-preview', "
             "'sora-2', 'sora-2-pro', 'grok-imagine-video', "
-            "'google/veo-3.0-fast-audio' (Together), 'google/veo-3.1' (Replicate)."
+            "'google/veo-3.0-fast-audio', 'google/veo-3.1'."
         ),
         json_schema_extra=field_extras(widget="model_picker", **model_class_extras()),
     )

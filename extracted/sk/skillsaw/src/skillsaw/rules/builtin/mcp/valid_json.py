@@ -77,6 +77,7 @@ class McpValidJsonRule(Rule):
         "codex-hooks-valid",
         "copilot-agent-valid",
         "grok-config-valid",
+        "goose-recipe-valid",
     )
 
     # Mirrors ``agent-plugin-mcp-valid`` and ``content-embedded-secrets``: a
@@ -388,6 +389,7 @@ class McpValidJsonRule(Rule):
                         file_path=block.path,
                         header=header,
                         aliases=block.credential_key_aliases,
+                        command_prefixes=block.credential_command_prefixes,
                         location=key,
                         line=line,
                         line_for=line_for,
@@ -745,6 +747,7 @@ class McpValidJsonRule(Rule):
         file_path: Path,
         header: bool,
         aliases: Mapping[str, str] = MappingProxyType({}),
+        command_prefixes: Tuple[str, ...] = (),
         location: str = "",
         line: Optional[int] = None,
         line_for: Optional[Callable[[Any, Any], Optional[int]]] = None,
@@ -769,6 +772,7 @@ class McpValidJsonRule(Rule):
                 value,
                 header=header,
                 markers=self._placeholder_markers(),
+                reference=value.startswith(command_prefixes),
             )
             if description is None:
                 continue

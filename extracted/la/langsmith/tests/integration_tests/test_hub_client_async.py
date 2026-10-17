@@ -24,9 +24,7 @@ def skill_identifier() -> str:
 
 
 @skip_if_rate_limited
-async def test_push_and_pull_agent_roundtrip(
-    langsmith_client: AsyncClient, agent_identifier: str
-) -> None:
+async def test_push_and_pull_agent_roundtrip(langsmith_client: AsyncClient, agent_identifier: str) -> None:
     ctx = langsmith_client
     try:
         url = await ctx.push_agent(
@@ -50,9 +48,7 @@ async def test_push_and_pull_agent_roundtrip(
 
 
 @skip_if_rate_limited
-async def test_push_and_pull_skill_roundtrip(
-    langsmith_client: AsyncClient, skill_identifier: str
-) -> None:
+async def test_push_and_pull_skill_roundtrip(langsmith_client: AsyncClient, skill_identifier: str) -> None:
     ctx = langsmith_client
     try:
         url = await ctx.push_skill(
@@ -122,9 +118,7 @@ async def test_skill_exists_reflects_create_delete_lifecycle(
 
 
 @skip_if_rate_limited
-async def test_push_agent_null_entry_deletes_file(
-    langsmith_client: AsyncClient, agent_identifier: str
-) -> None:
+async def test_push_agent_null_entry_deletes_file(langsmith_client: AsyncClient, agent_identifier: str) -> None:
     ctx = langsmith_client
     try:
         await ctx.push_agent(
@@ -150,9 +144,7 @@ async def test_push_agent_null_entry_deletes_file(
 
 
 @skip_if_rate_limited
-async def test_push_agent_second_commit_updates_content(
-    langsmith_client: AsyncClient, agent_identifier: str
-) -> None:
+async def test_push_agent_second_commit_updates_content(langsmith_client: AsyncClient, agent_identifier: str) -> None:
     ctx = langsmith_client
     try:
         await ctx.push_agent(
@@ -176,9 +168,7 @@ async def test_push_agent_second_commit_updates_content(
 
 
 @skip_if_rate_limited
-async def test_delete_agent_removes_repo(
-    langsmith_client: AsyncClient, agent_identifier: str
-) -> None:
+async def test_delete_agent_removes_repo(langsmith_client: AsyncClient, agent_identifier: str) -> None:
     ctx = langsmith_client
     await ctx.push_agent(
         agent_identifier,
@@ -193,9 +183,7 @@ async def test_delete_agent_removes_repo(
 
 
 @skip_if_rate_limited
-async def test_list_agents_returns_pushed_agent(
-    langsmith_client: AsyncClient, agent_identifier: str
-) -> None:
+async def test_list_agents_returns_pushed_agent(langsmith_client: AsyncClient, agent_identifier: str) -> None:
     ctx = langsmith_client
     _, handle = agent_identifier.split("/", 1)
     try:
@@ -213,9 +201,7 @@ async def test_list_agents_returns_pushed_agent(
 
 
 @skip_if_rate_limited
-async def test_delete_skill_removes_repo(
-    langsmith_client: AsyncClient, skill_identifier: str
-) -> None:
+async def test_delete_skill_removes_repo(langsmith_client: AsyncClient, skill_identifier: str) -> None:
     ctx = langsmith_client
     await ctx.push_skill(
         skill_identifier,
@@ -230,9 +216,7 @@ async def test_delete_skill_removes_repo(
 
 
 @skip_if_rate_limited
-async def test_list_skills_returns_pushed_skill(
-    langsmith_client: AsyncClient, skill_identifier: str
-) -> None:
+async def test_list_skills_returns_pushed_skill(langsmith_client: AsyncClient, skill_identifier: str) -> None:
     ctx = langsmith_client
     _, handle = skill_identifier.split("/", 1)
     try:

@@ -1275,6 +1275,62 @@ class IdentityDataConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Id
         ...
 
 
+class SessionConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsolidatorBase[QuantConnect.Data.BaseData, QuantConnect.Data.Market.SessionBar]):
+    """Consolidates intraday market data into a single daily SessionBar (OHLCV + OpenInterest)."""
+
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, source_tick_type: QuantConnect.TickType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
+        """
+        Initializes a new instance of the SessionConsolidator class.
+        
+        :param exchange_hours: The exchange hours
+        :param source_tick_type: Type of the source tick
+        :param symbol: The symbol
+        """
+        ...
+
+    def aggregate_bar(self, working_bar: QuantConnect.Data.Market.SessionBar, data: QuantConnect.Data.BaseData) -> None:
+        """
+        Aggregates the new 'data' into the 'working_bar'
+        
+        
+        This Class is protected.
+        
+        :param working_bar: The bar we're building, null if the event was just fired and we're starting a new trade bar
+        :param data: The new data
+        """
+        ...
+
+    def on_data_consolidated(self, e: QuantConnect.Data.Market.SessionBar) -> None:
+        """
+        Event handler that fires when a new piece of data is produced
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets the consolidator"""
+        ...
+
+    def reset_working_bar(self) -> None:
+        """
+        Resets the working bar
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def validate_and_scan(self, current_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Validates the current local time and triggers Scan() if a new day is detected.
+        
+        :param current_local_time: The current local time.
+        """
+        ...
+
+
 class TradeBarConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators_TradeBarConsolidatorBase_T], QuantConnect.Data.Consolidators.PeriodCountConsolidatorBase[QuantConnect_Data_Consolidators_TradeBarConsolidatorBase_T, QuantConnect.Data.Market.TradeBar], metaclass=abc.ABCMeta):
     """
     A data consolidator that can make bigger bars from any base data
@@ -1585,20 +1641,6 @@ class DataConsolidator(typing.Generic[QuantConnect_Data_Consolidators_DataConsol
         ...
 
 
-class CalendarType(System.Object):
-    """
-    Calendar Type Class; now obsolete routes functions to Calendar
-    
-    CalendarType is obsolete, please use Calendar instead
-    """
-
-    WEEKLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
-    """Computes the start of week (previous Monday) of given date/time"""
-
-    MONTHLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
-    """Computes the start of month (1st of the current month) of given date/time"""
-
-
 class VolumeRenkoConsolidator(QuantConnect.Data.Consolidators.DataConsolidator[QuantConnect.Data.BaseData]):
     """
     This consolidator can transform a stream of BaseData instances into a stream of RenkoBar
@@ -1676,6 +1718,48 @@ class VolumeRenkoConsolidator(QuantConnect.Data.Consolidators.DataConsolidator[Q
         :param data: The new data for the consolidator
         """
         ...
+
+
+class DollarVolumeRenkoConsolidator(QuantConnect.Data.Consolidators.VolumeRenkoConsolidator):
+    """
+    This consolidator transforms a stream of BaseData instances into a stream of RenkoBar
+    with a constant dollar volume for each bar.
+    """
+
+    def __init__(self, bar_size: float) -> None:
+        """
+        Initializes a new instance of the DollarVolumeRenkoConsolidator class using the specified bar_size.
+        
+        :param bar_size: The constant dollar volume size of each bar
+        """
+        ...
+
+    def adjust_volume(self, volume: float, price: float) -> float:
+        """
+        Converts raw volume into dollar volume by multiplying it with the trade price.
+        
+        
+        This Class is protected.
+        
+        :param volume: The raw trade volume
+        :param price: The trade price
+        :returns: The dollar volume.
+        """
+        ...
+
+
+class CalendarType(System.Object):
+    """
+    Calendar Type Class; now obsolete routes functions to Calendar
+    
+    CalendarType is obsolete, please use Calendar instead
+    """
+
+    WEEKLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
+    """Computes the start of week (previous Monday) of given date/time"""
+
+    MONTHLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
+    """Computes the start of month (1st of the current month) of given date/time"""
 
 
 class SequentialConsolidator(QuantConnect.Data.Consolidators.ConsolidatorBase):

@@ -29,9 +29,7 @@ def _mounts():
 
 
 def test_aws_role_helper() -> None:
-    assert aws_auth(
-        role_arn=ROLE_ARN, name="role", env_vars={"AWS_REGION": "us-east-1"}
-    ) == {
+    assert aws_auth(role_arn=ROLE_ARN, name="role", env_vars={"AWS_REGION": "us-east-1"}) == {
         "name": "role",
         "type": "aws",
         "enabled": True,
@@ -102,9 +100,7 @@ def test_shared_proxy_role_is_not_copied_into_mount_auth() -> None:
     assert config == {"auth": {}, "mounts": _mounts()}
     assert proxy["rules"][0]["aws"] == {"role_arn": ROLE_ARN}
     with pytest.raises(ValueError, match="both mount_config and proxy_config"):
-        mount_config(
-            auth=[aws_auth(role_arn=ROLE_ARN)], proxy_config=proxy, mounts=_mounts()
-        )
+        mount_config(auth=[aws_auth(role_arn=ROLE_ARN)], proxy_config=proxy, mounts=_mounts())
 
 
 @pytest.mark.parametrize(
@@ -179,9 +175,7 @@ def test_create_role_auth_wire_shape(httpx_mock: HTTPXMock, mode: str) -> None:
     if mode == "mount":
         options["mount_config"] = mount_config(auth=[rule], mounts=_mounts())
     elif mode == "shared":
-        options["mount_config"] = mount_config(
-            proxy_config=options["proxy_config"], mounts=_mounts()
-        )
+        options["mount_config"] = mount_config(proxy_config=options["proxy_config"], mounts=_mounts())
     httpx_mock.add_response(
         method="POST",
         url=f"{ENDPOINT}/boxes",
@@ -208,9 +202,7 @@ async def test_async_create_shared_proxy_role(httpx_mock: HTTPXMock) -> None:
         status_code=201,
     )
     async with AsyncSandboxClient(api_endpoint=ENDPOINT, max_retries=0) as client:
-        box = await client.create_sandbox(
-            snapshot_id="snap-1", mount_config=mounts, proxy_config=proxy
-        )
+        box = await client.create_sandbox(snapshot_id="snap-1", mount_config=mounts, proxy_config=proxy)
         assert box.name == "role-box"
     body = json.loads(httpx_mock.get_request().content)
     assert body["proxy_config"] == proxy
@@ -243,17 +235,11 @@ def _mixed_boxes():
 
 def test_get_and_list_accept_mixed_auth_responses(httpx_mock: HTTPXMock) -> None:
     boxes = _mixed_boxes()
-    httpx_mock.add_response(
-        method="GET", url=f"{ENDPOINT}/boxes", json={"sandboxes": boxes}
-    )
+    httpx_mock.add_response(method="GET", url=f"{ENDPOINT}/boxes", json={"sandboxes": boxes})
     for box in boxes:
-        httpx_mock.add_response(
-            method="GET", url=f"{ENDPOINT}/boxes/{box['name']}", json=box
-        )
+        httpx_mock.add_response(method="GET", url=f"{ENDPOINT}/boxes/{box['name']}", json=box)
     with SandboxClient(api_endpoint=ENDPOINT, max_retries=0) as client:
-        assert [box.name for box in client.list_sandboxes()] == [
-            box["name"] for box in boxes
-        ]
+        assert [box.name for box in client.list_sandboxes()] == [box["name"] for box in boxes]
         for box in boxes:
             assert client.get_sandbox(box["name"]).name == box["name"]
 
@@ -262,16 +248,10 @@ async def test_async_get_and_list_accept_mixed_auth_responses(
     httpx_mock: HTTPXMock,
 ) -> None:
     boxes = _mixed_boxes()
-    httpx_mock.add_response(
-        method="GET", url=f"{ENDPOINT}/boxes", json={"sandboxes": boxes}
-    )
+    httpx_mock.add_response(method="GET", url=f"{ENDPOINT}/boxes", json={"sandboxes": boxes})
     for box in boxes:
-        httpx_mock.add_response(
-            method="GET", url=f"{ENDPOINT}/boxes/{box['name']}", json=box
-        )
+        httpx_mock.add_response(method="GET", url=f"{ENDPOINT}/boxes/{box['name']}", json=box)
     async with AsyncSandboxClient(api_endpoint=ENDPOINT, max_retries=0) as client:
-        assert [box.name for box in await client.list_sandboxes()] == [
-            box["name"] for box in boxes
-        ]
+        assert [box.name for box in await client.list_sandboxes()] == [box["name"] for box in boxes]
         for box in boxes:
             assert (await client.get_sandbox(box["name"])).name == box["name"]

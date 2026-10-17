@@ -5,6 +5,7 @@ play, full stop (the licence shop was cut 2026-07-17): meet a rule's condition
 and the egg joins the carousel, permanently when the rule allows.
 ←→ glide, ENTER hatches the centred egg, ESC backs out."""
 from __future__ import annotations
+from .sfx import CueQueue
 from . import backgrounds as _bgs
 from . import data
 from . import egg as egg_mod
@@ -30,7 +31,7 @@ EASE = 0.34                   # glide fraction closed per 0.1s tick
 SNAP = 0.03                   # below this, settle exactly
 
 
-class EggSelectPanel:
+class EggSelectPanel(CueQueue):
     def __init__(self, pet=None):
         self.pet = pet
         prog = persistence.get_progress()
@@ -80,7 +81,7 @@ class EggSelectPanel:
             return self.msg
         # (the unlock hint left the strip's marquee for the card, wrapped in
         #  full -- menus call #14 = A, 2026-10-15)
-        return menu.hints(("←→", "pick"), ("ENTER", "hatch"), ("E", "guide"))
+        return menu.hints(("←→", "pick"), ("ENTER", "start egg"), ("E", "guide"))
 
     def key(self, k):
         if k in ("right", "l", "down", "j"):

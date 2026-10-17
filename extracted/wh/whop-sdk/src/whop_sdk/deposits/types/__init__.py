@@ -13,6 +13,7 @@ if typing.TYPE_CHECKING:
     from .create_deposits_response_methods_bank_currencies_item_rails_item import (
         CreateDepositsResponseMethodsBankCurrenciesItemRailsItem,
     )
+    from .create_deposits_response_methods_card import CreateDepositsResponseMethodsCard
     from .create_deposits_response_methods_crypto_item import CreateDepositsResponseMethodsCryptoItem
     from .create_deposits_response_methods_crypto_item_name import CreateDepositsResponseMethodsCryptoItemName
     from .create_deposits_response_methods_crypto_item_supported_currencies_item import (
@@ -31,6 +32,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateDepositsResponseMethodsBank": ".create_deposits_response_methods_bank",
     "CreateDepositsResponseMethodsBankCurrenciesItem": ".create_deposits_response_methods_bank_currencies_item",
     "CreateDepositsResponseMethodsBankCurrenciesItemRailsItem": ".create_deposits_response_methods_bank_currencies_item_rails_item",
+    "CreateDepositsResponseMethodsCard": ".create_deposits_response_methods_card",
     "CreateDepositsResponseMethodsCryptoItem": ".create_deposits_response_methods_crypto_item",
     "CreateDepositsResponseMethodsCryptoItemName": ".create_deposits_response_methods_crypto_item_name",
     "CreateDepositsResponseMethodsCryptoItemSupportedCurrenciesItem": ".create_deposits_response_methods_crypto_item_supported_currencies_item",
@@ -69,6 +71,7 @@ __all__ = [
     "CreateDepositsResponseMethodsBank",
     "CreateDepositsResponseMethodsBankCurrenciesItem",
     "CreateDepositsResponseMethodsBankCurrenciesItemRailsItem",
+    "CreateDepositsResponseMethodsCard",
     "CreateDepositsResponseMethodsCryptoItem",
     "CreateDepositsResponseMethodsCryptoItemName",
     "CreateDepositsResponseMethodsCryptoItemSupportedCurrenciesItem",

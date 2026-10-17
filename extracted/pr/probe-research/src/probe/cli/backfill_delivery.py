@@ -8,7 +8,7 @@ from pathlib import Path
 
 from ..sdk.client import Anchor
 from ..sdk.journal import OutboxFull
-from .backfill_coverage import Coverage
+from .backfill_coverage import Coverage, own_names
 from .backfill_manifest import validate_manifest
 
 
@@ -61,21 +61,37 @@ def enqueue(coverage: Coverage, client, folder: Path, *, paths=None) -> tuple[in
         found = coverage.rows_for(paths)
         candidates = [found[path] for path in dict.fromkeys(paths) if path in found]
         skip = coverage.delivered_paths(paths)
-    for row in candidates:
-        if (row["path"] in skip or not row["present"] or not row["manifest"]
-                or row["approved_hash"] != row["observed_hash"] or row["observation_error"]):
+    rows = [row for row in candidates
+            if not (row["path"] in skip or not row["present"] or not row["manifest"]
+                    or row["approved_hash"] != row["observed_hash"] or row["observation_error"]
+                    or row["exclusion"])]
+    # Every request an older CLI froze under a cut name is retired BEFORE the
+    # loop below resumes anything: a resume wakes the background uploader,
+    # which would send the cut names still queued behind it.
+    intents: dict[str, dict] = {}
+    for row in rows:
+        reference = json.loads(row["manifest"]).get("reference", False)
+        intent = coverage.intend(row, reference=reference,
+                                 uri=(folder / row["path"]).resolve().as_uri() if reference else None)
+        try:
+            intents[row["path"]] = _retire_cut_name(coverage, client, row, intent)
+        except Exception as exc:
+            coverage.failure(intent["correlation"], str(exc))
+            errors.append(f"{row['path']}: {str(exc)[:512]}")
+    for row in rows:
+        if row["path"] not in intents:
             continue
+        intent = intents[row["path"]]
         manifest = json.loads(row["manifest"])
         reference = manifest.get("reference", False)
         source = folder / row["path"]
-        intent = coverage.intend(row, reference=reference,
-                                 uri=source.resolve().as_uri() if reference else None)
         correlation = intent["correlation"]
         try:
             previous = client.delivery_state(correlation)
             common = {"correlation": correlation, "anchor": Anchor.PROJECT,
                       "anchor_id": row["project_id"], "name": intent["artifact_name"],
-                      "notes": manifest.get("notes"),
+                      # No manifest "notes": it is the project writer's input,
+                      # and files no longer carry notes.
                       "content_type": mimetypes.guess_type(row["path"])[0],
                       "meta": {"backfill": {"schema": "2", "source_id": coverage.source_id,
                                              "relative_path": row["path"],
@@ -119,6 +135,27 @@ def enqueue(coverage: Coverage, client, folder: Path, *, paths=None) -> tuple[in
     return count, errors
 
 
+def _retire_cut_name(coverage: Coverage, client, row: dict, intent: dict) -> dict:
+    """The intent to deliver ``row`` under: ``intent``, or its reissue when the
+    request it froze went out, or waits, under a name that is not this file's.
+
+    Frozen by an older CLI (0.173.0 on) under a name with every `Users/` or
+    `home/` folder cut to `<path>` (see `Coverage.reissue`). Replaying it can
+    never verify, so the request is retired -- queued too: a cut-off import
+    left its requests waiting -- and the file is sent once more as itself."""
+    correlation = intent["correlation"]
+    previous = client.delivery_state(correlation)
+    if (previous["state"] == "unknown" or previous.get("name") is None
+            or previous["name"] in own_names(intent) or intent.get("reissue_of")):
+        return intent
+    if client.discard_delivery(correlation)["state"] in {"queued", "pending", "failed"}:
+        raise ValueError(
+            "Another upload pass holds the outbox; resume once it finishes "
+            "to send this file under its own name."
+        )
+    return coverage.reissue(row, stale=correlation)
+
+
 def lines(coverage: Coverage, *, incomplete_walk: bool = False) -> list[str]:
     report = coverage.report()
     unfinished = sum(len(report[key]) for key in ("new", "changed", "queued", "unresolved"))
@@ -136,12 +173,19 @@ def lines(coverage: Coverage, *, incomplete_walk: bool = False) -> list[str]:
             f"{len(report['dead']):,} file(s) failed every attempt and were not imported; "
             "the per-file report says why. Re-run with `--retry-dead` to plan them again."
         )
+    if report["excluded"]:
+        result.append(
+            f"{len(report['excluded']):,} file(s) were left out as not research and not uploaded. "
+            "Re-run with `--review-excluded` to classify them again."
+        )
     if report["vanished"]:
         result.append(f"{len(report['vanished']):,} previously observed files are absent; any existing remote records are retained.")
     if unfinished or incomplete_walk:
         result.append("Backfill is partial. Re-run to recover delivery and review remaining work.")
     elif report["references"]:
         result.append("All observed files are accounted for. References record pointers; their source bytes were not uploaded.")
+    elif report["excluded"]:
+        result.append("Every other observed file has a receipt matching its verified current bytes.")
     else:
         result.append("Every observed file has a receipt matching its verified current bytes.")
     result.append(f"Per-file report: {coverage.write_report()}")

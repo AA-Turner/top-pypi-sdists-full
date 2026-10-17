@@ -14,16 +14,12 @@ CREATED = {"name": "sb", "status": "ready", "dataplane_url": DATAPLANE}
 
 @pytest.fixture
 def client():
-    return SandboxClient(
-        api_endpoint="http://test-server:8080", api_key="test-key", max_retries=0
-    )
+    return SandboxClient(api_endpoint="http://test-server:8080", api_key="test-key", max_retries=0)
 
 
 @pytest.fixture
 def async_client():
-    return AsyncSandboxClient(
-        api_endpoint="http://test-server:8080", api_key="test-key", max_retries=0
-    )
+    return AsyncSandboxClient(api_endpoint="http://test-server:8080", api_key="test-key", max_retries=0)
 
 
 class TestCreateSendsGrant:
@@ -51,15 +47,11 @@ class TestCreateSendsGrant:
     def test_omitted_when_unset(self, httpx_mock: HTTPXMock, client):
         httpx_mock.add_response(url="http://test-server:8080/boxes", json=CREATED)
         client.create_sandbox("snap-1")
-        assert "access_delegation" not in json.loads(
-            httpx_mock.get_requests()[0].content
-        )
+        assert "access_delegation" not in json.loads(httpx_mock.get_requests()[0].content)
 
     async def test_async_create_sends_grant(self, httpx_mock: HTTPXMock, async_client):
         httpx_mock.add_response(url="http://test-server:8080/boxes", json=CREATED)
-        await async_client.create_sandbox(
-            "snap-1", access_delegation={"mode": "INHERIT"}
-        )
+        await async_client.create_sandbox("snap-1", access_delegation={"mode": "INHERIT"})
         body = json.loads(httpx_mock.get_requests()[0].content)
         assert body["access_delegation"] == {"mode": "INHERIT"}
 

@@ -69,7 +69,7 @@ async def project_with_run(langchain_client: Client):
     async def _run_indexed() -> Optional[Tuple[str, str]]:
         """Return (project_id, trace_id) once the run is retrievable."""
         project_id = str(langchain_client.read_project(project_name=project_name).id)
-        run = await langchain_client.runs.retrieve(
+        run = await langchain_client.runs.retrieve_v2(
             run_id=run_id,
             project_id=project_id,
             start_time=now.isoformat(),
@@ -77,9 +77,7 @@ async def project_with_run(langchain_client: Client):
         )
         return project_id, (str(run.trace_id) if run.trace_id else run_id)
 
-    project_id, trace_id = await _wait_for_async(
-        _run_indexed, max_sleep_time=90, sleep_time=2
-    )
+    project_id, trace_id = await _wait_for_async(_run_indexed, max_sleep_time=90, sleep_time=2)
     try:
         yield {
             "run_id": run_id,
@@ -123,9 +121,5 @@ async def test_runs_share_delete(langchain_client: Client, project_with_run) -> 
 
     # Delete returns None (204) and is idempotent: a second delete also
     # succeeds. Success is "does not raise".
-    await langchain_client.runs.share.delete(
-        run["trace_id"], session_id=run["project_id"]
-    )
-    await langchain_client.runs.share.delete(
-        run["trace_id"], session_id=run["project_id"]
-    )
+    await langchain_client.runs.share.delete(run["trace_id"], session_id=run["project_id"])
+    await langchain_client.runs.share.delete(run["trace_id"], session_id=run["project_id"])

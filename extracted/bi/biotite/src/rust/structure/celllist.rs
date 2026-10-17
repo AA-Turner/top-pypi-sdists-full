@@ -76,7 +76,7 @@ mod biotite {
 ///  [1 8]]
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Copy, PartialEq)]
-#[pyclass(module = "biotite.structure")]
+#[pyclass(module = "biotite.structure", from_py_object)]
 pub enum CellListResult {
     MAPPING,
     MASK,
@@ -296,8 +296,6 @@ impl<T: Clone + Default> IndexMut<[isize; 3]> for CellGrid<T> {
     }
 }
 
-/// __init__(atom_array, cell_size, periodic=False, box=None, selection=None)
-///
 /// This class enables the efficient search of atoms in vicinity of a
 /// defined location.
 ///

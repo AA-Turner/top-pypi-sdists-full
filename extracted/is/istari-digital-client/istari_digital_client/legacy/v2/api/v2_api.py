@@ -123,6 +123,7 @@ from istari_digital_client.legacy.v2.models.new_tool_version import NewToolVersi
 from istari_digital_client.legacy.v2.models.os import OS
 from istari_digital_client.legacy.v2.models.oidc_config_health_check_request import OidcConfigHealthCheckRequest
 from istari_digital_client.legacy.v2.models.operating_system import OperatingSystem
+from istari_digital_client.legacy.v2.models.optional_total_page_job import OptionalTotalPageJob
 from istari_digital_client.legacy.v2.models.optional_total_page_system import OptionalTotalPageSystem
 from istari_digital_client.legacy.v2.models.page_agent import PageAgent
 from istari_digital_client.legacy.v2.models.page_agent_pool import PageAgentPool
@@ -20860,12 +20861,13 @@ class V2Api(StorageApi):
         size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter jobs by archive status")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> PageJob:
+    ) -> OptionalTotalPageJob:
 
         """
         List jobs
@@ -20888,6 +20890,8 @@ class V2Api(StorageApi):
         :type archive_status: ArchiveStatus
         :param sort:
         :type sort: str
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -20903,6 +20907,7 @@ class V2Api(StorageApi):
             size=size,
             archive_status=archive_status,
             sort=sort,
+            include_total=include_total,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -20910,7 +20915,7 @@ class V2Api(StorageApi):
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "PageJob",
+            '200': "OptionalTotalPageJob",
             '422': "HTTPValidationError",
         }
 
@@ -20924,7 +20929,7 @@ class V2Api(StorageApi):
         )
         response_data.read()
 
-        resp_obj: PageJob = self.api_client.response_deserialize(
+        resp_obj: OptionalTotalPageJob = self.api_client.response_deserialize(
             response_data=response_data,
             response_types_map=_response_types_map,
         ).data
@@ -20951,6 +20956,7 @@ class V2Api(StorageApi):
                 'size': size,
                 'archive_status': archive_status,
                 'sort': sort,
+                'include_total': include_total,
             }
             resp_obj._list_method_args = list_args
 
@@ -20967,6 +20973,7 @@ class V2Api(StorageApi):
         size,
         archive_status,
         sort,
+        include_total,
         _request_auth,
         _content_type,
         _headers,
@@ -21024,6 +21031,10 @@ class V2Api(StorageApi):
         if sort is not None:
 
             _query_params.append(('sort', sort))
+
+        if include_total is not None:
+
+            _query_params.append(('include_total', include_total))
 
         # process the header parameters
         # process the form parameters

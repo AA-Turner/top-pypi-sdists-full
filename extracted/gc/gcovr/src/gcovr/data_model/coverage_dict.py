@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,11 +15,14 @@
 #
 # ****************************************************************************
 
+"""GCOVR coverage dictionary handling."""
+
 from __future__ import annotations
-from typing import TypeVar
 
-from .merging import MergeOptions
+from typing import TYPE_CHECKING, TypeVar
 
+if TYPE_CHECKING:
+    from .merging import MergeOptions
 
 LinecovCollectionKeyType = int
 LinecovKeyType = str
@@ -49,15 +50,22 @@ class CoverageDict(dict[_Key, _T]):
         other: CoverageDict[_Key, _T],
         options: MergeOptions,
     ) -> None:
-        """Helper function to merge items in a dictionary."""
-
+        """Merge items in a dictionary."""
+        compare_mode = options.json_compare and self
+        if compare_mode:
+            for key in sorted(set(self.keys()) - set(other.keys())):
+                if hasattr(self[key], "set_removed"):
+                    self[key].set_removed()
         # Merge other into self
         for key, item in other.items():
             if key in self:
                 self[key].merge(item, options)
             else:
+                if compare_mode and hasattr(item, "set_added"):
+                    item.set_added()
                 self[key] = item
 
         # At this point, "self" contains all merged items.
         # The caller should not access "other" objects therefore we clear it.
-        other.clear()
+        if not compare_mode:
+            other.clear()

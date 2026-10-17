@@ -499,3 +499,21 @@ def test_a_forbidden_scrub_cache_stays_off_through_a_run(client, monkeypatch):
     redaction.forbid_scrub_cache()
     open_run(client, experiment="exp-scrub-cache-forbidden")
     assert redaction._CACHE_ENABLED is False
+
+
+@pytest.mark.parametrize('text', [
+    '{"[PAD]": 0, "password": 20786, "the": 1996}',
+    "{'passwd': 123}",
+])
+def test_a_number_after_a_quoted_password_key_is_not_a_credential(text):
+    """BERT's tokenizer.json maps `"password"` to its vocabulary id. Masking the
+    id made the file invalid JSON."""
+    from probe.tap_core.secrets import redact, redact_quick
+    assert redact(text)[0] == text
+    assert redact_quick(text)[0] == text
+
+
+@pytest.mark.parametrize('text', ['password=123456', 'password: 123456', '{"password": "123456"}'])
+def test_a_numeric_password_outside_a_json_number_is_still_masked(text):
+    from probe.tap_core.secrets import redact
+    assert '123456' not in redact(text)[0]

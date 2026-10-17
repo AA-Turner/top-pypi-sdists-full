@@ -14,9 +14,7 @@ _NUMERIC_DTYPE_KINDS = "iuf"
 
 
 def xyxy_to_polygons(box: npt.NDArray[np.number]) -> npt.NDArray[np.number]:
-    """
-    Convert an array of boxes to an array of polygons.
-    Retains the input datatype.
+    """Convert an array of boxes to an array of polygons. Retains the input datatype.
 
     Args:
         box: An array of boxes (N, 4), where each box is represented as a
@@ -105,9 +103,8 @@ def polygon_to_mask(
 
 
 def xywh_to_xyxy(xywh: npt.NDArray[np.number]) -> npt.NDArray[np.number]:
-    """
-    Converts bounding box coordinates from `(x, y, width, height)`
-    format to `(x_min, y_min, x_max, y_max)` format.
+    """Converts bounding box coordinates from `(x, y, width, height)` format to `(x_min,
+    y_min, x_max, y_max)` format.
 
     Args:
         xywh: A numpy array of shape `(N, 4)` where each row
@@ -138,9 +135,8 @@ def xywh_to_xyxy(xywh: npt.NDArray[np.number]) -> npt.NDArray[np.number]:
 
 
 def xyxy_to_xywh(xyxy: npt.NDArray[np.number]) -> npt.NDArray[np.number]:
-    """
-    Converts bounding box coordinates from `(x_min, y_min, x_max, y_max)`
-    format to `(x, y, width, height)` format.
+    """Converts bounding box coordinates from `(x_min, y_min, x_max, y_max)` format to
+    `(x, y, width, height)` format.
 
     Args:
         xyxy: A numpy array of shape `(N, 4)` where each row
@@ -172,8 +168,7 @@ def xyxy_to_xywh(xyxy: npt.NDArray[np.number]) -> npt.NDArray[np.number]:
 
 
 def xcycwh_to_xyxy(xcycwh: npt.NDArray[np.number]) -> npt.NDArray[np.number]:
-    """
-    Converts bounding box coordinates from `(center_x, center_y, width, height)`
+    """Converts bounding box coordinates from `(center_x, center_y, width, height)`
     format to `(x_min, y_min, x_max, y_max)` format.
 
     Args:
@@ -219,10 +214,9 @@ def xcycwh_to_xyxy(xcycwh: npt.NDArray[np.number]) -> npt.NDArray[np.number]:
 
 
 def xyxy_to_xcycarh(xyxy: npt.NDArray[np.number]) -> npt.NDArray[np.floating]:
-    """
-    Converts bounding box coordinates from `(x_min, y_min, x_max, y_max)`
-    into measurement space to format `(center x, center y, aspect ratio, height)`,
-    where the aspect ratio is `width / height`.
+    """Converts bounding box coordinates from `(x_min, y_min, x_max, y_max)` into
+    measurement space to format `(center x, center y, aspect ratio, height)`, where the
+    aspect ratio is `width / height`.
 
     Args:
         xyxy: Bounding box in format `(x1, y1, x2, y2)`.
@@ -244,7 +238,6 @@ def xyxy_to_xcycarh(xyxy: npt.NDArray[np.number]) -> npt.NDArray[np.floating]:
                [32.5       , 47.5       ,  0.77..., 45.        ]])
 
         ```
-
     """
     if xyxy.size == 0:
         return np.empty((0, 4), dtype=float)
@@ -269,8 +262,7 @@ def mask_to_xyxy(
     masks: npt.NDArray[np.bool_],
     coordinate_convention: CoordinateConvention = "inclusive",
 ) -> npt.NDArray[np.int_]:
-    """
-    Converts a 3D `np.array` of 2D bool masks into a 2D `np.array` of bounding boxes.
+    """Converts a 3D `np.array` of 2D bool masks into a 2D `np.array` of bounding boxes.
 
     Args:
         masks: A 3D `np.array` of shape `(N, H, W)` containing 2D bool masks.
@@ -333,8 +325,8 @@ def xyxy_to_mask(
     resolution_wh: tuple[int, int],
     coordinate_convention: CoordinateConvention = "inclusive",
 ) -> npt.NDArray[np.bool_]:
-    """
-    Converts a 2D `np.ndarray` of bounding boxes into a 3D `np.ndarray` of bool masks.
+    """Converts a 2D `np.ndarray` of bounding boxes into a 3D `np.ndarray` of bool
+    masks.
 
     Args:
         boxes: A 2D `np.ndarray` of shape `(N, 4)` containing bounding boxes
@@ -408,8 +400,7 @@ def xyxy_to_mask(
 
 
 def mask_to_polygons(mask: npt.NDArray[np.bool_]) -> list[npt.NDArray[np.int32]]:
-    """
-    Converts a binary mask to a list of polygons.
+    """Converts a binary mask to a list of polygons.
 
     Args:
         mask: A binary mask represented as a 2D NumPy array of shape `(H, W)`,
@@ -452,8 +443,9 @@ def _base48_decode(s: str) -> list[int]:
     characters: bits 0-4 carry data; bit 5 signals continuation; bit 4
     of the final character signals a negative value.
 
-    This is the pure codec layer — call :func:`_delta_decode` on the
-    result to obtain absolute run-length counts.
+    This is the pure codec layer — call
+    :func:`~supervision.detection.utils.converters._delta_decode` on the result
+    to obtain absolute run-length counts.
 
     Args:
         s: COCO compressed RLE string.
@@ -497,11 +489,13 @@ def _base48_decode(s: str) -> list[int]:
 def _base48_encode(values: list[int]) -> str:
     """Encode raw (delta-encoded) integers to a COCO base-48 string.
 
-    The inverse of :func:`_base48_decode`. Applies the same variable-length
-    base-48 codec used by pycocotools.
+    The inverse of
+    :func:`~supervision.detection.utils.converters._base48_decode`. Applies the
+    same variable-length base-48 codec used by pycocotools.
 
-    Apply :func:`_delta_encode` to absolute run-length counts before calling
-    this function to produce a valid COCO compressed RLE string.
+    Apply :func:`~supervision.detection.utils.converters._delta_encode` to
+    absolute run-length counts before calling this function to produce a valid
+    COCO compressed RLE string.
 
     Args:
         values: Raw (delta-encoded) integers to encode.
@@ -538,7 +532,8 @@ def _delta_decode(values: list[int]) -> list[int]:
     converts those relative values back to absolute run lengths.
 
     Args:
-        values: Raw delta-encoded integers from :func:`_base48_decode`.
+        values: Raw delta-encoded integers from
+            :func:`~supervision.detection.utils.converters._base48_decode`.
 
     Returns:
         Absolute run-length counts (alternating background / foreground).
@@ -565,14 +560,17 @@ def _delta_decode(values: list[int]) -> list[int]:
 def _delta_encode(counts: list[int]) -> list[int]:
     """Apply COCO delta encoding: ``d[i] = counts[i] - counts[i - 2]`` for ``i > 2``.
 
-    The inverse of :func:`_delta_decode`. Converts absolute run lengths to
-    the relative representation required by the COCO compressed RLE format.
+    The inverse of
+    :func:`~supervision.detection.utils.converters._delta_decode`. Converts
+    absolute run lengths to the relative representation required by the COCO
+    compressed RLE format.
 
     Args:
         counts: Absolute run-length counts (alternating background / foreground).
 
     Returns:
-        Delta-encoded integers ready for :func:`_base48_encode`.
+        Delta-encoded integers ready for
+        :func:`~supervision.detection.utils.converters._base48_encode`.
 
     Examples:
         ```pycon
@@ -592,8 +590,10 @@ def is_compressed_rle(rle: object) -> bool:
     """Return ``True`` if ``rle`` is a COCO compressed RLE (``str`` or ``bytes``).
 
     Use this to branch between the compressed-string pipeline
-    (:func:`_base48_decode` → :func:`_delta_decode`) and the uncompressed
-    integer-list / array pipeline before calling :func:`rle_to_mask`.
+    (:func:`~supervision.detection.utils.converters._base48_decode` →
+    :func:`~supervision.detection.utils.converters._delta_decode`) and the
+    uncompressed integer-list / array pipeline before calling
+    :func:`~supervision.detection.utils.converters.rle_to_mask`.
 
     Args:
         rle: Candidate RLE value to inspect.
@@ -621,7 +621,8 @@ def _mask_to_rle_counts(mask_2d: npt.NDArray[Any]) -> npt.NDArray[np.int32]:
     pycocotools RLE convention. The first value is always the count of leading
     ``False`` pixels (may be 0 if the mask starts with ``True``).
 
-    This is the shared low-level encoder used by both :func:`mask_to_rle` and
+    This is the shared low-level encoder used by both
+    :func:`~supervision.detection.utils.converters.mask_to_rle` and
     :class:`~supervision.detection.compact_mask.CompactMask`.
 
     Args:
@@ -660,11 +661,13 @@ def _rle_counts_to_mask(
 ) -> npt.NDArray[np.bool_]:
     """Decode COCO F-order run lengths back to a 2D boolean mask.
 
-    This is the shared low-level decoder used by both :func:`rle_to_mask` and
+    This is the shared low-level decoder used by both
+    :func:`~supervision.detection.utils.converters.rle_to_mask` and
     :class:`~supervision.detection.compact_mask.CompactMask`.
 
     Args:
-        rle: int32 array of run lengths as produced by :func:`_mask_to_rle_counts`.
+        rle: int32 array of run lengths as produced by
+            :func:`~supervision.detection.utils.converters._mask_to_rle_counts`.
         height: Height of the output mask.
         width: Width of the output mask.
 
@@ -696,8 +699,7 @@ def rle_to_mask(
     rle: npt.NDArray[np.integer[Any]] | list[int] | str | bytes,
     resolution_wh: tuple[int, int],
 ) -> npt.NDArray[np.bool_]:
-    """
-    Converts a COCO run-length encoding (RLE) to a binary mask.
+    """Converts a COCO run-length encoding (RLE) to a binary mask.
 
     Implements the COCO RLE format used by ``pycocotools``: pixels are counted
     in **column-major (Fortran) order** — top-to-bottom within each column,
@@ -769,8 +771,7 @@ def rle_to_mask(
 def mask_to_rle(
     mask: npt.NDArray[np.bool_], compressed: bool = False
 ) -> list[int] | str:
-    """
-    Converts a binary mask into a COCO run-length encoding (RLE).
+    """Converts a binary mask into a COCO run-length encoding (RLE).
 
     Produces RLE in the COCO format used by ``pycocotools``: pixels are counted
     in **column-major (Fortran) order** — top-to-bottom within each column,
@@ -844,8 +845,7 @@ def mask_to_rle(
 
 
 def polygon_to_xyxy(polygon: npt.NDArray[np.number]) -> npt.NDArray[np.number]:
-    """
-    Converts a polygon represented by a NumPy array into a bounding box.
+    """Converts a polygon represented by a NumPy array into a bounding box.
 
     Args:
         polygon: A polygon represented by a NumPy array of shape `(N, 2)`,

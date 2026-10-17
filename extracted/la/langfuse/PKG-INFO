@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langfuse
-Version: 5.0.1
+Version: 5.0.2
 Summary: Langfuse Python SDK - LLM observability/tracing, datasets, experiments, LLM-as-a-judge evaluation, and prompt management
 Keywords: langfuse,llm,observability,tracing,opentelemetry,evaluation,llm-as-a-judge,prompt-management,datasets,experiments,openai,langchain,ai-agents,monitoring
 Author: langfuse

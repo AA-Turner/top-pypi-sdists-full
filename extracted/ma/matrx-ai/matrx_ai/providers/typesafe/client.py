@@ -24,9 +24,11 @@ from matrx_ai.providers.errors import (
     mark_billing_checked,
 )
 from matrx_ai.providers.keys import ApiKeyNotFoundError, resolve_api_key
+from matrx_ai.providers.snapshot import capture_request_payload
 
 DEFAULT_BASE_URL = "https://api.typesafe.ai"
 SYSTEM_ONE_PATH = "/v1/systemone"
+_ROUNDING_UNIT = 0.01  # TypeSafe reports probabilities to two decimals
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_MAX_RETRIES = 2
 # Vendor limits (docs.typesafe.ai/api, 2026-09-20): a Choice takes at most 255
@@ -291,7 +293,10 @@ def _validate_probability_map(probabilities: Mapping[str, float], *, label: str)
     values = tuple(probabilities.values())
     if any(not math.isfinite(value) or value < 0.0 or value > 1.0 for value in values):
         raise TypeSafeProviderError(error_type="invalid_response", message=f"TypeSafe returned invalid {label} probabilities.")
-    if not math.isclose(sum(values), 1.0, rel_tol=0.0, abs_tol=1e-5):
+    # TypeSafe reports each probability to two decimals, so n options may sum to
+    # 1 ± n·0.005 (13 options came back 0.99 on 5 of 12 identical calls, 2026-10-16).
+    # Rounding is an answer; anything further off is a malformed distribution.
+    if not math.isclose(sum(values), 1.0, rel_tol=0.0, abs_tol=_ROUNDING_UNIT / 2 * len(values) + 1e-9):
         raise TypeSafeProviderError(error_type="invalid_response", message=f"TypeSafe returned {label} probabilities that do not sum to one.")
 
 
@@ -382,6 +387,10 @@ async def call_system_one(
         raise ApiKeyNotFoundError("No API key found for TYPESAFE_API_KEY.")
     url = base_url.rstrip("/") + SYSTEM_ONE_PATH
     payload = request.model_dump(mode="json")
+    # The exact JSON body that goes on the wire, stashed for chat.request_snapshot
+    # (the same seam every chat provider uses). Without it the snapshot row was
+    # written with request_payload = {} for every TypeSafe decision call.
+    capture_request_payload(payload, provider="typesafe")
     owns_client = http is None
     client = http or httpx.AsyncClient(timeout=timeout_seconds, follow_redirects=False)
     try:

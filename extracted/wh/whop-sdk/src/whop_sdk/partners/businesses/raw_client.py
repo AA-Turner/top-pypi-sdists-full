@@ -27,6 +27,7 @@ from .types.list_businesses_request_status import ListBusinessesRequestStatus
 from .types.list_businesses_request_tier import ListBusinessesRequestTier
 from .types.list_businesses_response import ListBusinessesResponse
 from .types.list_businesses_response_data_item import ListBusinessesResponseDataItem
+from .types.resend_invite_businesses_response import ResendInviteBusinessesResponse
 from .types.retrieve_businesses_response import RetrieveBusinessesResponse
 from .types.update_businesses_response import UpdateBusinessesResponse
 from pydantic import ValidationError
@@ -226,7 +227,7 @@ class RawBusinessesClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[RetrieveBusinessesResponse]:
         """
-        Retrieves a single referred business and its referral terms.
+        Retrieves a single referred business and its referral terms. The original referrer or a caller with company:basic:read on the business credited for the referral can read it.
 
         Parameters
         ----------
@@ -281,23 +282,23 @@ class RawBusinessesClient:
         self,
         id: str,
         *,
-        annual_ads_usd: str,
-        annual_processing_usd: str,
+        annual_processing_usd: typing.Optional[str] = OMIT,
+        withdraw_projections: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[UpdateBusinessesResponse]:
         """
-        Save annual projections for a business referred by the authenticated partner. Projections cannot be changed after saving; repeating the same values is allowed. Public API access requires a partner OAuth token; business API keys are not supported.
+        Save annual payment projections for a business referred by the authenticated partner. Unaccepted projections can be replaced with updated annual card and BNPL payment volume. To qualify, payment volume over the last 30 days must reach 5% of the annual payment projection. Ads are excluded from CPA; ordinary ad commissions continue. Pass withdraw_projections: true without projection amounts to remove unaccepted projections. Accepted projections are immutable. Public API access requires a partner OAuth token; business API keys are not supported.
 
         Parameters
         ----------
         id : str
             The partner business ID (a coma_ identifier).
 
-        annual_ads_usd : str
-            Annual projected Whop Ads spend in USD.
+        annual_processing_usd : typing.Optional[str]
+            Annual projected card and BNPL processing combined, in USD.
 
-        annual_processing_usd : str
-            Annual projected processing on Whop in USD.
+        withdraw_projections : typing.Optional[bool]
+            Remove unaccepted projections and invalidate the offer. The original CPA term is retained if projections are later added again.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -312,8 +313,8 @@ class RawBusinessesClient:
             base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
-                "annual_ads_usd": annual_ads_usd,
                 "annual_processing_usd": annual_processing_usd,
+                "withdraw_projections": withdraw_projections,
             },
             headers={
                 "content-type": "application/json",
@@ -403,6 +404,104 @@ class RawBusinessesClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def resend_invite(
+        self, id: str, *, invite_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[ResendInviteBusinessesResponse]:
+        """
+        Re-emails an outstanding invite to claim ownership of a referred business. Find the invite in the business's `pending_owner_invites`. Only the first-tier partner can resend, from a whop.com session or the Whop CLI or MCP with `partner:handoff`. Rate limited to one resend per invite every five minutes.
+
+        Parameters
+        ----------
+        id : str
+            The partner business ID (a coma_ identifier).
+
+        invite_id : str
+            The outstanding invite to resend (an ausri_ identifier from `pending_owner_invites`).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ResendInviteBusinessesResponse]
+            invite resent
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"partners/businesses/{encode_path_param(id)}/resend_invite",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            json={
+                "invite_id": invite_id,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ResendInviteBusinessesResponse,
+                    parse_obj_as(
+                        type_=ResendInviteBusinessesResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 409:
                 raise ConflictError(
                     headers=dict(_response.headers),
@@ -618,7 +717,7 @@ class AsyncRawBusinessesClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[RetrieveBusinessesResponse]:
         """
-        Retrieves a single referred business and its referral terms.
+        Retrieves a single referred business and its referral terms. The original referrer or a caller with company:basic:read on the business credited for the referral can read it.
 
         Parameters
         ----------
@@ -673,23 +772,23 @@ class AsyncRawBusinessesClient:
         self,
         id: str,
         *,
-        annual_ads_usd: str,
-        annual_processing_usd: str,
+        annual_processing_usd: typing.Optional[str] = OMIT,
+        withdraw_projections: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[UpdateBusinessesResponse]:
         """
-        Save annual projections for a business referred by the authenticated partner. Projections cannot be changed after saving; repeating the same values is allowed. Public API access requires a partner OAuth token; business API keys are not supported.
+        Save annual payment projections for a business referred by the authenticated partner. Unaccepted projections can be replaced with updated annual card and BNPL payment volume. To qualify, payment volume over the last 30 days must reach 5% of the annual payment projection. Ads are excluded from CPA; ordinary ad commissions continue. Pass withdraw_projections: true without projection amounts to remove unaccepted projections. Accepted projections are immutable. Public API access requires a partner OAuth token; business API keys are not supported.
 
         Parameters
         ----------
         id : str
             The partner business ID (a coma_ identifier).
 
-        annual_ads_usd : str
-            Annual projected Whop Ads spend in USD.
+        annual_processing_usd : typing.Optional[str]
+            Annual projected card and BNPL processing combined, in USD.
 
-        annual_processing_usd : str
-            Annual projected processing on Whop in USD.
+        withdraw_projections : typing.Optional[bool]
+            Remove unaccepted projections and invalidate the offer. The original CPA term is retained if projections are later added again.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -704,8 +803,8 @@ class AsyncRawBusinessesClient:
             base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
-                "annual_ads_usd": annual_ads_usd,
                 "annual_processing_usd": annual_processing_usd,
+                "withdraw_projections": withdraw_projections,
             },
             headers={
                 "content-type": "application/json",
@@ -795,6 +894,104 @@ class AsyncRawBusinessesClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def resend_invite(
+        self, id: str, *, invite_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[ResendInviteBusinessesResponse]:
+        """
+        Re-emails an outstanding invite to claim ownership of a referred business. Find the invite in the business's `pending_owner_invites`. Only the first-tier partner can resend, from a whop.com session or the Whop CLI or MCP with `partner:handoff`. Rate limited to one resend per invite every five minutes.
+
+        Parameters
+        ----------
+        id : str
+            The partner business ID (a coma_ identifier).
+
+        invite_id : str
+            The outstanding invite to resend (an ausri_ identifier from `pending_owner_invites`).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ResendInviteBusinessesResponse]
+            invite resent
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"partners/businesses/{encode_path_param(id)}/resend_invite",
+            base_url=self._client_wrapper.get_environment().api,
+            method="POST",
+            json={
+                "invite_id": invite_id,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ResendInviteBusinessesResponse,
+                    parse_obj_as(
+                        type_=ResendInviteBusinessesResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        parse_obj_as(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 409:
                 raise ConflictError(
                     headers=dict(_response.headers),

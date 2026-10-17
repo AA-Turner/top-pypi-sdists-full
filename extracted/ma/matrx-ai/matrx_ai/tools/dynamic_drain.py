@@ -160,6 +160,21 @@ async def drain_tool_mutations(config, ctx):
         )
 
     if add_specs:
+        # Catalog Tools injected mid-run are resolved and pinned to this request
+        # before the sync merge reads the registry (CONTRACT §4).
+        from matrx_ai.tools.catalog_seam import resolve_lazy_tools
+        from matrx_ai.tools.specs import RegisteredToolSpec
+
+        await resolve_lazy_tools(
+            [
+                key
+                for spec in add_specs
+                if isinstance(spec, RegisteredToolSpec)
+                for key in (spec.tool_id, spec.name)
+                if key
+            ],
+            ctx=ctx,
+        )
         ctx = merge_request_tools(
             config,
             ctx,

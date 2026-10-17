@@ -365,6 +365,7 @@ _UNARCHIVES = (
 #: action in none of SURFACE_WRITE_TOOLS / STRUCTURED_WRITE_TOOLS / this map. A
 #: key ``tool`` classifies every action of that tool.
 NOT_SURFACE_WRITES: dict[str, str] = {
+    "advanced_read": "a paid read of web pages; writes nothing the person sees on a surface",
     **_not("creates a new page on an external host; there is no prior content", "code_store_html"),
     **_not("attaches a media reference through context_patch json_patch, which carries its own receipt",
            "widget_attach_media"),

@@ -11,26 +11,33 @@ from .partner_advance_status import PartnerAdvanceStatus
 
 
 class PartnerAdvance(UniversalBaseModel):
+    activity30day: typing_extensions.Annotated[
+        typing.Optional[Money],
+        FieldMetadata(alias="activity_30_day"),
+        pydantic.Field(
+            alias="activity_30_day",
+            description="Qualifying card and BNPL payment volume in the preceding 30 days, in USD. Available on business detail responses before acceptance.",
+        ),
+    ] = None
+    """
+    Qualifying card and BNPL payment volume in the preceding 30 days, in USD. Available on business detail responses before acceptance.
+    """
+
     activity60day: typing_extensions.Annotated[
         typing.Optional[Money],
         FieldMetadata(alias="activity_60_day"),
         pydantic.Field(
             alias="activity_60_day",
-            description="Actual processing plus ads spend in the preceding 60 days, in USD. Null when unavailable.",
+            description="Actual payment volume (cards and BNPL) in the preceding 60 days, in USD. Null when unavailable.",
         ),
     ] = None
     """
-    Actual processing plus ads spend in the preceding 60 days, in USD. Null when unavailable.
+    Actual payment volume (cards and BNPL) in the preceding 60 days, in USD. Null when unavailable.
     """
 
     amount: typing.Optional[Money] = pydantic.Field(default=None)
     """
     The offered or accepted upfront CPA payment in USD.
-    """
-
-    annual_ads: Money = pydantic.Field()
-    """
-    Annual projected Whop Ads spend in USD.
     """
 
     annual_processing: Money = pydantic.Field()
@@ -46,6 +53,11 @@ class PartnerAdvance(UniversalBaseModel):
     deadline_at: typing.Optional[str] = pydantic.Field(default=None)
     """
     End of the nine-month CPA term. Normal commissions resume prospectively without backfill.
+    """
+
+    estimated_amount: typing.Optional[Money] = pydantic.Field(default=None)
+    """
+    Estimated advance using the current CPA formula and observed payout rates. Available for unqualified projections on business detail responses.
     """
 
     funded_at: typing.Optional[str] = pydantic.Field(default=None)
@@ -67,16 +79,12 @@ class PartnerAdvance(UniversalBaseModel):
         typing.Optional[Money],
         FieldMetadata(alias="projected_60_day_activity"),
         pydantic.Field(
-            alias="projected_60_day_activity", description="Projected processing plus ads spend over 60 days, in USD."
+            alias="projected_60_day_activity",
+            description="Projected payment volume (cards and BNPL) over 60 days, in USD.",
         ),
     ] = None
     """
-    Projected processing plus ads spend over 60 days, in USD.
-    """
-
-    projected_ads_commissions: typing.Optional[Money] = pydantic.Field(default=None)
-    """
-    Ads commissions projected for the remaining CPA term, in USD.
+    Projected payment volume (cards and BNPL) over 60 days, in USD.
     """
 
     projected_commissions: typing.Optional[Money] = pydantic.Field(default=None)
@@ -96,7 +104,7 @@ class PartnerAdvance(UniversalBaseModel):
 
     recovery_threshold: typing.Optional[Money] = pydantic.Field(default=None)
     """
-    20% of projected 60-day processing plus ads spend. Performance checks begin 60 days after funding.
+    20% of projected 60-day payment volume (cards and BNPL). Performance checks begin 60 days after funding.
     """
 
     status: PartnerAdvanceStatus = pydantic.Field()

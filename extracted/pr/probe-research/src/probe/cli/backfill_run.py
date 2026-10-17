@@ -495,8 +495,9 @@ def _usable_pass(data: dict, key: str) -> bool:
     if key == "projects":
         return any(isinstance(row, dict) and row.get("slug") for row in rows)
     if key == "assignments":
+        # A slice that is ALL left out (a web app's source) is a real answer.
         return any(isinstance(row, dict) and (row.get("path") or row.get("dir"))
-                   for row in rows)
+                   for row in rows) or bool(plan_mod.parse_left_out(data.get("left_out")))
     return bool(rows) and all(isinstance(row, dict) for row in rows)
 
 
@@ -827,7 +828,7 @@ def classify_chunked(
                                      projects=listing, index=i, total=n,
                                      work_dir=str(work_dir),
                                      truncated=ev.sample_budget_hit,
-                                     mtime_uninformative=mtime_dead),
+                                     mtime_uninformative=mtime_dead, feedback=feedback),
                 agent=agent, work_dir=work_dir, stream=stream, total=ev.total_files,
                 heading=f"Filing slice {i} of {n}", key="assignments",
             )
@@ -837,10 +838,12 @@ def classify_chunked(
         )
 
         assignments: list[plan_mod.Assignment] = []
+        left_out: list[plan_mod.LeftOut] = []
         unsure: list[str] = []
         for i, (got, detail) in filed:
             if got is None:
                 return None, f"slice {i} of {n} could not be filed: {detail}"
+            left_out += plan_mod.parse_left_out(got.get("left_out"))
             for row in got.get("assignments") or []:
                 if not isinstance(row, dict):
                     continue
@@ -873,7 +876,7 @@ def classify_chunked(
                 ))
             unsure += [str(u) for u in (got.get("unsure") or []) if u]
 
-        if not assignments:
+        if not assignments and not left_out:
             # `_plan_from` ends with the same guard, and without it here an
             # all-empty result is not an error: `resolve` returns an empty map,
             # nothing is `unknown` or `duplicated` so the plan reads as
@@ -887,6 +890,7 @@ def classify_chunked(
             projects=specs, assignments=assignments,
             unsure=list(dict.fromkeys(unsure)),
             summary=str(named.get("summary") or ""),
+            left_out=left_out,
         )
         note = f"; {dropped} slice summary(ies) did not fit the naming step" if dropped else ""
         return plan, f"classified in {n} slices{note}"
@@ -963,7 +967,7 @@ def revise(
     return plan, tail, session
 
 
-def _destination(path: str, assigned: dict[str, str]) -> str:
+def _destination(path: str, assigned: dict[str, str], left_out_paths=frozenset()) -> str:
     """Where `path` is going, whether it names a FILE or a rollup DIRECTORY.
 
     `assigned` is keyed by the expanded per-file paths, so a bare lookup misses
@@ -975,12 +979,16 @@ def _destination(path: str, assigned: dict[str, str]) -> str:
     direct = assigned.get(path)
     if direct:
         return direct
+    if path in left_out_paths:
+        return "left out"
     prefix = path.rstrip("/") + "/"
     under = {project for p, project in assigned.items() if p.startswith(prefix)}
     if len(under) == 1:
         return f"{under.pop()}  (all {sum(1 for p in assigned if p.startswith(prefix)):,} files under it)"
     if under:
         return "split across " + ", ".join(sorted(under))
+    if any(p.startswith(prefix) for p in left_out_paths):
+        return "left out"
     return "(unplaced)"
 
 
@@ -990,6 +998,7 @@ def describe_plan(
     assigned: dict[str, str],
     disc: plan_mod.Discrepancy,
     census: bf.Census | None = None,
+    left_out: dict[str, str] | None = None,
 ) -> list[str]:
     """The approval screen's body: what will happen, and what is uncertain.
 
@@ -1007,12 +1016,29 @@ def describe_plan(
     for project in sorted(per_project, key=lambda p: (-per_project[p], p)):
         lines.append(f"  {project:<32} {per_project[project]:>7,} files")
 
+    if left_out:
+        # By the classifier's own rows, largest first, so a reviewer sees each
+        # decision once with its why -- and can say "keep apps/lab" if wrong.
+        def under(path: str, row: str) -> bool:
+            if row in ("", "."):
+                return "/" not in path
+            return path == row or path.startswith(row.rstrip("/") + "/")
+
+        counts = {row.path: sum(1 for p in left_out if under(p, row.path))
+                  for row in plan.left_out}
+        lines += ["", f"{len(left_out):,} files left out as not research (nothing uploads):"]
+        for row in sorted(plan.left_out, key=lambda r: (-counts[r.path], r.path))[:12]:
+            lines.append(f"  {row.path}  ({counts[row.path]:,} files)"
+                         + (f"  {row.why}" if row.why else ""))
+        if len(plan.left_out) > 12:
+            lines.append(f"  ... and {len(plan.left_out) - 12:,} more")
+
     low = [a for a in plan.assignments if a.confidence != "high"]
     unsure = list(dict.fromkeys(plan.unsure + [a.path for a in low]))
     if unsure:
         lines += ["", "Least certain — check these first:"]
         for path in unsure[:12]:
-            lines.append(f"  {path}  ->  {_destination(path, assigned)}")
+            lines.append(f"  {path}  ->  {_destination(path, assigned, left_out or {})}")
         if len(unsure) > 12:
             lines.append(f"  ... and {len(unsure) - 12:,} more")
 
@@ -1631,6 +1657,7 @@ def execute(
     import_changed: bool = False,
     import_unverified: bool = False,
     retry_dead: bool = False,
+    review_excluded: bool = False,
     background: bool = False,
     back_to_selection: bool = False,
     wandb_source: dict | None = None,
@@ -1677,7 +1704,7 @@ def execute(
             concurrency=concurrency, telemetry=tel, started_at=started_at,
             summary_state=summary_state, lane_state=lane_state,
             source_id=source_id, import_changed=import_changed, import_unverified=import_unverified,
-            retry_dead=retry_dead,
+            retry_dead=retry_dead, review_excluded=review_excluded,
             background=background,
             back_to_selection=back_to_selection,
             wandb_source=wandb_source, offer_wandb=offer_wandb,

@@ -3,6 +3,10 @@ from . import SciQLopPlotsBindings
 from .SciQLopPlotsBindings import (GraphType, SciQLopPlot, SciQLopTimeSeriesPlot, SciQLopMultiPlotPanel,
                                     SciQLopGraphInterface, AxisType, SciQLopPlotRange, SciQLopNDProjectionPlot)
 from .SciQLopPlotsBindings import *
+
+# One-column lines are SciQLopLineGraphs since #113: the old names stay for isinstance checks.
+SciQLopSingleLineGraph = SciQLopLineGraph
+SciQLopSingleLineGraphFunction = SciQLopLineGraphFunction
 from datetime import date, datetime, timezone
 import traceback
 
@@ -71,7 +75,7 @@ _register_with_shiboken_signatures()
 
 from . import tracing  # noqa: E402,F401  -- runtime tracer facade
 
-__version__ = '0.51.3'
+__version__ = '0.52.0'
 
 def _merge_kwargs(kwargs, **kwargs2):
     for k, v in kwargs2.items():
@@ -193,8 +197,9 @@ def _patch_sciqlop_plot(cls):
                 _reject_histogram2d_kwargs(kwargs, graph_type)
                 wf_kwargs = _pop_waterfall_kwargs(kwargs)
                 wf = _apply_waterfall_kwargs(cls.waterfall(self, *args, **kwargs), **wf_kwargs)
-                # plot() fitted the axes before the offsets were applied.
-                self.rescale_axes()
+                # plot() fitted the axes before the offsets were applied. On a panel, refit
+                # only the new plot: a panel-wide rescale would undo the other plots' zoom.
+                (wf[0] if isinstance(wf, tuple) else self).rescale_axes()
                 return wf
             if graph_type == GraphType.Histogram2D:
                 _reject_waterfall_kwargs(kwargs, graph_type)
@@ -228,6 +233,7 @@ SciQLopNDProjectionPlot = _patch_sciqlop_plot(SciQLopNDProjectionPlot)
 from .properties import register_property, OnDescriptor
 from .pipeline import Pipeline, PartialPipeline
 from .event import Event
+from .widget_plot import WidgetPlot
 
 register_property(
     SciQLopGraphInterface, "data",

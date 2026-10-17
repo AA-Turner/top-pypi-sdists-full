@@ -338,3 +338,61 @@ def test_no_startswith_in_the_pricing_resolution_path() -> None:
         assert "startswith" not in src, (
             f"{fn.__qualname__} reintroduced a name-prefix match into billing"
         )
+
+
+@pytest.mark.asyncio
+async def test_a_wire_id_prices_exactly_under_its_vendor(monkeypatch) -> None:
+    """A browser-held xAI realtime session reports the model it CONNECTED with —
+    ``grok-voice-latest`` — while the catalog names that model ``realtime-api``
+    (ai.offering.provider_model_id is the wire id). 2026-10-16: every xAI voice
+    session answered POST /broker/usage 422 "no catalog price" and went unbilled.
+    The wire id resolves EXACTLY under its vendor; it never matches another
+    vendor, a prefix, or a wire id two offerings bill differently."""
+    from types import SimpleNamespace
+
+    from matrx_ai.catalog import host_catalog
+    from matrx_ai.catalog import manager as catalog_manager_module
+    from matrx_ai.db.ai_models import ai_model_manager as model_manager_module
+
+    per_minute = [{"max_tokens": None, "input_price": 0.08, "output_price": 0, "usage_basis": "minute"}]
+    models = [
+        SimpleNamespace(id="m-xai", name="realtime-api", is_deprecated=True, retired_at=None),
+        SimpleNamespace(id="m-a", name="split-a", is_deprecated=False, retired_at=None),
+        SimpleNamespace(id="m-b", name="split-b", is_deprecated=False, retired_at=None),
+    ]
+    offerings = {
+        "m-xai": [SimpleNamespace(id="o-xai", endpoint_id="e-xai", provider_model_id="grok-voice-latest", pricing=per_minute)],
+        "m-a": [SimpleNamespace(id="o-a", endpoint_id="e-xai", provider_model_id="shared-wire", pricing=[{"max_tokens": None, "input_price": 1, "output_price": 1}])],
+        "m-b": [SimpleNamespace(id="o-b", endpoint_id="e-xai", provider_model_id="shared-wire", pricing=[{"max_tokens": None, "input_price": 2, "output_price": 2}])],
+    }
+
+    class _Models:
+        async def load_all_models(self):
+            return models
+
+    class _Catalog:
+        async def ensure_loaded(self):
+            return None
+
+        def offerings_for(self, model_id):
+            return offerings.get(model_id, [])
+
+        def parked_offerings_for(self, model_id):
+            return []
+
+        def endpoint(self, endpoint_id):
+            return SimpleNamespace(vendor="xai")
+
+    monkeypatch.setattr(host_catalog, "get_model_catalog", lambda: None)
+    monkeypatch.setattr(model_manager_module, "ai_model_manager_instance", _Models())
+    monkeypatch.setattr(catalog_manager_module, "ai_catalog_manager", _Catalog())
+
+    lookup = await uc.warm_pricing_lookup()
+
+    hit = uc.lookup_model_pricing(lookup, model_name="grok-voice-latest", api="xai")
+    assert hit is not None and hit.model_name == "realtime-api"
+    assert uc.resolve_usage_basis("grok-voice-latest", "xai") == (True, "minute")
+    # Only under its own vendor, never a prefix, never an ambiguous wire id.
+    assert uc.lookup_model_pricing(lookup, model_name="grok-voice-latest", api="openai") is None
+    assert uc.lookup_model_pricing(lookup, model_name="grok-voice", api="xai") is None
+    assert uc.lookup_model_pricing(lookup, model_name="shared-wire", api="xai") is None

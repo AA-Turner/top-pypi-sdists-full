@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-celery-email-reboot
-Version: 4.3.0
+Version: 4.3.1
 Summary: An async Django email backend using celery (forked from django-celery-email)
 Author-email: "Panevo Services Ltd." <info@panevo.com>
 License-Expression: BSD-3-Clause
@@ -42,8 +42,8 @@ Dynamic: license-file
 django-celery-email-reboot - A Celery-backed Django Email Backend
 ===========================================================================
 
-.. image:: https://img.shields.io/pypi/v/django-celery-email-reboot.svg
-    :target: https://pypi.python.org/pypi/django-celery-email-reboot
+.. image:: https://img.shields.io/pypi/v/django-celery-email-reboot.svg?cacheSeconds=3600
+    :target: https://pypi.org/project/django-celery-email-reboot/
 
 A `Django`_ email backend that uses a `Celery`_ queue for out-of-band sending of the messages.
 

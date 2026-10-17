@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import json
 import logging
+import subprocess
+import sys
+from typing import override
 from unittest import TestCase, mock
 from unittest.mock import NonCallableMock, patch
 
 from faker import Faker
 from faker.providers import internet
+import gpsoauth
 import grpc
+import pytest
+import requests
 
-from glocaltokens.client import Device, GLocalAuthenticationTokens
+from glocaltokens.client import LOGGER, Device, GLocalAuthenticationTokens
 from glocaltokens.const import (
     ACCESS_TOKEN_APP_NAME,
     ACCESS_TOKEN_CLIENT_SIGNATURE,
@@ -26,6 +32,7 @@ from glocaltokens.const import (
     JSON_KEY_LOCAL_AUTH_TOKEN,
     JSON_KEY_NETWORK_DEVICE,
     JSON_KEY_PORT,
+    REQUEST_TIMEOUT,
 )
 from glocaltokens.scanner import NetworkDevice
 from tests.assertions import DeviceAssertions, TypeAssertions
@@ -40,6 +47,7 @@ faker.add_provider(internet)
 class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, TestCase):
     """GLocalAuthenticationTokens clien specific unittests."""
 
+    @override
     def setUp(self) -> None:
         """Set up the test client before each test."""
         self.client = GLocalAuthenticationTokens(
@@ -83,22 +91,49 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         GLocalAuthenticationTokens(master_token=faker.master_token())
         assert m_log.call_count == 0
 
+    @patch("glocaltokens.client.logging.basicConfig")
     @patch("glocaltokens.client.LOGGER.setLevel")
     def test_initialization__valid_verbose_logger(
-        self, m_set_level: NonCallableMock
+        self, m_set_level: NonCallableMock, m_basic_config: NonCallableMock
     ) -> None:
         """Valid initialization tests with verbose logging."""
         # Non verbose
         GLocalAuthenticationTokens(username=faker.word(), password=faker.word())
-        m_set_level.assert_called_once_with(logging.ERROR)
-
-        m_set_level.reset_mock()
+        m_set_level.assert_not_called()
+        m_basic_config.assert_not_called()
 
         # Verbose
         GLocalAuthenticationTokens(
             username=faker.word(), password=faker.word(), verbose=True
         )
         m_set_level.assert_called_once_with(logging.DEBUG)
+        m_basic_config.assert_called_once_with()
+
+    def test_initialization__verbose_output(self) -> None:
+        """Verbose logging reaches stderr in a script without logging configured."""
+        script = (
+            "from glocaltokens.client import GLocalAuthenticationTokens\n"
+            "client = GLocalAuthenticationTokens(username='u', password='p', verbose={})\n"
+            "client.get_android_id()\n"
+        )
+        for verbose, expected in ((True, True), (False, False)):
+            result = subprocess.run(
+                [sys.executable, "-c", script.format(verbose)],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            assert ("DEBUG:glocaltokens.client" in result.stderr) is expected
+
+    def test_initialization__keeps_application_log_level(self) -> None:
+        """A non-verbose client keeps the level the application set."""
+        package_logger = logging.getLogger("glocaltokens")
+        package_logger.setLevel(logging.DEBUG)
+        try:
+            GLocalAuthenticationTokens(username=faker.word(), password=faker.word())
+            assert LOGGER.getEffectiveLevel() == logging.DEBUG
+        finally:
+            package_logger.setLevel(logging.NOTSET)
 
     @patch("glocaltokens.client.LOGGER.error")
     def test_initialization__invalid(self, m_log: NonCallableMock) -> None:
@@ -139,7 +174,7 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
     def test_has_expired(self) -> None:
         """Test expiry method."""
         duration_sec = 60
-        now = datetime.now()
+        now = datetime.now(UTC)
         token_dt_expired = now - timedelta(seconds=duration_sec + 1)
         token_dt_non_expired = now - timedelta(seconds=duration_sec - 1)
 
@@ -170,12 +205,17 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
 
         # With token in response
         expected_master_token = faker.master_token()
-        m_perform_master_login.return_value = {"Token": expected_master_token}
+        email = faker.email()
+        m_perform_master_login.return_value = {
+            "Token": expected_master_token,
+            "Email": email,
+        }
         master_token = self.client.get_master_token()
         m_perform_master_login.assert_called_once_with(
             self.client.username, self.client.password, self.client.get_android_id()
         )
         assert expected_master_token == master_token
+        assert self.client.email == email
         assert m_log.call_count == 0
 
         # Another request - must return the same token all the time
@@ -192,6 +232,261 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         master_token = self.client.get_master_token()
         assert master_token is None
         assert m_log.call_count == 2
+
+    @patch("glocaltokens.client.LOGGER.error")
+    @patch("glocaltokens.client.perform_master_login")
+    @patch("glocaltokens.client.exchange_token")
+    def test_get_master_token__oauth_token(
+        self,
+        m_exchange_token: NonCallableMock,
+        m_perform_master_login: NonCallableMock,
+        m_log: NonCallableMock,
+    ) -> None:
+        """Test getting a master token by exchanging an oauth_token cookie."""
+        oauth_token = faker.word()
+        client = GLocalAuthenticationTokens(
+            username=faker.word(), password=faker.word(), oauth_token=oauth_token
+        )
+        assert m_log.call_count == 0
+
+        # Failed exchange
+        m_exchange_token.return_value = {"Error": "BadAuthentication"}
+        assert client.get_master_token() is None
+        assert m_log.call_count == 1
+
+        # Successful exchange, preferred over the password
+        expected_master_token = faker.master_token()
+        m_exchange_token.return_value = {"Token": expected_master_token}
+        assert client.get_master_token() == expected_master_token
+        m_exchange_token.assert_called_with(
+            client.username, oauth_token, client.get_android_id()
+        )
+        m_perform_master_login.assert_not_called()
+
+        # The stored master token is used from now on
+        m_exchange_token.reset_mock()
+        assert client.get_master_token() == expected_master_token
+        m_exchange_token.assert_not_called()
+
+    @patch("glocaltokens.client.LOGGER.error")
+    @patch("glocaltokens.client.perform_oauth")
+    @patch("glocaltokens.client.exchange_token")
+    def test_get_master_token__oauth_token_without_username(
+        self,
+        m_exchange_token: NonCallableMock,
+        m_perform_oauth: NonCallableMock,
+        m_log: NonCallableMock,
+    ) -> None:
+        """Test an oauth_token alone is enough, and Google's email is kept."""
+        oauth_token = faker.word()
+        client = GLocalAuthenticationTokens(oauth_token=oauth_token)
+        assert m_log.call_count == 0
+
+        master_token = faker.master_token()
+        email = faker.email()
+        m_exchange_token.return_value = {"Token": master_token, "Email": email}
+        assert client.get_master_token() == master_token
+        m_exchange_token.assert_called_once_with(
+            "", oauth_token, client.get_android_id()
+        )
+        assert client.email == email
+        assert client.username is None
+
+        # get_email() needs no further request
+        assert client.get_email() == email
+        m_perform_oauth.assert_not_called()
+
+        client.invalidate_master_token()
+        assert client.email is None
+
+    @patch("requests.adapters.HTTPAdapter.send")
+    def test_get_master_token__oauth_token_request_timeout(
+        self, m_send: NonCallableMock
+    ) -> None:
+        """Test the oauth_token exchange made through gpsoauth has a timeout."""
+        m_send.side_effect = requests.ConnectionError("No network")
+        client = GLocalAuthenticationTokens(
+            username=faker.word(), oauth_token=faker.word()
+        )
+        with pytest.raises(requests.ConnectionError, match="No network"):
+            client.get_master_token()
+        m_send.assert_called_once()
+        assert m_send.call_args.kwargs["timeout"] == REQUEST_TIMEOUT
+
+    @patch("glocaltokens.client.perform_master_login")
+    def test_get_master_token__stored_without_password(
+        self, m_perform_master_login: NonCallableMock
+    ) -> None:
+        """Test a stored master token is returned without a password."""
+        master_token = faker.master_token()
+        client = GLocalAuthenticationTokens(
+            username=faker.word(), master_token=master_token
+        )
+        assert client.get_master_token() == master_token
+        m_perform_master_login.assert_not_called()
+
+    @patch("glocaltokens.client.perform_oauth")
+    def test_get_access_token__without_username(
+        self, m_perform_oauth: NonCallableMock
+    ) -> None:
+        """Test a master token alone is enough to get an access token."""
+        access_token = faker.access_token()
+        m_perform_oauth.return_value = {"Auth": access_token}
+        master_token = faker.master_token()
+        client = GLocalAuthenticationTokens(master_token=master_token)
+
+        assert client.get_access_token() == access_token
+        assert m_perform_oauth.call_args.args == (
+            "",
+            master_token,
+            client.get_android_id(),
+        )
+
+    @patch("requests.adapters.HTTPAdapter.send")
+    def test_get_master_token__request_timeout(self, m_send: NonCallableMock) -> None:
+        """Test requests to Google made through gpsoauth have a timeout."""
+        m_send.side_effect = requests.ConnectionError("No network")
+        with pytest.raises(requests.ConnectionError, match="No network"):
+            self.client.get_master_token()
+        m_send.assert_called_once()
+        assert m_send.call_args.kwargs["timeout"] == REQUEST_TIMEOUT
+
+    @patch("requests.adapters.HTTPAdapter.send")
+    def test_get_access_token__request_timeout(self, m_send: NonCallableMock) -> None:
+        """Test the access token request made through gpsoauth has a timeout."""
+        m_send.side_effect = requests.ConnectionError("No network")
+        client = GLocalAuthenticationTokens(
+            username=faker.word(), master_token=faker.master_token()
+        )
+        with pytest.raises(requests.ConnectionError, match="No network"):
+            client.get_access_token()
+        m_send.assert_called_once()
+        assert m_send.call_args.kwargs["timeout"] == REQUEST_TIMEOUT
+
+    @patch("requests.adapters.HTTPAdapter.send")
+    def test_gpsoauth_timeout__not_applied_to_other_callers(
+        self, m_send: NonCallableMock
+    ) -> None:
+        """Test gpsoauth requests made outside glocaltokens keep their timeout."""
+        m_send.side_effect = requests.ConnectionError("No network")
+        with pytest.raises(requests.ConnectionError, match="No network"):
+            gpsoauth.perform_oauth(
+                faker.email(),
+                faker.master_token(),
+                faker.word(),
+                "service",
+                "app",
+                "sig",
+            )
+        m_send.assert_called_once()
+        assert m_send.call_args.kwargs["timeout"] is None
+
+    @patch("glocaltokens.client.requests.get")
+    @patch("glocaltokens.client.perform_oauth")
+    def test_get_email(
+        self, m_perform_oauth: NonCallableMock, m_get: NonCallableMock
+    ) -> None:
+        """Test the email address is read with a token that may only read it."""
+        email = faker.email()
+        access_token = faker.access_token()
+        m_perform_oauth.return_value = {"Auth": access_token}
+        m_get.return_value.ok = True
+        m_get.return_value.json.return_value = {
+            "email": email,
+            "email_verified": True,
+        }
+        client = GLocalAuthenticationTokens(master_token=faker.master_token())
+
+        assert client.get_email() == email
+        assert m_perform_oauth.call_args.kwargs["service"] == (
+            "oauth2:https://www.googleapis.com/auth/userinfo.email"
+        )
+        assert m_get.call_args.kwargs["headers"] == {
+            "Authorization": f"Bearer {access_token}"
+        }
+        assert m_get.call_args.kwargs["timeout"] == REQUEST_TIMEOUT
+
+    @patch("glocaltokens.client.requests.get")
+    @patch("glocaltokens.client.perform_oauth")
+    def test_get_email__unverified(
+        self, m_perform_oauth: NonCallableMock, m_get: NonCallableMock
+    ) -> None:
+        """Test an email address that Google hasn't verified is not returned."""
+        m_perform_oauth.return_value = {"Auth": faker.access_token()}
+        m_get.return_value.ok = True
+        m_get.return_value.json.return_value = {
+            "email": faker.email(),
+            "email_verified": False,
+        }
+        client = GLocalAuthenticationTokens(master_token=faker.master_token())
+
+        assert client.get_email() is None
+
+    @patch("glocaltokens.client.requests.get")
+    @patch("glocaltokens.client.perform_oauth")
+    def test_get_email__http_error(
+        self, m_perform_oauth: NonCallableMock, m_get: NonCallableMock
+    ) -> None:
+        """Test an error response from Google gives no email address."""
+        m_perform_oauth.return_value = {"Auth": faker.access_token()}
+        m_get.return_value.ok = False
+        m_get.return_value.status_code = 401
+        client = GLocalAuthenticationTokens(master_token=faker.master_token())
+
+        assert client.get_email() is None
+        m_get.return_value.json.assert_not_called()
+
+    @patch("requests.adapters.HTTPAdapter.send")
+    @patch("glocaltokens.client.perform_oauth")
+    def test_get_email__token_not_in_url_or_logs(
+        self, m_perform_oauth: NonCallableMock, m_send: NonCallableMock
+    ) -> None:
+        """Test the access token is sent in a header, never in the URL or logs.
+
+        Requests and urllib3 put the URL in debug logs and in connection errors.
+        """
+        access_token = faker.access_token()
+        email = faker.email()
+        m_perform_oauth.return_value = {"Auth": access_token}
+        response = requests.Response()
+        response.status_code = 200
+        response._content = json.dumps(  # pylint: disable=protected-access
+            {"email": email, "email_verified": True}
+        ).encode()
+        m_send.return_value = response
+        client = GLocalAuthenticationTokens(
+            master_token=faker.master_token(), verbose=True
+        )
+
+        with self.assertLogs(level=logging.DEBUG) as logs:
+            assert client.get_email() == email
+
+        request = m_send.call_args.args[0]
+        assert access_token not in request.url
+        assert request.headers["Authorization"] == f"Bearer {access_token}"
+        assert not any(access_token in line for line in logs.output)
+
+    @patch("glocaltokens.client.requests.get")
+    @patch("glocaltokens.client.perform_oauth")
+    def test_get_email__no_access_token(
+        self, m_perform_oauth: NonCallableMock, m_get: NonCallableMock
+    ) -> None:
+        """Test nothing is asked about the email address when Google refuses the token."""
+        m_perform_oauth.return_value = {"Error": "BadAuthentication"}
+        client = GLocalAuthenticationTokens(master_token=faker.master_token())
+
+        assert client.get_email() is None
+        m_get.assert_not_called()
+
+    @patch("requests.adapters.HTTPAdapter.send")
+    def test_get_email__request_timeout(self, m_send: NonCallableMock) -> None:
+        """Test the access token request for the email address has a timeout."""
+        m_send.side_effect = requests.ConnectionError("No network")
+        client = GLocalAuthenticationTokens(master_token=faker.master_token())
+        with pytest.raises(requests.ConnectionError, match="No network"):
+            client.get_email()
+        m_send.assert_called_once()
+        assert m_send.call_args.kwargs["timeout"] == REQUEST_TIMEOUT
 
     @patch("glocaltokens.client.LOGGER.error")
     @patch("glocaltokens.client.perform_master_login")
@@ -247,12 +542,18 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         assert expected_access_token == access_token
         assert m_perform_oauth.call_count == 0
 
-        # Another request with expired token must return new token (new request)
-        assert self.client.access_token_date is not None
-        self.client.access_token_date = self.client.access_token_date - timedelta(
-            ACCESS_TOKEN_DURATION + 1
+        # Just before expiry the token is still used (no new request)
+        self.client.access_token_date = datetime.now(UTC) - timedelta(
+            seconds=ACCESS_TOKEN_DURATION - 1
         )
-        access_token = self.client.get_access_token()
+        self.client.get_access_token()
+        assert m_perform_oauth.call_count == 0
+
+        # Just after expiry a new token is requested
+        self.client.access_token_date = datetime.now(UTC) - timedelta(
+            seconds=ACCESS_TOKEN_DURATION + 1
+        )
+        self.client.get_access_token()
         assert m_perform_oauth.call_count == 1
 
     @patch("glocaltokens.client.grpc.ssl_channel_credentials")
@@ -282,6 +583,9 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         assert m_structure_service_stub.call_count == 1
         assert m_get_home_graph_request.call_count == 1
         assert m_get_access_token.call_count == 1
+        m_structure_service_stub.return_value.GetHomeGraph.assert_called_once_with(
+            m_get_home_graph_request.return_value, timeout=REQUEST_TIMEOUT
+        )
 
         # Another request with non expired homegraph must return the same homegraph
         # (no new requests)
@@ -294,10 +598,16 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         assert m_get_home_graph_request.call_count == 1
         assert m_get_access_token.call_count == 1
 
-        # Expired homegraph
-        assert self.client.homegraph_date is not None
-        self.client.homegraph_date = self.client.homegraph_date - timedelta(
-            HOMEGRAPH_DURATION + 1
+        # Just before expiry the homegraph is still used (no new requests)
+        self.client.homegraph_date = datetime.now(UTC) - timedelta(
+            seconds=HOMEGRAPH_DURATION - 1
+        )
+        self.client.get_homegraph()
+        assert m_secure_channel.call_count == 1
+
+        # Just after expiry a new homegraph is requested
+        self.client.homegraph_date = datetime.now(UTC) - timedelta(
+            seconds=HOMEGRAPH_DURATION + 1
         )
         self.client.get_homegraph()
         assert m_ssl_channel_credentials.call_count == 2
@@ -394,8 +704,11 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         )
         m_get_google_devices.return_value = [google_device]
 
-        json_string = self.client.get_google_devices_json(disable_discovery=True)
+        json_string = self.client.get_google_devices_json(
+            disable_discovery=True, discovery_timeout=5
+        )
         assert m_get_google_devices.call_count == 1
+        assert m_get_google_devices.call_args.kwargs["discovery_timeout"] == 5
         received_json = json.loads(json_string)
         received_device = received_json[0]
         assert received_device[JSON_KEY_DEVICE_NAME] == device_name
@@ -451,3 +764,5 @@ class DeviceClientTests(TypeAssertions, TestCase):
         )
         assert m_log.call_count == 1
         assert device.local_auth_token is None
+        # A device that failed validation can still be represented
+        assert device.as_dict()["network_device"] == {"ip": None, "port": None}

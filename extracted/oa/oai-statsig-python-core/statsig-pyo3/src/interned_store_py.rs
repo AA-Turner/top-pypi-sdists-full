@@ -9,7 +9,8 @@ use pyo3::types::PyType;
 use pyo3_stub_gen::derive::*;
 
 use statsig_rust::interned_values::{
-    InternedStore, MmapPreloadReport as RustMmapPreloadReport, MmapReaderMemorySnapshot,
+    InternedStore, MmapPreloadOptions, MmapPreloadReport as RustMmapPreloadReport,
+    MmapReaderMemorySnapshot,
 };
 use statsig_rust::log_e;
 use statsig_rust::{StatsigErr, StatsigRuntime};
@@ -152,8 +153,16 @@ impl InternedStorePy {
     }
 
     #[classmethod]
-    pub fn preload_mmap(cls: &Bound<'_, PyType>, sdk_key: &str) -> PyResult<()> {
-        if let Err(e) = InternedStore::preload_mmap(sdk_key) {
+    #[pyo3(signature = (sdk_key, *, precompute_returnable_stable_hashes=false))]
+    pub fn preload_mmap(
+        cls: &Bound<'_, PyType>,
+        sdk_key: &str,
+        precompute_returnable_stable_hashes: bool,
+    ) -> PyResult<()> {
+        let options = MmapPreloadOptions {
+            precompute_returnable_stable_hashes,
+        };
+        if let Err(e) = InternedStore::preload_mmap_with_options(sdk_key, &options) {
             log_e!(TAG, "Failed to load mmap data: {}", e);
             return Err(to_python_error(cls.py(), &e));
         }
@@ -176,11 +185,12 @@ impl InternedStorePy {
     }
 
     #[classmethod]
-    #[pyo3(signature = (required_sdk_keys, optional_sdk_keys=None))]
+    #[pyo3(signature = (required_sdk_keys, optional_sdk_keys=None, *, precompute_returnable_stable_hashes=false))]
     pub fn preload_mmap_multi(
         cls: &Bound<'_, PyType>,
         required_sdk_keys: Vec<String>,
         optional_sdk_keys: Option<Vec<String>>,
+        precompute_returnable_stable_hashes: bool,
     ) -> PyResult<MmapPreloadReportPy> {
         let optional_sdk_keys = optional_sdk_keys.unwrap_or_default();
         let required = required_sdk_keys
@@ -192,7 +202,10 @@ impl InternedStorePy {
             .map(String::as_str)
             .collect::<Vec<_>>();
 
-        match InternedStore::preload_mmap_multi(&required, &optional) {
+        let options = MmapPreloadOptions {
+            precompute_returnable_stable_hashes,
+        };
+        match InternedStore::preload_mmap_multi_with_options(&required, &optional, &options) {
             Ok(report) => Ok(report.into()),
             Err(error) => {
                 log_e!(TAG, "Failed to load mmap data: {}", error);

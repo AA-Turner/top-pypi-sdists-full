@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: sendblue
-Version: 1.32.0
+Version: 1.32.1
 Summary: The official Python library for the sendblue-api API
 Project-URL: Homepage, https://github.com/sendblue-api/sendblue-py
 Project-URL: Repository, https://github.com/sendblue-api/sendblue-py
@@ -78,9 +78,9 @@ client = SendblueAPI(
 )
 
 message_response = client.messages.send(
-    from_number="REPLACE_ME",
     number="REPLACE_ME",
     content="REPLACE_ME",
+    from_number="REPLACE_ME",
 )
 print(message_response.seat_id)
 ```
@@ -107,9 +107,9 @@ client = AsyncSendblueAPI(
 
 async def main() -> None:
     message_response = await client.messages.send(
-        from_number="REPLACE_ME",
         number="REPLACE_ME",
         content="REPLACE_ME",
+        from_number="REPLACE_ME",
     )
     print(message_response.seat_id)
 
@@ -148,9 +148,9 @@ async def main() -> None:
         http_client=DefaultAioHttpClient(),
     ) as client:
         message_response = await client.messages.send(
-            from_number="REPLACE_ME",
             number="REPLACE_ME",
             content="REPLACE_ME",
+            from_number="REPLACE_ME",
         )
         print(message_response.seat_id)
 
@@ -177,7 +177,6 @@ from sendblue_api import SendblueAPI
 client = SendblueAPI()
 
 message_response = client.messages.send(
-    from_number="+19998887777",
     number="+19998887777",
     app_card={
         "app_name": "My App",
@@ -207,9 +206,9 @@ client = SendblueAPI()
 
 try:
     client.messages.send(
-        from_number="REPLACE_ME",
         number="REPLACE_ME",
         content="REPLACE_ME",
+        from_number="REPLACE_ME",
     )
 except sendblue_api.APIConnectionError as e:
     print("The server could not be reached")
@@ -254,9 +253,9 @@ client = SendblueAPI(
 
 # Or, configure per-request:
 client.with_options(max_retries=5).messages.send(
-    from_number="REPLACE_ME",
     number="REPLACE_ME",
     content="REPLACE_ME",
+    from_number="REPLACE_ME",
 )
 ```
 
@@ -281,9 +280,9 @@ client = SendblueAPI(
 
 # Override per-request:
 client.with_options(timeout=5.0).messages.send(
-    from_number="REPLACE_ME",
     number="REPLACE_ME",
     content="REPLACE_ME",
+    from_number="REPLACE_ME",
 )
 ```
 
@@ -326,9 +325,9 @@ from sendblue_api import SendblueAPI
 
 client = SendblueAPI()
 response = client.messages.with_raw_response.send(
-    from_number="REPLACE_ME",
     number="REPLACE_ME",
     content="REPLACE_ME",
+    from_number="REPLACE_ME",
 )
 print(response.headers.get('X-My-Header'))
 
@@ -348,9 +347,9 @@ To stream the response body, use `.with_streaming_response` instead, which requi
 
 ```python
 with client.messages.with_streaming_response.send(
-    from_number="REPLACE_ME",
     number="REPLACE_ME",
     content="REPLACE_ME",
+    from_number="REPLACE_ME",
 ) as response:
     print(response.headers.get("X-My-Header"))
 

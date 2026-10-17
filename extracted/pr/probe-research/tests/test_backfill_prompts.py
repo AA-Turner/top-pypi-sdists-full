@@ -7,6 +7,8 @@ it, rather than checking one prompt's wording and letting three others rot.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from probe.cli import backfill_prompts as bp
@@ -58,7 +60,10 @@ def test_the_naming_rule_names_both_things_it_breaks():
     extension, so a sentence in a name breaks both."""
     assert "splitting that name on '/'" in bp.NAMING
     assert "extension" in bp.NAMING
-    assert "--notes" in bp.NAMING
+    assert "Never in the name" in bp.NAMING
+    # Files carry no notes: a description is the manifest's local line for the
+    # project's writer, never an upload flag.
+    assert "--notes" not in bp.NAMING
 
 
 def test_the_reference_threshold_is_generated_not_retyped():
@@ -102,7 +107,8 @@ def test_a_truncated_sample_budget_is_disclosed_to_the_agent():
 
 
 def test_classify_demands_every_file_be_accounted_for():
-    assert "exactly once in `assignments`" in _classify()
+    # Placed or left out with a why -- never silently dropped.
+    assert "exactly once, in `assignments` or `left_out`" in _classify()
 
 
 def test_classify_asks_for_an_unsure_list_because_that_is_what_gets_reviewed():
@@ -226,10 +232,28 @@ def test_visible_markdown_edit_is_read_preserve_write_verify():
     assert "CONTAINS what you meant" in text
 
 
-def test_the_notes_writer_does_not_re_describe_individual_files():
+def test_the_notes_writer_names_the_files_that_matter_because_files_carry_no_notes():
+    """Files no longer carry notes, so the import's per-file lines reach the
+    record only through the project's documentation -- the few files a teammate
+    would look for, not an inventory."""
     text = bp.write_notes(project="p", root=ROOT, landed=3, manifests=[])
-    assert "Do not describe individual files" in text
-    assert "they already carry their own" in text and "notes" in text
+    assert "Files carry no notes of their own" in text
+    assert "do not list every file" in text
+    assert "already carry their own" not in text
+
+
+def test_no_import_prompt_puts_a_description_on_the_upload():
+    """The manifest's "notes" is the project writer's input and never uploaded;
+    no prompt tells an agent to pass `--notes` to `artifact add`."""
+    from probe.cli import backfill
+
+    for text in (
+        _import(),
+        bp.DESCRIBE_ARTIFACTS,
+        backfill.build_prompt(folder=Path(ROOT), census=backfill.Census(files=1, bytes=1)),
+    ):
+        assert "--notes" not in text
+    assert "never uploaded" in _import()
 
 
 # -- no prompt names a door that does not open -------------------------------

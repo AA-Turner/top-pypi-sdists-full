@@ -24,16 +24,16 @@ from dataclasses import dataclass
 from importlib import import_module, util
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import cast
 
+from cozy_runtime.author._errors import is_device_oom
+from cozy_runtime.author._model import LANDED, WARNINGS
 from cozy_runtime.author.kernels import INT8_CONVROT, PreQuantized, readable
-from cozy_runtime.internal import kernel_cache, kernel_compile, kernel_sources
+from cozy_runtime.internal import arch, kernel_cache, kernel_compile, kernel_sources
 from cozy_runtime.internal.encoding.formats import CONVROT_GROUP, Tensor, hadamard256
 
 ARTIFACT = "comfy-kitchen"
 OP = "cozy-int8"
-#: The cards the artifact's binary carries device code for (`attention_upstream.KITCHEN_SMS`).
-KITCHEN_SMS = frozenset({80, 86, 87, 89, 90, 100, 103, 110, 120, 121})
 #: How often a leaf asks whether a running build has landed: resolution, never a verdict.
 POLL_SECONDS = 1.0
 #: The op's one-launch GEMV takes this many rows (`kGemvRows`): it rotates them itself.
@@ -42,16 +42,19 @@ GEMV_ROWS = 4
 
 @dataclass(slots=True)
 class _Build:
-    served: Any = None
+    served: object = None
     asked: float = float("-inf")
     final: str = ""
 
 
+#: The loaded op: `(x, data, scale, bias, out_dtype) -> out`.
+type Op = Callable[..., Tensor]
+
 _KITCHEN: dict[int, _Build] = {}
 _NATIVE: dict[int, _Build] = {}
 #: Device index -> the loaded op, and the activation dtypes it takes: every call reads these.
-_OPS: dict[int, Any] = {}
-_HALF: list[Any] = []
+_OPS: dict[int, Op] = {}
+_HALF: list[object] = []
 #: The op library this process loaded; its ops are registered once per process.
 _LOADED: list[str] = []
 
@@ -61,13 +64,18 @@ def _built(
     index: int,
     states: dict[int, _Build],
     name: str,
-    opened: Callable[[int], Any],
-) -> Any:
+    opened: Callable[[int], object],
+) -> object:
     """`opened(sm)` on this card once its build lands, None while it runs (the first ask starts
     it) and for good when this card or machine cannot have it, said once."""
     state = states.setdefault(index, _Build())
     now = time.monotonic()
-    if state.served is not None or state.final or now - state.asked < POLL_SECONDS:
+    if (
+        state.served is not None
+        or state.final
+        or now - state.asked < POLL_SECONDS
+        or torch.cuda.is_current_stream_capturing()  # a load would end the graph being recorded
+    ):
         return state.served
     state.asked = now
     major, minor = torch.cuda.get_device_capability(index)
@@ -75,11 +83,46 @@ def _built(
     try:
         state.served = opened(sm)
         if state.served is not None:
+            LANDED[0] += 1
             print(f"[int8] {name} serves sm{sm}", file=sys.stderr)
     except Exception as exc:  # the next path serves this process; said once
         state.final = f"{type(exc).__name__}: {exc}"[:300]
         print(f"[int8] no {name} for this executor: {state.final}", file=sys.stderr)
     return state.served
+
+
+@dataclass(frozen=True, slots=True)
+class Unavailable:
+    """A card whose 8-bit op library will not build for this executor: its int8 and fp8 leaves
+    serve slower paths (comfy-kitchen, cuBLASLt, torch ops) for the executor's life."""
+
+    op: str
+    device: int
+    reason: str
+
+
+def unavailable() -> tuple[Unavailable, ...]:
+    """Each card a leaf asked for the op on whose build failed for good; every run says so."""
+    return tuple(Unavailable(OP, i, b.final) for i, b in sorted(_NATIVE.items()) if b.final)
+
+
+def failed(op: str, device: int, exc: Exception) -> None:
+    """`op` raised on this card: its caller serves a slower path for this one call, and the run
+    says so, once per reason. A device OOM raises: it is the memory manager's to answer."""
+    if is_device_oom(exc):
+        raise exc
+    reason = f"{type(exc).__name__}: {exc}"[:300]
+    fields: dict[str, str | bool | int | float | None] = {
+        "op": op,
+        "device": device,
+        "reason": reason,
+    }
+    row = ("encoded GEMM failed, a slower path served", fields)
+    if row not in WARNINGS:
+        WARNINGS.append(row)
+        print(
+            f"[int8] {op} failed on cuda:{device}, a slower path serves: {reason}", file=sys.stderr
+        )
 
 
 def _store() -> kernel_cache.Store:
@@ -90,20 +133,27 @@ def _store() -> kernel_cache.Store:
 
 
 def _compiled(name: str, sm: int) -> Path | None:
-    """The built artifact's tree, None while it compiles."""
-    built = kernel_compile.submit(_store(), kernel_sources.job(name, sm))
-    if built.state in ("compiling", "pending"):
-        return None
-    if built.state != "ready":
-        raise kernel_sources.Absent(f"{name} sm{sm}: {built.line()}")
-    return Path(built.path) / kernel_cache.SITE
+    """The built artifact's tree, None while it compiles. The op builds for the card's family;
+    a card no row names takes the newest family whose build works for it (`arch`, §2.6)."""
+    families = arch.families(sm) if name == OP else ("",)
+    for family in families:
+        built = kernel_compile.submit(_store(), kernel_sources.job(name, sm, family=family))
+        if built.state in ("compiling", "pending"):
+            return None
+        if built.state == "ready":
+            if family:
+                arch.learn(sm, family)
+            return Path(built.path) / kernel_cache.SITE
+        if family == families[-1]:
+            raise kernel_sources.Absent(f"{name} sm{sm}: {built.line()}")
+    return None
 
 
-def native(torch: ModuleType, index: int) -> Any:
+def native(torch: ModuleType, index: int) -> Op | None:
     """`torch.ops.cozy.int8_linear` on this card, or None while its build runs."""
 
-    def opened(sm: int) -> Any:
-        if sm < 80:
+    def opened(sm: int) -> Op | None:
+        if not arch.row(sm).family:
             raise kernel_sources.Absent(f"no int8 tensor-core GEMM for sm{sm}")
         tree = _compiled(OP, sm)
         if tree is None:
@@ -118,7 +168,7 @@ def native(torch: ModuleType, index: int) -> Any:
         _OPS[index] = torch.ops.cozy.int8_linear.default
         return _OPS[index]
 
-    return _built(torch, index, _NATIVE, "cozy int8 op", opened)
+    return cast("Op | None", _built(torch, index, _NATIVE, "cozy int8 op", opened))
 
 
 def kitchen(torch: ModuleType, index: int) -> ModuleType | None:
@@ -126,7 +176,7 @@ def kitchen(torch: ModuleType, index: int) -> ModuleType | None:
     the first ask) and for good when this card or machine cannot have it."""
 
     def opened(sm: int) -> ModuleType | None:
-        if sm not in KITCHEN_SMS:
+        if not arch.row(sm).family:
             raise kernel_sources.Absent(f"comfy-kitchen carries no device code for sm{sm}")
         found = util.find_spec("comfy_kitchen")
         store = kernel_cache.configured()
@@ -139,30 +189,38 @@ def kitchen(torch: ModuleType, index: int) -> ModuleType | None:
             site.addsitedir(str(tree))
         return import_module("comfy_kitchen.backends.cuda")
 
-    module: ModuleType | None = _built(
-        torch, index, _KITCHEN, "comfy-kitchen CUTLASS int8 GEMM", opened
+    return cast(
+        "ModuleType | None",
+        _built(torch, index, _KITCHEN, "comfy-kitchen CUTLASS int8 GEMM", opened),
     )
-    return module
 
 
 def linear(
-    torch: ModuleType, x: Tensor, data: Tensor, scale: Tensor, bias: Tensor | None, out_dtype: Any
+    torch: ModuleType,
+    x: Tensor,
+    data: Tensor,
+    scale: Tensor,
+    bias: Tensor | None,
+    out_dtype: object,
 ) -> Tensor:
     """`x @ W.T + bias` for one `int8-convrot256/1` weight: `data` int8 `[N, K]`, `scale` f32."""
-    op = _OPS.get(x.get_device())
-    if op is not None and x.dtype in _HALF:
-        return op(x, data, scale, bias, out_dtype)
-    if x.is_cuda and x.dtype in (torch.bfloat16, torch.float16):
-        index = x.device.index or 0
-        op = native(torch, index)
-        if op is not None:
+    index = x.get_device()
+    op = _OPS.get(index)
+    try:
+        if op is not None and x.dtype in _HALF:
             return op(x, data, scale, bias, out_dtype)
-        module = kitchen(torch, index)
-        if module is not None:
-            with readable(data, scale, bias) as (data, scale, bias):
-                return module.int8_linear(
-                    x, data, scale, bias, out_dtype, convrot=True, convrot_groupsize=CONVROT_GROUP
-                )
+        if x.is_cuda and x.dtype in (torch.bfloat16, torch.float16):
+            op = native(torch, index)
+            if op is not None:
+                return op(x, data, scale, bias, out_dtype)
+            module = kitchen(torch, index)
+            if module is not None:
+                with readable(data, scale, bias) as (d, s, b):
+                    return module.int8_linear(
+                        x, d, s, b, out_dtype, convrot=True, convrot_groupsize=CONVROT_GROUP
+                    )
+    except Exception as exc:  # eager serves this call
+        failed(OP if op is not None else ARTIFACT, index, exc)
     out = eager(torch, x, data, scale, out_dtype)
     return out if bias is None else out + bias.to(out.dtype)
 
@@ -174,7 +232,11 @@ def quantize(torch: ModuleType, x: Tensor) -> PreQuantized | None:
         return None
     if _OPS.get(x.get_device()) is None:
         return None
-    payload, scale = torch.ops.cozy.int8_quantize.default(x)
+    try:
+        payload, scale = torch.ops.cozy.int8_quantize.default(x)
+    except Exception as exc:
+        failed(OP, x.get_device(), exc)
+        return None
     return PreQuantized(payload, scale, tuple(x.shape), INT8_CONVROT)
 
 
@@ -211,9 +273,13 @@ def prologue(
             or module._forward_pre_hooks  # type: ignore[attr-defined]
         ):
             return None
-    payload, row_scale = torch.ops.cozy.int8_quantize.default(
-        x, scale, shift, NORMS[norm], eps, ACTIVATIONS[activation]
-    )
+    try:
+        payload, row_scale = torch.ops.cozy.int8_quantize.default(
+            x, scale, shift, NORMS[norm], eps, ACTIVATIONS[activation]
+        )
+    except Exception as exc:
+        failed(OP, x.get_device(), exc)
+        return None
     return PreQuantized(payload, row_scale, tuple(x.shape), INT8_CONVROT)
 
 
@@ -227,9 +293,14 @@ def gemm(
 ) -> Tensor:
     """The linear of a `quantize`d operand: the op's GEMM, both scales and the bias in its
     epilogue."""
-    out = torch.ops.cozy.int8_gemm.default(
-        operand.payload, operand.scale, data, scale, bias, out_dtype
-    )
+    try:
+        out = torch.ops.cozy.int8_gemm.default(
+            operand.payload, operand.scale, data, scale, bias, out_dtype
+        )
+    except Exception as exc:  # torch's int8 GEMM serves this call
+        failed(OP, operand.payload.get_device(), exc)
+        out = _product(torch, operand.payload, operand.scale, data, scale, out_dtype)
+        out = out if bias is None else out + bias.to(out.dtype)
     return out.view(*operand.shape[:-1], -1)
 
 
@@ -238,6 +309,19 @@ def eager(torch: ModuleType, x: Tensor, data: Tensor, scale: Tensor, out_dtype: 
     rotated = hadamard256(torch, x.reshape(-1, x.shape[-1]).float()).mul_(1.0 / 16)
     row_scale = (rotated.abs().amax(-1, keepdim=True) / 127.0).clamp_(min=1e-12)
     quantized = torch.round(rotated / row_scale).clamp_(-127, 127).to(torch.int8)
+    out = _product(torch, quantized, row_scale, data, scale, out_dtype)
+    return out.reshape(*x.shape[:-1], -1)
+
+
+def _product(
+    torch: ModuleType,
+    quantized: Tensor,
+    row_scale: Tensor,
+    data: Tensor,
+    scale: Tensor,
+    out_dtype: Tensor,
+) -> Tensor:
+    """`[M, K]` int8 rows times the weight in torch's int8 GEMM, both scales applied."""
     rows = int(quantized.shape[0])
     if quantized.is_cuda:
         # cuBLASLt's int8 GEMM takes more than 16 rows; the padding rows are zeros.
@@ -245,5 +329,5 @@ def eager(torch: ModuleType, x: Tensor, data: Tensor, scale: Tensor, out_dtype: 
         acc = torch._int_mm(padded, data.t())[:rows]
     else:
         acc = quantized.to(torch.int32) @ data.to(torch.int32).t()
-    out = acc.float().mul_(row_scale).mul_(scale.float().reshape(1, -1))
-    return out.to(out_dtype).reshape(*x.shape[:-1], -1)
+    out = acc.float().mul_(row_scale.reshape(-1, 1)).mul_(scale.float().reshape(1, -1))
+    return out.to(out_dtype)

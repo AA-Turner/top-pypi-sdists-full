@@ -77,7 +77,6 @@ async def _apply_message_flags(wire_config: Any, config: Any, profile: Any, wire
     """
     from matrx_ai.config.message_config import MessageList
     from matrx_ai.config.message_flags import (
-        CACHE_BOUNDARY_BY_WIRE,
         COMPAT_MODE_METADATA_KEY,
         CONVERT_PREFILL_SLOT,
         flags_of,
@@ -91,7 +90,6 @@ async def _apply_message_flags(wire_config: Any, config: Any, profile: Any, wire
     plan = plan_message_flags(
         list(messages),
         supports_prefill=bool(getattr(profile.capabilities, "supports_assistant_prefill", False)),
-        cache_boundary_support=CACHE_BOUNDARY_BY_WIRE.get(wire_format, "none"),
         model_label=profile.model_name,
         mode=metadata.get(COMPAT_MODE_METADATA_KEY) if isinstance(metadata, dict) else None,
     )
@@ -117,6 +115,23 @@ async def _apply_message_flags(wire_config: Any, config: Any, profile: Any, wire
         except Exception as exc:  # noqa: BLE001 — display only; the stored reply is still whole
             vcprint(f"[message flags] prefill chunk not streamed: {exc!r}", color="yellow")
     return plan
+
+
+#: Wires whose translator honours the long-cache setting itself (config/cache_marks.py).
+_LONG_CACHE_WIRES = frozenset({"anthropic_chat", "openai_chat"})
+
+
+def _note_long_cache_without_knob(config: Any, profile: Any, wire_format: str) -> None:
+    """The long-cache agent setting on a wire with no lifetime knob is SAID, never pretended."""
+    if not getattr(config, "extended_prompt_cache", False) or wire_format in _LONG_CACHE_WIRES:
+        return
+    from matrx_ai.config.cache_marks import long_cache_note
+    from matrx_ai.providers.request_capture import note_capture
+
+    provider = "google" if wire_format.startswith("google") else wire_format.split("_")[0]
+    note = long_cache_note(provider, getattr(profile, "model_name", None), applied=None)
+    vcprint(note, "[cache marks]", color="yellow")
+    note_capture(note)
 
 
 async def _announce_flag_notes(notes: list[str]) -> None:
@@ -973,6 +988,20 @@ def _restore_decision_text_gate(request: Any) -> None:
         set_app_context(ctx.with_overrides(emitter=original))
 
 
+def billable_usage(usage: Any) -> Any:
+    """The token-spine form of a call's usage.
+
+    A duration-billed call (speech-to-text) carries an ``STTUsage`` (seconds, no token fields) and
+    prices through ``to_token_usage()`` (seconds -> the basis's synthetic units). Asking such a usage
+    for a catalog cost directly raised AttributeError, which read as "no price" and alarmed
+    ``Model calls are unpriced: whisper-large-v3-turbo (0 tokens)`` on every transcription.
+    """
+    if hasattr(usage, "calculate_catalog_cost"):
+        return usage
+    convert = getattr(usage, "to_token_usage", None)
+    return convert() if callable(convert) else usage
+
+
 async def catalog_cost_or_none(usage: Any) -> float | None:
     """The call's catalog cost, or None when its price is UNKNOWN (never a silent 0.0).
 
@@ -984,7 +1013,7 @@ async def catalog_cost_or_none(usage: Any) -> float | None:
         from matrx_ai.config.usage_config import ensure_pricing_lookup
 
         pricing = await ensure_pricing_lookup()
-        cost = usage.calculate_catalog_cost(pricing)
+        cost = billable_usage(usage).calculate_catalog_cost(pricing)
     except Exception:  # noqa: BLE001 — pricing must never fail a completed turn
         return None
     return None if cost is None else float(cost)
@@ -1958,10 +1987,11 @@ class UnifiedAIClient:
         apply_wire_additions(wire_config, tool_adaptations)
         # The wire carries the adapted flags; the live config keeps what was authored.
         restore_tool_flags(config, authored_flags)
-        # MESSAGE FLAGS (prefill / cache_boundary / example) — the capability
+        # MESSAGE FLAGS (prefill / example) — the capability
         # gate for the translator instructions an author set on messages. Raises
         # MessageFlagRefusal BEFORE the paid call when the org mode is refuse.
         flag_plan = await _apply_message_flags(wire_config, config, profile, wire_format)
+        _note_long_cache_without_knob(config, profile, wire_format)
         client_attr = profile.client_attr
         if client_attr == self._GENERIC_OPENAI_CLIENT_ATTR:
             # Look up a registered local GenericOpenAIChat by CANONICAL model name
@@ -2135,7 +2165,7 @@ class UnifiedAIClient:
                 if await heal.empty_answer_retry(result, streamed_before=streamed_before):
                     continue  # R-b: an empty 200 on a settings-bearing call, sent once more
                 await heal.succeeded(result)
-                await note_paid_result(result)
+                await note_paid_result(result, profile=profile)
                 return result
             except Exception as exc:
                 if await heal.handle_failure(exc, streamed_before=streamed_before):

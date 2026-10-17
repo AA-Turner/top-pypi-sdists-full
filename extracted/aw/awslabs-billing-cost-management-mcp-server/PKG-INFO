@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: awslabs.billing-cost-management-mcp-server
-Version: 0.0.41
+Version: 0.0.42
 Summary: A Model Context Protocol (MCP) server that provides tools for AWS Billing and Cost Management by wrapping boto3 SDK functions.
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/billing-cost-management-mcp-server/
@@ -414,6 +414,28 @@ The server uses these key environment variables:
   "AWS_REGION": "us-east-1"
 }
 ```
+
+## Error responses
+
+Tool errors are returned with `isError: true` and a JSON body that includes:
+
+| Field | Description |
+|-------|-------------|
+| `status` | Always `error` |
+| `error_type` | Stable classification. AWS API errors pass the AWS error code through (`ThrottlingException`, `AccessDeniedException`, ...); local errors use lowercase values (`validation_error`, `no_results`, `invalid_operation`, ...) |
+| `message` | Human-readable explanation |
+| `retry_strategy` | What the caller should do next: `retry_same_request`, `modify_request`, or `do_not_retry` |
+| `hint` | Optional fixed recovery guidance |
+
+`retry_strategy` is derived from `error_type`:
+
+| `retry_strategy` | `error_type` values |
+|------------------|---------------------|
+| `retry_same_request` | Throttling (`ThrottlingException`, `Throttling`, `ThrottledException`, `TooManyRequestsException`, `RequestLimitExceeded`, `LimitExceededException`, `throttling_error`), `aws_connection_error`, server-side errors (`InternalServerException`, `InternalErrorException`, `ServiceUnavailable`, `service_unavailable`, ...), timeouts (`unknown_timeouterror`), and any otherwise unmapped AWS error with an HTTP 5xx status |
+| `modify_request` | `validation_error`, `invalid_operation`, `invalid_parameter_value`, `ValidationException`, `InvalidParameter*`, `InvalidInputException`, `InvalidNextTokenException`, `ExpiredNextTokenException`, `InvalidRequestException`, `BadRequestException`, `BillExpirationException`, `RequestChangedException`, `no_results`, `ResourceNotFoundException`, `resource_not_found`, `NotFoundException`, `not_found` |
+| `do_not_retry` | `AccessDenied*`, `access_denied`, `UnauthorizedOperation`, `UnauthorizedException`, `AuthFailure`, `OptInRequiredException`, `opt_in_required`, `enrollment_error`, `DataUnavailableException`, and any missing or unrecognized `error_type` |
+
+A tool can override the mapping for a specific error by passing `retry_strategy=` and `hint=` to `format_response`. Session SQL errors from invalid queries are `modify_request`, and when every region of a multi-region call fails, `retry_strategy` is combined from each region's own error. The full mapping is in `utilities/error_contract.py`.
 
 ## Supported AWS Services
 

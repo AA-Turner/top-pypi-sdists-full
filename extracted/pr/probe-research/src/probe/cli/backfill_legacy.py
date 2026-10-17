@@ -136,7 +136,9 @@ def reconcile(coverage: Coverage, client, folder: Path) -> dict[str, dict]:
                     temporary.unlink(missing_ok=True)
             coverage.approve({path: project})
             coverage.remember_manifest(path, manifest)
-            approved = {**row, "approved_hash": row["observed_hash"], "project_id": project_id}
+            # `approve` cleared any earlier left-out decision; the snapshot must too.
+            approved = {**row, "approved_hash": row["observed_hash"], "project_id": project_id,
+                        "exclusion": None}
             intent = coverage.intend(approved, reference=wanted_ref,
                                      uri=item["uri"] if wanted_ref else None)
             coverage.accept_receipt(intent["correlation"], {

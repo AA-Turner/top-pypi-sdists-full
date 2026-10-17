@@ -34,6 +34,7 @@ from pathlib import Path
 import pytest
 
 from probe import skill_versions
+from tests.held_for_plugin_release import HELD_NEW_SKILLS, HELD_SKILLS, REASON
 
 _ROOT = Path(__file__).resolve().parent.parent
 
@@ -55,6 +56,9 @@ _SYNCED = (
     "edit-notes",
     "notes-audit",
     "plan-research-review",
+    # writer-owns-summary (D2): the recorder keeps summaries and Metrics-center visuals
+    "write-summary",
+    "overview-visuals",
 )
 
 
@@ -67,7 +71,11 @@ def _files(root: Path) -> dict[str, Path]:
     }
 
 
-@pytest.mark.parametrize("skill", _SYNCED)
+@pytest.mark.parametrize(
+    "skill",
+    [pytest.param(s, marks=pytest.mark.xfail(strict=True, reason=REASON)) if s in HELD_SKILLS else s
+     for s in _SYNCED],
+)
 def test_pi_skill_copy_matches_canonical(skill: str) -> None:
     canonical, plugin = _CANONICAL / skill, _PI_PLUGIN / skill
     assert canonical.is_dir(), f"canonical skill {skill} is missing"
@@ -98,12 +106,13 @@ def test_every_canonical_skill_is_covered_by_this_guard() -> None:
     package.json's "pi.skills", AND to `_SYNCED` here — otherwise it is
     silently missing from the pi package while every parametrized case
     above still passes."""
-    on_disk = {path.name for path in _CANONICAL.iterdir() if path.is_dir()} - _CAPY_ONLY
+    on_disk = {path.name for path in _CANONICAL.iterdir() if path.is_dir()} - _CAPY_ONLY - HELD_NEW_SKILLS
     covered = set(_SYNCED)
     assert on_disk == covered, (
         f"skills/ holds {sorted(on_disk)} but this guard covers {sorted(covered)}; "
         "add it to _SYNCED + the Makefile + package.json's pi.skills"
     )
+    assert not {s for s in HELD_NEW_SKILLS if (_PI_PLUGIN / s).exists()}, "empty HELD_NEW_SKILLS"
 
 
 def test_the_makefile_sync_list_matches_synced() -> None:

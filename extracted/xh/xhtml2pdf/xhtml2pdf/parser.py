@@ -24,9 +24,16 @@ import html5lib
 from html5lib import treebuilders
 from reportlab.lib.colors import Color
 from reportlab.platypus.doctemplate import FrameBreak, NextPageTemplate
-from reportlab.platypus.flowables import KeepInFrame, KeepTogether, PageBreak
+from reportlab.platypus.flowables import KeepInFrame, KeepTogether, PageBreak, Spacer
 
-from xhtml2pdf.builders.block import BlockBoxData, block_box_style, declared_height
+from xhtml2pdf.builders.block import (
+    BlockBoxData,
+    block_box_style,
+    bottom_aligned,
+    collapse_margins,
+    declared_height,
+    declared_width,
+)
 from xhtml2pdf.builders.flex import (
     BoxStyle,
     FlexData,
@@ -112,6 +119,7 @@ from xhtml2pdf.tags import (  # noqa: F401
     pisaTagPDFNEXTTEMPLATE,
     pisaTagPDFPAGECOUNT,
     pisaTagPDFPAGENUMBER,
+    pisaTagPDFRESETPAGENUMBER,
     pisaTagPDFSPACER,
     pisaTagPDFTEMPLATE,
     pisaTagPDFTOC,
@@ -1034,7 +1042,7 @@ _NO_BLOCK_BOX_TAGS = frozenset(
 )
 
 #: Tags that put something other than text into a block's story, whatever
-#: their display: a table, a rule, a break, a spacer, an index.
+#: their display: a table, a rule, a break, a spacer, an index, a chart.
 _BLOCK_CONTENT_TAGS = frozenset(
     {
         "table",
@@ -1044,6 +1052,7 @@ _BLOCK_CONTENT_TAGS = frozenset(
         "pdfnexttemplate",
         "pdfspacer",
         "pdftoc",
+        "canvas",
     }
 )
 
@@ -1260,6 +1269,31 @@ def _keeps_with_next(flowable) -> bool:
     return bool(get() if get is not None else getattr(flowable, "keepWithNext", 0))
 
 
+def _take_page_padding(context, kw: dict) -> None:
+    """
+    Turn the padding of <html> or <body> into room around the page content.
+
+    The side padding indents everything inside and the top padding is room
+    above the first block. Nothing follows the last block, so the bottom
+    padding has nothing to keep away; a page of its own for it would be
+    empty. The padding is taken off the frag, so nothing inside draws it.
+    """
+    frag = context.frag
+    left = getattr(frag, "paddingLeft", 0) or 0
+    right = getattr(frag, "paddingRight", 0) or 0
+    kw["margin-left"] += left
+    kw["margin-right"] += right
+    inset_left, inset_right = context.pageInset
+    context.pageInset = (inset_left + left, inset_right + right)
+    frag.paddingLeft = frag.paddingRight = 0
+    frag.leftIndent = kw["margin-left"]
+    frag.rightIndent = kw["margin-right"]
+    top = getattr(frag, "paddingTop", 0) or 0
+    frag.paddingTop = frag.paddingBottom = 0
+    if top:
+        context.addStory(Spacer(0, top))
+
+
 def pisaLoop(node, context, **kw):
     # Once per element: a render's time limit is checked as it goes.
     check_deadline()
@@ -1299,6 +1333,7 @@ def pisaLoop(node, context, **kw):
 
         pageBreakAfter = False
         breakInsideAvoid = False
+        frameAlignBottom = False
         blockStoryStart = 0
         frameBreakAfter = False
         display = getDisplay(context.cssAttr.get("display", "inline"))
@@ -1354,6 +1389,10 @@ def pisaLoop(node, context, **kw):
             if breakAfter == "avoid":
                 pageBreakAfter = PAGE_BREAK_AVOID
             breakInsideAvoid = pageBreakValue(context.cssAttr, "inside") == "avoid"
+            frameAlignBottom = (
+                str(context.cssAttr.get("-pdf-frame-align", "")).strip().lower()
+                == "bottom"
+            )
             blockStoryStart = len(context.story)
 
         if display == Display.NONE:
@@ -1378,6 +1417,8 @@ def pisaLoop(node, context, **kw):
         CSS2Frag(context, kw, isBlock=isBlock or isInlineBlock or outOfFlow)
         if node.tagName == "html":
             context.rootFontSize = context.frag.fontSize
+        if isBlock and node.tagName in {"html", "body"}:
+            _take_page_padding(context, kw)
 
         offsets = (
             read_offsets(context.cssAttr, context.frag.fontSize)
@@ -1500,11 +1541,15 @@ def pisaLoop(node, context, **kw):
             boxStyle = block_box_style(context, kw)
             # A block of text alone is one paragraph, which draws its own
             # box -- unless the block is empty, when there is no paragraph
-            # to draw it, or declares a height, which a paragraph ignores.
+            # to draw it, or declares a height or a width, which a paragraph
+            # ignores.
             # Not a flex item: the container sizes and draws its items.
+            sized = bool(declared_height(context)) or (
+                declared_width(context) is not None
+            )
             if boxStyle is not None and (
                 hasBlockContent(node, context)
-                or (not isFlexItem and (isEmptyBlock(node) or declared_height(context)))
+                or (not isFlexItem and (isEmptyBlock(node) or sized))
             ):
                 blockBox = BlockBoxData(context, kw, boxStyle)
 
@@ -1549,6 +1594,19 @@ def pisaLoop(node, context, **kw):
         # changed: every clone of it below copies what it holds.
         compact_frag(context.frag)
         context.fragBlock = fragBlock = copy.copy(context.frag)
+        # A block without a box of its own: its vertical margins go on the
+        # first and last thing it puts into the flow when it closes, not on
+        # every paragraph of its own text.
+        blockMargins = None
+        placedElsewhere = isFlex or isFlexItem or outOfFlow or bool(staticFrame)
+        if (
+            isBlock
+            and blockBox is None
+            and not placedElsewhere
+            and node.tagName not in _NO_BLOCK_BOX_TAGS
+        ):
+            blockMargins = (fragBlock.spaceBefore or 0, fragBlock.spaceAfter or 0)
+            fragBlock.spaceBefore = fragBlock.spaceAfter = 0
         if isBlock:
             # A block's background belongs to its box, which fragBlock (or the
             # block box) paints. Inherited by the words inside, it was painted
@@ -1590,6 +1648,8 @@ def pisaLoop(node, context, **kw):
         # Block?
         if isBlock:
             context.addPara()
+            if blockMargins is not None:
+                collapse_margins(context.story[blockStoryStart:], *blockMargins)
 
             # XXX Buggy!
 
@@ -1600,6 +1660,10 @@ def pisaLoop(node, context, **kw):
             if position == "relative":
                 # Drawn where top/left say, laid out and paginated where it is.
                 shift_story(context.story, blockStoryStart, offsets)
+            if frameAlignBottom and not staticFrame:
+                context.story[blockStoryStart:] = bottom_aligned(
+                    context.story[blockStoryStart:]
+                )
             if breakInsideAvoid and len(context.story) > blockStoryStart:
                 # Even round a single flowable: a lone paragraph is split
                 # line by line otherwise. And with the blocks before it that

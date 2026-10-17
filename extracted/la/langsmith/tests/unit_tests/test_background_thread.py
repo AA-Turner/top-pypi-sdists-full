@@ -26,9 +26,7 @@ def test_hybrid_mode_spawns_no_threads_per_batch(monkeypatch):
 
     client = FakeClient()
     for batch in make_batches(20, ops_per_batch=5):
-        bt._hybrid_tracing_thread_handle_batch(
-            client, Queue(), batch, use_multipart=True, mark_task_done=False
-        )
+        bt._hybrid_tracing_thread_handle_batch(client, Queue(), batch, use_multipart=True, mark_task_done=False)
 
     assert client.sends == 20  # the sends really happened
     assert started == []  # and cost no threads
@@ -37,12 +35,8 @@ def test_hybrid_mode_spawns_no_threads_per_batch(monkeypatch):
 def test_hybrid_batch_sends_both_legs_once_and_finishes_the_queue(monkeypatch):
     """Hybrid mode sends each leg exactly once and always drains the queue."""
     sent = []
-    monkeypatch.setattr(
-        bt, "_tracing_thread_handle_batch", lambda *a, **k: sent.append("langsmith")
-    )
-    monkeypatch.setattr(
-        bt, "_otel_tracing_thread_handle_batch", lambda *a, **k: sent.append("otel")
-    )
+    monkeypatch.setattr(bt, "_tracing_thread_handle_batch", lambda *a, **k: sent.append("langsmith"))
+    monkeypatch.setattr(bt, "_otel_tracing_thread_handle_batch", lambda *a, **k: sent.append("otel"))
 
     batch = make_batches(1, ops_per_batch=1)[0]
     queue: Queue = Queue()

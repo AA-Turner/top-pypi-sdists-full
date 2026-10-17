@@ -49,7 +49,9 @@ from abc import ABC
 from contextlib import contextmanager
 from functools import partial
 import os
+import sys
 import tempfile
+from importlib.metadata import PackageNotFoundError, version
 from types import ModuleType
 from urllib.parse import urlparse
 
@@ -84,6 +86,15 @@ __all__ = [
 # Turning off too-many-lines because we are defining a lot of classes in this file
 
 
+def __connector_uses_sf_dirs() -> bool:
+    """Return True if the installed snowflake-connector-python still ships `sf_dirs` (major version < 5)."""
+    try:
+        major = int(version("snowflake-connector-python").split(".")[0])
+    except (PackageNotFoundError, ValueError):
+        return False
+    return major < 5
+
+
 def __check_access_snowflake_config_dir() -> bool:
     """Check if the Snowflake configuration directory is accessible.
 
@@ -96,6 +107,9 @@ def __check_access_snowflake_config_dir() -> bool:
     bool
         True if the Snowflake configuration directory is accessible, otherwise False.
     """
+    if not __connector_uses_sf_dirs():
+        return True
+
     check_result = False
 
     try:
@@ -415,18 +429,18 @@ class SnowflakeRunQueryPython(SnowflakeStep):
         _conn = self._snowflake_connector.connect(**sf_options)
         self.log.info(f"Connected to Snowflake account: {sf_options['account']}")
 
+        # `logger` exists on `snowflake.connector.connection` for connector <5 only; skip the swap when it's absent.
+        sf_connection_module = sys.modules.get("snowflake.connector.connection")
+        original_logger = getattr(sf_connection_module, "logger", None)
         try:
-            from snowflake.connector.connection import logger as snowflake_logger
-
-            _preserve_snowflake_logger = snowflake_logger
-            snowflake_logger = self.log
-            snowflake_logger.debug("Replace snowflake logger with Koheesio logger")
+            if original_logger is not None:
+                sf_connection_module.logger = self.log
+                self.log.debug("Replace snowflake logger with Koheesio logger")
             yield _conn
         finally:
-            if _preserve_snowflake_logger:
-                if snowflake_logger:
-                    snowflake_logger.debug("Restore snowflake logger")
-                snowflake_logger = _preserve_snowflake_logger
+            if original_logger is not None:
+                self.log.debug("Restore snowflake logger")
+                sf_connection_module.logger = original_logger
 
             if _conn:
                 _conn.close()

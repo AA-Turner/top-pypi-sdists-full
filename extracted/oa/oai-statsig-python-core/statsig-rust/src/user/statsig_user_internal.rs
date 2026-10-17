@@ -358,7 +358,7 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
         }
     }
 
-    fn statsig_environment(&self) -> Option<&UserDataMap> {
+    pub(crate) fn statsig_environment(&self) -> Option<&UserDataMap> {
         match self.user_ref {
             InternalUserRef::Public(user) => user.data.statsig_environment.as_ref(),
             InternalUserRef::Fast(user) => user.data.statsig_environment.as_ref(),

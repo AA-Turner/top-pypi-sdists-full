@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, Generic, List, Literal, Optional, TypeVar, Union
@@ -256,6 +257,16 @@ def _extract_filesystem(filesystem: Any, agent: Any, user_id: Optional[str] = No
     )
 
 
+def _builtin_component_metadata(component: Any) -> Optional[Dict[str, Any]]:
+    """Expose framework identity without publishing arbitrary metadata in summaries."""
+    from agno.registry._reserved import RESERVED_MANAGER_IDS
+
+    component_id = getattr(component, "id", None)
+    if component_id in RESERVED_MANAGER_IDS and getattr(component, "_registry_excluded", False):
+        return {"_agno": {"internal": True, "id": component_id}}
+    return None
+
+
 class AgentSummaryResponse(BaseModel):
     id: Optional[str] = Field(None, description="Unique identifier for the agent")
     name: Optional[str] = Field(None, description="Name of the agent")
@@ -270,7 +281,9 @@ class AgentSummaryResponse(BaseModel):
         # Built-in adapters expose sdk. The framework fallback is only for third-party adapters that
         # satisfy AgentProtocol structurally and predate the rename; drop it with the framework alias.
         sdk = getattr(agent, "sdk", None) or getattr(agent, "framework", None)
-        metadata = {"sdk": sdk} if sdk else None
+        metadata = _builtin_component_metadata(agent)
+        if sdk:
+            metadata = {**(metadata or {}), "sdk": sdk}
         if isinstance(agent, AgentFactory):
             return cls(
                 id=agent.id,
@@ -297,6 +310,8 @@ class TeamSummaryResponse(BaseModel):
     mode: Optional[str] = Field(None, description="Team execution mode (coordinate, route, broadcast, tasks)")
     model: Optional[Model] = Field(None, description="Model used by the team leader")
 
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Framework component metadata")
+
     @classmethod
     def from_team(cls, team: Union[Team, RemoteTeam, TeamFactory]) -> "TeamSummaryResponse":
         if isinstance(team, TeamFactory):
@@ -316,6 +331,7 @@ class TeamSummaryResponse(BaseModel):
             db_id=db_id,
             mode=mode,
             model=_extract_model(team),
+            metadata=_builtin_component_metadata(team),
         )
 
 
@@ -412,6 +428,36 @@ class InfoResponse(BaseModel):
     )
 
 
+class QueueCapabilities(BaseModel):
+    """Deployment-level background-run capabilities: what a client may rely on
+    when deciding whether to render queue-aware UI (e.g. a chat tray).
+
+    Reported as EFFECTIVE behavior, not raw settings: queue_per_session is
+    true only when a durable queue actually enforces the per-session gate -
+    a queue_per_session flag without durable=True, or with a custom store
+    that does not serialize sessions, gates nothing and is reported false. Readable by any authenticated caller (deployment
+    capability, not operator data - the admin-scoped /queue surface stays
+    the only view of actual jobs).
+
+    Both fields describe submissions the durable queue can carry. A
+    background submission the queue cannot carry (media uploads, payloads
+    plain JSON cannot store, factory-backed or off-registry components)
+    executes in-process on the accepting replica, outside the gate and
+    without durability, and the server logs each such bypass; the client
+    still receives 202 PENDING. A caller that sends those knows it is
+    sending them; the capability does not change per submission."""
+
+    durable: bool = Field(
+        ...,
+        description="Accepted background runs survive crashes and deploys (ticketed queue with a worker)",
+    )
+    queue_per_session: bool = Field(
+        ...,
+        description="Same-session background submissions execute at most one at a time, FIFO by submission; "
+        "false when no durable queue enforces the gate",
+    )
+
+
 class ConfigResponse(BaseModel):
     """Response schema for the general config endpoint"""
 
@@ -438,6 +484,9 @@ class ConfigResponse(BaseModel):
     knowledge: Optional[KnowledgeConfig] = Field(None, description="Knowledge configuration")
     evals: Optional[EvalsConfig] = Field(None, description="Evaluations configuration")
     traces: Optional[TracesConfig] = Field(None, description="Traces configuration")
+    # Optional for CLIENT compatibility (the SDK parses this same schema, and
+    # older servers omit the field); the server always populates it.
+    queue: Optional[QueueCapabilities] = Field(None, description="Background-run queue capabilities")
 
     agents: List[AgentSummaryResponse] = Field(..., description="List of registered agents")
     teams: List[TeamSummaryResponse] = Field(..., description="List of registered teams")
@@ -776,10 +825,57 @@ class RunSchema(BaseModel):
         )
 
 
+_RUN_PREVIEW_CHARS = 280
+
+
+class SessionRunPreviewSchema(BaseModel):
+    """Lightweight session-run listing entry: the shape a queue tray or
+    session sidebar polls for. Deliberately excludes messages, events, media,
+    metrics and step results - the full shapes stay on the default listing
+    and the single-run endpoint. Previews are truncated to 280 characters."""
+
+    run_id: str = Field(..., description="Unique identifier for the run")
+    parent_run_id: Optional[str] = Field(None, description="Parent run ID if this is a nested run")
+    agent_id: Optional[str] = Field(None, description="Agent ID, when this is an agent run")
+    team_id: Optional[str] = Field(None, description="Team ID, when this is a team run")
+    workflow_id: Optional[str] = Field(None, description="Workflow ID, when this is a workflow run")
+    user_id: Optional[str] = Field(None, description="User ID associated with the run")
+    status: Optional[str] = Field(
+        None, description="Run status (PENDING, RUNNING, PAUSED, COMPLETED, CANCELLED, ERROR, REGENERATED)"
+    )
+    run_input: Optional[str] = Field(None, description="Input preview, truncated")
+    content_preview: Optional[str] = Field(None, description="Output content preview, truncated")
+    created_at: Optional[datetime] = Field(None, description="Run creation timestamp")
+
+    @classmethod
+    def _preview(cls, value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        # Structured output (output_schema) previews as JSON, matching the full listing's content.
+        text = value if isinstance(value, str) else json.dumps(value, default=str)
+        return text[:_RUN_PREVIEW_CHARS]
+
+    @classmethod
+    def from_run(cls, run: Any) -> "SessionRunPreviewSchema":
+        return cls(
+            run_id=run.run_id,
+            parent_run_id=getattr(run, "parent_run_id", None),
+            agent_id=getattr(run, "agent_id", None),
+            team_id=getattr(run, "team_id", None),
+            workflow_id=getattr(run, "workflow_id", None),
+            user_id=getattr(run, "user_id", None),
+            status=getattr(run, "status", None),
+            run_input=cls._preview(getattr(run, "run_input", None)),
+            content_preview=cls._preview(getattr(run, "content", None)),
+            created_at=getattr(run, "created_at", None),
+        )
+
+
 class TeamRunSchema(BaseModel):
     run_id: str = Field(..., description="Unique identifier for the team run")
     parent_run_id: Optional[str] = Field(None, description="Parent run ID if this is a nested run")
     team_id: Optional[str] = Field(None, description="Team ID that executed this run")
+    user_id: Optional[str] = Field(None, description="User ID associated with the run")
     status: Optional[str] = Field(None, description="Run status (PENDING, RUNNING, COMPLETED, ERROR, etc.)")
     cancellation_stage: Optional[str] = Field(None, description=CANCELLATION_STAGE_DESCRIPTION)
     content: Optional[Union[str, dict]] = Field(None, description="Output content from the team run")
@@ -832,6 +928,7 @@ class TeamRunSchema(BaseModel):
             run_id=run_dict.get("run_id", ""),
             parent_run_id=run_dict.get("parent_run_id", ""),
             team_id=run_dict.get("team_id", ""),
+            user_id=run_dict.get("user_id"),
             status=run_dict.get("status"),
             cancellation_stage=run_dict.get("cancellation_stage"),
             run_input=run_input,

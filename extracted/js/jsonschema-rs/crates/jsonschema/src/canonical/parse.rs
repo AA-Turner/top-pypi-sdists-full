@@ -17,7 +17,7 @@ use crate::{
             ExcludedDivisors, IntegerLeaf, LengthBounds, NumberLeaf, ObjectLeaf, PropertyMap,
             Schema, SchemaKind, Side, StringFormat, StringLeaf,
         },
-        negate, CanonicalizationError, DefinitionMap, CANONICAL_REFERENCE_PREFIX,
+        negate, rename, CanonicalizationError, DefinitionMap, CANONICAL_REFERENCE_PREFIX,
         ROOT_DEFINITION_KEY,
     },
     JsonType, JsonTypeSet,
@@ -66,44 +66,138 @@ impl ParseOutput {
 /// of the reads a caller asks for, so holding it costs no parse of its own.
 pub(crate) struct Seed {
     definitions: DefinitionMap,
+    /// Each key mapped to the bodies pointing at it, so a read finds what reaches its own root
+    /// without walking every body.
+    referrers: Referrers,
     /// Addresses, never read through: a source is only ever compared for identity, and keeping
     /// them as references would tie the seed to the borrow that produced it.
     sources: AHashMap<Arc<str>, usize>,
 }
 
+type Referrers = AHashMap<Arc<str>, Vec<Arc<str>>>;
+
 impl Seed {
-    /// What `seed` becomes once a parse that reached `definitions` is folded in; `None` when that
-    /// parse reached no body the seed does not already hold.
+    /// What `seed` becomes once a parse of `root` that reached `definitions` is folded in; `None`
+    /// when that parse reached no body the seed does not already hold.
     fn grown(
         seed: Option<&Seed>,
+        root: &Value,
+        parsed_root: &Schema,
         definitions: &DefinitionMap,
         sources: AHashMap<Arc<str>, usize>,
     ) -> Option<Seed> {
+        // Only bodies the seed lacks: the ones it holds point at no `#`.
+        let mut added: DefinitionMap = definitions
+            .iter()
+            .filter(|(key, _)| seed.is_none_or(|seed| !seed.definitions.contains_key(*key)))
+            .map(|(key, body)| (Arc::clone(key), body.clone()))
+            .collect();
+        // `#` names the root of this read, a different subschema in a later one. Pointing it at the
+        // root's own key, with the root kept as that key's body, keeps every body valid in any read.
+        let root_key = sole_key(&sources, root);
+        if let Some(key) = &root_key {
+            let renames = AHashMap::from_iter([(Arc::from(ROOT_DEFINITION_KEY), Arc::clone(key))]);
+            for body in added.values_mut() {
+                *body = rename::rename_references(body, &renames);
+            }
+            if seed.is_none_or(|seed| !seed.definitions.contains_key(key)) {
+                added.insert(
+                    Arc::clone(key),
+                    rename::rename_references(parsed_root, &renames),
+                );
+            }
+        }
+        let mut referrers = Referrers::default();
+        for (key, reached) in emptiness::reference_edges(&Schema::truthy(), &added) {
+            for (target, _) in reached {
+                referrers.entry(target).or_default().push(Arc::clone(&key));
+            }
+        }
+        if root_key.is_none() {
+            let tied = reaching(&referrers, [Arc::from(ROOT_DEFINITION_KEY)].into());
+            added.retain(|key, _| !tied.contains(key));
+            for keys in referrers.values_mut() {
+                keys.retain(|key| !tied.contains(key));
+            }
+        }
         let Some(seed) = seed else {
             return Some(Seed {
-                definitions: definitions.clone(),
+                definitions: added,
+                referrers,
                 sources,
             });
         };
         // A seeded parse carries the seed's own keys back out, so equal counts mean nothing new.
-        let grew = sources.len() > seed.sources.len()
-            || definitions
-                .keys()
-                .any(|key| !seed.definitions.contains_key(key));
-        if !grew {
+        if sources.len() <= seed.sources.len() && added.is_empty() {
             return None;
         }
         let mut merged = seed.definitions.clone();
-        for (key, body) in definitions {
-            merged
-                .entry(Arc::clone(key))
-                .or_insert_with(|| body.clone());
+        merged.extend(added);
+        let mut merged_referrers = seed.referrers.clone();
+        for (target, keys) in referrers {
+            merged_referrers.entry(target).or_default().extend(keys);
         }
         Some(Seed {
             definitions: merged,
+            referrers: merged_referrers,
             sources,
         })
     }
+
+    /// The bodies a read starting at `root` can reuse, with what points at `root` pointing at `#`,
+    /// as that read writes it.
+    fn definitions_for(&self, root: &Value) -> DefinitionMap {
+        let address = std::ptr::from_ref(root) as usize;
+        let keys: AHashSet<Arc<str>> = self
+            .sources
+            .iter()
+            .filter(|(_, source)| **source == address)
+            .map(|(key, _)| Arc::clone(key))
+            .collect();
+        if keys.is_empty() {
+            return self.definitions.clone();
+        }
+        if let Some(key) = sole_key(&self.sources, root) {
+            let mut definitions = self.definitions.clone();
+            let renames = AHashMap::from_iter([(Arc::clone(&key), Arc::from(ROOT_DEFINITION_KEY))]);
+            for referrer in self.referrers.get(&key).into_iter().flatten() {
+                if let Some(body) = definitions.get_mut(referrer) {
+                    *body = rename::rename_references(body, &renames);
+                }
+            }
+            return definitions;
+        }
+        // Several keys name `root`, or a dynamic scope specializes one, and only some of them read
+        // as `#`: parse again whatever reaches any.
+        let tied = reaching(&self.referrers, keys);
+        self.definitions
+            .iter()
+            .filter(|(key, _)| !tied.contains(*key))
+            .map(|(key, body)| (Arc::clone(key), body.clone()))
+            .collect()
+    }
+}
+
+/// The key a read rooted at `root` writes as `#`: the only one naming it, unspecialized.
+fn sole_key(sources: &AHashMap<Arc<str>, usize>, root: &Value) -> Option<Arc<str>> {
+    let address = std::ptr::from_ref(root) as usize;
+    let mut keys = sources.iter().filter(|(_, source)| **source == address);
+    let (key, _) = keys.next()?;
+    (keys.next().is_none() && !key.contains("|dyn=")).then(|| Arc::clone(key))
+}
+
+/// `targets` plus every key whose body reaches one of them, directly or through other bodies.
+fn reaching(referrers: &Referrers, targets: AHashSet<Arc<str>>) -> AHashSet<Arc<str>> {
+    let mut pending: Vec<Arc<str>> = targets.iter().cloned().collect();
+    let mut tied = targets;
+    while let Some(key) = pending.pop() {
+        for referrer in referrers.get(&key).into_iter().flatten() {
+            if tied.insert(Arc::clone(referrer)) {
+                pending.push(Arc::clone(referrer));
+            }
+        }
+    }
+    tied
 }
 
 /// Parse a document into structural IR when every construct is modeled; `Ok((None, _))` keeps it
@@ -131,7 +225,7 @@ pub(crate) fn parse<'a>(
     )?;
     let grown = output
         .as_ref()
-        .and_then(|output| Seed::grown(seed, &output.definitions, sources));
+        .and_then(|output| Seed::grown(seed, value, &output.root, &output.definitions, sources));
     Ok((output, grown))
 }
 
@@ -628,7 +722,7 @@ impl<'a, 'b> ParseState<'a, 'b> {
         seed: Option<&Seed>,
     ) -> Self {
         let (definitions, sources) = match seed {
-            Some(seed) => (seed.definitions.clone(), seed.sources.clone()),
+            Some(seed) => (seed.definitions_for(root), seed.sources.clone()),
             None => (DefinitionMap::new(), AHashMap::default()),
         };
         Self {
@@ -1469,7 +1563,7 @@ fn parse_schema_in_scope<'a>(
             // more required keys in the array form, a whole-value schema in the schema form. Every
             // draft validates `dependencies`, 2019-09 onward also under its split keywords.
             ("dependencies", Value::Object(entries)) => {
-                for (key, entry) in entries {
+                for (key, entry) in linked_order(entries) {
                     match entry {
                         Value::Array(names) if names.iter().all(Value::is_string) => {
                             parts.push((
@@ -1497,7 +1591,7 @@ fn parse_schema_in_scope<'a>(
             ("dependentRequired", Value::Object(entries))
                 if ctx.draft().is_known_keyword("dependentRequired") =>
             {
-                for (key, entry) in entries {
+                for (key, entry) in linked_order(entries) {
                     match entry {
                         Value::Array(names) if names.iter().all(Value::is_string) => {
                             parts.push((
@@ -2066,8 +2160,10 @@ fn finite_pattern_keys(pattern: &str) -> Option<Vec<Arc<str>>> {
 }
 
 /// Whether an in-place applicator sits here that no cover reads. `anyOf`/`oneOf` are absent because
-/// the cover handles them, taking their branches only when those agree; `dependentSchemas` and
-/// `if`/`then`/`else` are absent because [`split_conditionals`] spreads them over their cases first.
+/// the cover takes their branches where those agree and [`split_conditionals`] spreads them over
+/// their cases otherwise, as it does `dependentSchemas` and `if`/`then`/`else`. `allOf` is absent:
+/// every branch must pass, so [`property_cover`] can read its contribution off the document. `not`
+/// is absent too: it succeeds only when its subschema fails, and a failure annotates nothing.
 fn has_unresolved_applicator(map: &Map<String, Value>) -> bool {
     map.keys().any(|key| {
         matches!(
@@ -2107,8 +2203,16 @@ struct IfThenElse {
 
 #[derive(Clone)]
 enum Conditional {
-    Dependency { key: String, consequent: Value },
+    Dependency {
+        key: String,
+        consequent: Value,
+    },
     Condition(IfThenElse),
+    /// An `anyOf` or `oneOf` whose branches reach different keys or indices.
+    Alternatives {
+        exclusive: bool,
+        branches: Vec<Value>,
+    },
 }
 
 /// The key and constant an `if` of the shape `{"properties": {K: {"const": c}}, "required": [K]}`
@@ -2185,6 +2289,38 @@ impl Covers {
     }
 }
 
+/// The keys and indices `body` evaluates with nothing inside it split, left empty where `base`
+/// already reaches all of them; `None` where the instance decides them, as under a conditional of
+/// its own.
+fn body_covers(
+    body: &Value,
+    base: &Covers,
+    ctx: &CanonicalizationContext,
+    resolver: &Resolver<'_>,
+    walk: &mut ReferenceWalk,
+) -> Result<Option<(PropertyCover, ItemCover)>, CanonicalizationError> {
+    let hoisted = walk.hoisted;
+    walk.hoisted = false;
+    let mut property = PropertyCover::default();
+    let mut item = ItemCover::default();
+    let properties = if base.property.everything {
+        Ok(Some(()))
+    } else {
+        property_cover(body, ctx, resolver, walk, &mut property)
+    };
+    let items = match &properties {
+        Ok(Some(())) if base.item.everything => Ok(Some(())),
+        Ok(Some(())) => item_cover(body, ctx.draft(), ctx, resolver, walk, &mut item),
+        _ => Ok(None),
+    };
+    walk.hoisted = hoisted;
+    if properties?.is_none() || items?.is_none() {
+        return Ok(None);
+    }
+    property.normalize();
+    Ok(Some((property, item)))
+}
+
 /// Whether `body` running leaves the evaluated keys and indices exactly as they were.
 ///
 /// A body carrying conditionals of its own has no cover to read, so it never answers yes.
@@ -2195,21 +2331,8 @@ fn reaches_nothing_new(
     resolver: &Resolver<'_>,
     walk: &mut ReferenceWalk,
 ) -> Result<bool, CanonicalizationError> {
-    let hoisted = walk.hoisted;
-    walk.hoisted = false;
-    let mut property = PropertyCover::default();
-    let mut item = ItemCover::default();
-    let properties = property_cover(body, ctx, resolver, walk, &mut property);
-    let items = match &properties {
-        Ok(Some(())) => item_cover(body, ctx.draft(), ctx, resolver, walk, &mut item),
-        _ => Ok(None),
-    };
-    walk.hoisted = hoisted;
-    if properties?.is_none() || items?.is_none() {
-        return Ok(false);
-    }
-    property.normalize();
-    Ok(base.already_reaches(&property, &item))
+    Ok(body_covers(body, base, ctx, resolver, walk)?
+        .is_some_and(|(property, item)| base.already_reaches(&property, &item)))
 }
 
 /// The conditionals on `map`, its `allOf` branches and its `$ref` target, recursively; `scoped`
@@ -2286,6 +2409,44 @@ fn applied_conditionals(
                 otherwise: map.get("else").cloned(),
             }));
         }
+    }
+    for (keyword, exclusive) in [("anyOf", false), ("oneOf", true)] {
+        let Some(Value::Array(branches)) = map.get(keyword) else {
+            continue;
+        };
+        let mut covers = Vec::with_capacity(branches.len());
+        for branch in branches {
+            covers.push(body_covers(branch, base, ctx, resolver, walk)?);
+        }
+        // Branches reaching the same keys and indices leave the covers to read them in place.
+        let agreeing =
+            covers.iter().all(Option::is_some) && covers.windows(2).all(|pair| pair[0] == pair[1]);
+        // Branches reaching no further than the node cannot change which keys count as evaluated.
+        let neutral = covers.iter().all(|cover| {
+            cover
+                .as_ref()
+                .is_some_and(|(property, item)| base.already_reaches(property, item))
+        });
+        if agreeing || neutral {
+            // Agreement leaves out a side the node already reaches, so read past it whenever neutral.
+            skipped.any |= neutral;
+            if node_level {
+                let mut kept = Map::new();
+                kept.insert(keyword.to_string(), Value::Array(branches.clone()));
+                skipped.carried.push(Value::Object(kept));
+            }
+            continue;
+        }
+        if !branches
+            .iter()
+            .all(|branch| hoistable(branch, scoped, ctx.draft()))
+        {
+            return Ok(None);
+        }
+        out.push(Conditional::Alternatives {
+            exclusive,
+            branches: branches.clone(),
+        });
     }
     if let Some(Value::Array(branches)) = map.get("allOf") {
         for branch in branches {
@@ -2466,7 +2627,9 @@ fn expand_cases(
                     {
                         members.push(other);
                     }
-                    other @ (Conditional::Dependency { .. } | Conditional::Condition(_)) => {
+                    other @ (Conditional::Dependency { .. }
+                    | Conditional::Condition(_)
+                    | Conditional::Alternatives { .. }) => {
                         rest.push(other);
                     }
                 }
@@ -2551,11 +2714,60 @@ fn expand_cases(
             nested.extend(pending);
             expand_cases(other, nested, ctx, resolver, walk, base, skipped, out)
         }
+        Conditional::Alternatives {
+            exclusive,
+            branches,
+        } => {
+            let count = branches.len();
+            // Any non-empty set of `anyOf` branches can pass, each one case.
+            if !exclusive
+                && u32::try_from(count)
+                    .ok()
+                    .and_then(|bits| 1usize.checked_shl(bits))
+                    .is_none_or(|sets| sets - 1 > CONDITIONAL_CASE_BUDGET)
+            {
+                ctx.note_outgrew_cases();
+                return Ok(None);
+            }
+            let mut ran = Vec::with_capacity(count);
+            for branch in &branches {
+                let Some(body) = run_once(Some(branch), ctx, resolver, walk, base, skipped)? else {
+                    return Ok(None);
+                };
+                ran.push(body);
+            }
+            // One case per set of branches that pass: those ran, and the rest fail outright. A
+            // `oneOf` set is the index of its only branch, an `anyOf` set a bit mask.
+            let (sets, passes): (std::ops::Range<usize>, fn(usize, usize) -> bool) = if exclusive {
+                (0..count, |set, index| set == index)
+            } else {
+                (1..1 << count, |set, index| (set >> index) & 1 == 1)
+            };
+            for set in sets {
+                let mut passed = case.clone();
+                let mut nested = Vec::new();
+                for (index, (branch, body)) in branches.iter().zip(&ran).enumerate() {
+                    if passes(set, index) {
+                        body.add_to(&mut passed, &mut nested);
+                    } else {
+                        passed.push(json!({"not": branch}));
+                    }
+                }
+                nested.extend(pending.iter().map(Conditional::clone));
+                let Some(()) =
+                    expand_cases(passed, nested, ctx, resolver, walk, base, skipped, out)?
+                else {
+                    return Ok(None);
+                };
+            }
+            Ok(Some(()))
+        }
     }
 }
 
-/// An `unevaluated*` beside a conditional, or above one through `allOf` or `$ref`, splits into one
-/// variant per case, each carrying the subschemas that ran as `allOf` branches for the covers.
+/// An `unevaluated*` beside a conditional or an alternative whose branches disagree, or above one
+/// through `allOf` or `$ref`, splits into one variant per case, each carrying the subschemas that
+/// ran as `allOf` branches for the covers.
 /// ```text
 /// e.g.  {"dependentSchemas": {"a": {"properties": {"b": {}}}}, "unevaluatedProperties": false}
 ///       =>  anyOf: [{"allOf": [{"not": {"type": "object", "required": ["a"]}}],
@@ -2603,6 +2815,9 @@ fn split_conditionals(
             base.item.absorb(&cover);
         }
     }
+    // Without its `unevaluated*` a side has nothing left over, so no case changes it.
+    base.property.everything |= !map.contains_key("unevaluatedProperties");
+    base.item.everything |= !map.contains_key("unevaluatedItems");
     base.property.normalize();
     let mut conditionals = Vec::new();
     let mut skipped = Skipped::default();
@@ -2654,6 +2869,8 @@ fn split_conditionals(
     for (key, value) in map {
         match key.as_str() {
             "dependentSchemas" | "if" | "then" | "else" | "allOf" => split += 1,
+            // Split into cases or carried back; one that is not a list stays for the parse to reject.
+            "anyOf" | "oneOf" if value.is_array() => split += 1,
             "$id" | "id" | "$schema" | "$anchor" | "$dynamicAnchor" | "$recursiveAnchor"
             | "$vocabulary" | "$defs" | "definitions" => {
                 wrapper.insert(key.clone(), value.clone());
@@ -2680,18 +2897,6 @@ fn split_conditionals(
         })
         .collect();
     Ok(Split::Variants { wrapper, variants })
-}
-
-/// In-place applicators whose annotations depend on which branch the instance matched. `allOf` is
-/// absent: every branch must pass, so [`property_cover`] can read its contribution off the document.
-/// `not` is absent too: it succeeds only when its subschema fails, and a failure annotates nothing.
-fn has_instance_dependent_applicator(map: &Map<String, Value>) -> bool {
-    map.keys().any(|key| {
-        matches!(
-            key.as_str(),
-            "$dynamicRef" | "$recursiveRef" | "anyOf" | "dependencies" | "oneOf"
-        )
-    })
 }
 
 /// The covers read past a conditional only once it was split into cases.
@@ -2842,7 +3047,7 @@ fn property_cover_in_scope(
     walk: &mut ReferenceWalk,
     cover: &mut PropertyCover,
 ) -> Result<Option<()>, CanonicalizationError> {
-    if has_instance_dependent_applicator(map) || (!walk.hoisted && has_conditional(map)) {
+    if has_unresolved_applicator(map) || (!walk.hoisted && has_conditional(map)) {
         return Ok(None);
     }
     // `additionalProperties` is never rewritten, so its presence is a stable "reaches everything".
@@ -2877,6 +3082,59 @@ fn property_cover_in_scope(
         else {
             return Ok(None);
         };
+    }
+    alternative_property_cover(map, ctx, resolver, walk, cover)
+}
+
+/// The keys every branch of an alternative reaches, where they agree; otherwise which branch
+/// matched decides what is left over. Nothing under a branch was split, so its conditionals decline.
+fn agreed_property_cover(
+    branches: &[Value],
+    ctx: &CanonicalizationContext,
+    resolver: &Resolver<'_>,
+    walk: &mut ReferenceWalk,
+) -> Result<Option<PropertyCover>, CanonicalizationError> {
+    let hoisted = walk.hoisted;
+    walk.hoisted = false;
+    let result = (|| {
+        let mut agreed: Option<PropertyCover> = None;
+        for branch in branches {
+            let mut reached = PropertyCover::default();
+            let Some(()) = property_cover(branch, ctx, resolver, walk, &mut reached)? else {
+                return Ok(None);
+            };
+            reached.normalize();
+            match &agreed {
+                Some(first) if *first != reached => return Ok(None),
+                Some(_) => {}
+                None => agreed = Some(reached),
+            }
+        }
+        Ok(Some(agreed.unwrap_or_default()))
+    })();
+    walk.hoisted = hoisted;
+    result
+}
+
+/// Fold the alternatives on `map` into `cover`. Branches that disagree are read only once the
+/// alternative was split into cases, or found to reach no further than the node, so a hoisted walk
+/// skips them.
+fn alternative_property_cover(
+    map: &Map<String, Value>,
+    ctx: &CanonicalizationContext,
+    resolver: &Resolver<'_>,
+    walk: &mut ReferenceWalk,
+    cover: &mut PropertyCover,
+) -> Result<Option<()>, CanonicalizationError> {
+    for keyword in ["anyOf", "oneOf"] {
+        let Some(Value::Array(branches)) = map.get(keyword) else {
+            continue;
+        };
+        match agreed_property_cover(branches, ctx, resolver, walk)? {
+            Some(agreed) => cover.absorb(agreed),
+            None if walk.hoisted => {}
+            None => return Ok(None),
+        }
     }
     Ok(Some(()))
 }
@@ -2956,7 +3214,7 @@ fn item_cover_in_scope(
     walk: &mut ReferenceWalk,
     cover: &mut ItemCover,
 ) -> Result<Option<()>, CanonicalizationError> {
-    if has_instance_dependent_applicator(map) || (!walk.hoisted && has_conditional(map)) {
+    if has_unresolved_applicator(map) || (!walk.hoisted && has_conditional(map)) {
         return Ok(None);
     }
     // `contains` marks the indexes it matches, which no prefix length expresses.
@@ -3006,6 +3264,57 @@ fn item_cover_in_scope(
             return Ok(None);
         };
     }
+    alternative_item_cover(map, draft, ctx, resolver, walk, cover)
+}
+
+/// The item-cover twin of [`agreed_property_cover`].
+fn agreed_item_cover(
+    branches: &[Value],
+    draft: Draft,
+    ctx: &CanonicalizationContext,
+    resolver: &Resolver<'_>,
+    walk: &mut ReferenceWalk,
+) -> Result<Option<ItemCover>, CanonicalizationError> {
+    let hoisted = walk.hoisted;
+    walk.hoisted = false;
+    let result = (|| {
+        let mut agreed: Option<ItemCover> = None;
+        for branch in branches {
+            let mut reached = ItemCover::default();
+            let Some(()) = item_cover(branch, draft, ctx, resolver, walk, &mut reached)? else {
+                return Ok(None);
+            };
+            match &agreed {
+                Some(first) if *first != reached => return Ok(None),
+                Some(_) => {}
+                None => agreed = Some(reached),
+            }
+        }
+        Ok(Some(agreed.unwrap_or_default()))
+    })();
+    walk.hoisted = hoisted;
+    result
+}
+
+/// The item-cover twin of [`alternative_property_cover`].
+fn alternative_item_cover(
+    map: &Map<String, Value>,
+    draft: Draft,
+    ctx: &CanonicalizationContext,
+    resolver: &Resolver<'_>,
+    walk: &mut ReferenceWalk,
+    cover: &mut ItemCover,
+) -> Result<Option<()>, CanonicalizationError> {
+    for keyword in ["anyOf", "oneOf"] {
+        let Some(Value::Array(branches)) = map.get(keyword) else {
+            continue;
+        };
+        match agreed_item_cover(branches, draft, ctx, resolver, walk)? {
+            Some(agreed) => cover.absorb(&agreed),
+            None if walk.hoisted => {}
+            None => return Ok(None),
+        }
+    }
     Ok(Some(()))
 }
 
@@ -3047,31 +3356,9 @@ fn sibling_property_cover(
             };
         }
     }
-    // Under an alternative nothing was split, so its conditionals still decline.
-    let hoisted = walk.hoisted;
-    walk.hoisted = false;
-    for keyword in ["anyOf", "oneOf"] {
-        let Some(Value::Array(branches)) = map.get(keyword) else {
-            continue;
-        };
-        let mut agreed: Option<PropertyCover> = None;
-        for branch in branches {
-            let mut reached = PropertyCover::default();
-            let Some(()) = property_cover(branch, ctx, resolver, walk, &mut reached)? else {
-                return Ok(None);
-            };
-            reached.normalize();
-            match &agreed {
-                Some(first) if *first != reached => return Ok(None),
-                Some(_) => {}
-                None => agreed = Some(reached),
-            }
-        }
-        if let Some(agreed) = agreed {
-            cover.absorb(agreed);
-        }
-    }
-    walk.hoisted = hoisted;
+    let Some(()) = alternative_property_cover(map, ctx, resolver, walk, &mut cover)? else {
+        return Ok(None);
+    };
     Ok(Some(cover))
 }
 
@@ -3099,30 +3386,9 @@ fn sibling_item_cover(
             };
         }
     }
-    // Under an alternative nothing was split, so its conditionals still decline.
-    let hoisted = walk.hoisted;
-    walk.hoisted = false;
-    for keyword in ["anyOf", "oneOf"] {
-        let Some(Value::Array(branches)) = map.get(keyword) else {
-            continue;
-        };
-        let mut agreed: Option<ItemCover> = None;
-        for branch in branches {
-            let mut reached = ItemCover::default();
-            let Some(()) = item_cover(branch, draft, ctx, resolver, walk, &mut reached)? else {
-                return Ok(None);
-            };
-            match &agreed {
-                Some(first) if *first != reached => return Ok(None),
-                Some(_) => {}
-                None => agreed = Some(reached),
-            }
-        }
-        if let Some(agreed) = &agreed {
-            cover.absorb(agreed);
-        }
-    }
-    walk.hoisted = hoisted;
+    let Some(()) = alternative_item_cover(map, draft, ctx, resolver, walk, &mut cover)? else {
+        return Ok(None);
+    };
     Ok(Some(cover))
 }
 
@@ -3554,6 +3820,41 @@ pub(crate) fn prune_unreachable_definitions(root: &Schema, definitions: &mut Def
             );
         }
     }
+}
+
+/// The dependencies in an order that takes each one right after a dependency demanding its key.
+///
+/// The keywords of a node combine by intersection, and each dependency is a union over holding
+/// its key or not. Intersecting two dependencies on unrelated keys multiplies their branches, while
+/// one whose key the other demands rules out half of them. Taken in key order, a chain `a -> b`,
+/// `b -> c`, ... runs through unrelated pairs and grows exponentially before the links shrink it
+/// again; taken along the links, it stays as wide as the chain is long. The value set is the same
+/// either way.
+fn linked_order(entries: &Map<String, Value>) -> Vec<(&String, &Value)> {
+    let mut order = Vec::with_capacity(entries.len());
+    let mut visited: AHashSet<&str> = AHashSet::with_capacity(entries.len());
+    let mut stack: Vec<(&String, &Value)> = Vec::new();
+    for root in entries {
+        stack.push(root);
+        while let Some((key, entry)) = stack.pop() {
+            if !visited.insert(key.as_str()) {
+                continue;
+            }
+            order.push((key, entry));
+            if let Value::Array(names) = entry {
+                // Reversed, so the first listed name is the next one taken.
+                for name in names.iter().rev().filter_map(Value::as_str) {
+                    if let Some(linked) = entries.get_key_value(name) {
+                        if !visited.contains(name) {
+                            stack.push(linked);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    debug_assert_eq!(order.len(), entries.len(), "every dependency is taken once");
+    order
 }
 
 /// The array-form dependency on `key`: holding it demands the listed keys too.

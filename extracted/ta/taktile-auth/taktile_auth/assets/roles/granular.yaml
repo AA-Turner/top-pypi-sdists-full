@@ -37,12 +37,12 @@ flow_editor/org_id,ws_id,flow_folder_id:
 flow_deployer/org_id,ws_id,flow_folder_id:
     - flow_editor/org_id,ws_id,flow_folder_id
     - deploy:flows/org_id,ws_id,flow_folder_id,{env=*}
-    - deploy:jobs/org_id,ws_id,flow_folder_id
-    - w:job_run/org_id,ws_id,flow_folder_id,{env=live}
     # Lets deployers view and test webhooks, which live in the internal folder (constants.INTERNAL_FLOW_FOLDER_ID).
     - r:flows/org_id,ws_id,{flow_folder_id=14ad6914-5a3b-48d3-8fab-fd92f570345e,env=*}
     - execute:flows/org_id,ws_id,{flow_folder_id=14ad6914-5a3b-48d3-8fab-fd92f570345e,env=sandbox}
     - execute:flows/org_id,ws_id,{flow_folder_id=14ad6914-5a3b-48d3-8fab-fd92f570345e,env=test}
+job_scheduler/org_id,ws_id:
+    - deploy:jobs/org_id,ws_id,*
 
 # P141c workspace-scoped agent and session-viewer roles.
 agent_viewer/org_id,ws_id:

@@ -36,6 +36,10 @@ def test_admin1_lookup(tmp_path):
         "iowa adair": "Iowa",
         "missouri adair": "Missouri",
         "arkansas ashley": "Arkansas",
+        # "<admin_1> <admin_2>" forms, geoprepare's names when admin_2 repeats
+        "iowa iowa adair": "Iowa",
+        "missouri missouri adair": "Missouri",
+        "arkansas arkansas ashley": "Arkansas",
     }
 
 

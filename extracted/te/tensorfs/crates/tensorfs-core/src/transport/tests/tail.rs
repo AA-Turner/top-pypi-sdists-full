@@ -121,7 +121,7 @@ fn timed_pull(
     hub: &Cold,
     checkpoint: &Checkpoint,
     name: &str,
-) -> (Duration, crate::transport::PullReport, String) {
+) -> (Duration, super::Pulled, String) {
     timed_pull_sampling(hub, checkpoint, name, 0.025)
 }
 
@@ -130,7 +130,7 @@ fn timed_pull_sampling(
     checkpoint: &Checkpoint,
     name: &str,
     sample_seconds: f64,
-) -> (Duration, crate::transport::PullReport, String) {
+) -> (Duration, super::Pulled, String) {
     let root = temporary(name);
     let store = Store::init(&root).unwrap();
     let policy = SourcePolicy::default();
@@ -224,9 +224,13 @@ fn large_objects_are_ranged_chunks_and_small_ones_one_get() {
     // A coarse sample: this counts requests, and a loaded host must not add a restart.
     let (_, report, _) = timed_pull_sampling(&hub, &checkpoint, "chunks", 1.0);
     let chunks = 3 * OBJECT / CHUNK_BYTES as usize;
-    assert_eq!(hub.ranged.load(Ordering::Relaxed), chunks);
+    // Idle workers take the backs of running chunks: more asks, never a byte twice.
+    let ranged = hub.ranged.load(Ordering::Relaxed);
+    assert!(ranged >= chunks, "{ranged} ranged asks for {chunks} chunks");
     // The header and the manifest are each smaller than a chunk.
-    assert_eq!(report.requests as usize, chunks + 2, "{report:?}");
+    assert_eq!(report.requests as usize, ranged + 2, "{report:?}");
+    let total: u64 = checkpoint.bodies.values().map(|b| b.len() as u64).sum();
+    assert_eq!(report.bytes_moved, total, "{report:?}");
     assert_eq!(report.restarts, 0);
 }
 
@@ -275,7 +279,7 @@ fn an_unstalled_small_pull_presigns_once() {
         let root = temporary("presign-once");
         let store = Store::init(&root).unwrap();
         let policy = SourcePolicy::default();
-        let mut request = PullRequest::new(&store, &origin.base, "acme/model", &Anonymous, &policy);
+        let mut request = PullRequest::new(&store, &origin.base, "acme/model", Anonymous, &policy);
         request.sample_seconds = super::super::SAMPLE_SECONDS;
         pull(&request).unwrap();
         let asks = asked.lock().unwrap().clone();
@@ -307,7 +311,7 @@ fn a_pull_where_nothing_new_lands_ends_and_quotes_the_last_answer() {
     let policy = SourcePolicy::default();
     let started = Instant::now();
     let refusal = pull(&request_for(&store, &origin.base, &policy)).unwrap_err();
-    assert_eq!(refusal.code, Code::TRANSFER_FAILED, "{refusal}");
+    assert_eq!(refusal.code, Code::STALLED, "{refusal}");
     assert!(refusal.detail.contains("nothing landed"), "{refusal}");
     assert!(refusal.detail.contains("last answer"), "{refusal}");
     // An ask that adds nothing waits a sample before the next: about one ask an object a

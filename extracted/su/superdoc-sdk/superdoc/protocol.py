@@ -17,13 +17,14 @@ from .errors import (
     JSON_RPC_TIMEOUT_CODE,
     SuperDocError,
 )
+from .sdk_policy import SDK_POLICY
 
 ChangeMode = Literal['direct', 'tracked']
 
-HOST_PROTOCOL_VERSION = '1.0'
-REQUIRED_FEATURES = ('cli.invoke', 'host.shutdown')
-COLLABORATION_AUTH_PER_OPEN_FEATURE = 'collaboration.auth.perOpen'
-WATCHDOG_HEADROOM_MS = 5_000
+HOST_PROTOCOL_VERSION = SDK_POLICY['protocolVersion']
+REQUIRED_FEATURES = tuple(SDK_POLICY['cliRequiredFeatures'])
+COLLABORATION_AUTH_PER_OPEN_FEATURE = SDK_POLICY['features']['collaborationAuthPerOpen']
+WATCHDOG_HEADROOM_MS = SDK_POLICY['watchdogHeadroomMs']
 
 
 # ---------------------------------------------------------------------------
@@ -287,14 +288,19 @@ def apply_operation_param_aliases(
 ) -> Dict[str, Any]:
     """Normalize compatibility parameter names to their generated contract names."""
     payload = dict(params)
-    if operation.get('operationId') != 'doc.tables.split' or 'atRowIndex' not in payload:
-        return payload
-    if 'rowIndex' in payload and payload['rowIndex'] != payload['atRowIndex']:
-        raise SuperDocError(
-            'tables.split: cannot provide both rowIndex and atRowIndex with different values.',
-            code='INVALID_ARGUMENT',
-        )
-    payload['rowIndex'] = payload.pop('atRowIndex')
+    operation_id = operation.get('operationId', '')
+    aliases = SDK_POLICY['operationParamAliases'].get(operation_id, {})
+    for canonical, names in aliases.items():
+        for alias in names:
+            if alias not in payload:
+                continue
+            if canonical in payload and payload[canonical] != payload[alias]:
+                label = operation_id.removeprefix('doc.')
+                raise SuperDocError(
+                    f'{label}: cannot provide both {canonical} and {alias} with different values.',
+                    code='INVALID_ARGUMENT',
+                )
+            payload[canonical] = payload.pop(alias)
     return payload
 
 

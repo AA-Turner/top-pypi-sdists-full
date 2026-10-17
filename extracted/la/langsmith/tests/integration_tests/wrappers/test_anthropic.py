@@ -56,18 +56,14 @@ def mock_ls_client() -> Client:
 def patched_client(mock_ls_client: Client) -> anthropic.Anthropic:
     import anthropic  # noqa
 
-    return wrap_anthropic(
-        anthropic.Anthropic(), tracing_extra={"client": mock_ls_client}
-    )
+    return wrap_anthropic(anthropic.Anthropic(), tracing_extra={"client": mock_ls_client})
 
 
 @pytest.fixture
 def patched_async_client(mock_ls_client: Client) -> anthropic.AsyncAnthropic:
     import anthropic  # noqa
 
-    return wrap_anthropic(
-        anthropic.AsyncAnthropic(), tracing_extra={"client": mock_ls_client}
-    )
+    return wrap_anthropic(anthropic.AsyncAnthropic(), tracing_extra={"client": mock_ls_client})
 
 
 def test_chat_sync_api_stream(
@@ -95,18 +91,8 @@ def test_chat_sync_api_stream(
                 patched_chunks.append(chunk)
         assert len(original_chunks) == len(patched_chunks)
         assert "".join(
-            [
-                c.delta.text
-                for c in original_chunks
-                if hasattr(c, "delta") and c.type == "content_block_delta"
-            ]
-        ) == "".join(
-            [
-                c.delta.text
-                for c in patched_chunks
-                if hasattr(c, "delta") and c.type == "content_block_delta"
-            ]
-        )
+            [c.delta.text for c in original_chunks if hasattr(c, "delta") and c.type == "content_block_delta"]
+        ) == "".join([c.delta.text for c in patched_chunks if hasattr(c, "delta") and c.type == "content_block_delta"])
 
         calls = _get_calls(mock_ls_client, minimum=1)
         assert calls
@@ -161,9 +147,7 @@ def test_chat_sync_api(
             max_tokens=3,
         )
         assert isinstance(patched, type(original))
-        assert "".join([c.text for c in original.content]) == "".join(
-            [c.text for c in patched.content]
-        )
+        assert "".join([c.text for c in original.content]) == "".join([c.text for c in patched.content])
 
         calls = _get_calls(mock_ls_client, minimum=1)
         assert calls
@@ -205,18 +189,8 @@ async def test_chat_async_api_stream(
                 patched_chunks.append(chunk)
         assert len(original_chunks) == len(patched_chunks)
         assert "".join(
-            [
-                c.delta.text
-                for c in original_chunks
-                if hasattr(c, "delta") and c.type == "content_block_delta"
-            ]
-        ) == "".join(
-            [
-                c.delta.text
-                for c in patched_chunks
-                if hasattr(c, "delta") and c.type == "content_block_delta"
-            ]
-        )
+            [c.delta.text for c in original_chunks if hasattr(c, "delta") and c.type == "content_block_delta"]
+        ) == "".join([c.delta.text for c in patched_chunks if hasattr(c, "delta") and c.type == "content_block_delta"])
         time.sleep(0.1)
         for call in mock_ls_client.session.request.call_args_list:
             assert call[0][0].upper() == "POST"
@@ -262,9 +236,7 @@ async def test_chat_async_api(
             max_tokens=3,
         )
         assert isinstance(patched, type(original))
-        assert "".join([c.text for c in original.content]) == "".join(
-            [c.text for c in patched.content]
-        )
+        assert "".join([c.text for c in original.content]) == "".join([c.text for c in patched.content])
 
         time.sleep(0.1)
         for call in mock_ls_client.session.request.call_args_list:
@@ -279,9 +251,7 @@ def test_beta_chat_sync_api():
         mock_session = mock.MagicMock()
         mock_client = Client(session=mock_session, info=LS_TEST_CLIENT_INFO)
         original_client = anthropic.Anthropic()
-        patched_client = wrap_anthropic(
-            anthropic.Anthropic(), tracing_extra={"client": mock_client}
-        )
+        patched_client = wrap_anthropic(anthropic.Anthropic(), tracing_extra={"client": mock_client})
 
         original = original_client.beta.messages.create(
             messages=messages,
@@ -296,9 +266,7 @@ def test_beta_chat_sync_api():
             max_tokens=3,
         )
         assert isinstance(patched, type(original))
-        assert "".join([c.text for c in original.content]) == "".join(
-            [c.text for c in patched.content]
-        )
+        assert "".join([c.text for c in original.content]) == "".join([c.text for c in patched.content])
 
         calls = _get_calls(mock_client, minimum=1)
         assert calls
@@ -329,9 +297,7 @@ def test_beta_parse_sync_api():
         mock_session = mock.MagicMock()
         mock_client = Client(session=mock_session, info=LS_TEST_CLIENT_INFO)
         original_client = anthropic.Anthropic()
-        patched_client = wrap_anthropic(
-            anthropic.Anthropic(), tracing_extra={"client": mock_client}
-        )
+        patched_client = wrap_anthropic(anthropic.Anthropic(), tracing_extra={"client": mock_client})
 
         original = original_client.beta.messages.parse(
             messages=[
@@ -381,9 +347,7 @@ async def test_beta_chat_async_api():
     mock_session = mock.MagicMock()
     mock_client = Client(session=mock_session)
     original_client = anthropic.AsyncAnthropic()
-    patched_client = wrap_anthropic(
-        anthropic.AsyncAnthropic(), tracing_extra={"client": mock_client}
-    )
+    patched_client = wrap_anthropic(anthropic.AsyncAnthropic(), tracing_extra={"client": mock_client})
     with tracing_context(enabled=True):
         original = await original_client.beta.messages.create(
             messages=messages,
@@ -398,9 +362,7 @@ async def test_beta_chat_async_api():
             max_tokens=3,
         )
         assert isinstance(patched, type(original))
-        assert "".join([c.text for c in original.content]) == "".join(
-            [c.text for c in patched.content]
-        )
+        assert "".join([c.text for c in original.content]) == "".join([c.text for c in patched.content])
 
         time.sleep(1)
         assert mock_session.request.call_count > 1
@@ -452,11 +414,7 @@ def test_prepopulated_invocation_params():
     run_data = None
     for call in calls:
         if json_bytes := call.kwargs.get("data"):
-            json_str = (
-                json_bytes.decode("utf-8")
-                if isinstance(json_bytes, bytes)
-                else json_bytes
-            )
+            json_str = json_bytes.decode("utf-8") if isinstance(json_bytes, bytes) else json_bytes
             data = json.loads(json_str)
             # Look in both post and patch arrays
             for event in data.get("post", []) + data.get("patch", []):

@@ -30,6 +30,16 @@ def to_sarif(report: AnalysisReport) -> str:
                 },
                 "results": [_sarif_result(item) for item in report.diagnostics],
                 "columnKind": "utf16CodeUnits",
+                **(
+                    {
+                        "properties": {
+                            "policyFailedTools": [tool.name for tool in report.tools if tool.policy_failed],
+                            "exitCode": report.exit_code,
+                        }
+                    }
+                    if any(tool.policy_failed for tool in report.tools)
+                    else {}
+                ),
                 "invocations": [
                     {
                         "executionSuccessful": report.completion.value == "complete",
@@ -67,6 +77,7 @@ def to_text(report: AnalysisReport) -> str:
     lines.extend(f"{issue.source}: {issue.kind}: {issue.message}" for issue in report.issues)
     lines.extend(_coverage_line(item.source, item.reason, item.file_count) for item in report.coverage)
     lines.extend(_baseline_lines(report))
+    lines.extend(_policy_failure_lines(report))
     lines.append(_summary(report))
     return "\n".join(lines) + "\n"
 
@@ -103,6 +114,7 @@ def to_github(report: AnalysisReport, *, max_annotations_per_level: int = _GITHU
         )
     lines.extend(_coverage_line(item.source, item.reason, item.file_count) for item in report.coverage)
     lines.extend(_baseline_lines(report))
+    lines.extend(_policy_failure_lines(report))
     lines.append(_summary(report))
     return "\n".join(lines) + "\n"
 
@@ -219,25 +231,11 @@ def _sarif_rules(report: AnalysisReport) -> list[dict[str, object]]:
 
 
 def _sarif_result(diagnostic: Diagnostic) -> dict[str, object]:
-    location = diagnostic.location
-    physical: dict[str, object] = {"artifactLocation": {"uri": quote(location.path, safe="/")}}
-    if location.region is not None:
-        physical["region"] = {
-            "startLine": location.region.start.line + 1,
-            "startColumn": location.region.start.character + 1,
-            "endLine": location.region.end.line + 1,
-            "endColumn": location.region.end.character + 1,
-        }
-    elif location.position is not None:
-        physical["region"] = {
-            "startLine": location.position.line + 1,
-            "startColumn": location.position.character + 1,
-        }
     result: dict[str, object] = {
         "ruleId": _sarif_rule_id(diagnostic),
         "level": _sarif_level(diagnostic.severity),
         "message": {"text": diagnostic.message},
-        "locations": [{"physicalLocation": physical}],
+        "locations": [{"physicalLocation": _sarif_physical(diagnostic.location)}],
         "properties": {
             "source": diagnostic.source,
             "code": diagnostic.code,
@@ -312,3 +310,11 @@ def _sarif_level(severity: Severity) -> str:
     if severity is Severity.WARNING:
         return "warning"
     return "note"
+
+
+def _policy_failure_lines(report: AnalysisReport) -> list[str]:
+    return [
+        f"code-standards policy: {tool.name} rejected findings under its configured gate"
+        for tool in report.tools
+        if tool.policy_failed
+    ]

@@ -259,10 +259,7 @@ class TestProcessGenerateContentResponse:
         assert result["usage_metadata"]["input_tokens"] == 200050
         assert result["usage_metadata"]["input_token_details"]["over_200k"] == 0
         assert result["usage_metadata"]["input_token_details"]["cache_read"] == 200000
-        assert (
-            result["usage_metadata"]["input_token_details"]["cache_read_over_200k"]
-            == 50
-        )
+        assert result["usage_metadata"]["input_token_details"]["cache_read_over_200k"] == 50
         assert result["usage_metadata"]["output_tokens"] == 10
         assert result["usage_metadata"]["output_token_details"]["over_200k"] == 0
 
@@ -381,10 +378,7 @@ class TestProcessGenerateContentResponse:
         import base64
 
         # Valid 1x1 red pixel PNG in base64
-        test_b64 = (
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwA"
-            "FBQIAX8jx0gAAAABJRU5ErkJggg=="
-        )
+        test_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=="
         test_image_bytes = base64.b64decode(test_b64)
 
         class MockResponse:

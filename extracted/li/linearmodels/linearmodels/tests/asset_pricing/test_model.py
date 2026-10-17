@@ -1,5 +1,5 @@
 import numpy as np
-from numpy.testing import assert_allclose, assert_equal
+from numpy.testing import assert_allclose
 import pandas as pd
 import pytest
 from scipy import stats
@@ -12,11 +12,8 @@ from linearmodels.asset_pricing.model import (
 )
 from linearmodels.iv.data import IVData
 from linearmodels.iv.model import _OLS
+from linearmodels.shared.exceptions import MissingValueWarning
 from linearmodels.tests.asset_pricing._utility import generate_data, get_all
-
-pytestmark = pytest.mark.filterwarnings(
-    "ignore::linearmodels.shared.exceptions.MissingValueWarning"
-)
 
 
 @pytest.fixture(params=["numpy", "pandas"])
@@ -110,13 +107,20 @@ def test_linear_model_time_series(data):
     xe = np.c_[x * e, f - f.mean(0)[None, :]]
     xeex_direct = xe.T @ xe / nobs
     cov = xpxi_direct @ xeex_direct @ xpxi_direct / (nobs - nfp1)
+    # The risk premia are sample means, so their covariance uses nobs - 1, and the
+    # covariance between the two sets of parameters the geometric mean of the scales
+    scale = np.ones(cov.shape[0])
+    scale[-nf:] = np.sqrt((nobs - nfp1) / (nobs - 1))
+    cov = cov * np.outer(scale, scale)
     assert_allclose(cov, np.asarray(res.cov))
+    assert_allclose(cov[-nf:, -nf:], np.cov(f.T) / nobs)
+    assert_allclose(np.diag(cov)[-nf:], res.risk_premia_se**2)
 
     alphas = np.array(all_params)[0::nfp1][:, None]
     alpha_cov = cov[0 : (nfp1 * nport) : nfp1, 0 : (nfp1 * nport) : nfp1]
     stat_direct = float(np.squeeze(alphas.T @ np.linalg.inv(alpha_cov) @ alphas))
     assert_allclose(res.j_statistic.stat, stat_direct)
-    assert_allclose(1.0 - stats.chi2.cdf(stat_direct, nport), res.j_statistic.pval)
+    assert_allclose(stats.chi2.sf(stat_direct, nport), res.j_statistic.pval)
 
 
 @pytest.mark.smoke
@@ -169,12 +173,23 @@ def test_errors(data):
         TradedFactorModel(p3, data.factors)
     with pytest.raises(ValueError, match=r"factors must not contain"):
         TradedFactorModel(data.portfolios, f)
-    with pytest.raises(ValueError, match=r"factors must not contain"):
+    with pytest.raises(ValueError, match=r"factors do not have full column rank"):
         TradedFactorModel(data.portfolios, f2)
     with pytest.raises(ValueError, match=r"Model cannot be estimated"):
         TradedFactorModel(p5, f5)
     with pytest.raises(ValueError, match=r"The number of test portfolio"):
         LinearFactorModel(p4, data.factors)
+
+
+def test_errors_more_than_one_constant(data):
+    nobs = data.portfolios.shape[0]
+    ones = np.ones((nobs, 1))
+    portfolios = np.asarray(data.portfolios)
+    factors = np.asarray(data.factors)
+    with pytest.raises(ValueError, match=r"factors must not contain"):
+        TradedFactorModel(portfolios, np.c_[factors, ones, ones])
+    with pytest.raises(ValueError, match=r"portfolios must not contain"):
+        TradedFactorModel(np.c_[portfolios, ones, 2 * ones], factors)
 
 
 def test_drop_missing(data):
@@ -184,7 +199,8 @@ def test_drop_missing(data):
     else:
         p[::33] = np.nan
 
-    res = TradedFactorModel(p, data.factors).fit()
+    with pytest.warns(MissingValueWarning, match="missing values"):
+        res = TradedFactorModel(p, data.factors).fit()
 
     p = IVData(p)
     f = IVData(data.factors)
@@ -193,15 +209,15 @@ def test_drop_missing(data):
     f.drop(isnull)
 
     res2 = TradedFactorModel(p, f).fit()
-    assert_equal(np.asarray(res.params), np.asarray(res2.params))
+    assert_allclose(np.asarray(res.params), np.asarray(res2.params), rtol=1e-10)
 
 
 def test_unknown_kernel(data):
     mod = LinearFactorModel(data.portfolios, data.factors)
-    with pytest.raises(ValueError, match=r"Unknown weight"):
+    with pytest.raises(ValueError, match=r"Unknown cov_type"):
         mod.fit(cov_type="unknown")
     mod = LinearFactorModelGMM(data.portfolios, data.factors)
-    with pytest.raises(ValueError, match=r"Unknown weight"):
+    with pytest.raises(ValueError, match=r"Unknown cov_type"):
         mod.fit(cov_type="unknown")
 
 

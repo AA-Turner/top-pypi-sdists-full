@@ -4,15 +4,19 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
-from .aggregate_common import (
+from numpy_groupies.aggregate_common import (
     DEFAULT_FILL_VALUE,
+    EXACT_FLOAT64_INTEGER_LIMIT,
+    INT64_DEVIATION_LIMIT,
     aggregate_common_doc,
     build_dispatch,
     funcs_no_separate_nan,
     get_func,
+    raise_integer_mean_overflow,
+    raise_integer_variance_span_overflow,
     resolve_fill_value,
 )
-from .utils import (
+from numpy_groupies.utils import (
     aliasing,
     check_boolean,
     check_dtype,
@@ -27,13 +31,42 @@ from .utils import (
 )
 
 
+def step_count(group_idx: npt.ArrayLike) -> int:
+    """Return the number of contiguous runs in ``group_idx``.
+
+    A strictly increasing array of length ``n`` has ``n`` runs, an empty
+    array has 0, and an array of length 1 has 1. The return value matches
+    ``aggregate_numba.step_count`` exactly, so the two backends can be used
+    interchangeably.
+    """
+    group_idx = np.asarray(group_idx)
+    if group_idx.size < 1:
+        return 0
+    return 1 + int(np.count_nonzero(np.diff(group_idx) != 0))
+
+
+def step_indices(group_idx: npt.ArrayLike) -> npt.NDArray[np.intp]:
+    """Return the run-edge indices in ``group_idx``.
+
+    The first element is always 0, the last is always ``group_idx.size``,
+    and the interior elements are the start indices of each new run. An
+    empty input returns ``[0]`` to match the numba implementation.
+    """
+    group_idx = np.asarray(group_idx)
+    n = group_idx.size
+    if n < 1:
+        return np.array([0], dtype=np.int64)
+    starts = np.flatnonzero(np.diff(group_idx) != 0) + 1
+    return np.concatenate(([0], starts, [n])).astype(np.int64, copy=False)
+
+
 def _sum(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = None,
-) -> np.ndarray:
+) -> npt.NDArray[np.number]:
     dtype = minimum_dtype_scalar(fill_value, dtype, a)
 
     if np.ndim(a) == 0:
@@ -41,10 +74,22 @@ def _sum(
         if a != 1:
             ret *= a
     else:
+        exact_integer = False
+        if a.dtype.kind in "iu" and np.dtype(dtype).kind in "iu":
+            limits = np.iinfo(a.dtype)
+            bound = max(abs(int(limits.min)), int(limits.max))
+            if a.size * bound > 2**53:
+                bound = max(abs(int(a.min(initial=0))), abs(int(a.max(initial=0))))
+                exact_integer = a.size * bound > 2**53
         if iscomplexobj(a):
             ret = np.empty(size, dtype=dtype)
             ret.real = np.bincount(group_idx, weights=a.real, minlength=size)
             ret.imag = np.bincount(group_idx, weights=a.imag, minlength=size)
+        elif exact_integer:
+            # bincount converts weights to float64. Keep integer accumulation
+            # when its partial sums are not guaranteed exactly representable.
+            ret = np.zeros(size, dtype=dtype)
+            np.add.at(ret, group_idx, a.astype(dtype, copy=False))
         else:
             ret = np.bincount(group_idx, weights=a, minlength=size).astype(dtype, copy=False)
 
@@ -54,12 +99,12 @@ def _sum(
 
 
 def _prod(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = None,
-) -> np.ndarray:
+) -> npt.NDArray[np.number]:
     dtype = minimum_dtype_scalar(fill_value, dtype, a)
     ret = np.full(size, fill_value, dtype=dtype)
     if fill_value != 1:
@@ -69,22 +114,22 @@ def _prod(
 
 
 def _len(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = None,
-) -> np.ndarray:
+) -> npt.NDArray[np.int64]:
     return _sum(group_idx, 1, size, fill_value, dtype=int)
 
 
 def _last(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = None,
-) -> np.ndarray:
+) -> npt.NDArray[np.generic]:
     dtype = minimum_dtype(fill_value, dtype or a.dtype)
     ret = np.full(size, fill_value, dtype=dtype)
     # repeated indexing gives last value, see:
@@ -95,12 +140,12 @@ def _last(
 
 
 def _first(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = None,
-) -> np.ndarray:
+) -> npt.NDArray[np.generic]:
     dtype = minimum_dtype(fill_value, dtype or a.dtype)
     ret = np.full(size, fill_value, dtype=dtype)
     ret[group_idx[::-1]] = a[::-1]  # same trick as _last, but in reverse
@@ -108,12 +153,12 @@ def _first(
 
 
 def _all(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.bool_],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = None,
-) -> np.ndarray:
+) -> npt.NDArray[np.bool_]:
     check_boolean(fill_value)
     ret = np.full(size, fill_value, dtype=bool)
     if not fill_value:
@@ -123,12 +168,12 @@ def _all(
 
 
 def _any(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.bool_],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = None,
-) -> np.ndarray:
+) -> npt.NDArray[np.bool_]:
     check_boolean(fill_value)
     ret = np.full(size, fill_value, dtype=bool)
     if fill_value:
@@ -145,12 +190,12 @@ def _any(
 
 
 def _min(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = None,
-) -> np.ndarray:
+) -> npt.NDArray[np.generic]:
     dtype = minimum_dtype(fill_value, dtype or a.dtype)
     dmax = maxval(fill_value, dtype)
     with np.errstate(invalid="ignore"):
@@ -163,12 +208,12 @@ def _min(
 
 
 def _max(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = None,
-) -> np.ndarray:
+) -> npt.NDArray[np.generic]:
     dtype = minimum_dtype(fill_value, dtype or a.dtype)
     dmin = minval(fill_value, dtype)
     with np.errstate(invalid="ignore"):
@@ -181,13 +226,13 @@ def _max(
 
 
 def _argmax(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = int,
     _nansqueeze: bool = False,
-) -> np.ndarray:
+) -> npt.NDArray[np.int64]:
     # the mask value has to be the smallest value of numpy's order, which for a
     # complex dtype is -inf-infj and not -inf+0j (see minval and maxval)
     # Integer inputs have no NaNs; replacing them can promote uint64 to float64.
@@ -203,13 +248,13 @@ def _argmax(
 
 
 def _argmin(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = int,
     _nansqueeze: bool = False,
-) -> np.ndarray:
+) -> npt.NDArray[np.int64]:
     # the mask value has to be the largest value of numpy's order, which for a
     # complex dtype is inf+infj and not inf+0j (see minval and maxval)
     # Integer inputs have no NaNs; replacing them can promote uint64 to float64.
@@ -225,14 +270,21 @@ def _argmin(
 
 
 def _mean(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = np.dtype(np.float64),
-) -> np.ndarray:
+) -> npt.NDArray[np.inexact]:
     if np.ndim(a) == 0:
         raise ValueError("cannot take mean with scalar a")
+    if a.dtype.kind in "iu" and a.size:
+        # the sums are accumulated in float64; once the exact integer sums can
+        # leave the +/-2**53 window, the mean would silently round - refuse
+        # instead (every backend raises for the same inputs)
+        bound = max(int(a.max()), -int(a.min()))
+        if a.size * bound > EXACT_FLOAT64_INTEGER_LIMIT:
+            raise_integer_mean_overflow(a.size, bound)
     counts = np.bincount(group_idx, minlength=size)
     if iscomplexobj(a):
         # np.bincount does not take complex weights - accumulate the real and
@@ -251,12 +303,12 @@ def _mean(
 
 
 def _median(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = None,
-) -> np.ndarray:
+) -> npt.NDArray[np.inexact]:
     """
     Aggregate operation of the median within each group.
 
@@ -316,13 +368,13 @@ def _median(
 
 
 def _trapezoid(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = None,
     dx: float = 1.0,
-) -> np.ndarray:
+) -> npt.NDArray[np.inexact]:
     """
     Trapezoidal integration of each group, keeping the order of the input.
 
@@ -359,12 +411,12 @@ def _trapezoid(
 
 
 def _sum_of_squres(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = np.dtype(np.float64),
-) -> np.ndarray:
+) -> npt.NDArray[np.floating]:
     if np.issubdtype(a.dtype, np.integer):
         a = a.astype(dtype, copy=False)
     if iscomplexobj(a):
@@ -382,16 +434,34 @@ def _sum_of_squres(
 
 
 def _var(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = np.dtype(np.float64),
     sqrt: bool = False,
     ddof: int = 0,
-) -> np.ndarray:
+) -> npt.NDArray[np.floating]:
     if np.ndim(a) == 0:
         raise ValueError("cannot take variance with scalar a")
+    if a.dtype.kind in "iu" and a.size:
+        # center each group on its first value: the deviations stay exact in
+        # int64 arithmetic, so a large common offset can no longer erase small
+        # deviations after the conversion to float64
+        low = int(a.min())
+        high = int(a.max())
+        if a.size * max(high, -low) > EXACT_FLOAT64_INTEGER_LIMIT:
+            if high - low > INT64_DEVIATION_LIMIT:
+                raise_integer_variance_span_overflow(low, high)
+            origins = _first(group_idx, a, size, 0, dtype=a.dtype)
+            if a.dtype == np.dtype(np.uint64):
+                # uint64 subtraction wraps modulo 2**64, which is the exact
+                # two's-complement deviation while |deviation| stays below
+                # 2**63 (guaranteed by the span check above) - reinterpret the
+                # bit pattern instead of letting a cast round the values
+                a = (a - origins[group_idx]).astype(np.int64)
+            else:
+                a = a.astype(np.int64) - origins.astype(np.int64)[group_idx]
     counts = np.bincount(group_idx, minlength=size)
     if iscomplexobj(a):
         # np.bincount does not take complex weights - accumulate the real and
@@ -421,45 +491,55 @@ def _var(
 
 
 def _std(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = np.dtype(np.float64),
     ddof: int = 0,
-) -> np.ndarray:
+) -> npt.NDArray[np.floating]:
     return _var(group_idx, a, size, fill_value, dtype=dtype, sqrt=True, ddof=ddof)
 
 
 def _allnan(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = bool,
-) -> np.ndarray:
+) -> npt.NDArray[np.bool_]:
     return _all(group_idx, np.isnan(a), size, fill_value=fill_value, dtype=dtype)
 
 
 def _anynan(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = bool,
-) -> np.ndarray:
+) -> npt.NDArray[np.bool_]:
     return _any(group_idx, np.isnan(a), size, fill_value=fill_value, dtype=dtype)
 
 
 def _sort(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None = None,
     fill_value: Any = None,
     dtype: np.dtype | None = None,
     reverse: bool = False,
-) -> np.ndarray:
-    sortidx = np.lexsort((-a if reverse else a, group_idx))
+) -> npt.NDArray[np.generic]:
+    if reverse:
+        # the descending key.  Bitwise inversion reverses the order of the
+        # integral and boolean dtypes exactly, where negation does not: the
+        # smallest value of a signed dtype survives negation as itself, and a
+        # zero of an unsigned one stays the smallest key of all.  The inexact
+        # dtypes have no inversion and negate cleanly - a nan stays last
+        # either way, and -0.0 compares equal to 0.0.
+        key = ~a if a.dtype.kind in "iub" else -a
+    else:
+        key = a
+    sortidx = np.lexsort((key, group_idx))
     # Unsort back into original order, but preserving the groupwise value
     # sorting: scattering through the group-stable argsort is exactly the
     # inverse permutation, avoiding the classic argsort-of-argsort.
@@ -470,12 +550,12 @@ def _sort(
 
 
 def _array(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = None,
-) -> np.ndarray:
+) -> npt.NDArray[np.object_]:
     """groups a into separate arrays, keeping the order intact."""
     if fill_value is not None and not (np.isscalar(fill_value) or len(fill_value) == 0):
         raise ValueError("fill_value must be None, a scalar or an empty sequence")
@@ -489,14 +569,14 @@ def _array(
 
 
 def _generic_callable(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any,
     dtype: np.dtype | None = None,
     func: Callable[..., Any] = lambda g: g,
     **kwargs: Any,
-) -> np.ndarray:
+) -> npt.NDArray[np.generic]:
     """groups a by inds, and then applies foo to each group in turn, placing
     the results in an array."""
     groups = _array(group_idx, a, size, ())
@@ -508,36 +588,46 @@ def _generic_callable(
     return ret
 
 
-def _group_cumsum_sorted(group_idx_srt: np.ndarray, a_srt: np.ndarray, dtype: np.dtype | None = None) -> np.ndarray:
+def _group_cumsum_sorted(
+    group_idx_srt: npt.NDArray[np.integer], a_srt: npt.NDArray[np.generic], dtype: np.dtype | None = None
+) -> npt.NDArray[np.generic]:
     """
-    Cumsum within each group of a group-sorted nan-free array.
+    Cumsum within each contiguous group, with independent accumulators.
 
-    group_idx_srt is sorted, so each group occupies one contiguous block and
-    the cumulative sum of every group simply needs offsetting by the value
-    of its first element (minus the preceding groups' sums, which the
-    global cumsum already includes).
+    Subtracting offsets from a global cumsum loses small increments after
+    large groups, and nonfinite values contaminate subsequent groups.
     """
-    a_srt_cumsum = np.cumsum(a_srt, dtype=dtype)
-
     new_group = np.empty(group_idx_srt.size, dtype=bool)
     new_group[0] = True
     np.not_equal(group_idx_srt[1:], group_idx_srt[:-1], out=new_group[1:])
-    start_positions = np.flatnonzero(new_group)
-    group_starts = start_positions[np.cumsum(new_group) - 1]
-    # First subtract large numbers
-    a_srt_cumsum -= a_srt_cumsum[group_starts]
-    # Then add potentially small numbers
-    a_srt_cumsum += a_srt[group_starts]
+    starts = np.flatnonzero(new_group)
+    ends = np.append(starts[1:], group_idx_srt.size)
+    # Match cumsum's default integer promotion, including for singleton groups.
+    result_dtype = np.cumsum(a_srt[:0], dtype=dtype).dtype
+    a_srt_cumsum = a_srt.astype(result_dtype, copy=True)
+    counts = ends - starts
+    # Batch equal-length groups into rows, keeping every accumulator separate
+    # without a Python call for each short group. Singleton groups are done.
+    for count in np.unique(counts[counts > 1]):
+        selected = starts[counts == count]
+        if selected.size == starts.size:
+            np.cumsum(a_srt.reshape(-1, count), axis=1, dtype=dtype, out=a_srt_cumsum.reshape(-1, count))
+        elif selected.size == 1:
+            start = selected[0]
+            np.cumsum(a_srt[start : start + count], dtype=dtype, out=a_srt_cumsum[start : start + count])
+        else:
+            positions = selected[:, None] + np.arange(count)
+            a_srt_cumsum[positions] = np.cumsum(a_srt[positions], axis=1, dtype=dtype)
     return a_srt_cumsum
 
 
 def _cumsum(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any = None,
     dtype: np.dtype | None = None,
-) -> np.ndarray:
+) -> npt.NDArray[np.generic]:
     """
     N to N aggregate operation of cumsum. Perform cumulative sum for each group.
 
@@ -554,21 +644,7 @@ def _cumsum(
     group_idx_srt = group_idx[sortidx]
     a_srt = a[sortidx]
 
-    nans_from = None
-    if np.issubdtype(a_srt.dtype, np.floating):
-        nans = np.isnan(a_srt)
-        if nans.any():
-            # nan-free running sums cannot be poisoned across group
-            # boundaries; the per-group prefix-count of nans (itself a
-            # nan-free cumsum) flags every position from the first nan of
-            # its group onwards.
-            a_srt = np.where(nans, 0, a_srt)
-            nan_prefix = _group_cumsum_sorted(group_idx_srt, nans.astype(np.int64))
-            nans_from = nan_prefix > 0
-
     a_srt_cumsum = _group_cumsum_sorted(group_idx_srt, a_srt, dtype=dtype)
-    if nans_from is not None:
-        a_srt_cumsum[nans_from] = np.nan
 
     ret = np.empty_like(a_srt_cumsum)
     ret[sortidx] = a_srt_cumsum
@@ -576,12 +652,12 @@ def _cumsum(
 
 
 def _nancumsum(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.generic],
     size: int | tuple[int, ...] | None,
     fill_value: Any = None,
     dtype: np.dtype | None = None,
-) -> np.ndarray:
+) -> npt.NDArray[np.generic]:
     a_nonans = np.where(np.isnan(a), 0, a)
     group_idx_nonans = np.where(np.isnan(group_idx), np.nanmax(group_idx) + 1, group_idx)
     return _cumsum(group_idx_nonans, a_nonans, size, fill_value=fill_value, dtype=dtype)
@@ -631,7 +707,7 @@ def _aggregate_base(
     _dispatch=_dispatch,
     is_pandas: bool = False,
     **kwargs: Any,
-) -> Any:
+) -> npt.NDArray[np.generic]:
     iv = input_validation(group_idx, a, size=size, order=order, axis=axis, func=func)
     group_idx, a, flat_size, ndim_idx, size, unravel_shape = iv
 
@@ -704,7 +780,7 @@ def aggregate(
     dtype: npt.DTypeLike = None,
     axis: int | None = None,
     **kwargs: Any,
-) -> Any:
+) -> npt.NDArray[np.generic]:
     return _aggregate_base(
         group_idx,
         a,
@@ -727,7 +803,7 @@ aggregate.__doc__ = (
 )
 
 
-def _fill_untouched(idx: np.ndarray, ret: np.ndarray, fill_value: Any) -> None:
+def _fill_untouched(idx: npt.NDArray[np.integer], ret: npt.NDArray[np.generic], fill_value: Any) -> None:
     """any elements of ret not indexed by idx are set to fill_value."""
     untouched = np.ones_like(ret, dtype=bool)
     untouched[idx] = False

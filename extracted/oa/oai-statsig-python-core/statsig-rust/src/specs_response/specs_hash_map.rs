@@ -1,4 +1,8 @@
-use std::{borrow::Cow, cell::Cell, sync::Arc};
+use std::{
+    borrow::{Borrow, Cow},
+    cell::Cell,
+    sync::Arc,
+};
 
 use ahash::{HashMap, HashMapExt};
 use rkyv::{primitive::ArchivedU64, vec::ArchivedVec};
@@ -195,20 +199,26 @@ where
 {
     let raw_values: HashMap<InternedString, Box<RawValue>> =
         Deserialize::deserialize(deserializer)?;
+    decode_raw_dynamic_configs(raw_values)
+}
+
+pub(crate) fn decode_raw_dynamic_configs<E: SerdeError, R: Borrow<RawValue>>(
+    raw_values: HashMap<InternedString, R>,
+) -> Result<SpecsHashMap, E> {
     decode_raw_specs(
         raw_values,
         should_skip_unhydrated_dynamic_configs_for_preload(),
     )
 }
 
-fn decode_raw_specs<E: SerdeError>(
-    raw_values: HashMap<InternedString, Box<RawValue>>,
+fn decode_raw_specs<E: SerdeError, R: Borrow<RawValue>>(
+    raw_values: HashMap<InternedString, R>,
     skip_unhydrated_remote_configs: bool,
 ) -> Result<SpecsHashMap, E> {
     let preserve_session_update_mode = should_preserve_session_update_mode();
     let mut result = SpecsHashMap(HashMap::with_capacity(raw_values.len()));
     for (key, raw_value) in raw_values.into_iter() {
-        let json_string = raw_value.get();
+        let json_string = raw_value.borrow().get();
         if raw_spec_has_unhydrated_remote_config_metadata(json_string) {
             if skip_unhydrated_remote_configs {
                 continue;

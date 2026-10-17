@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,21 +15,41 @@
 #
 # ****************************************************************************
 
+"""GCOVR Coveralls report interface."""
+
 from ...data_model.container import CoverageContainer
 from ...formats.base import BaseHandler
 from ...options import GcovrConfigOption, OutputOrDefault
+
+OPTION_GROUP_NAME = "Coveralls JSON options"
+OPTION_GROUP = OPTION_GROUP_NAME.casefold().replace(" ", "_")
 
 
 class CoverallsHandler(BaseHandler):
     """Class to handle Coveralls format."""
 
     @classmethod
+    def get_option_group(cls) -> dict[str, str]:
+        """Get the description of the option group."""
+        return {
+            "key": OPTION_GROUP,
+            "name": OPTION_GROUP_NAME,
+            "description": (
+                "Options for report generation in Coveralls format, "
+                "see <https://docs.coveralls.io/api-jobs-endpoint#the-coverage-report-json-objects>."
+            ),
+        }
+
+    @classmethod
     def get_options(cls) -> list[GcovrConfigOption | str]:
+        """Get the report options."""
         return [
+            # JSON option use for validation
+            "json_compare",
             GcovrConfigOption(
                 "coveralls",
                 ["--coveralls"],
-                group="output_options",
+                group=OPTION_GROUP,
                 metavar="OUTPUT",
                 help=(
                     "Generate Coveralls API coverage report in this file name. "
@@ -45,13 +63,23 @@ class CoverallsHandler(BaseHandler):
             GcovrConfigOption(
                 "coveralls_pretty",
                 ["--coveralls-pretty"],
-                group="output_options",
-                help=("Pretty-print the coveralls report. Implies --coveralls."),
+                group=OPTION_GROUP,
+                help=("Pretty-print the Coveralls report. Implies --coveralls."),
                 action="store_true",
             ),
         ]
 
+    def validate_options(self) -> None:
+        """Validate options."""
+        if self.options.coveralls and self.options.json_compare:
+            msg = "A Coveralls report is not possible with --json-compare."
+            raise RuntimeError(msg)
+
     def write_report(self, covdata: CoverageContainer, output_file: str) -> None:
-        from .write import write_report  # pylint: disable=import-outside-toplevel # Lazy loading is intended here
+        """Write report."""
+        # Lazy loading is intended here
+        from .write import (  # pylint: disable=import-outside-toplevel  # noqa: PLC0415
+            write_report,
+        )
 
         write_report(covdata, output_file, self.options)

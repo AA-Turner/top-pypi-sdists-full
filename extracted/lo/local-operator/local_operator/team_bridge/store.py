@@ -799,6 +799,43 @@ def _decode_categories_text(raw: Any) -> list[str]:
     return decoded
 
 
+def _decode_intent_categories(raw: Any) -> list[str] | None:
+    """A read intent's persisted categories, or ``None`` when unreadable.
+
+    The READ slice compares an intent's tuple against a receipt's, and it must
+    never turn "this text is not the array it claims to be" into "the tuples
+    differ": an unreadable value is proof that cannot admit, which the caller
+    spells with the same closed refusal a mismatch gets.
+    """
+
+    try:
+        decoded = _decode_categories_text(raw)
+    except StoreRefused:
+        return None
+    if not all(isinstance(item, str) for item in decoded):
+        return None
+    return decoded
+
+
+def _owner_from_row(row: sqlite3.Row) -> OwnerSnapshot:
+    """One committed enrollment row -> the owner snapshot the readers hand out.
+
+    Extracted so every reader of ``enrollments`` — the writable ones and the
+    read-only pair added for review R-1 — decodes the row the same way: two
+    decoders is how the namespace a read side reports stops matching the
+    namespace the write side committed.
+    """
+
+    return OwnerSnapshot(
+        credential_id=int(row["credential_id"]),
+        account_id=row["account_id"],
+        tenant_id=row["tenant_id"],
+        endpoint_id=row["endpoint_id"],
+        canonical_base_url=row["canonical_base_url"],
+        enrollment_generation=int(row["enrollment_generation"]),
+    ).validated()
+
+
 def _owner_key(owner: OwnerSnapshot) -> str:
     """The namespace key: hub origin + account + tenant + endpoint.
 
@@ -815,6 +852,125 @@ def _owner_key(owner: OwnerSnapshot) -> str:
             owner.endpoint_id,
         ],
         separators=(",", ":"),
+    )
+
+
+#: Why a stored receipt is NOT authority (S-RSA-3). Two different facts, kept
+#: apart because the callers act differently: a receipt minted under a policy or
+#: generation that has since moved is a MISS (nothing may be concluded from it,
+#: and the connector may screen again), while a row whose own metadata cannot be
+#: read as the tuple it claims is DAMAGE (it must never be re-screened behind,
+#: or shown to a reader, as if it were proof).
+RECEIPT_STALE = "receipt_stale"
+RECEIPT_CORRUPT = "proof_corrupt"
+
+
+def _receipt_int(value: Any, default: int) -> int | None:
+    """An INTEGER column's value as an int, or ``None`` when it is not one (R-3).
+
+    SQLite types by AFFINITY rather than enforcement, so TEXT in an INTEGER
+    column is legal STORAGE — and ``int()`` over stored proof then raises. This
+    slice's refusal vocabulary is closed and the read route maps only typed
+    refusals, so a raw ``ValueError`` would leave a read as an untyped 500;
+    text that is not a number is DAMAGE and the caller spells it with
+    :data:`RECEIPT_CORRUPT`.
+
+    The ``or default`` is the history this function replaces (``int(x or -1)``):
+    an absent or empty value means the column's own default, while a present
+    non-numeric one is corruption rather than a number nobody wrote.
+    """
+
+    try:
+        return int(value or default)
+    except (TypeError, ValueError):
+        return None
+
+
+def receipt_authority(
+    owner: OwnerSnapshot, policy: Mapping[str, Any], receipt: Mapping[str, Any]
+) -> tuple[dict[str, Any] | None, str | None, str]:
+    """The PURE authority checks a stored receipt must pass (S-RSA-3).
+
+    WHY THIS IS ONE FUNCTION, called from two sides of the store: the WRITE-side
+    consumption point (:meth:`Store.consume_screening_receipt`, which must refuse
+    rather than let a caller re-screen and double-bill behind a damaged row) and
+    the READ slice's read-only proof snapshot, which decides what a person is
+    shown. A second copy of these checks is how the two drift apart, and the
+    drift is the defect this slice exists to close: one surface admitting a
+    receipt the other holds.
+
+    ALL of them are required. The PUBLISHED policy must still equal the
+    receipt's own template/model/admission_revision AND its epoch, because a
+    verdict is only evidence of what the policy of its moment asked for; the
+    receipt's ``creator_generation`` must still be the owner's enrollment
+    generation, because re-enrollment invalidates every receipt an earlier
+    enrollment minted; the categories must decrypt to a valid list drawn from
+    the CLOSED set (empty SQL text is damaged proof, never an empty tuple); the
+    verdict is a closed value; and an ``allow`` carrying rejection categories is
+    internally inconsistent, so it is refused rather than delivered on.
+
+    Returns ``(decoded_receipt, None, "")``, ``(None, :data:`RECEIPT_STALE`, "")``
+    or ``(None, :data:`RECEIPT_CORRUPT`, note)``. The row's ABSENCE is the
+    caller's business: a cache miss is not damage.
+
+    The third element is the DIAGNOSTIC for a damage the caller reports — the
+    write-side consumption point raised its own specific sentence per damaged
+    field before this function existed, and the refactor must not cost a
+    triaging operator that information (review R-8). It is never a code and is
+    never rendered to a caller: the machine-readable half stays the closed code.
+    """
+
+    if (
+        policy.get("template_sha256") != receipt.get("template_sha256")
+        or policy.get("default_model") != receipt.get("model")
+        or policy.get("revision") != receipt.get("admission_revision")
+    ):
+        return None, RECEIPT_STALE, ""
+    policy_epoch = _receipt_int(policy.get("epoch"), 0)
+    receipt_epoch = _receipt_int(receipt.get("policy_epoch"), -1)
+    creator_generation = _receipt_int(receipt.get("creator_generation"), -1)
+    if policy_epoch is None or receipt_epoch is None or creator_generation is None:
+        # Text where a number belongs (R-3): the receipt's currency can no
+        # longer be ESTABLISHED at all, which is damage rather than a miss — a
+        # miss would invite a caller to re-screen behind a row nobody can read.
+        return None, RECEIPT_CORRUPT, "epoch or creator generation is not a number"
+    if policy_epoch != receipt_epoch or creator_generation != owner.enrollment_generation:
+        return None, RECEIPT_STALE, ""
+    try:
+        decoded = _decode_categories_text(receipt.get("categories"))
+    except StoreRefused as refusal:
+        # The decoder's own sentence ("empty categories text" / "categories
+        # decode failed" / "categories not a list"): unchanged from before the
+        # refactor, when it propagated straight out of the consume path.
+        return None, RECEIPT_CORRUPT, str(refusal)
+    if (
+        not isinstance(decoded, list)
+        or not all(isinstance(item, str) for item in decoded)
+        or not set(decoded) <= _CLOSED_CATEGORIES
+    ):
+        # Unknown category strings (or wrong shapes) can never be handed to a
+        # receipt: typed uncertainty, zero spend.
+        return None, RECEIPT_CORRUPT, "categories failed validation"
+    verdict = receipt.get("verdict")
+    if verdict not in ("allow", "reject"):
+        return None, RECEIPT_CORRUPT, "unknown verdict"
+    if verdict == "allow" and decoded:
+        return None, RECEIPT_CORRUPT, "allow verdict with categories"
+    return (
+        {
+            "verdict": verdict,
+            "model": receipt.get("model"),
+            "prompt_version": receipt.get("prompt_version"),
+            "template_sha256": receipt.get("template_sha256"),
+            "body_sha256": receipt.get("body_sha256"),
+            "categories": decoded,
+            "envelope_digest": receipt.get("envelope_digest"),
+            "admission_revision": receipt.get("admission_revision"),
+            "policy_epoch": receipt.get("policy_epoch"),
+            "creator_generation": receipt.get("creator_generation"),
+        },
+        None,
+        "",
     )
 
 
@@ -1317,19 +1473,219 @@ class Store:
                     # never be read through a guess — callers name the full
                     # namespace via resolve_owner instead (QA H2-Q5).
                     return None
-                row = rows[0]
-                return OwnerSnapshot(
-                    credential_id=int(row["credential_id"]),
-                    account_id=row["account_id"],
-                    tenant_id=row["tenant_id"],
-                    endpoint_id=row["endpoint_id"],
-                    canonical_base_url=row["canonical_base_url"],
-                    enrollment_generation=int(row["enrollment_generation"]),
-                ).validated()
+                return _owner_from_row(rows[0])
         except StoreRefused:
             return None
         except sqlite3.Error:
             return None
+
+    # -- READ-ONLY accessors (review R-1 / spec M-9) -------------------------
+    #
+    # WHY THESE EXIST APART FROM THE ONES ABOVE. Every reader above opens the
+    # store through ``_connect`` (which ``mkdir``s the tree) and ``_init`` (full
+    # DDL plus the additive migration). That is right for a writer and wrong for
+    # a surface whose whole promise is that it only REPORTS state: a UI read must
+    # not create the database it was asked about, because "this machine holds
+    # nothing for you" and "a store we just made" are different facts, and the
+    # second one is a write nobody asked for. Measured in review R-1: a GET with
+    # nothing enrolled answered 409 and left a fresh ``team_bridge/state.sqlite3``
+    # behind.
+    #
+    # So the readers below open an EXISTING file through SQLite's own read-only
+    # URI — no mkdir, no DDL, no migration, no journal-mode pragma — and treat an
+    # absent file as "nothing enrolled" rather than as something to create. A
+    # file that exists but cannot be read is NOT authority: it refuses with
+    # ``state_unreadable`` instead of being repaired, the same fail-closed law
+    # ``_init`` follows.
+    #
+    # CONTRACT: the invariant they exist for is LOGICAL zero-write (spec M-10):
+    # main-file bytes, schema version and rows unchanged, no new database created.
+    # SQLite's own WAL side files are tolerated — a reader may need them, and they
+    # are not this surface's write. That distinction is stated wherever the
+    # contract is repeated (``content_proof_readonly``, the read route) rather
+    # than summarised as "zero writes": the side files ARE filesystem changes,
+    # and a claim a hash can contradict is worse than a narrower true one.
+
+    @contextmanager
+    def _connect_readonly(self) -> Iterator[sqlite3.Connection | None]:
+        """A read-only connection to an EXISTING store, or ``None`` when absent."""
+
+        if not self._path.exists():
+            # ``yield None``, not a bare ``return``: a contextmanager generator
+            # that never yields raises instead of handing the caller its None.
+            yield None
+            return
+        try:
+            conn = sqlite3.connect(
+                f"{self._path.absolute().as_uri()}?mode=ro",
+                uri=True,
+                timeout=_BUSY_TIMEOUT_MS / 1000.0,
+            )
+        except sqlite3.Error as error:
+            raise StoreRefused("state_unreadable", str(error)) from error
+        try:
+            conn.row_factory = sqlite3.Row
+            yield conn
+        except sqlite3.Error as error:
+            # Anything the CALLER's read hits is one fact to the surface: this
+            # machine's store cannot be read. Never a partial answer.
+            raise StoreRefused("state_unreadable", str(error)) from error
+        finally:
+            conn.close()
+
+    def active_owner_readonly(self) -> OwnerSnapshot | None:
+        """The committed owner WITHOUT creating or migrating the store (R-1).
+
+        The same rule as :meth:`active_owner` — exactly one committed row, else
+        None — over a read-only connection, so an absent file reads as
+        "not enrolled" and, crucially, stays absent.
+        """
+
+        with self._connect_readonly() as conn:
+            if conn is None:
+                return None
+            rows = conn.execute("SELECT * FROM enrollments WHERE state = 'committed'").fetchall()
+            if len(rows) != 1:
+                return None
+            return _owner_from_row(rows[0])
+
+    def owner_consent_receipt_readonly(self, owner: OwnerSnapshot) -> dict[str, str] | None:
+        """The consent receipt for the EXACT live owner, read-only (R-1).
+
+        The same fence and the same columns as :meth:`owner_consent_receipt`:
+        the native live-owner/generation check, then the accepted version/ref.
+        An absent store, a fenced owner or a half-written receipt is None.
+        """
+
+        with self._connect_readonly() as conn:
+            if conn is None:
+                return None
+            if self._live_generation(conn, owner) != owner.enrollment_generation:
+                return None
+            row = conn.execute(
+                "SELECT consent_version, consent_ref FROM enrollments "
+                "WHERE owner_key = ? AND enrollment_generation = ?",
+                (_owner_key(owner), owner.enrollment_generation),
+            ).fetchone()
+            if row is None:
+                return None
+            version = row["consent_version"]
+            ref = row["consent_ref"]
+            if not isinstance(version, str) or not version:
+                return None
+            if not isinstance(ref, str) or not ref:
+                return None
+            return {"consent_version": version, "consent_ref": ref}
+
+    def screening_hold_readonly(
+        self, owner: OwnerSnapshot, message_id: str
+    ) -> dict[str, Any] | None:
+        """The durable hold row for one message, read-only (R-1).
+
+        The same row :meth:`screening_hold` reads, minus the write. The caller
+        renders ``hold_code``/``retry_at`` only; the screener's own reason has no
+        column here and is never read.
+        """
+
+        with self._connect_readonly() as conn:
+            if conn is None:
+                return None
+            row = conn.execute(
+                "SELECT hold_code, retry_at, created_at FROM screening_holds "
+                "WHERE owner_key = ? AND message_id = ?",
+                (_owner_key(owner), str(message_id)),
+            ).fetchone()
+            if row is None:
+                return None
+            return {
+                "hold_code": row["hold_code"],
+                "retry_at": row["retry_at"],
+                "created_at": row["created_at"],
+            }
+
+    def content_proof_readonly(
+        self, owner: OwnerSnapshot, message_ids: Sequence[str]
+    ) -> dict[str, dict[str, Any]]:
+        """The native content-admission proof for these messages, ONE snapshot (S-RSA-3).
+
+        WHY ONE READ TRANSACTION. Admission has to be decided over a single
+        linearized moment: policy, receipt and the confirmed read intent read at
+        three different times could be assembled into a decision no single
+        moment authorized — the reviewer's own S-RSA-3 construction. So this
+        opens ONE read-only connection, begins ONE deferred transaction and reads
+        the owner's policy row plus the three per-message rows inside it. The
+        DECISION stays pure (:func:`~local_operator.team_bridge.read_context.
+        admit_read_content`); this method only fetches.
+
+        ZERO WRITES, structurally: :meth:`_connect_readonly` never creates,
+        migrates or repairs the store, and this transaction is read-only by
+        construction. An ABSENT store answers every id with an entry whose fields
+        are all ``None`` — "nothing enrolled" is not an error, and a reader must
+        never be handed a database created to explain its own absence.
+
+        The claim is the LOGICAL one of the read-only block above (M-10): no
+        table row and no main-file byte changes, and no database is created.
+        SQLite's own ``-wal``/``-shm`` SIDE FILES may appear when the store is in
+        WAL mode — a reader of a WAL database needs them, they are not this
+        slice's write, and a strict whole-tree hash therefore moves where the
+        table digest does not (review Q-3). ``immutable=1`` would suppress them
+        and is deliberately NOT used: it asserts that nobody writes this store at
+        all, which is false for a database the connector owns, and SQLite
+        documents the reads as undefined once that assertion breaks.
+
+        The intent's persisted ``categories`` are DECODED here (a list on
+        success, ``None`` when the stored text is not the array it must be): the
+        caller compares tuples, and text that cannot be decoded is not a mismatch
+        to explain — it is proof that cannot admit.
+        """
+
+        ids = [str(message_id) for message_id in message_ids]
+        # Every requested id gets an ENTRY, always: the caller decides one row's
+        # content, and "no proof" is a field being None rather than a missing key
+        # it would have to distinguish from a bug.
+        snapshot: dict[str, dict[str, Any]] = {
+            message_id: {"policy": None, "receipt": None, "intent": None, "hold": None}
+            for message_id in ids
+        }
+        with self._connect_readonly() as conn:
+            if conn is None:
+                return snapshot
+            # DEFERRED, and deliberately: no writer can be blocked by a read,
+            # while every SELECT below sees one consistent database image (a
+            # writer that commits mid-snapshot would otherwise be half-visible).
+            conn.execute("BEGIN")
+            key = _owner_key(owner)
+            policy_row = conn.execute(
+                "SELECT version, template_sha256, default_model, revision, epoch "
+                "FROM screening_policy WHERE owner_key = ?",
+                (key,),
+            ).fetchone()
+            policy = dict(policy_row) if policy_row is not None else None
+            for message_id in ids:
+                receipt_row = conn.execute(
+                    "SELECT * FROM screening_receipts WHERE owner_key = ? AND message_id = ?",
+                    (key, message_id),
+                ).fetchone()
+                intent_row = conn.execute(
+                    "SELECT * FROM ack_intents WHERE owner_key = ? AND message_id = ? "
+                    "AND target = 'read'",
+                    (key, message_id),
+                ).fetchone()
+                hold_row = conn.execute(
+                    "SELECT hold_code, retry_at, created_at FROM screening_holds "
+                    "WHERE owner_key = ? AND message_id = ?",
+                    (key, message_id),
+                ).fetchone()
+                intent = dict(intent_row) if intent_row is not None else None
+                if intent is not None:
+                    intent["categories"] = _decode_intent_categories(intent.get("categories"))
+                snapshot[message_id] = {
+                    "policy": policy,
+                    "receipt": dict(receipt_row) if receipt_row is not None else None,
+                    "intent": intent,
+                    "hold": dict(hold_row) if hold_row is not None else None,
+                }
+            return snapshot
 
     def resolve_owner(
         self,
@@ -1364,15 +1720,7 @@ class Store:
                     rows = [r for r in rows if r["canonical_base_url"] == canonical_base_url]
                 if len(rows) != 1:
                     return None
-                row = rows[0]
-                return OwnerSnapshot(
-                    credential_id=int(row["credential_id"]),
-                    account_id=row["account_id"],
-                    tenant_id=row["tenant_id"],
-                    endpoint_id=row["endpoint_id"],
-                    canonical_base_url=row["canonical_base_url"],
-                    enrollment_generation=int(row["enrollment_generation"]),
-                ).validated()
+                return _owner_from_row(rows[0])
         except StoreRefused:
             return None
         except sqlite3.Error:
@@ -2798,54 +3146,26 @@ class Store:
                 ).fetchone()
                 if row is None:
                     return None
-                if (
-                    policy["template_sha256"] != row["template_sha256"]
-                    or policy["default_model"] != row["model"]
-                    or policy["revision"] != row["admission_revision"]
-                    or int(policy["epoch"]) != int(row["policy_epoch"])
-                    or int(row["creator_generation"]) != owner.enrollment_generation
-                ):
+                # The checks themselves live in ONE pure function (S-RSA-3),
+                # shared with the read slice's proof snapshot: this call site
+                # supplies the two rules that are about BEHAVIOUR here — a stale
+                # receipt is a miss (the caller may screen), a corrupt one is a
+                # typed refusal (a caller that re-screened behind it would
+                # DOUBLE-BILL the account for a verdict nobody can read).
+                # ``dict(...)`` because these are ``sqlite3.Row`` objects: they
+                # index but do not ``.get``, and the shared function takes mappings
+                # exactly as the read path's own decoded rows do.
+                decoded, damage, note = receipt_authority(owner, dict(policy), dict(row))
+                if damage == RECEIPT_CORRUPT:
+                    # ``note`` is the specific damaged field (R-8): this path
+                    # raised a sentence per field before the checks moved into
+                    # the shared function, and a triaging operator keeps it.
+                    raise StoreRefused(
+                        "proof_corrupt", note or "the stored receipt failed its authority checks"
+                    )
+                if decoded is None:
                     return None
-                # EMPTY SQL TEXT is damaged proof, not an empty tuple
-                # (R7/Q2): coalescing it to [] would admit a receipt whose
-                # categories were never written. Only valid JSON survives —
-                # "[]" is the only legitimate empty.
-                try:
-                    decoded = _decode_categories_text(row["categories"])
-                except (TypeError, ValueError) as error:
-                    # A MATCHED row whose metadata cannot be decoded is
-                    # DAMAGED authority, not an absent proof: refusing (hold)
-                    # keeps the caller from re-screening and DOUBLE-BILLING
-                    # behind a corrupted receipt.
-                    raise StoreRefused("proof_corrupt", str(error)) from None
-                if (
-                    not isinstance(decoded, list)
-                    or not all(isinstance(item, str) for item in decoded)
-                    or not set(decoded) <= _CLOSED_CATEGORIES
-                ):
-                    # Unknown category strings (or wrong shapes) can never be
-                    # handed to a receipt: typed uncertainty, zero spend.
-                    raise StoreRefused("proof_corrupt", "categories failed validation")
-                if row["verdict"] not in ("allow", "reject"):
-                    raise StoreRefused("proof_corrupt", "unknown verdict")
-                if row["verdict"] == "allow" and decoded:
-                    # An ALLOW with rejection categories is internally
-                    # inconsistent (injection is a reject): fail closed
-                    # rather than deliver on damaged metadata. A reject with
-                    # an empty tuple is NOT forbidden and stays valid.
-                    raise StoreRefused("proof_corrupt", "allow verdict with categories")
-                return {
-                    "verdict": row["verdict"],
-                    "model": row["model"],
-                    "prompt_version": row["prompt_version"],
-                    "template_sha256": row["template_sha256"],
-                    "body_sha256": row["body_sha256"],
-                    "categories": decoded,
-                    "envelope_digest": row["envelope_digest"],
-                    "admission_revision": row["admission_revision"],
-                    "policy_epoch": row["policy_epoch"],
-                    "creator_generation": row["creator_generation"],
-                }
+                return decoded
         except sqlite3.Error as error:
             # An interleaved writer that could not take the lock (or any
             # engine-level failure) leaves the authority UNVERIFIED, which is

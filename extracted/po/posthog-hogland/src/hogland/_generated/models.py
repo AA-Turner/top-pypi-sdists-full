@@ -65,6 +65,10 @@ class BoxSpec(BaseModel):
     """
     Opaque shell script delivered in the Firecracker MMDS boot-params document and run as root at boot by hogpanion's bootstrap feature. A non-zero exit leaves bootstrap_done false, so hogd's Place readiness poll times out and the box is torn down. Skipped on snapshot restore (idempotent marker inside the guest). Never echoed back on reads — safe for secrets like agent tokens.
     """
+    cpu_request: float | None = Field(None, examples=[0.5], ge=0.25, le=180.0)
+    """
+    Host-side CPU reservation in vCPUs — the scheduling and billing floor. The box can burst up to cpus when the node has idle CPU; under contention it is guaranteed its request-proportional share. Must be between 0.25 and cpus. Omit for request == cpus (no overcommit). Not pinned by snapshots — may be set freely on restore; omitted, it inherits the snapshot's value.
+    """
     cpus: float | None = Field(None, examples=[4], ge=0.25, le=180.0)
     """
     vCPUs. Fractional allowed (cgroup quota). Omit to inherit from the snapshot on restore; cold boot defaults to 1 server-side.
@@ -94,6 +98,10 @@ class BoxSpec(BaseModel):
     """
     Hard memory cap in MiB. Min 256 (smaller can't run a usable Linux userspace), max 368640 / 360 GiB (largest node is c8i.metal-48xl with ~378 GiB allocatable). Omit to inherit from the snapshot on restore; cold boot defaults to 1024 server-side.
     """
+    memory_request_mib: int | None = Field(None, examples=[1024], ge=256, le=368640)
+    """
+    Host-side memory reservation in MiB — the scheduling and billing floor. The guest always sees memory_mib; the request is what admission reserves, so a mostly-idle box can reserve less than its cap. Must be between 256 and memory_mib. Omit for request == memory_mib (no overcommit). Not pinned by snapshots — may be set freely on restore; omitted, it inherits the snapshot's value.
+    """
     name: str | None = None
     net_mbps: float = Field(0, ge=0.0, le=40000.0)
     """
@@ -101,7 +109,7 @@ class BoxSpec(BaseModel):
     """
     snapshot_id: str | None = None
     """
-    Restore source. Either a concrete id ("snap-abc123") or an alias pointer ("alias:devbox-golden") resolved server-side. cpus and memory_mib must be omitted (inherit) or match the snapshot exactly — Firecracker pins machine config at snapshot time.
+    Restore source. Either a concrete id ("snap-abc123") or an alias pointer ("alias:devbox-golden") resolved server-side. cpus and memory_mib must be omitted (inherit) or match the snapshot exactly — Firecracker pins machine config at snapshot time. cpu_request and memory_request_mib are exempt: they are host-side only (never guest-visible), so they may be set freely on restore; omitted, they inherit the snapshot's values.
     """
     ssh_public_key: str | None = Field(None, examples=["ssh-ed25519 AAAA... you@host"])
     """
@@ -172,6 +180,10 @@ class CreateBoxRequest(BaseModel):
     Opaque shell script delivered in the Firecracker MMDS boot-params document and run as root at boot by hogpanion's bootstrap feature. A non-zero exit leaves bootstrap_done false, so hogd's Place readiness poll times out and the box is torn down. Skipped on snapshot restore (idempotent marker inside the guest). Never echoed back on reads — safe for secrets like agent tokens.
     """
     bootstrap_data: Any | None = None
+    cpu_request: float | None = Field(None, examples=[0.5], ge=0.25, le=180.0)
+    """
+    Host-side CPU reservation in vCPUs — the scheduling and billing floor. The box can burst up to cpus when the node has idle CPU; under contention it is guaranteed its request-proportional share. Must be between 0.25 and cpus. Omit for request == cpus (no overcommit). Not pinned by snapshots — may be set freely on restore; omitted, it inherits the snapshot's value.
+    """
     cpus: float | None = Field(None, examples=[4], ge=0.25, le=180.0)
     """
     vCPUs. Fractional allowed (cgroup quota). Omit to inherit from the snapshot on restore; cold boot defaults to 1 server-side.
@@ -201,6 +213,10 @@ class CreateBoxRequest(BaseModel):
     """
     Hard memory cap in MiB. Min 256 (smaller can't run a usable Linux userspace), max 368640 / 360 GiB (largest node is c8i.metal-48xl with ~378 GiB allocatable). Omit to inherit from the snapshot on restore; cold boot defaults to 1024 server-side.
     """
+    memory_request_mib: int | None = Field(None, examples=[1024], ge=256, le=368640)
+    """
+    Host-side memory reservation in MiB — the scheduling and billing floor. The guest always sees memory_mib; the request is what admission reserves, so a mostly-idle box can reserve less than its cap. Must be between 256 and memory_mib. Omit for request == memory_mib (no overcommit). Not pinned by snapshots — may be set freely on restore; omitted, it inherits the snapshot's value.
+    """
     name: str | None = None
     net_mbps: float = Field(0, ge=0.0, le=40000.0)
     """
@@ -208,7 +224,7 @@ class CreateBoxRequest(BaseModel):
     """
     snapshot_id: str | None = None
     """
-    Restore source. Either a concrete id ("snap-abc123") or an alias pointer ("alias:devbox-golden") resolved server-side. cpus and memory_mib must be omitted (inherit) or match the snapshot exactly — Firecracker pins machine config at snapshot time.
+    Restore source. Either a concrete id ("snap-abc123") or an alias pointer ("alias:devbox-golden") resolved server-side. cpus and memory_mib must be omitted (inherit) or match the snapshot exactly — Firecracker pins machine config at snapshot time. cpu_request and memory_request_mib are exempt: they are host-side only (never guest-visible), so they may be set freely on restore; omitted, they inherit the snapshot's values.
     """
     ssh_public_key: str | None = Field(None, examples=["ssh-ed25519 AAAA... you@host"])
     """
@@ -743,12 +759,14 @@ class LimitsResponse(BaseModel):
     A URL to the JSON Schema for this object.
     """
     access_type: list[str]
+    cpu_request: NumericLimit
     cpus: NumericLimit
     disk_class: list[str]
     disk_gib: NumericLimit
     disk_iops: NumericLimit
     disk_mbps: NumericLimit
     memory_mib: NumericLimit
+    memory_request_mib: NumericLimit
     net_mbps: NumericLimit
 
 

@@ -24,6 +24,7 @@ use super::metadata::{
     validate_reference_limits,
 };
 use super::telemetry::{HydrationOutcome, HydrationPhase, HydrationResult};
+use super::verified_values::{VerifiedRemoteValue, VerifiedRemoteValues};
 use super::{DOWNLOAD_CONCURRENCY, HYDRATION_TIMEOUT, RemoteConfigValueHydrator, TAG};
 
 const REMOTE_METADATA_MARKER_WITHOUT_METADATA_TAG: &str = "proto::RemoteConfigMetadata";
@@ -44,15 +45,6 @@ impl ProtobufResponseMode {
 
 type RemoteValueDownload<'a> = BoxFuture<'a, Result<(String, Arc<Vec<u8>>), StatsigErr>>;
 
-/// A parsed value whose original remote body has already passed verification.
-/// Keep the metadata private so callers cannot create a trusted entry from an
-/// arbitrary parsed value or from a reserialized datastore sidecar.
-#[derive(Debug)]
-pub(crate) struct VerifiedRemoteValue {
-    metadata: RemoteConfigValueMetadata,
-    pub(crate) value: DynamicReturnable,
-}
-
 impl VerifiedRemoteValue {
     /// Identify the actual immutable value previously verified for this full
     /// metadata tuple without serializing it or trusting a value hash alone.
@@ -61,38 +53,13 @@ impl VerifiedRemoteValue {
         metadata: &pb::RemoteConfigValueMetadata,
         value: &DynamicReturnable,
     ) -> bool {
-        use crate::evaluation::dynamic_returnable::DynamicReturnableValue;
-
         let Ok(metadata) = metadata_from_proto(metadata) else {
             return false;
         };
-        if self.metadata != metadata {
-            return false;
-        }
-
-        match (&self.value.value, &value.value) {
-            (DynamicReturnableValue::Null, DynamicReturnableValue::Null) => true,
-            (DynamicReturnableValue::Bool(left), DynamicReturnableValue::Bool(right)) => {
-                left == right
-            }
-            (
-                DynamicReturnableValue::JsonPointer(left),
-                DynamicReturnableValue::JsonPointer(right),
-            ) => Arc::ptr_eq(left, right),
-            (
-                DynamicReturnableValue::JsonStatic(left),
-                DynamicReturnableValue::JsonStatic(right),
-            ) => std::ptr::eq(*left, *right),
-            (
-                DynamicReturnableValue::JsonArchived(left),
-                DynamicReturnableValue::JsonArchived(right),
-            ) => std::ptr::eq(*left, *right),
-            _ => false,
-        }
+        self.matches_metadata(&metadata) && self.matches_backing_value(value)
     }
 }
 
-pub(crate) type VerifiedRemoteValues = HashMap<String, Arc<VerifiedRemoteValue>>;
 pub(crate) struct VerifiedSpecValues {
     pub(crate) default_value: Option<DynamicReturnable>,
     pub(crate) rule_values: Vec<Option<DynamicReturnable>>,
@@ -485,7 +452,7 @@ impl ProtobufHydrationSession<'_> {
             let previous = self
                 .previous_values
                 .get(&sha256)
-                .filter(|value| reference.metadata == value.metadata)
+                .filter(|value| value.matches_metadata(&reference.metadata))
                 .map(Arc::clone);
             match self.references.entry(sha256.clone()) {
                 Entry::Occupied(mut entry) => {
@@ -817,12 +784,9 @@ impl ProtobufHydrationSession<'_> {
             return Ok(Arc::clone(value));
         }
         let body = hydrated_value(&self.verified_bodies, sha256)?;
-        let value = serde_json::from_slice::<DynamicReturnable>(body).map_err(|error| {
-            hydration_error(HydrationFailureReason::InvalidJson, &error.to_string())
-        })?;
-        let entry = Arc::new(VerifiedRemoteValue { metadata, value });
+        let entry = Arc::new(VerifiedRemoteValue::from_verified_body(metadata, body)?);
         self.parsed_values
-            .insert(entry.metadata.sha256.to_string(), Arc::clone(&entry));
+            .insert(entry.sha256().to_string(), Arc::clone(&entry));
         Ok(entry)
     }
 
@@ -1306,7 +1270,7 @@ pub(crate) fn protobuf_top_level_has_hydrated_sidecar_provenance(
     Ok(!last && previous.contains(&true))
 }
 
-pub(super) fn protobuf_spec_has_remote_metadata(data: &[u8]) -> Result<bool, StatsigErr> {
+pub(crate) fn protobuf_spec_has_remote_metadata(data: &[u8]) -> Result<bool, StatsigErr> {
     let probe = RemoteMetadataProbeSpec::decode(data)
         .map_err(|error| StatsigErr::ProtobufParseError(TAG.to_string(), error.to_string()))?;
     Ok(probe.remote_config_metadata.is_some()

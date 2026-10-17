@@ -161,6 +161,7 @@ CSS_PROPERTIES: tuple[CSSProperty, ...] = (
         convert=getSize,
         relative_to_font_size=True,
         block_only=True,
+        initial=0,
     ),
     CSSProperty(
         "margin-bottom",
@@ -169,6 +170,7 @@ CSS_PROPERTIES: tuple[CSSProperty, ...] = (
         convert=getSize,
         relative_to_font_size=True,
         block_only=True,
+        initial=0,
     ),
     # CSS does not inherit width or height, so they go back to "not declared"
     # before each element's own declarations apply. Without the reset a width
@@ -286,6 +288,9 @@ CSS_PROPERTIES += (
     # ~ proprietary ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     CSSProperty("-pdf-page-break", "pdf", consumer=LOOP, note="before only"),
     CSSProperty("-pdf-frame-break", "pdf", consumer=LOOP),
+    CSSProperty(
+        "-pdf-frame-align", "pdf", consumer=LOOP, note="bottom: at the frame's foot"
+    ),
     CSSProperty("-pdf-next-page", "pdf", consumer=LOOP, note="names a page template"),
     CSSProperty(
         "-pdf-keep-with-next",

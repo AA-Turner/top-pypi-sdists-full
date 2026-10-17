@@ -477,16 +477,17 @@ def test_the_rule_requires_prior_knowledge_search_before_design() -> None:
 
 
 def test_the_rule_distinguishes_visible_summary_from_hidden_notes() -> None:
-    """The authored Markdown below AI Summary is the RESEARCHER's by policy
-    since 2026-09-17 (`probe <kind> set --summary` still exists; agents are
-    told not to use it). The always-loaded block must therefore not teach a
-    summary write, and the skill that routes prose must say who owns that
-    document and where agent prose goes instead."""
+    """The researcher's block on a summary (`document`, the `probe <kind> set
+    --summary` flag, which still exists) is theirs by policy since 2026-09-17;
+    the rest of the summary is the recorder's since writer-owns-summary. The
+    always-loaded block must therefore not teach a summary write, and the skill
+    that routes prose must say who owns that block and where agent prose goes
+    instead."""
     body = " ".join(agent_rules.POINTER_BODY.split())
     assert "--summary" not in body
     assert "summary_markdown" not in body and "document" not in body
     skill = " ".join((_AGENT_TREE / "skills" / "track-work" / "SKILL.md").read_text().split())
-    assert "the RESEARCHER's - never write it" in skill
+    assert "`document`, the researcher's block on a summary, is theirs - never write it" in skill
     assert "hidden prose" in skill
     assert "`edit-notes`" in skill
 
@@ -633,7 +634,8 @@ def test_runs_are_named_and_described_when_they_start() -> None:
         assert "Don't name runs" not in text, version
         # The project line keeps its subject: read bare, "the title and
         # description" once a run finishes looked like it covered runs too.
-        assert "The server writes a project's description itself once a run under it finishes." in text, version
+        # Since writer-owns-summary the description comes from the summary.
+        assert "A project's description comes from its summary's first line." in text, version
 
 
 def test_notes_hold_only_what_helps_the_next_agent() -> None:

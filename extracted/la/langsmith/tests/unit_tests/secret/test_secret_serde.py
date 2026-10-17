@@ -165,9 +165,7 @@ def test_dict_keys_are_masked(payload: Any):
 
 
 def test_two_secret_keys_collapse_into_one_entry():
-    assert dumps_json({secret(): "a", LangSmithSecret("other"): "b"}) == (
-        b'{"%s":"b"}' % MASK_BYTES
-    )
+    assert dumps_json({secret(): "a", LangSmithSecret("other"): "b"}) == (b'{"%s":"b"}' % MASK_BYTES)
 
 
 def test_documented_limitation_dataclass_keys_and_pydantic_models():
@@ -310,15 +308,11 @@ def test_output_is_unchanged_for_payloads_without_secrets(value, expected):
 
 def test_class_objects_are_unchanged():
     """A `dict` subclass *class* is not a `dict` instance; coercion must skip it."""
-    assert dumps_json({"v": _DictSubclass}) == (
-        b'{"v":"%s"}' % repr(_DictSubclass).encode()
-    )
+    assert dumps_json({"v": _DictSubclass}) == (b'{"v":"%s"}' % repr(_DictSubclass).encode())
 
 
 def test_exception_is_unchanged():
-    assert dumps_json({"v": ValueError("boom")}) == (
-        b'{"v":{"error":"ValueError","message":"boom"}}'
-    )
+    assert dumps_json({"v": ValueError("boom")}) == (b'{"v":{"error":"ValueError","message":"boom"}}')
 
 
 def test_non_str_keys_are_unchanged():

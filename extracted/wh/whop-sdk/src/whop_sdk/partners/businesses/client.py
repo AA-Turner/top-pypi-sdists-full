@@ -19,6 +19,7 @@ from .types.list_businesses_request_status import ListBusinessesRequestStatus
 from .types.list_businesses_request_tier import ListBusinessesRequestTier
 from .types.list_businesses_response import ListBusinessesResponse
 from .types.list_businesses_response_data_item import ListBusinessesResponseDataItem
+from .types.resend_invite_businesses_response import ResendInviteBusinessesResponse
 from .types.retrieve_businesses_response import RetrieveBusinessesResponse
 from .types.update_businesses_response import UpdateBusinessesResponse
 
@@ -132,7 +133,7 @@ class BusinessesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -167,7 +168,7 @@ class BusinessesClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> RetrieveBusinessesResponse:
         """
-        Retrieves a single referred business and its referral terms.
+        Retrieves a single referred business and its referral terms. The original referrer or a caller with company:basic:read on the business credited for the referral can read it.
 
         Parameters
         ----------
@@ -187,7 +188,7 @@ class BusinessesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -202,23 +203,23 @@ class BusinessesClient:
         self,
         id: str,
         *,
-        annual_ads_usd: str,
-        annual_processing_usd: str,
+        annual_processing_usd: typing.Optional[str] = OMIT,
+        withdraw_projections: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdateBusinessesResponse:
         """
-        Save annual projections for a business referred by the authenticated partner. Projections cannot be changed after saving; repeating the same values is allowed. Public API access requires a partner OAuth token; business API keys are not supported.
+        Save annual payment projections for a business referred by the authenticated partner. Unaccepted projections can be replaced with updated annual card and BNPL payment volume. To qualify, payment volume over the last 30 days must reach 5% of the annual payment projection. Ads are excluded from CPA; ordinary ad commissions continue. Pass withdraw_projections: true without projection amounts to remove unaccepted projections. Accepted projections are immutable. Public API access requires a partner OAuth token; business API keys are not supported.
 
         Parameters
         ----------
         id : str
             The partner business ID (a coma_ identifier).
 
-        annual_ads_usd : str
-            Annual projected Whop Ads spend in USD.
+        annual_processing_usd : typing.Optional[str]
+            Annual projected card and BNPL processing combined, in USD.
 
-        annual_processing_usd : str
-            Annual projected processing on Whop in USD.
+        withdraw_projections : typing.Optional[bool]
+            Remove unaccepted projections and invalidate the offer. The original CPA term is retained if projections are later added again.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -233,20 +234,18 @@ class BusinessesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
         client.partners.businesses.update(
             id="id",
-            annual_ads_usd="120000",
-            annual_processing_usd="1200000",
         )
         """
         _response = self._raw_client.update(
             id,
-            annual_ads_usd=annual_ads_usd,
             annual_processing_usd=annual_processing_usd,
+            withdraw_projections=withdraw_projections,
             request_options=request_options,
         )
         return _response.data
@@ -293,14 +292,14 @@ class BusinessesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
         client.partners.businesses.accept_commission_advance(
             id="id",
             acknowledgments=["commission_replacement", "clawback", "term"],
-            expected_amount_usd="1439.99",
+            expected_amount_usd="1079.99",
             offer_token="eyJfcmFpbHMiOnsiZGF0YSI6MSwicHVyIjoiYmxvYl9pZCJ9fQ==--xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
             terms_version="2026-01-01",
         )
@@ -313,6 +312,45 @@ class BusinessesClient:
             terms_version=terms_version,
             request_options=request_options,
         )
+        return _response.data
+
+    def resend_invite(
+        self, id: str, *, invite_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> ResendInviteBusinessesResponse:
+        """
+        Re-emails an outstanding invite to claim ownership of a referred business. Find the invite in the business's `pending_owner_invites`. Only the first-tier partner can resend, from a whop.com session or the Whop CLI or MCP with `partner:handoff`. Rate limited to one resend per invite every five minutes.
+
+        Parameters
+        ----------
+        id : str
+            The partner business ID (a coma_ identifier).
+
+        invite_id : str
+            The outstanding invite to resend (an ausri_ identifier from `pending_owner_invites`).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ResendInviteBusinessesResponse
+            invite resent
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-10-15-1",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        client.partners.businesses.resend_invite(
+            id="id",
+            invite_id="ausri_xxxxxxxxxxxxxx",
+        )
+        """
+        _response = self._raw_client.resend_invite(id, invite_id=invite_id, request_options=request_options)
         return _response.data
 
     @property
@@ -430,7 +468,7 @@ class AsyncBusinessesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -472,7 +510,7 @@ class AsyncBusinessesClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> RetrieveBusinessesResponse:
         """
-        Retrieves a single referred business and its referral terms.
+        Retrieves a single referred business and its referral terms. The original referrer or a caller with company:basic:read on the business credited for the referral can read it.
 
         Parameters
         ----------
@@ -494,7 +532,7 @@ class AsyncBusinessesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -515,23 +553,23 @@ class AsyncBusinessesClient:
         self,
         id: str,
         *,
-        annual_ads_usd: str,
-        annual_processing_usd: str,
+        annual_processing_usd: typing.Optional[str] = OMIT,
+        withdraw_projections: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> UpdateBusinessesResponse:
         """
-        Save annual projections for a business referred by the authenticated partner. Projections cannot be changed after saving; repeating the same values is allowed. Public API access requires a partner OAuth token; business API keys are not supported.
+        Save annual payment projections for a business referred by the authenticated partner. Unaccepted projections can be replaced with updated annual card and BNPL payment volume. To qualify, payment volume over the last 30 days must reach 5% of the annual payment projection. Ads are excluded from CPA; ordinary ad commissions continue. Pass withdraw_projections: true without projection amounts to remove unaccepted projections. Accepted projections are immutable. Public API access requires a partner OAuth token; business API keys are not supported.
 
         Parameters
         ----------
         id : str
             The partner business ID (a coma_ identifier).
 
-        annual_ads_usd : str
-            Annual projected Whop Ads spend in USD.
+        annual_processing_usd : typing.Optional[str]
+            Annual projected card and BNPL processing combined, in USD.
 
-        annual_processing_usd : str
-            Annual projected processing on Whop in USD.
+        withdraw_projections : typing.Optional[bool]
+            Remove unaccepted projections and invalidate the offer. The original CPA term is retained if projections are later added again.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -548,7 +586,7 @@ class AsyncBusinessesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -557,8 +595,6 @@ class AsyncBusinessesClient:
         async def main() -> None:
             await client.partners.businesses.update(
                 id="id",
-                annual_ads_usd="120000",
-                annual_processing_usd="1200000",
             )
 
 
@@ -566,8 +602,8 @@ class AsyncBusinessesClient:
         """
         _response = await self._raw_client.update(
             id,
-            annual_ads_usd=annual_ads_usd,
             annual_processing_usd=annual_processing_usd,
+            withdraw_projections=withdraw_projections,
             request_options=request_options,
         )
         return _response.data
@@ -616,7 +652,7 @@ class AsyncBusinessesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -626,7 +662,7 @@ class AsyncBusinessesClient:
             await client.partners.businesses.accept_commission_advance(
                 id="id",
                 acknowledgments=["commission_replacement", "clawback", "term"],
-                expected_amount_usd="1439.99",
+                expected_amount_usd="1079.99",
                 offer_token="eyJfcmFpbHMiOnsiZGF0YSI6MSwicHVyIjoiYmxvYl9pZCJ9fQ==--xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
                 terms_version="2026-01-01",
             )
@@ -642,6 +678,53 @@ class AsyncBusinessesClient:
             terms_version=terms_version,
             request_options=request_options,
         )
+        return _response.data
+
+    async def resend_invite(
+        self, id: str, *, invite_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> ResendInviteBusinessesResponse:
+        """
+        Re-emails an outstanding invite to claim ownership of a referred business. Find the invite in the business's `pending_owner_invites`. Only the first-tier partner can resend, from a whop.com session or the Whop CLI or MCP with `partner:handoff`. Rate limited to one resend per invite every five minutes.
+
+        Parameters
+        ----------
+        id : str
+            The partner business ID (a coma_ identifier).
+
+        invite_id : str
+            The outstanding invite to resend (an ausri_ identifier from `pending_owner_invites`).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ResendInviteBusinessesResponse
+            invite resent
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-10-15-1",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.partners.businesses.resend_invite(
+                id="id",
+                invite_id="ausri_xxxxxxxxxxxxxx",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.resend_invite(id, invite_id=invite_id, request_options=request_options)
         return _response.data
 
     @property

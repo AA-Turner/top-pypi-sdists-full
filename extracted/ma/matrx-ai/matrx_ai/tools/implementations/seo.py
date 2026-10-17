@@ -142,7 +142,7 @@ async def seo_get_keyword_data(args: dict[str, Any], ctx: ToolContext) -> ToolRe
     """Keyword volume/CPC data through the host's SEO vertical service
     (host-injected via the `keyword_research` ext seam — one durable
     collection run per unique request; repeats reuse the persisted run).
-    Returns the DataForSEO live response body."""
+    Returns the live keyword-data response body."""
     from matrx_ai._ext import get_ext
     from matrx_ai.context.app_context import get_app_context
 
@@ -237,7 +237,7 @@ async def seo_get_keyword_data(args: dict[str, Any], ctx: ToolContext) -> ToolRe
                 success=False,
                 error=ToolError(
                     error_type="api_error",
-                    message=f"DataForSEO API error: {tasks[0].get('status_message', 'Unknown') if tasks else 'No tasks returned'}",
+                    message=f"Keyword data service error: {tasks[0].get('status_message', 'Unknown') if tasks else 'No tasks returned'}",
                 ),
             )
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymatgen-analysis-defects
-Version: 2026.10.14
+Version: 2026.10.16
 Summary: Pymatgen extension for defects analysis
 Author-email: Jimmy-Xuan Shen <jmmshn@gmail.com>
 License-Expression: BSD-3-Clause-LBNL
@@ -9,6 +9,7 @@ Project-URL: homepage, https://materialsproject.github.io/pymatgen-analysis-defe
 Project-URL: repository, https://github.com/materialsproject/pymatgen-analysis-defects
 Keywords: high-throughput,automated,dft,defects
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
@@ -17,7 +18,7 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Other/Nonlisted Topic
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.12
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pymatgen-core>=2026.7.31

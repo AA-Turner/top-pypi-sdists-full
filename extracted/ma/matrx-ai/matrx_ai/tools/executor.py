@@ -21,7 +21,7 @@ from ._debug_log import is_verbose as _debug_verbose
 from ._debug_log import log_event as _debug_log
 from .error_remedy import annotate_tool_error
 from .guardrails import GuardrailEngine
-from .knobs import dispatch_timeout_ceiling
+from .knobs import delegated_call_abandon_seconds, dispatch_timeout_ceiling
 from .lifecycle import ToolLifecycleManager
 from .logger import ToolExecutionLogger
 from .models import ToolContext, ToolDefinition, ToolError, ToolResult, ToolType
@@ -370,6 +370,8 @@ async def _capture_tool_execution_failed(
 #   'delegated' row outstanding forever. It is NOT a user-facing answer deadline.
 #   Override per-tool via the ``tools.max_client_wait_seconds`` column when a
 #   specific tool legitimately needs a tighter bound.
+# The live window is ``persistence.paused_request_abandon_days`` (tools/knobs.py
+# ``delegated_call_abandon_seconds``); this constant is only its 30-day standalone mirror.
 DELEGATED_CALL_ABANDON_AFTER_SECONDS: int = 30 * 24 * 60 * 60  # 30 days
 
 # _DELEGATED_DISPATCH_TIMEOUT_SECONDS — pure HANG-backstop for the delegated
@@ -1032,6 +1034,14 @@ class ToolExecutor:
             if aliased is not None and aliased != tool_name:
                 canonical_name = aliased
             tool_def = self.registry.get(canonical_name)
+        if tool_def is None:
+            # Catalog Tools are never preloaded: resolve this one name at the
+            # executor's edge and pin it to the request (CONTRACT §4).
+            from matrx_ai.tools.catalog_seam import resolve_lazy_tools
+
+            lazy = await resolve_lazy_tools([canonical_name])
+            if lazy:
+                tool_def = lazy[0]
         if tool_def is None:
             vcprint(
                 {
@@ -2995,6 +3005,8 @@ class ToolExecutor:
                 return await self._execute_agent(tool_def, args, ctx)
             case ToolType.EXTERNAL_HANDLER:
                 return await self._execute_external_handler(tool_def, args, ctx)
+            case ToolType.CATALOG:
+                return await self._execute_catalog(tool_def, args, ctx)
             case _:
                 return ToolResult(
                     success=False,
@@ -3064,7 +3076,7 @@ class ToolExecutor:
 
         started_at = time.time()
 
-        wait_seconds = int(tool_def.max_client_wait_seconds or DELEGATED_CALL_ABANDON_AFTER_SECONDS)
+        wait_seconds = int(tool_def.max_client_wait_seconds or delegated_call_abandon_seconds())
         expires_at = datetime.now(UTC) + timedelta(seconds=wait_seconds)
 
         # ── Durability checkpoint — TWO-STEP, NON-NEGOTIABLE ──────────────
@@ -3287,6 +3299,51 @@ class ToolExecutor:
             args=args,
             ctx=child_ctx,
         )
+
+    async def _execute_catalog(
+        self,
+        tool_def: ToolDefinition,
+        args: dict[str, Any],
+        ctx: ToolContext,
+    ) -> ToolResult:
+        """Run a catalog Tool through the ONE host-injected catalog executor.
+
+        Catalog Tools have no code argument model, so their declared JSON
+        Schema is the contract checked here before anything is spent.
+        """
+        from .catalog_seam import get_catalog_executor
+
+        started = time.time()
+        schema_error = _validate_against_declared_schema(tool_def, args)
+        if schema_error is not None:
+            return ToolResult(
+                success=False,
+                error=ToolError(
+                    error_type="validation",
+                    message=f"Arguments for {tool_def.name} do not match its inputs: {schema_error}",
+                    suggested_action="Fix the named input(s) and call the tool again.",
+                ),
+                started_at=started,
+                completed_at=time.time(),
+                tool_name=tool_def.name,
+                call_id=ctx.call_id,
+            )
+        executor = get_catalog_executor()
+        if executor is None:
+            return ToolResult(
+                success=False,
+                error=ToolError(
+                    error_type="configuration",
+                    message=f"{tool_def.name} cannot run here: no catalog executor is installed.",
+                    suggested_action="Do not retry this tool now.",
+                ),
+                started_at=started,
+                completed_at=time.time(),
+                tool_name=tool_def.name,
+                call_id=ctx.call_id,
+            )
+        child_ctx = ctx.model_copy(update={"tool_name": tool_def.name})
+        return await executor(tool_def, args, child_ctx)
 
     # ------------------------------------------------------------------
     # Helpers

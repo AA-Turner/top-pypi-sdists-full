@@ -103,6 +103,8 @@ pub enum Body {
 pub struct Cte {
     pub name: String,
     pub query: Query,
+    /// None leaves materialization to the engine; false emits NOT MATERIALIZED.
+    pub materialized: Option<bool>,
 }
 
 /// A complete query: optional `WITH` CTEs, a body (SELECT or set op), and outer
@@ -226,10 +228,23 @@ impl Query {
 
     /// Add a CTE; reference it later by name in a `FROM` slot.
     #[must_use]
-    pub fn with_cte(mut self, name: impl Into<String>, query: Query) -> Self {
+    pub fn with_cte(self, name: impl Into<String>, query: Query) -> Self {
+        self.with_cte_materialization(name, query, None)
+    }
+
+    /// Add a CTE with an explicit materialization directive, if supplied.
+    /// Engine support determines whether the directive is honored.
+    #[must_use]
+    pub fn with_cte_materialization(
+        mut self,
+        name: impl Into<String>,
+        query: Query,
+        materialized: Option<bool>,
+    ) -> Self {
         self.ctes.push(Cte {
             name: name.into(),
             query,
+            materialized,
         });
         self
     }
@@ -241,6 +256,7 @@ impl Query {
         self.ctes.push(Cte {
             name: name.into(),
             query,
+            materialized: None,
         });
         self
     }

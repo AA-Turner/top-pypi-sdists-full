@@ -677,6 +677,83 @@ jobs:
       - name: Run import-linter (intra-core dependency layering)
         run: uv run lint-imports
 
+      # Cross-repository dependency direction (OMN-19998) — blocking. lint-imports
+      # covers direction INSIDE core; this covers direction ACROSS repositories:
+      # core may depend only on repositories at a lower layer of the declared
+      # order (src/omnibase_core/contracts/repo_layers.yaml), through
+      # imports, pyproject, Dockerfiles, workflow checkouts and scripts. Existing
+      # violations live in .onex_ratchets/dependency_direction_baseline.yaml, which may only
+      # shrink against the pull request's base. Other repositories run the same
+      # node through .github/workflows/dependency-direction.yml.
+      - name: Run cross-repository dependency-direction check
+        env:
+          RATCHET_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: |
+          args=(--report-json dependency-direction-report.json)
+          if [ -n "$RATCHET_BASE_REF" ]; then
+            git fetch --no-tags --depth=1 origin "$RATCHET_BASE_REF"
+            args+=(--ratchet-base-ref "$RATCHET_BASE_REF")
+          else
+            echo "::notice::no ratchet base ref (push event): baseline ratchet skipped"
+          fi
+          uv run check-dependency-direction --repo omnibase_core "${args[@]}"
+
+      # Version drift at source (OMN-19998) — blocking. A floor raise on a
+      # sibling registry package fails while a registry consumer is not ready
+      # for it (consumers read from their public clones at origin), and a job
+      # the merge queue runs that pull request CI can skip fails unless
+      # .onex_ratchets/merge_queue_parity_baseline.yaml records it (shrink-only).
+      # Other repositories run both through .github/workflows/version-drift.yml.
+      # Read-only App installation token for the private registry consumers'
+      # pyproject reads below (the OMN-16373 pattern; no new credential). A
+      # fork or dependency-bot pull request has no App secrets: it reads the
+      # public consumers only, and an unreadable consumer fails a floor raise.
+      - name: Mint read-only token for registry consumer reads
+        id: consumer-read-token
+        if: >-
+          github.event_name != 'pull_request' || (
+            github.event.pull_request.head.repo.full_name == github.repository &&
+            !contains(fromJSON('["dependabot[bot]","github-actions[bot]"]'), github.event.pull_request.user.login)
+          )
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+          permission-contents: read
+
+      - name: Run merge-queue parity and version-floor checks
+        env:
+          RATCHET_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          CONSUMER_READ_TOKEN: ${{ steps.consumer-read-token.outputs.token }}
+        run: |
+          args=(--report-json merge-queue-parity-report.json)
+          if [ -n "$RATCHET_BASE_REF" ]; then
+            git fetch --no-tags --depth=1 origin "$RATCHET_BASE_REF"
+            args+=(--ratchet-base-ref "$RATCHET_BASE_REF")
+          fi
+          uv run check-merge-queue-parity "${args[@]}"
+          if [ -z "$RATCHET_BASE_REF" ]; then
+            echo "::notice::no base ref (push event): version-floor check skipped"
+            exit 0
+          fi
+          if git diff --quiet "$RATCHET_BASE_REF" HEAD -- pyproject.toml; then
+            echo "pyproject.toml unchanged against the base: no floor raised"
+            exit 0
+          fi
+          consumers="$RUNNER_TEMP/registry-consumers"
+          mkdir -p "$consumers"
+          auth=()
+          if [ -n "${CONSUMER_READ_TOKEN:-}" ]; then
+            auth=(-c "http.extraheader=AUTHORIZATION: basic $(printf 'x-access-token:%s' "$CONSUMER_READ_TOKEN" | base64 | tr -d '\n')")
+          fi
+          for repo in $(uv run python -c "from omnibase_core.handlers.handler_version_floor_consumers_cli import load_layer_map; print(' '.join(e.repo for e in load_layer_map().repos))"); do
+            git "${auth[@]}" clone --quiet --depth 1 --no-checkout "https://github.com/OmniNode-ai/${repo}.git" "$consumers/$repo" \
+              || echo "::warning::registry consumer ${repo} is not readable from this runner; a floor raise fails until it is"
+          done
+          uv run check-version-floor-consumers --repo omnibase_core --base-ref "$RATCHET_BASE_REF" \
+            --consumers-root "$consumers" --report-json version-floor-report.json
+
       # Import-Layering GROWTH RATCHET (OMN-14340, epic OMN-3210) — blocking.
       # import-linter's wildcard ignores are permissive; this freezes protocols->models
       # (65) and the utils/mixins/protocols hub-inbound sets non-increasing and hard-fails
@@ -3011,6 +3088,89 @@ jobs:
             omnibase_core.nodes.node_no_raw_sqlite3_check_compute.runtime_no_raw_sqlite3_check \
             --root src
 
+  # CI inherits from core (OMN-17427, RULING 2026-10-14T20:01:09Z: "all CI
+  # should be in core and everything should essentially inherit from that").
+  # Refuses a change that ADDS a `uses: OmniNode-ai/<repo>/...` reference to a
+  # repository other than omnibase_core; references the base already carries
+  # are printed as existing, never allowed by a list. The same run also refuses
+  # a change that ADDS a job defined inline in a repository's own workflow
+  # (RULING 2026-10-14T19:54:41Z: repositories of the same type run the same
+  # CI); only a job of a reusable (on: workflow_call) workflow in omnibase_core,
+  # or a job that calls a reusable workflow, is new CI a repository may gain.
+  # Inline jobs the base already carries are counted, never allowed by a list.
+  # Unconditional job under the required "CI Summary" rollup; the same pure
+  # handlers back the check-ci-inheritance pre-commit hook.
+  ci-inheritance-check:
+    name: CI Inherits From Core (OMN-17427)
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run validator unit tests
+        run: |
+          uv run pytest tests/unit/handlers/test_handler_ci_inheritance.py tests/unit/handlers/test_handler_ci_inheritance_cli.py tests/unit/handlers/test_handler_ci_repository_jobs.py -v
+
+      - name: Materialize the base workflows
+        id: base
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          case "$EVENT_NAME" in
+            pull_request) base_sha="$PR_BASE_SHA" ;;
+            merge_group) base_sha="$MERGE_GROUP_BASE_SHA" ;;
+            push) base_sha="$PUSH_BEFORE" ;;
+            *) base_sha="" ;;
+          esac
+          base_dir="$RUNNER_TEMP/ci-inheritance-base"
+          mkdir -p "$base_dir"
+          if [ -z "$base_sha" ] || [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
+            echo "Event '$EVENT_NAME' carries no base commit; comparing the tree with itself (no reference can be new)."
+            cp -R .github/workflows "$base_dir/workflows"
+          else
+            git fetch --no-tags --depth=1 "$REPO_URL" "$base_sha"
+            mkdir -p "$base_dir/archive"
+            git archive "$base_sha" .github/workflows | tar -x -C "$base_dir/archive"
+            mv "$base_dir/archive/.github/workflows" "$base_dir/workflows"
+            echo "Base for the comparison: $base_sha"
+          fi
+          echo "dir=$base_dir/workflows" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse new CI references hosted outside omnibase_core (blocking)
+        env:
+          BASE_DIR: ${{ steps.base.outputs.dir }}
+        run: |
+          env -u PYTHONPATH uv run python -m \
+            omnibase_core.handlers.handler_ci_inheritance_cli \
+            --base-dir "$BASE_DIR" --head-dir .github/workflows
+
   # Migrated from validator-operation-match.yml (OMN-14877,
   # OMN-14430 fast-follow). Unconditional job under the required "CI Summary"
   # rollup — closes the --no-verify pre-commit bypass and retires the standalone
@@ -4270,7 +4430,9 @@ jobs:
           archive="yamlfmt_0.21.0_Linux_${arch}.tar.gz"
           dest="$RUNNER_TEMP/yamlfmt-bin"
           mkdir -p "$dest"
-          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$archive" \
+          # OMN-17427: a release-download 504 outlasted curl's default 7s
+          # backoff and failed splits 11 and 24 of dev push run 38784521172.
+          curl -fsSL --retry 8 --retry-delay 10 --retry-max-time 180 -o "$RUNNER_TEMP/$archive" \
             "https://github.com/google/yamlfmt/releases/download/v0.21.0/$archive"
           echo "$digest  $RUNNER_TEMP/$archive" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/$archive" -C "$dest" yamlfmt
@@ -4865,11 +5027,11 @@ jobs:
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     steps:
-      - uses: OmniNode-ai/omnibase_core/.github/actions/validate-boundaries@de3398d1fcf7a6f48451f680b74b1a6c6c383b8a # omnibase_core dev (OMN-20074 H/F)
+      - uses: OmniNode-ai/omnibase_core/.github/actions/validate-boundaries@c1f8e8fe0c513c0ac70ad666433a3ce1cec136c1 # omnibase_core dev (OMN-20074): #1972, no change-control boundary
         with:
           checks: "boundary-parity"
           warn-only: "false"
-          repos: "omniclaude,omnidash,omniintelligence,omnibase_infra,omnibase_core,omnimemory,omnimarket,onex_change_control"
+          repos: "omniclaude,omnidash,omniintelligence,omnibase_infra,omnibase_core,omnimemory,omnimarket"
 
   ci-summary:
     name: CI Summary

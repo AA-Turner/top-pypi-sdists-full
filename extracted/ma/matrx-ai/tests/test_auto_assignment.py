@@ -66,7 +66,7 @@ def test_agent_variable_preserves_structured_default() -> None:
 
 def test_agent_variable_keeps_existing_scalar_string_coercion() -> None:
     assert AgentVariable(name="count", default_value=3).get_value() == "3"
-    assert AgentVariable(name="enabled", default_value=False).get_value() == "False"
+    assert AgentVariable(name="enabled", default_value=False).get_value() == "false"  # JSON, never Python
 
 
 def test_agent_variable_serializes_containers_as_json_not_python_repr() -> None:

@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,26 +15,46 @@
 #
 # ****************************************************************************
 
+"""GCOVR SonarQube report interface."""
+
 from ...data_model.container import CoverageContainer
 from ...formats.base import BaseHandler
 from ...options import GcovrConfigOption, OutputOrDefault
 
+OPTION_GROUP_NAME = "SonarQube XML options"
+OPTION_GROUP = OPTION_GROUP_NAME.casefold().replace(" ", "_")
 
-class SonarqubeHandler(BaseHandler):
-    """Class to handle Sonarqube format."""
+
+class SonarQubeHandler(BaseHandler):
+    """Class to handle SonarQube format."""
+
+    @classmethod
+    def get_option_group(cls) -> dict[str, str]:
+        """Get the description of the option group."""
+        return {
+            "key": OPTION_GROUP,
+            "name": OPTION_GROUP_NAME,
+            "description": (
+                "Options for report generation in SonarQube generic format, see "
+                "<https://docs.sonarsource.com/sonarqube-server/analyzing-source-code/test-coverage/generic-test-data>."
+            ),
+        }
 
     @classmethod
     def get_options(cls) -> list[GcovrConfigOption | str]:
+        """Get the report options."""
         return [
+            # JSON option use for validation
+            "json_compare",
             # Global options needed for report
             "show_decision",
             GcovrConfigOption(
                 "sonarqube",
                 ["--sonarqube"],
-                group="output_options",
+                group=OPTION_GROUP,
                 metavar="OUTPUT",
                 help=(
-                    "Generate Sonarqube generic coverage report in this file name. "
+                    "Generate SonarQube generic coverage report in this file name. "
                     "OUTPUT is optional and defaults to --output."
                 ),
                 nargs="?",
@@ -47,15 +65,15 @@ class SonarqubeHandler(BaseHandler):
             GcovrConfigOption(
                 "sonarqube_pretty",
                 ["--sonarqube-pretty"],
-                group="output_options",
-                help=("Pretty-print the Sonarqube XML report. Implies --sonarqube."),
+                group=OPTION_GROUP,
+                help=("Pretty-print the SonarQube XML report. Implies --sonarqube."),
                 action="store_true",
             ),
             GcovrConfigOption(
                 "sonarqube_metric",
                 ["--sonarqube-metric"],
                 config="sonarqube-metric",
-                group="output_options",
+                group=OPTION_GROUP,
                 help=("The metric type to report. Default is '{default!s}'."),
                 choices=("line", "branch", "condition", "decision"),
                 default="branch",
@@ -63,15 +81,23 @@ class SonarqubeHandler(BaseHandler):
         ]
 
     def validate_options(self) -> None:
+        """Validate options."""
+        if self.options.sonarqube and self.options.json_compare:
+            msg = "A SonarQube report is not possible with --json-compare."
+            raise RuntimeError(msg)
+
         if (
             self.options.sonarqube_metric == "decision"
             and not self.options.show_decision
         ):
-            raise RuntimeError(
-                "--sonarqube-metric=decision needs the option --decisions."
-            )
+            msg = "--sonarqube-metric=decision needs the option --decisions."
+            raise RuntimeError(msg)
 
     def write_report(self, covdata: CoverageContainer, output_file: str) -> None:
-        from .write import write_report  # pylint: disable=import-outside-toplevel # Lazy loading is intended here
+        """Write report."""
+        # Lazy loading is intended here
+        from .write import (  # pylint: disable=import-outside-toplevel  # noqa: PLC0415
+            write_report,
+        )
 
         write_report(covdata, output_file, self.options)

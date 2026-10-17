@@ -816,7 +816,10 @@ def export_historical(
             logger.warning(f"hvstat not found: {hvstat_path}")
             continue
 
-        df_hv = pd.read_csv(hvstat_path, low_memory=False)
+        from geocif.ml.stats import is_workbook, read_production_statistics
+
+        # HarvestStat CSV or AMIS/EWCM workbook, as the yield join reads it
+        df_hv = read_production_statistics(hvstat_path)
         if "qc_flag" in df_hv.columns:
             df_hv = df_hv[df_hv["qc_flag"] == 0]
 
@@ -825,6 +828,9 @@ def export_historical(
 
         for crop in crops:
             crop_display = crop.replace("_", " ").title()
+            if is_workbook(hvstat_path):
+                # a workbook has no crop column: it holds the crop being exported
+                df_hv = df_hv.assign(product=crop_display)
             mask = (
                 (df_hv["country"].str.lower().str.replace("_", " ") == country_lower)
                 & (df_hv["product"].str.lower() == crop_display.lower())

@@ -20,6 +20,7 @@ import pytest
 from fireworks.training.sdk.tito import (
     TITOError,
     TITOSidecar,
+    TITOParseError,
     TITOChatRequest,
     TITOParsedAssistant,
     TITOIncrementalPrompt,
@@ -86,12 +87,10 @@ class FakeRenderer:
         canonical_stop: int = 3,
         contract_suffix: str = "",
         fail_parse: bool = False,
-        fallback: str | None = None,
     ) -> None:
         self.canonical_stop = canonical_stop
         self.contract_suffix = contract_suffix
         self.fail_parse = fail_parse
-        self.fallback = fallback
         self.render_calls = 0
 
     @staticmethod
@@ -127,22 +126,13 @@ class FakeRenderer:
         finish_reason: str,
     ) -> TITOParsedAssistant:
         if self.fail_parse:
-            raise ValueError("parser failed")
+            raise TITOParseError("parser failed")
         body = completion_ids[:-1] if completion_ids else completion_ids
         text = "".join(chr(token - 100) for token in body)
         return TITOParsedAssistant(
             message={"role": "assistant", "content": text},
             output_kind="text",
         )
-
-    def fallback_assistant_text(
-        self,
-        request: TITOChatRequest,
-        completion_ids: Sequence[int],
-        finish_reason: str,
-        parser_error: BaseException,
-    ) -> str | None:
-        return self.fallback
 
     def render_contract_id(self, request: TITOChatRequest) -> str:
         return f"fake:{self.contract_suffix}:{len(request.tools)}"
@@ -254,18 +244,12 @@ class FakeSampler:
             sampling_logprobs=[-0.2] * len(output),
             routing_matrices=list(routes) if routes is not None else None,
             inference_topk_token_ids=(
-                [
-                    [int(token_id) + offset for offset in range(int(kwargs["top_logprobs"]))]
-                    for token_id in output
-                ]
+                [[int(token_id) + offset for offset in range(int(kwargs["top_logprobs"]))] for token_id in output]
                 if kwargs.get("top_logprobs")
                 else None
             ),
             inference_topk_logprobs=(
-                [
-                    [-0.1 - offset for offset in range(int(kwargs["top_logprobs"]))]
-                    for _ in output
-                ]
+                [[-0.1 - offset for offset in range(int(kwargs["top_logprobs"]))] for _ in output]
                 if kwargs.get("top_logprobs")
                 else None
             ),
@@ -1190,7 +1174,7 @@ async def test_full_history_renders_before_strict_contract_rejection() -> None:
     trajectory_id = engine.create_trajectory(drift_policy=TrajectoryDriftPolicy(on_other_mismatch="reject"))
     await engine.complete(trajectory_id, _first_request())
 
-    with pytest.raises(RuntimeError, match="full render failed"):
+    with pytest.raises(TITOError, match="local TITO SDK operation failed"):
         await engine.complete(
             trajectory_id,
             _second_request(tools=({"type": "function", "function": {"name": "search"}},)),
@@ -1273,8 +1257,11 @@ async def test_sampler_cannot_exceed_effective_output_budget() -> None:
     trajectory_id = engine.create_trajectory()
     with pytest.raises(TITOError) as exc_info:
         await engine.complete(trajectory_id, _first_request(max_tokens=1))
-    assert exc_info.value.code == "tito_completion_alignment_error"
+    assert exc_info.value.code == "tito_sdk_sampling_parse_error"
+    assert exc_info.value.context["validation_error_code"] == "tito_completion_alignment_error"
+    assert exc_info.value.discard_trajectory is True
     result = engine.finish(trajectory_id)
+    assert result.status == "failed"
     assert not result.segments
     assert result.metrics.distributions["calls/sampler_wall_seconds"].count == 1
 
@@ -1289,7 +1276,7 @@ async def test_failed_sampler_call_still_records_sampler_wall_time() -> None:
     sampler.sample_with_prompt_tokens_result = fail  # type: ignore[method-assign]
     engine = _engine(sampler)
     trajectory_id = engine.create_trajectory()
-    with pytest.raises(RuntimeError, match="upstream failed"):
+    with pytest.raises(TITOError, match="local TITO SDK operation failed"):
         await engine.complete(trajectory_id, _first_request())
     result = engine.finish(trajectory_id)
     assert result.metrics.distributions["calls/sampler_wall_seconds"].count == 1
@@ -1491,7 +1478,7 @@ async def test_full_render_time_is_observed_when_rendering_raises() -> None:
     engine = _engine(FakeSampler(outputs=([197, 3], [198, 3])), FailingRenderer())
     trajectory_id = engine.create_trajectory()
     await engine.complete(trajectory_id, _first_request())
-    with pytest.raises(RuntimeError, match="full render failed"):
+    with pytest.raises(TITOError, match="local TITO SDK operation failed"):
         await engine.complete(trajectory_id, _second_request())
     result = engine.finish(trajectory_id)
     assert result.metrics.distributions["renderer/full_render_seconds"].count == 2
@@ -1778,20 +1765,13 @@ async def test_budget_cap_metrics_name_the_enforcing_limit() -> None:
     )
 
 
-async def test_parser_fallback_or_model_malformed_is_atomic() -> None:
-    fallback_sampler = FakeSampler()
-    fallback_engine = _engine(fallback_sampler, FakeRenderer(fail_parse=True, fallback="safe"))
-    trajectory_id = fallback_engine.create_trajectory()
-    await fallback_engine.complete(trajectory_id, _first_request())
-    fallback_result = fallback_engine.finish(trajectory_id)
-    assert fallback_result.segments[0].turns[0].parser_fallback
-
+async def test_malformed_output_is_atomic_and_discards_trajectory() -> None:
     reject_sampler = FakeSampler()
     reject_engine = _engine(reject_sampler, FakeRenderer(fail_parse=True))
     rejected_id = reject_engine.create_trajectory()
     with pytest.raises(TITOError) as exc_info:
         await reject_engine.complete(rejected_id, _first_request())
-    assert exc_info.value.code == "tito_model_malformed_output"
+    assert exc_info.value.code == "tito_sdk_parse_error"
     rejected = reject_engine.finish(rejected_id)
     assert rejected.segments == ()
     assert rejected.metrics.counters["parser/model_malformed"] == 1
@@ -1809,7 +1789,7 @@ async def test_parser_fallback_or_model_malformed_is_atomic() -> None:
     auxiliary_id = auxiliary_engine.create_trajectory()
     with pytest.raises(TITOError) as exc_info:
         await auxiliary_engine.complete(auxiliary_id, _first_request())
-    assert exc_info.value.code == "tito_model_malformed_output"
+    assert exc_info.value.code == "tito_sdk_parse_error"
     auxiliary_rejected = auxiliary_engine.finish(auxiliary_id)
     assert auxiliary_rejected.metrics.counters["parser/model_malformed"] == 1
     assert auxiliary_rejected.metrics.counters["calls/model_malformed"] == 1
@@ -1842,7 +1822,7 @@ async def test_call_accounting_closes_over_replay_reject_failure_and_cancellatio
 
     failing_engine = _engine(FailingSampler())
     failing_id = failing_engine.create_trajectory()
-    with pytest.raises(RuntimeError, match="upstream failed"):
+    with pytest.raises(TITOError, match="local TITO SDK operation failed"):
         await failing_engine.complete(failing_id, _first_request())
     failed = failing_engine.finish(failing_id)
     _assert_call_accounting(failed.metrics.counters)
@@ -2821,7 +2801,7 @@ async def test_http_debug_preserves_wire_and_canonical_request_forms(tmp_path) -
     assert rejected["wire_request_body"] == '{"messages":'
 
 
-async def test_http_sidecar_wraps_unexpected_upstream_failure_as_retryable_502() -> None:
+async def test_http_sidecar_identifies_unexpected_sdk_failure_without_retrying() -> None:
     sampler = FakeSampler()
 
     async def fail(*args: Any, **kwargs: Any) -> SampledRequestResult:
@@ -2847,9 +2827,9 @@ async def test_http_sidecar_wraps_unexpected_upstream_failure_as_retryable_502()
                     "messages": [{"role": "user", "content": "q"}],
                 },
             )
-        assert response.status_code == 502
-        assert response.headers["x-should-retry"] == "true"
-        assert response.json()["error"]["code"] == "tito_upstream_error"
+        assert response.status_code == 500
+        assert response.headers["x-should-retry"] == "false"
+        assert response.json()["error"]["code"] == "tito_sdk_internal_error"
         assert "sensitive upstream detail" not in response.text
         result = await sidecar.finish_trajectory(trajectory.trajectory_id)
         assert result.metrics.counters["calls/failed"] == 1

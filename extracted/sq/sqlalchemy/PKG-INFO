@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SQLAlchemy
-Version: 2.1.4
+Version: 2.1.5
 Summary: Database Abstraction Library
 Author-email: Mike Bayer <mike_mp@zzzcomputing.com>
 License-Expression: MIT

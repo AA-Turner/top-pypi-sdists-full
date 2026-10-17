@@ -1,46 +1,17 @@
-//! The pull: closure → plan → download → completion proof (tfs-049).
+//! What every download shares: the object-store answers worth asking again, where an
+//! object came from, a batch's fixed URLs, the Hub's minted ones (`Lease`, `Minting`), a run's
+//! counts, and the record of a checkpoint made whole under its repository.
 //!
-//! The plan is `FetchPlan::of`'s, the wanted objects are downloaded by `download` as ranged
-//! chunks, every byte is hashed against its digest before the Store commits it, and the
-//! proof is still `complete`. Resume across pulls is per object: the next invocation
-//! re-plans against the store and asks only for what is still missing.
-//!
-//! **A presigned URL is minted just before the object it authorizes is fetched.** The
-//! hub caps a URL's life, and the question that cap answers depends entirely on WHEN the
-//! URL is minted. Minting the whole wanted set before the walk starts makes the cap a
-//! bound on the WHOLE WALK — the last object's URL is minted at T=0 beside the first, and
-//! dies while the walk is still in its opening objects — so the cap silently becomes a cap
-//! on how large a closure may be pulled at all, which is not what it was written to be.
-//! Minting at the point of use makes the same cap a bound on ONE OBJECT'S transfer, which
-//! is what it was sized for and is generous for, and makes resume free: a walk that stops
-//! and starts again mints its own URLs and inherits none of the dying ones.
-//!
-//! **The window is the bound the HUB declares and nothing else (proto-037).** It was two
-//! numbers this side chose — 4,096 digests copied from a hub constant that the hub's own
-//! body cap made unreachable, and an 8 GiB byte budget. Every model we own is smaller than
-//! 8 GiB, so that window never once closed: minting "at the point of use" minted the entire
-//! closure at T=0, exactly as the release before it did, and the protection this module was
-//! rewritten for was inert from the day it shipped. Meanwhile the count cap was twice the
-//! size the hub would read, so `paul/wai-illustrious@17.0.0` — 2,598 objects — passed both
-//! bounds and sent a 174,146 B body at a route that reads 131,072.
-//!
-//! A byte budget is gone rather than corrected. Window size is pure GRANULARITY: an
-//! over-large window costs a re-mint, an under-large one costs a round trip, and neither
-//! costs a transfer. The only bound with a correctness role is how many digests fit in one
-//! request, and that number belongs to the hub, which now says it on every closure.
-//!
-//! **A 403 is judged by the LEASE it refused.** One the hub's own declared life says was
-//! already spent is re-minted, and one minted moments ago is terminal, because a refusal of
-//! a fresh capability is not about time.
+//! **A presigned URL is minted just before the object it authorizes is fetched**, a window
+//! at a time, and the window is the bound the HUB declares (proto-037): a URL's capped life
+//! then bounds one object's transfer, not the whole download.
 
-use crate::err::{refuse, Code, Refusal, Result};
-use crate::fetch::{DeliveryGrant, FetchPlan};
+use crate::err::{refuse, Code, Result};
 use crate::ids::{Doc, ObjectRef};
 use crate::store::Store;
-use crate::transport::credential::{presenting, Ask, CredentialProvider};
-use crate::transport::http::{self, Client};
+use crate::transport::http::Client;
 use crate::transport::hub;
-use crate::transport::ledger::{Deadline, Ledger, PULL_STREAMS};
+use crate::transport::ledger::{Deadline, Ledger};
 use crate::transport::policy::{self, SourcePolicy};
 use std::collections::BTreeMap;
 use std::sync::{Condvar, Mutex, OnceLock};
@@ -60,7 +31,7 @@ pub type ObjectObserver<'a> = &'a (dyn Fn(&ObjectRef, u64, ObjectSource) + Sync)
 /// still completes and the totals still add up, and the bytes are quietly re-bought.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ObjectSource {
-    Cache,
+    Volume,
     Origin,
 }
 
@@ -76,7 +47,7 @@ impl<F: FnMut(u64)> FetchObserver for F {
     }
 }
 
-pub(super) fn shared_client() -> &'static Client {
+pub(crate) fn shared_client() -> &'static Client {
     static CLIENT: OnceLock<Client> = OnceLock::new();
     CLIENT.get_or_init(Client::new)
 }
@@ -87,115 +58,6 @@ pub(super) fn shared_client() -> &'static Client {
 pub struct Fetched {
     pub object: ObjectRef,
     pub transferred: u64,
-}
-
-pub(super) enum Opened<'l> {
-    Body(http::Response<'l>),
-    /// A transient answer, and the wait the origin stated for it, if any.
-    Retryable(u16, Option<Duration>),
-    /// The origin refused the signature. Whether that is weather or a verdict depends on
-    /// the URL's age, which only the supplier knows.
-    Expired(u16),
-    Refused(Refusal),
-}
-
-/// One GET, redirect hops walked BY HAND so every hop faces the same predicate and the
-/// credential is re-asked per host (a scoped credential cannot leak onto a CDN).
-///
-/// `extra` is appended AFTER the credential, and is how a caller asks for one byte range
-/// of the object rather than all of it. It changes nothing else about the walk, and that
-/// is the point: a ranged fetch is THIS function called once per part, so the hop budget,
-/// the per-hop predicate, the per-host credential re-ask, the relative-`Location`
-/// resolution and the `Retryable`/`Expired` status arms are not re-implemented alongside
-/// it and cannot drift from it. The hop callback names the whole CHECKED url rather than
-/// its host so a caller can report the hop it just walked.
-#[allow(clippy::too_many_arguments)]
-pub(super) fn open_object<'l>(
-    client: &Client,
-    url: &str,
-    policy: &SourcePolicy,
-    credential: &dyn CredentialProvider,
-    deadline: Deadline,
-    ledger: &'l Ledger,
-    extra: &[(String, String)],
-    hop: &mut dyn FnMut(&policy::CheckedUrl, u16),
-) -> Result<Opened<'l>> {
-    let mut target = url.to_string();
-    for _hop in 0..=policy.max_redirects {
-        let checked = policy.check(&target)?;
-        let ask = Ask {
-            method: "GET",
-            url: &checked,
-        };
-        let response = presenting(credential, &ask, |presented| {
-            let mut headers = presented.to_vec();
-            headers.extend_from_slice(extra);
-            http::request(
-                client,
-                &checked,
-                "GET",
-                &headers,
-                None,
-                deadline,
-                ledger,
-                http::Judge::Stream,
-                None,
-                Code::TRANSFER_FAILED,
-            )
-        })?;
-        let status = response.status;
-        hop(&checked, status);
-        if (300..400).contains(&status) {
-            let Some(location) = response.header("location").map(str::to_string) else {
-                return refuse(Code::REDIRECT_REFUSED, "origin redirected with no Location");
-            };
-            let Some(absolute) = absolute_location(&checked, &location) else {
-                return refuse(
-                    Code::REDIRECT_REFUSED,
-                    "origin redirected with an unusable Location",
-                );
-            };
-            if policy.max_redirects == 0 {
-                return refuse(
-                    Code::REDIRECT_REFUSED,
-                    "a presigned GET has no business redirecting, and following one would \
-                     open a URL the predicate never saw",
-                );
-            }
-            target = absolute;
-            // Read the few redirect bytes so this connection serves the next hop's ask.
-            response.discard();
-            continue;
-        }
-        // 206 joins 200 as "the origin answered with a body". A caller that asked for no
-        // range never sees one, and if a broken origin sent one anyway the admission door
-        // refuses the short body on length. A caller that DID ask for a range needs the
-        // partial answer to arrive as a body rather than as an unclassified status.
-        if status == 200 || status == 206 {
-            return Ok(Opened::Body(response));
-        }
-        if RETRYABLE_STATUS.contains(&status) {
-            let wait = response.stated_wait();
-            response.discard();
-            return Ok(Opened::Retryable(status, wait));
-        }
-        // 401/403 is the object store saying the SIGNATURE is no good — the one answer
-        // that a fresh URL can change, and the one that used to abort the walk outright.
-        if status == 401 || status == 403 {
-            return Ok(Opened::Expired(status));
-        }
-        return Ok(Opened::Refused(Refusal {
-            code: Code::TRANSFER_FAILED,
-            detail: format!("the object store answered {status}"),
-        }));
-    }
-    refuse(
-        Code::REDIRECT_REFUSED,
-        format!(
-            "more than {} redirect hop(s); a longer chain is a loop or an evasion",
-            policy.max_redirects
-        ),
-    )
 }
 
 /// RFC 9110 §10.2.2: a `Location` MAY be a relative reference, and resolving one is the
@@ -307,11 +169,11 @@ impl ObjectUrls for BTreeMap<String, String> {
 /// lease's AGE against that declared life, and reaching that decision from the wire means
 /// racing a clock. The rule is worth testing directly, with a lease whose age is stated
 /// rather than waited for.
-pub(super) struct Lease {
-    pub(super) url: String,
-    pub(super) minted: Instant,
+pub(crate) struct Lease {
+    pub(crate) url: String,
+    pub(crate) minted: Instant,
     /// What the HUB said this URL is good for.
-    pub(super) lifetime: Duration,
+    pub(crate) lifetime: Duration,
 }
 
 impl Lease {
@@ -321,41 +183,29 @@ impl Lease {
     /// many seconds anything should take, it moves when the hub moves, and what it buys is a
     /// stated guarantee — every object begins its transfer holding at least half a URL's
     /// life, whatever that life happens to be.
-    fn spent(&self) -> bool {
+    pub(crate) fn spent(&self) -> bool {
         self.minted.elapsed() * 2 >= self.lifetime
     }
 }
 
-/// The walk's URL supply: `hub::presign` called just ahead of the workers instead of once
-/// for the whole closure.
-///
-/// Two locks, and they are different questions. `held` is the map, taken for as long as a
-/// lookup; `minting` is the right to CALL, held across the network so that N streams
-/// arriving at the same exhausted window cost one presign rather than N — which is also
-/// what the hub wants, since it single-flights presign per rental.
-pub(super) struct Leases<'a> {
-    pub(super) client: &'a Client,
-    pub(super) base: &'a str,
-    pub(super) credential: &'a dyn CredentialProvider,
-    pub(super) policy: &'a SourcePolicy,
-    pub(super) deadline: Deadline,
-    pub(super) ledger: &'a Ledger,
-    pub(super) wanted: &'a [ObjectRef],
-    /// How many digests one mint asks for — the ceiling the hub declared on this pull's
-    /// own closure. Never a constant compiled in here.
-    pub(super) window: usize,
-    pub(super) held: Mutex<BTreeMap<String, Lease>>,
-    pub(super) minting: Minting,
-}
 
 #[derive(Default)]
-pub(super) struct Minting {
+pub(crate) struct Minting {
     active: Mutex<bool>,
     ready: Condvar,
 }
 
 impl Minting {
-    fn acquire(&self, ledger: &Ledger, deadline: Deadline) -> Result<MintOwner<'_>> {
+    /// The right to mint, unless another caller holds it.
+    pub(crate) fn try_acquire(&self) -> Option<MintOwner<'_>> {
+        let mut active = self.active.lock().unwrap();
+        (!*active).then(|| {
+            *active = true;
+            MintOwner(self)
+        })
+    }
+
+    pub(crate) fn acquire(&self, ledger: &Ledger, deadline: Deadline) -> Result<MintOwner<'_>> {
         let mut active = self.active.lock().unwrap();
         while *active {
             ledger.check_running()?;
@@ -371,7 +221,7 @@ impl Minting {
     }
 }
 
-struct MintOwner<'a>(&'a Minting);
+pub(crate) struct MintOwner<'a>(&'a Minting);
 impl Drop for MintOwner<'_> {
     fn drop(&mut self) {
         *self.0.active.lock().unwrap() = false;
@@ -379,185 +229,13 @@ impl Drop for MintOwner<'_> {
     }
 }
 
-impl ObjectUrls for Leases<'_> {
-    fn url_for(&self, at: usize, object: &ObjectRef, stale: bool) -> Result<String> {
-        self.url_for_while(at, object, stale, self.ledger)
-    }
 
-    fn url_for_while(
-        &self,
-        at: usize,
-        object: &ObjectRef,
-        stale: bool,
-        ledger: &Ledger,
-    ) -> Result<String> {
-        ledger.check_running()?;
-        if stale && !self.retire(&object.sha256)? {
-            // The refused lease was NOT spent: the hub's own declared life still had more
-            // than half of it left, so the origin's refusal is not about time and asking to
-            // be authorized again is asking the same question. Terminal, at the first 403,
-            // with no attempt spent guessing.
-            return refuse(
-                Code::TRANSFER_FAILED,
-                format!(
-                    "{}: the object store refused a URL minted moments ago, with most of \
-                     the life the hub declared for it still to run — that is a fact about \
-                     the object, not about time, and re-minting would ask the same question",
-                    object.id()
-                ),
-            );
-        }
-        if let Some(url) = self.fresh(&object.sha256) {
-            return Ok(url);
-        }
-        let _minting = self.minting.acquire(ledger, self.deadline)?;
-        ledger.check_running()?;
-        // Another stream may have minted this window while this one waited for the right
-        // to call. Asking again before calling is what makes one window cost one call.
-        if let Some(url) = self.fresh(&object.sha256) {
-            return Ok(url);
-        }
-        self.mint_from(at, ledger)?;
-        if let Some(url) = self.fresh(&object.sha256) {
-            return Ok(url);
-        }
-        // The mint answered and the URL was STILL not usable. With `minted` stamped on
-        // arrival this can only mean the hub granted a life it had already spent — it
-        // declared `expires_at_unix` at or before its own `server_time_unix` — so say
-        // that, and say the number, instead of leaving the reader to infer which of the
-        // two clocks was wrong.
-        refuse(
-            Code::HUB_REFUSED,
-            format!(
-                "{}: the mint answered but the URL was unusable on arrival; the hub \
-                 declared a life of {:?} for it, and a URL whose declared life is already \
-                 spent when it is granted authorizes nothing",
-                object.id(),
-                self.declared_lifetime(&object.sha256)
-            ),
-        )
-    }
-}
 
-impl Leases<'_> {
-    /// What the hub said this digest's URL was good for, for a refusal to quote.
-    fn declared_lifetime(&self, digest: &str) -> Option<Duration> {
-        let held = self.held.lock().unwrap();
-        held.get(digest).map(|lease| lease.lifetime)
-    }
-
-    fn fresh(&self, digest: &str) -> Option<String> {
-        let held = self.held.lock().unwrap();
-        held.get(digest)
-            .filter(|lease| !lease.spent())
-            .map(|lease| lease.url.clone())
-    }
-
-    /// Drop the lease the origin just refused, and answer whether re-minting is honest.
-    ///
-    /// The gate is the LEASE'S AGE against the life the hub declared for it, which is an
-    /// observed fact about this URL and carries no opinion about seconds. It is not a count
-    /// of how many times this object has been re-authorized: a count and a freshness test
-    /// agree on a fast link and diverge exactly where a slow one lives. An object holding
-    /// half a URL's life that takes longer than that to move is slow, not broken, and its
-    /// second expiry is as honest as its first.
-    fn retire(&self, digest: &str) -> Result<bool> {
-        let mut held = self.held.lock().unwrap();
-        let Some(lease) = held.remove(digest) else {
-            // Nothing held: another stream retired it, and whoever mints next is honest.
-            return Ok(true);
-        };
-        Ok(lease.spent())
-    }
-
-    /// Mint from the walk's cursor forward: the object the caller has reached, and enough of
-    /// what follows that the streams behind it find their URLs already waiting.
-    ///
-    /// Objects still holding a fresh lease are skipped. `plan.wanted` is sorted unique by
-    /// digest, so any subsequence of it is still the sorted unique list presign requires —
-    /// no re-sorting, and no chance of asking for a digest twice.
-    ///
-    /// The call itself crosses the network to the hub, so it goes out on the pull's own
-    /// `Deadline` and teaches the same `Ledger` the object fetches teach: a mint that hangs
-    /// must be as visible to liveness as a stream that stops sending, and a cheap call that
-    /// hangs is still a hang.
-    ///
-    /// That was an aspiration until tfs-106 and is now the mechanism. The call runs under
-    /// `Judge::Transfer`, so it faults once THIS PULL has landed nothing for longer than its
-    /// own measured pace allows — never because the mint itself took long. It matters that
-    /// the verdict is reached HERE, holding `minting`: the fifteen streams parked on that
-    /// mutex cannot observe anything, so the only thread that can end their wait is the one
-    /// that owns it.
-    fn mint_from(&self, at: usize, ledger: &Ledger) -> Result<()> {
-        let mut digests: Vec<String> = Vec::new();
-        // From the asker's place onward, then the unminted objects before it: whichever
-        // worker reaches the hub first, one window covers every object it can hold. Starting
-        // at `at` alone left the objects of workers that started earlier but asked later for
-        // a second presign on a pull the window could have covered in one.
-        for object in self.wanted[at..].iter().chain(&self.wanted[..at]) {
-            if digests.len() >= self.window {
-                break;
-            }
-            if self.fresh(&object.sha256).is_some() {
-                continue;
-            }
-            digests.push(object.sha256.clone());
-        }
-        if digests.is_empty() {
-            return Ok(());
-        }
-        let answer = hub::presign(
-            self.client,
-            self.base,
-            &digests,
-            self.credential,
-            self.policy,
-            self.deadline,
-            ledger,
-        )?;
-        // Stamped when the ANSWER ARRIVES (tfs-102). It used to be stamped before the
-        // call, "so the call's own latency is spent out of the lease it is fetching
-        // rather than granted back to it" — but the URL does not exist for any of that
-        // time. The hub signs it while handling the call and states, in its own clock,
-        // the life it granted; the request leg, the hub's queueing, custody's signing and
-        // every retry `call` makes inside `presign` are all time the URL had not begun.
-        //
-        // Charging them to it made a slow mint POISON ITS OWN ANSWER. The hub's lifetime
-        // is ten minutes and a lease is spent at half of it, so a presign that took five
-        // minutes — one flaky tunnel, or two of `call`'s own retries — returned URLs that
-        // were unusable the instant they arrived, and the walk refused terminally on a
-        // paid pod with "a URL whose declared life is already spent when it is granted
-        // authorizes nothing". Twice on 2026-09-08, on gayong and weed, each after ~82 GB
-        // had already moved at 378 MB/s.
-        //
-        // What is left uncharged is the return leg alone, which is one hop and bounded by
-        // the call's own deadline.
-        let minted = Instant::now();
-        let mut held = self.held.lock().unwrap();
-        for (digest, url) in answer.urls {
-            held.insert(
-                digest,
-                Lease {
-                    url,
-                    minted,
-                    lifetime: answer.lifetime,
-                },
-            );
-        }
-        Ok(())
-    }
-}
-
-/// What the walk moved — counted, never estimated, and attributed to the source that
-/// actually answered. `cached` objects crossed the same admission door as `fetched` ones;
-/// they simply came off a mounted cache instead of the origin, and saying which is the
-/// only way an operator can tell a warm datacenter from a cold one.
+/// What the walk moved — counted, never estimated.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct WalkOutcome {
     pub fetched: u64,
     pub bytes_moved: u64,
-    pub cached: u64,
-    pub bytes_cached: u64,
     /// Requests the download kept in flight.
     pub streams: usize,
     /// The most writes into temp files at once (at most `download::WRITERS`).
@@ -567,563 +245,32 @@ pub struct WalkOutcome {
     pub restarts: u64,
 }
 
-/// Walk `plan.wanted` with `streams` objects in flight. One is the serial walk and it
-/// stays reachable, because a link where concurrency does not help is a real link. The
-/// first refusal wins and cancels in-flight network waits. Verified objects remain local.
-///
-/// **`cache` is the source order, and it is the whole reason a second pod is cheap.** The
-/// order is local Store, then the optional mounted cache, then the origin — the Store half
-/// is already spent by the time this is called, because `FetchPlan::of` planned against the
-/// real store and `wanted` is what it does not hold. So this walk owns the other two hops,
-/// and it owns them per object rather than per pull: a half-warm cache answers the half it
-/// holds and the origin answers the rest, in one walk, with no mode to choose between.
-///
-/// A hit skips the origin ENTIRELY — no presigned URL is minted for an object that never
-/// crosses the network, which is the same rule the walk already applies to a held object.
-/// A miss, a corrupt final, or an unreadable mount is weather: it falls through to the
-/// origin and the pull is unharmed, which is the property that lets a disposable cache be
-/// deleted at any moment without making a working grant fail.
-///
-/// Verified origin objects are offered to the existing bounded cache write pool.
-/// Saturation retains only declared object references; origin workers never wait
-/// for the cache. Once acquisition finishes, rejected offers are retried while
-/// cache copies make progress. The CLI drains accepted work and reports incomplete
-/// replication on cache failure. A failed pull does not promise a complete cache.
-/// `streams` is the most requests in flight (`download`).
-#[allow(clippy::too_many_arguments)]
-pub fn fetch_wanted(
-    store: &Store,
-    plan: &FetchPlan,
-    urls: &dyn ObjectUrls,
-    policy: &SourcePolicy,
-    credential: &dyn CredentialProvider,
-    deadline: Deadline,
-    ledger: &Ledger,
-    streams: usize,
-    on_object: Option<ObjectObserver<'_>>,
-) -> Result<WalkOutcome> {
-    fetch_wanted_bounded(
-        store, plan, urls, policy, credential, deadline, ledger, streams, on_object, None,
-    )
-}
 
-#[allow(clippy::too_many_arguments)]
-pub(super) fn fetch_wanted_bounded(
-    store: &Store,
-    plan: &FetchPlan,
-    urls: &dyn ObjectUrls,
-    policy: &SourcePolicy,
-    credential: &dyn CredentialProvider,
-    deadline: Deadline,
-    ledger: &Ledger,
-    streams: usize,
-    on_object: Option<ObjectObserver<'_>>,
-    cache_writes: Option<&crate::repo_cache::CacheWriteReceipt>,
-) -> Result<WalkOutcome> {
-    let backfill = store.repo_cache().map(|cache| {
-        crate::repo_cache::BackfillBatch::new(cache.clone(), store, plan.wanted.len())
-            .observe(cache_writes.cloned().unwrap_or_default())
-    });
-    // Descriptors and memory are budgets: the soft descriptor limit is raised to the hard
-    // one, and the download never runs more requests than either can hold (run 1297:
-    // EMFILE under a 1,024 soft limit at 128 streams).
-    crate::descriptors::raise();
-    let streams = crate::descriptors::streams_within(super::memory::transfer_streams(
-        streams.clamp(1, PULL_STREAMS),
-    ));
-    let walked = super::download::Download {
-        store,
-        wanted: &plan.wanted,
-        grant: &|object| DeliveryGrant::mint(plan, object),
-        urls,
-        chunk: super::download::CHUNK_BYTES,
-        ranged: true,
-        policy,
-        credential,
-        deadline,
-        ledger,
-        on_object,
-        backfill: backfill.as_ref(),
-        keep: None,
-    }
-    .run(streams, None)?;
-    if let Some(backfill) = backfill {
-        backfill.finish_offers();
-    }
-    Ok(walked)
-}
 
-/// One pull, described before it runs. `sample_seconds` is the ledger's RESOLUTION —
-/// configuration, never a verdict; the default is the runtime's one sampling cadence.
-pub struct PullRequest<'a> {
-    pub cancellation: Option<super::PullCancellation>,
-    pub store: &'a Store,
-    pub base: &'a str,
-    pub refspec: &'a str,
-    pub lane: &'a str,
-    pub credential: &'a dyn CredentialProvider,
-    pub policy: &'a SourcePolicy,
-    pub deadline: Deadline,
-    /// The most requests in flight.
-    pub streams: usize,
-    pub session: &'a str,
-    pub sample_seconds: f64,
-    /// The native plan, once, before body transfers. Observability only; consumers can
-    /// report the exact declared and already-held bytes without resolving a second plan.
-    pub on_plan: Option<&'a (dyn Fn(&FetchPlan) + Sync)>,
-    pub on_object: Option<ObjectObserver<'a>>,
-    /// A closure the caller already resolved with [`resolve_closure`]; the pull asks the
-    /// hub nothing more about it.
-    pub closure: Option<&'a hub::Closure>,
-}
 
-impl<'a> PullRequest<'a> {
-    pub fn new(
-        store: &'a Store,
-        base: &'a str,
-        refspec: &'a str,
-        credential: &'a dyn CredentialProvider,
-        policy: &'a SourcePolicy,
-    ) -> PullRequest<'a> {
-        PullRequest {
-            cancellation: None,
-            store,
-            base,
-            refspec,
-            lane: "",
-            credential,
-            policy,
-            deadline: Deadline::none(),
-            streams: PULL_STREAMS,
-            session: "",
-            sample_seconds: crate::transport::ledger::SAMPLE_SECONDS,
-            on_plan: None,
-            on_object: None,
-            closure: None,
-        }
-    }
-}
 
-/// The pull's egress policy: the caller's, plus the hub it named.
-fn pull_policy(request: &PullRequest<'_>) -> SourcePolicy {
-    let mut policy = request.policy.clone();
-    // One resolution per host for this pull, however many objects it asks for.
+/// `policy`, plus the hub at `base`: naming a hub declares it, and a loopback hub a local
+/// deployment. One resolution per host for whatever uses it.
+pub(crate) fn hub_policy(base: &str, policy: &SourcePolicy) -> SourcePolicy {
+    let mut policy = policy.clone();
     policy.resolved = Default::default();
-    // Naming a hub base IS declaring it, and a loopback hub declares a local deployment.
-    if let Ok(host) = policy::base_host(request.base) {
+    if let Ok(host) = policy::base_host(base) {
         if !policy.allows_host(&host) {
             policy.allowed_hosts.push(host);
         }
     }
-    if policy::is_loopback_origin(request.base) {
+    if policy::is_loopback_origin(base) {
         policy.allow_local = true;
     }
     policy
 }
 
-fn pull_ledger(request: &PullRequest<'_>) -> Ledger {
-    let ledger = Ledger::with_resolution(std::time::Duration::from_secs_f64(
-        request.sample_seconds.clamp(0.001, 3600.0),
-    ));
-    match &request.cancellation {
-        Some(cancellation) => ledger.with_cancellation(cancellation.clone()),
-        None => ledger,
-    }
-}
 
-/// What `request` names, exactly: the Store's own answer when the ref is digest-pinned to a
-/// release lane it already holds whole, else the hub's closure.
-pub fn resolve_closure(request: &PullRequest<'_>) -> Result<hub::Closure> {
-    let ledger = pull_ledger(request);
-    ledger.check_running()?;
-    if let Some(closure) = pinned_local_closure(request) {
-        if matches!(plan_against_store(request, &closure), Ok((plan, _)) if plan.wanted.is_empty())
-        {
-            return Ok(closure);
-        }
-    }
-    hub::closure_all(
-        shared_client(),
-        request.base,
-        request.refspec,
-        request.lane,
-        request.credential,
-        &pull_policy(request),
-        request.deadline,
-        &ledger,
-    )
-}
 
-/// The part of `closure` the named components and objects reach: the manifest, its header, the
-/// header's assets, those components' parts and those part objects. The manifest and then the
-/// header land first, two small pulls, since only they say which object is whose. A component
-/// or object the header does not name refuses.
-pub fn narrow(
-    request: &PullRequest<'_>,
-    closure: &hub::Closure,
-    components: &[String],
-    wanted: &[ObjectRef],
-) -> Result<hub::Closure> {
-    let stage = |objects: Vec<ObjectRef>| -> Result<()> {
-        let mut part = closure.clone();
-        part.objects = objects;
-        part.part = true;
-        let pull_part = PullRequest {
-            cancellation: request.cancellation.clone(),
-            store: request.store,
-            base: request.base,
-            refspec: request.refspec,
-            lane: request.lane,
-            credential: request.credential,
-            policy: request.policy,
-            deadline: request.deadline,
-            streams: request.streams,
-            session: request.session,
-            sample_seconds: request.sample_seconds,
-            on_plan: None,
-            on_object: None,
-            closure: Some(&part),
-        };
-        pull(&pull_part).map(drop)
-    };
-    stage(vec![closure.manifest.clone()])?;
-    let manifest = request.store.read_manifest(&closure.manifest)?;
-    let Some(header_ref) = manifest.header().cloned() else {
-        return refuse(
-            Code::ATTACHMENT_CARDINALITY,
-            "not a checkpoint manifest: no cozytensors header attachment",
-        );
-    };
-    stage(vec![header_ref.clone()])?;
-    let header = crate::checkpoint::load_header(request.store, &header_ref)?;
-    if let Some(absent) = components.iter().find(|name| {
-        !header
-            .components
-            .iter()
-            .any(|(component, _)| component == *name)
-    }) {
-        return refuse(
-            Code::NOT_CONTAINED,
-            format!("component {absent:?} is not in this checkpoint"),
-        );
-    }
-    let mut objects = vec![header_ref];
-    for (_, asset) in &header.assets {
-        objects.extend(asset.segments.iter().cloned());
-    }
-    for (component, _, tensor) in header.tensors() {
-        for (_, part) in &tensor.parts {
-            for segment in part.segments() {
-                if components.contains(component) || wanted.contains(segment) {
-                    objects.push(segment.clone());
-                }
-            }
-        }
-    }
-    objects.sort_by(|a, b| a.sha256.cmp(&b.sha256));
-    objects.dedup_by(|a, b| a.sha256 == b.sha256);
-    let mut narrowed = closure.clone();
-    narrowed.objects = objects;
-    narrowed.part = true;
-    if let Some(absent) = wanted.iter().find(|object| !narrowed.objects.contains(object)) {
-        return refuse(
-            Code::NOT_CONTAINED,
-            format!("{} is not a part of this checkpoint", absent.id()),
-        );
-    }
-    Ok(narrowed)
-}
 
-/// What a pull actually did — counted, never estimated.
-#[derive(Debug, Clone, Default)]
-pub struct PullReport {
-    pub scope: String,
-    pub cache_writes: crate::repo_cache::CacheWriteReceipt,
-    pub refspec: String,
-    pub model: String,
-    pub release: String,
-    pub lane: String,
-    pub manifest: String,
-    pub session: String,
-    /// Requests the download kept in flight, the GETs it sent, and how many of those it
-    /// dropped as silent or slow and asked again.
-    pub streams: usize,
-    pub requests: u64,
-    pub restarts: u64,
-    /// The most writes into temp files at once (at most `download::WRITERS`).
-    pub writers: usize,
-    pub declared: u64,
-    pub held: u64,
-    pub fetched: u64,
-    pub bytes_moved: u64,
-    /// What the mounted cache answered for, and what that spared the origin. Zero with no
-    /// cache and zero on a cold one; a warm datacenter is the case where these carry the
-    /// closure and `bytes_moved` is small.
-    pub cached: u64,
-    pub bytes_cached: u64,
-    pub bytes_held: u64,
-    pub bytes_total: u64,
-    pub presence: Vec<(String, &'static str)>,
-    /// The disk the Store lives on and what making this pull durable cost.
-    pub durability: crate::unsynced::SyncCost,
-}
 
-/// Pull one hub checkpoint into a local store: closure, `FetchPlan::of` against the REAL
-/// store, the N-way walk presigning `wanted` as it reaches it, and the completion proof — a
-/// local walk over locally verified bytes, never the transfer's own success report.
-///
-/// A warm store asks the hub one question (`closure`) and moves nothing: no presign call is
-/// made when `wanted` is empty, and a URL is never minted for an object the walk does not
-/// go on to fetch. A digest-pinned ask whose release lane the local index already maps to
-/// that manifest, over a closure this Store trusts, asks the hub nothing at all.
-pub fn pull(request: &PullRequest<'_>) -> Result<PullReport> {
-    // Keep the presence proof, transfer and retained repository in one GC-safe span.
-    // The shared native writer fence permits concurrent pulls; GC refuses STORE_BUSY.
-    let ledger = pull_ledger(request);
-    ledger.check_running()?;
-    let _retention = crate::catalog::WriterGuard::acquire(request.store.root())?;
-    let policy = pull_policy(request);
-    // A digest-pinned ask for a release lane this Store already records, over a closure
-    // it already trusts, has nothing to learn from the hub (proto-061 A).
-    if let Some(closure) = request
-        .closure
-        .cloned()
-        .or_else(|| pinned_local_closure(request))
-    {
-        if let Ok((plan, report)) = plan_against_store(request, &closure) {
-            // A canceled pull can land every object before recording its source.
-            // Supplied closures still need that custody committed below.
-            if plan.wanted.is_empty() && records_checkpoint(request.store, &closure) {
-                if let Some(observer) = request.on_plan {
-                    observer(&plan);
-                }
-                ledger.check_running()?;
-                return Ok(report);
-            }
-        }
-    }
-    let client = shared_client();
-    // The WHOLE closure, however many pages the hub takes to say it. A closure that fits
-    // one page is one call, which is every model we own today; nothing about the walk
-    // changes when one day it is not.
-    // A Store-answered closure authorizes no presign; if its objects went since, ask.
-    let closure = match request.closure {
-        Some(closure) if closure.presign_max_digests > 0 => closure.clone(),
-        _ => hub::closure_all(
-            client,
-            request.base,
-            request.refspec,
-            request.lane,
-            request.credential,
-            &policy,
-            request.deadline,
-            &ledger,
-        )?,
-    };
-    let (plan, mut report) = plan_against_store(request, &closure)?;
-    if let Some(observer) = request.on_plan {
-        observer(&plan);
-    }
-    ledger.check_running()?;
-    // THE ADMISSION GATE, and it stands here for two reasons (tfs-064).
-    //
-    // It is BEFORE the walk, so a pull that cannot fit costs a closure call and no bytes —
-    // a refusal at the door instead of a filesystem that blocks writes at 60% of a
-    // transfer, which is indistinguishable from a stall and has cost two nights.
-    //
-    // And it charges `wanted_bytes()`, never `declared_bytes()`: the plan has already
-    // split the closure against the real store, so an object this store already holds is
-    // not bought twice. On a content-addressed store that difference is the whole point —
-    // a second model sharing a text encoder and a VAE with the first may add almost
-    // nothing — and the two figures agree exactly when nothing is shared, which is exactly
-    // the fixture a careless proof would use.
-    request.store.admits(plan.wanted_bytes())?;
-    // THE TRANSFER STARTS HERE, and the control plane's clock starts with it. Everything
-    // above is local — opening the store, splitting the closure against what it already
-    // holds, the disk-budget check — and charging that to the transfer would let a slow
-    // planning pass condemn the very first mint that followed it.
-    ledger.transfer_begins();
-    if !plan.wanted.is_empty() {
-        // On a persistent disk the walk admits without fsync and fsyncs its objects in
-        // batches, the last one before anything records the checkpoint.
-        let epoch = crate::unsynced::Epoch::begin(request.store)?;
-        let store = request.store.syncing(epoch.clone());
-        let leases = Leases {
-            client,
-            base: request.base,
-            credential: request.credential,
-            policy: &policy,
-            deadline: request.deadline,
-            ledger: &ledger,
-            wanted: &plan.wanted,
-            window: closure.presign_max_digests,
-            held: Mutex::new(BTreeMap::new()),
-            minting: Minting::default(),
-        };
-        let walked = fetch_wanted_bounded(
-            &store,
-            &plan,
-            &leases,
-            &policy,
-            request.credential,
-            request.deadline,
-            &ledger,
-            request.streams,
-            request.on_object,
-            Some(&report.cache_writes),
-        )?;
-        report.streams = walked.streams;
-        report.writers = walked.writers;
-        report.requests = walked.requests;
-        report.restarts = walked.restarts;
-        report.fetched = walked.fetched;
-        report.bytes_moved = walked.bytes_moved;
-        report.cached = walked.cached;
-        report.bytes_cached = walked.bytes_cached;
-        if let Some(epoch) = epoch {
-            (report.durability.syncs, report.durability.seconds) = epoch.finish()?;
-        }
-    }
-    ledger.check_running()?;
-    // Nothing moved and this Store already records the checkpoint, which it does only once
-    // the closure is local: the plan's presence pass was the whole proof, so there is no
-    // re-walk, no index write, and no cache offer. Held objects are never offered to the
-    // cache; it is filled by the pull that fetched them from the origin.
-    if plan.wanted.is_empty() && records_checkpoint(request.store, &closure) {
-        return Ok(report);
-    }
-    if closure.part {
-        // Part of a checkpoint: each object it names is proved resident, and nothing records
-        // the checkpoint, whose closure is not all here.
-        plan.complete_objects(request.store)?;
-        return Ok(report);
-    }
-    // The proof and the index row both write the catalog; a contended catalog waits for its
-    // live holder (`catalog::lock`), so a busy moment never throws a landed walk away.
-    match closure.scope.as_str() {
-        "runtime" => plan.complete_cozytensors(request.store),
-        _ => plan.complete(request.store),
-    }?;
-    record_locally(request.store, &closure)?;
-    Ok(report)
-}
 
-/// Split `closure` against the store and build the report a pull that moves nothing returns.
-fn plan_against_store(
-    request: &PullRequest<'_>,
-    closure: &hub::Closure,
-) -> Result<(FetchPlan, PullReport)> {
-    let session = if request.session.is_empty() {
-        format!("pull-{}", &closure.manifest.sha256[..12])
-    } else {
-        request.session.to_string()
-    };
-    let (plan, why) = FetchPlan::of(request.store, &session, &closure.manifest, &closure.objects)?;
-    let report = PullReport {
-        scope: closure.scope.clone(),
-        refspec: request.refspec.to_string(),
-        model: closure.model.clone(),
-        release: closure.release.clone(),
-        lane: closure.lane.clone(),
-        manifest: closure.manifest.id(),
-        session,
-        declared: (plan.held.len() + plan.wanted.len()) as u64,
-        held: plan.held.len() as u64,
-        bytes_held: plan.held_bytes(),
-        bytes_total: plan.declared_bytes(),
-        presence: why
-            .iter()
-            .map(|(object, presence)| (object.id(), presence.as_str()))
-            .collect(),
-        durability: crate::unsynced::SyncCost {
-            class: request.store.disk_class(),
-            filesystem: request.store.disk().kind,
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-    Ok((plan, report))
-}
 
-/// The closure this Store can answer for itself: the refspec pins a manifest the local index
-/// records — `org/name@sha256:<hex>`, one of the repository's checkpoints (a checkpoint by
-/// digest has no lane), or `org/name@release@sha256:<hex>` with that release lane naming it.
-/// Anything else — an unpinned ref, a moved pointer, a manifest or header this Store cannot
-/// read — is a question for the hub.
-fn pinned_local_closure(request: &PullRequest<'_>) -> Option<hub::Closure> {
-    let parts: Vec<&str> = request.refspec.split('@').collect();
-    let (model, release, lane, digest) = match parts[..] {
-        [model, digest] => (model, "", "", digest),
-        [model, release, digest] if !release.is_empty() && !request.lane.is_empty() => {
-            (model, release, request.lane, digest)
-        }
-        _ => return None,
-    };
-    let pinned = digest.strip_prefix("sha256:")?;
-    let (org, name) = model.split_once('/')?;
-    let repo = crate::repository::RepositoryName::new(org, name).ok()?;
-    let bytes = std::fs::read(request.store.repository_path(&repo)).ok()?;
-    let repository = crate::repository::Repository::parse(&bytes).ok()?;
-    let manifest = match release {
-        "" => repository
-            .checkpoints
-            .iter()
-            .find(|entry| entry.manifest.sha256 == pinned)?
-            .manifest
-            .clone(),
-        _ => repository
-            .releases
-            .iter()
-            .find(|entry| entry.version == release && !entry.yanked)?
-            .lanes
-            .iter()
-            .find(|entry| entry.lane == lane && entry.manifest.sha256 == pinned)?
-            .manifest
-            .clone(),
-    };
-    if !repository
-        .checkpoints
-        .iter()
-        .any(|entry| entry.manifest == manifest)
-    {
-        return None;
-    }
-    let document = request.store.read_manifest(&manifest).ok()?;
-    let walked = crate::checkpoint::walk_cozytensors(request.store, &document).ok()?;
-    let objects: Vec<ObjectRef> = walked
-        .distinct()
-        .into_iter()
-        .filter(|object| object.sha256 != manifest.sha256)
-        .cloned()
-        .collect();
-    Some(hub::Closure {
-        model: model.to_string(),
-        release: release.to_string(),
-        lane: lane.to_string(),
-        scope: "runtime".to_string(),
-        manifest,
-        objects,
-        complete: true,
-        // Served only when nothing is wanted, so it authorizes no presign.
-        presign_max_digests: 0,
-        part: false,
-    })
-}
-
-/// The local index row already says what this pull would record.
-fn records_checkpoint(store: &Store, closure: &hub::Closure) -> bool {
-    let Some(repo) = closure
-        .model
-        .split_once('/')
-        .and_then(|(org, name)| crate::repository::RepositoryName::new(org, name).ok())
-    else {
-        return false;
-    };
-    let latest = std::fs::read(store.repository_path(&repo))
-        .ok()
-        .and_then(|bytes| crate::repository::Repository::parse(&bytes).ok());
-    holds_checkpoint(latest.as_ref(), closure) && holds_lane(latest.as_ref(), closure)
-}
 
 fn holds_checkpoint(
     repository: Option<&crate::repository::Repository>,
@@ -1165,7 +312,7 @@ fn holds_lane(repository: Option<&crate::repository::Repository>, closure: &hub:
 ///
 /// Record the verified checkpoint and lane in one transaction. Concurrent additions to
 /// other lanes merge; a conflicting change to this lane retains its refusal.
-fn record_locally(store: &Store, closure: &hub::Closure) -> Result<()> {
+pub(crate) fn record_locally(store: &Store, closure: &hub::Closure) -> Result<()> {
     use crate::repository::{Mutation, ReleaseLane, Repository, RepositoryName};
 
     let Some((org, name)) = closure.model.split_once('/') else {

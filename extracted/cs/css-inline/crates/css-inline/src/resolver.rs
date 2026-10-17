@@ -1,0 +1,203 @@
+use crate::{InlineError, Result};
+use std::{borrow::Cow, io::ErrorKind, path::Path};
+
+/// Turn a `file://` URL into a filesystem path.
+///
+/// Percent-decodes the path and handles Windows drive letters. URLs with a host
+/// (e.g. `file://relative-dir/`) keep the legacy prefix-stripping behavior.
+fn to_file_path(location: &str) -> Cow<'_, Path> {
+    #[cfg(any(unix, windows, target_os = "redox", target_os = "wasi"))]
+    if let Ok(url) = url::Url::parse(location) {
+        if url.scheme() == "file" && url.host().is_none() {
+            if let Ok(path) = url.to_file_path() {
+                return Cow::Owned(path);
+            }
+        }
+    }
+    Cow::Borrowed(Path::new(location.trim_start_matches("file://")))
+}
+
+/// Way of resolving stylesheets from various sources.
+#[cfg_attr(
+    all(feature = "async", target_family = "wasm"),
+    async_trait::async_trait(?Send)
+)]
+#[cfg_attr(
+    all(feature = "async", not(target_family = "wasm")),
+    async_trait::async_trait
+)]
+pub trait StylesheetResolver: Send + Sync {
+    /// Retrieve a stylesheet from a network or local filesystem location.
+    ///
+    /// # Errors
+    ///
+    /// Any network or filesystem related error, or an error during response parsing.
+    fn retrieve(&self, location: &str) -> Result<String> {
+        if location.starts_with("https") || location.starts_with("http") {
+            #[cfg(feature = "http")]
+            {
+                self.retrieve_from_url(location)
+            }
+
+            #[cfg(not(feature = "http"))]
+            {
+                Err(std::io::Error::new(
+                    ErrorKind::Unsupported,
+                    "Loading external URLs requires the `http` feature",
+                )
+                .into())
+            }
+        } else {
+            #[cfg(feature = "file")]
+            {
+                self.retrieve_from_path(location)
+            }
+            #[cfg(not(feature = "file"))]
+            {
+                Err(std::io::Error::new(
+                    ErrorKind::Unsupported,
+                    "Loading local files requires the `file` feature",
+                )
+                .into())
+            }
+        }
+    }
+    /// Retrieve a stylesheet from a network location.
+    ///
+    /// # Errors
+    ///
+    /// Any network-related error, or an error during response parsing.
+    fn retrieve_from_url(&self, url: &str) -> Result<String> {
+        Err(self.unsupported(&format!("Loading external URLs is not supported: {url}")))
+    }
+    /// Retrieve a stylesheet from the local filesystem.
+    ///
+    /// # Errors
+    ///
+    /// Any filesystem-related error.
+    fn retrieve_from_path(&self, path: &str) -> Result<String> {
+        let path = to_file_path(path);
+        std::fs::read_to_string(&path).map_err(|error| match error.kind() {
+            ErrorKind::NotFound => InlineError::MissingStyleSheet {
+                path: path.display().to_string(),
+            },
+            #[cfg(target_family = "wasm")]
+            ErrorKind::Unsupported => self.unsupported(&format!(
+                "Loading local files is not supported on WASM: {}",
+                path.display()
+            )),
+            _ => InlineError::IO(error),
+        })
+    }
+    /// Non-blocking version of [`StylesheetResolver::retrieve`]. Calls it by default.
+    ///
+    /// # Errors
+    ///
+    /// Any network or filesystem related error, or an error during response parsing.
+    #[cfg(feature = "async")]
+    async fn retrieve_async(&self, location: &str) -> Result<String> {
+        self.retrieve(location)
+    }
+    /// Return the "Unsupported" kind of error.
+    fn unsupported(&self, reason: &str) -> InlineError {
+        std::io::Error::new(ErrorKind::Unsupported, reason).into()
+    }
+}
+
+/// TLS with `ring` and the bundled Mozilla roots, passed per client to leave the process-wide
+/// `rustls` provider to the host application.
+#[cfg(all(feature = "http", not(target_family = "wasm")))]
+fn tls_config() -> rustls::ClientConfig {
+    static CONFIG: std::sync::OnceLock<rustls::ClientConfig> = std::sync::OnceLock::new();
+    CONFIG
+        .get_or_init(|| {
+            rustls::ClientConfig::builder_with_provider(std::sync::Arc::new(
+                rustls::crypto::ring::default_provider(),
+            ))
+            .with_safe_default_protocol_versions()
+            .expect("`ring` supports the default protocol versions")
+            .with_root_certificates(rustls::RootCertStore {
+                roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+            })
+            .with_no_client_auth()
+        })
+        .clone()
+}
+
+#[cfg(all(feature = "http", feature = "async", not(target_family = "wasm")))]
+fn async_client() -> reqwest::Result<reqwest::Client> {
+    reqwest::Client::builder()
+        .tls_backend_preconfigured(tls_config())
+        .build()
+}
+
+#[cfg(all(feature = "http", feature = "async", target_family = "wasm"))]
+fn async_client() -> reqwest::Result<reqwest::Client> {
+    reqwest::Client::builder().build()
+}
+
+/// Default stylesheet resolver.
+#[derive(Debug, Default)]
+pub struct DefaultStylesheetResolver;
+
+#[cfg_attr(
+    all(feature = "async", target_family = "wasm"),
+    async_trait::async_trait(?Send)
+)]
+#[cfg_attr(
+    all(feature = "async", not(target_family = "wasm")),
+    async_trait::async_trait
+)]
+impl StylesheetResolver for DefaultStylesheetResolver {
+    #[cfg(all(feature = "http", not(target_family = "wasm")))]
+    fn retrieve_from_url(&self, url: &str) -> Result<String> {
+        let into_error = |error| InlineError::Network {
+            error,
+            location: url.to_string(),
+        };
+        reqwest::blocking::Client::builder()
+            .tls_backend_preconfigured(tls_config())
+            .build()
+            .map_err(into_error)?
+            .get(url)
+            .send()
+            .map_err(into_error)?
+            .text()
+            .map_err(into_error)
+    }
+
+    #[cfg(feature = "async")]
+    async fn retrieve_async(&self, location: &str) -> Result<String> {
+        if !(location.starts_with("https") || location.starts_with("http")) {
+            #[cfg(target_family = "wasm")]
+            return self.retrieve(location);
+            #[cfg(not(target_family = "wasm"))]
+            {
+                let (tx, rx) = futures_channel::oneshot::channel();
+                let location = location.to_string();
+                std::thread::spawn(move || tx.send(DefaultStylesheetResolver.retrieve(&location)));
+                return rx.await.expect("Stylesheet reading thread panicked");
+            }
+        }
+        #[cfg(feature = "http")]
+        {
+            let into_error = |error| InlineError::Network {
+                error,
+                location: location.to_string(),
+            };
+            async_client()
+                .map_err(into_error)?
+                .get(location)
+                .send()
+                .await
+                .map_err(into_error)?
+                .text()
+                .await
+                .map_err(into_error)
+        }
+        #[cfg(not(feature = "http"))]
+        {
+            Err(self.unsupported("Loading external URLs requires the `http` feature"))
+        }
+    }
+}

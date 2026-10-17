@@ -152,6 +152,58 @@ class SymbolConversion:
         except Exception as e:
             self.data_logger.exception(e)
 
+
+# Maps a custom message's ref_type (the wire response type of the related request)
+# to the SDK's "type" string. Unmapped values (0, 12) fall back to CUSTOM_MSG_TYPE.
+_REF_TYPE_TO_TYPE = {
+    1: defines.AUTH_TYPE,
+    4: defines.SUBS_TYPE,
+    5: defines.UNSUBS_TYPE,
+    7: defines.CH_PAUSE_TYPE,
+    8: defines.CH_RESUME_TYPE,
+}
+
+
+def parse_custom_message(data) -> dict:
+    """
+    Decodes an HSM custom message frame (response type 51).
+
+    Args:
+        data (bytes | bytearray): The custom message frame.
+
+    Returns:
+        dict: {"code": int, "message": str, "ref_type": int}
+
+    Raises:
+        ValueError: If the frame is not a custom message or is truncated.
+    """
+    if len(data) < 4 or data[2] != defines.CUSTOM_MSG_RESP_TYPE:
+        raise ValueError("not a custom message frame")
+    end = 2 + struct.unpack("!H", data[0:2])[0]
+    if end > len(data):
+        raise ValueError("truncated frame")
+    out = {"code": 0, "message": "", "ref_type": 0}
+    offset = 4
+    for _ in range(data[3]):
+        if offset + 3 > end:
+            raise ValueError("truncated field header")
+        field_id = data[offset]
+        field_length = struct.unpack("!H", data[offset + 1 : offset + 3])[0]
+        offset += 3
+        if offset + field_length > end:
+            raise ValueError("truncated field value")
+        value = bytes(data[offset : offset + field_length])
+        offset += field_length
+        if field_id == 1 and field_length == 4:
+            out["code"] = struct.unpack("!i", value)[0]
+        elif field_id == 2:
+            out["message"] = value.decode("utf-8", errors="replace")
+        elif field_id == 3 and field_length == 1:
+            out["ref_type"] = value[0]
+        # Unknown field ids are skipped for forward compatibility
+    return out
+
+
 class FyersDataSocket:
 
     _instance = None
@@ -203,7 +255,7 @@ class FyersDataSocket:
         self.log_path = log_path
         self.lite = litemode
         self.max_retry = reconnect_retry
-        self.source = "PythonSDK-3.0.9"
+        self.source = "PythonSDK-3.2.0"
         self.channel_num = 11
         self.channels = []
         self.running_channels = set()
@@ -800,6 +852,26 @@ class FyersDataSocket:
         except Exception as e:
             self.data_logger.exception(e)
 
+    def __custom_msg_resp(self, data: bytearray) -> None:
+        """
+        Handles a custom message (response type 51) from the server.
+
+        Args:
+            data (bytearray): The custom message frame.
+        """
+        try:
+            msg = parse_custom_message(data)
+            self.On_error(
+                {
+                    "type": _REF_TYPE_TO_TYPE.get(msg["ref_type"], defines.CUSTOM_MSG_TYPE),
+                    "code": msg["code"],
+                    "message": msg["message"],
+                    "s": defines.ERROR,
+                }
+            )
+        except Exception as e:
+            self.data_logger.exception(e)
+
     def __lite_full_mode_resp(self, data: bytearray) -> dict:
 
         """
@@ -1214,7 +1286,7 @@ class FyersDataSocket:
 
                             sf_flag = True
                         elif topic_id in self.index_sym:
-                            if self.index_val[index] in self.resp[self.index_sym[topic_id]] and  self.resp[self.index_sym[topic_id]][self.index_val[index]] != value and value != "-2147483648":
+                            if self.index_val[index] in self.resp[self.index_sym[topic_id]] and  self.resp[self.index_sym[topic_id]][self.index_val[index]] != value and value != -2147483648:
 
                                 self.resp[self.index_sym[topic_id]][
                                     self.index_val[index]
@@ -1315,6 +1387,9 @@ class FyersDataSocket:
 
             elif resp_type == 12:  # Full Mode Data Response
                 self.__lite_full_mode_resp(data)
+
+            elif resp_type == defines.CUSTOM_MSG_RESP_TYPE:  # Custom message
+                self.__custom_msg_resp(data)
 
         except Exception as e:
             self.data_logger.exception(e)

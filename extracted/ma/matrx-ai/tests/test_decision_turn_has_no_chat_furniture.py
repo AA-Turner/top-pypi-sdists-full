@@ -100,7 +100,9 @@ def test_a_chat_turn_still_carries_its_tools_and_context():
     names = {t.get("name") for t in wire.get("tools", [])}
     assert {"records", "web_search"} <= names
     system = str(wire.get("system"))
-    assert "<org_catalog>" in system and "<surface_intro>" in system
+    assert "<org_catalog>" in system
+    # The per-turn block rides after the cache line, on the newest message.
+    assert "<surface_intro>" not in system and "<surface_intro>" in str(wire["messages"])
 
 
 def test_a_decision_turn_sends_no_tools_no_catalog_no_turn_context():
@@ -123,6 +125,7 @@ def test_a_decision_turn_sends_no_tools_no_catalog_no_turn_context():
     assert "Which surface owns this?" in prose
     # Nothing of the catalog leaked into the state either.
     assert "All Green Recycling\\\"" not in prose and "org_catalog" not in prose
+    assert "<surface_intro>" not in prose and "<turn_context" not in prose
 
 
 @pytest.mark.asyncio

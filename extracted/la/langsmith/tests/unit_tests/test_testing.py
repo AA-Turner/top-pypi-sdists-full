@@ -71,9 +71,7 @@ def test_log_inputs_updates_test_case_inputs():
     # not the original fixture-based inputs
     dataset_id = str(mock_test_suite.id)
     expected_id = _get_example_id(dataset_id, {"question": "fix typo"})
-    fixture_id = _get_example_id(
-        dataset_id, {"model": "<fixture object>", "db": "<db fixture>"}
-    )
+    fixture_id = _get_example_id(dataset_id, {"model": "<fixture object>", "db": "<db fixture>"})
     # end_run falls back to _get_example_id when no explicit id is set
     actual_id = _get_example_id(dataset_id, test_case.inputs or {})
     assert actual_id == expected_id
@@ -88,9 +86,7 @@ def test_pytest_feedback_includes_experiment_id_and_run_start_time():
     test_suite.client = MagicMock()
     test_suite._experiment = MagicMock(id=experiment_id)
     test_suite._executor = MagicMock()
-    test_suite._executor.submit.side_effect = lambda fn, *args, **kwargs: fn(
-        *args, **kwargs
-    )
+    test_suite._executor.submit.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
 
     test_suite._submit_result(run_id, start_time, 1)
     test_suite._submit_feedback(

@@ -52,12 +52,22 @@ pub struct StatsigOptions {
     pub event_logging_max_pending_batch_queue_size: Option<u32>,
     pub event_logging_max_queue_size: Option<u32>,
 
-    /// Enables built-in fallback for specs and ID-list manifests. For ID-list files, an exhausted
-    /// retryable request to an override falls back once to the manifest's original URL only on
-    /// the trusted HTTPS OpenAI CDN origin. File authentication failures (401/403) and other
-    /// non-retryable errors do not fall back. File fallback requests never follow redirects.
-    /// Unset or false keeps file downloads on the configured destination.
+    /// Opts state reads into one CDN fallback after the primary budget: two attempts for
+    /// foreground specs/manifests, four for background specs, and three for ID-list files.
+    /// Body-read failures in specs get at most two attempts. Retries wait 200/400/800 ms
+    /// plus 0..100 ms jitter. Background fallback occurs on failed refreshes 5, 10, 15,
+    /// independently for specs, manifests, and files. Terminal errors never fall back.
+    /// Primary success resets the streak; fallback success does not. Terminal errors never
+    /// fall back. File fallback uses only the captured trusted HTTPS CDN and rejects redirects.
     pub fallback_to_statsig_api: Option<bool>,
+    /// Total primary attempts for each built-in HTTP specs, ID-list manifest, or file/range read.
+    /// Values 1..=4294967295 override all primary budgets; 1 disables primary retries.
+    /// Unset or out-of-range values retain defaults: foreground specs/manifests 2,
+    /// background specs 4 (body-read failures at most 2), files 2.
+    /// Retries wait exponentially from 200 ms plus 0..100 ms jitter. Success, terminal errors,
+    /// shutdown, or the existing initialization deadline may stop earlier. Fallback remains
+    /// one eligible attempt; hydration and event-write retry budgets are unchanged.
+    pub state_read_primary_attempts: Option<i64>,
     pub global_custom_fields: Option<HashMap<String, DynamicValue>>,
 
     pub id_lists_adapter: Option<Arc<dyn IdListsAdapter>>,
@@ -68,6 +78,9 @@ pub struct StatsigOptions {
     /// when it belongs to the trusted HTTPS OpenAI CDN origin.
     pub download_id_list_file_api: Option<String>,
 
+    /// Total initialization deadline, including config specs, ID lists, retries, backoff,
+    /// hydration, and fallback. Unset leaves initialization without a total deadline. Explicit zero
+    /// preserves immediate-timeout behavior; it does not mean unlimited initialization.
     pub init_timeout_ms: Option<u64>,
     pub log_event_url: Option<String>,
     pub observability_client: Option<Weak<dyn ObservabilityClient>>,
@@ -409,6 +422,13 @@ impl StatsigOptionsBuilder {
     }
 
     #[must_use]
+    /// See [`StatsigOptions::state_read_primary_attempts`].
+    pub fn state_read_primary_attempts(mut self, attempts: Option<i64>) -> Self {
+        self.inner.state_read_primary_attempts = attempts;
+        self
+    }
+
+    #[must_use]
     pub fn global_custom_fields(
         mut self,
         global_custom_fields: Option<HashMap<String, DynamicValue>>,
@@ -510,6 +530,11 @@ impl Serialize for StatsigOptions {
             &self.specs_sync_interval_ms
         );
         serialize_if_not_none!(state, "init_timeout_ms", &self.init_timeout_ms);
+        serialize_if_not_none!(
+            state,
+            "state_read_primary_attempts",
+            &self.state_read_primary_attempts
+        );
 
         serialize_if_not_none!(state, "data_store", &get_if_set(&self.data_store));
 

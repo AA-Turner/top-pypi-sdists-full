@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.9.5"
+version = "0.9.6"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 license = "Apache-2.0"
 readme = "README.md"
@@ -134,12 +134,14 @@ exclude = [
     "tests/test_unit/test_cdf_tk/test_rules",
     "tests/test_unit/test_cdf_tk/test_storageio",
     "tests/test_unit/test_cdf_tk/test_utils",
-    "tests/test_unit/test_cdf_tk/test_yaml_classes",
 ]
 
 [tool.ty.environment]
 python-version = "3.14"
 python = ".venv"
+
+[tool.ty.rules]
+invalid-mutable-override = "ignore"
 
 [tool.ruff]
 line-length = 120

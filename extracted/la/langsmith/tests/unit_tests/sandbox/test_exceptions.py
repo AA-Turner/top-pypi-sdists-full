@@ -152,9 +152,7 @@ class TestSandboxOperationError:
 
     def test_with_operation(self):
         """Test error with operation."""
-        error = SandboxOperationError(
-            "Write failed", operation="write", error_type="WriteError"
-        )
+        error = SandboxOperationError("Write failed", operation="write", error_type="WriteError")
         assert error.operation == "write"
 
 
@@ -169,9 +167,7 @@ class TestResourceNameConflictError:
 
     def test_with_resource_type(self):
         """Test error with resource_type."""
-        error = ResourceNameConflictError(
-            "Name already exists", resource_type="snapshot"
-        )
+        error = ResourceNameConflictError("Name already exists", resource_type="snapshot")
         assert error.resource_type == "snapshot"
 
 

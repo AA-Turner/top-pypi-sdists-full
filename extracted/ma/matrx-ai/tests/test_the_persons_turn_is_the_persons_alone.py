@@ -21,9 +21,18 @@ fixes that while the block sits inside her turn — the model answers her turn,
 so anything inside it is answerable.
 
 The fix is structural: per-turn platform material travels in the context
-channel (``MessageList.attach_turn_context``) and is delivered in the
-provider's SYSTEM channel. These assertions run against the assembled Anthropic
-request, not against an intermediate helper.
+channel (``MessageList.attach_turn_context``) and is NEVER concatenated into
+her words. These assertions run against the assembled Anthropic request, not
+against an intermediate helper.
+
+WHERE THE CHANNEL IS DELIVERED (2026-10-16, the cache line law): it used to be
+a second SYSTEM block. Anthropic caches tools -> system -> messages, so a
+system block rebuilt every turn sat in front of the whole history and forced
+it to be re-written every turn. It now rides as its OWN block after the rolling
+cache breakpoint at the end of the newest user-role message: her block stays
+byte-for-byte what she typed, the platform block is separate, framed, and
+uncached. The frame still gives the model nothing to dispose of and forbids
+mentioning it. See ``test_nothing_behind_the_cache_line_changes_between_turns``.
 """
 
 from __future__ import annotations
@@ -67,7 +76,13 @@ def _assembled() -> tuple[dict, str]:
     return request, typed
 
 
+def _is_platform_block(block: dict) -> bool:
+    return str(block.get("text") or "").startswith("<turn_context")
+
+
 def _user_wire_text(request: dict) -> str:
+    """Her words as the wire carries them: every user text block that is not
+    the platform's own separate, framed block."""
     parts: list[str] = []
     for message in request["messages"]:
         if message.get("role") != "user":
@@ -78,15 +93,23 @@ def _user_wire_text(request: dict) -> str:
             continue
         for block in content or []:
             if isinstance(block, dict) and block.get("type") == "text":
-                parts.append(block.get("text") or "")
+                if not _is_platform_block(block):
+                    parts.append(block.get("text") or "")
     return "\n".join(parts)
 
 
 def _system_wire_text(request: dict) -> str:
+    """The platform channel: the system blocks plus the separate trailing
+    platform block(s) after the cache line."""
     system = request.get("system")
-    if isinstance(system, str):
-        return system
-    return "\n".join(block.get("text") or "" for block in system or [])
+    parts = [system] if isinstance(system, str) else [b.get("text") or "" for b in system or []]
+    for message in request["messages"]:
+        content = message.get("content")
+        if isinstance(content, list):
+            parts.extend(
+                b.get("text") or "" for b in content if isinstance(b, dict) and _is_platform_block(b)
+            )
+    return "\n".join(parts)
 
 
 def test_her_turn_reaches_the_model_as_exactly_what_she_typed() -> None:
@@ -105,7 +128,7 @@ def test_no_platform_material_of_any_kind_is_inside_her_turn(platform_marker: st
     assert platform_marker not in _user_wire_text(request)
 
 
-def test_the_platform_material_is_delivered_in_the_system_channel() -> None:
+def test_the_platform_material_is_delivered_beside_her_turn_never_inside_it() -> None:
     request, _ = _assembled()
     system = _system_wire_text(request)
 
@@ -141,17 +164,20 @@ def test_the_frame_forbids_mentioning_the_block_at_all() -> None:
 
 
 def test_the_per_turn_block_never_costs_the_prompt_cache() -> None:
-    """Anthropic: the stable instruction carries the breakpoint; the per-turn
-    block follows it UNCACHED, so a block rebuilt every turn cannot invalidate
-    the cached prefix."""
-    request, _ = _assembled()
+    """Anthropic: the system channel is the stable instruction alone (with the
+    breakpoint); the per-turn block is the LAST block of the request, after the
+    rolling breakpoint on her words, UNCACHED — so a block rebuilt every turn
+    cannot invalidate the cached system prompt or the cached history."""
+    request, typed = _assembled()
     system = request["system"]
 
-    assert isinstance(system, list) and len(system) == 2
+    assert isinstance(system, list) and len(system) == 1
     assert system[0]["cache_control"] == {"type": "ephemeral"}
     assert "<turn_context" not in system[0]["text"]
-    assert "cache_control" not in system[1]
-    assert system[1]["text"].startswith("<turn_context")
+    blocks = request["messages"][-1]["content"]
+    assert blocks[0]["text"] == typed and "cache_control" in blocks[0]
+    assert blocks[-1]["text"].startswith("<turn_context")
+    assert "cache_control" not in blocks[-1]
 
 
 def test_nothing_from_the_turn_channel_can_reach_storage() -> None:

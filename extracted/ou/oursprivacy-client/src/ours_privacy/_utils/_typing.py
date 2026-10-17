@@ -31,6 +31,15 @@ def is_sequence_type(typ: type) -> bool:
     return origin == typing_extensions.Sequence or origin == typing.Sequence or origin == _c_abc.Sequence
 
 
+def is_mapping_type(typ: type) -> bool:
+    """If the given type is `Dict[K, V]` or `typing.Mapping[K, V]`"""
+    origin = get_origin(typ) or typ
+    if origin == dict:
+        return True
+    # only parameterized mappings, as callers need the value type argument
+    return origin == _c_abc.Mapping and len(get_args(typ)) == 2
+
+
 def is_iterable_type(typ: type) -> bool:
     """If the given type is `typing.Iterable[T]`"""
     origin = get_origin(typ) or typ

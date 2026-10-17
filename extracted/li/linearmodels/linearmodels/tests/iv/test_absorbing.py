@@ -1,3 +1,4 @@
+from linearmodels.compat.scipy import csc_array, diags_array
 from linearmodels.compat.statsmodels import Summary
 
 from itertools import product
@@ -9,7 +10,6 @@ import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
 import pytest
 import scipy.sparse as sp
-from scipy.sparse import csc_matrix
 
 from linearmodels.iv._utility import annihilate
 from linearmodels.iv.absorbing import (
@@ -34,9 +34,6 @@ from linearmodels.shared.exceptions import MissingValueWarning
 from linearmodels.shared.utility import AttrDict
 
 NOBS = 100
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:the matrix subclass:PendingDeprecationWarning"
-)
 
 
 class Hasher:
@@ -262,6 +259,18 @@ def test_smoke(data):
     assert isinstance(str(res.summary), str)
 
 
+def test_refit_does_not_change_df_model():
+    data = generate_data()
+    mod = AbsorbingLS(
+        data.y, data.x, absorb=data.absorb, interactions=data.interactions
+    )
+    res = mod.fit(debiased=True)
+    res2 = mod.fit(debiased=True)
+    assert res2.df_model == res.df_model
+    assert res2.df_resid == res.df_resid
+    assert_allclose(res2.f_statistic.pval, res.f_statistic.pval)
+
+
 def test_absorbing_exceptions(random_gen):
     absorbed = random_gen.standard_normal((NOBS, 2))
     assert isinstance(absorbed, np.ndarray)
@@ -404,7 +413,7 @@ def test_interaction_cat_only(cat):
     assert_frame_equal(cat, interact.cat)
     expected = category_interaction(category_product(cat), precondition=False)
     actual = interact.sparse
-    assert isinstance(actual, csc_matrix)
+    assert isinstance(actual, csc_array)
     assert_allclose(expected.toarray(), actual.toarray())
 
 
@@ -414,7 +423,7 @@ def test_interaction_cont_only(cont):
     assert_frame_equal(cont, interact.cont)
     expected = cont.to_numpy()
     actual = interact.sparse
-    assert isinstance(actual, csc_matrix)
+    assert isinstance(actual, csc_array)
     assert_allclose(expected, actual.toarray())
 
 
@@ -431,7 +440,7 @@ def test_interaction_cat_cont(cat, cont):
         expected.append(element)
     expected = np.column_stack(expected)
     actual = interact.sparse
-    assert isinstance(actual, csc_matrix)
+    assert isinstance(actual, csc_array)
     assert_allclose(expected, interact.sparse.toarray())
 
 
@@ -450,7 +459,7 @@ def test_interaction_cat_bad_nobs():
 
 def test_empty_interaction():
     interact = Interaction(nobs=100)
-    assert isinstance(interact.sparse, csc_matrix)
+    assert isinstance(interact.sparse, csc_array)
     assert interact.sparse.shape == (100, 0)
 
 
@@ -472,7 +481,7 @@ def test_absorbing_regressors(cat, cont, interact, weights):
         expected_rank += pd.Series(cat[col].cat.codes).nunique() - (i > 0)
     expected.append(dummy_matrix(cat, precondition=False)[0])
     expected_rank += cont.shape[1]
-    expected.append(csc_matrix(cont))
+    expected.append(csc_array(cont))
     if interact is not None:
         for inter in interact:
             interact_mat = inter.sparse
@@ -480,7 +489,7 @@ def test_absorbing_regressors(cat, cont, interact, weights):
             expected.append(interact_mat)
     expected = sp.hstack(expected, format="csc")
     if weights is not None:
-        expected = (sp.diags(np.sqrt(weights)).dot(expected)).asformat("csc")
+        expected = (diags_array(np.sqrt(weights)).dot(expected)).asformat("csc")
     actual = areg.regressors
     assert expected.shape == actual.shape
     assert_array_equal(expected.indptr, actual.indptr)
@@ -527,7 +536,7 @@ def test_against_ols(ols_data):
         absorb.append(ols_data.absorb.cont.to_numpy())
         if ols_data.absorb.cat.shape[1] > 0:
             dummies = dummy_matrix(ols_data.absorb.cat, precondition=False)[0]
-            assert isinstance(dummies, sp.csc_matrix)
+            assert isinstance(dummies, csc_array)
             absorb.append(dummies.toarray())
         has_dummy = ols_data.absorb.cat.shape[1] > 0
     if ols_data.interactions is not None:
@@ -545,7 +554,8 @@ def test_against_ols(ols_data):
                 absorb = (1.0 / root_w) * wabsorb
         rank = np.linalg.matrix_rank(absorb)
         if rank < absorb.shape[1]:
-            a, b = np.linalg.eig(absorb.T @ absorb)
+            # The matrix is symmetric: eigh has real eigenvectors, eig may not
+            a, b = np.linalg.eigh(absorb.T @ absorb)
             order = np.argsort(a)[::-1]
             a, b = a[order], b[:, order]
             z = absorb @ b
@@ -744,9 +754,101 @@ def test_options(random_gen):
         mod.fit(absorb_options={"atol": 1e-7, "btol": 1e-7}, method="hdfe")
 
 
+def test_absorb_options_are_not_modified(random_gen):
+    absorb = random_gen.randint(0, 10, size=1000)
+    x = random_gen.standard_normal((1000, 3))
+    y = random_gen.standard_normal(1000)
+    dfd = {f"x{i}": pd.Series(x[:, i]) for i in range(3)}
+    dfd.update({"c": pd.Series(absorb, dtype="category"), "y": pd.Series(y)})
+    df = pd.DataFrame(dfd)
+
+    y = df.y
+    x = df.iloc[:, :3]
+    # HDFE sets drop_singletons for pyhdfe, which must not change the caller's dict
+    options = {"compute_degrees": False}
+    AbsorbingLS(y, x, absorb=df[["c"]]).fit(absorb_options=options)
+    assert options == {"compute_degrees": False}
+
+    # Otherwise these options could not be used by LSMR, which rejects drop_singletons
+    options = {}
+    AbsorbingLS(y, x, absorb=df[["c"]]).fit(absorb_options=options)
+    mod = AbsorbingLS(y, x, absorb=df[["c"]])
+    mod.fit(absorb_options=options, method="lsmr", use_cache=False)
+    assert options == {}
+
+
 def test_lsmr_annihilate_empty():
     gen = np.random.default_rng(0)
-    x = csc_matrix(gen.standard_normal((1000, 2)))
+    x = csc_array(gen.standard_normal((1000, 2)))
     y = np.empty((1000, 0))
     y_out = lsmr_annihilate(x, y)
     assert y_out.shape == y.shape
+
+
+@pytest.mark.parametrize(
+    "labels", ["both", "cat", "cont", "neither", "cat-only", "cont-only"]
+)
+def test_interaction_without_labels_pairs_by_position(labels):
+    # Only cat or cont is labelled, or one is missing. Missing flags are paired
+    # by position and do not depend on the labels
+    rng = np.random.default_rng(0)
+    nobs = 30
+    index = pd.Index([f"r{i}" for i in range(nobs)])
+    cat = pd.DataFrame({"g": pd.Categorical(rng.integers(0, 4, nobs))}, index=index)
+    cont = pd.DataFrame({"c": rng.standard_normal(nobs)}, index=index)
+    cat.iloc[5, 0] = np.nan
+    cont.iloc[11, 0] = np.nan
+    cats = {"both": cat, "cat": cat, "cont": cat.to_numpy(), "neither": cat.to_numpy()}
+    conts = {
+        "both": cont,
+        "cat": cont.to_numpy(),
+        "cont": cont,
+        "neither": cont.to_numpy(),
+    }
+    if labels == "cat-only":
+        interaction = Interaction(cat=cat)
+        expected = np.zeros(nobs, dtype=bool)
+        expected[5] = True
+    elif labels == "cont-only":
+        interaction = Interaction(cont=cont)
+        expected = np.zeros(nobs, dtype=bool)
+        expected[11] = True
+    else:
+        interaction = Interaction(cat=cats[labels], cont=conts[labels])
+        expected = np.zeros(nobs, dtype=bool)
+        expected[[5, 11]] = True
+    isnull = interaction.isnull
+    assert isnull.shape == (nobs,)
+    assert_array_equal(isnull.to_numpy(), expected)
+    interaction.drop(expected)
+    assert interaction.cat.shape[0] == interaction.cont.shape[0]
+
+
+@pytest.mark.parametrize("labels", ["cat", "cont", "cat-only", "cont-only"])
+def test_interactions_without_labels(labels):
+    # AbsorbingLS pairs a labelled dependent variable with interactions that
+    # only partly have labels by position
+    rng = np.random.default_rng(1)
+    nobs = 60
+    index = pd.Index([f"r{i}" for i in range(nobs)])
+    y = pd.Series(rng.standard_normal(nobs), index=index)
+    x = pd.DataFrame({"x": rng.standard_normal(nobs)}, index=index)
+    cat = pd.DataFrame({"g": pd.Categorical(rng.integers(0, 4, nobs))}, index=index)
+    cont = pd.DataFrame({"c": rng.standard_normal(nobs)}, index=index)
+    interactions = {
+        "cat": Interaction(cat=cat.to_numpy(), cont=cont),
+        "cont": Interaction(cat=cat, cont=cont.to_numpy()),
+        "cat-only": Interaction(cat=cat),
+        "cont-only": Interaction(cont=cont),
+    }
+    mod = AbsorbingLS(y, x, interactions=interactions[labels])
+    res = mod.fit()
+    raw = AbsorbingLS(
+        y.to_numpy(),
+        x.to_numpy(),
+        interactions=Interaction(
+            cat=None if labels == "cont-only" else cat.to_numpy(),
+            cont=None if labels == "cat-only" else cont.to_numpy(),
+        ),
+    ).fit()
+    assert_allclose(res.params, raw.params)

@@ -15,6 +15,7 @@ base.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -106,15 +107,25 @@ def test_handler_is_a_typed_pure_compute(
         ("evidence/OMN-1/x.yaml", "HISTORICAL"),
         ("contracts/OMN-19252.yaml", "HISTORICAL"),
         ("src/omnibase_core/validation/hardcoded_model_config/policy.yaml", "GUARD"),
+        # OMN-21147: the work ledger is append-only history and is never rewritten; the
+        # private denylist names the retired values it exists to refuse.
+        ("docs/tracking/ROLLING_WORK_LEDGER.md", "HISTORICAL"),
+        ("docs/tracking/archive/ROLLING_WORK_LEDGER_2026-10-12-split.md", "HISTORICAL"),
+        ("vocabularies/hardcoded_model_config_lab_denylist.yaml", "GUARD"),
+        # A note beside the ledger is ordinary prose, not history.
+        ("docs/tracking/notes.md", "DOC"),
         ("config/lane.example.yaml", "EXAMPLE"),
         (".env.example", "EXAMPLE"),
-        ("src/omnimarket/configs/bifrost_delegation.yaml", "VENDOR_DEFAULT"),
-        ("src/omnimarket/configs/other_delegation.yaml", "SOURCE"),
-        ("plugins/onex/skills/_bin/lab-onboarding.sh", "VENDOR_DEFAULT"),
-        ("plugins/onex/skills/_bin/other-script.sh", "SOURCE"),
+        # OMN-21147: the former vendor-default files are ordinary source.
+        ("src/omnimarket/configs/bifrost_delegation.yaml", "SOURCE"),
+        ("src/omnimarket/inference/openrouter_models.py", "SOURCE"),
+        ("plugins/onex/skills/_bin/lab-onboarding.sh", "SOURCE"),
         ("deploy/systemd/vllm-gpu0.service", "LAUNCH"),
         ("README.md", "DOC"),
-        ("app/(marketing)/page.tsx", "DOC"),
+        ("docs/guide.rst", "DOC"),
+        # Code under docs/ or a marketing route is code, not prose (OMN-21147).
+        ("docs/tools/gen.py", "SOURCE"),
+        ("app/(marketing)/page.tsx", "SOURCE"),
         ("tests/unit/test_x.py", "TEST"),
         ("src/pkg/tests/data.yaml", "TEST"),
         ("src/pkg/router.py", "SOURCE"),
@@ -127,16 +138,46 @@ def test_classify_path(
 
 
 @pytest.mark.unit
-def test_vendor_default_membership_is_by_name_only(
+def test_no_path_class_admits_a_named_file(
     policy: ModelHardcodedModelConfigPolicy,
 ) -> None:
-    vendor = [c for c in policy.path_classes if c.name == "VENDOR_DEFAULT"]
-    assert len(vendor) == 1
-    assert vendor[0].globs == ()
-    assert vendor[0].files
-    assert "M" not in vendor[0].families
-    assert "E-LAN" in vendor[0].families
-    assert "R" in vendor[0].families
+    """OMN-21147: no file is named into a class; VENDOR_DEFAULT is gone."""
+    assert "VENDOR_DEFAULT" not in {c.name for c in policy.path_classes}
+    assert all(c.files == () for c in policy.path_classes)
+
+
+@pytest.mark.unit
+def test_every_scanned_class_refuses_model_ids_and_lab_facts(
+    policy: ModelHardcodedModelConfigPolicy,
+) -> None:
+    """OMN-21147: a model id belongs in a contract overlay, never in the tree.
+
+    HISTORICAL (records) and GUARD (this guard's own policy and corpus) scan
+    nothing. DOC is prose (markdown and reStructuredText only) and refuses
+    retired values. Every other class refuses model ids (M), private and
+    lab-subnet hosts (E-LAN) and lab deployment facts (D).
+    """
+    for path_class in policy.path_classes:
+        if path_class.name in ("HISTORICAL", "GUARD"):
+            assert path_class.families == ()
+        elif path_class.name == "DOC":
+            assert set(path_class.families) == {"R"}
+            assert all(g.endswith((".md", ".mdx", ".rst")) for g in path_class.globs), (
+                path_class.globs
+            )
+        else:
+            assert {"M", "E-LAN", "D", "R"} <= set(path_class.families), path_class.name
+
+
+@pytest.mark.unit
+def test_tests_may_use_only_declared_fixture_ids(
+    policy: ModelHardcodedModelConfigPolicy,
+) -> None:
+    clean = 'MODEL = "fixture-model-a"\n'
+    assert scan("tests/unit/test_router.py", clean, policy) == []
+    real = 'MODEL = "gpt-5-mini"\n'
+    found = scan("tests/unit/test_router.py", real, policy)
+    assert [f.family for f in found] == ["M"]
 
 
 @pytest.mark.unit
@@ -194,6 +235,35 @@ def test_baselined_finding_passes(
         [{"path": "src/pkg/a.py", "family": "E-LAN", "content_sha1": _sha1(line)}],
     )
     assert runtime.main(["--baseline", rel, "src/pkg/a.py"]) == 0
+
+
+@pytest.mark.unit
+def test_overlay_only_scan_preserves_baseline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The stricter policy refuses new example/launch models without baseline growth."""
+    monkeypatch.chdir(tmp_path)
+    source = "src/pkg/a.py"
+    line = f'HOST = "http://{LAB_HOST}:8000"'
+    _write(tmp_path, source, line + "\n")
+    rel = _baseline(
+        tmp_path,
+        [{"path": source, "family": "E-LAN", "content_sha1": _sha1(line)}],
+    )
+    baseline_before = (tmp_path / rel).read_bytes()
+    assert runtime.main(["--baseline", rel, source]) == 0
+    capsys.readouterr()
+
+    example = "config/lane.example.yaml"
+    launch = "deploy/systemd/serve.service"
+    _write(tmp_path, example, 'model: "qwen3-coder"\n')
+    _write(tmp_path, launch, 'ExecStart=/bin/serve --model "qwen3-coder"\n')
+    assert runtime.main(["--baseline", rel, source, example, launch]) == 1
+    out = capsys.readouterr().out
+    assert f"{example}:1: [M in EXAMPLE]" in out
+    assert f"{launch}:1: [M in LAUNCH]" in out
+    assert "2 new finding(s), 0 stale baseline entr(y/ies)" in out
+    assert (tmp_path / rel).read_bytes() == baseline_before
 
 
 @pytest.mark.unit
@@ -314,6 +384,7 @@ def test_baseline_growth_against_base_fails(
 
     empty_base = yaml.safe_dump({"schema_version": 1, "entries": []})
     monkeypatch.setattr(runtime, "read_baseline_at_ref", lambda ref, path: empty_base)
+    monkeypatch.setattr(runtime, "read_file_at_ref", lambda ref, path: None)
     assert (
         runtime.main(["--baseline", rel, "--base", "origin/dev", "src/pkg/a.py"]) == 1
     )
@@ -324,6 +395,37 @@ def test_baseline_growth_against_base_fails(
     assert (
         runtime.main(["--baseline", rel, "--base", "origin/dev", "src/pkg/a.py"]) == 0
     )
+
+
+@pytest.mark.unit
+def test_baseline_may_take_a_line_that_existed_at_base(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """OMN-21147: a tightened policy reclassifies lines already in the tree.
+
+    Such a line may enter the baseline; a line the change itself adds may not.
+    """
+    monkeypatch.chdir(tmp_path)
+    line = 'MODEL = "qwen3-coder"'
+    _write(tmp_path, "tests/unit/test_a.py", line + "\n")
+    entry = {"path": "tests/unit/test_a.py", "family": "M", "content_sha1": _sha1(line)}
+    rel = _baseline(tmp_path, [entry])
+    empty_base = yaml.safe_dump({"schema_version": 1, "entries": []})
+    monkeypatch.setattr(runtime, "read_baseline_at_ref", lambda ref, path: empty_base)
+
+    monkeypatch.setattr(runtime, "read_file_at_ref", lambda ref, path: line + "\n")
+    argv = ["--baseline", rel, "--base", "origin/dev", "tests/unit/test_a.py"]
+    assert runtime.main(argv) == 0
+    assert "existed at origin/dev" in capsys.readouterr().out
+
+    monkeypatch.setattr(runtime, "read_file_at_ref", lambda ref, path: None)
+    assert runtime.main(argv) == 1
+    assert "entries only leave" in capsys.readouterr().out
+
+    _write(tmp_path, "tests/unit/test_a.py", line + "\n" + line + "\n")
+    rel = _baseline(tmp_path, [entry, entry])
+    monkeypatch.setattr(runtime, "read_file_at_ref", lambda ref, path: line + "\n")
+    assert runtime.main(argv) == 1
 
 
 @pytest.mark.unit
@@ -353,3 +455,18 @@ def test_no_bypass_option_exists() -> None:
         "--write-baseline",
         "--base",
     }
+
+
+@pytest.mark.unit
+def test_model_id_pattern_does_not_name_the_retired_gpt_oss_model(
+    policy: ModelHardcodedModelConfigPolicy,
+) -> None:
+    """OMN-19432: the family regex lists only model families still in use.
+
+    gpt-oss-120b left the lab on 2026-10-08. The positive control proves the
+    regex still matches the families that remain.
+    """
+    pattern = re.compile(policy.model_id_pattern, re.IGNORECASE)
+    assert pattern.search("qwen3-coder") is not None
+    assert pattern.search("gpt-4o") is not None
+    assert "oss" not in policy.model_id_pattern.lower()

@@ -1,11 +1,15 @@
 use super::config_spec_background_sync_metrics::{
-    DeltaFallbackReason, DeltaFallbackSource, log_config_sync_full_fallback_count,
+    ConfigSyncMetrics, ConfigSyncResponseType, log_config_sync_full_fallback_count,
     log_config_sync_overall_latency,
 };
 use super::remote_config_value_hydrator::RemoteConfigValueHydrator;
+#[cfg(test)]
 use super::response_format::{SpecsResponseFormat, get_specs_response_format};
-use crate::DEFAULT_INIT_TIMEOUT_MS;
 use crate::data_store_interface::ENABLE_DCS_ZSTD_DATASTORE_FLAG;
+use crate::networking::HttpMethod;
+use crate::networking::retry::{
+    PrimaryOutcome, RefreshFailureTracker, RetryPolicy, retryable_network_error,
+};
 use crate::networking::{
     DEFAULT_CDN_SPECS_URL, NetworkClient, NetworkError, RequestArgs, ResponseData, api_from_url,
     config_specs_url,
@@ -14,8 +18,8 @@ use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::observability::sdk_errors_observer::ErrorBoundaryEvent;
 use crate::sdk_diagnostics::diagnostics::ContextType;
 use crate::sdk_diagnostics::marker::{ActionType, KeyType, Marker, StepType};
+use crate::spec_store::SpecStore;
 use crate::specs_adapter::{SpecsAdapter, SpecsUpdate, SpecsUpdateHydration, SpecsUpdateListener};
-use crate::specs_response::spec_types::SpecsResponseNoUpdates;
 use crate::statsig_err::StatsigErr;
 use crate::statsig_metadata::StatsigMetadata;
 use crate::{
@@ -26,7 +30,7 @@ use chrono::Utc;
 use parking_lot::RwLock;
 use percent_encoding::percent_encode;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 use tokio::sync::Notify;
@@ -42,18 +46,50 @@ pub struct NetworkResponse {
 }
 
 pub const DEFAULT_SYNC_INTERVAL_MS: u32 = 10_000;
+const DEFAULT_INIT_REQUEST_TIMEOUT_MS: u64 = 5_000;
+
+#[cfg(test)]
+#[path = "__tests__/state_read_retry_tests.rs"]
+mod state_read_retry_tests;
+
+#[cfg(test)]
+#[path = "__tests__/response_metrics_reuse_tests.rs"]
+mod response_metrics_reuse_tests;
+
+const FOREGROUND_RETRY_POLICY: RetryPolicy = RetryPolicy {
+    attempts: 2,
+    jitter: true,
+};
+const BACKGROUND_RETRY_POLICY: RetryPolicy = RetryPolicy {
+    attempts: 4,
+    ..FOREGROUND_RETRY_POLICY
+};
 
 const TAG: &str = stringify!(StatsigHttpSpecsAdapter);
-const STATSIG_NETWORK_FALLBACK_THRESHOLD: u32 = 5;
-const DELTA_FALLBACK_REASON_HEADER: &str = "x-statsig-delta-fallback-reason";
-const DELTA_FALLBACK_SOURCE_HEADER: &str = "x-statsig-delta-fallback-source";
 const INITIAL_DELTA_CURSOR_STATE: &str = "initial";
 const INCREMENTAL_DELTA_CURSOR_STATE: &str = "incremental";
 const DCS_ZSTD_ACCEPT_ENCODING: &str = "statsig-zstd, statsig-br, gzip, deflate, br";
 
+#[derive(Clone)]
+enum HttpSpecsListener {
+    External(Arc<dyn SpecsUpdateListener>),
+    Store(Arc<SpecStore>),
+}
+
+impl HttpSpecsListener {
+    fn as_listener(&self) -> &dyn SpecsUpdateListener {
+        match self {
+            Self::External(listener) => listener.as_ref(),
+            Self::Store(store) => store.as_ref(),
+        }
+    }
+}
+
 pub struct StatsigHttpSpecsAdapter {
     output_policy: crate::output_policy::OutputPolicy,
-    listener: RwLock<Option<Arc<dyn SpecsUpdateListener>>>,
+    foreground_retry_policy: RetryPolicy,
+    background_retry_policy: RetryPolicy,
+    listener: RwLock<Option<HttpSpecsListener>>,
     network: Arc<NetworkClient>,
     remote_config_value_hydrator: Arc<RemoteConfigValueHydrator>,
     specs_url: String,
@@ -69,83 +105,56 @@ pub struct StatsigHttpSpecsAdapter {
     // covers both full and delta protobuf responses.
     allow_dcs_zstd: bool,
     use_deltas_next_request: AtomicBool,
-    background_sync_failure_count: AtomicU32,
-}
-
-// OB client -- START
-// These types are only for the config_sync_overall.latency observability metric added in this change.
-
-enum NetworkSyncOutcome {
-    Success,
-    Failure,
-}
-
-impl NetworkSyncOutcome {
-    fn as_bool(&self) -> bool {
-        matches!(self, Self::Success)
-    }
-}
-
-enum ConfigSyncResponseType {
-    Delta,
-    Full,
-    NoUpdate,
-    NetworkError,
-}
-
-impl ConfigSyncResponseType {
-    fn from_response_data(data: &mut ResponseData) -> Self {
-        if is_true_header(data, "x-cache-hit") {
-            return Self::NoUpdate;
-        }
-
-        if data.get_header_ref("x-deltas-used").is_some() {
-            return Self::Delta;
-        }
-
-        let response_type = match data.deserialize_into::<SpecsResponseNoUpdates>() {
-            Ok(response) if !response.has_updates => Self::NoUpdate,
-            _ => Self::Full,
-        };
-        let _ = data.rewind();
-        response_type
-    }
-
-    fn as_str(&self) -> &'static str {
-        match self {
-            Self::Delta => "delta",
-            Self::Full => "full",
-            Self::NoUpdate => "no_update",
-            Self::NetworkError => "network_error",
-        }
-    }
-}
-
-fn is_true_header(data: &ResponseData, key: &str) -> bool {
-    data.get_header_ref(key)
-        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+    background_sync_failure_count: RefreshFailureTracker,
 }
 
 fn is_process_success(result: &Result<(), StatsigErr>) -> bool {
     result.is_ok()
 }
 
-fn get_delta_fallback_reason(data: &ResponseData) -> DeltaFallbackReason {
-    DeltaFallbackReason::from_header(
-        data.get_header_ref(DELTA_FALLBACK_REASON_HEADER)
-            .map(String::as_str),
-    )
-}
-
-fn get_delta_fallback_source(data: &ResponseData) -> DeltaFallbackSource {
-    DeltaFallbackSource::from_header(
-        data.get_header_ref(DELTA_FALLBACK_SOURCE_HEADER)
-            .map(String::as_str),
-    )
-}
-// OB client -- END
-
 impl StatsigHttpSpecsAdapter {
+    pub(crate) fn initialize_spec_store(&self, store: Arc<SpecStore>) {
+        self.set_listener(HttpSpecsListener::Store(store));
+    }
+
+    fn set_listener(&self, listener: HttpSpecsListener) {
+        let _output_scope = self.output_policy.enter();
+        match self.listener.try_write_for(Duration::from_secs(5)) {
+            Some(mut lock) => *lock = Some(listener),
+            None => log_e!(TAG, "Failed to acquire write lock on listener"),
+        }
+    }
+
+    fn retry_policy(&self, trigger: SpecsSyncTrigger) -> RetryPolicy {
+        if trigger == SpecsSyncTrigger::Background {
+            self.background_retry_policy
+        } else {
+            self.foreground_retry_policy
+        }
+    }
+
+    fn network_retry_limit(&self, error: &NetworkError) -> Option<u32> {
+        // A successful status with a failed body read had no primary retry before this policy.
+        retryable_network_error(error).then_some(
+            if error
+                .status_code()
+                .is_some_and(|status| (200..300).contains(&status))
+            {
+                self.foreground_retry_policy.attempts
+            } else {
+                u32::MAX
+            },
+        )
+    }
+
+    fn retry_limit(&self, error: &StatsigErr) -> Option<u32> {
+        match error {
+            StatsigErr::NetworkError(error) => self.network_retry_limit(error),
+            StatsigErr::SerializationError(_) => Some(self.foreground_retry_policy.attempts),
+            _ => None,
+        }
+    }
+
     #[must_use]
     pub fn new(
         sdk_key: &str,
@@ -156,10 +165,12 @@ impl StatsigHttpSpecsAdapter {
         let _output_scope = output_policy.enter();
         let default_options = StatsigOptions::default();
         let options_ref = options.unwrap_or(&default_options);
+        let retry_override =
+            RetryPolicy::state_read_override(options_ref.state_read_primary_attempts);
 
         let init_timeout_ms = options_ref
             .init_timeout_ms
-            .unwrap_or(DEFAULT_INIT_TIMEOUT_MS);
+            .unwrap_or(DEFAULT_INIT_REQUEST_TIMEOUT_MS);
 
         let specs_url = match override_url {
             Some(url) => url,
@@ -200,6 +211,8 @@ impl StatsigHttpSpecsAdapter {
 
         Self {
             output_policy,
+            foreground_retry_policy: retry_override.unwrap_or(FOREGROUND_RETRY_POLICY),
+            background_retry_policy: retry_override.unwrap_or(BACKGROUND_RETRY_POLICY),
             listener: RwLock::new(None),
             network: network.clone(),
             remote_config_value_hydrator: Arc::new(RemoteConfigValueHydrator::new_with_ops_stats(
@@ -220,12 +233,13 @@ impl StatsigHttpSpecsAdapter {
             allow_dcs_deltas: enable_dcs_deltas,
             allow_dcs_zstd,
             use_deltas_next_request: AtomicBool::new(enable_dcs_deltas),
-            background_sync_failure_count: AtomicU32::new(0),
+            background_sync_failure_count: RefreshFailureTracker::default(),
         }
     }
 
     pub fn force_shutdown(&self) {
         let _output_scope = self.output_policy.enter();
+        self.network.shutdown();
         self.shutdown_notify.notify_one();
     }
 
@@ -236,30 +250,67 @@ impl StatsigHttpSpecsAdapter {
     ) -> Result<NetworkResponse, NetworkError> {
         self.output_policy
             .scope(async {
-                self.fetch_specs_from_network_with_proto_support(current_specs_info, trigger, true)
+                self.network
+                    .retry_executor(self.retry_policy(trigger))
+                    .run(
+                        |_, index| {
+                            let current_specs_info = &current_specs_info;
+                            async move {
+                                self.fetch_specs_once(
+                                    current_specs_info,
+                                    trigger,
+                                    true,
+                                    false,
+                                    index,
+                                )
+                                .await
+                                .map_err(|(error, _)| error)
+                            }
+                        },
+                        |error| self.network_retry_limit(error),
+                        |_| false,
+                        || NetworkError::ShutdownError(self.specs_url.clone()),
+                    )
                     .await
             })
             .await
     }
 
-    async fn fetch_specs_from_network_with_proto_support(
+    async fn fetch_specs_once(
         &self,
-        current_specs_info: SpecsInfo,
+        current_specs_info: &SpecsInfo,
         trigger: SpecsSyncTrigger,
         supports_proto: bool,
-    ) -> Result<NetworkResponse, NetworkError> {
-        let request_args = self.get_request_args(&current_specs_info, trigger, supports_proto);
+        fallback: bool,
+        index: u32,
+    ) -> Result<NetworkResponse, (NetworkError, bool)> {
+        let mut request_args = self.get_request_args(current_specs_info, trigger, supports_proto);
+        if fallback {
+            self.network.log_fallback("config_specs", true);
+            request_args.url = config_specs_url(self.fallback_url.as_deref().unwrap());
+        }
         let url = request_args.url.clone();
         let requested_deltas = request_args.deltas_enabled;
-        match self.handle_specs_request(request_args).await {
-            Ok(response) => Ok(NetworkResponse {
-                data: response,
-                loggable_api: api_from_url(&url),
-                requested_deltas,
-                request_url: url,
-            }),
-            Err(e) => Err(e),
-        }
+        let response = self
+            .network
+            .request_once(HttpMethod::GET, request_args, None, false, true, index)
+            .await
+            .map_err(|error| (error, requested_deltas))?;
+        Ok(NetworkResponse {
+            data: response.data.ok_or_else(|| {
+                (
+                    NetworkError::RequestFailed(
+                        url.clone(),
+                        response.status_code,
+                        "No data in response".into(),
+                    ),
+                    requested_deltas,
+                )
+            })?,
+            loggable_api: api_from_url(&url),
+            requested_deltas,
+            request_url: url,
+        })
     }
 
     /// Fetches JSON specs and resolves any blob-backed dynamic config values
@@ -273,12 +324,35 @@ impl StatsigHttpSpecsAdapter {
     ) -> Result<NetworkResponse, StatsigErr> {
         self.output_policy
             .scope(async {
-                let mut response = self
-                    .fetch_specs_from_network_with_proto_support(current_specs_info, trigger, false)
+                self.network
+                    .retry_executor(self.retry_policy(trigger))
+                    .run(
+                        |_, index| {
+                            let current_specs_info = &current_specs_info;
+                            async move {
+                                let mut response = self
+                                    .fetch_specs_once(
+                                        current_specs_info,
+                                        trigger,
+                                        false,
+                                        false,
+                                        index,
+                                    )
+                                    .await
+                                    .map_err(|(error, _)| StatsigErr::NetworkError(error))?;
+                                self.hydrate_network_response(&mut response).await?;
+                                Ok(response)
+                            }
+                        },
+                        |error| self.retry_limit(error),
+                        |_| false,
+                        || {
+                            StatsigErr::NetworkError(NetworkError::ShutdownError(
+                                self.specs_url.clone(),
+                            ))
+                        },
+                    )
                     .await
-                    .map_err(StatsigErr::NetworkError)?;
-                self.hydrate_network_response(&mut response).await?;
-                Ok(response)
             })
             .await
     }
@@ -335,10 +409,7 @@ impl StatsigHttpSpecsAdapter {
 
         RequestArgs {
             url: config_specs_url(self.specs_url.as_str()),
-            retries: match trigger {
-                SpecsSyncTrigger::Initial | SpecsSyncTrigger::Manual => 0,
-                SpecsSyncTrigger::Background => 3,
-            },
+            retries: self.retry_policy(trigger).attempts - 1,
             query_params: Some(params),
             deltas_enabled: use_deltas_next_req,
             accept_gzip_response: true,
@@ -349,83 +420,6 @@ impl StatsigHttpSpecsAdapter {
         }
     }
 
-    async fn handle_fallback_request(
-        &self,
-        mut request_args: RequestArgs,
-    ) -> Result<NetworkResponse, NetworkError> {
-        let requested_deltas = request_args.deltas_enabled;
-        let fallback_url = match &self.fallback_url {
-            Some(url) => config_specs_url(url.as_str()),
-            None => {
-                return Err(NetworkError::RequestFailed(
-                    request_args.url.clone(),
-                    None,
-                    "No fallback URL".to_string(),
-                ));
-            }
-        };
-
-        request_args.url = fallback_url.clone();
-
-        // TODO logging
-
-        let response = self.handle_specs_request(request_args).await?;
-        Ok(NetworkResponse {
-            data: response,
-            loggable_api: api_from_url(&fallback_url),
-            requested_deltas,
-            request_url: fallback_url,
-        })
-    }
-
-    async fn handle_specs_request(
-        &self,
-        request_args: RequestArgs,
-    ) -> Result<ResponseData, NetworkError> {
-        let url = request_args.url.clone();
-        let response = self.network.get(request_args).await?;
-        match response.data {
-            Some(data) => Ok(data),
-            None => Err(NetworkError::RequestFailed(
-                url,
-                None,
-                response.error.unwrap_or("No data in response".to_string()),
-            )),
-        }
-    }
-
-    fn should_attempt_fallback(
-        &self,
-        trigger: SpecsSyncTrigger,
-        result: &Result<(), StatsigErr>,
-    ) -> bool {
-        if result.is_ok() || self.fallback_url.is_none() {
-            return false;
-        }
-
-        if trigger != SpecsSyncTrigger::Background {
-            return true;
-        }
-
-        let failure_count = self
-            .background_sync_failure_count
-            .fetch_add(1, Ordering::SeqCst)
-            + 1;
-
-        if failure_count.is_multiple_of(STATSIG_NETWORK_FALLBACK_THRESHOLD) {
-            return true;
-        }
-
-        log_d!(
-            TAG,
-            "Skipping fallback on background sync failure {}. Retrying fallback every {} failures.",
-            failure_count,
-            STATSIG_NETWORK_FALLBACK_THRESHOLD
-        );
-
-        false
-    }
-
     pub async fn run_background_sync(self: Arc<Self>) {
         self.output_policy
             .scope(async {
@@ -434,7 +428,7 @@ impl StatsigHttpSpecsAdapter {
                     .try_read_for(std::time::Duration::from_secs(5))
                 {
                     Some(lock) => match lock.as_ref() {
-                        Some(listener) => listener.get_current_specs_info(),
+                        Some(listener) => listener.as_listener().get_current_specs_info(),
                         None => SpecsInfo::empty(),
                     },
                     None => SpecsInfo::error(),
@@ -479,112 +473,114 @@ impl StatsigHttpSpecsAdapter {
         } else {
             INITIAL_DELTA_CURSOR_STATE
         };
-        let mut deltas_used = self.use_deltas_next_request.load(Ordering::SeqCst);
-        let mut response = self
-            .fetch_specs_from_network(current_specs_info.clone(), trigger)
-            .await;
-        let mut response_type = response
-            .as_mut()
-            .map_or(ConfigSyncResponseType::NetworkError, |response| {
-                ConfigSyncResponseType::from_response_data(&mut response.data)
-            });
-        let mut delta_fallback_reason = response
-            .as_ref()
-            .map_or(DeltaFallbackReason::MissingHeader, |response| {
-                get_delta_fallback_reason(&response.data)
-            });
-        let mut delta_fallback_source = response
-            .as_ref()
-            .map_or(DeltaFallbackSource::MissingHeader, |response| {
-                get_delta_fallback_source(&response.data)
-            });
-        let (mut source_api, mut response_format, mut network_success) = match &response {
-            Ok(response) => (
-                response.loggable_api.clone(),
-                get_specs_response_format(&response.data),
-                NetworkSyncOutcome::Success,
-            ),
-            Err(_) => (
-                api_from_url(&config_specs_url(self.specs_url.as_str())),
-                SpecsResponseFormat::Unknown,
-                NetworkSyncOutcome::Failure,
-            ),
-        };
-        if let Ok(response) = &response {
-            deltas_used = response.requested_deltas;
-        }
-
-        let mut result = self.process_spec_data(response).await;
-
-        if self.should_attempt_fallback(trigger, &result) {
-            log_d!(TAG, "Falling back to DCS CDN");
-            let fallback_args = self.get_request_args(&current_specs_info, trigger, true);
-            deltas_used = fallback_args.deltas_enabled;
-            let mut response = self.handle_fallback_request(fallback_args).await;
-            response_type = response
-                .as_mut()
-                .map_or(ConfigSyncResponseType::NetworkError, |response| {
-                    ConfigSyncResponseType::from_response_data(&mut response.data)
-                });
-            delta_fallback_reason = response
-                .as_ref()
-                .map_or(DeltaFallbackReason::MissingHeader, |response| {
-                    get_delta_fallback_reason(&response.data)
-                });
-            delta_fallback_source = response
-                .as_ref()
-                .map_or(DeltaFallbackSource::MissingHeader, |response| {
-                    get_delta_fallback_source(&response.data)
-                });
-            match &response {
-                Ok(response) => {
-                    source_api = response.loggable_api.clone();
-                    response_format = get_specs_response_format(&response.data);
-                    network_success = NetworkSyncOutcome::Success;
-                    deltas_used = response.requested_deltas;
-                }
-                Err(_) => {
-                    // Backup request failed, so no successful network payload was returned.
-                    if let Some(fallback_url) = self.fallback_url.as_ref() {
-                        source_api = api_from_url(&config_specs_url(fallback_url.as_str()));
+        let metrics = parking_lot::Mutex::new(None);
+        let result = self
+            .network
+            .retry_executor(self.retry_policy(trigger))
+            .run(
+                |fallback, index| {
+                    let metrics = &metrics;
+                    let current_specs_info = &current_specs_info;
+                    async move {
+                        let mut response = self
+                            .fetch_specs_once(current_specs_info, trigger, true, fallback, index)
+                            .await;
+                        let source_url = if fallback {
+                            self.fallback_url.as_ref().unwrap()
+                        } else {
+                            &self.specs_url
+                        };
+                        let attempt_metrics = match &mut response {
+                            Ok(response) => ConfigSyncMetrics::from_response_headers(
+                                &response.data,
+                                &response.loggable_api,
+                                response.requested_deltas,
+                            ),
+                            Err((_, requested_deltas)) => {
+                                ConfigSyncMetrics::from_network_error(source_url, *requested_deltas)
+                            }
+                        };
+                        let requested_deltas = response.as_ref().is_ok_and(|r| r.requested_deltas);
+                        *metrics.lock() = Some(attempt_metrics);
+                        let result = self
+                            .process_spec_data_with_metrics(
+                                response.map_err(|(error, _)| error),
+                                Some(metrics),
+                            )
+                            .await;
+                        match result {
+                            // A bad delta spends the next remaining attempt on a full primary response.
+                            Err(StatsigErr::ChecksumFailure(message)) if requested_deltas => {
+                                Err(StatsigErr::NetworkError(NetworkError::RequestFailed(
+                                    source_url.clone(),
+                                    None,
+                                    message,
+                                )))
+                            }
+                            result => result,
+                        }
                     }
-                    network_success = NetworkSyncOutcome::Failure;
-                }
-            }
-            result = self.process_spec_data(response).await;
-        }
+                },
+                |error| self.retry_limit(error),
+                |outcome| {
+                    let eligible = self
+                        .background_sync_failure_count
+                        .record(outcome, trigger == SpecsSyncTrigger::Background);
+                    if outcome == PrimaryOutcome::Exhausted
+                        && self.fallback_url.is_some()
+                        && !eligible
+                    {
+                        self.network.log_fallback("config_specs", false);
+                    }
+                    eligible && self.fallback_url.is_some()
+                },
+                || StatsigErr::NetworkError(NetworkError::ShutdownError(self.specs_url.clone())),
+            )
+            .await;
+        let Some(metrics) = metrics.into_inner() else {
+            return result;
+        };
 
         let process_success = is_process_success(&result);
         log_config_sync_overall_latency(
             &self.ops_stats,
             sync_start_ms,
-            source_api.as_str(),
-            response_format.as_str(),
-            network_success.as_bool(),
+            metrics.source_api.as_str(),
+            metrics.response_format.as_str(),
+            metrics.network_success,
             process_success,
             result
                 .as_ref()
                 .err()
                 .map_or_else(String::new, |e| e.to_string()),
-            deltas_used,
-            response_type.as_str(),
+            metrics.deltas_used,
+            metrics.response_type.as_str(),
         );
         log_config_sync_full_fallback_count(
             &self.ops_stats,
-            source_api.as_str(),
-            deltas_used,
-            response_type.as_str(),
-            delta_fallback_reason,
-            delta_fallback_source,
+            metrics.source_api.as_str(),
+            metrics.deltas_used,
+            metrics.response_type.as_str(),
+            metrics.delta_fallback_reason,
+            metrics.delta_fallback_source,
             delta_cursor_state,
         );
 
         result
     }
 
+    #[cfg(test)]
     async fn process_spec_data(
         &self,
         response: Result<NetworkResponse, NetworkError>,
+    ) -> Result<(), StatsigErr> {
+        self.process_spec_data_with_metrics(response, None).await
+    }
+
+    async fn process_spec_data_with_metrics(
+        &self,
+        response: Result<NetworkResponse, NetworkError>,
+        metrics: Option<&parking_lot::Mutex<Option<ConfigSyncMetrics>>>,
     ) -> Result<(), StatsigErr> {
         self.output_policy
             .scope(async {
@@ -595,7 +591,7 @@ impl StatsigHttpSpecsAdapter {
                     self.hydration_source_url(&resp.request_url).to_string(),
                 );
 
-                let update = SpecsUpdate {
+                let mut update = SpecsUpdate {
                     data: resp.data,
                     source: SpecsSource::Network,
                     received_at: Utc::now().timestamp_millis() as u64,
@@ -628,13 +624,42 @@ impl StatsigHttpSpecsAdapter {
                         Err(err)
                     }
                 };
-                let result = match listener {
-                    Ok(listener) => {
-                        listener
-                            .did_receive_specs_update_async(update, Some(hydration))
+                let body_metrics = metrics.filter(|_| {
+                    ConfigSyncResponseType::from_headers(&update.data).is_none()
+                });
+                let result = match (listener, body_metrics) {
+                    (Ok(HttpSpecsListener::Store(store)), Some(metrics))
+                        if !crate::specs_response::proto_compression::is_compressed_protobuf_response(
+                            &update.data,
+                        ) =>
+                    {
+                        let has_updates = Arc::new(AtomicBool::new(true));
+                        if let Some(metrics) = metrics.lock().as_mut() {
+                            metrics.response_type = ConfigSyncResponseType::JsonBody(has_updates.clone());
+                        }
+                        store
+                            .set_values_with_json_hydration_metrics(
+                                update,
+                                hydration,
+                                &has_updates,
+                            )
                             .await
                     }
-                    Err(error) => Err(error),
+                    (listener, metrics) => {
+                        if let Some(metrics) = metrics {
+                            let response_type = ConfigSyncResponseType::from_response_data(&mut update.data);
+                            if let Some(metrics) = metrics.lock().as_mut() {
+                                metrics.response_type = response_type;
+                            }
+                        }
+                        match listener {
+                            Ok(listener) => listener
+                                .as_listener()
+                                .did_receive_specs_update_async(update, Some(hydration))
+                                .await,
+                            Err(error) => Err(error),
+                        }
+                    }
                 };
 
                 if matches!(&result, Err(StatsigErr::ChecksumFailure(_))) {
@@ -726,7 +751,7 @@ impl SpecsAdapter for StatsigHttpSpecsAdapter {
                     .try_read_for(std::time::Duration::from_secs(5))
                 {
                     Some(lock) => match lock.as_ref() {
-                        Some(listener) => listener.get_current_specs_info(),
+                        Some(listener) => listener.as_listener().get_current_specs_info(),
                         None => SpecsInfo::empty(),
                     },
                     None => SpecsInfo::error(),
@@ -738,16 +763,7 @@ impl SpecsAdapter for StatsigHttpSpecsAdapter {
     }
 
     fn initialize(&self, listener: Arc<dyn SpecsUpdateListener>) {
-        let _output_scope = self.output_policy.enter();
-        match self
-            .listener
-            .try_write_for(std::time::Duration::from_secs(5))
-        {
-            Some(mut lock) => *lock = Some(listener),
-            None => {
-                log_e!(TAG, "Failed to acquire write lock on listener");
-            }
-        }
+        self.set_listener(HttpSpecsListener::External(listener));
     }
 
     async fn schedule_background_sync(
@@ -793,6 +809,7 @@ impl SpecsAdapter for StatsigHttpSpecsAdapter {
     ) -> Result<(), StatsigErr> {
         self.output_policy
             .scope(async {
+                self.network.shutdown();
                 self.shutdown_notify.notify_one();
                 Ok(())
             })
@@ -1315,128 +1332,6 @@ mod tests {
         );
 
         assert_eq!(adapter.fallback_url.as_deref(), Some(DEFAULT_CDN_SPECS_URL));
-    }
-
-    #[test]
-    fn test_config_sync_response_type_delta() {
-        let mut headers = HashMap::new();
-        headers.insert("x-deltas-used".to_string(), "true".to_string());
-        let mut data = ResponseData::from_bytes_with_headers(
-            b"{\"has_updates\": false}".to_vec(),
-            Some(headers),
-        );
-
-        let response_type = ConfigSyncResponseType::from_response_data(&mut data);
-
-        assert_eq!(response_type.as_str(), "delta");
-    }
-
-    #[test]
-    fn test_config_sync_response_type_no_update() {
-        let mut data = ResponseData::from_bytes(b"{\"has_updates\": false}".to_vec());
-
-        let response_type = ConfigSyncResponseType::from_response_data(&mut data);
-
-        assert_eq!(response_type.as_str(), "no_update");
-        let response = data.deserialize_into::<SpecsResponseNoUpdates>().unwrap();
-        assert!(!response.has_updates);
-    }
-
-    #[test]
-    fn test_config_sync_response_type_no_update_with_delta_header() {
-        let mut headers = HashMap::new();
-        headers.insert("x-cache-hit".to_string(), "true".to_string());
-        headers.insert("x-deltas-used".to_string(), "true".to_string());
-        let mut data = ResponseData::from_bytes_with_headers(
-            b"{\"has_updates\": false}".to_vec(),
-            Some(headers),
-        );
-
-        let response_type = ConfigSyncResponseType::from_response_data(&mut data);
-
-        assert_eq!(response_type.as_str(), "no_update");
-    }
-
-    #[test]
-    fn test_config_sync_response_type_full() {
-        let mut data = ResponseData::from_bytes(b"{\"has_updates\": true}".to_vec());
-
-        let response_type = ConfigSyncResponseType::from_response_data(&mut data);
-
-        assert_eq!(response_type.as_str(), "full");
-    }
-
-    #[test]
-    fn test_config_sync_response_type_full_for_non_json_payload() {
-        let mut data = ResponseData::from_bytes(vec![0, 1, 2]);
-
-        let response_type = ConfigSyncResponseType::from_response_data(&mut data);
-
-        assert_eq!(response_type.as_str(), "full");
-        let mut first_byte = [1];
-        data.get_stream_mut().read_exact(&mut first_byte).unwrap();
-        assert_eq!(first_byte, [0]);
-    }
-
-    #[test]
-    fn test_delta_fallback_headers_parse_to_typed_values() {
-        let data = ResponseData::from_bytes_with_headers(
-            vec![],
-            Some(HashMap::from([
-                (
-                    DELTA_FALLBACK_REASON_HEADER.to_string(),
-                    "before_earliest_lcut".to_string(),
-                ),
-                (
-                    DELTA_FALLBACK_SOURCE_HEADER.to_string(),
-                    "local_compute".to_string(),
-                ),
-            ])),
-        );
-
-        assert_eq!(
-            get_delta_fallback_reason(&data),
-            DeltaFallbackReason::BeforeEarliestLcut
-        );
-        assert_eq!(
-            get_delta_fallback_source(&data),
-            DeltaFallbackSource::LocalCompute
-        );
-    }
-
-    #[test]
-    fn test_delta_fallback_headers_preserve_missing_and_invalid() {
-        let missing = ResponseData::from_bytes(vec![]);
-        assert_eq!(
-            get_delta_fallback_reason(&missing),
-            DeltaFallbackReason::MissingHeader
-        );
-        assert_eq!(
-            get_delta_fallback_source(&missing),
-            DeltaFallbackSource::MissingHeader
-        );
-
-        let invalid = ResponseData::from_bytes_with_headers(
-            vec![],
-            Some(HashMap::from([
-                (
-                    DELTA_FALLBACK_REASON_HEADER.to_string(),
-                    "free_form_reason".to_string(),
-                ),
-                (
-                    DELTA_FALLBACK_SOURCE_HEADER.to_string(),
-                    "raw-unbounded-source".to_string(),
-                ),
-            ])),
-        );
-        assert_eq!(
-            get_delta_fallback_reason(&invalid),
-            DeltaFallbackReason::InvalidHeader
-        );
-        assert_eq!(
-            get_delta_fallback_source(&invalid),
-            DeltaFallbackSource::InvalidHeader
-        );
     }
 
     #[test]

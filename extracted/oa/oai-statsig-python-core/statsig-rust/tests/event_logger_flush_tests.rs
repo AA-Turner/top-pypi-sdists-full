@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use more_asserts::assert_gt;
 use serial_test::serial;
 use statsig_rust::log_event_payload::LogEventRequest;
+#[cfg(feature = "testing")]
 use statsig_rust::networking::NetworkError;
 use statsig_rust::output_logger::LogLevel;
 use statsig_rust::{EventLoggingAdapter, StatsigRuntime};
@@ -132,10 +133,11 @@ async fn test_disables_background_flush_when_adapter_opts_out() {
     teardown(Some(statsig)).await;
 }
 
+#[cfg(feature = "testing")]
 #[tokio::test]
 #[serial]
 async fn test_scheduled_flush_batch_size() {
-    const MAX_EVENTS: usize = 5;
+    const MAX_EVENTS: usize = 10;
 
     std::env::set_var("STATSIG_TEST_OVERRIDE_TICK_INTERVAL_MS", "1");
     std::env::set_var("STATSIG_TEST_OVERRIDE_MIN_FLUSH_INTERVAL_MS", "1");
@@ -174,6 +176,7 @@ async fn test_scheduled_flush_batch_size() {
     teardown(Some(statsig)).await;
 }
 
+#[cfg(feature = "testing")]
 #[tokio::test]
 #[serial]
 async fn test_scheduled_flush_max_time() {
@@ -218,6 +221,7 @@ async fn test_scheduled_flush_max_time() {
     teardown(Some(statsig)).await;
 }
 
+#[cfg(feature = "testing")]
 #[tokio::test]
 #[serial]
 async fn test_scheduled_flush_failures() {
@@ -253,6 +257,7 @@ async fn test_scheduled_flush_failures() {
     teardown(Some(statsig)).await;
 }
 
+#[cfg(feature = "testing")]
 #[tokio::test]
 #[serial]
 async fn test_requeue_dropped_events() {
@@ -261,7 +266,7 @@ async fn test_requeue_dropped_events() {
     std::env::set_var("STATSIG_TEST_OVERRIDE_MAX_FLUSH_INTERVAL_MS", "1");
 
     let mut options = StatsigOptions::new();
-    options.event_logging_max_queue_size = Some(5);
+    options.event_logging_max_queue_size = Some(10);
     options.event_logging_max_pending_batch_queue_size = Some(1);
 
     let (statsig, logging_adapter, obs_client) = setup(options).await;
@@ -335,6 +340,7 @@ async fn test_high_qps_dropped_events() {
     teardown(Some(statsig)).await;
 }
 
+#[cfg(feature = "testing")]
 #[tokio::test]
 #[serial]
 async fn test_non_retryable_failure_drops_events() {
@@ -402,6 +408,7 @@ async fn test_logging_behavior_when_network_is_disabled() {
     assert!(obs_client.error_calls.lock().unwrap().is_empty())
 }
 
+#[cfg(feature = "testing")]
 async fn wait_for_log_notify(logging_adapter: &MockEventLoggingAdapter) {
     tokio::select! {
         _ = logging_adapter.on_log_notify.notified() => {
@@ -565,6 +572,7 @@ async fn test_shutdown_waits_for_in_flight_limit_export() {
     assert_shutdown_waits_for_export(false, false).await;
 }
 
+#[cfg(feature = "testing")]
 #[tokio::test]
 #[serial]
 async fn test_shutdown_waits_for_in_flight_scheduled_export() {

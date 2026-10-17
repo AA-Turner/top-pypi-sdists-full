@@ -4,8 +4,12 @@ Run: python -m pytest tests/test_evals.py -q
 """
 import io
 import json
+import os
+import pathlib
 import re
+import subprocess
 import sys
+import types
 import warnings
 
 import numpy as np
@@ -757,6 +761,108 @@ def test_dataset_rejects_malformed_json_and_empty(tmp_path):
         Dataset.from_jsonl(str(empty))
 
 
+# A row built in Python never passes through `Example.from_dict`, which is the only place these three
+# checks were made: `questions` and `expected` must be objects, and every `expected` key must name a
+# question that is actually there. Every reader takes the two fields as mappings, so a row that
+# skipped the checks reached `evaluate`'s scoring loop (`laya/evals.py:1205`), `questions_fingerprint`
+# (`laya/evals.py:285`) or an opt-in door's `_validate_dataset` as an unhandled ``AttributeError`` --
+# or got as far as the runner and came back as a verdict *about the runner*. `Dataset` is the one door
+# all four readers share, so the refusal names the row and lands before a call is paid for.
+@pytest.mark.parametrize("field, value, fragment", [
+    ("expected", True, "'expected' must be an object keyed by question id, got bool"),
+    ("expected", "a", "'expected' must be an object keyed by question id, got str"),
+    ("expected", ["a"], "'expected' must be an object keyed by question id, got list"),
+    ("expected", 1, "'expected' must be an object keyed by question id, got int"),
+    ("questions", ["a"], "'questions' must be an object, got list"),
+    ("questions", None, "'questions' must be an object, got NoneType"),
+    ("questions", "a", "'questions' must be an object, got str"),
+    # A read-only Mapping walked every reader on `4ac226d5`, so refusing it is the one place this
+    # guard narrows what a Python caller could pass. It is the narrowing `Example.from_dict` already
+    # applies to a JSONL row and the shape `docs/evals.md` documents -- "a Laya question dict" -- so
+    # the two routes now ask for the same thing, and a duck-typed check would quietly reopen this.
+    ("questions", types.MappingProxyType(Q), "'questions' must be an object, got mappingproxy"),
+])
+def test_dataset_refuses_a_row_whose_maps_are_not_objects(field, value, fragment):
+    row = {"state": "s1", "questions": Q, "expected": {"intent": "a"}}
+    row[field] = value
+    with pytest.raises(EvalError) as exc:
+        Dataset([Example(**row)])
+    assert str(exc.value) == "example 0 " + fragment
+
+
+@pytest.mark.parametrize("expected, names", [
+    ({"nope": "a"}, "nope"),
+    # Sorted, so the same mistake in two runs reads as one error rather than two.
+    ({"intent": "a", "nope": "b", "also": "c"}, "also, nope"),
+])
+def test_dataset_refuses_an_expected_key_no_question_backs(expected, names):
+    with pytest.raises(EvalError) as exc:
+        Dataset([Example("s1", Q, expected)])
+    assert str(exc.value) == "example 0 'expected' names unknown question(s): " + names
+
+
+def test_the_row_refusal_names_the_offender_and_costs_no_inference():
+    class Counting:
+        """Answers the question ids it was handed, the way a real runner does."""
+
+        def __init__(self):
+            self.calls = 0
+
+        def predict(self, state, questions, model=None):
+            self.calls += 1
+            return {"model": "stub",
+                    "answers": {qid: choice_answer("a") for qid in (questions or [])}}
+
+    runner, good, bad = Counting(), Example("s1", Q, {"intent": "a"}), Example("s2", Q, True)
+    with pytest.raises(EvalError) as exc:
+        evaluate(runner, Dataset([good, bad]))
+    assert "example 1 'expected'" in str(exc.value), "the offending row is named, not just the class"
+    assert runner.calls == 0, "the refusal lands before the dataset is run"
+    # All three refusals land with nothing paid for. Measured on `4ac226d5`, every one of these cost a
+    # runner call first: a `questions` list whose id is not an expected key came back as "runner
+    # returned no answer for question 'intent'", a list carrying the expected id scored and then died
+    # in `questions_fingerprint` on the way out, and an unbacked expected key is the same
+    # runner-verdict shape `from_dict` has always refused for a JSONL row.
+    for row in (Example("s1", ["a"], {"intent": "a"}),
+                Example("s1", ["intent"], {"intent": "a"}),
+                Example("s1", None, {"intent": "a"}),
+                Example("s1", Q, {"nope": "a"}),
+                Example("s1", Q, True)):
+        silent = Counting()
+        with pytest.raises(EvalError) as exc:
+            evaluate(silent, Dataset([row]))
+        assert silent.calls == 0, row
+        assert str(exc.value).startswith("example 0 "), row
+    with pytest.raises(EvalError):
+        evals.questions_fingerprint(Dataset([Example("s1", ["intent"], {"intent": "a"})]))
+    with pytest.raises(EvalError):
+        evals.questions_fingerprint(Dataset([bad]))
+    assert len(evals.questions_fingerprint(Dataset([good]))) == 64
+
+
+def test_the_jsonl_door_and_the_python_door_refuse_the_same_rows():
+    # `Example.from_dict` is the JSONL route's door and quotes the row as "row 0"; `Dataset` is the
+    # route every Python caller takes. Same check, same reason, different prefix -- which is what
+    # makes this one row shape with one meaning rather than two dialects.
+    for row in ({"state": "s1", "questions": Q, "expected": True},
+                {"state": "s1", "questions": ["intent"], "expected": {"intent": "a"}},
+                {"state": "s1", "questions": Q, "expected": {"nope": "a"}}):
+        with pytest.raises(EvalError) as via_jsonl:
+            Example.from_dict(dict(row), where="row 0")
+        with pytest.raises(EvalError) as via_python:
+            Dataset([Example(**row)])
+        reason = str(via_jsonl.value).removeprefix("row 0 ")
+        assert str(via_python.value).removeprefix("example 0 ").startswith(reason), row
+
+
+def test_a_row_with_an_empty_expected_map_is_still_accepted():
+    # Refusing the type is not refusing an unlabelled row: `expected={}` is a mapping, names no
+    # question, and scores nothing. That is the shape this guard has to leave alone.
+    dataset = Dataset([Example("s1", Q, {})])
+    report = evaluate(StubRunner({"s1": {"intent": choice_answer("a")}}), dataset)
+    assert report.cases == []
+
+
 # --------------------------------------------------------------- evaluate
 def test_evaluate_overall_and_slices():
     dataset = Dataset([
@@ -775,6 +881,161 @@ def test_evaluate_overall_and_slices():
     assert report.slices["language"]["de"]["choice_accuracy"] == pytest.approx(0.0)
     assert report.slices["qid"]["intent"]["choice_accuracy"] == pytest.approx(2 / 3)
     assert "choice_accuracy" in report.to_markdown()
+
+
+# --------------------------------------------------------------- markdown cells
+def _markdown_cells(line):
+    """Split one table row on its *unescaped* pipes, turning `\\|` back into a literal one.
+
+    Read left to right, a backslash escapes the character after it, so `\\\\\\|` is an escaped
+    backslash followed by a column boundary while `\\|` is a pipe inside the cell.
+    `str.split("|")` cannot tell the two apart -- it splits the escaped row this test is about,
+    which is the failure being reported -- so the scan is explicit here rather than in the product
+    code, where the writer has no reason to read its own output back.
+    """
+    cells, current, index = [], [], 0
+    while index < len(line):
+        char = line[index]
+        if char == "\\" and index + 1 < len(line):
+            current.append(line[index + 1])
+            index += 2
+            continue
+        if char == "|":
+            cells.append("".join(current))
+            current = []
+            index += 1
+            continue
+        current.append(char)
+        index += 1
+    cells.append("".join(current))
+    if line.startswith("|"):
+        cells = cells[1:]           # the text before the first pipe is empty
+    if line.endswith("|"):
+        cells = cells[:-1]          # ... and so is the text after the last
+    return [cell.strip() for cell in cells]
+
+
+def _markdown_slice_table(report, dimension):
+    """`{label: {metric: cell}}` for one `### by <dimension>` table, paired through its header."""
+    lines = report.to_markdown().splitlines()
+    body = lines[lines.index("### by %s" % dimension) + 1:]
+    header, rows = None, []
+    for line in body:
+        if line.startswith("###"):
+            break
+        if not line.startswith("|"):
+            continue
+        cells = _markdown_cells(line)
+        if all(cell and set(cell) <= set("-:") for cell in cells):
+            continue                                # the |---|---| separator row
+        if header is None:
+            header = cells
+            continue
+        assert len(cells) == len(header), \
+            "%r has %d cells for a %d-column header: %r" % (line, len(cells), len(header), cells)
+        rows.append(cells)
+    assert header and rows, "no %s table in the report" % dimension
+    return {cells[0]: dict(zip(header[1:], cells[1:])) for cells in rows}
+
+
+def _tagged_report(tags):
+    """A report whose `tag` slice has exactly these groups, two scored cases each.
+
+    Two cases per group land every metric in every cell (a single case leaves some of the
+    calibration columns empty), and each group gets its own confidence so the columns hold
+    different numbers -- a row shifted by one header then pairs a figure with the wrong name
+    instead of swapping two that happen to look alike.
+    """
+    examples, by_state = [], {}
+    for group, tag in enumerate(tags):
+        for case, expected in enumerate(("a", "b")):
+            state = "s%d%d" % (group, case)
+            # the group's first case answers right and its second wrong, so accuracy is 0.5
+            wrong = "b" if expected == "a" else "a"
+            examples.append(Example(state, Q, {"intent": expected}, tags=[tag]))
+            by_state[state] = {"intent": choice_answer(expected if case == 0 else wrong,
+                                                        confidence=0.9 - 0.05 * group)}
+    report = evaluate(StubRunner(by_state), Dataset(examples),
+                      evaluators=[ChoiceAccuracy(), MeanConfidence()])
+    assert sorted(report.slices["tag"]) == sorted(str(t) for t in tags)
+    return report
+
+
+def _assert_columns_pair(report, dimension, groups):
+    """Every figure sits under its own metric name, for every group in the table.
+
+    `groups` maps each rendered label to the key the slice is stored under; the two differ only for
+    a label whose line break was flattened into a space.
+    """
+    table = _markdown_slice_table(report, dimension)
+    assert sorted(table) == sorted(groups)
+    for label, data_label in groups.items():
+        row = table[label]
+        scores = report.slices[dimension][data_label]
+        assert sorted(row) == sorted(scores)
+        for metric, value in scores.items():
+            assert row[metric] == "%.4f" % value, "%s / %s" % (label, metric)
+
+
+def test_markdown_escapes_a_pipe_in_a_slice_label():
+    """A `|` in a group label is cell content, not a column boundary.
+
+    `tags` are any string the dataset author wrote -- `Example.from_dict` coerces them with `str`
+    rather than restricting them -- and this report is what a reader of `laya-evals run --markdown`
+    pairs numbers against. An unescaped pipe made that row one cell wider than its header, so every
+    figure after the label moved one header to the left and the last was dropped: `choice_accuracy`
+    showed the label's own second half, and the row that lost a value lost it silently.
+    """
+    report = _tagged_report(["risk|high", "plain"])
+    assert "| risk\\|high |" in report.to_markdown()
+    _assert_columns_pair(report, "tag", {"plain": "plain", "risk|high": "risk|high"})
+
+
+def test_markdown_keeps_a_label_with_a_line_break_on_one_row():
+    """A newline (or carriage return) in a label ends the row, taking its numbers out of the table.
+
+    `splitlines()` counts the physical rows the way a Markdown parser does: an unescaped break put
+    half a label on one line and the rest of the row, numbers included, on an unnumbered second
+    line that no header covers. Both breaks become spaces, which keeps the row intact and leaves
+    the label readable -- at the cell only, since the slice stays keyed by the label the dataset
+    wrote, so `--json` and `--markdown` still describe the same group.
+    """
+    report = _tagged_report(["two\nlines", "cr\rreturn", "plain"])
+    lines = report.to_markdown().splitlines()
+    table_rows = [line for line in lines[lines.index("### by tag"):] if line.startswith("|")]
+    assert len(table_rows) == 5, table_rows          # header, separator, one row per group
+    _assert_columns_pair(report, "tag", {"two lines": "two\nlines",
+                                         "cr return": "cr\rreturn", "plain": "plain"})
+
+
+def test_markdown_escapes_a_backslash_before_the_pipe_escape():
+    """`\\` is doubled first, so a trailing backslash cannot swallow the escape that follows it.
+
+    A label ending in a backslash is ordinary data (`C:\\temp\\`), and writing only the pipe would
+    put that backslash in front of the escape for the *next* cell's boundary. The reader would then
+    take the boundary as a literal pipe and join the row -- so the doubling is what makes the pipe
+    escape mean one thing, and the round trip through `_markdown_cells` is the witness.
+    """
+    report = _tagged_report(["win\\path", "trailing\\", "back\\|pipe"])
+    markdown = report.to_markdown()
+    assert "| win\\\\path |" in markdown
+    assert "| trailing\\\\ |" in markdown
+    _assert_columns_pair(report, "tag", {"win\\path": "win\\path", "trailing\\": "trailing\\",
+                                         "back\\|pipe": "back\\|pipe"})
+
+
+def test_markdown_leaves_an_ordinary_label_untouched():
+    """The escape is invisible on the labels a report normally carries.
+
+    Nothing here rewrites a plain checkpoint name, language code or question id, so every existing
+    report -- and the doc-table parity checks that read the repository's own Markdown -- keeps the
+    bytes it had before.
+    """
+    report = _tagged_report(["english", "multilingual"])
+    markdown = report.to_markdown()
+    assert "| english |" in markdown and "| multilingual |" in markdown
+    assert "\\" not in markdown.split("### by tag")[1]
+    _assert_columns_pair(report, "tag", {"english": "english", "multilingual": "multilingual"})
 
 
 def test_model_slice_follows_the_routed_checkpoint():
@@ -1729,6 +1990,69 @@ def test_compare_refuses_a_document_the_gate_cannot_subtract_through():
     assert not ok and deltas["choice_accuracy"]["missing"]
 
 
+def test_compare_refuses_a_tolerance_that_cannot_fail():
+    """The caller's tolerance map is the third document the gate does arithmetic on.
+
+    The metric maps have refused broken shapes since ``_metric_map``; the tolerances were read with
+    a bare ``float(tolerances.get(metric, 0.0))`` inside the loop. They arrive as a dict the caller
+    built -- `research/evals/check_regression.py` reads them from a committed thresholds.json with
+    ``json.load``, which parses an ``Infinity`` literal -- so this is the same artifact class, on the
+    side that decides whether the gate can fail at all.
+    """
+    report = EvalReport(overall={"choice_accuracy": 0.8})
+    baseline = {"overall": {"choice_accuracy": 0.90}}
+
+    # The harm: a limit every possible drift fits inside greens a 0.10 drop, and the run still
+    # exits 0 with the line that says the gate ran. `1e999` is the spelling that arrives without
+    # anyone typing "inf" -- it overflows to Infinity and raises nothing.
+    for value in (float("inf"), 1e999):
+        with pytest.raises(EvalError, match="accepts a drift of any size") as exc:
+            report.compare(baseline, {"choice_accuracy": value})
+        assert "'choice_accuracy'" in str(exc.value), "the message names the metric it refuses"
+
+    # A bool was the quietest of the rest: `float(True)` is 1.0, which is a tolerance no
+    # [0, 1] metric can breach. Everything else used to die in the subtraction as a TypeError.
+    for value, kind in ((True, "bool"), (False, "bool"), ("0.1", "str"), (None, "NoneType"),
+                        ([0.1], "list"), ({"v": 1}, "dict"), (0j, "complex")):
+        with pytest.raises(EvalError, match="is not a number, got %s" % kind):
+            report.compare(baseline, {"choice_accuracy": value})
+
+    # The map itself: a list or string of pairs, a number, and the falsy shapes `0`, `0.0`, `""`
+    # and `()`, which `tolerances or {}` used to read as "no tolerances at all" -- a gate parameter
+    # silently replaced by its absence.
+    for bad in ([("choice_accuracy", 0.1)], "0.1", 5, 0, 0.0, "", ()):
+        with pytest.raises(EvalError, match="tolerances must be an object"):
+            report.compare(baseline, bad)
+
+    # Checked for every entry, not only the ones this baseline happens to consult: a gate
+    # parameter that is broken is broken whether or not the run reaches it.
+    with pytest.raises(EvalError, match="accepts a drift of any size"):
+        report.compare(baseline, {"ece_ms": float("inf")})
+    # And not only the first entry: this is a committed thresholds.json where one metric's limit
+    # was replaced by a value that cannot fail, next to a limit the run does check and passes.
+    both = EvalReport(overall={"choice_accuracy": 0.8, "ece": 0.10})
+    with pytest.raises(EvalError, match="accepts a drift of any size"):
+        both.compare({"overall": {"choice_accuracy": 0.90, "ece": 0.08}},
+                     {"choice_accuracy": 0.2, "ece": float("inf")})
+
+    # `assert_regression` is the other public door, and it refuses rather than raising the
+    # AssertionError its callers catch on a real regression.
+    with pytest.raises(EvalError, match="accepts a drift of any size"):
+        assert_regression(report, baseline, {"choice_accuracy": float("inf")})
+
+    # The boundary that stays a comparison: NaN, -Infinity and a negative number each fail every
+    # `abs(diff) <= allowed` test, so they report a gate that did not pass rather than refuse one.
+    assert not report.compare(baseline, {"choice_accuracy": float("nan")})[0]
+    assert not report.compare(baseline, {"choice_accuracy": float("-inf")})[0]
+    assert not report.compare(baseline, {"choice_accuracy": -0.5})[0]
+
+    # And no tolerances at all is a complete answer: everything shared must match exactly.
+    assert not report.compare(baseline)[0]
+    assert not report.compare(baseline, {})[0]
+    assert not report.compare(baseline, None)[0]
+    assert report.compare({"overall": {"choice_accuracy": 0.8}}, {"choice_accuracy": 0.2})[0]
+
+
 def test_cli_exits_2_for_a_malformed_baseline_or_report(tmp_path, capsys):
     """A broken artifact is exit code 2; exit 1 is what a quality failure is worth.
 
@@ -1818,20 +2142,19 @@ def test_cli_rejects_an_infinite_limit_or_tolerance(capsys):
 def test_an_infinite_limit_would_have_decided_nothing():
     """The harm the guard above prevents, pinned so relaxing it cannot go quiet.
 
-    Without the refusal these are the values `_check_thresholds` and `compare` compute from a
-    non-finite limit, and each one is a pass: `laya-evals` would exit 0 having gated nothing. A
-    test that asserts them is not asserting correct behaviour -- it is the witness that the
-    guard's absence was a defect.
+    Without the refusal these are the values `_check_thresholds` computes from a non-finite limit,
+    and each one is a pass: `laya-evals` would exit 0 having gated nothing. A test that asserts them
+    is not asserting correct behaviour -- it is the witness that the guard's absence was a defect.
+
+    `compare` had the same hole on its tolerance map, one layer below the CLI guard, and it no
+    longer computes a pass from Infinity: it refuses it. See
+    `test_compare_refuses_a_tolerance_that_cannot_fail`.
     """
     from laya import evals_cli
 
     inf = float("inf")
     assert evals_cli._check_thresholds({"ece": 0.42}, {}, {"ece": inf}) == []
     assert evals_cli._check_thresholds({"choice_accuracy": 0.10}, {"choice_accuracy": -inf}, {}) == []
-    ok, deltas = EvalReport(config={}, overall={"choice_accuracy": 0.10}).compare(
-        {"overall": {"choice_accuracy": 0.90}}, {"choice_accuracy": inf})
-    assert ok, "an 0.80 drop passed a gate whose tolerance was inf"
-    assert deltas["choice_accuracy"]["diff"] == pytest.approx(-0.8)
 
 
 def test_default_evaluators_cover_the_three_types():
@@ -1929,6 +2252,91 @@ def test_questions_fingerprint_covers_the_instructions():
                                                      instructions="Judge whether a refund is justified ")},
                               {"verdict": "yes"})])
     assert evals.questions_fingerprint(spaced) != evals.questions_fingerprint(judged)
+
+
+def test_questions_fingerprint_hashes_every_distinct_question_not_the_last_row_per_id():
+    """One `qid` asked two ways is two questions, and both have to reach the digest.
+
+    `laya/evals.py::questions_fingerprint` collects each question's canonical JSON into a *set*,
+    not a `{qid: schema}` map. That distinction is load-bearing rather than incidental: a dataset
+    may carry the same `qid` under different bodies, because `laya/evals.py::Dataset.from_jsonl`
+    parses each row's `questions` on its own and never compares rows to rows -- verified against a
+    two-row file that reuses `intent` with different `criteria`, which loads -- and
+    `laya/evals.py::evaluate` groups rows by their own questions dict. A map would then keep only
+    the last row's spelling and drop the variant from the identity, so a run that asked both would
+    hash alike with a baseline that asked one. That is the comparison this key exists to refuse.
+
+    The two rows reversed must also digest alike: which variant a row order happens to hit last is
+    not part of what was asked.
+    """
+    variant = {"intent": dict(Q["intent"], criteria={"a": "x", "b": "y", "c": "z"})}
+    both = Dataset([Example("s1", Q, {"intent": "a"}), Example("s2", variant, {"intent": "a"})])
+    reversed_ = Dataset([Example("s1", variant, {"intent": "a"}), Example("s2", Q, {"intent": "a"})])
+    narrow = Dataset([Example("s1", Q, {"intent": "a"})])
+    last_row_only = Dataset([Example("s1", variant, {"intent": "a"})])
+
+    fingerprint = evals.questions_fingerprint
+    assert fingerprint(both) != fingerprint(narrow), "the added variant left the identity unchanged"
+    assert fingerprint(both) != fingerprint(last_row_only), \
+        "a question id-keyed digest would drop the first variant and collide here"
+    assert fingerprint(both) == fingerprint(reversed_), "row order moved the identity"
+
+
+def test_questions_fingerprint_is_the_same_digest_in_every_process():
+    """The schemas are hashed in sorted order, so two runs of one dataset agree.
+
+    CPython salts `str` hashes per process (`PYTHONHASHSEED`), and a `set` iterates in hash order,
+    so `laya/evals.py::questions_fingerprint` sorting its schemas before feeding `sha256` is what
+    makes the digest a run identity rather than a per-process artefact. Drop the `sorted()` and one
+    dataset still digests to a single value inside the process that asked for it, so nothing that only
+    re-reads its own fingerprint notices. What breaks is the identity between two builds of the *same*
+    schema set: a `set` iterates in hash-table order, so re-encountering the questions in another row
+    order can feed `sha256` in a different sequence -- but only when two of the canonical schemas share
+    a bucket, which depends on the process's salt. Measured on the mutant: at `PYTHONHASHSEED` 0, 1 and
+    7 the row-order asserts below fire, at 2 and 42 the process happens to avoid the collision and it is
+    the children that disagree with this one. Either way the digest is not portable, and
+    `questions_sha256` is the field `laya/evals.py::EvalReport.comparable_to` refuses a baseline on, so
+    two invocations of `laya-evals run` over an unchanged dataset would disagree and no run could be
+    compared to a baseline. That is why this test pins both the in-process order and a committed
+    literal read by fresh interpreters: neither alone fails at every salt.
+    """
+    def question(index):
+        return {"type": "choice", "instructions": "Question %d" % index,
+                "criteria": {"a": "alpha %d" % index, "b": "beta %d" % index}}
+
+    def dataset(order):
+        return Dataset([Example("s%d" % position, {"q%d" % index: question(index)},
+                                {"q%d" % index: "a"})
+                        for position, index in enumerate(order)])
+
+    orders = [list(range(8)), list(range(8))[::-1], [3, 0, 6, 1, 7, 2, 5, 4]]
+    parent = evals.questions_fingerprint(dataset(orders[0]))
+    for order in orders[1:]:
+        assert evals.questions_fingerprint(dataset(order)) == parent, \
+            "the order questions are encountered in moved the identity"
+
+    # An eight-question dataset, hashed by a fresh interpreter with a salted string hash.
+    root = pathlib.Path(laya.__file__).resolve().parent.parent
+    child = """
+from laya.evals import Dataset, Example, questions_fingerprint
+def question(index):
+    return {"type": "choice", "instructions": "Question %d" % index,
+            "criteria": {"a": "alpha %d" % index, "b": "beta %d" % index}}
+order = list(range(8))
+dataset = Dataset([Example("s%d" % position, {"q%d" % index: question(index)},
+                           {"q%d" % index: "a"}) for position, index in enumerate(order)])
+print(questions_fingerprint(dataset))
+"""
+    for seed in ("0", "1"):
+        result = subprocess.run([sys.executable, "-B", "-c", child], capture_output=True, text=True,
+                                cwd=str(root), env=dict(os.environ, PYTHONHASHSEED=seed,
+                                                         PYTHONPATH=str(root)))
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == parent, \
+            "PYTHONHASHSEED=%s produced a different digest than this process" % seed
+
+    # Measured on `main` with the eight-question dataset above.
+    assert parent == "b7f11c70d38341c0425f0297b88c4a3c155c1040de745f3363e51b278b49a990"
 
 
 def test_questions_fingerprint_normalizes_instructions_the_way_the_engine_does():
@@ -3127,6 +3535,9 @@ def test_slice_gate_fails_closed_on_identity_or_skipped_cases(tmp_path):
     ([SHA, SHA], (SHA, {})),                      # repeating one commit is agreement, not a clash
     (["en=" + SHA], (None, {"en": SHA})),
     (["en=" + SHA, SHA], (SHA, {"en": SHA})),     # both forms at once: Router lets the pair win
+    (["en=" + SHA, "en=" + SHA], (None, {"en": SHA})),           # one pin twice is agreement
+    (["en=" + SHA, "fr=" + SHA], (None, {"en": SHA, "fr": SHA})),  # two names are not a clash
+    (["en=" + SHA, "english=" + SHA], (None, {"en": SHA, "english": SHA})),  # one commit, two spellings
 ])
 def test_parse_revisions_accepts_both_forms(pairs, expected):
     from laya import evals_cli
@@ -3149,6 +3560,35 @@ def test_parse_revisions_rejects_half_a_pair(pair, fragment):
     with pytest.raises(EvalError) as exc:
         evals_cli._parse_revisions([pair])
     assert fragment in str(exc.value)
+
+
+@pytest.mark.parametrize("pairs, spelled", [
+    (["english=abc", "english=def"], None),
+    (["English=abc", "english=def"], ("English", "english")),    # case folds onto one checkpoint
+    (["en=abc", "english=def"], ("en", "english")),              # `en` is an alias of `english`
+    (["laya=abc", "default=def"], ("laya", "default")),          # two aliases, neither a real key
+])
+def test_parse_revisions_rejects_two_commits_for_one_checkpoint(pairs, spelled):
+    """The `NAME=SHA` form refuses the clash the bare form already refuses.
+
+    `--revision english=abc --revision english=def` named one checkpoint and two commits for it. The
+    run loads one commit, so one of them is dropped -- and the report's `revisions` block records the
+    commit that answered, never the request, so the survivor is the only thing left to read.
+    `Router.resolve` folds case and aliases onto the key it loads, so the same is true however the
+    checkpoint is spelled; the refusal follows the checkpoint, not the spelling.
+    """
+    from laya import evals_cli
+
+    with pytest.raises(EvalError) as exc:
+        evals_cli._parse_revisions(pairs)
+    message = str(exc.value)
+    assert "two commits" in message and "'english'" in message
+    # named in the order they were given, the way the bare-form message reports its two commits
+    assert message.index("'abc'") < message.index("'def'")
+    if spelled is None:
+        assert "given as" not in message
+    else:
+        assert "given as %r and %r" % spelled in message
 
 
 def test_parse_revisions_rejects_two_different_bare_commits():

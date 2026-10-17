@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skillsaw"
-version = "0.21.0"
+version = "0.22.0"
 description = "A configurable linter for agent skills, plugins, and AI coding assistant context"
 readme = "README.md"
 authors = [
@@ -28,7 +28,7 @@ classifiers = [
 keywords = ["agentskills", "claude", "claude-code", "linter", "plugin", "skills", "validation", "skillsaw"]
 requires-python = ">=3.9"
 dependencies = [
-    "wcmatch>=10,<11",
+    "wcmatch>=10,<12",
     "pathspec>=1,<2",
     "PyYAML>=6.0",
     "ruamel.yaml>=0.18",

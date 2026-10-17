@@ -16,6 +16,7 @@ is one paragraph, which has always drawn its own box and still does.
 from __future__ import annotations
 
 import copy
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from reportlab.lib.abag import ABag
@@ -34,13 +35,55 @@ from xhtml2pdf.builders.flex import (
 )
 from xhtml2pdf.builders.position import PositionAnchor
 from xhtml2pdf.util import drawBoxBackground, drawBoxBorders, getSize, toList
-from xhtml2pdf.xhtml2pdf_reportlab import PmlKeepInFrame, PmlMaxHeightMixIn, opened_up
+from xhtml2pdf.xhtml2pdf_reportlab import (
+    PmlKeepInFrame,
+    PmlMaxHeightMixIn,
+    layout_moment,
+    opened_up,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
 _FUZZ = 1e-6
 _SIDES = ("Left", "Right", "Top", "Bottom")
+
+
+@dataclass(frozen=True)
+class BlockWidth:
+    """
+    A block's CSS width, and the horizontal margins that place it.
+
+    The width is the content box's, a length or a share of the containing
+    block. What the box leaves of the line goes to an auto margin -- half
+    to each when both are -- and otherwise to the right of the box.
+    """
+
+    length: float | None
+    percent: float | None
+    own_left: float
+    own_right: float
+    auto_left: bool
+    auto_right: bool
+
+    def indents(
+        self, avail: float, left: float, right: float, horizontal: float
+    ) -> tuple[float, float]:
+        """The left and right indents that give the box its width in `avail`."""
+        containing = avail - (left - self.own_left) - (right - self.own_right)
+        if self.length is not None:
+            content = self.length
+        else:
+            content = containing * (self.percent or 0.0) / 100.0
+        room = avail - left - right
+        extra = room - (content + horizontal)
+        if extra <= 0:
+            return left, right
+        if self.auto_left and self.auto_right:
+            return left + extra / 2, right + extra / 2
+        if self.auto_left:
+            return left + extra, right
+        return left, right + extra
 
 
 def _stack(
@@ -108,17 +151,23 @@ class BlockBox(Flowable, PmlMaxHeightMixIn):
         *,
         keep_together=False,
         min_height: float = 0.0,
+        box_width: BlockWidth | None = None,
     ) -> None:
         super().__init__()
         self.content = list(content)
         self.style = style
         #: The CSS height: the content area is at least this tall.
         self.min_height = min_height
+        #: The CSS width, if the block declares one.
+        self.box_width = box_width
+        #: The indents the box is drawn with, its width's once wrapped.
+        self._left = style.leftIndent
+        self._right = style.rightIndent
         #: page-break-inside: avoid on a block inside this one. Moved to the
         #: next page whole when it does not fit, if a page can hold it.
         self.keep_together = keep_together
         self.keepWithNext = False
-        self._key: float | None = None
+        self._key: tuple[float, int, int] | None = None
         self._entries: list[StackEntry] = []
         self._inner = 0.0
         self._stacked = 0.0
@@ -152,11 +201,16 @@ class BlockBox(Flowable, PmlMaxHeightMixIn):
     def wrap(self, availWidth: float, availHeight: float) -> tuple[float, float]:
         availHeight = self.setMaxHeight(availHeight)
         style = self.style
-        key = round(availWidth, 2)
+        key = (round(availWidth, 2), *layout_moment(getattr(self, "canv", None)))
         if self._key != key:
             # Laid out once per width and never at a trial one: a table
             # turns its percentage columns into points as it is wrapped.
-            inner = availWidth - style.leftIndent - style.rightIndent
+            self._left, self._right = style.leftIndent, style.rightIndent
+            if self.box_width is not None:
+                self._left, self._right = self.box_width.indents(
+                    availWidth, self._left, self._right, style.horizontal
+                )
+            inner = availWidth - self._left - self._right
             self._inner = max(inner - style.horizontal, 1.0)
             top, bottom = self._margins_inside
             self._entries, self._stacked = _stack(
@@ -190,7 +244,9 @@ class BlockBox(Flowable, PmlMaxHeightMixIn):
                 # Nothing of the box's bottom is drawn at the cut, and
                 # nothing of its top where it goes on.
                 return [
-                    BlockBox(head, cut_style(style, "Bottom")),
+                    BlockBox(
+                        head, cut_style(style, "Bottom"), box_width=self.box_width
+                    ),
                     self._part(tail, cut_style(style, "Top")),
                 ]
         # A refused split may have dropped what a paragraph had broken; the
@@ -207,13 +263,17 @@ class BlockBox(Flowable, PmlMaxHeightMixIn):
                     maxWidth=availWidth,
                     maxHeight=availHeight,
                     mode="shrink",
-                    content=[_UnsplittableBlockBox(self.content, self.style)],
+                    content=[
+                        _UnsplittableBlockBox(
+                            self.content, self.style, box_width=self.box_width
+                        )
+                    ],
                 )
             ]
         return []
 
     def _part(self, content: list, style: BoxStyle) -> BlockBox:
-        part = BlockBox(content, style)
+        part = BlockBox(content, style, box_width=self.box_width)
         part.keepWithNext = self.keepWithNext
         return part
 
@@ -223,8 +283,8 @@ class BlockBox(Flowable, PmlMaxHeightMixIn):
         canv = self.canv
         style = self.style
         # drawOn has moved the origin to the box's bottom left.
-        x = style.leftIndent
-        width = self.width - style.leftIndent - style.rightIndent
+        x = self._left
+        width = self.width - self._left - self._right
         drawBoxBackground(canv, x, 0, width, self.height, style)
         left = x + style.content_left
         top = self.height - style.content_top
@@ -316,6 +376,60 @@ class BlockBox(Flowable, PmlMaxHeightMixIn):
         return opened_up(entry.flowable for entry in self._entries)
 
 
+class BottomAligned(Flowable):
+    """
+    A block drawn at the bottom of the frame it lands in, which takes the
+    room above it as well: what follows starts in the next frame
+    (-pdf-frame-align: bottom).
+
+    Where it does not fit it goes on to the next frame, and only a frame it
+    has to itself splits it. Laid out anywhere but in a frame -- in a box,
+    in a table cell -- it is just the block.
+    """
+
+    #: Room left below the block. A frame takes a flowable of no height --
+    #: an anchor, the page count's marker -- only while it has room left at
+    #: all, and one that comes after the block belongs on its page.
+    LEFT_OVER = 0.01
+
+    def __init__(self, content: Flowable) -> None:
+        super().__init__()
+        self.content = content
+
+    def identity(self, maxLen=None) -> str:
+        return f"<BottomAligned at {id(self):#x} of {self.content.identity(maxLen)}>"
+
+    def _in_frame(self, availHeight: float) -> bool:
+        return getattr(self, "_frame", None) is not None and availHeight < LARGE
+
+    def wrap(self, availWidth: float, availHeight: float) -> tuple[float, float]:
+        width, height = self.content.wrapOn(self.canv, availWidth, availHeight)
+        self.width = width
+        if self._in_frame(availHeight):
+            height = max(height, availHeight - self.LEFT_OVER)
+        self.height = height
+        return self.width, self.height
+
+    def split(self, availWidth: float, availHeight: float) -> list:
+        if getattr(getattr(self, "_frame", None), "_atTop", False):
+            return self.content.split(availWidth, availHeight)
+        return []
+
+    def drawOn(self, canvas, x: float, y: float, _sW: float = 0) -> None:
+        # y is the bottom of the room taken, at the bottom of the frame.
+        self.content.drawOn(canvas, x, y, _sW)
+
+
+def bottom_aligned(story: list[Flowable]) -> list[Flowable]:
+    """What a block put into the flow, as one block at the bottom of a frame."""
+    flowables = [f for f in story if not _breaks_the_flow(f)]
+    if not flowables:
+        return story
+    breaks = [f for f in story if _breaks_the_flow(f)]
+    box = BlockBox(flowables, BoxStyle(), keep_together=True)
+    return [*breaks, BottomAligned(box)]
+
+
 class _UnsplittableBlockBox(BlockBox):
     """Inside the shrink fallback: whatever the room, it is one piece."""
 
@@ -331,6 +445,61 @@ def _breaks_the_flow(flowable: Flowable) -> bool:
     it (see BlockBox.isIndexing).
     """
     return getattr(flowable, "locChanger", False) or hasattr(flowable, "frameAction")
+
+
+def _in_flow(flowables) -> list[Flowable]:
+    """The flowables that take room in the flow, skipping markers and breaks."""
+    return [
+        f
+        for f in flowables
+        if not getattr(f, "_ZEROSIZE", False) and not _breaks_the_flow(f)
+    ]
+
+
+def _raise_space(flowable: Flowable, side: str, value: float) -> None:
+    """Make `flowable`'s spaceBefore or spaceAfter at least `value`."""
+    content = getattr(flowable, "_content", None)
+    if isinstance(content, list):
+        # A container (KeepTogether and the like) asks its content.
+        inner = _in_flow(content)
+        if inner:
+            _raise_space(inner[0] if side == "spaceBefore" else inner[-1], side, value)
+        return
+    paragraph = getattr(flowable, "P", None)
+    if isinstance(paragraph, Flowable):
+        # A paragraph with a floated image asks the paragraph.
+        _raise_space(paragraph, side, value)
+        return
+    current = (
+        flowable.getSpaceBefore() if side == "spaceBefore" else flowable.getSpaceAfter()
+    )
+    if (current or 0.0) >= value:
+        return
+    style = getattr(flowable, "style", None)
+    if not hasattr(flowable, side) and style is not None and hasattr(style, side):
+        # A paragraph's style can be shared with another paragraph.
+        flowable.style = style = copy.copy(style)
+        setattr(style, side, value)
+    else:
+        setattr(flowable, side, value)
+
+
+def collapse_margins(story: list[Flowable], top: float, bottom: float) -> None:
+    """
+    Give a block without a box its vertical margins.
+
+    With no padding or border to keep them apart, the block's top margin and
+    its first child's are one, the larger of the two, and so are the bottom
+    margins of the block and its last child (CSS 2.1, 8.3.1). `story` is
+    what the block put into the flow.
+    """
+    flowables = _in_flow(story)
+    if not flowables:
+        return
+    if top > 0:
+        _raise_space(flowables[0], "spaceBefore", top)
+    if bottom > 0:
+        _raise_space(flowables[-1], "spaceAfter", bottom)
 
 
 def block_box_style(c, kw: dict) -> BoxStyle | None:
@@ -365,6 +534,7 @@ def block_box_style(c, kw: dict) -> BoxStyle | None:
         or style.backColor
         or style.backgroundImage
         or declared_height(c)
+        or declared_width(c)
     ):
         return None
     return style
@@ -387,6 +557,44 @@ def declared_height(c) -> float:
         return 0.0
 
 
+def declared_width(c) -> BlockWidth | None:
+    """The element's own CSS width, or None for none or auto."""
+    value = c.cssAttr.get("width")
+    if value is None:
+        return None
+    text = "".join(str(part) for part in toList(value)).strip().lower()
+    if not text or text == "auto":
+        return None
+    length = percent = None
+    try:
+        if text.endswith("%"):
+            percent = max(float(text[:-1]), 0.0)
+        else:
+            length = max(getSize(text, c.frag.fontSize), 0.0)
+    except Exception:
+        return None
+    margins = []
+    for side in ("left", "right"):
+        margin = "".join(
+            str(part) for part in toList(c.cssAttr.get(f"margin-{side}", ""))
+        )
+        margin = margin.strip().lower()
+        auto = margin == "auto"
+        try:
+            own = 0.0 if auto or not margin else getSize(margin, c.frag.fontSize)
+        except Exception:
+            own = 0.0
+        margins.append((own, auto))
+    return BlockWidth(
+        length=length,
+        percent=percent,
+        own_left=margins[0][0],
+        own_right=margins[1][0],
+        auto_left=margins[0][1],
+        auto_right=margins[1][1],
+    )
+
+
 class BlockBoxData:
     """
     What pisaLoop keeps while it collects a block with a box: the box, and
@@ -403,6 +611,7 @@ class BlockBoxData:
         frag = c.frag
         self.style = style
         self.min_height = declared_height(c)
+        self.box_width = declared_width(c)
         self.keep_with_next = bool(getattr(frag, "keepWithNext", False))
 
         self._outer = c.swapStory()
@@ -469,6 +678,7 @@ class BlockBoxData:
                     segment,
                     style,
                     min_height=self.min_height if len(segments) == 1 else 0.0,
+                    box_width=self.box_width,
                 )
                 boxes.append(box)
                 out.append(box)

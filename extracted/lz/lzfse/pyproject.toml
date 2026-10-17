@@ -1,6 +1,6 @@
 [project]
 name = "lzfse"
-version = "0.4.2"
+version = "0.4.2.post1"
 description = "Python bindings for the LZFSE reference implementation"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -13,6 +13,7 @@ maintainers = [
 ]
 
 [project.urls]
+"Repository" = "https://github.com/m1stadev/lzfse"
 "Bug Tracker" = "https://github.com/m1stadev/lzfse/issues"
 
 [tool.setuptools]

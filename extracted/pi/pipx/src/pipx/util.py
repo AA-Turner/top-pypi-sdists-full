@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from itertools import chain
 from pathlib import Path
 from re import Pattern
+from threading import Lock
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -65,6 +66,8 @@ if not WINDOWS:
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 _SUBPROCESS_STREAM_READ_SIZE: Final[int] = 8 * 1024
 _STREAM_STDOUT_TO_STDERR: Final[ContextVar[bool]] = ContextVar("stream_stdout_to_stderr", default=False)
+# Windows appends by seeking to the end and then writing, so fan-out tasks appending at once overwrite each other
+_ERROR_LOG_LOCK: Final[Lock] = Lock()
 
 
 class PipxError(Exception):
@@ -528,11 +531,14 @@ def _tee_subprocess_output(source: int, destination: TextIO, chunks: list[str]) 
         raise write_error
 
 
-def subprocess_post_check(completed_process: subprocess.CompletedProcess[str], *, raise_error: bool = True) -> None:
+def subprocess_post_check(
+    completed_process: subprocess.CompletedProcess[str], *, raise_error: bool = True, streamed: bool = False
+) -> None:
     if completed_process.returncode:
-        if completed_process.stdout is not None:
+        # a streamed run already showed its output live
+        if not streamed and completed_process.stdout is not None:
             print(completed_process.stdout, file=sys.stdout, end="")  # ruff:ignore[print]  # relays subprocess output to the user
-        if completed_process.stderr is not None:
+        if not streamed and completed_process.stderr is not None:
             print(completed_process.stderr, file=sys.stderr, end="")  # ruff:ignore[print]  # relays subprocess output to the user
         if raise_error:
             msg = f"{_command_line(completed_process.args)!r} failed"
@@ -551,7 +557,7 @@ def dedup_ordered(input_list: list[tuple[str, Any]]) -> list[tuple[str, Any]]:
     return output_list
 
 
-def analyze_pip_output(pip_stdout: str, pip_stderr: str) -> None:
+def analyze_pip_output(pip_stdout: str, pip_stderr: str, *, streamed: bool = False) -> None:
     r"""Extract useful errors from pip output of failed install
 
     Print the module that failed to build
@@ -628,7 +634,7 @@ def analyze_pip_output(pip_stdout: str, pip_stderr: str) -> None:
 
     relevants_saved = dedup_ordered(relevants_saved)
 
-    if relevants_saved:
+    if relevants_saved and not streamed:
         print("\nSome possibly relevant errors from pip install:", file=sys.stderr)  # ruff:ignore[print]  # user-facing CLI output
 
         print_categories = [x.category for x in relevant_searches]
@@ -672,7 +678,8 @@ def subprocess_post_check_handle_pip_error(
     ``tool_name="pip"`` keeps the historical wording that log-scrapers /
     tests built around. uv writes a uv-labelled log and skips the pip output
     analyser, whose regexes don't match uv's error format; its stderr is
-    printed as is instead, unless ``streamed`` says the user already saw it live.
+    printed as is instead. Either tool skips the error lines when ``streamed``
+    says the user already saw them live.
     """
     if not completed_process.returncode:
         return
@@ -682,8 +689,8 @@ def subprocess_post_check_handle_pip_error(
         raise PipxError(msg)
     error_file = paths.ctx.log_file.parent / f"{paths.ctx.log_file.stem}_{tool_name}_errors.log"
     upper_label = tool_name.upper()
-    # one write per block, as the fan-out tasks of an -all command append their failures to the same file at once
-    with error_file.open("a", encoding="utf-8") as error_fh:
+    # the fan-out tasks of an -all command append their failures to the same file at once
+    with _ERROR_LOG_LOCK, error_file.open("a", encoding="utf-8") as error_fh:
         error_fh.write(
             f"{upper_label} STDOUT\n----------\n{completed_process.stdout or ''}"
             f"\n{upper_label} STDERR\n----------\n{completed_process.stderr or ''}"
@@ -693,7 +700,7 @@ def subprocess_post_check_handle_pip_error(
         "Fatal error from %s prevented installation. Full %s output in file:\n    %s", tool_name, tool_name, error_file
     )
     if tool_name == "pip":
-        analyze_pip_output(completed_process.stdout, completed_process.stderr)
+        analyze_pip_output(completed_process.stdout, completed_process.stderr, streamed=streamed)
     elif not streamed and (
         uv_errors := [line for line in (completed_process.stderr or "").splitlines() if line.strip()]
     ):

@@ -169,16 +169,22 @@ def _try_materialize_inline_data(item: Any) -> Any | None:
 
 def _serialize_tools(api_client: Any, input: Any | None) -> Any | None:
     """Reuse google-genai's internal serializer so python callables become tool declarations."""
+    config = input.get("config") if isinstance(input, dict) else None
+    tools = config.get("tools") if isinstance(config, dict) else getattr(config, "tools", None)
+    if not tools:
+        return None
+
     try:
         from google.genai.models import (
             _GenerateContentParameters_to_mldev,  # pyright: ignore [reportPrivateUsage]
             _GenerateContentParameters_to_vertex,  # pyright: ignore [reportPrivateUsage]
         )
 
+        serializer_input = {key: input.get(key) for key in ("model", "config")}
         if api_client.vertexai:
-            serialized = _GenerateContentParameters_to_vertex(api_client, input)
+            serialized = _GenerateContentParameters_to_vertex(api_client, serializer_input)
         else:
-            serialized = _GenerateContentParameters_to_mldev(api_client, input)
+            serialized = _GenerateContentParameters_to_mldev(api_client, serializer_input)
 
         return serialized.get("tools")
     except Exception:
@@ -212,7 +218,7 @@ def _materialize_interaction_value(value: Any) -> Any:
             field.name: _materialize_interaction_value(getattr(value, field.name))
             for field in dataclasses.fields(value)
         }
-    if hasattr(value, "model_dump"):
+    if hasattr(value, "model_dump") and not isinstance(value, type):
         try:
             return _materialize_interaction_value(value.model_dump(exclude_none=True))
         except TypeError:
@@ -258,6 +264,18 @@ def _prepare_traced_call(
     return input, metadata
 
 
+def _prepare_embed_content_traced_call(
+    api_client: Any, args: list[Any], kwargs: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    del api_client
+    input, clean_kwargs = _get_args_kwargs(args, kwargs, ["model", "contents", "config"], ["contents", "config"])
+    if "contents" in input:
+        input["contents"] = _serialize_contents(input["contents"])
+    if input.get("config") is not None:
+        input["config"] = _config_for_input(input["config"])
+    return input, {"provider": _PROVIDER, **clean_kwargs}
+
+
 def _prepare_generate_images_traced_call(
     api_client: Any, args: list[Any], kwargs: dict[str, Any]
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -277,15 +295,15 @@ def _prepare_interaction_create_traced_call(
             "agent": kwargs.get("agent"),
             "input": _materialize_interaction_value(kwargs.get("input")),
             "background": kwargs.get("background"),
-            "generation_config": _materialize_interaction_value(kwargs.get("generation_config")),
+            "generation_config": kwargs.get("generation_config"),
             "previous_interaction_id": kwargs.get("previous_interaction_id"),
-            "response_format": _materialize_interaction_value(kwargs.get("response_format")),
+            "response_format": kwargs.get("response_format"),
             "response_mime_type": kwargs.get("response_mime_type"),
-            "response_modalities": _materialize_interaction_value(kwargs.get("response_modalities")),
+            "response_modalities": kwargs.get("response_modalities"),
             "store": kwargs.get("store"),
             "stream": kwargs.get("stream"),
             "system_instruction": kwargs.get("system_instruction"),
-            "agent_config": _materialize_interaction_value(kwargs.get("agent_config")),
+            "agent_config": kwargs.get("agent_config"),
         }
     )
     metadata = clean_nones(
@@ -339,7 +357,7 @@ def _extract_usage_metadata_provider_metadata(
     usage_metadata: "GenerateContentResponseUsageMetadata",
 ) -> dict[str, Any] | None:
     metadata = _extract_google_usage_metadata_provider_metadata(usage_metadata)
-    return _materialize_interaction_value(metadata) if metadata is not None else None
+    return metadata
 
 
 def _extract_generate_content_metrics(response: "GenerateContentResponse", start: float) -> dict[str, Any]:
@@ -532,17 +550,14 @@ def _extract_interaction_output(
 
 def _extract_interaction_metadata(response: "Interaction") -> dict[str, Any]:
     usage = getattr(response, "usage", None)
-    usage_serialized = _materialize_interaction_value(usage)
-    usage_by_modality = None
-    if isinstance(usage_serialized, dict):
-        usage_by_modality = clean_nones(
-            {
-                "input_tokens_by_modality": usage_serialized.get("input_tokens_by_modality"),
-                "output_tokens_by_modality": usage_serialized.get("output_tokens_by_modality"),
-                "cached_tokens_by_modality": usage_serialized.get("cached_tokens_by_modality"),
-                "tool_use_tokens_by_modality": usage_serialized.get("tool_use_tokens_by_modality"),
-            }
-        )
+    usage_by_modality = clean_nones(
+        {
+            "input_tokens_by_modality": getattr(usage, "input_tokens_by_modality", None),
+            "output_tokens_by_modality": getattr(usage, "output_tokens_by_modality", None),
+            "cached_tokens_by_modality": getattr(usage, "cached_tokens_by_modality", None),
+            "tool_use_tokens_by_modality": getattr(usage, "tool_use_tokens_by_modality", None),
+        }
+    )
 
     return clean_nones(
         {
@@ -551,9 +566,7 @@ def _extract_interaction_metadata(response: "Interaction") -> dict[str, Any]:
             "role": getattr(response, "role", None),
             "status": getattr(response, "status", None),
             "continuation_token": getattr(response, "continuation_token", None),
-            "total_tool_use_tokens": (
-                usage_serialized.get("total_tool_use_tokens") if isinstance(usage_serialized, dict) else None
-            ),
+            "total_tool_use_tokens": getattr(usage, "total_tool_use_tokens", None),
             "usage_by_modality": usage_by_modality,
         }
     )
@@ -630,7 +643,7 @@ def _interaction_process_result(
 
 
 def _generic_process_result(result: Any, start: float) -> tuple[Any, dict[str, Any]]:
-    return _materialize_interaction_value(result), _extract_generic_timing_metrics(start)
+    return result, _extract_generic_timing_metrics(start)
 
 
 # ---------------------------------------------------------------------------
@@ -655,11 +668,10 @@ def _aggregate_generate_content_chunks(
         return {}, metrics, None
 
     text = ""
-    thought_text = ""
-    other_parts = []
     usage_metadata = None
     last_response = None
     candidate_fields: list[dict[str, Any]] = []
+    candidate_parts: list[list[dict[str, Any]]] = []
 
     for chunk in chunks:
         last_response = chunk
@@ -671,43 +683,42 @@ def _aggregate_generate_content_chunks(
             for candidate_index, candidate in enumerate(chunk.candidates):
                 while len(candidate_fields) <= candidate_index:
                     candidate_fields.append({})
-                serialized_candidate = _materialize_interaction_value(
-                    candidate.model_dump(exclude_none=True, exclude={"content"})
-                )
-                if isinstance(serialized_candidate, dict):
-                    candidate_fields[candidate_index].update(
-                        {key: value for key, value in serialized_candidate.items() if value is not None}
-                    )
+                    candidate_parts.append([])
+                parts = candidate_parts[candidate_index]
+                for field_name in type(candidate).model_fields:
+                    if field_name == "content":
+                        continue
+                    value = getattr(candidate, field_name, None)
+                    if value is not None:
+                        candidate_fields[candidate_index][field_name] = value
 
                 if hasattr(candidate, "content") and candidate.content:
                     if hasattr(candidate.content, "parts") and candidate.content.parts:
                         for part in candidate.content.parts:
                             if hasattr(part, "text") and part.text:
-                                if hasattr(part, "thought") and part.thought:
-                                    thought_text += part.text
-                                else:
+                                is_thought = bool(getattr(part, "thought", None))
+                                if not is_thought:
                                     text += part.text
-                            elif hasattr(part, "function_call"):
-                                other_parts.append({"function_call": part.function_call})
-                            elif hasattr(part, "code_execution_result"):
-                                other_parts.append({"code_execution_result": part.code_execution_result})
-                            elif hasattr(part, "executable_code"):
-                                other_parts.append({"executable_code": part.executable_code})
+                                if parts and "text" in parts[-1] and bool(parts[-1].get("thought")) == is_thought:
+                                    parts[-1]["text"] += part.text
+                                elif is_thought:
+                                    parts.append({"text": part.text, "thought": True})
+                                else:
+                                    parts.append({"text": part.text})
+                            elif getattr(part, "function_call", None) is not None:
+                                parts.append({"function_call": part.function_call})
+                            elif getattr(part, "code_execution_result", None) is not None:
+                                parts.append({"code_execution_result": part.code_execution_result})
+                            elif getattr(part, "executable_code", None) is not None:
+                                parts.append({"executable_code": part.executable_code})
 
     aggregated = {}
 
-    parts = []
-    if thought_text:
-        parts.append({"text": thought_text, "thought": True})
-    if text:
-        parts.append({"text": text})
-    parts.extend(other_parts)
-
-    if parts and last_response and hasattr(last_response, "candidates"):
+    if any(candidate_parts) and last_response and hasattr(last_response, "candidates"):
         candidates = []
         for candidate_index, _candidate in enumerate(last_response.candidates):
             candidate_dict = dict(candidate_fields[candidate_index])
-            candidate_dict["content"] = {"parts": parts, "role": "model"}
+            candidate_dict["content"] = {"parts": candidate_parts[candidate_index], "role": "model"}
             candidates.append(candidate_dict)
 
         aggregated["candidates"] = candidates
@@ -889,8 +900,14 @@ def _serialize_interaction_items(value: Any) -> list[dict[str, Any]]:
 def _close_interaction_tool_spans_from_input(input_value: Any) -> None:
     # Tool spans should end when the client hands the tool result back to the
     # interactions API, before the follow-up LLM/TASK span begins.
+    if not _interaction_tool_spans.get():
+        return
+
     end_time = time.time()
-    for item in _serialize_interaction_items(input_value):
+    items = input_value if isinstance(input_value, list) else [input_value]
+    for item in items:
+        if not isinstance(item, dict):
+            continue
         if item.get("type") not in _TOOL_RESULT_TYPES:
             continue
         call_id = item.get("call_id")
@@ -1015,7 +1032,7 @@ def _aggregate_interaction_events(
             None,
         )
         if error_event is not None:
-            metadata["stream_error"] = _materialize_interaction_value(error_event.error)
+            metadata["stream_error"] = error_event.error
         return {"events": _materialize_interaction_value(events)}, clean_nones(metrics), metadata
 
     final_outputs_list = _serialize_interaction_outputs(final_interaction)
@@ -1058,13 +1075,13 @@ def _run_traced_call(
         [Any, list[Any], dict[str, Any]], tuple[dict[str, Any], dict[str, Any]]
     ] = _prepare_traced_call,
     span_type: SpanTypeAttribute = SpanTypeAttribute.LLM,
-    before_invoke: Callable[[], None] | None = None,
+    before_invoke: Callable[[dict[str, Any]], None] | None = None,
     finalize_logged_output: Callable[[Any, dict[str, Any], dict[str, Any] | None, str], None] | None = None,
 ) -> Any:
     input, clean_kwargs = prepare_call(api_client, args, kwargs)
 
     if before_invoke is not None:
-        before_invoke()
+        before_invoke(input)
 
     start = time.time()
     parent_export = None
@@ -1095,13 +1112,13 @@ async def _run_async_traced_call(
         [Any, list[Any], dict[str, Any]], tuple[dict[str, Any], dict[str, Any]]
     ] = _prepare_traced_call,
     span_type: SpanTypeAttribute = SpanTypeAttribute.LLM,
-    before_invoke: Callable[[], None] | None = None,
+    before_invoke: Callable[[dict[str, Any]], None] | None = None,
     finalize_logged_output: Callable[[Any, dict[str, Any], dict[str, Any] | None, str], None] | None = None,
 ) -> Any:
     input, clean_kwargs = prepare_call(api_client, args, kwargs)
 
     if before_invoke is not None:
-        before_invoke()
+        before_invoke(input)
 
     start = time.time()
     parent_export = None
@@ -1173,7 +1190,7 @@ def _run_stream_traced_call(
     prepare_call: Callable[
         [Any, list[Any], dict[str, Any]], tuple[dict[str, Any], dict[str, Any]]
     ] = _prepare_traced_call,
-    before_invoke: Callable[[], None] | None = None,
+    before_invoke: Callable[[dict[str, Any]], None] | None = None,
     finalize_logged_output: Callable[[Any, dict[str, Any], dict[str, Any] | None, str], None] | None = None,
 ) -> Any:
     input, clean_kwargs = prepare_call(api_client, args, kwargs)
@@ -1181,7 +1198,7 @@ def _run_stream_traced_call(
 
     def stream_generator():
         if before_invoke is not None:
-            before_invoke()
+            before_invoke(input)
 
         start = time.time()
         first_token_time = None
@@ -1230,7 +1247,7 @@ def _run_async_stream_traced_call(
     prepare_call: Callable[
         [Any, list[Any], dict[str, Any]], tuple[dict[str, Any], dict[str, Any]]
     ] = _prepare_traced_call,
-    before_invoke: Callable[[], None] | None = None,
+    before_invoke: Callable[[dict[str, Any]], None] | None = None,
     finalize_logged_output: Callable[[Any, dict[str, Any], dict[str, Any] | None, str], None] | None = None,
 ) -> Any:
     input, clean_kwargs = prepare_call(api_client, args, kwargs)
@@ -1238,7 +1255,7 @@ def _run_async_stream_traced_call(
 
     async def stream_generator():
         if before_invoke is not None:
-            before_invoke()
+            before_invoke(input)
 
         start = time.time()
         first_token_time = None
@@ -1307,6 +1324,7 @@ def _embed_content_wrapper(wrapped: Any, instance: Any, args: Any, kwargs: Any) 
         name="embed_content",
         invoke=lambda: wrapped(*args, **kwargs),
         process_result=_embed_process_result,
+        prepare_call=_prepare_embed_content_traced_call,
     )
 
 
@@ -1352,6 +1370,7 @@ async def _async_embed_content_wrapper(wrapped: Any, instance: Any, args: Any, k
         name="embed_content",
         invoke=lambda: wrapped(*args, **kwargs),
         process_result=_embed_process_result,
+        prepare_call=_prepare_embed_content_traced_call,
     )
 
 
@@ -1368,7 +1387,7 @@ async def _async_generate_images_wrapper(wrapped: Any, instance: Any, args: Any,
 
 
 def _interactions_create_wrapper(wrapped: Any, instance: Any, args: Any, kwargs: Any) -> Any:
-    before_invoke = lambda: _close_interaction_tool_spans_from_input(kwargs.get("input"))
+    before_invoke = lambda input: _close_interaction_tool_spans_from_input(input.get("input"))
 
     if kwargs.get("stream"):
         return _run_stream_traced_call(
@@ -1400,7 +1419,7 @@ def _interactions_create_wrapper(wrapped: Any, instance: Any, args: Any, kwargs:
 
 
 async def _async_interactions_create_wrapper(wrapped: Any, instance: Any, args: Any, kwargs: Any) -> Any:
-    before_invoke = lambda: _close_interaction_tool_spans_from_input(kwargs.get("input"))
+    before_invoke = lambda input: _close_interaction_tool_spans_from_input(input.get("input"))
 
     if kwargs.get("stream"):
         return _run_async_stream_traced_call(

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: reactivex
-Version: 5.1.0
+Version: 6.0.0
 Summary: ReactiveX (Rx) for Python
 Project-URL: Homepage, http://reactivex.io
 Project-URL: Repository, https://github.com/ReactiveX/RxPY
@@ -14,14 +14,14 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <4.0,>=3.10
+Requires-Python: <4.0,>=3.11
 Requires-Dist: typing-extensions<5,>=4.15.0
 Description-Content-Type: text/x-rst
 
@@ -55,7 +55,7 @@ ReactiveX for Python v5
 For v3.X please go to the `v3 branch
 <https://github.com/ReactiveX/RxPY/tree/release/v3.2.x>`_.
 
-ReactiveX for Python v5.x runs on `Python <http://www.python.org/>`_ 3.10 or above. To
+ReactiveX for Python runs on `Python <http://www.python.org/>`_ 3.11 or above. To
 install:
 
 .. code:: console
@@ -184,30 +184,31 @@ you are giving to the operator (or not).
 Development
 -----------
 
-This project is managed using `uv <https://docs.astral.sh/uv/>`_. Code is formatted
-using `Ruff <https://github.com/astral-sh/ruff>`_. Code is statically type checked
-using `pyright <https://github.com/microsoft/pyright>`_.
+This project is managed using `uv <https://docs.astral.sh/uv/>`_, with common commands
+defined in `just <https://just.systems/>`_. Code is formatted using
+`Ruff <https://github.com/astral-sh/ruff>`_ and statically type checked using
+`pyright <https://github.com/microsoft/pyright>`_.
 
-After cloning the repository, install dependencies:
+After cloning the repository, install dependencies with the uv-backed Justfile:
 
 .. code:: console
 
-    uv sync
+    just install
 
 Run unit tests:
 
 .. code:: console
 
-    uv run pytest
+    just test
 
-Run type checking:
-
-.. code:: console
-
-    uv run pyright
-
-Run code checks (manually):
+Run all formatting, linting, type checks, and tests:
 
 .. code:: console
 
-    uv run pre-commit run --all-files
+    just check
+
+Build the package:
+
+.. code:: console
+
+    just build

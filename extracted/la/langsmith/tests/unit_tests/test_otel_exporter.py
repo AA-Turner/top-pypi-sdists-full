@@ -29,9 +29,7 @@ from langsmith.integrations.otel.processor import OtelSpanProcessor
 
 def test_cleanup_stale_spans():
     """Test cleanup of stale spans based on TTL."""
-    with patch(
-        "langsmith._internal.otel._otel_exporter._import_otel_exporter"
-    ) as mock_import:
+    with patch("langsmith._internal.otel._otel_exporter._import_otel_exporter") as mock_import:
         mock_import.return_value = (MagicMock(),) * 8
 
         exporter = OTELExporter(span_ttl_seconds=1)
@@ -57,9 +55,7 @@ def test_cleanup_stale_spans():
 
 def test_cleanup_periodic_behavior():
     """Test cleanup only runs periodically."""
-    with patch(
-        "langsmith._internal.otel._otel_exporter._import_otel_exporter"
-    ) as mock_import:
+    with patch("langsmith._internal.otel._otel_exporter._import_otel_exporter") as mock_import:
         mock_import.return_value = (MagicMock(),) * 8
 
         exporter = OTELExporter(span_ttl_seconds=1)
@@ -82,9 +78,7 @@ def test_cleanup_stale_spans_tolerates_concurrent_mutation():
     ``KeyError``. The span info store locks all access and snapshots before
     iterating.
     """
-    with patch(
-        "langsmith._internal.otel._otel_exporter._import_otel_exporter"
-    ) as mock_import:
+    with patch("langsmith._internal.otel._otel_exporter._import_otel_exporter") as mock_import:
         mock_import.return_value = (MagicMock(),) * 8
 
         exporter = OTELExporter(span_ttl_seconds=1)
@@ -123,9 +117,7 @@ def test_cleanup_stale_spans_tolerates_concurrent_mutation():
 @patch("langsmith.utils.get_env_var")
 def test_env_var_ttl(mock_get_env_var):
     """Test TTL loading from environment variable with correct default."""
-    with patch(
-        "langsmith._internal.otel._otel_exporter._import_otel_exporter"
-    ) as mock_import:
+    with patch("langsmith._internal.otel._otel_exporter._import_otel_exporter") as mock_import:
         mock_import.return_value = (MagicMock(),) * 8
         mock_get_env_var.return_value = "1800"
 
@@ -153,10 +145,7 @@ def test_safe_attribute_value_serializes_structured_values():
     assert otel_safe_attribute_value(None) is None
     assert otel_safe_attribute_value({"nested": {"a": 1}}) == '{"nested":{"a":1}}'
     assert otel_safe_attribute_value(["a", 1]) == '["a",1]'
-    assert (
-        otel_safe_attribute_value({"bad": _Unserializable()})
-        == "{'bad': unserializable}"
-    )
+    assert otel_safe_attribute_value({"bad": _Unserializable()}) == "{'bad': unserializable}"
 
 
 def test_set_langsmith_metadata_attribute_sets_safe_values():
@@ -180,13 +169,9 @@ def test_set_langsmith_metadata_attribute_sets_safe_values():
 def test_set_metadata_propagates_to_spans(mock_exporter_cls):
     """Test that set_metadata propagates attributes to every span on_start."""
     mock_inner_processor = MagicMock()
-    processor = OtelSpanProcessor(
-        api_key="test", project="test", SpanProcessor=lambda _: mock_inner_processor
-    )
+    processor = OtelSpanProcessor(api_key="test", project="test", SpanProcessor=lambda _: mock_inner_processor)
 
-    processor.set_metadata(
-        {"thread_id": "t-123", "session_id": "s-456", "extra": {"a": 1}}
-    )
+    processor.set_metadata({"thread_id": "t-123", "session_id": "s-456", "extra": {"a": 1}})
 
     span = MagicMock()
     processor.on_start(span, parent_context=None)
@@ -249,12 +234,8 @@ def test_finish_reasons_preserve_all_openai_choices_as_a_list():
 
 
 def test_finish_reasons_support_anthropic_and_gemini_shapes():
-    assert _attributes_for_outputs({"stop_reason": "tool_use"})[
-        GEN_AI_RESPONSE_FINISH_REASONS
-    ] == ["tool_use"]
-    assert _attributes_for_outputs({"finish_reason": "STOP"})[
-        GEN_AI_RESPONSE_FINISH_REASONS
-    ] == ["STOP"]
+    assert _attributes_for_outputs({"stop_reason": "tool_use"})[GEN_AI_RESPONSE_FINISH_REASONS] == ["tool_use"]
+    assert _attributes_for_outputs({"finish_reason": "STOP"})[GEN_AI_RESPONSE_FINISH_REASONS] == ["STOP"]
 
 
 def test_choices_finish_reasons_take_precedence_over_top_level_reason():
@@ -270,12 +251,10 @@ def test_choices_finish_reasons_take_precedence_over_top_level_reason():
 
 
 def test_missing_finish_reason_is_omitted_and_commas_are_not_split():
-    assert GEN_AI_RESPONSE_FINISH_REASONS not in _attributes_for_outputs(
-        {"content": "hello"}
-    )
-    assert _attributes_for_outputs({"stop_reason": "provider,custom"})[
-        GEN_AI_RESPONSE_FINISH_REASONS
-    ] == ["provider,custom"]
+    assert GEN_AI_RESPONSE_FINISH_REASONS not in _attributes_for_outputs({"content": "hello"})
+    assert _attributes_for_outputs({"stop_reason": "provider,custom"})[GEN_AI_RESPONSE_FINISH_REASONS] == [
+        "provider,custom"
+    ]
 
 
 @pytest.mark.parametrize(
@@ -343,9 +322,7 @@ def test_tool_definitions_pass_through_provider_shapes():
         {"name": "search", "description": "Search", "input_schema": {}},
         {"type": "tool_search"},
     ]
-    attrs = _attributes_for_run(
-        {"run_type": "llm", "extra": {"invocation_params": {"tools": tools}}}
-    )
+    attrs = _attributes_for_run({"run_type": "llm", "extra": {"invocation_params": {"tools": tools}}})
 
     assert json.loads(attrs[GEN_AI_TOOL_DEFINITIONS]) == tools
 
@@ -405,10 +382,7 @@ def test_langchain_tool_attributes_reach_otel_spans():
         tracer.wait_for_futures()
         client.flush()
 
-        spans = {
-            span.attributes["langsmith.span.kind"]: span.attributes
-            for span in sink.get_finished_spans()
-        }
+        spans = {span.attributes["langsmith.span.kind"]: span.attributes for span in sink.get_finished_spans()}
         assert json.loads(spans["llm"][GEN_AI_TOOL_DEFINITIONS]) == [tool_definition]
         assert spans["tool"][GEN_AI_TOOL_CALL_ID] == "call_123"
     finally:
@@ -549,14 +523,17 @@ def test_get_otlp_tracer_provider_no_project(mock_utils, mock_import):
     ],
 )
 def test_get_otlp_tracer_provider_resolves_real_exporter_endpoint(
-    monkeypatch, endpoint_env, expected_endpoint
+    monkeypatch, endpoint_env, expected_endpoint, request
 ):
+    from langsmith import utils as ls_utils
     from langsmith._internal.otel._otel_client import (
         _warn_legacy_traces_endpoint,
         get_otlp_tracer_provider,
     )
 
     _warn_legacy_traces_endpoint.cache_clear()
+    ls_utils.get_env_var.cache_clear()
+    request.addfinalizer(ls_utils.get_env_var.cache_clear)
     for name in ("OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("LANGSMITH_ENDPOINT", "https://dev.api.smith.langchain.com")
@@ -579,9 +556,7 @@ def test_get_otlp_tracer_provider_resolves_real_exporter_endpoint(
                 exporter.shutdown()
                 provider.shutdown()
         legacy_endpoint = endpoint_env.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-        should_warn = legacy_endpoint.endswith("/traces") and not endpoint_env.get(
-            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"
-        )
+        should_warn = legacy_endpoint.endswith("/traces") and not endpoint_env.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
         assert warn.call_count == int(should_warn)
         if should_warn:
             assert "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT" in warn.call_args.args[0]
@@ -592,9 +567,7 @@ def test_get_otlp_tracer_provider_resolves_real_exporter_endpoint(
 
 def test_io_attributes_are_str_not_bytes():
     """Export input/output JSON strings regardless of OTel version."""
-    with patch(
-        "langsmith._internal.otel._otel_exporter._import_otel_exporter"
-    ) as mock_import:
+    with patch("langsmith._internal.otel._otel_exporter._import_otel_exporter") as mock_import:
         mock_import.return_value = (MagicMock(),) * 8
         exporter = OTELExporter(span_ttl_seconds=1)
 
@@ -703,9 +676,7 @@ def test_tracer_provider_addresses_the_env_agent(set_env):
     ],
     ids=["half-an-address", "address-and-project"],
 )
-def test_tracer_provider_sends_no_destination_for_an_unusable_env(
-    set_env, env, project
-):
+def test_tracer_provider_sends_no_destination_for_an_unusable_env(set_env, env, project):
     headers = _provider_headers(set_env, env, project)
 
     assert headers == {"x-api-key": "lsv2_pt_test123"}
@@ -725,9 +696,7 @@ def _otel_exporter_headers(**kwargs) -> dict:
 def test_otel_exporter_addresses_an_agent(set_env):
     from langsmith.address import agent_address
 
-    headers = _otel_exporter_headers(
-        address=agent_address("support-agent", "production")
-    )
+    headers = _otel_exporter_headers(address=agent_address("support-agent", "production"))
 
     assert headers == {
         "x-api-key": "lsv2_pt_test123",
@@ -737,9 +706,7 @@ def test_otel_exporter_addresses_an_agent(set_env):
 
 
 def test_otel_exporter_takes_the_env_agent_when_nothing_is_named(set_env):
-    set_env(
-        {"LANGSMITH_AGENT_ID": "support-agent", "LANGSMITH_AGENT_ENVIRONMENT": "local"}
-    )
+    set_env({"LANGSMITH_AGENT_ID": "support-agent", "LANGSMITH_AGENT_ENVIRONMENT": "local"})
 
     headers = _otel_exporter_headers()
 

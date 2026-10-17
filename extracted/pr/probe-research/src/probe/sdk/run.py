@@ -2972,8 +2972,14 @@ class Run:
         coords: dict[str, Any] | None = None,
         labels: dict[str, Any] | None = None,
         strict: bool | None = None,
+        verbatim: bool = False,
     ):
         """Record an artifact.
+
+        ``verbatim=True`` is for bytes that must come back exactly as saved (a
+        checkpoint's files): where the gate would mask a credential in them,
+        the upload is refused instead (a reference row and a warning, like any
+        refusal), never stored rewritten.
 
         ``coords``/``labels`` are the below-run coordinate maps (same split as
         :meth:`log`), merged over the ambient :meth:`unit` context and sent as
@@ -3008,8 +3014,15 @@ class Run:
         there a reference (``reference=True``, or a ``uri`` alone) is recorded
         by identity only -- location, size and, for a path, its sha256 or
         fingerprint in ``meta`` (`catalog.identity_meta`) -- and an upload is
-        refused."""
+        refused.
+
+        ``notes`` is accepted and ignored with a DeprecationWarning, never sent:
+        files no longer carry notes, so what a file IS (and where it lives) goes
+        in the run's notes."""
         from . import probe_config as _pc_uri
+        from .notes import FILE_NOTES_REMOVED, warn_notes_ignored
+
+        warn_notes_ignored(notes, FILE_NOTES_REMOVED)
 
         local = path if path is not None else _pc_uri.local_path_of(uri)
         identity_only = False
@@ -3031,12 +3044,12 @@ class Run:
         # preview route reads its extension. `log_artifact("ckpt", path="ckpt-4000.pt")`
         # -- the shape the skill documents -- would otherwise store an extensionless
         # name for a file that has one. Restored from the path; additive only.
-        from .redaction import default_scrub, scrub_text
+        from .redaction import default_scrub, scrub_string, scrub_text
 
-        name = scrub_text(name_with_extension(name, path))
+        # `scrub_string`, not `scrub_text`: see `Client.upload`.
+        name = scrub_string(name_with_extension(name, path))
         if kind is None:
             kind = artifact_kind_for(name, path)
-        notes = scrub_text(notes) if notes is not None else None
         meta = default_scrub(dict(meta or {}))
         # Lineage (server 0255): did THIS run write the file, or only log one it
         # read? Stamped from the file's mtime against the run's start, and
@@ -3094,7 +3107,6 @@ class Run:
                     span_id=span_id,
                     step_index=step_index,
                     meta=meta,
-                    notes=notes,
                     coords=coords,
                     labels=labels,
                     allow_missing=missing,
@@ -3126,7 +3138,6 @@ class Run:
                     span_id=span_id,
                     step_index=step_index,
                     meta=meta,
-                    notes=notes,
                     strict=strict_resolved,
                     sync=sync,
                     refused=refused,
@@ -3144,9 +3155,9 @@ class Run:
                     span_id=span_id,
                     step_index=step_index,
                     meta=meta,
-                    notes=notes,
                     strict=strict,
                     sync=sync,
+                    verbatim=verbatim,
                 )
                 if queued is not _NOT_QUEUED:
                     # After the queue took it, never before: a log_artifact that
@@ -3156,7 +3167,7 @@ class Run:
                 # The queued branch above redacts when it stages its snapshot. This
                 # is the synchronous branch, so redaction happens here instead --
                 # before the fingerprint, which the server signs.
-                with prepare_upload(path) as prepared:
+                with prepare_upload(path, verbatim=verbatim) as prepared:
                     digest, size = _fingerprint(prepared.path)
                     if not prepared.was_redacted and (
                         (content_hash is not None and content_hash.lower() != digest)
@@ -3192,7 +3203,6 @@ class Run:
                         span_id=span_id,
                         step_index=step_index,
                         meta=meta,
-                        notes=notes,
                         coords=coords,
                         labels=labels,
                         strict=strict,
@@ -3221,7 +3231,6 @@ class Run:
             span_id=span_id,
             step_index=step_index,
             meta=meta,
-            notes=notes,
             coords=coords or None,
             labels=labels or None,
         )
@@ -3396,9 +3405,13 @@ class Run:
         ``hash="full"`` hashes everything), a remote uri by itself
         (``pointer``). ``upload=True`` stores the file or folder in Probe
         instead (uploads before it returns). ``sources``: what it was derived
-        from; ``note`` / ``stats``: what changed and why; ``composition``:
-        ``{dataset ref: rows}`` (shares computed) or ``{ref: share}`` for a
-        dataset built from others. ``publish=True`` is needed from a
+        from; ``note``: what changed and why; ``stats``: counts from the closed
+        list ``files``, ``bytes``, ``rows``, ``tokens``, ``removed`` (whole
+        numbers >= 0; any other key is dropped with a warning, so put other
+        numbers in ``note``); ``composition``: ``{ref: rows}`` (shares
+        computed) or ``{ref: share}`` for a dataset built from others, each ref
+        a dataset (``dataset:<name>@<n>``) or a source (``probe.source(...)``,
+        e.g. 80% a Hub dataset and 20% an HTTPS CSV). ``publish=True`` is needed from a
         read-restricted project. ``register=False`` records the run's file only
         and returns its ``artifact:<id>``. A dataset kept outside Probe gets a
         100-record preview sample uploaded (``preview=False`` turns it off).
@@ -3424,7 +3437,6 @@ class Run:
         span_id: str | None,
         step_index: int | None,
         meta: dict,
-        notes: str | None,
         strict: bool,
         sync: bool | None,
         refused: Any,
@@ -3471,7 +3483,6 @@ class Run:
             "kind": kind_to_send(kind),
             "content_type": content_type,
             "meta": meta or None,
-            "notes": notes,
             "span_id": span_id,
             "step_index": step_index,
         }
@@ -3530,9 +3541,9 @@ class Run:
         span_id: str | None,
         step_index: int | None,
         meta: dict,
-        notes: str | None,
         strict: bool | None,
         sync: bool | None,
+        verbatim: bool = False,
     ):
         """Queue an artifact upload, or return ``_NOT_QUEUED`` to upload now.
 
@@ -3587,7 +3598,6 @@ class Run:
                 content_type=content_type,
                 kind=kind_to_send(kind),
                 meta=meta or None,
-                notes=notes,
                 span_id=span_id,
                 step_index=step_index,
                 run_ref=self.id,
@@ -3597,6 +3607,7 @@ class Run:
                 # worker, a barrier, this process at exit) scans, redacts and
                 # fingerprints the copy before it can become an op.
                 defer_scan=True,
+                verbatim=verbatim,
             )
         except Exception:  # noqa: BLE001 -- a queue that cannot take it is not
             return _NOT_QUEUED  # a reason to lose the artifact; upload it now
@@ -3688,7 +3699,6 @@ class Run:
         span_id: str | None,
         step_index: int | None,
         meta: dict,
-        notes: str | None,
         coords: dict[str, Any] | None,
         labels: dict[str, Any] | None,
         allow_missing: bool,
@@ -3740,7 +3750,6 @@ class Run:
             span_id=span_id,
             step_index=step_index,
             meta={**meta, **fields["meta"], "upload": "failed", "upload_error": reason},
-            notes=notes,
             coords=coords or None,
             labels=labels or None,
         )
@@ -3790,7 +3799,6 @@ class Run:
         span_id: str | None,
         step_index: int | None,
         meta: dict,
-        notes: str | None = None,
         coords: dict[str, Any] | None = None,
         labels: dict[str, Any] | None = None,
         strict: bool | None = None,
@@ -3820,7 +3828,6 @@ class Run:
             step_index=step_index,
             kind=kind_to_send(kind),  # None preserves labels on restage
             meta=meta or None,
-            notes=notes,
         )
         try:
             presign = self._client.transport.post(
@@ -3896,10 +3903,6 @@ class Run:
                     # stored, so the two hashes can be told apart later.
                     **({"redacted_content_hash": redacted_hash} if redacted_hash else {}),
                 },
-                # The description survives the fail-open downgrade: the row that
-                # lands is the only record of this file, so dropping it here would
-                # lose exactly what the caller took the trouble to write.
-                notes=notes,
                 coords=coords or None,
                 labels=labels or None,
             )

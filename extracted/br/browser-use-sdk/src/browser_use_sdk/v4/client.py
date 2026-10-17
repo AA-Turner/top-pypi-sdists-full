@@ -4,6 +4,9 @@ import os
 
 from .._core.http import AsyncHttpClient, SyncHttpClient
 from .resources.browsers import AsyncBrowsers, Browsers
+from .resources.integrations import AsyncIntegrations, Integrations
+from .resources.profiles import AsyncProfiles, Profiles
+from .resources.extensions import AsyncExtensions, Extensions
 from .resources.runs import AsyncRuns, Runs
 from .resources.sessions import AsyncSessions, Sessions
 from .resources.workspaces import AsyncWorkspaces, Workspaces
@@ -25,6 +28,7 @@ class BrowserUse:
         *,
         base_url: str | None = None,
         timeout: float = 30.0,
+        max_retries: int = 3,
     ) -> None:
         resolved_key = api_key or os.environ.get("BROWSER_USE_API_KEY") or ""
         if not resolved_key:
@@ -35,8 +39,12 @@ class BrowserUse:
             base_url=base_url or _V4_BASE_URL,
             api_key=resolved_key,
             timeout=timeout,
+            max_retries=max_retries,
         )
         self.browsers = Browsers(self._http)
+        self.integrations = Integrations(self._http)
+        self.profiles = Profiles(self._http)
+        self.extensions = Extensions(self._http)
         self.runs = Runs(self._http)
         self.sessions = Sessions(self._http)
         self.workspaces = Workspaces(self._http)
@@ -66,6 +74,7 @@ class AsyncBrowserUse:
         *,
         base_url: str | None = None,
         timeout: float = 30.0,
+        max_retries: int = 3,
     ) -> None:
         resolved_key = api_key or os.environ.get("BROWSER_USE_API_KEY") or ""
         if not resolved_key:
@@ -76,8 +85,12 @@ class AsyncBrowserUse:
             base_url=base_url or _V4_BASE_URL,
             api_key=resolved_key,
             timeout=timeout,
+            max_retries=max_retries,
         )
         self.browsers = AsyncBrowsers(self._http)
+        self.integrations = AsyncIntegrations(self._http)
+        self.profiles = AsyncProfiles(self._http)
+        self.extensions = AsyncExtensions(self._http)
         self.runs = AsyncRuns(self._http)
         self.sessions = AsyncSessions(self._http)
         self.workspaces = AsyncWorkspaces(self._http)

@@ -371,14 +371,6 @@ class TITORenderer(Protocol):
         finish_reason: str,
     ) -> TITOParsedAssistant: ...
 
-    def fallback_assistant_text(
-        self,
-        request: TITOChatRequest,
-        completion_ids: Sequence[int],
-        finish_reason: str,
-        parser_error: BaseException,
-    ) -> str | None: ...
-
     def render_contract_id(self, request: TITOChatRequest) -> str: ...
 
     def stop_sequences(self, request: TITOChatRequest) -> Sequence[str] | None: ...
@@ -631,6 +623,10 @@ class TITOCallResult:
     replayed: bool = False
 
 
+class TITOParseError(ValueError):
+    """The renderer recognized malformed or protocol-unsafe sampled output."""
+
+
 class TITOError(RuntimeError):
     def __init__(
         self,
@@ -639,17 +635,36 @@ class TITOError(RuntimeError):
         message: str,
         *,
         should_retry: bool = False,
+        origin: str = "sdk",
+        discard_trajectory: bool = False,
+        context: Mapping[str, Any] | None = None,
     ) -> None:
         self.code = code
         self.status = status
         self.should_retry = should_retry
+        self.origin = origin
+        self.discard_trajectory = discard_trajectory
+        self.context = dict(context or {})
         super().__init__(message)
 
-    def openai_body(self) -> dict[str, Any]:
+    def as_error_record(self) -> dict[str, Any]:
+        if self.discard_trajectory:
+            error_type = "trajectory_error"
+        elif self.origin in {"server", "transport"}:
+            error_type = "server_error"
+        elif self.status >= 500:
+            error_type = "sdk_error"
+        else:
+            error_type = "invalid_request_error"
         return {
-            "error": {
-                "message": str(self),
-                "type": "invalid_request_error",
-                "code": self.code,
-            }
+            **self.context,
+            "message": str(self),
+            "type": error_type,
+            "code": self.code,
+            "origin": self.origin,
+            "should_retry": self.should_retry,
+            "discard_trajectory": self.discard_trajectory,
         }
+
+    def openai_body(self) -> dict[str, Any]:
+        return {"error": self.as_error_record()}

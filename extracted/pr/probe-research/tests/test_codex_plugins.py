@@ -85,6 +85,8 @@ def test_tracking_skills_are_one_shared_tree() -> None:
         "edit-notes",
         "notes-audit",
         "plan-research-review",
+        "write-summary",
+        "overview-visuals",
     }
     assert not (ROOT / "plugins/prbe-codex-tap-plugin").exists()
 

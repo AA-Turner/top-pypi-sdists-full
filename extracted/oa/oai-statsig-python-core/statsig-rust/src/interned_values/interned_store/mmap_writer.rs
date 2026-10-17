@@ -429,7 +429,7 @@ fn append_immortal_entries(
         .collect::<AHashSet<_>>();
     for hash in referenced_returnable_hashes {
         if returnable_hashes.insert(*hash) {
-            let Some(value) = immortal.returnables.get(hash) else {
+            let Some((value, _)) = immortal.returnables.get(hash) else {
                 continue;
             };
             mmap_data

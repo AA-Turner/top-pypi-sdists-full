@@ -11,6 +11,38 @@ from typing import Any
 
 nan = float("nan")  # nan is just this float
 
+# integers beyond this magnitude are not exactly representable in float64, so
+# once an exact integer sum can leave this window, a float64-accumulated mean
+# silently rounds (2**53 itself is still exact, hence the inclusive limit)
+EXACT_FLOAT64_INTEGER_LIMIT = 2**53
+# largest magnitude a two's-complement signed 64-bit deviation represents
+# exactly; integer variance centers each group on its first value and needs
+# every deviation to stay within this bound
+INT64_DEVIATION_LIMIT = 2**63 - 1
+INT64_MIN = -(2**63)
+
+
+def raise_integer_mean_overflow(count: int, bound: int) -> None:
+    """Refuse integer means that float64 cannot compute exactly.
+
+    Every implementation raises this for the same inputs, so the backends
+    never disagree silently on inexact integer means.
+    """
+    raise OverflowError(
+        f"cannot compute an exact mean of {count} integer values with magnitude up to {bound}: "
+        f"their sums can exceed +/-{EXACT_FLOAT64_INTEGER_LIMIT}, the range float64 represents "
+        f"exactly - cast the input to a float dtype to accept rounding, or use sum and len"
+    )
+
+
+def raise_integer_variance_span_overflow(low: int, high: int) -> None:
+    """Refuse integer variances whose exact centering would overflow int64."""
+    raise OverflowError(
+        f"cannot compute an exact variance: the integer values span [{low}, {high}], wider than "
+        f"+/-{INT64_DEVIATION_LIMIT}, so centering each group on its first value would overflow "
+        f"the signed 64-bit deviation - cast the input to a float dtype first"
+    )
+
 
 aggregate_common_doc = """
     See readme file at https://github.com/ml31415/numpy-groupies for a full
@@ -195,7 +227,11 @@ def _is_complex_dtype(dtype: Any) -> bool:
         return kind == "c"
     if isinstance(dtype, str):
         return dtype.startswith("complex")
-    return isinstance(dtype, type) and issubclass(dtype, complex)
+    # NumPy's complex64 and clongdouble do not inherit from Python's complex.
+    # Inspect the public scalar base without importing the optional dependency.
+    return isinstance(dtype, type) and any(
+        base is complex or (base.__module__ == "numpy" and base.__name__ == "complexfloating") for base in dtype.__mro__
+    )
 
 
 def resolve_fill_value(func: str | Callable[..., Any], fill_value: Any, dtype: Any) -> Any:
@@ -397,3 +433,15 @@ def check_complex_dtype(a_dtype: Any, dtype: Any, func_str: str) -> None:
             f"function {func_str} cannot aggregate complex values into the non-complex dtype "
             f"{dtype} - pass a complex dtype to keep the imaginary part"
         )
+
+
+def is_scalar_input(a: Any) -> bool:
+    """Whether the aggregated data is a single value instead of a sequence.
+
+    Kept numpy free on purpose, since the pure python implementation uses it
+    too: a python number has no ``ndim`` at all, while a numpy scalar and a 0d
+    array both report 0 - ``isinstance(a, (int, float, complex))`` alone misses
+    every numpy scalar that is not a python number (``np.float32``, ``np.int64``,
+    ``np.bool_``, ``np.complex64``).
+    """
+    return getattr(a, "ndim", None) == 0 or isinstance(a, (int, float, complex))

@@ -85,8 +85,19 @@ class WebArgs(
     pass
 
 
+class AdvancedReadArgs(ToolArgs):
+    """``advanced_read``: read pages our own reader could not open, through the fast paid readers (fast only)."""
+
+    urls: list[str] = Field(
+        min_length=1,
+        description="The pages that failed to read (a web read lists them as failed, with what covers them).",
+    )
+    # No ``allow``: the agent tool is fast-only. Slow structured data is a person's click on the page
+    # button, never a model-chosen argument (owner rule, coverage review 2026-10-16).
+
+
 class SiteDataArgs(ToolArgs):
-    """``site_data``: structured records for a covered site (Bright Data datasets)."""
+    """``site_data``: structured records for a covered site (covered-site datasets)."""
 
     url: str | None = None
     site: str | None = None

@@ -470,6 +470,11 @@ class AppDeployer(TypedCoreConfig):
     print(deployed.public_url)
     ```
 
+    To create or update an app without starting workers, pass `suspend=True`.
+    `deploy()` then returns after the API accepts the change, not after traffic
+    readiness. Pass `suspend=False` (or omit it; the default is false) to keep
+    the app's workers running.
+
     Deployment with API authentication:
 
     ```python
@@ -624,7 +629,9 @@ class AppDeployer(TypedCoreConfig):
         Deploy the app to the Outerbounds Platform.
 
         This method packages and deploys the configured app, waiting for it to reach
-        the specified readiness condition before returning.
+        the specified readiness condition before returning unless it is suspended
+        (`suspend=True`). Suspended deployments return after API acceptance,
+        before traffic readiness.
 
         Parameters
         ----------
@@ -965,7 +972,22 @@ class AppDeployer(TypedCoreConfig):
                 error_text=e.text,
             ) from e
         try:
-            final_status = capsule.wait_for_terminal_state()
+            current_capsule = capsule.get_after_create()
+        except CapsuleConcurrentUpgradeException as e:
+            raise AppConcurrentUpgradeException(
+                app_id=e.capsule_id,
+                expected_version=e.expected_version,
+                actual_version=e.actual_version,
+                modified_by=e.modified_by,
+                modified_at=e.modified_at,
+            ) from e
+        suspended = (current_capsule.get("spec") or {}).get("suspend") is True
+        try:
+            final_status = (
+                capsule.accepted_suspended_status(current_capsule)
+                if suspended
+                else capsule.wait_for_terminal_state()
+            )
         except CapsuleCrashLoopException as e:
             raise AppCrashLoopException(
                 app_id=e.capsule_id,

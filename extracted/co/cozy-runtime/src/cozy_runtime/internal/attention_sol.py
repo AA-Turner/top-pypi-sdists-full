@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 from cozy_runtime.author._attention import _request
 from cozy_runtime.author._attention_scope import _ACTIVE_LAYOUT, AttentionLayout
 from cozy_runtime.author._observations import Scalar
-from cozy_runtime.internal import accel, config, kernel_cache, kernel_compile
+from cozy_runtime.internal import accel, arch, config, kernel_cache, kernel_compile
 from cozy_runtime.internal.attention_ulysses import Local
 
 # Tensor and module imports remain type-only, preserving the Torch-free base surface.
@@ -56,6 +56,8 @@ class Site:
 _SITE: ContextVar[Site | None] = ContextVar("cozy_sol_site", default=None)
 _DENSE: Callable[..., Tensor] | None = None
 _DENSE_IDENTITY = ""
+#: The BF16 kernel the model's exact paths take when the dense one quantizes; else `_DENSE`.
+_EXACT: Callable[..., Tensor] | None = None
 NAMES = frozenset(
     {
         "sol-attn",
@@ -126,13 +128,26 @@ def record_rank(rank: int, counts: dict[str, int]) -> None:
         total[name] += value
 
 
-def bind_dense(call: Callable[..., Tensor], identity: str) -> None:
-    """Install the dense reference a selection resolved. Selection runs at preparation and at
-    a run's step and stage boundaries, so a rebind never changes a running step."""
-    if not callable(call) or not identity:
+def bind_dense(
+    call: Callable[..., Tensor], identity: str, exact: Callable[..., Tensor] | None = None
+) -> None:
+    """Install the dense reference a selection resolved, and the BF16 kernel the model's exact
+    paths take when that one quantizes. Selection runs at preparation and at a run's step and
+    stage boundaries, so a rebind never changes a running step."""
+    if not callable(call) or not identity or not (exact is None or callable(exact)):
         raise ValueError("Sol requires a resolved dense attention reference and its identity")
-    global _DENSE, _DENSE_IDENTITY
-    _DENSE, _DENSE_IDENTITY = call, identity
+    global _DENSE, _DENSE_IDENTITY, _EXACT
+    _DENSE, _DENSE_IDENTITY, _EXACT = call, identity, exact
+
+
+def binding() -> tuple[Callable[..., Tensor] | None, str, Callable[..., Tensor] | None]:
+    """The dense reference bound now, for `rebind` after a request changes it."""
+    return _DENSE, _DENSE_IDENTITY, _EXACT
+
+
+def rebind(held: tuple[Callable[..., Tensor] | None, str, Callable[..., Tensor] | None]) -> None:
+    global _DENSE, _DENSE_IDENTITY, _EXACT
+    _DENSE, _DENSE_IDENTITY, _EXACT = held
 
 
 def dense_identity(kernel: str = "sol-attn") -> str:
@@ -239,6 +254,14 @@ def _dense(query: Tensor, key: Tensor, value: Tensor, scale: float | None) -> Te
     return output
 
 
+def _exact(query: Tensor, key: Tensor, value: Tensor, scale: float | None) -> Tensor:
+    if _EXACT is None:
+        return _dense(query=query, key=key, value=value, scale=scale)
+    output = _EXACT(query=query, key=key, value=value, scale=scale)
+    _validate_result(output, query)
+    return output
+
+
 def _validate_result(output: Tensor, query: Tensor) -> None:
     import torch
 
@@ -251,15 +274,17 @@ def _validate_result(output: Tensor, query: Tensor) -> None:
         raise ValueError("attention backend returned incompatible output")
 
 
-#: Upstream's CuTe routes. Only SM90's kernel is specialized on the live length, and only
-#: through `make_kernel`'s static route layout: 64-token blocks, grouped 64 at a time, the tail
-#: group's block count, and whether the last block is full. Every operand layout is dynamic,
-#: so its object is a function of (blocks, full), never of the exact count. The other routes'
-#: `make_kernel()` takes nothing: one object per card serves every length. SM103 (B300) runs
-#: SM100's kernel, compiled for its own target, through upstream's SM100 dispatch (`_DISPATCH`).
-ROUTES = {(8, 9): "sm89", (9, 0): "sm90", (10, 0): "sm100", (10, 3): "sm100", (12, 0): "sm120"}
-#: The capability upstream's dispatch knows a route by, where the card's own is not it.
-_DISPATCH = {(10, 3): (10, 0)}
+#: tcgen05's route: Sol on FA4's block-sparse forward (`attention_sol_fa4`). Upstream's SM100
+#: kernel ran its exact blocks at 0.55 PF on a B200, FA4 at 1.2 PF in BF16 and 1.72 PF in FP8
+#: (h3a-093).
+FA4 = "fa4"
+#: Upstream's CuTe routes, and the capability each one's calling convention names. Only sm90's
+#: kernel is specialized on the live length, and only through `make_kernel`'s static route
+#: layout: 64-token blocks, grouped 64 at a time, the tail group's block count, and whether the
+#: last block is full. Every operand layout is dynamic, so its object is a function of
+#: (blocks, full), never of the exact count. The other routes' `make_kernel()` takes nothing:
+#: one object per card serves every length.
+ROUTES = {"sm89": (8, 9), "sm90": (9, 0), "sm120": (12, 0)}
 _BLOCK = 64
 #: Loaded objects by key digest; one serves every head count, batch and device (h3a-087).
 _KERNELS: dict[str, Loaded] = {}
@@ -273,20 +298,40 @@ _DLPACK_CUDA = 2
 _SCALE = 128**-0.5
 
 
+def route(capability: tuple[int, int]) -> str:
+    """Sol's route on this card's row: FA4's on tcgen05, upstream's sm90 on wgmma, sm120 on
+    block-scaled mma.sync (fp4 rows), sm89 on the other fp8 mma.sync rows; else none."""
+    row = arch.row(capability[0] * 10 + capability[1])
+    if row.family == arch.TCGEN05:
+        return FA4
+    if row.family == arch.WGMMA:
+        return "sm90"
+    if row.family == arch.MMA_SYNC and row.fp8:
+        return "sm120" if row.fp4 else "sm89"
+    return ""
+
+
 def variant(tokens: int, capability: tuple[int, int]) -> dict[str, Any]:
-    """What of this length the card's kernel is compiled for: nothing, except on SM90."""
+    """What of this length the card's kernel is compiled for: nothing, except on sm90's."""
     if type(tokens) is not int or tokens < 1:
         raise ValueError("a Sol variant needs a positive token count")
-    if capability != (9, 0):
+    if route(capability) != "sm90":
         return {}
     return {"blocks": -(-tokens // _BLOCK), "full": tokens % _BLOCK == 0}
 
 
-def _capability(device: Device) -> tuple[int, int] | None:
+def _card(device: Device) -> tuple[int, int] | None:
+    """A card with a Sol route."""
     if device.type != "cuda":
         return None
-    found = tuple(import_module("torch").cuda.get_device_capability(device))
-    return (found[0], found[1]) if found in ROUTES else None
+    found = _arch(device)
+    return found if route(found) else None
+
+
+def _capability(device: Device) -> tuple[int, int] | None:
+    """A card whose sparse steps run upstream's own CuTe kernel, which compiles here."""
+    found = _card(device)
+    return found if found is not None and route(found) in ROUTES else None
 
 
 def target(capability: tuple[int, int]) -> str:
@@ -328,11 +373,11 @@ def sol_library() -> dict[str, Any]:
 def job(tokens: int, capability: tuple[int, int]) -> kernel_compile.Job:
     """The compile of the object serving `tokens` on this card: GPU-less, the DSL's target
     imposed before it imports."""
-    arch = target(capability)
+    spelled = target(capability)
     shape = variant(tokens, capability)
     inputs = {
         "library": sol_library(),
-        "target": arch,
+        "target": spelled,
         "driver": accel.driver_version(),
         "options": OPTIONS,
         "variant": shape,
@@ -340,8 +385,8 @@ def job(tokens: int, capability: tuple[int, int]) -> kernel_compile.Job:
     return kernel_compile.Job(
         "sol",
         kernel_cache.Key.of(KERNEL, inputs),
-        {"route": ROUTES[capability], **shape},
-        {"CUDA_VISIBLE_DEVICES": "", "CUTE_DSL_ARCH": arch},
+        {"route": route(capability), **shape},
+        {"CUDA_VISIBLE_DEVICES": "", "CUTE_DSL_ARCH": spelled},
     )
 
 
@@ -389,41 +434,14 @@ def compile_variant(route: str, blocks: int = 0, full: bool = False) -> bytes:
         tokens = blocks * _BLOCK if full else blocks * _BLOCK - 1
         operator, scalars = upstream.make_kernel(tokens, 1), (0,)  # the sink range, packed
     else:
-        operator = upstream.forward if route == "sm100" else upstream.make_kernel()
-        scalars = (0, 0)  # the sink's first and last block
-    with _architecture_answers():
-        compiled = cute.compile(
-            operator, *arguments, _SCALE, *scalars, stream=cuda.CUstream(0), options=OPTIONS
-        )
+        operator, scalars = upstream.make_kernel(), (0, 0)  # the sink's first and last block
+    compiled = cute.compile(
+        operator, *arguments, _SCALE, *scalars, stream=cuda.CUstream(0), options=OPTIONS
+    )
     with tempfile.TemporaryDirectory(prefix="cozy-kernel-") as scratch:
         path = Path(scratch) / "kernel.o"
         compiled.export_to_c(object_file_path=str(path), function_name=FUNCTION)
         return path.read_bytes()
-
-
-@contextmanager
-def _architecture_answers() -> Iterator[None]:
-    """CuTe-DSL asks the driver one device fact while tracing: a launch with
-    `min_blocks_per_mp > 1` (SM100's) sizes its shared-memory carveout from the card's shared
-    memory per SM. A GPU-less build has no driver to ask (`CUDA_ERROR_NOT_INITIALIZED`), and the
-    target fixes the answer: the DSL's own per-block capacity plus the 1 KiB a block reserves."""
-    helpers = import_module("cutlass.base_dsl.runtime.cuda")
-    dsl = import_module("cutlass.cutlass_dsl")
-    asked = helpers.get_device_attribute
-    attributes = helpers.cuda.CUdevice_attribute
-    per_sm = attributes.CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_MULTIPROCESSOR
-
-    def answer(attribute: Any, device_id: int = 0) -> Any:
-        if attribute != per_sm:
-            return asked(attribute, device_id)
-        arch = dsl.CuTeDSL._get_dsl().get_arch_enum()
-        return dsl.SMEM_CAPACITY_MAP[f"sm_{arch.major}{arch.minor}"] + 1024
-
-    helpers.get_device_attribute = answer
-    try:
-        yield
-    finally:
-        helpers.get_device_attribute = asked
 
 
 def build(spec: dict[str, Any], staging: Path, report: Callable[..., None]) -> dict[str, object]:
@@ -504,7 +522,7 @@ def specialize(tokens: int, device: Device, step: int) -> None:
 def card_jobs(store: kernel_cache.Store, capability: tuple[int, int]) -> list[kernel_compile.Job]:
     """What a card compiles ahead of any request: its one object, or on SM90, whose object is
     per length layout, every layout this machine has served."""
-    if capability != (9, 0):
+    if route(capability) != "sm90":
         return [_job_for(1, capability)]
     return kernel_compile.learned(store, _scope(capability))
 
@@ -516,7 +534,7 @@ def submit_card(index: int) -> None:
     store = kernel_cache.configured()
     if capability is None or store is None:
         return
-    if capability != (9, 0):
+    if route(capability) != "sm90":
         specialize(1, device, -2)
         return
     for found in card_jobs(store, capability):
@@ -601,14 +619,14 @@ def _native(
     every KV block. This does not perform the wrapper's protected-query recomputation."""
     _pin_preprocess()
     batch, tokens, heads, _ = query.shape
-    arch = _dispatch(query.device)
+    named = ROUTES[route(_arch(query.device))]  # the calling convention upstream branches on
     interface = import_module("sol_attn.interface")
-    interface._compiled[(query.device.index, arch, batch, tokens, heads, 1)] = loaded
+    interface._compiled[(query.device.index, named, batch, tokens, heads, 1)] = loaded
     return interface._sol_attn_cute(
         query.contiguous(),
         key.contiguous(),
         value.contiguous(),
-        arch=arch,
+        arch=named,
         scale=_SCALE if scale is None else float(scale),
         tau=1.0,
         thresh_type="exact",
@@ -662,7 +680,6 @@ def _attention(
     sparse: Callable[..., Tensor] | None = None,
     dense: Callable[..., Tensor] = _dense,
     prefix_dense: Callable[..., Tensor] | None = None,
-    validate_device: Callable[[Device], None] | None = None,
 ) -> Tensor:
     """Shared input and model-policy boundary for the opt-in sparse implementations."""
     import torch
@@ -687,10 +704,8 @@ def _attention(
         t.dtype != torch.bfloat16 or t.device != query.device or t.requires_grad for t in tensors
     ):
         raise ValueError("Sol requires BF16 inference inputs on one device")
-    if validate_device is not None:
-        validate_device(query.device)
-    elif _capability(query.device) is None:
-        raise ValueError(f"Sol serves upstream's CuTe routes only: {sorted(ROUTES.values())}")
+    if sparse is None and _card(query.device) is None:
+        raise ValueError(f"Sol has no route on {query.device}")
     if scale is not None and not math.isfinite(scale):
         raise ValueError("attention scale must be finite")
     return _execute(
@@ -706,16 +721,19 @@ def _attention(
     )
 
 
-def _dispatch(device: Device | int) -> tuple[int, int]:
+def _arch(device: Device | int) -> tuple[int, int]:
     found = tuple(import_module("torch").cuda.get_device_capability(device))
-    capability = (found[0], found[1])
-    return _DISPATCH.get(capability, capability)
+    return (found[0], found[1])
 
 
 def backend(device: Device | int) -> str:
-    """The route upstream selects for this card's route: `cute_<sm>`, or its silent Triton
-    fallback."""
-    return str(import_module("sol_attn.interface")._backend_for_arch(_dispatch(device)))
+    """The route this card's sparse steps take: FA4's block-sparse forward, else upstream's
+    `cute_<route>` where its DSL imports, else none (upstream would fall back to Triton)."""
+    found = route(_arch(device))
+    if found == FA4:
+        return "fa4_block_sparse"
+    available = found and import_module("sol_attn.interface")._cute_runtime_available()
+    return f"cute_{found}" if available else "none"
 
 
 SOL = Local(sol_attention, lambda query, *_: backend(query.device))
@@ -736,7 +754,12 @@ def _execute(
     """Apply the model's explicit policy after hardware/operand validation."""
     import torch
 
-    dense_path = any(site.path == p or site.path.startswith(p + ".") for p in layout.dense_paths)
+    def on(paths: tuple[str, ...]) -> bool:
+        return any(site.path == p or site.path.startswith(p + ".") for p in paths)
+
+    dense_path = on(layout.dense_paths)
+    if dense is _dense and on(layout.exact_paths):
+        dense = _exact
     if dense_path and query.shape[1] < layout.live_tokens:
         # A refiner has its own shorter document; its explicit dense policy wins.
         output = dense(query=query, key=key, value=value, scale=scale)
@@ -745,17 +768,36 @@ def _execute(
     if layout.live_tokens > query.shape[1]:
         raise ValueError("attention layout exceeds Q/K/V sequence length")
     q, k, v = (t[:, : layout.live_tokens] for t in (query, key, value))
+    card = _card(query.device)
+    fa4 = sparse is None and card is not None and route(card) == FA4
     loaded = None
-    if not dense_path and sparse is None:
+    if not dense_path and sparse is None and not fa4:
         # The dense steps run on the GPU while this length's variant compiles on the CPU.
         specialize(layout.live_tokens, query.device, layout.step)
         if layout.step >= layout.dense_until_step:
             loaded = _ready(layout.live_tokens, query.device, layout.step)
-    if dense_path or layout.step < layout.dense_until_step or (sparse is None and loaded is None):
+    if (
+        dense_path
+        or layout.step < layout.dense_until_step
+        or (sparse is None and not fa4 and loaded is None)
+    ):
         # A dense step, a dense path, or a sparse step whose variant failed to compile: the
         # dense reference serves it.
         live_output = dense(query=q, key=k, value=v, scale=scale)
         _count("dense_path" if dense_path else "dense_step")
+    elif fa4:
+        # The exact tiles take the dense rows' precision; the model's exact paths stay BF16.
+        # The protected prefix's query tiles attend every key inside the same call.
+        live_output = import_module("cozy_runtime.internal.attention_sol_fa4").sparse(
+            q.contiguous(),
+            k.contiguous(),
+            v.contiguous(),
+            scale,
+            layout.protected_prefix,
+            fp8=_EXACT is not None and dense is _dense,
+        )
+        _validate_result(live_output, q)
+        _count("sparse")
     else:
         if sparse is not None:
             live_output = sparse(q, k, v, scale, layout.protected_prefix)

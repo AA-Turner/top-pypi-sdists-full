@@ -9495,7 +9495,7 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, Qu
         """
         ...
 
-    def copy(self) -> typing.Dict[typing.Any, typing.Any]:
+    def copy(self) -> typing.Dict[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue]:
         """
         Creates a shallow copy of the IExtendedDictionary{TKey, TValue}.
         
@@ -9504,7 +9504,7 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, Qu
         ...
 
     @overload
-    def fromkeys(self, sequence: typing.List[QuantConnect_ExtendedDictionary_TKey]) -> typing.Dict[typing.Any, typing.Any]:
+    def fromkeys(self, sequence: typing.List[QuantConnect_ExtendedDictionary_TKey]) -> typing.Dict[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue]:
         """
         Creates a new dictionary from the given sequence of elements.
         
@@ -9514,7 +9514,7 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, Qu
         ...
 
     @overload
-    def fromkeys(self, sequence: typing.List[QuantConnect_ExtendedDictionary_TKey], value: QuantConnect_ExtendedDictionary_TValue) -> typing.Dict[typing.Any, typing.Any]:
+    def fromkeys(self, sequence: typing.List[QuantConnect_ExtendedDictionary_TKey], value: QuantConnect_ExtendedDictionary_TValue) -> typing.Dict[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue]:
         """
         Creates a new dictionary from the given sequence of elements with a value provided by the user.
         
@@ -9556,7 +9556,7 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, Qu
         """
         ...
 
-    def items(self) -> typing.List[typing.Any]:
+    def items(self) -> typing.List[typing.Tuple[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue]]:
         """
         Returns a view object that displays a list of dictionary's (key, value) tuple pairs.
         
@@ -9564,7 +9564,7 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, Qu
         """
         ...
 
-    def keys(self) -> typing.List[typing.Any]:
+    def keys(self) -> typing.List[QuantConnect_ExtendedDictionary_TKey]:
         """
         Returns a view object that displays a list of all the key objects in the dictionary
         
@@ -9596,7 +9596,7 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, Qu
         """
         ...
 
-    def popitem(self) -> typing.Any:
+    def popitem(self) -> typing.Tuple[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue]:
         """
         Returns and removes an arbitrary element (key, value) pair from the dictionary.
         
@@ -9657,7 +9657,7 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, Qu
         """
         ...
 
-    def values(self) -> typing.List[typing.Any]:
+    def values(self) -> typing.List[QuantConnect_ExtendedDictionary_TValue]:
         """
         Returns a view object that displays a list of all the values in the dictionary.
         

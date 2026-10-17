@@ -65,8 +65,12 @@ This tool supports the following operations:
 6. get_ecs_service_recommendations: Get recommendations for ECS services
 7. get_idle_recommendations: Get idle resource recommendations across supported resource types
 
-Each call is scoped to one region (the `region` parameter) and optionally one account ID,
-and can be narrowed with `filters`, a JSON array of {"name": ..., "values": [...]}.
+Each call is scoped to one region (the `region` parameter) and one account, and can be
+narrowed with `filters`, a JSON array of {"name": ..., "values": [...]}.
+`account_ids` accepts at most ONE account ID, as a JSON array: '["123456789012"]'. Two or
+more are rejected; make one call per account. Omit it to get the caller's own account. From
+an organization's management account or delegated administrator, set it to target a
+member account (or the management account).
 Accepted filter names:
 - get_ec2_instance_recommendations: Finding (Underprovisioned, Overprovisioned, Optimized),
   FindingReasonCodes (e.g. CPUOverprovisioned, MemoryUnderprovisioned),
@@ -154,7 +158,7 @@ async def compute_optimizer(
         max_results: Maximum number of results per page (up to 1000; up to 100 for
             get_idle_recommendations)
         filters: Optional filter expression as JSON string
-        account_ids: Optional list of AWS account IDs as JSON array string
+        account_ids: Optional JSON array with a single AWS account ID, e.g. '["123456789012"]'
         next_token: Optional pagination token from a previous response
         resource_arns: Optional JSON array of resource ARNs to return recommendations for
         order_by: get_idle_recommendations only. Optional JSON object
@@ -243,6 +247,9 @@ async def compute_optimizer(
                             'aws_region': region or os.environ.get('AWS_REGION', 'us-east-1'),
                         },
                         'Compute Optimizer is not active. Please activate the service in the AWS Console first.',
+                        error_type='enrollment_error',
+                        operation=operation,
+                        service=_CO_SERVICE_NAME,
                     )
 
         except ClientError as e:
@@ -331,6 +338,9 @@ async def compute_optimizer(
                     ],
                 },
                 f"Unsupported operation: {operation}. Use 'get_ec2_instance_recommendations', 'get_auto_scaling_group_recommendations', 'get_ebs_volume_recommendations', 'get_lambda_function_recommendations', 'get_rds_recommendations', 'get_ecs_service_recommendations' or 'get_idle_recommendations'.",
+                error_type='invalid_operation',
+                operation=operation,
+                service=_CO_SERVICE_NAME,
             )
 
     except ClientError as e:

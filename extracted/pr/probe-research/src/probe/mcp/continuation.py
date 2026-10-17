@@ -370,7 +370,7 @@ def _text_document(tool: str, args: dict, payload: dict) -> tuple[list, str] | N
         if isinstance(doc, dict) and isinstance(doc.get("markdown"), str):
             return prefix + ["readme", "markdown"], doc["markdown"]
     if view == "notes":
-        for key in ("project_notes", "experiment_notes", "run_notes", "group_notes", "notes"):
+        for key in ("project_notes", "experiment_notes", "run_notes", "notes"):
             doc = data.get(key)
             if isinstance(doc, str):
                 return prefix + [key], doc

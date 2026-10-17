@@ -110,7 +110,10 @@ class DatumInContext:
     ) -> None:
         self.__value__ = value
         self.path = path or This()
-        self.context = None if context is None else DatumInContext.wrap(context)
+        # This is a hot path, so avoid the overhead of calling `wrap()`.
+        if context is not None and not isinstance(context, DatumInContext):
+            context = DatumInContext(context)
+        self.context = context
 
     @property
     def value(self):
@@ -480,108 +483,90 @@ class Descendants(JSONPath):
     def find(self, datum):
         # <left> .. <right> ==> <left> . (<right> | *..<right> | [*]..<right>)
         #
-        # With with a wonky caveat that since Slice() has funky coercions
-        # we cannot just delegate to that equivalence or we'll hit an
-        # infinite loop. So right here we implement the coercion-free version.
+        # This walks the data directly instead of delegating to that equivalence.
 
         # Get all left matches into a list
         left_matches = self.left.find(datum)
+
+        # TODO: Remove this condition once all `find()` methods return lists.
         if not isinstance(left_matches, list):
             left_matches = [left_matches]
 
-        def match_recursively(datum):
-            right_matches = self.right.find(datum)
+        # Walk the data depth-first and in pre-order using an explicit stack.
+        # The next datum to visit is at the end of the list (which is cheap to pop),
+        # so children are pushed in reverse to be visited in their natural order.
+        right_find = self.right.find
+        matches: list[DatumInContext] = []
+        stack = left_matches[::-1]
+        while stack:
+            datum = stack.pop()
+            matches.extend(right_find(datum))
 
-            # Manually do the * or [*] to avoid coercion
-            # and recurse just the right-hand pattern
-            if isinstance(datum.value, list):
-                recursive_matches = [
-                    submatch
-                    for i in range(0, len(datum.value))
-                    for submatch in match_recursively(
-                        DatumInContext(datum.value[i], context=datum, path=Index(i))
-                    )
+            value = datum.value
+            if isinstance(value, list):
+                children = [
+                    DatumInContext(child, context=datum, path=Index(i))
+                    for i, child in enumerate(value)
                 ]
+                children.reverse()
+                stack.extend(children)
+            elif isinstance(value, dict):
+                stack.extend(
+                    DatumInContext(child, context=datum, path=Fields(field))
+                    for field, child in reversed(value.items())
+                )
 
-            elif isinstance(datum.value, dict):
-                recursive_matches = [
-                    submatch
-                    for field in datum.value.keys()
-                    for submatch in match_recursively(
-                        DatumInContext(
-                            datum.value[field], context=datum, path=Fields(field)
-                        )
-                    )
-                ]
-
-            else:
-                recursive_matches = []
-
-            return right_matches + list(recursive_matches)
-
-        # TODO: repeatable iterator instead of list?
-        return [
-            submatch
-            for left_match in left_matches
-            for submatch in match_recursively(left_match)
-        ]
+        return matches
 
     def is_singular(self):
         return False
 
     def update(self, data, val):
-        # Get all left matches into a list
+        # Get all left matches into a list.
         left_matches = self.left.find(data)
+
+        # TODO: Remove this condition once all `find()` methods return lists.
         if not isinstance(left_matches, list):
             left_matches = [left_matches]
 
-        def update_recursively(data):
-            # Update only mutable values corresponding to JSON types
-            if not (isinstance(data, list) or isinstance(data, dict)):
-                return
+        # Walk the data depth-first and in pre-order using an explicit stack.
+        # Children are pushed in reverse to be visited in their natural order.
+        stack = [submatch.value for submatch in reversed(left_matches)]
+        while stack:
+            node = stack.pop()
 
-            self.right.update(data, val)
+            # Update only mutable values corresponding to JSON types.
+            if not isinstance(node, (list, dict)):
+                continue
 
-            # Manually do the * or [*] to avoid coercion
-            # and recurse just the right-hand pattern
-            if isinstance(data, list):
-                for i in range(0, len(data)):
-                    update_recursively(data[i])
+            self.right.update(node, val)
 
-            elif isinstance(data, dict):
-                for field in data.keys():
-                    update_recursively(data[field])
-
-        for submatch in left_matches:
-            update_recursively(submatch.value)
+            # Manually visit every child and recurse just the right-hand pattern.
+            # The children are read after the update, which may have changed them.
+            stack.extend(reversed(node if isinstance(node, list) else node.values()))
 
         return data
 
     def filter(self, fn, data):
-        # Get all left matches into a list
+        # Get all left matches into a list.
         left_matches = self.left.find(data)
+
+        # TODO: Remove this condition once all `find()` methods return lists.
         if not isinstance(left_matches, list):
             left_matches = [left_matches]
 
-        def filter_recursively(data):
-            # Update only mutable values corresponding to JSON types
-            if not (isinstance(data, list) or isinstance(data, dict)):
-                return
+        stack = [submatch.value for submatch in reversed(left_matches)]
+        while stack:
+            node = stack.pop()
 
-            self.right.filter(fn, data)
+            # Filter only mutable values corresponding to JSON types.
+            if not isinstance(node, (list, dict)):
+                continue
 
-            # Manually do the * or [*] to avoid coercion
-            # and recurse just the right-hand pattern
-            if isinstance(data, list):
-                for i in range(0, len(data)):
-                    filter_recursively(data[i])
+            self.right.filter(fn, node)
 
-            elif isinstance(data, dict):
-                for field in data.keys():
-                    filter_recursively(data[field])
-
-        for submatch in left_matches:
-            filter_recursively(submatch.value)
+            # The children are read after the filter, which may have removed some.
+            stack.extend(reversed(node if isinstance(node, list) else node.values()))
 
         return data
 
@@ -686,10 +671,14 @@ class Fields(JSONPath):
 
     WARNING: If '*' is any of the field names, then they will
     all be returned.
+    The wildcard also selects all of the elements of an array.
     """
 
     def __init__(self, *fields) -> None:
         self.fields = fields
+
+    def _is_wildcard_on_array(self, value) -> bool:
+        return "*" in self.fields and isinstance(value, (list, tuple))
 
     @staticmethod
     def get_field_datum(datum, field, create):
@@ -724,6 +713,8 @@ class Fields(JSONPath):
 
     def _find_base(self, datum, create):
         datum = DatumInContext.wrap(datum)
+        if self._is_wildcard_on_array(datum.value):
+            return Slice().find(datum)
         field_data = [
             self.get_field_datum(datum, field, create)
             for field in self.reified_fields(datum)
@@ -731,6 +722,8 @@ class Fields(JSONPath):
         return [fd for fd in field_data if fd is not None]
 
     def update(self, data, val):
+        if "*" in self.fields and isinstance(data, list):
+            return Slice().update(data, val)
         if not hasattr(data, "get"):
             return data
         return self._update_base(data, val, create=False)
@@ -753,6 +746,8 @@ class Fields(JSONPath):
         return data
 
     def filter(self, fn, data):
+        if "*" in self.fields and isinstance(data, list):
+            return Slice().filter(fn, data)
         if data is not None and isinstance(data, dict):
             for field in self.reified_fields(DatumInContext.wrap(data)):
                 if field in data:
@@ -810,11 +805,8 @@ class Index(JSONPath):
                 datum.value = _create_list_key(datum.value)
             self._pad_value(datum.value)
         rv = []
-        if isinstance(datum.value, dict):
-            # Integer indices apply to sequences, not mappings. A dict passes
-            # the len() check below but datum.value[index] is a key lookup that
-            # raises KeyError, so match nothing instead (as the class docstring
-            # promises) -- e.g. ``$.*[0]`` where ``*`` matched a dict value.
+        if not isinstance(datum.value, (list, tuple)):
+            # Integer indices only apply to arrays.
             return rv
         for index in self.indices:
             # invalid indices do not crash, return [] instead
@@ -886,25 +878,10 @@ class Slice(JSONPath):
     """
     JSONPath matching a slice of an array.
 
-    Because of a mismatch between JSON and XML when schema-unaware,
-    this always returns an iterable; if the incoming data
-    was not a list, then it returns a one element list _containing_ that
-    data.
-
-    Consider these two docs, and their schema-unaware translation to JSON:
-
-    <a><b>hello</b></a> ==> {"a": {"b": "hello"}}
-    <a><b>hello</b><b>goodbye</b></a> ==> {"a": {"b": ["hello", "goodbye"]}}
-
-    If there were a schema, it would be known that "b" should always be an
-    array (unless the schema were wonky, but that is too much to fix here)
-    so when querying with JSON if the one writing the JSON knows that it
-    should be an array, they can write a slice operator and it will coerce
-    a non-array value to an array.
-
-    This may be a bit unfortunate because it would be nice to always have
-    an iterator, but dictionaries and other objects may also be iterable,
-    so this is the compromise.
+    The wildcard ``[*]`` (a slice with no parameters) matches all the elements
+    of an array and all the member values of an object.
+    Slices match nothing when applied to a value that is not an array,
+    and the wildcard matches nothing when applied to a scalar value.
     """
 
     def __init__(self, start=None, end=None, step=None) -> None:
@@ -915,30 +892,27 @@ class Slice(JSONPath):
     def find(self, datum):
         datum = DatumInContext.wrap(datum)
 
-        # Used for catching null value instead of empty list in path
-        if datum.value is None:
-            return []
-        # Here's the hack. If it is a dictionary or some kind of constant,
-        # put it in a single-element list
-        if isinstance(datum.value, dict) or isinstance(
-            datum.value, (int, float, str, bool)
-        ):
-            return self.find(
-                DatumInContext([datum.value], path=datum.path, context=datum.context)
-            )
+        is_wildcard = self.start is None and self.end is None and self.step is None
 
-        # Some iterators do not support slicing but we can still
-        # at least work for '*'
-        if self.start is None and self.end is None and self.step is None:
+        if is_wildcard and isinstance(datum.value, dict):
             return [
-                DatumInContext(datum.value[i], path=Index(i), context=datum)
-                for i in range(0, len(datum.value))
+                DatumInContext(value, path=Fields(field), context=datum)
+                for field, value in datum.value.items()
             ]
-        else:
+
+        if not isinstance(datum.value, (list, tuple)):
+            return []
+
+        if is_wildcard:
             return [
-                DatumInContext(datum.value[i], path=Index(i), context=datum)
-                for i in range(0, len(datum.value))[self.start : self.end : self.step]
+                DatumInContext(child, path=Index(i), context=datum)
+                for i, child in enumerate(datum.value)
             ]
+
+        return [
+            DatumInContext(datum.value[i], path=Index(i), context=datum)
+            for i in range(0, len(datum.value))[self.start : self.end : self.step]
+        ]
 
     def update(self, data, val):
         for datum in self.find(data):

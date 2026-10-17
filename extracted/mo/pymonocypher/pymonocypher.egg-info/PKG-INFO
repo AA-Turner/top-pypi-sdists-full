@@ -1,26 +1,24 @@
 Metadata-Version: 2.4
 Name: pymonocypher
-Version: 4.0.3.4
+Version: 4.0.3.5
 Summary: Python ctypes bindings to the Monocypher library
 Home-page: https://github.com/jetperch/pymonocypher
 Author: Jetperch LLC
 Author-email: joulescope-dev@jetperch.com
-License: BSD 2-clause
+License-Expression: BSD-2-Clause OR CC0-1.0
 Project-URL: Bug Reports, https://github.com/jetperch/pymonocypher/issues
 Project-URL: Source, https://github.com/jetperch/pymonocypher/
 Keywords: cryto cryptography monocypher chacha blake2b 25519
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
-Classifier: License :: CC0 1.0 Universal (CC0 1.0) Public Domain Dedication
 Classifier: Natural Language :: English
 Classifier: Topic :: Security :: Cryptography
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: C
-Requires-Python: ~=3.11
+Requires-Python: ~=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Dynamic: author
@@ -30,8 +28,8 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
+Dynamic: license-expression
 Dynamic: project-url
 Dynamic: requires-python
 Dynamic: summary

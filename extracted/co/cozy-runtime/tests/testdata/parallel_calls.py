@@ -70,8 +70,6 @@ class Collective(torch.nn.Module):  # type: ignore[misc]  # torch is optional in
             return value
         if fail and torch.distributed.get_rank() > 0:
             raise ValueError("follower failed before joining the collective")
-        if fail_leader and torch.distributed.get_rank() == 0:
-            raise RuntimeError("GPU 0 ran out of memory")
         rank = torch.distributed.get_rank()
         nccl = torch.distributed.get_backend() == "nccl"
         result = value.detach().clone() if nccl else value.detach().cpu().clone()
@@ -79,6 +77,8 @@ class Collective(torch.nn.Module):  # type: ignore[misc]  # torch is optional in
         if counted:
             self.seen.add_(1)  # in place, in a buffer the call did not make
             result = result + self.seen.to(result.device)
+        if fail_leader and rank == 0:
+            raise RuntimeError("GPU 0 ran out of memory")
         if oom_before and rank > 0:
             # A follower's first `oom_before` calls run out of memory before the collective:
             # GPU 0 waits in it until the group's collectives are aborted.
@@ -152,9 +152,9 @@ class ModelCalls(Model[object]):
             return self.block(value, leader_skips=True)
 
     @uses_components("block", "overlay")
-    def fail_on_leader(self) -> None:
+    def fail_on_leader(self, counted: bool = False) -> None:
         with torch.no_grad():
-            self.block(torch.ones(1), fail_leader=True)
+            self.block(torch.ones(1), fail_leader=True, counted=counted)
 
 
 def collective_model() -> ModelCalls:
@@ -345,7 +345,7 @@ def h3_model(*, adapters: bool = False) -> H3Calls:
         rope_freq_dim=2,
     ).eval()
     # Runtime's own selection: its SDPA runs through the Ulysses wrapper on sharded sites.
-    attention.install(attention.available(DeviceFacts("cpu", "CPU", 0, "", "", 0)), {"dit": dit})
+    attention.select(DeviceFacts("cpu", "CPU", 0, "", "", 0), {"dit": dit})
 
     def no_grad(module: Any, args: Any) -> None:
         assert not torch.is_grad_enabled()

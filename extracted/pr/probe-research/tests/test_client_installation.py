@@ -649,3 +649,63 @@ def test_settings_registers_the_machine_once(monkeypatch) -> None:
     )
 
     assert [body["capture"] for body in bodies] == ["installed"]
+
+
+def test_an_update_cannot_report_a_removal() -> None:
+    """REGRESSION (one customer, 2026-10-15, CLI 0.258.0): a session-start
+    Update reached fewer agents than the last report, read capture `absent`
+    and posted "Probe removed from a machine"; the next session's Update put
+    it back. An update changes versions, never settings: what it does not see
+    is `unknown` -- which the server keeps as it was -- never `absent`."""
+    sees_less = _agent("claude_code", tracking=True, capture=False)
+
+    report = client_installation.snapshot(sees_less, reports_removals=False)
+    assert (report["tracking"], report["capture"]) == ("installed", "unknown")
+    # The same reading from a run that CAN remove is still a removal.
+    assert client_installation.snapshot(sees_less)["capture"] == "absent"
+
+
+def test_one_update_pass_makes_the_merged_run_removal_free(monkeypatch) -> None:
+    bodies = _recording_client(monkeypatch)
+
+    with client_installation.merged_registration():
+        client_installation.register(
+            _agent("claude_code", capture=False), settings=SETTINGS, reports_removals=False
+        )
+        client_installation.register(_agent("codex", capture=False), settings=SETTINGS)
+
+    assert [(body["tracking"], body["capture"]) for body in bodies] == [("installed", "unknown")]
+
+
+def test_the_update_action_registers_without_removals(monkeypatch) -> None:
+    """The flag must reach the one registration Update makes, or the guard
+    above is dead code."""
+    import importlib
+
+    from probe.cli import actions, doctor, upgrading
+
+    cli_main = importlib.import_module("probe.cli.main")
+    bodies = _recording_client(monkeypatch)
+    after = _agent("claude_code", capture=False)
+    monkeypatch.setattr(doctor, "collect", lambda: after)
+    monkeypatch.setattr(cli_main, "resolve", lambda **_kwargs: SETTINGS)
+    monkeypatch.setattr(
+        upgrading,
+        "perform_update",
+        lambda **_kwargs: type("Outcome", (), {"lines": [], "restart_needed": False})(),
+    )
+
+    cli_main._run_wizard_action(
+        actions.Action.UPDATE,
+        caps=after,
+        base_now="https://api.test",
+        yes=True,
+        tracking=None,
+        capture=None,
+        auto_update=None,
+        agent_rules=None,
+        uninstall=False,
+        configured=True,
+    )
+
+    assert [(body["tracking"], body["capture"]) for body in bodies] == [("installed", "unknown")]

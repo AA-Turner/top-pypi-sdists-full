@@ -13,16 +13,12 @@ from langsmith.integrations.otel import (
 
 
 def test_run_id_from_int_known_vector():
-    assert langsmith_run_id_from_otel_span_id(1) == uuid.UUID(
-        "00000000-0000-0000-0000-000000000001"
-    )
+    assert langsmith_run_id_from_otel_span_id(1) == uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 def test_run_id_from_int_multibyte():
     span_id = 0x0102030405060708
-    assert langsmith_run_id_from_otel_span_id(span_id) == uuid.UUID(
-        "00000000-0000-0000-0102-030405060708"
-    )
+    assert langsmith_run_id_from_otel_span_id(span_id) == uuid.UUID("00000000-0000-0000-0102-030405060708")
 
 
 def test_run_id_from_bytes_known_vector():
@@ -33,16 +29,14 @@ def test_run_id_from_bytes_known_vector():
 
 def test_run_id_from_bytes_multibyte():
     span_id = (0x0102030405060708).to_bytes(8, "big")
-    assert langsmith_run_id_from_otel_span_id(span_id) == uuid.UUID(
-        "00000000-0000-0000-0102-030405060708"
-    )
+    assert langsmith_run_id_from_otel_span_id(span_id) == uuid.UUID("00000000-0000-0000-0102-030405060708")
 
 
 def test_int_and_bytes_agree():
     span_id_int = 0xABCDEF1234567890
-    assert langsmith_run_id_from_otel_span_id(
-        span_id_int
-    ) == langsmith_run_id_from_otel_span_id(span_id_int.to_bytes(8, "big"))
+    assert langsmith_run_id_from_otel_span_id(span_id_int) == langsmith_run_id_from_otel_span_id(
+        span_id_int.to_bytes(8, "big")
+    )
 
 
 def test_low_level_helper_no_opentelemetry_import():
@@ -106,9 +100,7 @@ def test_lazy_processor_exports_still_accessible():
 def _make_client():
     client = MagicMock()
     client._host_url = "https://smith.langchain.com"
-    client._get_tenant_id.return_value = uuid.UUID(
-        "11111111-1111-1111-1111-111111111111"
-    )
+    client._get_tenant_id.return_value = uuid.UUID("11111111-1111-1111-1111-111111111111")
     return client
 
 

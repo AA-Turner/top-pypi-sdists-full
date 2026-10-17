@@ -43,9 +43,7 @@ def mock_client() -> Client:
 
 @pytest.fixture(autouse=True)
 def _patch_cached_client(mock_client, monkeypatch):
-    monkeypatch.setattr(
-        "langsmith.run_trees.get_cached_client", lambda **_: mock_client
-    )
+    monkeypatch.setattr("langsmith.run_trees.get_cached_client", lambda **_: mock_client)
 
 
 class FakeConnection:
@@ -149,12 +147,7 @@ class TestHelpers:
 
     def test_response_usage_metadata_none_when_absent(self):
         assert response_usage_metadata(NS(usage=None)) is None
-        assert (
-            response_usage_metadata(
-                NS(usage=NS(input_tokens=None, output_tokens=None, total_tokens=None))
-            )
-            is None
-        )
+        assert response_usage_metadata(NS(usage=NS(input_tokens=None, output_tokens=None, total_tokens=None))) is None
 
 
 # --------------------------------------------------------------------------- #
@@ -274,9 +267,7 @@ class TestEndToEnd:
             ),
         ]
         # Agent is "still audible" → the second speech_started is a barge-in.
-        async with wrap_realtime(
-            FakeConnection(events), is_agent_speaking=lambda: True
-        ) as connection:
+        async with wrap_realtime(FakeConnection(events), is_agent_speaking=lambda: True) as connection:
             async for _ in connection:
                 pass
 
@@ -286,9 +277,7 @@ class TestEndToEnd:
         assert meta_first.get("was_interrupted") is True
 
     async def test_max_audio_seconds_bounds_recording(self):
-        async with wrap_realtime(
-            FakeConnection([]), sample_rate=10, max_audio_seconds=1.0
-        ) as connection:
+        async with wrap_realtime(FakeConnection([]), sample_rate=10, max_audio_seconds=1.0) as connection:
             # cap = 1.0s * 10 * 2 = 20 bytes per channel.
             connection.record_user_audio(b"\x00" * 16)  # under cap → kept
             connection.record_user_audio(b"\x00" * 16)  # over cap → kept (pushes over)
@@ -303,9 +292,7 @@ class TestEndToEnd:
         replicas = [{"project_name": "replica-project"}]
         # A speech_started event opens a "turn" child under the root.
         events = [NS(type="input_audio_buffer.speech_started")]
-        async with wrap_realtime(
-            FakeConnection(events), replicas=replicas
-        ) as connection:
+        async with wrap_realtime(FakeConnection(events), replicas=replicas) as connection:
             async for _ in connection:
                 pass
             session = connection._session

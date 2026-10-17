@@ -67,6 +67,7 @@ from local_operator.model.speed import (
     FastModeSupport,
     fast_mode_support,
 )
+from local_operator.providers.account_affinity import set_wire_hint
 from local_operator.providers.context import bind_native_context
 from local_operator.providers.failover import ProviderError
 from local_operator.providers.replay import (
@@ -2205,6 +2206,16 @@ def _message_to_openai(message: Message) -> dict[str, Any]:
     plain_only = True
     for block in message.content:
         if isinstance(block, TextContent):
+            # Same blank-block rule as ``AnthropicClient._message_blocks`` and
+            # for the same reason: a row poisoned before #2460 decodes to an
+            # empty ``TextContent``, and shipping it here re-sends the emptiness
+            # to whatever the openai-compat route forwards to — including
+            # Claude, which refuses the whole request over it. Dropping it is
+            # what lets such a session recover on THIS wire too; the
+            # whole-message backfill below still handles a genuinely
+            # content-less turn.
+            if not block.text.strip():
+                continue
             parts.append({"type": "text", "text": block.text})
         elif isinstance(block, ImageContent):
             plain_only = False
@@ -2315,6 +2326,13 @@ def _messages_to_openai_responses(
         text_type = "output_text" if message.role == "assistant" else "input_text"
         for block in message.content:
             if isinstance(block, TextContent):
+                # Blank dropped, mirroring the chat wire above and
+                # ``AnthropicClient._message_blocks``: the QA round measured
+                # this wire still emitting the poisoned row's empty
+                # ``input_text`` (Q1) because only the zero-block case was
+                # backfilled here.
+                if not block.text.strip():
+                    continue
                 content.append({"type": text_type, "text": block.text})
             elif isinstance(block, ImageContent):
                 content.append(
@@ -2334,11 +2352,46 @@ def _messages_to_openai_responses(
                     "The OpenAI Responses API cannot carry audio input; audio "
                     "requests must use the chat-completions wire."
                 )
+        if not content and message.role == "user":
+            # A user turn with nothing to say is backfilled, not skipped, for
+            # the same reason the Anthropic wire backfills it (see
+            # ``EMPTY_USER_TEXT``) and the same reason Google's builder does
+            # (``parts or [{"text": ""}]``): the turn occupies a role, so
+            # dropping it changes the role sequence. It became reachable when
+            # ``Message.user`` stopped emitting an empty text block (#2460) —
+            # the message now renders zero blocks where it used to render one
+            # blank ``input_text``, and an empty ``content`` array is a shape
+            # this wire has never sent.
+            #
+            # The placeholder rather than ``""`` — the blank part is exactly
+            # what this PR drops everywhere else, so reintroducing it here for
+            # the empty-turn case would leave the shape QA round 1 flagged
+            # (Q1) reachable by another route.
+            content = [{"type": "input_text", "text": EMPTY_USER_TEXT}]
         items.append({"role": message.role, "content": content})
     return items
 
 
 EMPTY_TOOL_RESULT_TEXT = "[tool returned no output]"
+
+#: Sent in place of a USER turn's text when the turn has none at all — every
+#: block it carried was blank, so there is nothing to serialize.
+#:
+#: Backfilled rather than skipped, deliberately, and that is the difference from
+#: ``EMPTY_TOOL_RESULT_TEXT``'s neighbouring rule plus
+#: ``_is_empty_assistant``: skipping is the right answer for an ASSISTANT turn
+#: because dropping it loses nothing (the turn is empty by definition, and a
+#: tool result answers a TOOL call, so nothing references it). A user turn is
+#: the request's own subject and it OCCUPIES A ROLE, so dropping one is visible
+#: to the provider as a role-sequence change — a blank final user turn removed
+#: leaves a trailing assistant turn, which newer Claude models read as a
+#: PREFILL and refuse, and a blank leading one removed makes the body start
+#: with ``assistant`` ("first message must use the user role"). #2460's QA
+#: round walked 399 histories and measured 0 histories that skip makes worse
+#: than main, but that is a measurement of today's reachability, not a licence
+#: to change the role sequence: the placeholder keeps the order while removing
+#: the blank block the provider refuses.
+EMPTY_USER_TEXT = "[no message text]"
 
 
 def _tool_content_openai(message: Message) -> str | list[dict[str, Any]]:
@@ -2807,6 +2860,59 @@ class OpenAICompatClient:
         conv_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"local-operator:grok-cache:{key}"))
         return {"x-grok-conv-id": conv_id}
 
+    def _radient_correlation_headers(self, request: ChatRequest, url: str) -> dict[str, str]:
+        """The Radient client-correlation headers for one chat call (PR-3).
+
+        WHY this lives here and not only in ``clients/radient.py``: chat does
+        not go through ``RadientClient`` at all -- it goes through this generic
+        OpenAI-compatible client (the registry builds an
+        ``OpenAICompatClient`` for ``radient``/``radient-key``), so the speech
+        and transcription call sites were the only ones that ever sent
+        ``X-Radient-Client-Session-Id`` / ``X-Radient-Client-Request-Id`` and
+        almost no production inference usage row carried a session id. The
+        server half already stores a grammatical pair on its usage row; this
+        is the missing client half for the chat wire.
+
+        Session value: ``request.prompt_cache_key``. Session hosts populate
+        it once from their session id (a fork inherits its parent's lineage,
+        which is the same conversation prefix), so it identifies the lop
+        session/conversation without this settings-free client needing a
+        second session-id channel that failover clones would have to carry.
+        It is passed verbatim through ``_correlation_headers`` -- the same
+        helper and grammar (``[A-Za-z0-9._:-]{1,64}``) the speech paths use --
+        so an ungrammatical lineage (too long, or carrying characters outside
+        the grammar) drops the session header silently rather than failing a
+        paid request, exactly as on those paths. The request value is minted
+        fresh per ``stream()`` call via ``new_correlation_id()``: each call is
+        one HTTP attempt that can produce its own usage row, so each attempt
+        needs its own join key.
+
+        Scope: ONLY a Radient request may carry these. The gate is the
+        provider id (``radient``/``radient-key``, covering a deliberate
+        base-url override such as a local stub or proxy) or the actual
+        request host ``api.radienthq.com`` (a custom OpenAI-compatible
+        provider pointed at the hub is served by the same server, mirroring
+        ``_grok_conv_headers``' host gate). Every other provider's request
+        stays byte-identical to before. These headers are telemetry only --
+        never routing, never money -- per the published contract.
+
+        The import is local on purpose: ``clients.radient`` is a heavy
+        sync (``requests``/pydantic) client surface, and importing it at
+        this module's top would drag it onto the hot import path of every
+        provider build for a header only Radient calls need.
+        """
+        if (
+            request.model.provider not in {"radient", "radient-key"}
+            and httpx.URL(url).host != "api.radienthq.com"
+        ):
+            return {}
+        from local_operator.clients.radient import (
+            _correlation_headers,
+            new_correlation_id,
+        )
+
+        return _correlation_headers(request.prompt_cache_key, new_correlation_id())
+
     def _build_body(self, request: ChatRequest, *, scope: str | None = None) -> dict[str, Any]:
         endpoint = f"{self._base_url}/chat/completions"
         direct_deepseek = request.model.provider == "deepseek"
@@ -2990,6 +3096,10 @@ class OpenAICompatClient:
                 provider_obj["ignore"] = sorted(request.provider_avoid)
         if provider_obj:
             body["provider"] = provider_obj
+        if self._base_url == "https://api.openai.com/v1" and body.get("prompt_cache_key"):
+            # Legacy public chat caching has no universal guaranteed retention;
+            # compatible gateways do not inherit even this bounded heuristic.
+            set_wire_hint(request, "openai:chat", 300_000, "bounded-heuristic")
         return body
 
     @staticmethod
@@ -3083,6 +3193,26 @@ class OpenAICompatClient:
             if isinstance(block, dict):
                 block["cache_control"] = {"type": "ephemeral"}
 
+    def account_cache_endpoint_mode(
+        self, request: ChatRequest, oauth_access: "OAuthAccess | None" = None
+    ) -> str | None:
+        """Selection-time compatibility uses the same decision as the wire.
+
+        Codex is credential-derived and ignores the public API setting; a
+        Responses-capable model can still be explicitly sent through Chat.
+        """
+        if not request.model.supports_prompt_cache or not request.prompt_cache_key:
+            return None
+        if self._codex_responses_mode(oauth_access):
+            return "codex:responses"
+        if self._base_url != "https://api.openai.com/v1":
+            return None
+        return (
+            "openai:responses"
+            if self._public_responses_mode(request, oauth_access)
+            else "openai:chat"
+        )
+
     def _codex_responses_mode(self, oauth_access: "OAuthAccess | None") -> bool:
         """Whether this credential is a ChatGPT subscription OAuth grant."""
         return bool(
@@ -3103,6 +3233,7 @@ class OpenAICompatClient:
         self, request: ChatRequest, *, endpoint: str | None = None, scope: str | None = None
     ) -> dict[str, Any]:
         """Public Responses body using native input items and flat tools."""
+        affinity_request = request
         request = bind_native_context(
             request,
             endpoint or f"{self._base_url}/responses",
@@ -3158,6 +3289,19 @@ class OpenAICompatClient:
                 request.model, endpoint or f"{self._base_url}/responses"
             ):
                 body["prompt_cache_retention"] = "24h"
+        actual_endpoint = endpoint or f"{self._base_url}/responses"
+        if actual_endpoint == "https://api.openai.com/v1/responses" and body.get(
+            "prompt_cache_key"
+        ):
+            modern = _modern_public_cache_defaults(request.model, actual_endpoint)
+            # Public API documentation is not evidence about a compatible
+            # gateway or OAuth. Legacy retention is deliberately a heuristic.
+            set_wire_hint(
+                affinity_request,
+                "openai:responses",
+                1_800_000 if modern or body.get("prompt_cache_retention") == "24h" else 300_000,
+                "documented-default" if modern else "bounded-heuristic",
+            )
         return body
 
     def _build_codex_responses_body(
@@ -3178,6 +3322,10 @@ class OpenAICompatClient:
         body.pop("max_output_tokens", None)
         body.pop("temperature", None)
         body.pop("top_p", None)
+        if body.get("prompt_cache_key"):
+            # Codex has no documented cache lifetime here; this bounded local
+            # lease must never be described as guaranteed OAuth cache retention.
+            set_wire_hint(request, "codex:responses", 300_000, "bounded-heuristic")
         return body
 
     async def stream(
@@ -3247,6 +3395,7 @@ class OpenAICompatClient:
 
         headers = self._headers(api_key, oauth_access)
         headers.update(self._grok_conv_headers(request, url))
+        headers.update(self._radient_correlation_headers(request, url))
         body = self._build_body(request, scope=scope)
         envelope = _StreamOutputEnvelope(
             int(
@@ -3556,6 +3705,7 @@ class OpenAICompatClient:
         headers = self._headers(api_key, oauth_access)
         headers.update(self._codex_affinity_headers(request, oauth_access, url))
         headers.update(self._grok_conv_headers(request, url))
+        headers.update(self._radient_correlation_headers(request, url))
         usage: Usage | None = None
         provider_payload: dict[str, Any] | None = None
         tool_call_count = 0
@@ -3871,6 +4021,36 @@ def _anthropic_stream_error(error: Mapping[str, Any]) -> ProviderError:
     )
 
 
+def _anthropic_cache_marker_ttl_ms(body: dict[str, Any]) -> int:
+    """Read legal cache marker positions, never nested user/tool JSON fields.
+
+    The builder owns these exact top-level system/tool and message-block
+    markers. Recursing arbitrary inputs could mistake a tool argument named
+    cache_control for provider caching evidence when no marker was emitted.
+    """
+    blocks = []
+    for field in ("system", "tools"):
+        value = body.get(field)
+        if isinstance(value, list):
+            blocks.extend(block for block in value if isinstance(block, dict))
+    messages = body.get("messages")
+    if isinstance(messages, list):
+        for message in messages:
+            content = message.get("content") if isinstance(message, dict) else None
+            if isinstance(content, list):
+                blocks.extend(block for block in content if isinstance(block, dict))
+    lifetimes = []
+    for block in blocks:
+        marker = block.get("cache_control")
+        if not isinstance(marker, dict) or marker.get("type") != "ephemeral":
+            continue
+        if marker.get("ttl") in (None, "5m"):
+            lifetimes.append(300_000)
+        elif marker.get("ttl") == "1h":
+            lifetimes.append(3_600_000)
+    return min(lifetimes, default=0)
+
+
 class AnthropicClient:
     """``POST {base}/v1/messages`` streaming.
 
@@ -4122,9 +4302,29 @@ class AnthropicClient:
 
     @staticmethod
     def _message_blocks(message: Message) -> list[dict[str, Any]]:
+        """Render one message's content blocks for the Anthropic wire.
+
+        An empty or whitespace-only text block is DROPPED, never shipped:
+        Anthropic refuses the whole request with "messages: text content
+        blocks must be non-empty", so one such block fails every turn that
+        replays the message — and a message in history is replayed on every
+        later turn of the session. This is the render-side half of #2460;
+        #448 fixed the same 400 for assistant tool-only turns by not writing
+        the block in the first place. Repairing it HERE rather than in the
+        transcript is deliberate, for the reason ``_is_empty_assistant``
+        documents one layer down: rows are already stored on disk holding the
+        empty block (an image-only send persisted ``[{}, {attachment...}]``),
+        and a render-side drop recovers those sessions without a hand-edited
+        transcript.
+
+        Whitespace counts as empty because a blank block is refused exactly
+        like an empty one and carries nothing a model can read.
+        """
         blocks: list[dict[str, Any]] = []
         for block in message.content:
             if isinstance(block, TextContent):
+                if not block.text.strip():
+                    continue
                 blocks.append({"type": "text", "text": block.text})
             elif isinstance(block, ImageContent):
                 blocks.append(
@@ -4218,6 +4418,11 @@ class AnthropicClient:
             if isinstance(block, dict):
                 block["cache_control"] = self._cache_control(ttl)
 
+    def account_cache_endpoint_mode(
+        self, request: ChatRequest, oauth_access: "OAuthAccess | None" = None
+    ) -> str | None:
+        return "anthropic:messages" if self._base_url == ANTHROPIC_API_URL else None
+
     def _build_body(self, request: ChatRequest, *, oauth: bool = False) -> dict[str, Any]:
         messages: list[dict[str, Any]] = []
         for message in _without_unrenderable_tool_calls(request.messages):
@@ -4258,7 +4463,24 @@ class AnthropicClient:
                 else:
                     messages.append({"role": "user", "content": content})
             else:
-                messages.append({"role": message.role, "content": self._message_blocks(message)})
+                blocks = self._message_blocks(message)
+                if not blocks:
+                    # Every block was blank, so there is no content left to
+                    # send — but the message still OCCUPIES A ROLE, and that is
+                    # why this is a backfill rather than the ``continue`` an
+                    # empty assistant turn gets. Dropping the message changes
+                    # the role sequence the provider sees: a blank final user
+                    # turn removed leaves a trailing assistant turn, which
+                    # newer Claude models read as a PREFILL and refuse, and a
+                    # blank leading one removed opens the body with
+                    # ``assistant`` ("first message must use the user role").
+                    # The placeholder removes the blank block the provider
+                    # refuses while leaving the order intact; see
+                    # ``EMPTY_USER_TEXT`` for why backfilling beats skipping
+                    # here, and ``_is_empty_assistant`` for the assistant case
+                    # where skipping is the right answer.
+                    blocks = [{"type": "text", "text": EMPTY_USER_TEXT}]
+                messages.append({"role": message.role, "content": blocks})
 
         body: dict[str, Any] = {
             "model": request.model.model_id,
@@ -4394,6 +4616,12 @@ class AnthropicClient:
             body["speed"] = fast.value
         if request.stop_sequences:
             body["stop_sequences"] = list(request.stop_sequences)
+        if self._base_url == ANTHROPIC_API_URL:
+            lifetime = _anthropic_cache_marker_ttl_ms(body)
+            if lifetime:
+                # Read actual marker locations shaped above, not a separate
+                # context-size approximation or arbitrary nested tool input.
+                set_wire_hint(request, "anthropic:messages", lifetime, "explicit-wire")
         return body
 
     async def stream(

@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,8 +15,11 @@
 #
 # ****************************************************************************
 
+"""GCOVR Cobertura report."""
+
 import os
 from glob import glob
+
 from lxml import etree  # nosec # We only write XML files
 
 from ...data_model.container import CoverageContainer
@@ -37,37 +38,39 @@ from ...options import Options
 #  Get coverage from already existing gcovr JSON files
 #
 def read_report(options: Options) -> CoverageContainer:
-    """merge a coverage from multiple reports in the format
-    compatible with Cobertura"""
-
-    covdata = CoverageContainer()
+    """Merge a coverage from multiple reports in the format compatible with Cobertura."""
+    covdata = CoverageContainer(options.root)
     if len(options.cobertura_tracefile) == 0:
         return covdata
 
-    datafiles = set()
+    datafiles = list[str]()
 
     for trace_files_regex in options.cobertura_tracefile:
         trace_files = glob(trace_files_regex, recursive=True)
         if not trace_files:
-            raise RuntimeError(
+            msg = (
                 "Bad --covertura-add-tracefile option.\n"
                 "\tThe specified file does not exist."
             )
+            raise RuntimeError(msg)
 
-        for activate_trace_logging in trace_files:
-            datafiles.add(os.path.normpath(activate_trace_logging))
+        for trace_file in [os.path.normpath(trace_file) for trace_file in trace_files]:
+            if trace_file not in datafiles:
+                datafiles.append(trace_file)
 
     for data_sources in datafiles:
         LOGGER.debug("Processing XML file: %s", data_sources)
 
         try:
             root: etree._Element = etree.parse(data_sources).getroot()  # nosec # We parse the file given by the user
-        except Exception as e:
-            raise RuntimeError(f"Bad --cobertura-add-tracefile option.\n{e}") from None
+        except Exception as e:  # noqa: BLE001
+            msg = f"Bad --cobertura-add-tracefile option.\n{e}"
+            raise RuntimeError(msg) from None
 
         source_elem = root.find("./sources/source")
         if source_elem is None:
-            raise AssertionError(f"No source directory defined in file {data_sources}")
+            msg = f"No source directory defined in file {data_sources}"
+            raise AssertionError(msg)
         source_dir = str(source_elem.text)
 
         gcovr_file: etree._Element
@@ -106,19 +109,21 @@ def _insert_line_from_xml(
 ) -> None:
     try:
         lineno = int(xml_line.get("number", ""))
-    except Exception:  # pragma: no cover
-        raise RuntimeError(
+    except Exception:  # pragma: no cover  # noqa: BLE001
+        msg = (
             "Bad --covertura-add-tracefile option.\n"
             f"'number' attribute is required and must be an integer: {etree.tostring(xml_line).decode()}\n"
-        ) from None
+        )
+        raise RuntimeError(msg) from None
 
     try:
         count = int(xml_line.get("hits", ""))
-    except Exception:  # pragma: no cover
-        raise RuntimeError(
+    except Exception:  # pragma: no cover  # noqa: BLE001
+        msg = (
             "Bad --covertura-add-tracefile option.\n"
             f"'hits' attribute is required and must be an integer: {etree.tostring(xml_line).decode()}\n"
-        ) from None
+        )
+        raise RuntimeError(msg) from None
 
     is_branch = xml_line.get("branch") == "true"
     branch_msg = xml_line.get("condition-coverage")
@@ -130,7 +135,7 @@ def _insert_line_from_xml(
         try:
             [covered, total] = branch_msg[branch_msg.rfind("(") + 1 : -1].split("/")
             for i in range(int(total)):
-                _branch_from_json(linecov, data_sources, i, i < int(covered))
+                _branch_from_json(linecov, data_sources, i, is_covered=i < int(covered))
         except AssertionError as exc:  # pragma: no cover
             LOGGER.warning(
                 "Invalid branch information for line %s: %s", linecov.lineno, exc
@@ -138,7 +143,7 @@ def _insert_line_from_xml(
 
 
 def _branch_from_json(
-    linecov: LineCoverage, data_sources: str, branchno: int, is_covered: bool
+    linecov: LineCoverage, data_sources: str, branchno: int, *, is_covered: bool
 ) -> BranchCoverage:
     return linecov.insert_branch_coverage(
         data_sources,

@@ -46,6 +46,44 @@ requirements:
           fix that changes only tests and a contract is still refused as changing no product path. --
           falsifier: uv run pytest tests/ci/test_receipt_gate_merged_fix_control_omn17427.py -q -k \"merged_fix_contract_is_not_reverted
           or only_test_and_contract\""
+  - id: req-omn17427-ci-inherits-from-core
+    statement: A change to omnibase_core's workflows must not add a reusable workflow or action reference
+      to an organization repository other than omnibase_core, so the CI hosted outside core only shrinks.
+    acceptance:
+      - id: AC9
+        statement: "AC9: The ci-inheritance check fails a change that adds a reusable workflow or action
+          reference to an organization repository other than the host, and passes a pin bump, a move between
+          files, a removal or a reference to the host. -- falsifier: uv run pytest tests/unit/handlers/test_handler_ci_inheritance.py
+          tests/unit/handlers/test_handler_ci_inheritance_cli.py -q"
+  - id: req-omn17427-validators-emit-run-and-fire-events
+    statement: A validator that writes its canonical report through the report-write effect also emits
+      a run event, and a fire event for each finding that fired, so the work ledger can show which checks
+      ever catch anything.
+    acceptance:
+      - id: AC10
+        statement: "AC10: A report yields one run event and one fire event per WARN, FAIL or ERROR finding
+          and none for PASS, SKIP or NOT_APPLICABLE; an empty report still yields its run event; the report-write
+          effect appends the events beside the report. -- falsifier: uv run pytest tests/unit/handlers/test_handler_validator_run_events.py
+          tests/unit/nodes/node_validation_report_write_effect -q"
+  - id: req-omn17427-yamlfmt-download-retry-window
+    statement: The pinned yamlfmt download in the CI test splits must retry with a fixed delay and a bounded
+      total budget long enough to outlast a minute-long upstream gateway failure.
+    acceptance:
+      - id: AC11
+        statement: "AC11: The Install pinned yamlfmt step of the test-parallel job retries its download
+          for at least sixty seconds in total under a retry budget of 120 to 300 seconds. -- falsifier:
+          uv run pytest tests/ci/test_yamlfmt_download_retry_window_omn17427.py -q"
+  - id: req-omn17427-same-ci-per-repository-type
+    statement: A change to a repository's workflows must not add a job defined inline in that repository's
+      own workflow unless the repository is omnibase_core and the workflow is reusable, so CI that differs
+      between repositories of the same type only shrinks.
+    acceptance:
+      - id: AC12
+        statement: "AC12: The repository-jobs check fails a change that adds an inline job to a non-reusable
+          workflow of the host or to any workflow of another repository, and passes a job of a host reusable
+          workflow, a job that calls a reusable workflow, a step change inside an existing job and a removal.
+          -- falsifier: uv run pytest tests/unit/handlers/test_handler_ci_repository_jobs.py tests/unit/handlers/test_handler_ci_inheritance_cli.py
+          -q"
 evidence_requirements:
   - kind: tests
     description: "The caller-evidence job exempts an OCC writer app version bump using the pinned producer
@@ -68,6 +106,25 @@ evidence_requirements:
       also when the base amended that contract, and a test-and-contract-only fix is refused."
     command: "uv run pytest tests/ci/test_receipt_gate_merged_fix_control_omn17427.py -q -k \"merged_fix_contract_is_not_reverted
       or only_test_and_contract\""
+  - kind: tests
+    description: "The ci-inheritance check fails an added non-host reference and passes a pin bump, a
+      move, a removal or a host reference."
+    command: "uv run pytest tests/unit/handlers/test_handler_ci_inheritance.py tests/unit/handlers/test_handler_ci_inheritance_cli.py
+      -q"
+  - kind: tests
+    description: "A report yields one run event and one fire event per finding that fired, none for PASS,
+      SKIP or NOT_APPLICABLE, and the report-write effect appends the events beside the report."
+    command: "uv run pytest tests/unit/handlers/test_handler_validator_run_events.py tests/unit/nodes/node_validation_report_write_effect
+      -q"
+  - kind: tests
+    description: "The Install pinned yamlfmt step retries its download for at least sixty seconds under
+      a bounded retry budget."
+    command: "uv run pytest tests/ci/test_yamlfmt_download_retry_window_omn17427.py -q"
+  - kind: tests
+    description: "The repository-jobs check fails an added inline job outside a host reusable workflow
+      and passes a host reusable job, a reusable call, a step change and a removal."
+    command: "uv run pytest tests/unit/handlers/test_handler_ci_repository_jobs.py tests/unit/handlers/test_handler_ci_inheritance_cli.py
+      -q"
 emergency_bypass:
   enabled: false
   justification: ''
@@ -130,3 +187,111 @@ dod_evidence:
         cwd: ${OMNI_HOME}/omnibase_core
     binds_ac:
       - AC8
+  - id: dod-omn-17427-ci-inherits-from-core
+    description: "The ci-inheritance check fails a change that adds a reusable workflow or action reference
+      to an organization repository other than the host, and passes a pin bump, a move between files,
+      a removal or a reference to the host."
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: "uv run pytest tests/unit/handlers/test_handler_ci_inheritance.py tests/unit/handlers/test_handler_ci_inheritance_cli.py
+          -q"
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC9
+  - id: dod-omn-17427-deploy-hosted-ci-inheritance
+    description: Hosted deploy probe for the library's CI-inheritance handler and CLI. Read both published
+      source files at the immutable PR implementation commit and compare their bytes with the checked-out
+      product, then exercise rejection of new references and acceptance of existing references. A missing
+      published file, different implementation or incorrect handler behavior fails the probe.
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: command
+        check_value: >-
+          bash -o pipefail -c 'curl --fail --silent --show-error --location --max-time 30 https://raw.githubusercontent.com/OmniNode-ai/omnibase_core/a8b2509915d6fee19d3a5a26bcae016aaddfcf29/src/omnibase_core/handlers/handler_ci_inheritance.py
+          | cmp - src/omnibase_core/handlers/handler_ci_inheritance.py'
+        cwd: ${OMNI_HOME}/omnibase_core
+      - check_type: command
+        check_value: >-
+          bash -o pipefail -c 'curl --fail --silent --show-error --location --max-time 30 https://raw.githubusercontent.com/OmniNode-ai/omnibase_core/4ebe05bc64d25f5e6260d665a981a9a269e750fd/src/omnibase_core/handlers/handler_ci_inheritance_cli.py
+          | cmp - src/omnibase_core/handlers/handler_ci_inheritance_cli.py'
+        cwd: ${OMNI_HOME}/omnibase_core
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/handlers/test_handler_ci_inheritance.py tests/unit/handlers/test_handler_ci_inheritance_cli.py
+          -q -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC9
+  - id: dod-omn-17427-validator-run-and-fire-events
+    description: Hosted deploy probe for the validator run and fire events. Read the handler and the report-write
+      effect at the immutable PR implementation commit and compare their bytes with the checked-out product,
+      then exercise one run event for a passing report and a fire event for a failing one. A missing published
+      file, different implementation or incorrect handler behavior fails the probe.
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: command
+        check_value: >-
+          bash -o pipefail -c 'curl --fail --silent --show-error --location --max-time 30 https://raw.githubusercontent.com/OmniNode-ai/omnibase_core/24c78505307f676a61a29b47656c8b58289c5309/src/omnibase_core/handlers/handler_validator_run_events.py
+          | cmp - src/omnibase_core/handlers/handler_validator_run_events.py'
+        cwd: ${OMNI_HOME}/omnibase_core
+      - check_type: command
+        check_value: >-
+          bash -o pipefail -c 'curl --fail --silent --show-error --location --max-time 30 https://raw.githubusercontent.com/OmniNode-ai/omnibase_core/24c78505307f676a61a29b47656c8b58289c5309/src/omnibase_core/nodes/node_validation_report_write_effect/handler.py
+          | cmp - src/omnibase_core/nodes/node_validation_report_write_effect/handler.py'
+        cwd: ${OMNI_HOME}/omnibase_core
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/handlers/test_handler_validator_run_events.py tests/unit/nodes/node_validation_report_write_effect
+          -q -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC10
+  - id: dod-omn-17427-yamlfmt-download-retry-window
+    description: The Install pinned yamlfmt step of the test-parallel job retries its download for at
+      least sixty seconds in total under a retry budget of 120 to 300 seconds, read from the checked-out
+      ci.yml.
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_yamlfmt_download_retry_window_omn17427.py -q -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC11
+  - id: dod-omn-17427-repository-specific-jobs
+    description: "The repository-jobs check fails a change that adds an inline job to a non-reusable workflow
+      of the host or to any workflow of another repository, and passes a job of a host reusable workflow,
+      a job that calls a reusable workflow, a step change inside an existing job and a removal."
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: "uv run pytest tests/unit/handlers/test_handler_ci_repository_jobs.py tests/unit/handlers/test_handler_ci_inheritance_cli.py
+          -q"
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC12
+  - id: dod-omn-17427-deploy-hosted-repository-jobs
+    description: Hosted deploy probe for the library's repository-jobs handler. Read the handler and the
+      CLI at the immutable PR implementation commit and compare their bytes with the checked-out product,
+      then exercise rejection of a new inline job and acceptance of existing ones. A missing published
+      file, different implementation or incorrect handler behavior fails the probe.
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: command
+        check_value: >-
+          bash -o pipefail -c 'curl --fail --silent --show-error --location --max-time 30 https://raw.githubusercontent.com/OmniNode-ai/omnibase_core/4ebe05bc64d25f5e6260d665a981a9a269e750fd/src/omnibase_core/handlers/handler_ci_repository_jobs.py
+          | cmp - src/omnibase_core/handlers/handler_ci_repository_jobs.py'
+        cwd: ${OMNI_HOME}/omnibase_core
+      - check_type: command
+        check_value: >-
+          bash -o pipefail -c 'curl --fail --silent --show-error --location --max-time 30 https://raw.githubusercontent.com/OmniNode-ai/omnibase_core/4ebe05bc64d25f5e6260d665a981a9a269e750fd/src/omnibase_core/handlers/handler_ci_inheritance_cli.py
+          | cmp - src/omnibase_core/handlers/handler_ci_inheritance_cli.py'
+        cwd: ${OMNI_HOME}/omnibase_core
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/handlers/test_handler_ci_repository_jobs.py tests/unit/handlers/test_handler_ci_inheritance_cli.py
+          -q -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC12

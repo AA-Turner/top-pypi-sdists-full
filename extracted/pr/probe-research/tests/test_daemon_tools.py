@@ -440,6 +440,12 @@ def test_read_keeps_to_the_shells_safe_reads(tmp_path, monkeypatch):
     (config / "config.json").write_text('{"token": "x"}\n')
     for path in (str(tmp_path / "outside.txt"), ".venv/cfg.txt", "../outside.txt"):
         assert _read(deps, path).startswith("not read"), path
+    # The shell's read programs reach further: the refusal says so, and only the writer has a shell.
+    assert "`cat` through the shell runs at once for a plain file" in _read(deps, str(tmp_path / "outside.txt"))
+    reader = _deps(tmp_path / "r")
+    reader.reader = True
+    out = _read(reader, str(tmp_path / "outside.txt"))
+    assert out.startswith("not read") and "through the shell" not in out, out
     assert "every mode" in _read(deps, str(config / "config.json"))
     memory = tmp_path / ".claude" / "projects" / "-w" / "memory" / "MEMORY.md"
     memory.parent.mkdir(parents=True)
@@ -571,7 +577,11 @@ def test_the_reader_does_not_wait_on_a_fifo_or_trip_on_a_nul(tmp_path):
 
     deps = _deps(tmp_path)
     os.mkfifo(deps.cwd / "pipe")
-    assert "isn't a regular file" in _read(deps, "pipe")
+    out = _read(deps, "pipe")  # refused by the shell's own rule for a content read, before any open
+    assert out.startswith("not read") and "not an ordinary file" in out, out
+    bypass = _deps(tmp_path / "b", bypass=True)  # bypass mode skips that rule: the reader still won't wait
+    os.mkfifo(bypass.cwd / "pipe")
+    assert "isn't a regular file" in _read(bypass, "pipe")
     assert _read(deps, "a\0b").startswith("not read")
 
 
@@ -714,18 +724,27 @@ def test_a_hunt_through_the_whole_disk_is_not_asked_either(tmp_path, monkeypatch
 
 
 def test_another_file_outside_the_folders_is_still_asked(tmp_path):
+    # Since reads run anywhere (D1), a plain file outside the folders is read at once;
+    # one in a hidden folder there, or a program that is not a reader, is still asked.
     deps = _deps(tmp_path)
-    out = _run(tools.shell(deps, "cat /outside/other.md"))
+    out = _run(tools.shell(deps, "cat /outside/.x/other.md"))
     req = deps.board.all()[0]
-    assert out == (f"held for the researcher (request {req.id}) - It reads /outside/other.md: outside the working "
-                   "folders. It runs if they say yes - the answer shows up in a later bite.")
+    assert out == (f"held for the researcher (request {req.id}) - It reads /outside/.x/other.md: outside the working "
+                   "folders, and .x is hidden. It runs if they say yes - the answer shows up in a later bite.")
     assert req.policy == "shell.unsafe_command"
-    for near in ("cat /outside/my-track-work.md", "cat /outside/track-work.md", "cat /outside/track-workflow/a",
+    for near in ("cat /outside/.x/my-track-work.md", "cat /outside/.x/track-work.md",
+                 "cat /outside/.x/track-workflow/a", "sed -n 1p /outside/track-work.md",
                  # The skill's name as a word, not a folder on a path: a search for it.
                  "grep -rn track-work /outside",
                  # A path inside a git revision, not a file on this machine.
                  "git -C /outside/repo show main:agent/skills/track-work/SKILL.md"):
         assert _run(tools.shell(deps, near)).startswith("held for the researcher"), near
+    held = len(deps.board.all())
+    (tmp_path / "elsewhere.md").write_text("ELSEWHERE\n")  # outside the working folder `work`
+    out = _run(tools.shell(deps, f"cat {tmp_path / 'elsewhere.md'}"))
+    assert out.startswith("[exit 0]") and "ELSEWHERE" in out and len(deps.board.all()) == held, out
+    out = _run(tools.shell(deps, f"cat {tmp_path / 'nowhere.md'}"))  # no file there to check: asked
+    assert out.startswith("held for the researcher") and "no file there" in out, out
 
 
 def test_a_note_write_that_mentions_a_skill_keeps_the_hint_for_its_shape(tmp_path):

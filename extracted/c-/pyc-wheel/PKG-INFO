@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyc_wheel
-Version: 2.5.0
+Version: 2.5.1
 Summary: Compile all py files in a wheel to pyc files.
 Author-email: Adam Karpierz <adam@karpierz.net>, Grant Patten <grant@gpatten.com>
 Maintainer-email: Adam Karpierz <adam@karpierz.net>

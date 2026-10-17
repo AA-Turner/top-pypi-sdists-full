@@ -3,6 +3,7 @@ op's measured bytes per element and the device's free memory."""
 
 from __future__ import annotations
 
+import functools
 import math
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager
@@ -37,8 +38,11 @@ class Pieces(Protocol):
         piece may take now."""
         ...
 
-    def piece(self, key: str, elements: int, need: int) -> AbstractContextManager[None]:
-        """Make room for `need` bytes, run one piece and keep its measured peak."""
+    def piece(
+        self, key: str, elements: int, need: int, least: int = 0
+    ) -> AbstractContextManager[None]:
+        """Make room for `need` bytes, run one piece and keep its measured peak. `least`: the
+        bytes the op's finest piece needs, the room its stage must keep for it."""
         ...
 
     def ran(self, name: str, pieces: int) -> None:
@@ -54,21 +58,25 @@ def install(runtime: Pieces | None) -> None:
     _RUNTIME = runtime
 
 
-def split(fn: Callable[[Any], Any], x: Any, *cuts: Cut) -> Any:
+def split(fn: Callable[[Any], Any], x: Any, *cuts: Cut, per_element: float = 0.0) -> Any:
     """`fn(x)` in the fewest pieces along `cuts` that fit the device; `fn` maps each window of
     `x` to that window of its result. A piece that runs out of memory runs again at half the
-    size. Without a managing Runtime it runs whole."""
+    size. Without a managing Runtime it runs whole. `per_element`, the op's own estimate of
+    the peak device bytes one element of `x` takes, sizes its pieces until the Runtime has
+    measured them; without one they are 1/FIRST of `x`."""
     runtime = _RUNTIME
     if runtime is None or not cuts:
         return fn(x)
     shape = tuple(int(n) for n in x.shape)
     key = _key(fn, shape, cuts, x.dtype)
     ratio, room = runtime.room(key)
+    ratio = ratio or per_element or None
     # Unmeasured: small pieces, measured as they run.
     windows = _windows(shape, cuts, room / ratio if ratio else math.prod(shape) / FIRST)
+    least = int((ratio or 0.0) * _finest(shape, cuts))
     while True:
         try:
-            out = _run(fn, x, cuts, windows, runtime, key, ratio or 0.0)
+            out = _run(fn, x, cuts, windows, runtime, key, ratio or 0.0, least)
             runtime.ran(_name(fn), len(windows))
             return out
         except Exception as exc:
@@ -132,6 +140,12 @@ def _windows(shape: tuple[int, ...], cuts: tuple[Cut, ...], most: float) -> list
     return windows
 
 
+@functools.cache
+def _finest(shape: tuple[int, ...], cuts: tuple[Cut, ...]) -> int:
+    """Elements in the largest window of the finest cut."""
+    return _largest(shape, cuts, list(zip(*_windows(shape, cuts, 0), strict=True)))
+
+
 def _halved(shape: tuple[int, ...], cuts: tuple[Cut, ...], windows: list[Window]) -> list[Window]:
     return _windows(shape, cuts, _largest(shape, cuts, list(zip(*windows, strict=True))) // 2)
 
@@ -156,9 +170,10 @@ def _run(
     runtime: Pieces,
     key: str,
     ratio: float,
+    least: int,
 ) -> Any:
     if len(windows) == 1:
-        with runtime.piece(key, x.numel(), int(ratio * x.numel())):
+        with runtime.piece(key, x.numel(), int(ratio * x.numel()), least):
             return fn(x)
     ndim = x.dim()
     dims = [c.dim % ndim for c in cuts]
@@ -171,7 +186,7 @@ def _run(
         for d, (a, b) in zip(dims, window, strict=True):
             index[d] = slice(a, b)
         piece = x[tuple(index)]
-        with runtime.piece(key, piece.numel(), int(ratio * piece.numel())):
+        with runtime.piece(key, piece.numel(), int(ratio * piece.numel()), least):
             part = fn(piece)
         place = [slice(None)] * part.dim()
         for d, c, (a, _), size in zip(dims, cuts, window, sizes, strict=True):

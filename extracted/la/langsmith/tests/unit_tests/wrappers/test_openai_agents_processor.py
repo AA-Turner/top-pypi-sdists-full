@@ -85,9 +85,7 @@ def test_trace_end_matches_trace_start_precedence():
     )
 
     client = _mock.MagicMock(spec=Client)
-    processor = OpenAIAgentsTracingProcessor(
-        client=client, metadata={"ls_agent_type": "root"}
-    )
+    processor = OpenAIAgentsTracingProcessor(client=client, metadata={"ls_agent_type": "root"})
     run = _mock.MagicMock()
     run.extra = {"metadata": {}}
     processor._runs["trace-1"] = run
@@ -104,9 +102,7 @@ def test_trace_end_matches_trace_start_precedence():
 
 
 def test_preserves_other_user_trace_metadata():
-    meta = _run_trace_start(
-        trace_metadata={"middleware_name": "entry_guardrail", "phase": "entry"}
-    )
+    meta = _run_trace_start(trace_metadata={"middleware_name": "entry_guardrail", "phase": "entry"})
     assert meta["middleware_name"] == "entry_guardrail"
     assert meta["phase"] == "entry"
 
@@ -209,9 +205,7 @@ def test_subagent_overrides_inherited_root():
 @pytest.mark.parametrize("user_tag", ["middleware", "compaction", "subagent"])
 def test_subagent_keeps_user_supplied_tag(user_tag):
     tool_run = _make_run("tool")
-    assert (
-        _run_span_stamp(_agent_span_data(), tool_run, existing_tag=user_tag) == user_tag
-    )
+    assert _run_span_stamp(_agent_span_data(), tool_run, existing_tag=user_tag) == user_tag
 
 
 # ---- Guardrail ----
@@ -224,16 +218,10 @@ def test_guardrail_stamps_middleware():
 
 def test_guardrail_overrides_inherited_root():
     root_chain = _make_run("chain")
-    assert (
-        _run_span_stamp(_guardrail_span_data(), root_chain, existing_tag="root")
-        == "middleware"
-    )
+    assert _run_span_stamp(_guardrail_span_data(), root_chain, existing_tag="root") == "middleware"
 
 
 @pytest.mark.parametrize("user_tag", ["middleware", "subagent", "compaction"])
 def test_guardrail_keeps_user_supplied_tag(user_tag):
     root_chain = _make_run("chain")
-    assert (
-        _run_span_stamp(_guardrail_span_data(), root_chain, existing_tag=user_tag)
-        == user_tag
-    )
+    assert _run_span_stamp(_guardrail_span_data(), root_chain, existing_tag=user_tag) == user_tag

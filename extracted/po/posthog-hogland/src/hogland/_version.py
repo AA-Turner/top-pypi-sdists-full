@@ -9,4 +9,4 @@ Bumping a release is therefore a single-file edit: change the literal
 below, commit, tag ``v<new>-py``, push.
 """
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"

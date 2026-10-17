@@ -2,6 +2,8 @@
 # under the 3-Clause BSD License. Please see 'LICENSE.rst' for further
 # information.
 
+from __future__ import annotations
+
 __name__ = "biotite.database.pubchem"
 __author__ = "Patrick Kunzmann"
 __all__ = ["ThrottleStatus"]
@@ -52,7 +54,7 @@ class ThrottleStatus:
     service: float
 
     @staticmethod
-    def from_response(response: requests.Response) -> "ThrottleStatus":
+    def from_response(response: requests.Response) -> ThrottleStatus:
         """
         Extract the throttle status from a *Pubchem* server response.
 
@@ -65,8 +67,12 @@ class ThrottleStatus:
         -------
         throttle_status : ThrottleStatus
             The extracted throttle status.
+            If the response does not contain the throttling header, a status
+            without any load is returned.
         """
-        throttle_control = response.headers["X-Throttling-Control"]
+        throttle_control = response.headers.get("X-Throttling-Control")
+        if throttle_control is None:
+            return ThrottleStatus(0.0, 0.0, 0.0)
         throttle_status = [
             substring.split(")")[0] for substring in throttle_control.split("(")[1:]
         ]

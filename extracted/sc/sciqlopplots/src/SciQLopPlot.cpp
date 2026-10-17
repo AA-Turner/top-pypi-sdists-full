@@ -86,6 +86,9 @@ SciQLopPlot::SciQLopPlot(QWidget* parent) : QCustomPlot { parent }
 
     m_color_scale = new QCPColorScale(this);
     m_color_scale->setVisible(false);
+    // Its default 6 px top/bottom minimum keeps a bar off the widget border without a margin
+    // group; in this group it would reach every plot's margins, colour bar or not.
+    m_color_scale->setMinimumMargins(QMargins(0, 0, 0, 0));
     auto* vertical_margins = new QCPMarginGroup(this);
     axisRect()->setMarginGroup(QCP::msTop | QCP::msBottom, vertical_margins);
     m_color_scale->setMarginGroup(QCP::msTop | QCP::msBottom, vertical_margins);
@@ -686,7 +689,12 @@ void SciQLopPlot::_configure_plotable(SciQLopGraphInterface* plottable, const QS
         Qt::QueuedConnection);
     connect(
         plottable, &SciQLopGraphInterface::request_rescale, this,
-        [this]() { this->_rescale_axes_once_data_shown(); }, Qt::QueuedConnection);
+        [this]()
+        {
+            if (this->m_fit_first_data)
+                this->_rescale_axes_once_data_shown();
+        },
+        Qt::QueuedConnection);
 }
 
 void SciQLopPlot::_rescale_axes_once_data_shown()
@@ -1192,8 +1200,7 @@ SciQLopGraphInterface* SciQLopPlot::plot_impl(const SciQLopPyBuffer& x, const Sc
     {
         case GraphType::Line:
         case GraphType::Scatter:
-            // One column too (#113): a one-component multigraph colours its line by a scalar,
-            // SciQLopSingleLineGraph only its markers.
+            // One column too (#113): a one-component multigraph colours its line by a scalar.
             plottable = m_impl->add_plottable<SciQLopLineGraph>(labels, metaData);
             break;
         case GraphType::ParametricCurve:
@@ -1213,7 +1220,8 @@ SciQLopGraphInterface* SciQLopPlot::plot_impl(const SciQLopPyBuffer& x, const Sc
         // set_data's first-batch request_rescale fired before _configure_plotable
         // connected it. Rescale now rather than queued, so a range the caller
         // sets right after plot() wins.
-        rescale_axes();
+        if (m_fit_first_data)
+            rescale_axes();
     }
     return plottable;
 }
@@ -1243,7 +1251,8 @@ SciQLopColorMapInterface* SciQLopPlot::plot_impl(const SciQLopPyBuffer& x, const
     _configure_color_map(cm, y_log_scale, z_log_scale);
     // Same as the line path: the first-batch request_rescale fired before
     // _configure_color_map connected it.
-    rescale_axes();
+    if (m_fit_first_data)
+        rescale_axes();
     return cm;
 }
 
@@ -1282,7 +1291,8 @@ void SciQLopPlot::_configure_color_map(SciQLopColorMapInterface* cmap, bool y_lo
             [this, skip_first_batch_data_changed_rescale]()
             {
                 *skip_first_batch_data_changed_rescale = true;
-                this->_rescale_axes_once_data_shown();
+                if (this->m_fit_first_data)
+                    this->_rescale_axes_once_data_shown();
             },
             Qt::QueuedConnection);
         connect(

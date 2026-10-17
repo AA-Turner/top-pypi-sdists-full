@@ -23,7 +23,7 @@ class Personalization(BaseModel):
 
 
 class ExperimentPersonalizationResponse(BaseModel):
-    properties: Dict[str, Union[str, float, bool, int, None]]
+    properties: Dict[str, Union[Optional[str], float, bool, int, None]]
     """
     The visitor traits accumulated by your personalization property rules, keyed by
     property key. Values are always scalars — a string, number, or boolean, or null

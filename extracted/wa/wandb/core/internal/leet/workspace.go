@@ -47,6 +47,9 @@ type Workspace struct {
 	selectedRuns map[string]bool // runDirName -> selected
 	pinnedRun    string          // runDirName or ""
 
+	// pendingSelectAll lists the runs ctrl+a will select once y confirms.
+	pendingSelectAll []string
+
 	// hasLiveRuns caches whether any selected run is in RunStateRunning.
 	hasLiveRuns atomic.Bool
 
@@ -60,9 +63,11 @@ type Workspace struct {
 	// Run overview preload pipeline for unselected runs.
 	overviewPreloader runOverviewPreloader
 
-	// autoSelectLatestRunOnLoad is triggered when at least one run
-	// appears in the workspace.
-	autoSelectLatestRunOnLoad sync.Once
+	// restoreRunsOnLoad selects runs once the first directory scan lists them.
+	restoreRunsOnLoad sync.Once
+
+	// dirState is what is remembered about wandbDir across sessions.
+	dirState *dirState
 
 	// TODO: mark live runs upon selection.
 
@@ -83,6 +88,9 @@ type Workspace struct {
 	systemMetricsPane   *SystemMetricsPane
 	systemMetricsFocus  *Focus
 	systemMetricsFilter *Filter
+
+	// currentSystemGrid is the grid the shared filter was last applied to.
+	currentSystemGrid *SystemMetricsGrid
 
 	// Run console logs keyed by run path.
 	consoleLogs     map[string]*RunConsoleLogs
@@ -164,6 +172,7 @@ func NewWorkspace(
 		runsAnimState:        NewAnimatedValue(true, SidebarMinWidth),
 		metricsGridAnimState: metricsGridAnimState,
 		wandbDir:             wandbDir,
+		dirState:             loadDirState(wandbDir, logger),
 		config:               cfg,
 		keyMap:               buildKeyMap(WorkspaceKeyBindings()),
 		logger:               logger,
@@ -200,6 +209,12 @@ func NewWorkspace(
 	w.runOverviewSidebar.overridesSource = w.layoutOverrides
 	// The runs list starts focused by default.
 	w.focusMgr.SetTarget(FocusTargetRunsList, 1)
+
+	// System metrics grids are created per run and pick up the shared
+	// filter as their charts arrive.
+	w.dirState.bind(&w.dirState.Metrics, w.metricsGrid.filter, w.metricsGrid.ApplyFilter)
+	w.dirState.bind(&w.dirState.SystemMetrics, w.systemMetricsFilter, nil)
+	w.dirState.bind(&w.dirState.Runs, w.filter, w.applyRunFilter)
 	return w
 }
 
@@ -412,6 +427,13 @@ func (w *Workspace) IsFiltering() bool {
 	return false
 }
 
+// isAwaitingUserInput reports whether a filter or a prompt owns keyboard input.
+func (w *Workspace) isAwaitingUserInput() bool {
+	return w.IsFiltering() ||
+		w.config.IsAwaitingGridConfig() ||
+		w.pendingSelectAll != nil
+}
+
 // SelectedRunWandbFile returns the full path to the .wandb file for the selected run.
 //
 // Returns empty string if no run is selected.
@@ -480,6 +502,11 @@ func (w *Workspace) syncCurrentRunContext() (
 		systemGrid = w.systemMetrics[cur.Key]
 	}
 
+	if systemGrid != w.currentSystemGrid {
+		w.currentSystemGrid = systemGrid
+		systemGrid.ApplyFilter()
+	}
+
 	currentStore := w.media[currentRunKey]
 	if currentRunKey != w.currentMediaRunKey {
 		if w.currentMediaRunKey != "" {
@@ -536,15 +563,6 @@ func (w *Workspace) recalculateLayout() {
 	layout := w.computeViewports()
 	w.metricsGrid.UpdateDimensions(layout.mainContentAreaWidth, layout.height)
 	w.focusMgr.Resolve()
-}
-
-// attachFilters restores the filters remembered for the wandb directory and
-// keeps them saved. System metrics grids are created per run and pick up the
-// shared filter as their charts arrive.
-func (w *Workspace) attachFilters(df *dirFilters) {
-	df.bind(&df.Metrics, w.metricsGrid.filter, w.metricsGrid.ApplyFilter)
-	df.bind(&df.SystemMetrics, w.systemMetricsFilter, nil)
-	df.bind(&df.Runs, w.filter, w.applyRunFilter)
 }
 
 // computeViewports returns the computed layout dimensions.
@@ -1239,6 +1257,12 @@ func (w *Workspace) buildStatusText() string {
 		return w.config.GridConfigStatus()
 	}
 
+	if w.pendingSelectAll != nil {
+		return fmt.Sprintf(
+			"Select all matching runs (%d to load)? Press y to confirm (ESC to cancel)",
+			len(w.pendingSelectAll))
+	}
+
 	return w.buildActiveStatus()
 }
 
@@ -1424,8 +1448,8 @@ func (w *Workspace) activeFocusStatus() []string {
 
 // buildHelpText builds the help text for the status bar.
 func (w *Workspace) buildHelpText() string {
-	// Hide help hint while any workspace-level filter / grid config is active.
-	if w.IsFiltering() || w.config.IsAwaitingGridConfig() {
+	// Hide help hint while any workspace-level filter or prompt is active.
+	if w.isAwaitingUserInput() {
 		return ""
 	}
 	return "h: help"

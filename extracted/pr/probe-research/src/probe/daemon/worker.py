@@ -182,6 +182,14 @@ LEAN_COMPACTIONS_SEEN = "lean_compactions_seen"
 ROUNDS_BEFORE_YIELD = BITE_REQUESTS
 #: "<conversation id>:<compactions>" the agent memory index was last shown after.
 INDEX_AFTER_COMPACTION = "index_after_compaction"
+#: The pin (writer-owns-summary §3.5): the last summary the writer loaded
+#: (`tools.SUMMARY_PIN`), shown once at the start of the next run's new message
+#: when lean trimming or a compaction dropped the tool result that showed it.
+#: Approved wording (fixtures/daemon_prompts/bite/summary-pin-header.PROPOSED.md).
+SUMMARY_PIN_HEADER = "# Summary of {label} you loaded (v{version})"
+#: The most of a pinned summary shown (a person's blocks can make a page long):
+#: the shell's own output cap.
+SUMMARY_PIN_CHARS = 20_000
 #: Conversation mode: after this many compactions the next bite starts fresh from disk.
 COMPACTIONS_BEFORE_FRESH = 8
 #: The state of the record (conversation mode) lists at most this many writes.
@@ -1464,6 +1472,9 @@ class Worker:
                     # holds none of the lean runs' writes (review, Codex High).
                     block, built.writes_mark = self._writes_since()
                     built.prompt = f"{block}\n\n{built.prompt}"
+                pin = self._summary_pin(history)
+                if pin:
+                    built.prompt = f"{pin}\n\n{built.prompt}"
                 mark = f"{live['id']}:{live['compactions']}"
                 if live["compactions"] and self.store.fact(INDEX_AFTER_COMPACTION) != mark:
                     # A compaction summarised the first message away, and the agent memory
@@ -1481,10 +1492,33 @@ class Worker:
                                memory=self.memory_block())
         if built is None:
             return None, None, None
+        pin = self._summary_pin(None)
+        if pin:  # a fresh start from disk keeps no tool result: the last loaded summary rides its first message
+            built.prompt = f"{pin}\n\n{built.prompt}"
         if live is not None:  # opened, but its first run never finished: open it again with today's facts
             self.store.set_conversation_instructions(live["id"], built.instructions, fingerprint)
             return live["id"], None, built
         return self.store.start_conversation(built.instructions, fingerprint), None, built
+
+    def _summary_pin(self, history) -> str:
+        """The last summary the writer loaded (`probe summary checkout`, kept by
+        `tools._remember_note`), as `SUMMARY_PIN_HEADER` and its text, when the
+        conversation no longer shows it: neither the checkout's tool result
+        (lean history drops every finished run's tool traffic; a compaction
+        clears old results) nor an earlier pin of this version is in `history`.
+        "" otherwise: once per drop, never a per-request tail (append-only)."""
+        pin = self.store.fact(tools.SUMMARY_PIN)
+        if not isinstance(pin, dict) or not isinstance(pin.get("text"), str) or not pin.get("label"):
+            return ""
+        header = SUMMARY_PIN_HEADER.format(label=pin["label"], version=int(pin.get("version") or 0))
+        if history and _shows_summary(history, header, pin):
+            return ""
+        # Scrubbed like the checkout's own tool result was: a credential quoted in a
+        # person's block must not come back verbatim once that result is gone.
+        text = tools.scrub(pin["text"])
+        if len(text) > SUMMARY_PIN_CHARS:
+            text = tools._cap(text, SUMMARY_PIN_CHARS)
+        return f"{header}\n\n{text}" if text.strip() else f"{header}\n\n(empty)"
 
     def _fingerprint(self) -> str:
         """What a saved conversation is bound to: this session's id (a store reached
@@ -2477,6 +2511,28 @@ def _lean(messages) -> list:
         if parts:
             out.append(dataclasses.replace(message, parts=parts))
     return out
+
+
+def _shows_summary(history, header: str, pin: dict) -> bool:
+    """Does the conversation still show the pinned summary? Its checkout's tool
+    result (the draft's path with the loaded version, in the JSON the checkout
+    printed), or a pin of this version already sent (its header)."""
+    import re
+
+    from pydantic_ai.messages import ToolReturnPart
+
+    path = str(pin.get("path") or "")
+    loaded = re.compile(rf'"version":\s*{int(pin.get("loaded") or 0)}\b')
+    for message in history:
+        for part in getattr(message, "parts", ()):
+            content = getattr(part, "content", None)
+            text = content if isinstance(content, str) else (
+                json.dumps(content, default=str) if content is not None else "")
+            if header in text:
+                return True
+            if isinstance(part, ToolReturnPart) and path and path in text and loaded.search(text):
+                return True
+    return False
 
 
 def _lean_reset(history, *, carry_on: bool) -> str | None:

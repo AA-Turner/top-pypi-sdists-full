@@ -39,7 +39,7 @@ use crate::{
 
 use crate::specs_adapter::remote_config_value_hydrator::{
     HydrationPhase, ProtobufHydrationSession, RemoteConfigValueHydrator, VerifiedRemoteValues,
-    protobuf_top_level_has_hydrated_sidecar_provenance,
+    protobuf_spec_bytes_have_remote_metadata, protobuf_top_level_has_hydrated_sidecar_provenance,
     remote_metadata_marker_without_metadata_error, rewrite_decoded_dynamic_config_envelope,
     rewrite_top_level_envelope,
 };
@@ -377,7 +377,7 @@ pub(crate) async fn deserialize_protobuf_for_store_with_hydration(
 ) -> Result<(ProtobufUpdate, SpecDecodeStats, Option<Vec<u8>>), StatsigErr> {
     let current_field_checksums = SpecsFieldChecksums::from_specs(current_specs);
     let current_verified_values = VerifiedRemoteConfigValues::new();
-    deserialize_protobuf_for_store_with_hydration_and_checksums(
+    prepare_protobuf_store_update(
         ops_stats,
         ProtobufStoreParseBase {
             specs: current_specs,
@@ -393,7 +393,7 @@ pub(crate) async fn deserialize_protobuf_for_store_with_hydration(
     .map(|(update, stats, bytes, _)| (update, stats, bytes))
 }
 
-pub(crate) async fn deserialize_protobuf_for_store_with_hydration_and_checksums(
+pub(crate) async fn prepare_protobuf_store_update(
     ops_stats: &OpsStatsForInstance,
     base: ProtobufStoreParseBase<'_>,
     next_specs: &mut SpecsResponseFull,
@@ -698,11 +698,17 @@ fn prepare_pending_entity_update(
     // stripped, but retain a true-then-false marker history. Their envelope
     // checksum is still the producer checksum, so checksum alone cannot prove
     // that an older mmap pointer contains the hydrated value.
+    // A response marker can coexist with unchanged inline configs. Probe only
+    // reuse candidates so their rules and inline values can skip full decoding;
+    // metadata-bearing candidates and probe failures keep the validation path.
     let reused = match reused {
         Some((name, spec_pointer))
             if !capture_hydrated_frame
-                && context.parser.remote_metadata_hint() != Some(true)
-                && !context.hydrated_sidecar_provenance =>
+                && !context.hydrated_sidecar_provenance
+                && (context.parser.remote_metadata_hint() != Some(true)
+                    || envelope.data.as_deref().is_some_and(|data| {
+                        matches!(protobuf_spec_bytes_have_remote_metadata(data), Ok(false))
+                    })) =>
         {
             let spec_pointer = if context.preserve_session_update_mode {
                 // mmap specs omit this response metadata. Read only the mode so

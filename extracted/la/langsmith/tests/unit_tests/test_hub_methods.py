@@ -48,12 +48,8 @@ def _mock_sync_client(api_url: str = "https://api.smith.langchain.com") -> Magic
     client.api_url = api_url
     client._host_url = "https://smith.langchain.com"
     client._current_tenant_is_owner.return_value = True
-    client._get_settings.return_value = SimpleNamespace(
-        id=WORKSPACE_ID, tenant_handle="workspace-handle"
-    )
-    client._owner_conflict_error.return_value = ls_utils.LangSmithUserError(
-        "owner mismatch"
-    )
+    client._get_settings.return_value = SimpleNamespace(id=WORKSPACE_ID, tenant_handle="workspace-handle")
+    client._owner_conflict_error.return_value = ls_utils.LangSmithUserError("owner mismatch")
     # Bind real Client hub methods so they execute with the mock as self.
     for name in _HUB_METHODS:
         setattr(client, name, MethodType(getattr(Client, name), client))
@@ -65,12 +61,8 @@ def _mock_async_client(api_url: str = "https://api.smith.langchain.com") -> Magi
     client._api_url = api_url
     client._host_url = "https://smith.langchain.com"
     client._current_tenant_is_owner = AsyncMock(return_value=True)
-    client._get_settings = AsyncMock(
-        return_value=SimpleNamespace(id=WORKSPACE_ID, tenant_handle="workspace-handle")
-    )
-    client._owner_conflict_error = AsyncMock(
-        return_value=ls_utils.LangSmithUserError("owner mismatch")
-    )
+    client._get_settings = AsyncMock(return_value=SimpleNamespace(id=WORKSPACE_ID, tenant_handle="workspace-handle"))
+    client._owner_conflict_error = AsyncMock(return_value=ls_utils.LangSmithUserError("owner mismatch"))
     client._arequest_with_retries = AsyncMock()
     for name in _HUB_METHODS:
         setattr(client, name, MethodType(getattr(AsyncClient, name), client))
@@ -120,9 +112,7 @@ def test_push_agent_rejects_short_parent_commit() -> None:
 
 def test_push_agent_rejects_invalid_handle_on_create() -> None:
     client = _mock_sync_client()
-    client.request_with_retries.side_effect = ls_utils.LangSmithNotFoundError(
-        "not found"
-    )
+    client.request_with_retries.side_effect = ls_utils.LangSmithNotFoundError("not found")
     ctx = client
     with pytest.raises(ls_utils.LangSmithUserError, match="Invalid repo_handle"):
         ctx.push_agent(
@@ -212,13 +202,8 @@ def test_push_agent_creates_new_repo_and_commits() -> None:
         ),
     ]
     ctx = client
-    url = ctx.push_agent(
-        "-/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")}
-    )
-    assert (
-        url == f"https://smith.langchain.com/context/my-agent/abc12345"
-        f"{ORGANIZATION_QUERY}"
-    )
+    url = ctx.push_agent("-/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")})
+    assert url == f"https://smith.langchain.com/context/my-agent/abc12345{ORGANIZATION_QUERY}"
     assert client.request_with_retries.call_count == 3
 
     create_call = client.request_with_retries.call_args_list[1]
@@ -231,9 +216,7 @@ def test_push_agent_creates_new_repo_and_commits() -> None:
         "POST",
         "/v1/platform/hub/repos/-/my-agent/directories/commits",
     )
-    assert commit_call.kwargs["json"]["files"] == {
-        "main.py": {"type": "file", "content": "x"}
-    }
+    assert commit_call.kwargs["json"]["files"] == {"main.py": {"type": "file", "content": "x"}}
 
 
 def test_push_agent_explicit_owner_returns_context_url() -> None:
@@ -250,13 +233,8 @@ def test_push_agent_explicit_owner_returns_context_url() -> None:
             }
         ),
     ]
-    url = client.push_agent(
-        "explicit-owner/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")}
-    )
-    assert (
-        url == f"https://smith.langchain.com/context/my-agent/abc12345"
-        f"{ORGANIZATION_QUERY}"
-    )
+    url = client.push_agent("explicit-owner/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")})
+    assert url == f"https://smith.langchain.com/context/my-agent/abc12345{ORGANIZATION_QUERY}"
 
 
 def test_push_agent_name_only_identifier_returns_context_url() -> None:
@@ -273,13 +251,8 @@ def test_push_agent_name_only_identifier_returns_context_url() -> None:
             }
         ),
     ]
-    url = client.push_agent(
-        "email-assistant", files={"main.py": ls_schemas.FileEntry(content="x")}
-    )
-    assert (
-        url == f"https://smith.langchain.com/context/email-assistant/abc12345"
-        f"{ORGANIZATION_QUERY}"
-    )
+    url = client.push_agent("email-assistant", files={"main.py": ls_schemas.FileEntry(content="x")})
+    assert url == f"https://smith.langchain.com/context/email-assistant/abc12345{ORGANIZATION_QUERY}"
     commit_call = client.request_with_retries.call_args_list[2]
     assert commit_call.args == (
         "POST",
@@ -289,9 +262,7 @@ def test_push_agent_name_only_identifier_returns_context_url() -> None:
 
 def test_push_agent_returns_context_url_when_tenant_handle_missing() -> None:
     client = _mock_sync_client()
-    client._get_settings.return_value = SimpleNamespace(
-        id=WORKSPACE_ID, tenant_handle=None
-    )
+    client._get_settings.return_value = SimpleNamespace(id=WORKSPACE_ID, tenant_handle=None)
     client.request_with_retries.side_effect = [
         ls_utils.LangSmithNotFoundError("not found"),
         _response({}),
@@ -304,13 +275,8 @@ def test_push_agent_returns_context_url_when_tenant_handle_missing() -> None:
             }
         ),
     ]
-    url = client.push_agent(
-        "-/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")}
-    )
-    assert (
-        url == f"https://smith.langchain.com/context/my-agent/abc12345"
-        f"{ORGANIZATION_QUERY}"
-    )
+    url = client.push_agent("-/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")})
+    assert url == f"https://smith.langchain.com/context/my-agent/abc12345{ORGANIZATION_QUERY}"
 
 
 def test_push_agent_updates_metadata_when_repo_exists() -> None:
@@ -385,9 +351,7 @@ def test_push_agent_accepts_tools_json_as_normal_file_entry() -> None:
         files={"tools.json": ls_schemas.FileEntry(content=TOOLS_JSON)},
     )
     commit_call = client.request_with_retries.call_args_list[1]
-    assert commit_call.kwargs["json"]["files"] == {
-        "tools.json": {"type": "file", "content": TOOLS_JSON}
-    }
+    assert commit_call.kwargs["json"]["files"] == {"tools.json": {"type": "file", "content": TOOLS_JSON}}
 
 
 def test_push_agent_passes_parent_commit_when_provided() -> None:
@@ -454,9 +418,7 @@ def test_push_agent_omits_v1_prefix_when_api_url_ends_in_v1() -> None:
             }
         ),
     ]
-    client.push_agent(
-        "-/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")}
-    )
+    client.push_agent("-/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")})
     commit_call = client.request_with_retries.call_args_list[2]
     assert commit_call.args == (
         "POST",
@@ -483,9 +445,7 @@ def test_agent_exists_returns_true_on_200() -> None:
 
 def test_agent_exists_returns_false_on_not_found() -> None:
     client = _mock_sync_client()
-    client.request_with_retries.side_effect = ls_utils.LangSmithNotFoundError(
-        "not found"
-    )
+    client.request_with_retries.side_effect = ls_utils.LangSmithNotFoundError("not found")
     ctx = client
     assert ctx.agent_exists("-/nope") is False
 
@@ -499,9 +459,7 @@ def test_skill_exists_returns_true_on_200() -> None:
 
 def test_skill_exists_returns_false_on_not_found() -> None:
     client = _mock_sync_client()
-    client.request_with_retries.side_effect = ls_utils.LangSmithNotFoundError(
-        "not found"
-    )
+    client.request_with_retries.side_effect = ls_utils.LangSmithNotFoundError("not found")
     ctx = client
     assert ctx.skill_exists("-/nope") is False
 
@@ -555,21 +513,14 @@ async def test_async_push_agent_creates_and_commits() -> None:
         ),
     ]
     ctx = client
-    url = await ctx.push_agent(
-        "-/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")}
-    )
-    assert (
-        url == f"https://smith.langchain.com/context/my-agent/abc12345"
-        f"{ORGANIZATION_QUERY}"
-    )
+    url = await ctx.push_agent("-/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")})
+    assert url == f"https://smith.langchain.com/context/my-agent/abc12345{ORGANIZATION_QUERY}"
     assert client._arequest_with_retries.await_count == 3
 
 
 async def test_async_push_agent_context_url_without_tenant_handle() -> None:
     client = _mock_async_client()
-    client._get_settings = AsyncMock(
-        return_value=SimpleNamespace(id=WORKSPACE_ID, tenant_handle=None)
-    )
+    client._get_settings = AsyncMock(return_value=SimpleNamespace(id=WORKSPACE_ID, tenant_handle=None))
     client._arequest_with_retries.side_effect = [
         ls_utils.LangSmithNotFoundError("not found"),
         _response({}),
@@ -582,13 +533,8 @@ async def test_async_push_agent_context_url_without_tenant_handle() -> None:
             }
         ),
     ]
-    url = await client.push_agent(
-        "-/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")}
-    )
-    assert (
-        url == f"https://smith.langchain.com/context/my-agent/abc12345"
-        f"{ORGANIZATION_QUERY}"
-    )
+    url = await client.push_agent("-/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")})
+    assert url == f"https://smith.langchain.com/context/my-agent/abc12345{ORGANIZATION_QUERY}"
 
 
 async def test_async_push_agent_accepts_tools_json_as_normal_file_entry() -> None:
@@ -611,9 +557,7 @@ async def test_async_push_agent_accepts_tools_json_as_normal_file_entry() -> Non
         files={"tools.json": ls_schemas.FileEntry(content=TOOLS_JSON)},
     )
     commit_call = client._arequest_with_retries.call_args_list[2]
-    assert commit_call.kwargs["json"]["files"] == {
-        "tools.json": {"type": "file", "content": TOOLS_JSON}
-    }
+    assert commit_call.kwargs["json"]["files"] == {"tools.json": {"type": "file", "content": TOOLS_JSON}}
 
 
 async def test_async_create_repo_swallows_conflict() -> None:
@@ -631,13 +575,8 @@ async def test_async_create_repo_swallows_conflict() -> None:
         ),
     ]
     ctx = client
-    url = await ctx.push_agent(
-        "-/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")}
-    )
-    assert (
-        url == f"https://smith.langchain.com/context/my-agent/abc12345"
-        f"{ORGANIZATION_QUERY}"
-    )
+    url = await ctx.push_agent("-/my-agent", files={"main.py": ls_schemas.FileEntry(content="x")})
+    assert url == f"https://smith.langchain.com/context/my-agent/abc12345{ORGANIZATION_QUERY}"
     assert client._arequest_with_retries.await_count == 3
 
 
@@ -685,9 +624,7 @@ async def test_async_agent_exists_returns_true_on_200() -> None:
 
 async def test_async_agent_exists_returns_false_on_not_found() -> None:
     client = _mock_async_client()
-    client._arequest_with_retries.side_effect = ls_utils.LangSmithNotFoundError(
-        "not found"
-    )
+    client._arequest_with_retries.side_effect = ls_utils.LangSmithNotFoundError("not found")
     ctx = client
     assert await ctx.agent_exists("-/nope") is False
 
@@ -701,9 +638,7 @@ async def test_async_skill_exists_returns_true_on_200() -> None:
 
 async def test_async_skill_exists_returns_false_on_not_found() -> None:
     client = _mock_async_client()
-    client._arequest_with_retries.side_effect = ls_utils.LangSmithNotFoundError(
-        "not found"
-    )
+    client._arequest_with_retries.side_effect = ls_utils.LangSmithNotFoundError("not found")
     ctx = client
     assert await ctx.skill_exists("-/nope") is False
 

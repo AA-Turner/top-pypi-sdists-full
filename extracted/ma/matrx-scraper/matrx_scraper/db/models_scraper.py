@@ -18,6 +18,57 @@ class ShownTo(StrEnum):
     EVERYONE = "everyone"
     EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
 
+class ComparisonRun(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    kind = TextField(null=False)
+    request = JSONBField(null=False, default={})
+    item_count = IntegerField(null=False, default=0)
+    status = TextField(null=False, default='running')
+    progress = JSONBField(null=False, default=[])
+    facts = JSONBField(null=False, default={})
+    result = JSONBField()
+    error_code = TextField()
+    error = TextField()
+    started_at = DateTimeField()
+    finished_at = DateTimeField()
+    lease_until = DateTimeField(null=False)
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_scraper"
+    _table_name = "comparison_run"
+    _db_schema = "scraper"
+    _entity_token = "scraper_comparison_run"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "entity"
+
+
+
+class Visibility(StrEnum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class ShownTo(StrEnum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
 class DataFetchJob(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     source_key = TextField(null=False)
@@ -332,6 +383,7 @@ class ScrapePathOverride(MatrxEntity):
     _rls_variant = "reference"
 
 __all__ = [
+    "ComparisonRun",
     "DataFetchJob",
     "DataSource",
     "ScrapeDomain",
@@ -348,6 +400,7 @@ __all__ = [
 
 model_registry.register_all(
 [
+        ComparisonRun,
         DataFetchJob,
         DataSource,
         ScrapeDomain,

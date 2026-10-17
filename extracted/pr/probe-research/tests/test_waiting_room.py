@@ -756,3 +756,41 @@ def test_outbox_status_reports_waiting_uploads(outbox_dir, tmp_path, capsys):
     _enqueue(Journal(outbox_dir), _source(tmp_path))
     assert cli.main(["--spool-dir", str(outbox_dir), "outbox", "status"]) == 2
     assert "waiting" in capsys.readouterr().out
+
+
+def test_a_verbatim_upload_holding_a_credential_is_dead_lettered_not_rewritten(tmp_path):
+    """A checkpoint's files must come back as saved: a masked span would be a
+    different file under a hash that still verifies."""
+    journal = _journal(tmp_path)
+    src = _source(tmp_path)
+    journal.append_upload(
+        anchor="run", anchor_id="run-1", name="tokenizer.json", src_path=src, inline_hash=True,
+        run_ref="run-1", require_staged=True, defer_scan=True, verbatim=True,
+    )
+    assert journal.promote_waiting() == 0
+    assert journal.pending() == [] and journal.waiting() == []
+    (_, failed), = journal.failed()
+    assert "byte-for-byte" in failed["last_error"] and _GHP not in failed["last_error"]
+
+
+def test_a_clean_verbatim_upload_is_queued_byte_for_byte(tmp_path):
+    journal = _journal(tmp_path)
+    text = '{"model": {"vocab": {"password": 20786}}}'
+    src = _source(tmp_path, text, name="tokenizer.json")
+    journal.append_upload(
+        anchor="run", anchor_id="run-1", name="tokenizer.json", src_path=src, inline_hash=True,
+        run_ref="run-1", require_staged=True, defer_scan=True, verbatim=True,
+    )
+    assert journal.promote_waiting() == 1
+    assert journal.blob_path(_only_op(journal)).read_text() == text
+
+
+def test_a_verbatim_upload_under_the_block_policy_is_refused_on_the_callers_thread(tmp_path, monkeypatch):
+    monkeypatch.setenv("PROBE_ARTIFACT_OPAQUE_POLICY", "block")
+    journal = _journal(tmp_path)
+    with pytest.raises(secret_gate.CredentialBlocked, match="byte-for-byte"):
+        journal.append_upload(
+            anchor="run", anchor_id="run-1", name="tokenizer.json", src_path=_source(tmp_path),
+            inline_hash=True, run_ref="run-1", require_staged=True, defer_scan=True, verbatim=True,
+        )
+    assert journal.pending() == []

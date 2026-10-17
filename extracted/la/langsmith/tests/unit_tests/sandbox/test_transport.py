@@ -348,9 +348,7 @@ class TestAsyncRetryTransport:
     @pytest.mark.asyncio
     @pytest.mark.usefixtures("_patch_sleep")
     async def test_exhausted_retries_on_429_returns_response(self):
-        mock = MockAsyncTransport(
-            [httpx.Response(429, headers={"retry-after": "1"})] * 4
-        )
+        mock = MockAsyncTransport([httpx.Response(429, headers={"retry-after": "1"})] * 4)
         transport = AsyncRetryTransport(max_retries=3, transport=mock)
         response = await transport.handle_async_request(_make_request())
         assert response.status_code == 429

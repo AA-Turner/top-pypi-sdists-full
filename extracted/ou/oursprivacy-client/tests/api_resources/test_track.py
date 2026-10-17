@@ -21,8 +21,8 @@ class TestTrack:
     @parametrize
     def test_method_event(self, client: OursPrivacy) -> None:
         track = client.track.event(
-            token="x",
-            event="x",
+            token="P",
+            event="P",
         )
         assert_matches_type(TrackEventResponse, track, path=["response"])
 
@@ -30,8 +30,8 @@ class TestTrack:
     @parametrize
     def test_method_event_with_all_params(self, client: OursPrivacy) -> None:
         track = client.track.event(
-            token="x",
-            event="x",
+            token="P",
+            event="P",
             default_properties={
                 "_ef_transaction_id": "_ef_transaction_id",
                 "active_duration": 0,
@@ -67,12 +67,14 @@ class TestTrack:
                 "gad_source": "gad_source",
                 "gbraid": "gbraid",
                 "gclid": "gclid",
+                "graid": "graid",
+                "grclid": "grclid",
                 "host": "host",
                 "iframe": True,
                 "im_ref": "im_ref",
                 "ip": "ip",
                 "irclickid": "irclickid",
-                "is_bot": "is_bot",
+                "is_bot": "string",
                 "li_fat_id": "li_fat_id",
                 "msclkid": "msclkid",
                 "ndclid": "ndclid",
@@ -112,16 +114,16 @@ class TestTrack:
                 "wbraid": "wbraid",
                 "webview": True,
             },
-            distinct_id="x",
-            email="x",
+            distinct_id="P",
+            email="P",
             event_properties={"foo": "string"},
-            external_id="x",
+            external_id="P",
             identity_context={
                 "ip": "ip",
                 "user_agent": "userAgent",
             },
             time=0,
-            user_id="x",
+            user_id="P",
             user_properties={
                 "_ef_transaction_id": "_ef_transaction_id",
                 "ad_id": "ad_id",
@@ -153,10 +155,12 @@ class TestTrack:
                 "gbraid": "gbraid",
                 "gclid": "gclid",
                 "gender": "gender",
+                "graid": "graid",
+                "grclid": "grclid",
                 "im_ref": "im_ref",
                 "ip": "ip",
                 "irclickid": "irclickid",
-                "is_bot": "is_bot",
+                "is_bot": "string",
                 "job_title": "job_title",
                 "last_name": "last_name",
                 "li_fat_id": "li_fat_id",
@@ -164,7 +168,7 @@ class TestTrack:
                 "ndclid": "ndclid",
                 "ob_click_id": "ob_click_id",
                 "oppref": "oppref",
-                "phone_number": "phone_number",
+                "phone_number": "string",
                 "qclid": "qclid",
                 "rdt_cid": "rdt_cid",
                 "referrer": "referrer",
@@ -186,7 +190,7 @@ class TestTrack:
                 "viant_click_id": "viant_click_id",
                 "viant_impression_id": "viant_impression_id",
                 "wbraid": "wbraid",
-                "zip": "zip",
+                "zip": "string",
             },
         )
         assert_matches_type(TrackEventResponse, track, path=["response"])
@@ -195,8 +199,8 @@ class TestTrack:
     @parametrize
     def test_raw_response_event(self, client: OursPrivacy) -> None:
         response = client.track.with_raw_response.event(
-            token="x",
-            event="x",
+            token="P",
+            event="P",
         )
 
         assert response.is_closed is True
@@ -208,8 +212,8 @@ class TestTrack:
     @parametrize
     def test_streaming_response_event(self, client: OursPrivacy) -> None:
         with client.track.with_streaming_response.event(
-            token="x",
-            event="x",
+            token="P",
+            event="P",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -229,8 +233,8 @@ class TestAsyncTrack:
     @parametrize
     async def test_method_event(self, async_client: AsyncOursPrivacy) -> None:
         track = await async_client.track.event(
-            token="x",
-            event="x",
+            token="P",
+            event="P",
         )
         assert_matches_type(TrackEventResponse, track, path=["response"])
 
@@ -238,8 +242,8 @@ class TestAsyncTrack:
     @parametrize
     async def test_method_event_with_all_params(self, async_client: AsyncOursPrivacy) -> None:
         track = await async_client.track.event(
-            token="x",
-            event="x",
+            token="P",
+            event="P",
             default_properties={
                 "_ef_transaction_id": "_ef_transaction_id",
                 "active_duration": 0,
@@ -275,12 +279,14 @@ class TestAsyncTrack:
                 "gad_source": "gad_source",
                 "gbraid": "gbraid",
                 "gclid": "gclid",
+                "graid": "graid",
+                "grclid": "grclid",
                 "host": "host",
                 "iframe": True,
                 "im_ref": "im_ref",
                 "ip": "ip",
                 "irclickid": "irclickid",
-                "is_bot": "is_bot",
+                "is_bot": "string",
                 "li_fat_id": "li_fat_id",
                 "msclkid": "msclkid",
                 "ndclid": "ndclid",
@@ -320,16 +326,16 @@ class TestAsyncTrack:
                 "wbraid": "wbraid",
                 "webview": True,
             },
-            distinct_id="x",
-            email="x",
+            distinct_id="P",
+            email="P",
             event_properties={"foo": "string"},
-            external_id="x",
+            external_id="P",
             identity_context={
                 "ip": "ip",
                 "user_agent": "userAgent",
             },
             time=0,
-            user_id="x",
+            user_id="P",
             user_properties={
                 "_ef_transaction_id": "_ef_transaction_id",
                 "ad_id": "ad_id",
@@ -361,10 +367,12 @@ class TestAsyncTrack:
                 "gbraid": "gbraid",
                 "gclid": "gclid",
                 "gender": "gender",
+                "graid": "graid",
+                "grclid": "grclid",
                 "im_ref": "im_ref",
                 "ip": "ip",
                 "irclickid": "irclickid",
-                "is_bot": "is_bot",
+                "is_bot": "string",
                 "job_title": "job_title",
                 "last_name": "last_name",
                 "li_fat_id": "li_fat_id",
@@ -372,7 +380,7 @@ class TestAsyncTrack:
                 "ndclid": "ndclid",
                 "ob_click_id": "ob_click_id",
                 "oppref": "oppref",
-                "phone_number": "phone_number",
+                "phone_number": "string",
                 "qclid": "qclid",
                 "rdt_cid": "rdt_cid",
                 "referrer": "referrer",
@@ -394,7 +402,7 @@ class TestAsyncTrack:
                 "viant_click_id": "viant_click_id",
                 "viant_impression_id": "viant_impression_id",
                 "wbraid": "wbraid",
-                "zip": "zip",
+                "zip": "string",
             },
         )
         assert_matches_type(TrackEventResponse, track, path=["response"])
@@ -403,8 +411,8 @@ class TestAsyncTrack:
     @parametrize
     async def test_raw_response_event(self, async_client: AsyncOursPrivacy) -> None:
         response = await async_client.track.with_raw_response.event(
-            token="x",
-            event="x",
+            token="P",
+            event="P",
         )
 
         assert response.is_closed is True
@@ -416,8 +424,8 @@ class TestAsyncTrack:
     @parametrize
     async def test_streaming_response_event(self, async_client: AsyncOursPrivacy) -> None:
         async with async_client.track.with_streaming_response.event(
-            token="x",
-            event="x",
+            token="P",
+            event="P",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"

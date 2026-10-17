@@ -79,6 +79,27 @@ def _norm_region_series(s: pd.Series) -> pd.Series:
     return s.astype(str).str.lower().str.replace("_", " ", regex=False)
 
 
+def _qualified_region_series(admin_1: pd.Series, admin_2: pd.Series) -> pd.Series:
+    """``"<admin_1> <admin_2>"`` in the _norm_region_series form; NaN where
+    either name is missing or blank.
+
+    When admin_2 names repeat within a country, geoprepare names EVERY admin_2
+    region this way (extract_EO.iter_region_records): Kaliganj is an upazila of
+    four Bangladesh districts, so the regions are gazipur_kaliganj,
+    jhenaidah_kaliganj, ... Production-statistics files, like the boundary,
+    keep the bare name in admin_2, so admin_2 joins also key their rows by
+    this qualified form.
+    """
+    def _usable(s):
+        return s.where(s.map(lambda v: isinstance(v, str) and v.strip() != ""))
+
+    a1, a2 = _usable(admin_1), _usable(admin_2)
+    both = a1.notna() & a2.notna()
+    out = pd.Series(np.nan, index=admin_1.index, dtype=object)
+    out[both] = _norm_region_series(a1[both].str.strip() + " " + a2[both].str.strip())
+    return out
+
+
 def parse_run_regions(raw, crop=None, log=None):
     """Parse a ``run_regions`` config value into a list of names, or None.
 
@@ -147,27 +168,171 @@ def _resolve_stats_file(country, parser=None) -> str:
     return fn
 
 
+# ---------------------------------------------------------------------------
+# Production-statistics files come in two layouts, both accepted wherever
+# production_statistics_file is read:
+#   * HarvestStat CSV (long): one row per admin unit, product, season and
+#     year, with country, product, season_name, crop_production_system,
+#     admin_1/admin_2, harvest_year, yield, area, production [, qc_flag].
+#   * AMIS/EWCM workbook (.xlsx, wide): the layout of the GEOGLAM
+#     <crop>_<season>.xlsx files and bangladesh_rice.xlsx. One sheet per
+#     statistic, id columns ADM0_NAME, ADM1_NAME, [ADM2_NAME], Season,
+#     [CM_Season], [Source], [num_ID] and one column per year. It is turned
+#     into the long table on read, so both layouts share one join.
+# ---------------------------------------------------------------------------
+WORKBOOK_SHEETS = {
+    "Yield (tn per ha)": "yield",
+    "Area (ha)": "area",
+    "Production (tn)": "production",
+}
+_WORKBOOK_IDS = ["ADM0_NAME", "ADM1_NAME", "ADM2_NAME", "Season", "CM_Season", "Source", "num_ID"]
+_WORKBOOK_NAMES = ["ADM0_NAME", "ADM1_NAME", "ADM2_NAME", "Season"]
+# What identifies one row of a sheet (CM_Season separates rows whose Season is blank)
+_WORKBOOK_KEYS = _WORKBOOK_NAMES + ["CM_Season"]
+# (resolved path, mtime_ns, size) -> long table; an edited workbook gets a new key
+_WORKBOOK_CACHE = {}
+
+
+def is_workbook(path) -> bool:
+    """True for an AMIS/EWCM workbook, False for a HarvestStat CSV."""
+    return Path(path).suffix.lower() in (".xlsx", ".xls")
+
+
+def _read_workbook_sheet(xlsx, sheet, value_name):
+    """One statistic sheet in long form: id columns + harvest_year + value."""
+    d = pd.read_excel(xlsx, sheet_name=sheet)
+    for col in ("ADM0_NAME", "ADM1_NAME", "Season"):
+        if col not in d.columns:
+            raise ValueError(f"{xlsx} [{sheet}] lacks column {col!r}")
+    ids = [c for c in _WORKBOOK_IDS if c in d.columns]
+    years = [c for c in d.columns if str(c).strip().isdigit() and len(str(c).strip()) == 4]
+    if not years:
+        raise ValueError(f"{xlsx} [{sheet}] has no year columns")
+    for col in _WORKBOOK_NAMES:
+        if col in d.columns:
+            d[col] = d[col].map(lambda v: v.strip() if isinstance(v, str) else v)
+    m = d.melt(id_vars=ids, value_vars=years, var_name="harvest_year", value_name=value_name)
+    m["harvest_year"] = m["harvest_year"].astype(str).str.strip().astype(int)
+    m[value_name] = pd.to_numeric(m[value_name], errors="coerce")
+    key = [c for c in _WORKBOOK_KEYS if c in m.columns]
+    dup = m.duplicated(subset=key + ["harvest_year"], keep=False)
+    if dup.any():
+        raise ValueError(
+            f"{xlsx} [{sheet}]: {int(dup.sum())} rows share an (admin unit, season, year): "
+            f"{m.loc[dup, key].drop_duplicates().values.tolist()[:5]}"
+        )
+    return m
+
+
+def geoglam_workbook_to_long(xlsx, product=None):
+    """AMIS/EWCM workbook -> the long HarvestStat-style table.
+
+    The year columns become ``harvest_year`` unchanged, which is how the
+    legacy GEOGLAM reader (``add_GEOGLAM_statistics``) interprets them.
+    ``Season`` becomes ``season_name`` and ``CM_Season`` becomes
+    ``cm_season``; every season is kept. A workbook carries no crop column,
+    so ``product`` is set from the argument. Rows with no value in any sheet
+    are dropped; a missing sheet leaves its column empty.
+
+    Columns: country, fnid, admin_1, [admin_2], num_ID, product,
+    season_name, cm_season, crop_production_system ("none"), qc_flag (0),
+    harvest_year, yield, area, production, source.
+    """
+    sheet_names = pd.ExcelFile(xlsx).sheet_names
+    present = [s for s in WORKBOOK_SHEETS if s in sheet_names]
+    if not present:
+        raise ValueError(f"{xlsx} has none of the sheets {list(WORKBOOK_SHEETS)}; found {sheet_names}")
+
+    long = None
+    for sheet in present:
+        m = _read_workbook_sheet(xlsx, sheet, WORKBOOK_SHEETS[sheet])
+        if long is None:
+            long = m
+        else:
+            key = [c for c in _WORKBOOK_KEYS if c in long.columns and c in m.columns] + ["harvest_year"]
+            extra = [c for c in m.columns if c in long.columns and c not in key]
+            long = long.merge(m.drop(columns=extra), on=key, how="outer", validate="1:1")
+    for value in WORKBOOK_SHEETS.values():
+        if value not in long.columns:
+            long[value] = np.nan
+    long = long.dropna(subset=list(WORKBOOK_SHEETS.values()), how="all")
+
+    def _col(name):
+        return long[name] if name in long.columns else np.nan
+
+    out = pd.DataFrame({
+        "country": long["ADM0_NAME"],
+        "fnid": _col("num_ID"),
+        "admin_1": long["ADM1_NAME"],
+    })
+    if "ADM2_NAME" in long.columns:
+        out["admin_2"] = long["ADM2_NAME"]
+    out["num_ID"] = _col("num_ID")
+    out["product"] = product if product is not None else np.nan
+    out["season_name"] = long["Season"]
+    out["cm_season"] = _col("CM_Season")
+    out["crop_production_system"] = "none"
+    out["qc_flag"] = 0
+    out["harvest_year"] = long["harvest_year"]
+    for value in WORKBOOK_SHEETS.values():
+        out[value] = long[value]
+    out["source"] = _col("Source")
+    admin = "admin_2" if "admin_2" in out.columns else "admin_1"
+    return out.sort_values(["country", "season_name", admin, "harvest_year"]).reset_index(drop=True)
+
+
+def read_production_statistics(path, product=None, usecols=None):
+    """A production-statistics file as the long HarvestStat-style table.
+
+    A CSV is read as is (``usecols`` is passed to read_csv). An AMIS/EWCM
+    workbook is converted with geoglam_workbook_to_long -- cached per
+    (path, modification time, size), so repeated calls do not re-parse it
+    and an edited workbook is re-read -- with ``product`` filled in. The
+    caller gets its own copy either way.
+    """
+    path = Path(path)
+    if not is_workbook(path):
+        return pd.read_csv(path, low_memory=False, usecols=usecols)
+    st = path.stat()
+    resolved = str(path.resolve())
+    key = (resolved, st.st_mtime_ns, st.st_size)
+    if key not in _WORKBOOK_CACHE:
+        for old in [k for k in _WORKBOOK_CACHE if k[0] == resolved]:
+            del _WORKBOOK_CACHE[old]
+        _WORKBOOK_CACHE[key] = geoglam_workbook_to_long(path)
+    df = _WORKBOOK_CACHE[key].copy()
+    df["product"] = product if product is not None else np.nan
+    return df
+
+
 def admin1_lookup(dir_stats, country, parser=None):
     """Map normalized admin_2 (county) names -> admin_1 (state) names.
 
     Read from the same production-statistics file the yield join uses (via
     _resolve_stats_file) with the same name normalization, so the mapping can
     never disagree with the join. Backs the optional 'State' categorical for
-    admin_2 runs. Returns {} when the file or columns are unavailable.
+    admin_2 runs. Keys are the bare admin_2 names plus their
+    ``"<admin_1> <admin_2>"`` forms (the region names geoprepare uses when
+    admin_2 names repeat); a bare key wins if the two forms ever coincide.
+    Returns {} when the file or columns are unavailable.
     """
     path = Path(dir_stats) / _resolve_stats_file(country, parser)
     if not path.is_file():
         return {}
-    df = pd.read_csv(
-        path, low_memory=False,
-        usecols=lambda c: c in ("country", "admin_1", "admin_2"),
+    df = read_production_statistics(
+        path, usecols=lambda c: c in ("country", "admin_1", "admin_2"),
     )
     if not {"country", "admin_1", "admin_2"}.issubset(df.columns):
         return {}
     df = df[df["country"] == country].dropna(subset=["admin_1", "admin_2"])
     if df.empty:
         return {}
-    return dict(zip(_norm_region_series(df["admin_2"]), df["admin_1"].astype(str)))
+    parents = df["admin_1"].astype(str)
+    mapping = dict(zip(_norm_region_series(df["admin_2"]), parents))
+    for key, parent in zip(_qualified_region_series(df["admin_1"], df["admin_2"]), parents):
+        if isinstance(key, str):
+            mapping.setdefault(key, parent)
+    return mapping
 
 
 def regions_with_yields(dir_stats, country, crop, admin_zone, parser=None):
@@ -182,7 +347,8 @@ def regions_with_yields(dir_stats, country, crop, admin_zone, parser=None):
     never produce a yield row for this (country, crop) at this admin zone.
 
     Args:
-        dir_stats: directory holding the production-statistics CSVs.
+        dir_stats: directory holding the production-statistics files
+            (HarvestStat CSV or AMIS/EWCM workbook).
         country: display form, e.g. "United States Of America".
         crop: display form, e.g. "Maize".
         admin_zone: which admin column names the regions — "admin_1" or
@@ -192,13 +358,13 @@ def regions_with_yields(dir_stats, country, crop, admin_zone, parser=None):
     Returns:
         set of normalized region names, or None when the answer is unknown
         (missing file/columns, or no rows for this country+crop — e.g.
-        GEOGLAM-format countries) — callers must treat None as "do not
-        filter".
+        countries served by the legacy <crop>_<season>.xlsx fallback) —
+        callers must treat None as "do not filter".
     """
     path = Path(dir_stats) / _resolve_stats_file(country, parser)
     if not path.is_file():
         return None
-    df = pd.read_csv(path, low_memory=False)
+    df = read_production_statistics(path, product=crop)
     required = {"country", "product", "yield", admin_zone}
     if not required.issubset(df.columns):
         return None
@@ -212,7 +378,11 @@ def regions_with_yields(dir_stats, country, crop, admin_zone, parser=None):
     if df.empty:
         return None
     df = df[df["yield"].notna()]
-    return set(_norm_region_series(df[admin_zone]).dropna())
+    names = set(_norm_region_series(df[admin_zone]).dropna())
+    if admin_zone == "admin_2" and "admin_1" in df.columns:
+        # also the "<admin_1> <admin_2>" region names (see add_statistics)
+        names |= set(_qualified_region_series(df["admin_1"], df["admin_2"]).dropna())
+    return names
 
 
 def aggregate_yield_across_ps(yield_values, area_values, prod_values):
@@ -408,8 +578,6 @@ def get_yld_prd(df, name_crop, cntr, region, calendar_year, region_column="ADM1_
                 df_tmp = df.loc[df.Season == "Single-cropping and Middle-season Rice"]
             elif cntr == "India":
                 df_tmp = df.loc[df.Season == "Kharif"]
-            elif cntr == "Bangladesh":  # HACK for Bangladesh rice
-                df_tmp = df.loc[df.Season == "Boro"]
         elif name_crop == "maize" and cntr in [
             "Austria",
             "Belgium",
@@ -550,13 +718,9 @@ def add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=None, 
     season = df["Season"].unique()[0]
 
     # Read in the area stats for the crop and season
-    # HACK: Bangladesh rice uses country-specific filename
     if country is None:
         country = df["Country"].unique()[0]
-    if crop == "rice" and country.lower() == "bangladesh":
-        stat_file = dir_stats / "bangladesh_rice.xlsx"
-    else:
-        stat_file = dir_stats / f"{crop}_{season}.xlsx"
+    stat_file = dir_stats / f"{crop}_{season}.xlsx"
 
     for stat in stats:
         if os.path.isfile(stat_file):
@@ -602,6 +766,17 @@ def add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=None, 
     return df
 
 
+# Warnings add_statistics has already logged. The optimizers call it once per
+# region or season, so each problem is reported once per process.
+_WARNED = set()
+
+
+def _warn_once(key, message):
+    if key not in _WARNED:
+        _WARNED.add(key)
+        logger.warning(message)
+
+
 def add_statistics(
     dir_stats,
     df,
@@ -628,18 +803,10 @@ def add_statistics(
     Returns:
 
     """
-    # HACK: Bangladesh rice uses GEOGLAM format
-    if country == "Bangladesh" and crop == "Rice":
-        df = add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=crop, country=country, label=label)
-        # Add columns for obj.stats_cols
-        for col in ["Area"]:
-            df.loc[:, col] = np.nan
-        return df
-    
     # Filename: per-country override → DEFAULT override → hvstat default
     # (shared with regions_with_yields via _resolve_stats_file).
     fn = _resolve_stats_file(country, parser)
-    df_fewsnet = pd.read_csv(dir_stats / fn, low_memory=False)
+    df_fewsnet = read_production_statistics(Path(dir_stats) / fn, product=crop)
     # HACK
     #if country == "Afghanistan":
     #    df_fewsnet.loc[:, "product"] = (
@@ -658,6 +825,12 @@ def add_statistics(
         df_fewsnet = df_fewsnet[df_fewsnet["qc_flag"] == 0]
 
     if mask.sum() == 0:
+        if is_workbook(fn):
+            _warn_once(
+                (fn, country, crop, "no_rows"),
+                f"{country}/{crop}: no rows with ADM0_NAME == {country!r} in {fn}; "
+                f"falling back to {crop.lower().replace(' ', '_')}_<season>.xlsx.",
+            )
         df = add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone, crop=crop, country=country, label=label)
     else:
         from geocif.utils import PRIMARY_SEASON_NAMES, SECONDARY_SEASON_NAMES
@@ -665,42 +838,62 @@ def add_statistics(
         # Determine which season_names exist for this country/crop
         country_crop_mask = (df_fewsnet["country"] == country) & (df_fewsnet["product"] == crop)
         available_seasons = set(df_fewsnet.loc[country_crop_mask, "season_name"].unique())
+        # AMIS/EWCM workbooks number their seasons (CM_Season) the way the
+        # crop calendar does, so a run's season number picks rows directly.
+        available_numbers = set()
+        if "cm_season" in df_fewsnet.columns:
+            available_numbers = set(
+                pd.to_numeric(df_fewsnet.loc[country_crop_mask, "cm_season"], errors="coerce")
+                .dropna().astype(int)
+            )
 
         def _resolve_season_filter(season_num):
-            """Pick the hvstat season_name for a given CID season number."""
+            """Which stats rows a CID season number joins, as
+            ``(column, values)``: ``("season_name", [names])`` or
+            ``("cm_season", [number])``. Order: a valid
+            hvstat_season_override, then the file's CM_Season numbers,
+            then the season-name lists."""
             # Per-country config override: [<country>] hvstat_season_override
             # in countries.txt. Value is a single season_name that MUST exist
             # in the hvstat file (e.g., "Annual", "Long", "Short", "Meher"...).
             # If unset or the given name isn't in available_seasons, falls
-            # through to the legacy hardcoded / PRIMARY/SECONDARY_SEASON_NAMES
-            # resolution. Applies to every CID Season (both s=1 and s=2 use
-            # the same override — one override per country/crop for now).
+            # through to the CM_Season / legacy hardcoded / PRIMARY/
+            # SECONDARY_SEASON_NAMES resolution. Applies to every CID Season
+            # (both s=1 and s=2 use the same override — one override per
+            # country/crop for now).
             if parser is not None:
                 country_key = country.lower().replace(" ", "_")
                 if parser.has_option(country_key, "hvstat_season_override"):
                     override = parser.get(country_key, "hvstat_season_override").strip()
                     if override in available_seasons:
-                        return [override]
-                    # else: fall through with a note the value didn't match.
-                    # (No warning here — logged once by add_statistics caller.)
+                        return ("season_name", [override])
+                    _warn_once(
+                        (fn, country, crop, "override", override),
+                        f"{country}/{crop}: hvstat_season_override = {override!r} is "
+                        f"not a season_name in {fn} (available: "
+                        f"{sorted(map(str, available_seasons))}); ignoring it.",
+                    )
+
+            if available_numbers and pd.notna(season_num):
+                return ("cm_season", [int(season_num)])
 
             # Legacy hardcoded fallback for Kenya Maize (retained so runs with
             # no override key keep their previous behavior). Prefer the config
             # override above for any new deployment.
             if country == "Kenya" and crop == "Maize" and "Annual" in available_seasons:
-                return ["Annual"]
+                return ("season_name", ["Annual"])
             if season_num == 1:
                 for name in PRIMARY_SEASON_NAMES:
                     if name in available_seasons:
-                        return [name]
+                        return ("season_name", [name])
             elif season_num == 2:
                 for name in SECONDARY_SEASON_NAMES:
                     if name in available_seasons:
-                        return [name]
+                        return ("season_name", [name])
             # Fallback: use "Annual" only if no seasonal match was found
             if "Annual" in available_seasons:
-                return ["Annual"]
-            return []
+                return ("season_name", ["Annual"])
+            return ("season_name", [])
 
         # Group by Season too if the column exists
         group_by = ["Region", "Harvest Year"]
@@ -717,6 +910,28 @@ def add_statistics(
         else:
             season_filters[None] = _resolve_season_filter(1)
 
+        # A season number that selects no stats rows joins nothing and the
+        # yield columns never appear, so say so instead of failing silently.
+        for s, (filter_col, filter_values) in season_filters.items():
+            s = 1 if s is None else s
+            if pd.isna(s):
+                continue
+            if filter_col == "cm_season" and int(s) not in available_numbers:
+                _warn_once(
+                    (fn, country, crop, "season", s),
+                    f"{country}/{crop}: no rows with CM_Season == {s} in {fn} "
+                    f"(available: {sorted(available_numbers)}); no yields joined.",
+                )
+            elif filter_col == "season_name" and not filter_values:
+                _warn_once(
+                    (fn, country, crop, "season", s),
+                    f"{country}/{crop}: no season_name in {fn} matches season {s} "
+                    f"(available: {sorted(map(str, available_seasons))}); no yields "
+                    f"joined. Add the name to PRIMARY_SEASON_NAMES / "
+                    f"SECONDARY_SEASON_NAMES in geocif/utils.py, or set "
+                    f"hvstat_season_override for this country.",
+                )
+
         # ------------------------------------------------------------------
         # Vectorized join. Replaces the legacy per-(Region, Harvest Year
         # [, Season]) process_group loop, which re-scanned (and re-lower-
@@ -727,7 +942,8 @@ def add_statistics(
         #     their input order (legacy emitted them sorted by group key —
         #     the one deliberate difference, callers are order-agnostic);
         #   * the stats table is filtered on country + the PS whitelist +
-        #     product + the per-Season season_name filter. The legacy
+        #     product + the per-Season filter (season_name, or cm_season
+        #     when the file numbers its seasons). The legacy
         #     per-group mask never filtered on country, so admin names
         #     shared across countries (Malawi/Ghana/Zambia "Northern",
         #     "Central", "Southern" ...) pooled their yields: 49 of 121
@@ -735,7 +951,9 @@ def add_statistics(
         #     audit). Fixed in 0.4.1063;
         #   * region matching is case-insensitive with underscores
         #     normalized to spaces (shared _norm_region_* rule), NaN admin
-        #     names normalize to the string "nan" exactly as before;
+        #     names normalize to the string "nan" exactly as before; admin_2
+        #     joins also accept "<admin_1> <admin_2>" (geoprepare's name when
+        #     admin_2 names repeat), never overriding a bare-name key;
         #   * multi-PS rows collapse with aggregate_yield_across_ps logic
         #     (see _aggregate_ps_lookup);
         #   * a group "matched" when >=1 stats row survived the mask — the
@@ -756,11 +974,17 @@ def add_statistics(
                 & df_fewsnet["crop_production_system"].isin(STANDARD_PRODUCTION_SYSTEMS)
                 & (df_fewsnet["product"] == crop)
             )
-            df_stats = df_fewsnet.loc[
-                base_mask,
-                [admin_zone, "harvest_year", "season_name",
-                 "yield", "area", "production"],
-            ].copy()
+            stats_cols = [admin_zone, "harvest_year", "season_name",
+                          "yield", "area", "production"]
+            if available_numbers:
+                stats_cols.append("cm_season")
+            qualify = admin_zone == "admin_2" and "admin_1" in df_fewsnet.columns
+            if qualify:
+                stats_cols.append("admin_1")
+            df_stats = df_fewsnet.loc[base_mask, stats_cols].copy()
+            if available_numbers:
+                # same numeric reading as available_numbers ("1" in a CSV is 1)
+                df_stats["cm_season"] = pd.to_numeric(df_stats["cm_season"], errors="coerce")
             # Legacy `==` never matched NaN harvest_year; pandas merge
             # WOULD pair NaN keys — drop them from the lookup side.
             df_stats = df_stats[df_stats["harvest_year"].notna()]
@@ -768,15 +992,29 @@ def add_statistics(
                 df_stats[admin_zone]
             ).astype(object)
             df_stats["__year"] = _object_join_key(df_stats["harvest_year"])
+            if qualify:
+                # geoprepare names admin_2 regions "<admin_1> <admin_2>" when
+                # admin_2 names repeat in the country; key the same rows that
+                # way too. A qualified key equal to a bare one is dropped, so
+                # what a bare name matches never changes.
+                qualified = df_stats.copy()
+                qualified["__region"] = _qualified_region_series(
+                    df_stats["admin_1"], df_stats[admin_zone]
+                )
+                qualified = qualified[
+                    qualified["__region"].notna()
+                    & ~qualified["__region"].isin(set(df_stats["__region"]))
+                ]
+                df_stats = pd.concat([df_stats, qualified], ignore_index=True)
 
             # One aggregated lookup block per distinct Season number (each
-            # number can resolve to a different season_name filter); keys
+            # number can resolve to a different season filter); keys
             # are unique within a block, and blocks are disambiguated by
             # the __season tag, so the left-merge below can never fan out.
             blocks = []
-            for s, season_filter in season_filters.items():
+            for s, (filter_col, filter_values) in season_filters.items():
                 block = _aggregate_ps_lookup(
-                    df_stats[df_stats["season_name"].isin(season_filter)]
+                    df_stats[df_stats[filter_col].isin(filter_values)]
                 )
                 if has_season:
                     block["__season"] = s
@@ -812,18 +1050,20 @@ def add_statistics(
                 and crop == "Maize"
                 and "Annual" in available_seasons
             ):
+                def _not_annual(season_filter):
+                    filter_col, filter_values = season_filter
+                    return not (filter_col == "season_name" and "Annual" in filter_values)
+
                 if has_season:
                     fallback_ok = {
-                        s: "Annual" not in sf for s, sf in season_filters.items()
+                        s: _not_annual(sf) for s, sf in season_filters.items()
                     }
                     eligible = (
                         df["Season"].map(fallback_ok).fillna(False)
                         .to_numpy(dtype=bool)
                     )
                 else:
-                    eligible = np.full(
-                        len(df), "Annual" not in season_filters[None]
-                    )
+                    eligible = np.full(len(df), _not_annual(season_filters[None]))
                 need = eligible & ~matched
                 if need.any():
                     annual = _aggregate_ps_lookup(

@@ -7,6 +7,7 @@ import pydantic
 from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .create_verifications_request_body_business_address import CreateVerificationsRequestBodyBusinessAddress
 from .create_verifications_request_body_business_documents import CreateVerificationsRequestBodyBusinessDocuments
+from .create_verifications_request_body_business_owners_item import CreateVerificationsRequestBodyBusinessOwnersItem
 
 
 class CreateVerificationsRequestBodyBusiness(UniversalBaseModel):
@@ -61,7 +62,7 @@ class CreateVerificationsRequestBodyBusiness(UniversalBaseModel):
 
     incorporation_date: typing.Optional[dt.date] = pydantic.Field(default=None)
     """
-    Date the business was incorporated, formatted as `YYYY-MM-DD`. Cannot be in the future.
+    Date the business was incorporated, formatted as `YYYY-MM-DD`. Cannot be in the future. Sent to the verification provider and not returned in the response.
     """
 
     last_name: typing.Optional[str] = pydantic.Field(default=None)
@@ -69,14 +70,21 @@ class CreateVerificationsRequestBodyBusiness(UniversalBaseModel):
     Last name of the business representative, used to prefill the verification session.
     """
 
+    owners: typing.Optional[typing.List[CreateVerificationsRequestBodyBusinessOwnersItem]] = pydantic.Field(
+        default=None
+    )
+    """
+    Owners of the business, up to 10 per request. Once the company details, the company documents, and the owners are in and every new owner's documents were sent, Create Verification sends the business for review: in the request that completes it, as soon as the last owner's documents finish sending in the background, or when called again after Update Verification. Owners can still be added, changed, or removed while the review waits on them.
+    """
+
     place_of_incorporation: typing.Optional[str] = pydantic.Field(default=None)
     """
-    State or region where the business is incorporated.
+    State or region where the business is incorporated. Sent to the verification provider and not returned in the response.
     """
 
     registration_number: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Number the business was registered under in its place of incorporation, such as a state file number in the US or a Company Number in the UK.
+    Number the business was registered under in its place of incorporation, such as a state file number in the US or a Company Number in the UK. Sent to the verification provider; `registration_number` in the response shows the verified number once the business verification is approved.
     """
 
     share_token: typing.Optional[str] = pydantic.Field(default=None)

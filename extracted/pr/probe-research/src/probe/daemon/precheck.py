@@ -127,6 +127,11 @@ OWNERS: dict[str, str] = {
     "snapshot": SDK, "snapshot-prune-refs": RESEARCHER, "snapshot-restore": RESEARCHER,
     "snapshot-show": READ,
     "span add": SDK, "span get": READ, "span list": READ,
+    # A project's or experiment's summary and its Metrics-center visuals
+    # (writer-owns-summary): the recorder's. A checkout and `visuals options`
+    # write a local draft, like `notes checkout`.
+    "summary checkout": DAEMON, "summary push": DAEMON,
+    "visuals options": DAEMON, "visuals set": DAEMON,
     "statusline install": SETUP, "statusline show": READ, "statusline status": READ, "statusline uninstall": SETUP,
     "token create": SETUP, "token list": SETUP, "token revoke": SETUP,
     "trial add": SDK, "trial drain": SDK, "trial expand": SDK, "trial export": SDK, "trial get": READ,
@@ -186,8 +191,9 @@ _ROOT_OK = {"--sync"}
 #: fails here; a later refusal dead-letters with a reference row.
 ASYNC_REFUSED = "`--async` would queue the write without waiting for Probe's answer - run it without `--async`"
 #: Per-command options the daemon may never pass, with why.
-_SUMMARY_IS_THE_RESEARCHERS = ("`--summary` is the researcher's own Markdown on the Overview page - the daemon "
-                               "never writes it; notes are yours")
+_SUMMARY_IS_THE_RESEARCHERS = ("`--summary` is the researcher's own block on the summary - the daemon never "
+                               "writes it; the rest of the summary is yours: `probe summary checkout`, edit, "
+                               "`probe summary push`")
 #: The server writes a project's one-line description itself
 #: (`app/generation/kinds/description.py`). An experiment's is its `--question`,
 #: which stays the daemon's (the lane skips experiments). A RUN's is the daemon's
@@ -202,6 +208,7 @@ _TEAM_NOTE_IS_A_QUESTION = ("`--team` writes the team note directly; change it i
 _FORBIDDEN_OPTIONS = {
     ("notes push", "force"): "`--force` overwrites what others wrote since the checkout - push merges without it",
     ("notes checkout", "steal"): "`--steal` discards another writer's unpushed edits",
+    ("summary checkout", "steal"): "`--steal` discards another writer's unpushed edits",
     ("run set", "authored_by"): None,  # checked by value below
     # `--summary` is `document`: the Markdown block inside the Overview page, which
     # track-work names the researcher's ("never write it"). A bench daemon wrote its
@@ -233,6 +240,7 @@ FILE_PARAMS: dict[str, tuple[str, ...]] = {
     "views update": ("spec_file",),
     "paper add": ("source",),  # a URL, or a local file path
     "paper update": ("source",),
+    "visuals set": ("file",),  # the visuals JSON (default: the draft `visuals options` wrote)
 }
 #: A manifest: a local JSON-lines file whose rows each name a file to upload.
 MANIFEST_PARAMS = {("artifact add", "from_manifest")}
@@ -542,8 +550,9 @@ def files_sent(parsed: Parsed, cwd: Path) -> list[Path]:
     """Every local file the command sends, resolved against `cwd`, in a fixed
     order: the ones `check` scans (`_files_it_reads`: file parameters, `@file`
     values of a write), each `--from-manifest` file and the files its rows name.
-    Not the document `notes push` / `notes sync` send (their argv never names it:
-    `tools` resolves that). Unreadable manifests add nothing."""
+    Not the document `notes push` / `notes sync` / `summary push` send, nor a
+    `visuals set` with no `--file` (their argv never names it: `tools` resolves
+    that). Unreadable manifests add nothing."""
     out = [_resolve(path, cwd) for path in _files_it_reads(parsed, text_refs=parsed.owner != READ)]
     for key in (n for c, n in MANIFEST_PARAMS if c == parsed.path):
         for manifest in _strings(parsed.params.get(key)):

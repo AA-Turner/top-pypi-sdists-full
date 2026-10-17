@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fyers_apiv3
-Version: 3.1.19
+Version: 3.2.0
 Summary: Fyers trading APIs.
 Home-page: https://github.com/FyersDev/fyers-api-sample-code/tree/sample_v3/v3/python
 Author: Fyers-Tech
@@ -374,6 +374,11 @@ print(fyers.history(data))
 
 data = {"symbols":"NSE:SBIN-EQ"}
 print(fyers.quotes(data))
+
+## Quotes APIv3 (POST)
+
+data = {"symbols": ["NSE:SBIN-EQ"]}
+print(fyers.quotes_v2(data))
 
 
 ## Market Depth 

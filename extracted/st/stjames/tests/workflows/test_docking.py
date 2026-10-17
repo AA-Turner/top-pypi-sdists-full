@@ -210,6 +210,18 @@ def test_analogue_docking_rejects_qvina(water: Molecule, gfp: str) -> None:
             )
 
 
+def test_analogue_docking_accepts_heron(water: Molecule, gfp: str) -> None:
+    """Preserve Heron analogue docking through workflow serialization."""
+    workflow = AnalogueDockingWorkflow(
+        initial_molecule=water,
+        protein=gfp,
+        analogues=["CO"],
+        docking_settings=VinaSettings(executable="heron"),
+    )
+    restored = AnalogueDockingWorkflow.model_validate_json(workflow.model_dump_json())
+    assert restored.docking_settings.executable == "heron"
+
+
 def test_heron_settings_roundtrip_and_scoring_validation() -> None:
     """Preserve Heron selection through JSON and reject unsupported scoring."""
     adapter = TypeAdapter(DockingSettingsUnion)

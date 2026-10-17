@@ -50,12 +50,12 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
       - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python }}
       - name: Install base dependencies
@@ -72,7 +72,10 @@ jobs:
   test_more_architectures:
     # The following architectures are emulated and are therefore slow, so
     # we include them just in the weekly cron. These also serve as a test
-    # of using system libraries and using pytest directly.
+    # of using system libraries and using pytest directly. The i386 image
+    # runs natively on the x86_64 runner. Debian's i386 compiler uses the
+    # x87 FPU, whose extended-precision intermediates the other
+    # architectures do not exercise.
 
     runs-on: ubuntu-latest
     name: More architectures
@@ -94,18 +97,22 @@ jobs:
           - arch: s390x
           - arch: ppc64le
           - arch: armv7
+          - arch: none
+            distro: none
+            base_image: --platform=linux/386 i386/debian:sid
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: uraimo/run-on-arch-action@f9b26e3a1a408d5fd530d20c17b9f3f4428ff8d9 # v3.1.0
+      - uses: uraimo/run-on-arch-action@460cb8e6d9f726a588fc9b5e681c8a6cab09ae41 # v3.2.0
         name: Run tests
         id: build
         with:
           arch: ${{ matrix.arch }}
-          distro: ubuntu_rolling
+          distro: ${{ matrix.distro || 'ubuntu_rolling' }}
+          base_image: ${{ matrix.base_image }}
 
           shell: /bin/bash
           env: |
@@ -123,7 +130,11 @@ jobs:
                                   python3-erfa \
                                   python3-extension-helpers \
                                   python3-numpy \
-                                  python3-pytest-astropy \
+                                  python3-pytest \
+                                  python3-pytest-arraydiff \
+                                  python3-pytest-astropy-header \
+                                  python3-pytest-doctestplus \
+                                  python3-pytest-remotedata \
                                   python3-setuptools-scm \
                                   python3-scipy \
                                   python3-venv \

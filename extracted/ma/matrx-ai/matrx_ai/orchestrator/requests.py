@@ -600,6 +600,11 @@ class CompletedRequest:
                 row["cached_tokens"] = sum(
                     item.cached_input_tokens for item in iteration_usages
                 )
+                # Cache WRITES are a billed cost of their own (1.25x or 2x input on
+                # Anthropic); recorded beside the reads so spend is readable per call.
+                row["cache_write_tokens"] = sum(
+                    item.cache_write_tokens for item in iteration_usages
+                )
                 row["total_tokens"] = sum(item.total_tokens for item in iteration_usages)
                 row["response_id"] = u.response_id or None
                 # Verbatim provider usage block preserved for cx_request.raw_usage

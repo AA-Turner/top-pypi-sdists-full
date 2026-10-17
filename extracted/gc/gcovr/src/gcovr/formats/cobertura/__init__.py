@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,24 +15,47 @@
 #
 # ****************************************************************************
 
+"""GCOVR Cobertura report interface."""
+
 from ...data_model.container import CoverageContainer
 from ...formats.base import BaseHandler
 from ...options import GcovrConfigOption, OutputOrDefault
+
+OPTION_GROUP_NAME = "Cobertura XML options"
+OPTION_GROUP = OPTION_GROUP_NAME.casefold().replace(" ", "_")
 
 
 class CoberturaHandler(BaseHandler):
     """Class to handle Cobertura format."""
 
     @classmethod
+    def get_option_group(cls) -> dict[str, str]:
+        """Get the description of the option group."""
+        return {
+            "key": OPTION_GROUP,
+            "name": OPTION_GROUP_NAME,
+            "description": (
+                "Options for report generation in Cobertura format, "
+                "see <https://github.com/cobertura/cobertura>. "
+                "The XML file follows the schema "
+                "<https://github.com/cobertura/cobertura/blob/e5eea8679ebce047ec6ccdfdbf6cf2c14b376875/cobertura/src/site/htdocs/xml/coverage-04.dtd>."
+                "Reports in Cobertura format can also be used as input for GCOVR."
+            ),
+        }
+
+    @classmethod
     def get_options(cls) -> list[GcovrConfigOption | str]:
+        """Get the report options."""
         return [
+            # JSON option use for validation
+            "json_compare",
             # Global options used for merging.
             "merge_mode_functions",
             # Local options
             GcovrConfigOption(
                 "cobertura",
                 ["--cobertura", "-x", "--xml"],
-                group="output_options",
+                group=OPTION_GROUP,
                 metavar="OUTPUT",
                 help=(
                     "Generate a Cobertura XML report. "
@@ -48,7 +69,7 @@ class CoberturaHandler(BaseHandler):
             GcovrConfigOption(
                 "cobertura_pretty",
                 ["--cobertura-pretty", "--xml-pretty"],
-                group="output_options",
+                group=OPTION_GROUP,
                 help=("Pretty-print the Cobertura XML report. Implies --cobertura."),
                 action="store_true",
             ),
@@ -56,6 +77,7 @@ class CoberturaHandler(BaseHandler):
                 "cobertura_tracefile",
                 ["--cobertura-add-tracefile"],
                 config="cobertura-add-tracefile",
+                group=OPTION_GROUP,
                 help=(
                     "Combine the coverage data from Cobertura XML files. "
                     "When this option is used gcov is not run to collect "
@@ -66,12 +88,30 @@ class CoberturaHandler(BaseHandler):
             ),
         ]
 
+    def validate_options(self) -> None:
+        """Validate options."""
+        if self.options.json_compare:
+            if self.options.cobertura:
+                msg = "A Cobertura report is not possible with --json-compare."
+                raise RuntimeError(msg)
+
+            if self.options.cobertura_tracefile:
+                msg = "A Cobertura tracefile is not possible with --json-compare."
+                raise RuntimeError(msg)
+
     def read_report(self) -> CoverageContainer:
-        from .read import read_report  # pylint: disable=import-outside-toplevel # Lazy loading is intended here
+        """Read report."""
+        from .read import (  # pylint: disable=import-outside-toplevel # Lazy loading is intended here  # noqa: PLC0415
+            read_report,
+        )
 
         return read_report(self.options)
 
     def write_report(self, covdata: CoverageContainer, output_file: str) -> None:
-        from .write import write_report  # pylint: disable=import-outside-toplevel # Lazy loading is intended here
+        """Write report."""
+        # Lazy loading is intended here
+        from .write import (  # pylint: disable=import-outside-toplevel  # noqa: PLC0415
+            write_report,
+        )
 
         write_report(covdata, output_file, self.options)

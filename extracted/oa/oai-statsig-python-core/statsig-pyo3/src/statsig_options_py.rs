@@ -155,6 +155,15 @@ pub struct StatsigOptionsPy {
     pub id_lists_sync_interval_ms: Option<u32>,
     #[pyo3(get, set)]
     pub fallback_to_statsig_api: Option<bool>,
+    /// Total primary attempts for each built-in HTTP specs, ID-list manifest, or file/range read.
+    /// Values 1..=4294967295 override all primary budgets; 1 disables primary retries.
+    /// Unset or out-of-range values retain defaults: foreground specs/manifests 2,
+    /// background specs 4 (body-read failures at most 2), files 2.
+    /// Retries wait exponentially from 200 ms plus 0..100 ms jitter. Success, terminal errors,
+    /// shutdown, or the existing initialization deadline may stop earlier. Fallback remains
+    /// one eligible attempt; hydration and event-write retry budgets are unchanged.
+    #[pyo3(get, set)]
+    pub state_read_primary_attempts: Option<i64>,
     #[pyo3(get, set)]
     pub environment: Option<String>,
     #[pyo3(get, set)]
@@ -241,6 +250,7 @@ impl StatsigOptionsPy {
         event_logging_adapter=None,
         evaluation_cache=None,
         prefer_http2=None,
+        state_read_primary_attempts=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -294,6 +304,7 @@ impl StatsigOptionsPy {
         ))]
         evaluation_cache: Option<Py<PyAny>>,
         prefer_http2: Option<bool>,
+        state_read_primary_attempts: Option<i64>,
     ) -> Self {
         Self {
             specs_url,
@@ -303,6 +314,7 @@ impl StatsigOptionsPy {
             disable_all_logging,
             log_event_connection_reuse,
             prefer_http2,
+            state_read_primary_attempts,
             event_logging_flush_interval_ms,
             event_logging_max_queue_size,
             event_logging_max_pending_batch_queue_size,
@@ -494,6 +506,7 @@ fn create_inner_statsig_options(
         disable_network: opts.disable_network,
         log_event_connection_reuse: opts.log_event_connection_reuse,
         prefer_http2: opts.prefer_http2,
+        state_read_primary_attempts: opts.state_read_primary_attempts,
         disable_country_lookup: opts.disable_country_lookup,
         persistent_storage: opts.persistent_storage.as_ref().map(|s| {
             Arc::new(StatsigPersistentStorageOverrideAdapter::new(

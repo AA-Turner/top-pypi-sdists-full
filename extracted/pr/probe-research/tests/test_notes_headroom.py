@@ -3,19 +3,26 @@
 The cap itself has been enforced correctly and loudly since 0.105.2 -- an append
 to a full document raises, exits 1, and queues nothing (test_project_notes.py
 covers that, and it is the one thing NOT retested here). What was missing is
-anything ahead of it. `anthrogen/assignment-modeling` sat at 99,992 of 100,000
-characters and was still being appended to that same day: every write was being
-refused and nobody saw it, because a refusal is only visible to whoever reads the
-exit code of the command that hit it.
+anything ahead of it. `anthrogen/assignment-modeling` sat at 99,992 of its then
+100,000-character cap and was still being appended to that same day: every write
+was being refused and nobody saw it, because a refusal is only visible to whoever
+reads the exit code of the command that hit it.
 
 So these tests are about the two things that come before the wall: the numbers
 the server publishes on every notes write, and what a client does with them.
 
-WHAT NOT TO SUBSTITUTE. A backend too old to publish `notes_limit_chars` must
-produce NO warning rather than one computed against a cap the client made up.
-That distinction has its own test below and it is the point of the whole design:
-a fullness the server never asserted is the same class of confident wrong answer
-as "appended" for a write that was refused.
+THE CAPS ARE TOKENS (research-os P2): 30,000 o200k_base tokens for a document,
+2,000 for a run note, each with a looser CHARACTER backstop (150,000 / 10,000)
+the `*_chars` fields now measure. Every over-cap body here is built with
+`token_text(n)`, whose count is pinned below: `"x" * 4001` is 501 tokens and
+would pass every over-cap test silently.
+
+WHAT NOT TO SUBSTITUTE. A backend too old to publish the token numbers must
+produce NO warning rather than one computed against a cap the client made up --
+or against its character pair, which measures a different limit on a current
+server. That distinction has its own tests below and it is the point of the
+whole design: a fullness the server never asserted is the same class of
+confident wrong answer as "appended" for a write that was refused.
 """
 
 from __future__ import annotations
@@ -32,14 +39,80 @@ import pytest
 from probe import cli
 from probe.sdk.notes import (
     COMPACT_ACTION,
+    LIMIT_KEY,
     MOVE_UP_ACTION,
     NOTES_WARN_FRACTION,
+    REMAINING_KEY,
+    TOKENS_KEY,
     headroom_warning,
     notes_fullness,
+    notes_limit,
+    read_advisory,
+    tokens_past_cap,
 )
-from tests.conftest import make_client
+from tests.conftest import make_client, note_tokens, token_text
 
 _AGENT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _full(remaining: int, limit: int) -> dict:
+    """A response's token headroom, as the server spells it."""
+    return {REMAINING_KEY: remaining, LIMIT_KEY: limit, TOKENS_KEY: limit - remaining}
+
+
+# -- the fixtures' own arithmetic ---------------------------------------------
+
+
+def test_token_text_has_the_count_it_says() -> None:
+    """Every over-cap body in the notes tests is built from this, so its count
+    is asserted, not assumed -- and so is the trap it replaces."""
+    for n in (1, 2, 95, 601, 2_000, 2_001, 2_500, 30_001):
+        assert note_tokens(token_text(n)) == n
+        assert len(token_text(n)) == 2 * n - 1
+    assert note_tokens(token_text(0)) == 0
+    assert note_tokens("x" * 4_001) == 501, "the old fixture is NOT 4,001 tokens"
+    # The "5,000 characters, 1,000 tokens" run note the pre-send check must let through.
+    assert (len(" word" * 1_000), note_tokens(" word" * 1_000)) == (5_000, 1_000)
+
+
+def test_the_fakes_notes_numbers_have_the_servers_shapes(app, tmp_path):
+    """The fake publishes the numbers every test here reads, so they are held
+    to the server's own response models (`_generated/models.py`): each shape
+    validates, and every fullness key the fake sends is a field the server
+    declares. A fake key the server lacks would let a client read a number no
+    real response carries."""
+    from probe._generated import models
+
+    c = make_client(app, tmp_spool=tmp_path / "spool")
+    project = c.create_project("p", kind="general")
+    experiment = c.create_experiment("e", project_id=project["id"], question="h")
+    run = c.create_run(experiment["id"], "r", heartbeat=False)
+    c._replace_notes("run", run.id, token_text(10), base_version=None, op_key="t")
+    written = c._create_sub_note("experiment", experiment["id"], "Caveats", token_text(12))
+    app.team_note["body"] = token_text(7)
+
+    def fullness_keys(row: dict) -> set[str]:
+        return {k for k in row if "tokens" in k or "chars" in k}
+
+    shapes = [
+        (models.SubNoteWriteOut, written),
+        (models.SubNoteOut, c.get_sub_note(written["id"])),
+        (models.SubNoteListItem, c.list_sub_notes("experiment", experiment["id"])["sub_notes"][0]),
+        (models.TeamNoteOut, c.get_team_note()),
+        (models.TeamNoteSyncOut, c.append_team_note("one more")),
+        (models.NoteCatalogItem, c.list_notes(limit=100)["items"][0]),
+    ]
+    for model, row in shapes:
+        model.model_validate(row)
+        assert fullness_keys(row) <= set(model.model_fields), model.__name__
+        assert {"tokens", "limit_tokens"} <= row.keys(), model.__name__
+    for model, row in [
+        (models.RunDetailOut, c.get_run(run.id)),
+        (models.ProjectDetailOut, c.get_project(project["id"])),
+    ]:
+        assert fullness_keys(row) <= set(model.model_fields), model.__name__
+        assert {"notes_tokens", "notes_limit_tokens", "notes_remaining_tokens"} <= row.keys()
+    assert c.get_run(run.id)["notes_tokens"] == 10
 
 
 # -- the numbers on the wire ---------------------------------------------------
@@ -51,10 +124,14 @@ def test_a_notes_write_hands_back_the_room_that_is_left(app, tmp_path):
     c = make_client(app, tmp_spool=tmp_path / "spool")
     project = c.create_project("p", kind="general")
 
-    row = c._replace_notes("project", project["id"], "x" * 900, base_version=None, op_key="t")
+    row = c._replace_notes("project", project["id"], token_text(900), base_version=None, op_key="t")
 
-    assert row["notes_limit_chars"] == app.document_notes_cap
-    assert row["notes_remaining_chars"] == app.document_notes_cap - 900
+    assert row["notes_limit_tokens"] == app.document_notes_cap
+    assert row["notes_tokens"] == 900
+    assert row["notes_remaining_tokens"] == app.document_notes_cap - 900
+    # The character pair still rides, measured against the backstop.
+    assert row["notes_limit_chars"] == app.document_notes_backstop
+    assert row["notes_remaining_chars"] == app.document_notes_backstop - len(token_text(900))
 
 
 def test_the_caps_differ_by_carrier_and_the_response_says_which(app, tmp_path):
@@ -69,8 +146,9 @@ def test_the_caps_differ_by_carrier_and_the_response_says_which(app, tmp_path):
     project_row = c._replace_notes("project", project["id"], "note", base_version=None, op_key="t")
     run_row = c._replace_notes("run", run.id, "note", base_version=None, op_key="t")
 
-    assert project_row["notes_limit_chars"] == 100_000
-    assert run_row["notes_limit_chars"] == 4_000
+    assert project_row["notes_limit_tokens"] == 30_000
+    assert run_row["notes_limit_tokens"] == 2_000
+    assert (project_row["notes_limit_chars"], run_row["notes_limit_chars"]) == (150_000, 10_000)
 
 
 def test_an_edit_that_shrinks_a_document_gives_the_room_back(app, tmp_path):
@@ -79,15 +157,15 @@ def test_an_edit_that_shrinks_a_document_gives_the_room_back(app, tmp_path):
     the one action that fixes fullness invisible."""
     c = make_client(app, tmp_spool=tmp_path / "spool")
     project = c.create_project("p", kind="general")
-    c._replace_notes("project", project["id"], "y" * 5_000, base_version=None, op_key="t")
+    c._replace_notes("project", project["id"], token_text(5_000), base_version=None, op_key="t")
 
     # The span edit that used to compact a document is gone; a SHRINKING replace
     # is how a compaction lands now, and it must still report the room it gave
     # back. A response that only ever reported growth would make the one action
     # that fixes fullness invisible.
-    row = c._replace_notes("project", project["id"], "y" * 1_000, base_version=None, op_key="t2")
+    row = c._replace_notes("project", project["id"], token_text(1_000), base_version=None, op_key="t2")
 
-    assert row["notes_remaining_chars"] == app.document_notes_cap - 1_000
+    assert row["notes_remaining_tokens"] == app.document_notes_cap - 1_000
 
 
 def test_a_notes_write_no_longer_queues_even_under_async_writes(app, tmp_path):
@@ -105,7 +183,7 @@ def test_a_notes_write_no_longer_queues_even_under_async_writes(app, tmp_path):
     row = c._replace_notes("project", project["id"], "queued", base_version=None, op_key="t")
 
     assert row is not None
-    assert row["notes_remaining_chars"] == app.document_notes_cap - len("queued")
+    assert row["notes_remaining_tokens"] == app.document_notes_cap - note_tokens("queued")
 
 
 # -- deciding whether to say something -----------------------------------------
@@ -131,11 +209,11 @@ def test_the_sdk_does_not_warn_because_it_no_longer_writes_notes(app, tmp_path):
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        row = c._replace_notes("project", project["id"], "x" * 95, base_version=None, op_key="t")
+        row = c._replace_notes("project", project["id"], token_text(95), base_version=None, op_key="t")
 
     assert [str(w.message) for w in caught] == []
     # The NUMBERS still come back -- the CLI renders from them.
-    assert row["notes_remaining_chars"] == 5
+    assert row["notes_remaining_tokens"] == 5
 
 
 def test_the_notes_write_verbs_are_not_public_sdk_surface():
@@ -162,9 +240,11 @@ def test_the_advice_starts_with_room_left_to_act_in(app, tmp_path):
     project = c.create_project("p", kind="general")
     just_past_the_threshold = int(1_000 * (1 - NOTES_WARN_FRACTION)) + 1
 
-    row = c._replace_notes("project", project["id"], "x" * just_past_the_threshold, base_version=None, op_key="t")
+    row = c._replace_notes(
+        "project", project["id"], token_text(just_past_the_threshold), base_version=None, op_key="t"
+    )
 
-    assert row["notes_remaining_chars"] > 0, "the write still succeeded"
+    assert row["notes_remaining_tokens"] > 0, "the write still succeeded"
     assert headroom_warning(row, kind="project") is not None
 
 
@@ -173,25 +253,81 @@ def test_a_backend_without_the_fields_says_nothing_at_all(app, tmp_path):
 
     An old backend answers 200 with neither field. Substituting a cap here would
     let the client assert a fullness the server never published -- and it would
-    be wrong the moment a cap changed, which is the drift `notes_limit_chars`
+    be wrong the moment a cap changed, which is the drift the published limit
     exists to remove.
     """
     app.publishes_notes_headroom = False
     c = make_client(app, tmp_spool=tmp_path / "spool")
     project = c.create_project("p", kind="general")
 
-    row = c._replace_notes("project", project["id"], "x" * 99_000, base_version=None, op_key="t")
+    row = c._replace_notes("project", project["id"], token_text(29_000), base_version=None, op_key="t")
 
     assert notes_fullness(row) is None
     assert headroom_warning(row, kind="project") is None
 
 
+def test_a_backend_before_token_caps_says_nothing_rather_than_counting_characters(app, tmp_path):
+    """A server older than token caps publishes only `notes_*_chars` -- against
+    the CAP it enforced then. On a current server the same two fields measure
+    the character BACKSTOP. The client cannot tell which it is looking at, so a
+    fullness read from them would be right on one server and wrong on the
+    other: it says nothing instead, and does not fail."""
+    app.publishes_note_tokens = False
+    c = make_client(app, tmp_spool=tmp_path / "spool")
+    project = c.create_project("p", kind="general")
+
+    # 99% of the old 100,000-character cap: the old server WOULD warn here.
+    row = c._replace_notes("project", project["id"], "y" * 99_000, base_version=None, op_key="t")
+
+    assert row["notes_limit_chars"] == 100_000 and "notes_limit_tokens" not in row
+    assert notes_fullness(row) is None
+    assert notes_limit(row) is None
+    assert headroom_warning(row, kind="project") is None
+    assert read_advisory({**row, "notes": "y" * 99_000}) is None
+
+
+def test_an_uncounted_note_has_a_cap_but_no_fullness(app, tmp_path):
+    """A current server that has not counted a note (its backfill has not
+    reached the row) publishes the cap with a null count. Fullness is UNKNOWN
+    then -- not zero, not 100% -- while the cap is still known."""
+    app.counts_note_tokens = False
+    c = make_client(app, tmp_spool=tmp_path / "spool")
+    project = c.create_project("p", kind="general")
+
+    row = c._replace_notes("project", project["id"], token_text(29_000), base_version=None, op_key="t")
+
+    assert row["notes_tokens"] is None and row["notes_remaining_tokens"] is None
+    assert notes_limit(row) == app.document_notes_cap
+    assert notes_fullness(row) is None
+    assert headroom_warning(row, kind="project") is None
+
+
+def test_the_advice_reads_tokens_never_the_character_backstop():
+    """Both pairs ride a current response and they can disagree in either
+    direction: dense text (code, CJK) fills the token cap long before the
+    backstop, plain prose the other way round. Only the tokens refuse first."""
+    tokens_full_chars_roomy = {
+        **_full(remaining=100, limit=30_000),
+        "notes_remaining_chars": 140_000,
+        "notes_limit_chars": 150_000,
+    }
+    chars_full_tokens_roomy = {
+        **_full(remaining=29_000, limit=30_000),
+        "notes_remaining_chars": 10,
+        "notes_limit_chars": 150_000,
+    }
+
+    message = headroom_warning(tokens_full_chars_roomy, kind="project")
+    assert message is not None and "(29,900 of 30,000 tokens, 100 left)" in message
+    assert headroom_warning(chars_full_tokens_roomy, kind="project") is None
+
+
 def test_the_advice_follows_the_carrier_not_the_size_of_its_cap(app, tmp_path):
     """A full project note should be COMPACTED; a full run note holds prose that
-    belongs one level up. Telling a run to compact 4,000 characters in place buys
-    a few hundred and leaves the same problem next week."""
-    full_document = {"notes_remaining_chars": 1, "notes_limit_chars": 100_000}
-    full_annotation = {"notes_remaining_chars": 1, "notes_limit_chars": 4_000}
+    belongs one level up. Telling a run to compact 2,000 tokens in place buys a
+    few hundred and leaves the same problem next week."""
+    full_document = _full(remaining=1, limit=30_000)
+    full_annotation = _full(remaining=1, limit=2_000)
 
     assert "compact" in headroom_warning(full_document, kind="project")
     assert "move this prose up" in headroom_warning(full_annotation, kind="run")
@@ -221,10 +357,8 @@ def test_the_move_up_advice_names_the_order_that_cannot_lose_prose():
         "there FIRST, then delete it here, so a failed second write duplicates it "
         "rather than losing it"
     )
-    # And it is the clause a 4k carrier actually receives.
-    message = headroom_warning(
-        {"notes_remaining_chars": 1, "notes_limit_chars": 4_000}, kind="run"
-    )
+    # And it is the clause a run-sized carrier actually receives.
+    message = headroom_warning(_full(remaining=1, limit=2_000), kind="run")
     assert MOVE_UP_ACTION in message
 
 
@@ -238,9 +372,7 @@ def test_a_document_carrier_is_told_to_compact_in_place_with_no_ordering_caveat(
     condensed" would satisfy it while carrying exactly the ordering noise this
     test exists to keep out.
     """
-    message = headroom_warning(
-        {"notes_remaining_chars": 1, "notes_limit_chars": 100_000}, kind="project"
-    )
+    message = headroom_warning(_full(remaining=1, limit=30_000), kind="project")
 
     assert COMPACT_ACTION in message
     assert not re.search(r"\bfirst\b", message, re.I), (
@@ -251,18 +383,16 @@ def test_a_document_carrier_is_told_to_compact_in_place_with_no_ordering_caveat(
 def test_a_document_that_still_accepts_a_write_is_never_reported_as_full(app):
     """Rounding printed "100% full" beside "8 left" for the real assignment-modeling
     numbers. A reader resolves that contradiction by believing the percentage."""
-    almost = headroom_warning(
-        {"notes_remaining_chars": 8, "notes_limit_chars": 100_000}, kind="project"
-    )
-    exactly = headroom_warning(
-        {"notes_remaining_chars": 0, "notes_limit_chars": 100_000}, kind="project"
-    )
+    almost = headroom_warning(_full(remaining=8, limit=30_000), kind="project")
+    exactly = headroom_warning(_full(remaining=0, limit=30_000), kind="project")
 
     assert "99% full" in almost
+    assert "(29,992 of 30,000 tokens, 8 left)" in almost
     # At the cap the state is different in KIND, not degree: the document is
     # closed until it is compacted, and a percentage would read as "nearly".
     assert "100% full" not in exactly
     assert "is FULL" in exactly
+    assert "(30,000 of 30,000 tokens)" in exactly
     assert "Nothing further will be stored" in exactly
 
 
@@ -271,22 +401,70 @@ def test_a_document_that_still_accepts_a_write_is_never_reported_as_full(app):
     [
         None,
         {},
-        {"notes_remaining_chars": 5},
-        {"notes_limit_chars": 4_000},
-        {"notes_remaining_chars": True, "notes_limit_chars": 4_000},
-        {"notes_remaining_chars": "5", "notes_limit_chars": 4_000},
-        {"notes_remaining_chars": 5, "notes_limit_chars": 0},
+        {REMAINING_KEY: 5},
+        {LIMIT_KEY: 2_000},
+        {REMAINING_KEY: None, LIMIT_KEY: 2_000, TOKENS_KEY: None},
+        {REMAINING_KEY: True, LIMIT_KEY: 2_000},
+        {REMAINING_KEY: "5", LIMIT_KEY: 2_000},
+        {REMAINING_KEY: 5, LIMIT_KEY: 0},
+        {REMAINING_KEY: 5, LIMIT_KEY: True},
+        # A server before token caps: its pair is in CHARACTERS and never read.
+        {"notes_remaining_chars": 5, "notes_limit_chars": 4_000},
+        # A sub-note's unprefixed spelling, not adapted by the caller.
+        {"remaining_tokens": 5, "limit_tokens": 2_000},
     ],
 )
 def test_a_payload_that_cannot_be_trusted_reports_nothing(response):
     """Every unreadable shape reads the same as "no server said anything".
 
     `True` is in here on purpose: bool is an int in Python, so a JSON `true`
-    slipping into either field would otherwise render as "1 characters left" --
-    a plausible number from a malformed payload, which is worse than silence.
+    slipping into either field would otherwise render as "1 tokens left" -- a
+    plausible number from a malformed payload, which is worse than silence.
     """
     assert notes_fullness(response) is None
     assert headroom_warning(response, kind="run") is None
+    assert read_advisory(response) is None
+
+
+# -- counting before sending ---------------------------------------------------
+
+
+def test_a_text_whose_bytes_fit_the_cap_is_never_tokenized(monkeypatch):
+    """No token is shorter than a byte, so N bytes is at most N tokens: the
+    common case answers without importing the MCP package or loading the
+    vocabulary. Proven by a counter that fails if it is called."""
+    import probe.mcp.budget as budget
+
+    def no_count(_text: str) -> int:
+        raise AssertionError("tokenized a text its byte size already cleared")
+
+    monkeypatch.setattr(budget, "count_tokens", no_count)
+    assert tokens_past_cap("x" * 2_000, 2_000) is None
+    assert tokens_past_cap("é" * 1_000, 2_000) is None  # 2,000 bytes
+
+
+def test_a_text_past_the_bytes_is_counted_exactly():
+    # 9,999 bytes, 5,000 tokens: counted, and past a 2,000-token cap.
+    assert tokens_past_cap(token_text(5_000), 2_000) == 5_000
+    # 5,000 bytes and 1,000 tokens: counted, and under it.
+    assert tokens_past_cap(" word" * 1_000, 2_000) is None
+    # CJK runs dense in tokens per character; the count is the real one.
+    cjk = "中文文本测试，包含标点符号。" * 300  # 4,200 characters, 12,600 bytes
+    assert tokens_past_cap(cjk, 2_000) == 3_000 == note_tokens(cjk)
+
+
+def test_a_text_this_machine_cannot_count_is_left_to_the_server(monkeypatch):
+    """A missing tokenizer refuses nothing: the server's own check answers, and
+    a client that guessed would refuse a write the server takes."""
+    import probe.mcp.budget as budget
+
+    def unavailable(_text: str) -> int:
+        raise budget.TokenizerUnavailable("no vocabulary")
+
+    monkeypatch.setattr(budget, "count_tokens", unavailable)
+    assert tokens_past_cap(token_text(5_000), 2_000) is None
+    # A lone surrogate cannot be encoded at all.
+    assert tokens_past_cap("\ud800" * 3_000, 2_000) is None
 
 
 # -- what the CLI does with them ----------------------------------------------
@@ -316,21 +494,52 @@ def test_append_names_the_document_that_is_filling_up(wired, capsys, monkeypatch
     """The SDK knows the kind; the CLI just resolved the slug and knows WHICH
     one. Only one message is printed, and it is the specific one."""
     wired.notes_cap = 100
-    assert _append("x" * 95, monkeypatch) == 0
+    assert _append(token_text(95), monkeypatch) == 0
 
     err = capsys.readouterr().err
-    assert "project notes (p) is 95% full" in err
+    assert "project notes (p) is 95% full (95 of 100 tokens, 5 left)" in err
     assert err.count("full") == 1, "the SDK's generic warning must not print too"
 
 
 def test_append_puts_the_numbers_in_the_json_a_script_reads(wired, capsys, monkeypatch):
+    """Tokens under their own keys; the keys a script already reads keep their
+    CHARACTER meaning (the backstop now), the way the server kept `*_chars`."""
     wired.notes_cap = 1_000
-    _append("x" * 400, monkeypatch)
+    text = token_text(400)
+    _append(text, monkeypatch)
 
     payload = json.loads(capsys.readouterr().out)
-    assert payload["remaining"] == 600
-    assert payload["limit"] == 1_000
-    assert payload["stored_chars"] == 400
+    assert payload["stored_tokens"] == 400
+    assert payload["limit_tokens"] == 1_000
+    assert payload["remaining_tokens"] == 600
+    assert payload["stored_chars"] == len(text)
+    assert payload["limit"] == wired.document_notes_backstop
+    assert payload["remaining"] == wired.document_notes_backstop - len(text)
+
+
+def test_a_backend_before_token_caps_gets_no_token_keys_and_no_warning(wired, capsys, monkeypatch):
+    """Against an older server the JSON still carries the character keys it
+    always did, no token keys, and stderr carries no fullness line at all --
+    even at 99% of that server's own character cap."""
+    wired.publishes_note_tokens = False
+    assert _append("y" * 99_000, monkeypatch) == 0
+
+    out = capsys.readouterr()
+    payload = json.loads(out.out)
+    assert payload["limit"] == 100_000 and payload["stored_chars"] == 99_000
+    assert not {"stored_tokens", "limit_tokens", "remaining_tokens"} & payload.keys()
+    assert "full" not in out.err
+
+
+def test_an_uncounted_note_prints_its_cap_but_no_fullness(wired, capsys, monkeypatch):
+    wired.counts_note_tokens = False
+    assert _append(token_text(29_000), monkeypatch) == 0
+
+    out = capsys.readouterr()
+    payload = json.loads(out.out)
+    assert payload["limit_tokens"] == wired.document_notes_cap
+    assert "stored_tokens" not in payload and "remaining_tokens" not in payload
+    assert "full" not in out.err
 
 
 def test_a_notes_write_reports_numbers_because_it_can_no_longer_queue(app, tmp_path, monkeypatch, capsys):
@@ -357,19 +566,30 @@ def test_a_notes_write_reports_numbers_because_it_can_no_longer_queue(app, tmp_p
     cli.main(["notes", "write", "--project", "p", "-"])
 
     payload = json.loads(capsys.readouterr().out)
-    assert payload["remaining"] == app.document_notes_cap - len("queued")
-    assert payload["limit"] == app.document_notes_cap
+    assert payload["remaining_tokens"] == app.document_notes_cap - note_tokens("queued")
+    assert payload["limit_tokens"] == app.document_notes_cap
+    assert payload["remaining"] == app.document_notes_backstop - len("queued")
 
 
 def test_compacting_stops_the_warning(wired, capsys, monkeypatch):
     """The signal has to be able to go away, or it is noise rather than a state."""
     wired.notes_cap = 100
-    _append("x" * 95, monkeypatch)
+    _append(token_text(95), monkeypatch)
     assert "full" in capsys.readouterr().err
 
-    cli.main(["notes", "edit", "--project", "p", "--old", "x" * 90, "--new", ""])
+    cli.main(["notes", "edit", "--project", "p", "--old", token_text(90), "--new", ""])
 
     assert "full" not in capsys.readouterr().err
+
+
+def test_the_read_advisory_of_notes_show_is_in_tokens(wired, capsys, monkeypatch):
+    """`notes show` prints the document on stdout and its fullness beside it."""
+    _append(token_text(28_270), monkeypatch)
+    capsys.readouterr()
+
+    assert cli.main(["notes", "show", "--project", "p"]) == 0
+    err = capsys.readouterr().err
+    assert "94% full (28,270 of 30,000 tokens)" in err
 
 
 # -- the sweep ----------------------------------------------------------------
@@ -381,7 +601,7 @@ def test_compacting_stops_the_warning(wired, capsys, monkeypatch):
 
 def test_status_ranks_every_document_fullest_first(wired, capsys, monkeypatch):
     """One request, every carrier, ordered by the thing you are looking for."""
-    wired.projects[next(iter(wired.projects))]["notes"] = "p" * 90_000
+    wired.projects[next(iter(wired.projects))]["notes"] = token_text(20_000)
     monkeypatch.setattr("sys.stdin", io.StringIO("short"))
     cli.main(["notes", "write", "--project", "p", "-"])
     capsys.readouterr()
@@ -395,26 +615,52 @@ def test_status_ranks_every_document_fullest_first(wired, capsys, monkeypatch):
 
 
 def test_status_compares_carriers_with_different_caps_on_one_scale(wired, capsys):
-    """A 3,900-character run note is fuller than a 50,000-character project note,
-    and only a per-row cap can say so. This is the comparison the sweep exists
-    for, and the one a client-side cap table gets wrong first."""
+    """A 1,940-token run note is fuller than a 15,000-token project note, and
+    only a per-row cap can say so. This is the comparison the sweep exists for,
+    and the one a client-side cap table gets wrong first."""
     project_id = next(iter(wired.projects))
-    wired.projects[project_id]["notes"] = "p" * 50_000
-    wired.runs["r-1"] = {"id": "r-1", "name": "tunneling-sambar-254", "notes": "r" * 3_900}
+    wired.projects[project_id]["notes"] = token_text(15_000)
+    wired.runs["r-1"] = {"id": "r-1", "name": "tunneling-sambar-254", "notes": token_text(1_940)}
 
     cli.main(["notes", "status"])
-    payload = json.loads(capsys.readouterr().out)
+    out = capsys.readouterr()
+    payload = json.loads(out.out)
 
     fullest = payload["documents"][0]
     assert fullest["kind"] == "run"
     assert fullest["percent"] == 97
+    assert (fullest["tokens"], fullest["limit_tokens"]) == (1_940, 2_000)
     assert [d["kind"] for d in payload["documents"]] == ["run", "project"]
+    assert "1,940/2,000  tokens" in out.err
+
+
+def test_status_ranks_by_tokens_not_by_characters(wired, capsys):
+    """Characters and tokens disagree, and the characters measure the backstop:
+    a short note of dense text can be near its token cap while far from its
+    character limit. The sweep ranks by the cap that refuses."""
+    project_id = next(iter(wired.projects))
+    # 37,800 characters (25% of its backstop) and 27,000 tokens (90% of its cap).
+    dense = "中文文本测试，包含标点符号。" * 2_700
+    wired.projects[project_id]["notes"] = dense
+    # 6,000 characters (60% of its backstop) and 1,500 tokens (75% of its cap).
+    wired.runs["r-1"] = {"id": "r-1", "name": "roomy", "notes": "r" * 6_000}
+
+    cli.main(["notes", "status"])
+    payload = json.loads(capsys.readouterr().out)
+
+    by_kind = {d["kind"]: d for d in payload["documents"]}
+    assert (by_kind["project"]["tokens"], by_kind["project"]["percent"]) == (27_000, 90)
+    assert (by_kind["run"]["tokens"], by_kind["run"]["percent"]) == (1_500, 75)
+    assert [d["kind"] for d in payload["documents"]] == ["project", "run"]
+    # The character numbers still ride, under the keys they always had.
+    assert by_kind["project"]["chars"] == len(dense)
+    assert by_kind["project"]["limit"] == 150_000
 
 
 def test_status_counts_what_is_past_the_warning_line(wired, capsys):
     project_id = next(iter(wired.projects))
-    wired.projects[project_id]["notes"] = "p" * 99_992
-    wired.runs["r-1"] = {"id": "r-1", "name": "roomy", "notes": "r" * 100}
+    wired.projects[project_id]["notes"] = token_text(29_996)
+    wired.runs["r-1"] = {"id": "r-1", "name": "roomy", "notes": token_text(100)}
 
     cli.main(["notes", "status"])
     payload = json.loads(capsys.readouterr().out)
@@ -425,8 +671,8 @@ def test_status_counts_what_is_past_the_warning_line(wired, capsys):
 
 def test_status_can_report_only_the_documents_worth_acting_on(wired, capsys):
     project_id = next(iter(wired.projects))
-    wired.projects[project_id]["notes"] = "p" * 95_000
-    wired.runs["r-1"] = {"id": "r-1", "name": "roomy", "notes": "r" * 100}
+    wired.projects[project_id]["notes"] = token_text(28_500)
+    wired.runs["r-1"] = {"id": "r-1", "name": "roomy", "notes": token_text(100)}
 
     cli.main(["notes", "status", "--above", "80"])
     payload = json.loads(capsys.readouterr().out)
@@ -438,27 +684,43 @@ def test_status_can_report_only_the_documents_worth_acting_on(wired, capsys):
     assert payload["scanned"] == 2
 
 
-def test_status_drops_rows_a_backend_answered_without_a_size(wired, capsys):
-    """A row with no `chars` cannot be ranked by fullness. Dropped rather than
-    defaulted to zero, which would sort an unknown-size document to the BOTTOM of
-    a report whose whole job is finding the full ones."""
+def test_status_does_not_rank_rows_it_has_no_token_count_for(wired, capsys):
+    """A row with no token count cannot be ranked by fullness: the server has
+    not counted it yet, or predates token caps. Not ranked rather than defaulted
+    to zero, which would sort an unknown-size document to the BOTTOM of a report
+    whose whole job is finding the full ones -- and never ranked by its
+    characters, which measure a different limit. The report SAYS it skipped
+    them, so "nothing is near full" is never a claim about unread documents."""
     project_id = next(iter(wired.projects))
     wired.projects[project_id]["notes"] = "p" * 100
-    wired.publishes_notes_headroom = False
     original = wired._notes_catalog
 
-    def sizeless(include_sub_notes: bool = False) -> dict:
+    def uncounted(include_sub_notes: bool = False) -> dict:
         page = original()
         for item in page["items"]:
-            item.pop("chars", None)
+            item["tokens"] = None
         return page
 
-    wired._notes_catalog = sizeless
+    wired._notes_catalog = uncounted
     cli.main(["notes", "status"])
-    payload = json.loads(capsys.readouterr().out)
+    out = capsys.readouterr()
+    payload = json.loads(out.out)
 
     assert payload["documents"] == []
     assert payload["scanned"] == 0
+    assert payload["unmeasured"] == 1
+    assert "1 not counted in tokens yet" in out.err
+
+
+def test_status_against_a_backend_before_token_caps_ranks_nothing(wired, capsys):
+    project_id = next(iter(wired.projects))
+    wired.projects[project_id]["notes"] = "p" * 99_000
+    wired.publishes_note_tokens = False
+
+    assert cli.main(["notes", "status"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert (payload["scanned"], payload["unmeasured"], payload["near_full"]) == (0, 1, 0)
 
 
 def test_status_says_so_when_it_stopped_early(wired, capsys, monkeypatch):
@@ -532,12 +794,10 @@ def test_the_floor_is_a_nudge_and_not_a_gate():
 
 
 def test_the_advisory_names_the_version_and_the_fullness() -> None:
-    from probe.sdk.notes import LIMIT_KEY, REMAINING_KEY, read_advisory
-
-    line = read_advisory({REMAINING_KEY: 5_768, LIMIT_KEY: 100_000}, version=41)
+    line = read_advisory({REMAINING_KEY: 1_730, LIMIT_KEY: 30_000}, version=41)
     assert "v41" in line
     assert "94% full" in line
-    assert "94,232 of 100,000" in line
+    assert "28,270 of 30,000 tokens" in line
     assert "tighten what you can verify" in line
     assert "re-read the full document before editing" in line
 
@@ -545,9 +805,7 @@ def test_the_advisory_names_the_version_and_the_fullness() -> None:
 def test_a_roomy_note_still_gets_the_correction_reminder() -> None:
     """The nudge is not a fullness warning. Correcting a claim you disproved is
     the job on EVERY read; tightening is the extra that a full note earns."""
-    from probe.sdk.notes import LIMIT_KEY, REMAINING_KEY, read_advisory
-
-    line = read_advisory({REMAINING_KEY: 99_100, LIMIT_KEY: 100_000}, version=3)
+    line = read_advisory({REMAINING_KEY: 29_700, LIMIT_KEY: 30_000}, version=3)
     assert "correct what your evidence contradicts" in line
     assert "tighten" not in line
 
@@ -555,31 +813,36 @@ def test_a_roomy_note_still_gets_the_correction_reminder() -> None:
 def test_no_headroom_means_no_advisory_rather_than_a_guess() -> None:
     """Same rule as `notes_fullness`: absent means the response did not carry
     the document. An excerpt must not be described as if it were the whole."""
-    from probe.sdk.notes import read_advisory
-
     assert read_advisory({"notes_version": 1}) is None
     assert read_advisory(None) is None
-    assert read_advisory({"notes_remaining_chars": True, "notes_limit_chars": 100}) is None
+    assert read_advisory({REMAINING_KEY: True, LIMIT_KEY: 100}) is None
+    # The character pair alone (a server before token caps) is not headroom.
+    assert read_advisory({"notes_remaining_chars": 10, "notes_limit_chars": 100}) is None
 
 
 def test_the_version_is_optional() -> None:
-    from probe.sdk.notes import LIMIT_KEY, REMAINING_KEY, read_advisory
-
     line = read_advisory({REMAINING_KEY: 10, LIMIT_KEY: 100})
     assert line.startswith("notes ·")
 
 
 def test_a_sub_notes_unprefixed_headroom_still_produces_an_advisory() -> None:
-    """`SubNoteOut` publishes `remaining_chars`/`limit_chars`; the entity shapes
-    publish the same two numbers `notes_`-prefixed. The reader is written
+    """`SubNoteOut` publishes `remaining_tokens`/`limit_tokens`; the entity
+    shapes publish the same numbers `notes_`-prefixed. The reader is written
     against the entity shape, so without the alias at the call site a sub-note
     read is silently advisory-free -- which is how it shipped for one smoke run.
     """
-    from probe.sdk.notes import LIMIT_KEY, REMAINING_KEY, read_advisory
-
-    sub = {"remaining_chars": 40_000, "limit_chars": 100_000, "notes_version": 2}
+    cli_main = importlib.import_module("probe.cli.main")
+    sub = {
+        "remaining_tokens": 12_000,
+        "limit_tokens": 30_000,
+        "tokens": 18_000,
+        "remaining_chars": 100_000,
+        "limit_chars": 150_000,
+        "notes_version": 2,
+    }
     assert read_advisory(sub, version=sub["notes_version"]) is None
 
-    aliased = {**sub, REMAINING_KEY: sub["remaining_chars"], LIMIT_KEY: sub["limit_chars"]}
+    aliased = cli_main._sub_note_row_for_headroom(sub)
+    assert (aliased[REMAINING_KEY], aliased[LIMIT_KEY], aliased[TOKENS_KEY]) == (12_000, 30_000, 18_000)
     line = read_advisory(aliased, version=aliased["notes_version"])
     assert line is not None and "v2" in line and "60% full" in line

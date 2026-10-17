@@ -5,16 +5,21 @@ import operator
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
-from .aggregate_common import (
+from numpy_groupies.aggregate_common import (
     DEFAULT_FILL_VALUE,
+    EXACT_FLOAT64_INTEGER_LIMIT,
+    INT64_DEVIATION_LIMIT,
     aggregate_common_doc,
     build_dispatch,
     check_complex_dtype,
     funcs_no_separate_nan,
     get_func,
+    is_scalar_input,
+    raise_integer_mean_overflow,
+    raise_integer_variance_span_overflow,
     resolve_fill_value,
 )
-from .aggregate_common import (
+from numpy_groupies.aggregate_common import (
     aliasing_py as aliasing,
 )
 
@@ -49,6 +54,10 @@ def _array(x: Sequence[Any]) -> Sequence[Any]:
 
 
 def _mean(x: Sequence[Any]) -> Any:
+    # like _sum, numpy integer scalars would accumulate in their own dtype
+    # (NEP 50) and silently wrap for large groups - python ints stay exact
+    if all(isinstance(val, numbers.Integral) for val in x):
+        return sum(int(val) for val in x) / len(x)
     return sum(x) / len(x)
 
 
@@ -80,7 +89,15 @@ def _trapezoid(x: Sequence[Any], dx: float = 1.0) -> float:
 
 
 def _var(x: Sequence[Any], ddof: int = 0) -> Any:
-    # the squared magnitude, so complex values give a real result like np.var
+    # the squared magnitude, so complex values give a real result like np.var;
+    # integer input is centered on its first value first - python ints keep
+    # the deviations exact, so a large common offset cannot erase the small
+    # deviations of a group after the conversion to float
+    if all(isinstance(val, numbers.Integral) for val in x):
+        origin = int(x[0])
+        devs = [int(val) - origin for val in x]
+        mean = sum(devs) / len(devs)
+        return sum(abs(dev - mean) ** 2 for dev in devs) / (len(x) - ddof)
     mean = _mean(x)
     return sum(abs(xx - mean) ** 2 for xx in x) / (len(x) - ddof)
 
@@ -122,9 +139,24 @@ def _sort(group_idx, a: Any, reverse: bool = False) -> list[Any]:
     def _argsort(unordered):
         return sorted(range(len(unordered)), key=lambda k: unordered[k])
 
-    sortidx = _argsort(list(zip(group_idx, -a if reverse else a)))
+    # ascending in both directions: a descending key would have to negate the
+    # values, which is not order reversing for the integral dtypes (the smallest
+    # signed value survives negation as itself, and a zero of an unsigned one
+    # stays the smallest key) - and plain python lists cannot be negated at all
+    sortidx = _argsort(list(zip(group_idx, a)))
     revidx = _argsort(_argsort(group_idx))
     a_srt = [a[si] for si in sortidx]
+    if reverse:
+        # flip each group's run of values instead - the labels are sorted, so
+        # every group is one contiguous run of the result
+        labels = [group_idx[si] for si in sortidx]
+        begin = 0
+        while begin < len(a_srt):
+            end = begin
+            while end + 1 < len(a_srt) and labels[end + 1] == labels[begin]:
+                end += 1
+            a_srt[begin : end + 1] = reversed(a_srt[begin : end + 1])
+            begin = end + 1
     return [a_srt[ri] for ri in revidx]
 
 
@@ -190,6 +222,25 @@ def _a_dtype(a: Sequence[Any]) -> type:
     return dtype
 
 
+def _check_integer_precision(a: Sequence[Any], func: Callable[..., Any]) -> None:
+    """The backend-uniform overflow gates for integer mean/var/std.
+
+    Python ints could compute these exactly, but every backend has to refuse
+    the same inputs, so results never depend on the chosen implementation.
+    """
+    if _a_dtype(a) is not int or len(a) == 0:
+        return
+    values = [int(val) for val in a]
+    low = min(values)
+    high = max(values)
+    if func is _mean:
+        bound = max(high, -low)
+        if len(values) * bound > EXACT_FLOAT64_INTEGER_LIMIT:
+            raise_integer_mean_overflow(len(values), bound)
+    elif high - low > INT64_DEVIATION_LIMIT:
+        raise_integer_variance_span_overflow(low, high)
+
+
 def aggregate(
     group_idx: "npt.ArrayLike",
     a: "npt.ArrayLike",
@@ -234,10 +285,14 @@ def aggregate(
         func = _dispatch[func][0]
     except (KeyError, TypeError):
         func = get_func(func, aliasing, _impl_dict)
-    if isinstance(a, (int, float, complex)):
+    if is_scalar_input(a):
         if func not in ("sum", "prod", "len"):
             raise ValueError("scalar inputs are supported only for 'sum', 'prod' and 'len'")
-        a = [a] * len(group_idx)
+        # a 0d array stands in for the numpy scalar it holds and the list wants
+        # values, not 0d arrays - [()] is the dtype preserving way to get one
+        # out (item() would drop back to a python number), and python numbers
+        # have no shape to index at all
+        a = [a[()] if hasattr(a, "shape") else a] * len(group_idx)
     elif len(group_idx) != len(a):
         raise ValueError("group_idx and a must be of the same length")
 
@@ -266,6 +321,8 @@ def aggregate(
         func = _impl_dict[func]
     if func is _sort:
         return _sort(group_idx, a, reverse=kwargs.get("reverse", False))
+    if func in (_mean, _var, _std):
+        _check_integer_precision(a, func)
 
     # sort data and evaluate function on groups
     ret = [fill_value] * size

@@ -16,6 +16,7 @@ from aioquic.h3.connection import (
     StreamType,
     encode_frame,
     encode_settings,
+    is_interim_response,
     parse_settings,
     validate_push_promise_headers,
     validate_request_headers,
@@ -82,11 +83,21 @@ def h3_transfer(quic_sender, h3_receiver):
     return http_events
 
 
+def drain_events(quic):
+    events = []
+    event = quic.next_event()
+    while event is not None:
+        events.append(event)
+        event = quic.next_event()
+    return events
+
+
 class FakeQuicConnection:
     def __init__(self, configuration):
         self.closed = None
         self.configuration = configuration
         self.stream_queue = []
+        self.stream_resets = []
         self._events = []
         self._next_stream_bidi = 0 if configuration.is_client else 1
         self._next_stream_uni = 2 if configuration.is_client else 3
@@ -112,6 +123,9 @@ class FakeQuicConnection:
             return self._events.pop(0)
         except IndexError:
             return None
+
+    def reset_stream(self, stream_id, error_code):
+        self.stream_resets.append((stream_id, error_code))
 
     def send_stream_data(self, stream_id, data, end_stream=False):
         # chop up data into individual bytes
@@ -1094,6 +1108,93 @@ class H3ConnectionTest(TestCase):
                     "HEADERS frame is not allowed in this state",
                 ),
             )
+
+    def test_handle_request_frame_interim_response_at_end(self):
+        """
+        A response stream cannot end after an interim response, whether or not
+        the end of stream comes with the HEADERS frame, see RFC 9114 section 4.1.
+        """
+        for fin_with_headers in (True, False):
+            with self.subTest(fin_with_headers=fin_with_headers):
+                with h3_fake_client_and_server() as (quic_client, quic_server):
+                    h3_client = H3Connection(quic_client)
+                    h3_server = H3Connection(quic_server)
+
+                    # Send the request.
+                    stream_id = quic_client.get_next_available_stream_id()
+                    h3_client.send_headers(
+                        stream_id=stream_id,
+                        headers=[
+                            (b":method", b"GET"),
+                            (b":scheme", b"https"),
+                            (b":authority", b"localhost"),
+                            (b":path", b"/"),
+                        ],
+                        end_stream=True,
+                    )
+                    h3_transfer(quic_client, h3_server)
+
+                    # Send an interim response, then end the stream.
+                    h3_server.send_headers(
+                        stream_id=stream_id, headers=[(b":status", b"103")]
+                    )
+                    if fin_with_headers:
+                        h3_client.handle_event(
+                            StreamDataReceived(
+                                stream_id=stream_id,
+                                data=b"".join(
+                                    e.data
+                                    for e in quic_server.stream_queue
+                                    if e.stream_id == stream_id
+                                ),
+                                end_stream=True,
+                            )
+                        )
+                    else:
+                        quic_server.send_stream_data(stream_id, b"", end_stream=True)
+                        h3_transfer(quic_server, h3_client)
+                    self.assertEqual(
+                        quic_client.closed,
+                        (
+                            ErrorCode.H3_MESSAGE_ERROR,
+                            "Interim response cannot end the stream",
+                        ),
+                    )
+
+    def test_handle_request_frame_interim_response_content_length(self):
+        """
+        The content-length of an interim response does not apply to the final
+        response, as interim responses have no content (RFC 9110 section 6.4.1).
+        """
+        with h3_fake_client_and_server() as (quic_client, quic_server):
+            h3_client = H3Connection(quic_client)
+            h3_server = H3Connection(quic_server)
+
+            # Send the request.
+            stream_id = quic_client.get_next_available_stream_id()
+            h3_client.send_headers(
+                stream_id=stream_id,
+                headers=[
+                    (b":method", b"GET"),
+                    (b":scheme", b"https"),
+                    (b":authority", b"localhost"),
+                    (b":path", b"/"),
+                ],
+                end_stream=True,
+            )
+            h3_transfer(quic_client, h3_server)
+
+            # Send an interim response with a content-length, then the response.
+            h3_server.send_headers(
+                stream_id=stream_id,
+                headers=[(b":status", b"103"), (b"content-length", b"5")],
+            )
+            h3_server.send_headers(stream_id=stream_id, headers=[(b":status", b"200")])
+            h3_server.send_data(
+                stream_id=stream_id, data=b"hello world", end_stream=True
+            )
+            h3_transfer(quic_server, h3_client)
+            self.assertIsNone(quic_client.closed)
 
     def test_handle_request_frame_push_promise_at_end(self):
         """
@@ -2161,6 +2262,28 @@ class H3ConnectionTest(TestCase):
                 end_stream=False,
             )
 
+    def test_send_headers_interim_end_stream(self):
+        """
+        We should not end the stream with an interim response.
+        """
+        quic_server = FakeQuicConnection(
+            configuration=QuicConfiguration(is_client=False)
+        )
+        h3_server = H3Connection(quic_server)
+
+        with self.assertRaises(FrameUnexpected) as cm:
+            h3_server.send_headers(
+                stream_id=0, headers=[(b":status", b"103")], end_stream=True
+            )
+        self.assertEqual(
+            cm.exception.reason_phrase, "Interim response cannot end the stream"
+        )
+
+        # The final response can still be sent.
+        h3_server.send_headers(
+            stream_id=0, headers=[(b":status", b"200")], end_stream=True
+        )
+
     def test_send_push_promise_from_client(self):
         """
         Clients cannot send a push promise.
@@ -2472,6 +2595,59 @@ class H3ConnectionTest(TestCase):
         )
         self.assertNotIn(0, h3_client._stream)
 
+    def test_blocked_stream_reset_by_client(self):
+        """
+        A request whose HEADERS frame is still blocked when the client resets
+        the stream was never processed, so the server aborts its response with
+        H3_REQUEST_INCOMPLETE, see RFC 9114 section 4.1.
+        """
+        quic_server = FakeQuicConnection(
+            configuration=QuicConfiguration(is_client=False)
+        )
+        h3_server = H3Connection(quic_server)
+
+        # Receive request headers, which are blocked.
+        h3_server.handle_event(
+            StreamDataReceived(stream_id=6, data=b"\x02", end_stream=False)
+        )
+        h3_server.handle_event(
+            StreamDataReceived(stream_id=10, data=b"\x03", end_stream=False)
+        )
+        h3_server.handle_event(
+            StreamDataReceived(
+                stream_id=0, data=binascii.unhexlify("01040280d910"), end_stream=False
+            )
+        )
+        self.assertTrue(h3_server._stream[0].blocked)
+
+        # The client resets the request, the server aborts its response.
+        self.assertEqual(
+            h3_server.handle_event(
+                StreamReset(error_code=ErrorCode.H3_REQUEST_CANCELLED, stream_id=0)
+            ),
+            [],
+        )
+        self.assertEqual(
+            quic_server.stream_resets, [(0, ErrorCode.H3_REQUEST_INCOMPLETE)]
+        )
+        self.assertNotIn(0, h3_server._stream)
+
+        # The encoder stream data no longer unblocks the stream.
+        self.assertEqual(
+            h3_server.handle_event(
+                StreamDataReceived(
+                    stream_id=6,
+                    data=binascii.unhexlify(
+                        "3fe101c696d07abe941094cb6d0a08017d403971966e32ca98b46f"
+                    ),
+                    end_stream=False,
+                )
+            ),
+            [],
+        )
+        self.assertIsNone(quic_server.closed)
+        self.assertNotIn(0, h3_server._stream)
+
     def test_blocked_stream_trailer(self):
         quic_client = FakeQuicConnection(
             configuration=QuicConfiguration(is_client=True)
@@ -2603,6 +2779,69 @@ class H3ConnectionTest(TestCase):
 
             # No Stream Cancellation is sent for unidirectional streams.
             self.assertEqual(h3_server._decoder_bytes_sent, 0)
+
+    def test_request_with_interim_responses(self):
+        """
+        A server can send interim responses before the final response, see
+        RFC 9114 section 4.1.
+        """
+        with h3_client_and_server() as (quic_client, quic_server):
+            h3_client = H3Connection(quic_client)
+            h3_server = H3Connection(quic_server)
+
+            # Send the request.
+            stream_id = quic_client.get_next_available_stream_id()
+            h3_client.send_headers(
+                stream_id=stream_id,
+                headers=[
+                    (b":method", b"GET"),
+                    (b":scheme", b"https"),
+                    (b":authority", b"localhost"),
+                    (b":path", b"/"),
+                ],
+                end_stream=True,
+            )
+            h3_transfer(quic_client, h3_server)
+
+            # Send interim responses, then the response.
+            h3_server.send_headers(stream_id=stream_id, headers=[(b":status", b"100")])
+            h3_server.send_headers(
+                stream_id=stream_id,
+                headers=[(b":status", b"103"), (b"link", b"</style.css>; rel=preload")],
+            )
+            h3_server.send_headers(stream_id=stream_id, headers=[(b":status", b"200")])
+            h3_server.send_data(stream_id=stream_id, data=b"hello", end_stream=True)
+
+            # Receive interim responses, then the response.
+            events = h3_transfer(quic_server, h3_client)
+            self.assertEqual(
+                events,
+                [
+                    HeadersReceived(
+                        headers=[(b":status", b"100")],
+                        stream_id=stream_id,
+                        stream_ended=False,
+                    ),
+                    HeadersReceived(
+                        headers=[
+                            (b":status", b"103"),
+                            (b"link", b"</style.css>; rel=preload"),
+                        ],
+                        stream_id=stream_id,
+                        stream_ended=False,
+                    ),
+                    HeadersReceived(
+                        headers=[(b":status", b"200")],
+                        stream_id=stream_id,
+                        stream_ended=False,
+                    ),
+                    DataReceived(
+                        data=b"hello",
+                        stream_id=stream_id,
+                        stream_ended=True,
+                    ),
+                ],
+            )
 
     def test_request_with_trailers(self):
         with h3_client_and_server() as (quic_client, quic_server):
@@ -2995,6 +3234,53 @@ class H3ConnectionTest(TestCase):
             self.assertEqual(len(h3_client._stream), 3)
             self.assertEqual(len(h3_server._stream), 3)
 
+    def test_streams_are_closed_after_end_without_headers(self):
+        """
+        A request stream which ends before its HEADERS frame is received is
+        aborted with H3_REQUEST_INCOMPLETE, see RFC 9114 section 4.1.
+        """
+        with h3_client_and_server() as (quic_client, quic_server):
+            H3Connection(quic_client)
+            h3_server = H3Connection(quic_server)
+
+            # The client ends a request stream without sending HEADERS.
+            stream_id = quic_client.get_next_available_stream_id()
+            quic_client.send_stream_data(stream_id, b"", end_stream=True)
+            self.assertEqual(h3_transfer(quic_client, h3_server), [])
+            self.assertNotIn(stream_id, h3_server._stream)
+
+            # The server aborts its response, which closes the QUIC stream.
+            transfer(quic_server, quic_client)
+            self.assertIn(
+                StreamReset(
+                    error_code=ErrorCode.H3_REQUEST_INCOMPLETE, stream_id=stream_id
+                ),
+                drain_events(quic_client),
+            )
+            transfer(quic_client, quic_server)
+            self.assertEqual(transfer(quic_server, quic_client), 0)
+            self.assertNotIn(stream_id, quic_server._streams)
+
+            # The client ends a request stream after an unknown frame.
+            stream_id = quic_client.get_next_available_stream_id()
+            quic_client.send_stream_data(
+                stream_id, encode_frame(0x21, b"grease"), end_stream=True
+            )
+            self.assertEqual(h3_transfer(quic_client, h3_server), [])
+            self.assertNotIn(stream_id, h3_server._stream)
+
+            # The server aborts its response, which closes the QUIC stream.
+            transfer(quic_server, quic_client)
+            self.assertIn(
+                StreamReset(
+                    error_code=ErrorCode.H3_REQUEST_INCOMPLETE, stream_id=stream_id
+                ),
+                drain_events(quic_client),
+            )
+            transfer(quic_client, quic_server)
+            self.assertEqual(transfer(quic_server, quic_client), 0)
+            self.assertNotIn(stream_id, quic_server._streams)
+
     def test_streams_are_closed_after_reset(self):
         with h3_client_and_server() as (quic_client, quic_server):
             h3_client = H3Connection(quic_client)
@@ -3027,6 +3313,34 @@ class H3ConnectionTest(TestCase):
             quic_client.stop_stream(stream_id, ErrorCode.H3_REQUEST_CANCELLED)
             self.assertEqual(h3_transfer(quic_client, h3_server), [])
             self.assertNotIn(stream_id, h3_server._stream)
+
+    def test_streams_are_closed_after_reset_before_headers(self):
+        """
+        A request stream which is reset before its HEADERS frame is received is
+        aborted with H3_REQUEST_INCOMPLETE, see RFC 9114 section 4.1.
+        """
+        with h3_client_and_server() as (quic_client, quic_server):
+            H3Connection(quic_client)
+            h3_server = H3Connection(quic_server)
+
+            # The client opens a request stream, then resets it.
+            stream_id = quic_client.get_next_available_stream_id()
+            quic_client.send_stream_data(stream_id, b"")
+            quic_client.reset_stream(stream_id, ErrorCode.H3_REQUEST_CANCELLED)
+            self.assertEqual(h3_transfer(quic_client, h3_server), [])
+            self.assertNotIn(stream_id, h3_server._stream)
+
+            # The server aborts its response, which closes the QUIC stream.
+            transfer(quic_server, quic_client)
+            self.assertIn(
+                StreamReset(
+                    error_code=ErrorCode.H3_REQUEST_INCOMPLETE, stream_id=stream_id
+                ),
+                drain_events(quic_client),
+            )
+            transfer(quic_client, quic_server)
+            self.assertEqual(transfer(quic_server, quic_client), 0)
+            self.assertNotIn(stream_id, quic_server._streams)
 
     def test_streams_are_closed_after_stop_sending(self):
         with h3_client_and_server() as (quic_client, quic_server):
@@ -3149,6 +3463,14 @@ class H3ConnectionTest(TestCase):
 
 
 class H3ParserTest(TestCase):
+    def test_is_interim_response(self):
+        self.assertTrue(is_interim_response([(b":status", b"100")]))
+        self.assertTrue(is_interim_response([(b":status", b"103"), (b"link", b"")]))
+        self.assertFalse(is_interim_response([(b":status", b"200")]))
+
+        # Headers without a status, such as trailers, are not a response.
+        self.assertFalse(is_interim_response([(b"x-foo", b"bar")]))
+
     def test_parse_settings_duplicate_identifier(self):
         buf = Buffer(capacity=1024)
         buf.push_uint_var(1)
@@ -3192,6 +3514,40 @@ class H3ParserTest(TestCase):
                 (b"x-foo", b"bar"),
             ]
         )
+
+        # TE is allowed in a promised request, but only as trailers.
+        for value in (b"trailers", b"Trailers"):
+            with self.subTest(value=value):
+                validate_push_promise_headers(
+                    [
+                        (b":method", b"GET"),
+                        (b":scheme", b"https"),
+                        (b":path", b"/"),
+                        (b":authority", b"localhost"),
+                        (b"te", value),
+                    ]
+                )
+        with self.assertRaises(MessageError) as cm:
+            validate_push_promise_headers([(b"te", b"bogus")])
+        self.assertEqual(
+            cm.exception.reason_phrase, "Header b'te' value is not trailers"
+        )
+
+        # Other connection-specific fields are forbidden.
+        for name in (
+            b"connection",
+            b"keep-alive",
+            b"proxy-connection",
+            b"transfer-encoding",
+            b"upgrade",
+        ):
+            with self.subTest(header=name):
+                with self.assertRaises(MessageError) as cm:
+                    validate_push_promise_headers([(name, b"trailers")])
+                self.assertEqual(
+                    cm.exception.reason_phrase,
+                    f"Header {name!r} is connection-specific",
+                )
 
         # invalid pseudo-header
         with self.assertRaises(MessageError) as cm:
@@ -3292,17 +3648,39 @@ class H3ParserTest(TestCase):
             cm.exception.reason_phrase, "Header b'x-f:oo' contains a non-initial colon"
         )
 
-        # good transfer-encoding; this test passes by not asserting
+        # TE is allowed in a request, but only as trailers.
+        for value in (b"trailers", b"Trailers"):
+            with self.subTest(value=value):
+                validate_request_headers(
+                    [
+                        (b":method", b"GET"),
+                        (b":scheme", b"https"),
+                        (b":path", b"/"),
+                        (b":authority", b"localhost"),
+                        (b"te", value),
+                    ]
+                )
         with self.assertRaises(MessageError) as cm:
-            validate_request_headers([(b"transfer-encoding", b"trailers")])
-
-        # bad transfer-encoding
-        with self.assertRaises(MessageError) as cm:
-            validate_request_headers([(b"transfer-encoding", b"bogus")])
+            validate_request_headers([(b"te", b"bogus")])
         self.assertEqual(
-            cm.exception.reason_phrase,
-            "The only valid value for transfer-encoding is trailers",
+            cm.exception.reason_phrase, "Header b'te' value is not trailers"
         )
+
+        # Other connection-specific fields are forbidden.
+        for name in (
+            b"connection",
+            b"keep-alive",
+            b"proxy-connection",
+            b"transfer-encoding",
+            b"upgrade",
+        ):
+            with self.subTest(header=name):
+                with self.assertRaises(MessageError) as cm:
+                    validate_request_headers([(name, b"trailers")])
+                self.assertEqual(
+                    cm.exception.reason_phrase,
+                    f"Header {name!r} is connection-specific",
+                )
 
         # value with a forbidden NUL, LF, or CR:
         for prefix in [b"\x00", b"\x0a", b"\x0d"]:
@@ -3407,6 +3785,7 @@ class H3ParserTest(TestCase):
 
     def test_validate_response_headers(self):
         # OK
+        validate_response_headers([(b":status", b"103")])
         validate_response_headers([(b":status", b"200")])
         validate_response_headers(
             [
@@ -3434,6 +3813,42 @@ class H3ParserTest(TestCase):
             cm.exception.reason_phrase, "Pseudo-header b':status' is included twice"
         )
 
+        # The status code is a three-digit integer.
+        for status in (b"20", b"2000", b"+20", b"2_0", b"abc"):
+            with self.subTest(status=status):
+                with self.assertRaises(MessageError) as cm:
+                    validate_response_headers([(b":status", status)])
+                self.assertEqual(
+                    cm.exception.reason_phrase,
+                    f"Pseudo-header b':status' has invalid value {status!r}",
+                )
+
+        # 101 Switching Protocols is not supported.
+        with self.assertRaises(MessageError) as cm:
+            validate_response_headers([(b":status", b"101")])
+        self.assertEqual(
+            cm.exception.reason_phrase, "Pseudo-header b':status' cannot be 101"
+        )
+
+        # Connection-specific fields, including TE, are forbidden in responses.
+        for name in (
+            b"connection",
+            b"keep-alive",
+            b"proxy-connection",
+            b"te",
+            b"transfer-encoding",
+            b"upgrade",
+        ):
+            with self.subTest(header=name):
+                with self.assertRaises(MessageError) as cm:
+                    validate_response_headers(
+                        [(b":status", b"200"), (name, b"trailers")]
+                    )
+                self.assertEqual(
+                    cm.exception.reason_phrase,
+                    f"Header {name!r} is connection-specific",
+                )
+
     def test_validate_trailers(self):
         # OK
         validate_trailers([(b"x-foo", b"bar")])
@@ -3457,3 +3872,20 @@ class H3ParserTest(TestCase):
             cm.exception.reason_phrase,
             "Pseudo-header b':authority' is not allowed after regular headers",
         )
+
+        # Connection-specific fields, including TE, are forbidden in trailers.
+        for name in (
+            b"connection",
+            b"keep-alive",
+            b"proxy-connection",
+            b"te",
+            b"transfer-encoding",
+            b"upgrade",
+        ):
+            with self.subTest(header=name):
+                with self.assertRaises(MessageError) as cm:
+                    validate_trailers([(name, b"trailers")])
+                self.assertEqual(
+                    cm.exception.reason_phrase,
+                    f"Header {name!r} is connection-specific",
+                )

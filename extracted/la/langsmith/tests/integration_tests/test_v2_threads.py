@@ -89,7 +89,7 @@ async def project_with_thread(langchain_client: Client):
     async def _runs_indexed() -> Optional[str]:
         """Return the project id once at least one of its runs is queryable."""
         project_id = str(langchain_client.read_project(project_name=project_name).id)
-        async for _ in langchain_client.runs.query(
+        async for _ in langchain_client.runs.query_v2(
             project_ids=[project_id],
             min_start_time=min_start_time,
             max_start_time=max_start_time,
@@ -122,16 +122,12 @@ async def test_threads_query(langchain_client: Client, project_with_thread) -> N
     assert thread.thread_id == thread_id
 
 
-async def test_threads_list_traces(
-    langchain_client: Client, project_with_thread
-) -> None:
+async def test_threads_list_traces(langchain_client: Client, project_with_thread) -> None:
     """threads.list_traces() returns traces belonging to the thread."""
     project_id, thread_id, _, _ = project_with_thread
 
     async def _ready():
-        page = await langchain_client.threads.list_traces(
-            thread_id, project_id=project_id, page_size=10
-        )
+        page = await langchain_client.threads.list_traces(thread_id, project_id=project_id, page_size=10)
         return page if page.items else None
 
     page = await _wait_for_async(_ready, max_sleep_time=90)
@@ -141,7 +137,5 @@ async def test_threads_list_traces(
 async def test_threads_stats(langchain_client: Client, project_with_thread) -> None:
     """threads.stats() returns an aggregate stats response for the thread."""
     project_id, thread_id, _, _ = project_with_thread
-    stats = await langchain_client.threads.stats(
-        thread_id, selects=["TURNS"], session_id=project_id
-    )
+    stats = await langchain_client.threads.stats(thread_id, selects=["TURNS"], session_id=project_id)
     assert stats is not None

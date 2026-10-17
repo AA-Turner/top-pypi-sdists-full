@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: photutils
-Version: 3.1.0
+Version: 3.1.1
 Summary: An Astropy package for source detection and photometry
 Author-email: Photutils Developers <astropy.team@gmail.com>
 License-Expression: BSD-3-Clause

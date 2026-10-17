@@ -16,7 +16,7 @@ from jwt.algorithms import ECAlgorithm, OKPAlgorithm, RSAAlgorithm
 from pytest_httpx import HTTPXMock
 
 from langsmith import utils as ls_utils
-from langsmith._openapi_client._httpx import httpx
+from langsmith._httpx import httpx
 from langsmith.sandbox import (
     SandboxTokenVerificationError,
     SandboxTokenVerifier,
@@ -68,9 +68,7 @@ def rsa_jwks(httpx_mock: HTTPXMock, key, rsa_key):
         "alg": "RS256",
         "use": "sig",
     }
-    httpx_mock.add_response(
-        url=JWKS_URL, json={"keys": [_jwk(key, KID), rsa_jwk]}, is_reusable=True
-    )
+    httpx_mock.add_response(url=JWKS_URL, json={"keys": [_jwk(key, KID), rsa_jwk]}, is_reusable=True)
 
 
 @pytest.fixture
@@ -86,16 +84,12 @@ def mixed_jwks(httpx_mock: HTTPXMock, key, rsa_key, ec_key):
         "alg": "PS256",
     }
     ec_jwk = {**json.loads(ECAlgorithm.to_jwk(ec_key.public_key())), "kid": "ec-kid"}
-    httpx_mock.add_response(
-        url=JWKS_URL, json={"keys": [_jwk(key, KID), rsa_jwk, ec_jwk]}, is_reusable=True
-    )
+    httpx_mock.add_response(url=JWKS_URL, json={"keys": [_jwk(key, KID), rsa_jwk, ec_jwk]}, is_reusable=True)
 
 
 @pytest.fixture
 def jwks(httpx_mock: HTTPXMock, key):
-    httpx_mock.add_response(
-        url=JWKS_URL, json={"keys": [_jwk(key, KID)]}, is_reusable=True
-    )
+    httpx_mock.add_response(url=JWKS_URL, json={"keys": [_jwk(key, KID)]}, is_reusable=True)
 
 
 def _sign(
@@ -105,9 +99,7 @@ def _sign(
     headers: dict | None = None,
     algorithm: str = "EdDSA",
 ) -> str:
-    return jwt.encode(
-        claims, key, algorithm=algorithm, headers={"kid": kid, **(headers or {})}
-    )
+    return jwt.encode(claims, key, algorithm=algorithm, headers={"kid": kid, **(headers or {})})
 
 
 def _user_claims(**overrides) -> dict:
@@ -161,25 +153,19 @@ def verifier():
 
 class TestUserToken:
     def test_valid(self, jwks, key, verifier):
-        user = verifier.verify_user_token(
-            _sign(key, _user_claims()), audience=SERVICE_HOST, issuer=APP_URL
-        )
+        user = verifier.verify_user_token(_sign(key, _user_claims()), audience=SERVICE_HOST, issuer=APP_URL)
         assert user.subject == "user-123"
         assert user.email == "ada@example.com"
         assert user.name == "Ada"
 
     def test_accepts_service_url_as_audience(self, jwks, key, verifier):
-        user = verifier.verify_user_token(
-            _sign(key, _user_claims()), audience=f"https://{SERVICE_HOST}/path"
-        )
+        user = verifier.verify_user_token(_sign(key, _user_claims()), audience=f"https://{SERVICE_HOST}/path")
         assert user.subject == "user-123"
 
     @pytest.mark.parametrize(
         ("claims", "kwargs"),
         [
-            pytest.param(
-                {"aud": ["other--8080.svc.example.com"]}, {}, id="wrong audience"
-            ),
+            pytest.param({"aud": ["other--8080.svc.example.com"]}, {}, id="wrong audience"),
             pytest.param({"exp": int(time.time()) - 120}, {}, id="expired"),
             pytest.param({}, {"issuer": "https://evil.example.com"}, id="bad issuer"),
             pytest.param({"sub": ""}, {}, id="empty subject"),
@@ -187,9 +173,7 @@ class TestUserToken:
     )
     def test_rejects(self, jwks, key, verifier, claims, kwargs):
         with pytest.raises(SandboxTokenVerificationError):
-            verifier.verify_user_token(
-                _sign(key, _user_claims(**claims)), audience=SERVICE_HOST, **kwargs
-            )
+            verifier.verify_user_token(_sign(key, _user_claims(**claims)), audience=SERVICE_HOST, **kwargs)
 
     def test_rejects_missing_subject(self, jwks, key, verifier):
         claims = _user_claims()
@@ -203,9 +187,7 @@ class TestUserToken:
             verifier.verify_user_token(token, audience=SERVICE_HOST)
 
     def test_rejects_hs256(self, verifier):
-        token = jwt.encode(
-            _user_claims(), "secret" * 6, algorithm="HS256", headers={"kid": KID}
-        )
+        token = jwt.encode(_user_claims(), "secret" * 6, algorithm="HS256", headers={"kid": KID})
         with pytest.raises(SandboxTokenVerificationError, match="algorithm"):
             verifier.verify_user_token(token, audience=SERVICE_HOST)
 
@@ -214,9 +196,7 @@ class TestUserToken:
         user = verifier.verify_user_token(token, audience=SERVICE_HOST)
         assert user.subject == "user-123"
 
-    def test_rejects_algorithm_key_type_mismatch(
-        self, rsa_jwks, key, rsa_key, verifier
-    ):
+    def test_rejects_algorithm_key_type_mismatch(self, rsa_jwks, key, rsa_key, verifier):
         eddsa_under_rsa_kid = _sign(key, _user_claims(), RSA_KID)
         rs256_under_ed_kid = _sign(rsa_key, _user_claims(), KID, algorithm="RS256")
         for token in (eddsa_under_rsa_kid, rs256_under_ed_kid):
@@ -224,9 +204,7 @@ class TestUserToken:
                 verifier.verify_user_token(token, audience=SERVICE_HOST)
 
     @pytest.mark.parametrize("algorithm", ["ES256", "PS256"])
-    def test_accepts_other_jose_algorithms(
-        self, mixed_jwks, rsa_key, ec_key, verifier, algorithm
-    ):
+    def test_accepts_other_jose_algorithms(self, mixed_jwks, rsa_key, ec_key, verifier, algorithm):
         signer, kid = (ec_key, "ec-kid") if algorithm == "ES256" else (rsa_key, RSA_KID)
         token = _sign(signer, _user_claims(), kid, algorithm=algorithm)
         user = verifier.verify_user_token(token, audience=SERVICE_HOST)
@@ -250,35 +228,25 @@ class TestUserToken:
 
     def test_caches_jwks(self, httpx_mock: HTTPXMock, jwks, key, verifier):
         for _ in range(3):
-            verifier.verify_user_token(
-                _sign(key, _user_claims()), audience=SERVICE_HOST
-            )
+            verifier.verify_user_token(_sign(key, _user_claims()), audience=SERVICE_HOST)
         assert len(httpx_mock.get_requests()) == 1
 
     def test_refetches_on_rotated_key(self, httpx_mock: HTTPXMock, key, verifier):
         rotated = Ed25519PrivateKey.generate()
         httpx_mock.add_response(url=JWKS_URL, json={"keys": [_jwk(key, KID)]})
-        httpx_mock.add_response(
-            url=JWKS_URL, json={"keys": [_jwk(key, KID), _jwk(rotated, "new")]}
-        )
+        httpx_mock.add_response(url=JWKS_URL, json={"keys": [_jwk(key, KID), _jwk(rotated, "new")]})
         verifier.verify_user_token(_sign(key, _user_claims()), audience=SERVICE_HOST)
         verifier._fetched_at -= 60
-        user = verifier.verify_user_token(
-            _sign(rotated, _user_claims(), kid="new"), audience=SERVICE_HOST
-        )
+        user = verifier.verify_user_token(_sign(rotated, _user_claims(), kid="new"), audience=SERVICE_HOST)
         assert user.subject == "user-123"
 
     async def test_async(self, jwks, key, verifier):
-        user = await verifier.averify_user_token(
-            _sign(key, _user_claims()), audience=SERVICE_HOST
-        )
+        user = await verifier.averify_user_token(_sign(key, _user_claims()), audience=SERVICE_HOST)
         assert user.subject == "user-123"
 
 
 class TestJWKSFetch:
-    def test_concurrent_misses_share_one_fetch(
-        self, httpx_mock: HTTPXMock, key, verifier
-    ):
+    def test_concurrent_misses_share_one_fetch(self, httpx_mock: HTTPXMock, key, verifier):
         def slow_jwks(request):
             time.sleep(0.2)
             return httpx.Response(200, json={"keys": [_jwk(key, KID)]})
@@ -295,9 +263,7 @@ class TestJWKSFetch:
         assert {u.subject for u in users} == {"user-123"}
         assert len(httpx_mock.get_requests()) == 1
 
-    async def test_concurrent_async_misses_share_one_fetch(
-        self, httpx_mock: HTTPXMock, key, verifier
-    ):
+    async def test_concurrent_async_misses_share_one_fetch(self, httpx_mock: HTTPXMock, key, verifier):
         async def slow_jwks(request):
             await asyncio.sleep(0.2)
             return httpx.Response(200, json={"keys": [_jwk(key, KID)]})
@@ -305,24 +271,17 @@ class TestJWKSFetch:
         httpx_mock.add_callback(slow_jwks, url=JWKS_URL, is_reusable=True)
         token = _sign(key, _user_claims(), kid="unknown")
         results = await asyncio.gather(
-            *(
-                verifier.averify_user_token(token, audience=SERVICE_HOST)
-                for _ in range(8)
-            ),
+            *(verifier.averify_user_token(token, audience=SERVICE_HOST) for _ in range(8)),
             return_exceptions=True,
         )
         assert all(isinstance(r, SandboxTokenVerificationError) for r in results)
         assert len(httpx_mock.get_requests()) == 1
 
-    @pytest.mark.parametrize(
-        "body", [None, {"keys": {}}, {"keys": [None, 1]}, [], "keys"]
-    )
+    @pytest.mark.parametrize("body", [None, {"keys": {}}, {"keys": [None, 1]}, [], "keys"])
     def test_malformed_jwks(self, httpx_mock: HTTPXMock, key, verifier, body):
         httpx_mock.add_response(url=JWKS_URL, json=body)
         with pytest.raises(SandboxTokenVerificationError, match="JWKS"):
-            verifier.verify_user_token(
-                _sign(key, _user_claims()), audience=SERVICE_HOST
-            )
+            verifier.verify_user_token(_sign(key, _user_claims()), audience=SERVICE_HOST)
 
 
 class TestCallback:
@@ -359,9 +318,7 @@ class TestCallback:
                 "body_truncated": False,
             }
         )
-        cb = verifier.verify_callback(
-            body=body, signature=_sign(key, _callback_claims(body)), aud=CALLBACK_URL
-        )
+        cb = verifier.verify_callback(body=body, signature=_sign(key, _callback_claims(body)), aud=CALLBACK_URL)
         assert cb.request is not None
         assert cb.request.body == b"hello"
         assert cb.request.headers == {"Accept": ["application/json"]}
@@ -398,9 +355,7 @@ class TestCallback:
         claims = _callback_claims(body)
         del claims["body_sha256"]
         with pytest.raises(SandboxTokenVerificationError):
-            verifier.verify_callback(
-                body=body, signature=_sign(key, claims), aud=CALLBACK_URL
-            )
+            verifier.verify_callback(body=body, signature=_sign(key, claims), aud=CALLBACK_URL)
 
     def test_aud_predicate(self, jwks, key, verifier):
         body = _callback_body()
@@ -412,9 +367,7 @@ class TestCallback:
         )
         assert cb.port == 443
         with pytest.raises(SandboxTokenVerificationError, match="audience"):
-            verifier.verify_callback(
-                body=body, signature=signature, aud=lambda a: a == "https://x/cb"
-            )
+            verifier.verify_callback(body=body, signature=signature, aud=lambda a: a == "https://x/cb")
 
     def test_aud_optional(self, jwks, key, verifier):
         body = _callback_body()
@@ -424,9 +377,7 @@ class TestCallback:
 
     async def test_async(self, jwks, key, verifier):
         body = _callback_body()
-        cb = await verifier.averify_callback(
-            body=body, signature=_sign(key, _callback_claims(body)), aud=CALLBACK_URL
-        )
+        cb = await verifier.averify_callback(body=body, signature=_sign(key, _callback_claims(body)), aud=CALLBACK_URL)
         assert cb.port == 443
 
 
@@ -471,7 +422,5 @@ def test_allow_insecure_jwks_opt_out():
 def test_default_jwks_url_uses_endpoint_origin(httpx_mock: HTTPXMock, key, monkeypatch):
     monkeypatch.setenv("LANGSMITH_ENDPOINT", "https://api.example.com/api/v1")
     httpx_mock.add_response(url=JWKS_URL, json={"keys": [_jwk(key, KID)]})
-    user = SandboxTokenVerifier().verify_user_token(
-        _sign(key, _user_claims()), audience=SERVICE_HOST
-    )
+    user = SandboxTokenVerifier().verify_user_token(_sign(key, _user_claims()), audience=SERVICE_HOST)
     assert user.subject == "user-123"

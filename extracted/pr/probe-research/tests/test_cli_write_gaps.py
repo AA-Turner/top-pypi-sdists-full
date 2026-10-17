@@ -24,7 +24,7 @@ import httpx
 import pytest
 
 from probe import cli, expr
-from tests.conftest import make_client, open_run
+from tests.conftest import make_client, note_tokens, open_run, token_text
 
 cli_main = importlib.import_module("probe.cli.main")
 
@@ -112,17 +112,13 @@ def test_append_adds_a_paragraph_after_a_blank_line(wired, capsys):
     assert "base_version" in body and "force" not in body
 
 
-@pytest.mark.parametrize("flag", ["--experiment", "--run", "--group"])
+@pytest.mark.parametrize("flag", ["--experiment", "--run"])
 def test_append_reaches_every_entity_note(wired, tmp_path, capsys, flag):
     if flag == "--experiment":
         ref, row = "e", _experiment(wired)
-    elif flag == "--run":
+    else:
         run = _new_run(wired, tmp_path)
         ref, row = run.id, wired.runs[run.id]
-    else:
-        client = make_client(wired, tmp_spool=tmp_path / "s")
-        group = client.create_group(_experiment(wired)["id"], "sweep")
-        ref, row = group["id"], wired.groups[group["id"]]
 
     assert cli.main(["notes", "append", flag, ref, "--text", "first"]) == 0
     assert cli.main(["notes", "append", flag, ref, "--text", "second"]) == 0
@@ -200,12 +196,140 @@ def test_append_gives_up_on_a_note_that_never_stops_moving(wired, monkeypatch, c
 
 def test_append_past_the_cap_is_refused_before_anything_is_sent(wired, tmp_path, capsys):
     run = _new_run(wired, tmp_path)
-    wired.runs[run.id]["notes"] = "x" * 3_990  # a run note's cap is 4,000
+    wired.runs[run.id]["notes"] = token_text(1_998)  # 2,002 tokens with the line; the cap is 2,000
 
     assert cli.main(["notes", "append", "--run", run.id, "--text", "one more line"]) == 1
     err = capsys.readouterr().err
-    assert "4,000-character" in err and "FULL" in err
+    assert "the 2,000-token notes limit; nothing was written" in err and "FULL" in err
     assert _patches(wired, f"/v1/runs/{run.id}") == []
+
+
+# The pre-send check counts TOKENS, the unit the server refuses in. Both run
+# notes below are under the run's 10,000-character backstop and over the old
+# 4,000-character cap, so only a token count tells them apart.
+
+
+def test_a_run_note_of_many_characters_and_few_tokens_is_sent(wired, tmp_path, capsys):
+    run = _new_run(wired, tmp_path)
+    text = " word" * 1_000
+    assert (len(text), note_tokens(text)) == (5_000, 1_000)
+
+    assert cli.main(["notes", "append", "--run", run.id, "--text", text]) == 0
+    out = _json_out(capsys)
+    assert wired.runs[run.id]["notes"] == text
+    assert (out["stored_tokens"], out["remaining_tokens"]) == (1_000, 1_000)
+
+
+def test_a_run_note_past_the_token_cap_is_refused_before_it_is_sent(wired, tmp_path, capsys):
+    run = _new_run(wired, tmp_path)
+    text = token_text(2_500)
+    assert (len(text), note_tokens(text)) == (4_999, 2_500)
+
+    assert cli.main(["notes", "append", "--run", run.id, "--text", text]) == 1
+    err = capsys.readouterr().err
+    # The CLI's own words, not the server's 422 ("this run note would exceed ..."):
+    # the refusal happened before any request.
+    assert "error: appending would exceed the 2,000-token notes limit; nothing was written" in err
+    assert "FULL" in err
+    assert _patches(wired, f"/v1/runs/{run.id}") == []
+    assert not wired.runs[run.id].get("notes")
+
+
+def test_an_edit_past_the_token_cap_names_the_count_it_would_leave(wired, tmp_path, capsys):
+    run = _new_run(wired, tmp_path)
+    wired.runs[run.id]["notes"] = "short note"
+
+    assert cli.main(
+        ["notes", "edit", "--run", run.id, "--old", "short", "--new", token_text(2_500)]
+    ) == 1
+    err = capsys.readouterr().err
+    assert "at 2,501 tokens, over its 2,000-token limit; nothing was written" in err
+    assert _patches(wired, f"/v1/runs/{run.id}") == []
+    assert wired.runs[run.id]["notes"] == "short note"
+
+
+def test_the_character_backstop_is_checked_too(wired, tmp_path, capsys):
+    """Few tokens, too many characters: the server refuses at its backstop
+    (one token can be 128 bytes of whitespace), so the client does too."""
+    run = _new_run(wired, tmp_path)
+    text = "word" + " " * 10_500
+    assert note_tokens(text) < 2_000
+
+    assert cli.main(["notes", "append", "--run", run.id, "--text", text]) == 1
+    err = capsys.readouterr().err
+    assert "the 10,000-character notes limit; nothing was written" in err
+    assert _patches(wired, f"/v1/runs/{run.id}") == []
+
+
+def test_a_backend_before_token_caps_is_held_to_its_character_cap(wired, tmp_path, capsys):
+    """An older server publishes only `notes_limit_chars`, and there it IS the
+    cap: the pre-send check refuses at it, exactly as it did before tokens."""
+    wired.publishes_note_tokens = False
+    run = _new_run(wired, tmp_path)
+    wired.runs[run.id]["notes"] = "x" * 3_990  # that server's run cap was 4,000 characters
+
+    assert cli.main(["notes", "append", "--run", run.id, "--text", "one more line"]) == 1
+    err = capsys.readouterr().err
+    assert "the 4,000-character notes limit; nothing was written" in err and "FULL" in err
+    assert _patches(wired, f"/v1/runs/{run.id}") == []
+
+
+def test_the_servers_token_refusal_still_gets_the_compaction_advice(
+    wired, tmp_path, monkeypatch, capsys
+):
+    """When this machine cannot count (no tokenizer: `tokens_past_cap` answers
+    None, pinned in test_notes_headroom.py), nothing is refused here and the
+    SERVER refuses, in token words. The advice the 422 cannot carry is added to
+    that refusal too: "notes limit" is in every server's wording.
+
+    Patched at the CLI's seam, not in `probe.mcp.budget`: the fake server counts
+    with that module too, and must keep counting."""
+    import probe.sdk.notes as notes
+
+    monkeypatch.setattr(notes, "tokens_past_cap", lambda _text, _limit: None)
+    run = _new_run(wired, tmp_path)
+
+    assert cli.main(["notes", "append", "--run", run.id, "--text", token_text(2_500)]) == 1
+    err = capsys.readouterr().err
+    assert "this run note would exceed the 2,000-token notes limit" in err
+    assert "FULL" in err and "Move this prose up" in " ".join(err.split())
+    assert len(_patches(wired, f"/v1/runs/{run.id}")) == 1
+
+
+@pytest.mark.parametrize(
+    "detail",
+    [
+        # research-os before token caps.
+        "appending would exceed the 4000-character notes limit",
+        # Token caps, and the character backstop beside them.
+        "these notes would exceed the 30,000-token notes limit; compact the document and write it again",
+        "this run note would exceed the 10,000-character notes limit; compact the document and write it again",
+        # A sub-note's body, either unit.
+        "sub-note body exceeds the 2,000-token limit",
+        "sub-note body exceeds the 100000-character limit",
+    ],
+)
+def test_every_cap_refusal_wording_gets_the_advice(detail, capsys):
+    from probe.sdk import errors
+
+    def refused():
+        raise errors.ValidationError(detail, status=422)
+
+    with pytest.raises(cli_main.typer.Exit):
+        cli_main._notes_write("run", "r1", refused)
+    err = capsys.readouterr().err
+    assert detail in err and "FULL" in err
+
+
+def test_a_refusal_that_is_not_about_the_cap_passes_through(capsys):
+    from probe.sdk import errors
+
+    def refused():
+        raise errors.ValidationError("sub-note title exceeds the 120-character limit", status=422)
+
+    with pytest.raises(errors.ValidationError):
+        cli_main._notes_write("run", "r1", refused)
+    assert "FULL" not in capsys.readouterr().err
 
 
 def test_a_refused_write_exits_non_zero_and_prints_no_result(wired, monkeypatch, capsys):
@@ -363,7 +487,10 @@ def test_append_to_the_team_note_uses_the_server_computed_write(wired, capsys):
     assert cli.main(["notes", "append", "--team", "--text", "Cap vitest at 2 threads."]) == 0
     out = _json_out(capsys)
     assert out["target"] == "team" and out["version"] == 1
-    assert out["remaining"] == 100_000 - len(wired.team_note["body"])
+    assert out["remaining"] == 150_000 - len(wired.team_note["body"])
+    assert out["stored_tokens"] == note_tokens(wired.team_note["body"])
+    assert out["limit_tokens"] == 30_000
+    assert out["remaining_tokens"] == 30_000 - out["stored_tokens"]
     assert wired.team_note["body"] == (
         "# Cluster\n\nGPUs are oversubscribed.\n\nCap vitest at 2 threads.\n"
     )
@@ -436,10 +563,10 @@ def test_a_team_write_retries_only_the_refusal_that_wrote_nothing(wired, monkeyp
 
 
 def test_a_refused_team_write_exits_non_zero(wired, monkeypatch, capsys):
-    wired.team_note["body"] = "x" * 99_990
+    wired.team_note["body"] = token_text(29_999)  # the team note's cap is 30,000 tokens
     assert cli.main(["notes", "append", "--team", "--text", "one more paragraph"]) == 1
     captured = capsys.readouterr()
-    assert "team note limit" in captured.err and captured.out == ""
+    assert "the 30,000-token team note limit" in captured.err and captured.out == ""
     assert wired.team_note["version"] == 0
 
     _intercept(
@@ -816,25 +943,6 @@ def test_a_read_without_a_version_is_refused(wired, monkeypatch, capsys):
     assert "version" in capsys.readouterr().err
     assert _patches(wired, "/v1/projects/") == []
     assert project["notes"] == "start"
-
-
-def _seed_artifact(app, notes: str | None = None) -> dict:
-    row = {"id": "art-00000000-0000-4000-8000-000000000001", "name": "eval.csv", "notes": notes}
-    app.artifacts.setdefault("project:p", []).append(row)
-    return row
-
-
-def test_append_and_edit_reach_an_artifact_note(wired, capsys):
-    artifact = _seed_artifact(wired)
-    ref = artifact["id"]
-    assert cli.main(["notes", "append", "--artifact", ref, "--text", "held-out split v2"]) == 0
-    assert cli.main(["notes", "append", "--artifact", ref, "--text", "rows 10-20 dropped"]) == 0
-    assert cli.main(
-        ["notes", "edit", "--artifact", ref, "--old", "10-20", "--new", "10-12"]
-    ) == 0
-    out = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
-    assert [o["version"] for o in out] == [1, 2, 3]
-    assert artifact["notes"] == "held-out split v2\n\nrows 10-12 dropped"
 
 
 @pytest.mark.parametrize(

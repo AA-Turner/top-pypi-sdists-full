@@ -365,6 +365,36 @@ def test_composition_by_rows_sends_computed_shares(run, fake, tmp_path):
     assert ds.ref is None and len(fake.registrations) == before and any("sum to 1" in s for s in said)
 
 
+def test_composition_can_name_sources(run, fake, tmp_path):
+    hub = probe.source("https://huggingface.co/datasets/allenai/c4", client=run._client)
+    csv = probe.source("https://example.org/extra.csv", client=run._client)
+    mix = _folder(tmp_path / "mix", {"train.jsonl": b"{}\n" * 4})
+    ds = run.log_dataset(mix, name="train-ext", composition={hub: 0.8, csv.ref: 0.2}, preview=False)
+    assert ds.ref == "dataset:train-ext@1"
+    assert fake.registrations[-1]["composition"] == [
+        {"target": hub.ref, "share": 0.8}, {"target": csv.ref, "share": 0.2},
+    ]
+
+
+def test_stats_outside_the_closed_list_are_dropped_not_fatal(run, fake, tmp_path):
+    data = _folder(tmp_path / "prep", {"a.jsonl": b"{}\n"})
+    ds, said = _caught(lambda: run.log_dataset(
+        data, name="prep", preview=False,
+        stats={"rows": 100, "dedup_ratio": 0.3, "removed": -1, "tokens": 5.0, "files": True},
+    ))
+    assert ds.ref == "dataset:prep@1"
+    assert fake.registrations[-1]["change"] == {"stats": {"rows": 100, "tokens": 5}}
+    assert any("`dedup_ratio` is not a stat" in s and "rows" in s for s in said)
+    assert any("stats['removed'] must be a whole number" in s for s in said)
+    assert any("stats['files'] must be a whole number" in s for s in said)
+
+
+def test_only_unknown_stats_send_no_change(run, fake, tmp_path):
+    data = _folder(tmp_path / "prep2", {"a.jsonl": b"{}\n"})
+    ds, _ = _caught(lambda: run.log_dataset(data, name="prep2", preview=False, stats={"ratio_kept": 0.9}))
+    assert ds.ref == "dataset:prep2@1" and "change" not in fake.registrations[-1]
+
+
 # -- preview samples (C11a, C11d SDK half) -----------------------------------------
 
 

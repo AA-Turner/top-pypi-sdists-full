@@ -90,7 +90,7 @@ def test_automatic_mode_forwards_explicit_consent_and_scope_before_the_handoff(f
         "client_factory": object, "folder": flow.folder.resolve(), "agent": bf.Agent.CLAUDE,
         "auto_approve": True, "project": "project-id", "concurrency": 3,
         "source_id": "source-id", "import_changed": True, "import_unverified": True,
-        "retry_dead": False,
+        "retry_dead": False, "review_excluded": False,
     }
 
 

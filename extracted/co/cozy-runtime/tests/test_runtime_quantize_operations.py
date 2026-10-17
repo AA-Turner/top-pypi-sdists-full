@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import sys
+import typing
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -14,13 +15,18 @@ import pytest
 import tensorfs
 
 from cozy_runtime import canonical_json
-from cozy_runtime.author import Invocation, ModelArtifact, UnsupportedInput, attempt, describe
+from cozy_runtime.author import (
+    Invocation,
+    ModelArtifact,
+    UnsupportedInput,
+    Weights,
+    attempt,
+    describe,
+)
 from cozy_runtime.author._errors import Outcome
 from cozy_runtime.author._invoke import InvocationResult
-from cozy_runtime.author._model import _derive_model
 from cozy_runtime.author._services import Attempt
 from cozy_runtime.derive.operations import MAX_QUANTIZED_BYTES, QuantizationPlan, _selection, app
-from cozy_runtime.derive.quantization import QuantizationSource
 from cozy_runtime.internal import package_interface, static_interface
 from cozy_runtime.internal.discovery import Discovered
 from native_weights import NativeExecution
@@ -60,7 +66,7 @@ def _shared(
                 host.attempt.request_id,
                 root,
                 math.inf,  # no stopwatch: a test attempt ends on its own outcome
-                models={"source": _derive_model(QuantizationSource, source.manifest.digest)},
+                sources={"source": Weights(source.manifest.digest)},
                 tensorfs_source=host.client.source,
                 tensorfs_output=host.client.open_output,
                 tensorfs_adopt=host.client.adopt_model,
@@ -69,8 +75,7 @@ def _shared(
         )
 
 
-@pytest.mark.parametrize("encoding", ["fp8-rowwise/1", "mxfp8/1"])
-def test_shared_operation_resumes_complete_native_groups(tmp_path: Path, encoding: str) -> None:
+def test_shared_operation_resumes_complete_native_groups(tmp_path: Path) -> None:
     store = tensorfs.Store.init(tmp_path / "store")
     source = _source(store, "control")
     plan = QuantizationPlan(("control",))
@@ -86,14 +91,13 @@ def test_shared_operation_resumes_complete_native_groups(tmp_path: Path, encodin
         store,
         source,
         plan,
-        encoding,
         request="resume",
         canceled=canceled,
         checkpoint=stop,
     )
     assert result is None and outcome.terminal == "canceled" and len(checkpoints) == 1
     result, outcome, record = _shared(
-        tmp_path / "resumed", store, source, plan, encoding, request="resume", epoch=2
+        tmp_path / "resumed", store, source, plan, request="resume", epoch=2
     )
     assert outcome.terminal == "succeeded" and result is not None
     facts = next(
@@ -101,7 +105,7 @@ def test_shared_operation_resumes_complete_native_groups(tmp_path: Path, encodin
     )
     assert isinstance(facts, dict) and facts["reused_keys"] == 1
     assert facts["source_bytes_read_this_run"] == 1024
-    clean, outcome, _ = _shared(tmp_path / "clean", store, source, plan, encoding)
+    clean, outcome, _ = _shared(tmp_path / "clean", store, source, plan)
     assert outcome.terminal == "succeeded" and clean is not None
     assert clean.result.manifest == result.result.manifest
 
@@ -116,23 +120,16 @@ def test_builtin_interface_is_static_and_matches_its_actual_app() -> None:
             Path(__file__).parent,
             module,
             describe(app),
-            {},
         )
     )
-    # The installed environment supplies the implementation/native identity;
-    # the static client contract deliberately cannot supply that identity.
-    actual_jobs = actual["jobs"]
-    assert isinstance(actual_jobs, list)
-    for declaration in actual_jobs:
-        assert isinstance(declaration, dict)
-        metadata = declaration["invocable"]
-        assert isinstance(metadata, dict)
-        assert str(metadata.pop("operation_identity")).startswith("sha256:")
-    assert package_interface.canonical_bytes(static) == package_interface.canonical_bytes(actual)
-    jobs = static["jobs"]
-    assert isinstance(jobs, list) and [row["name"] for row in jobs] == ["quantize"]
-    row = next(row for row in jobs if row["name"] == "quantize")
-    assert isinstance(row, dict) and row["name"] == "quantize"
+    source = package_interface.source_facts(actual)
+    assert package_interface.canonical_bytes(static) == package_interface.canonical_bytes(source)
+    # Not memoized, but a writer: its identity keys TensorFS derivation replay.
+    (installed,) = typing.cast(list[dict[str, Any]], actual["entrypoints"])
+    assert installed["invocable"]["operation_identity"].startswith("sha256:")
+    (row,) = typing.cast(list[dict[str, Any]], static["entrypoints"])
+    assert row["name"] == "quantize" and row["accelerator"] is False
+    assert row["models"][0]["weights"] is True
     assert row["weights_outputs"] == [
         {
             "output_id": "model",
@@ -140,23 +137,20 @@ def test_builtin_interface_is_static_and_matches_its_actual_app() -> None:
             "max_bytes": MAX_QUANTIZED_BYTES,
         }
     ]
-    assert row["invocable"]["memoize"] is True
+    assert row["invocable"]["memoize"] is False
 
 
 @pytest.mark.parametrize("component,dtype", [("unet", "f16"), ("transformer", "bf16")])
-@pytest.mark.parametrize("encoding", ["fp8-rowwise/1", "mxfp8/1"])
 def test_shared_native_operation_preserves_existing_family_results(
-    tmp_path: Path, component: str, dtype: str, encoding: str
+    tmp_path: Path, component: str, dtype: str
 ) -> None:
     store = tensorfs.Store.init(tmp_path / "store")
     source = _source(store, component, dtype)
     original, outcome, _ = _run(
-        tmp_path / "legacy", _host(store, "legacy", source), source, component, encoding
+        tmp_path / "legacy", _host(store, "legacy", source), source, component, "fp8-rowwise/1"
     )
     assert outcome.terminal == "succeeded" and original is not None
-    result, outcome, _ = _shared(
-        tmp_path / "shared", store, source, QuantizationPlan((component,)), encoding
-    )
+    result, outcome, _ = _shared(tmp_path / "shared", store, source, QuantizationPlan((component,)))
     assert outcome.terminal == "succeeded", outcome
     assert result is not None and result.result.manifest == original.manifest
 

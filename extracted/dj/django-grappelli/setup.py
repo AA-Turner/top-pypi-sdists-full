@@ -9,7 +9,7 @@ def read(fname):
 
 setup(
     name="django-grappelli",
-    version="5.0.0",
+    version="5.0.1",
     description="A jazzy skin for the Django Admin-Interface.",
     long_description=read("README.rst"),
     long_description_content_type="text/x-rst",
@@ -28,6 +28,9 @@ setup(
         "Development Status :: 5 - Production/Stable",
         "Environment :: Web Environment",
         "Framework :: Django",
+        "Framework :: Django :: 5.2",
+        "Framework :: Django :: 6.0",
+        "Framework :: Django :: 6.1",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",

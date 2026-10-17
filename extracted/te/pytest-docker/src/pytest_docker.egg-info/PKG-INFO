@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-docker
-Version: 3.2.5
+Version: 3.2.6
 Summary: Simple pytest fixtures for Docker and Docker Compose based tests
 Home-page: https://github.com/avast/pytest-docker
 Author: Max K., Andre Caron
@@ -14,6 +14,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Utilities
 Classifier: Intended Audience :: Developers
@@ -23,7 +25,7 @@ Classifier: Operating System :: Microsoft :: Windows
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: pytest<10.0,>=4.0
+Requires-Dist: pytest<10.0,>=6.2
 Requires-Dist: attrs>=19.2.0
 Provides-Extra: docker-compose-v1
 Requires-Dist: docker-compose<2.0,>=1.27.3; extra == "docker-compose-v1"

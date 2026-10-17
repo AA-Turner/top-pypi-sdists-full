@@ -10,9 +10,7 @@ from langsmith._internal._ls_agent_type import (
 
 
 def test_non_root_ls_agent_types_shape():
-    assert NON_ROOT_LS_AGENT_TYPES == frozenset(
-        {"middleware", "subagent", "compaction"}
-    )
+    assert NON_ROOT_LS_AGENT_TYPES == frozenset({"middleware", "subagent", "compaction"})
 
 
 def test_resolves_root_when_no_parent_runtree():

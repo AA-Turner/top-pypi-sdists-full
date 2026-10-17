@@ -1,7 +1,7 @@
 from setuptools import setup,find_packages
 from datetime import datetime
 from pathlib import Path
-VERSION="0.1.166"
+VERSION="0.1.168"
 long_description=Path('README.md')
 license='GPL-3.0-only'
 license_files=['COPYING',]
@@ -27,7 +27,7 @@ setup(name=name,
           ],
       packages=find_packages(),
       python_requires='>=3.6',
-      install_requires=['pyzipcode','gdown','biip','sympy','scipy','plotext==5.3.2','haversine','holidays','qrcode[pil]','chardet','nanoid','random-password-generator','cython','pint','pyupc-ean','openpyxl','plyer','colored','numpy','pandas','Pillow','python-barcode','qrcode','requests','sqlalchemy','argparse','geocoder','beautifulsoup4','pycryptodome','forecast_weather','boozelib','inputimeout',"xlsxwriter",'num2words'],
+      install_requires=['pyotp','pyzipcode','gdown','biip','sympy','scipy','plotext==5.3.2','haversine','holidays','qrcode[pil]','chardet','nanoid','random-password-generator','cython','pint','pyupc-ean','openpyxl','plyer','colored','numpy','pandas','Pillow','python-barcode','qrcode','requests','sqlalchemy','argparse','geocoder','beautifulsoup4','pycryptodome','forecast_weather','boozelib','inputimeout',"xlsxwriter",'num2words'],
       extras_require={'Terminal Readline Support':["readline"]},
       package_data={
         '':["*.config","*.txt","*.README","*.TTF",],

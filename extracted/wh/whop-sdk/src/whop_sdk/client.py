@@ -96,7 +96,6 @@ if typing.TYPE_CHECKING:
     from .support_channels.client import AsyncSupportChannelsClient, SupportChannelsClient
     from .swaps.client import AsyncSwapsClient, SwapsClient
     from .team_members.client import AsyncTeamMembersClient, TeamMembersClient
-    from .topups.client import AsyncTopupsClient, TopupsClient
     from .trades.client import AsyncTradesClient, TradesClient
     from .transfers.client import AsyncTransfersClient, TransfersClient
     from .users.client import AsyncUsersClient, UsersClient
@@ -153,7 +152,7 @@ class Whop:
     from whop_sdk import Whop
 
     client = Whop(
-        "2026-10-13-1",
+        "2026-10-15-1",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -163,7 +162,7 @@ class Whop:
         self,
         *,
         environment: WhopEnvironment = WhopEnvironment.PRODUCTION,
-        api_version_date: typing.Optional[str] = "2026-10-13-1",
+        api_version_date: typing.Optional[str] = "2026-10-15-1",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -280,7 +279,6 @@ class Whop:
         self._support_channels: typing.Optional[SupportChannelsClient] = None
         self._swaps: typing.Optional[SwapsClient] = None
         self._team_members: typing.Optional[TeamMembersClient] = None
-        self._topups: typing.Optional[TopupsClient] = None
         self._trades: typing.Optional[TradesClient] = None
         self._transfers: typing.Optional[TransfersClient] = None
         self._users: typing.Optional[UsersClient] = None
@@ -978,14 +976,6 @@ class Whop:
         return self._team_members
 
     @property
-    def topups(self):
-        if self._topups is None:
-            from .topups.client import TopupsClient  # noqa: E402
-
-            self._topups = TopupsClient(client_wrapper=self._client_wrapper)
-        return self._topups
-
-    @property
     def trades(self):
         if self._trades is None:
             from .trades.client import TradesClient  # noqa: E402
@@ -1110,7 +1100,7 @@ class AsyncWhop:
     from whop_sdk import AsyncWhop
 
     client = AsyncWhop(
-        "2026-10-13-1",
+        "2026-10-15-1",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -1120,7 +1110,7 @@ class AsyncWhop:
         self,
         *,
         environment: WhopEnvironment = WhopEnvironment.PRODUCTION,
-        api_version_date: typing.Optional[str] = "2026-10-13-1",
+        api_version_date: typing.Optional[str] = "2026-10-15-1",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -1237,7 +1227,6 @@ class AsyncWhop:
         self._support_channels: typing.Optional[AsyncSupportChannelsClient] = None
         self._swaps: typing.Optional[AsyncSwapsClient] = None
         self._team_members: typing.Optional[AsyncTeamMembersClient] = None
-        self._topups: typing.Optional[AsyncTopupsClient] = None
         self._trades: typing.Optional[AsyncTradesClient] = None
         self._transfers: typing.Optional[AsyncTransfersClient] = None
         self._users: typing.Optional[AsyncUsersClient] = None
@@ -1933,14 +1922,6 @@ class AsyncWhop:
 
             self._team_members = AsyncTeamMembersClient(client_wrapper=self._client_wrapper)
         return self._team_members
-
-    @property
-    def topups(self):
-        if self._topups is None:
-            from .topups.client import AsyncTopupsClient  # noqa: E402
-
-            self._topups = AsyncTopupsClient(client_wrapper=self._client_wrapper)
-        return self._topups
 
     @property
     def trades(self):

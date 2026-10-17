@@ -64,6 +64,7 @@ class UnifiedConfigModel(BaseModel):
     offering_id: str | None = None  # never populated in 6,485 stored configs
     runtime_offering_id: str | None = None
     prompt_cache_key: str | None = None
+    extended_prompt_cache: bool | None = None
     max_output_tokens: int | None = None
     temperature: float | None = None
     top_p: float | None = None

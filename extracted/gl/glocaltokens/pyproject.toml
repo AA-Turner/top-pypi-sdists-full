@@ -5,16 +5,16 @@ build-backend = "hatchling.build"
 [project]
 name = "glocaltokens"
 description = "Tool to extract Google device local authentication tokens in Python"
-authors = [{name = "Ilja Leiko", email = "leikoilja@gmail.com"}]
+authors = [{ name = "Ilja Leiko", email = "leikoilja@gmail.com" }]
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development",
     "Typing :: Typed",
 ]
@@ -24,30 +24,30 @@ keywords = [
     "Google",
     "LocalAuthenticationTokens",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dynamic = ["version"]
 dependencies = [
-    "ghome-foyer-api>=1.2.2",
+    "ghome-foyer-api>=2.0.0",
     "gpsoauth>=2.0.0",
-    "simplejson>=3.20.1",
     # Note, we want to keep versions of grpcio, requests and zeroconf similar to Home Assistant
-    # https://github.com/home-assistant/core/blob/2025.6.0/homeassistant/package_constraints.txt
-    "grpcio>=1.72.1",
-    "requests>=2.32.4",
-    "zeroconf>=0.147.0",
+    # https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/package_constraints.txt
+    "grpcio>=1.83.1",
+    "requests>=2.34.2",
+    "zeroconf>=0.151.5",
 ]
 
 [dependency-groups]
 dev = [
-    "codespell>=2.4.1",
-    "faker>=37.3.0",
-    "grpc-stubs>=1.53.0.6",
-    "mock>=5.2.0",
-    "mypy>=1.16.1",
-    "pylint>=3.3.7",
-    "pytest>=8.3.5",
-    "ruff>=0.12.0",
-    "types-protobuf>=5.29.1",
+    "codespell>=2.4.3",
+    "dprint-py>=0.63.0.0",
+    "faker>=40.43.0",
+    "mypy>=2.4.0",
+    "pylint>=4.1.3",
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+    "types-grpcio>=1.84.0.20260928",
+    "types-protobuf>=7.35.1.20260906",
+    "types-requests>=2.33.0.20261006",
 ]
 
 [project.urls]
@@ -62,8 +62,8 @@ source = "vcs"
 fallback_version = "0.0.0"
 
 [tool.ruff]
-required-version = ">=0.6.0"
-target-version = "py39"
+required-version = ">=0.17.1"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = [
@@ -127,7 +127,7 @@ select = [
     "SLF", # flake8-self
     "SLOT", # flake8-slots
     "T100", # Trace found: {name} used
-    "TCH", # flake8-type-checking
+    "TC", # flake8-type-checking
     "TID251", # Banned imports
     "TRY", # tryceratops
     "UP", # pyupgrade
@@ -142,6 +142,7 @@ ignore = [
     "PLR0912", # Too many branches ({branches} > {max_branches})
     "PLR0913", # Too many arguments to function call ({c_args} > {max_args})
     "PLR0915", # Too many statements ({statements} > {max_statements})
+    "PLR0917", # Too many positional arguments ({c_pos} > {max_pos})
     "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
     "PLW2901", # Outer {outer_kind} variable {name} overwritten by inner {inner_kind} target
     "TRY003", # Avoid specifying long messages outside the exception class
@@ -175,7 +176,7 @@ mark-parentheses = false
 max-complexity = 25
 
 [tool.pylint.main]
-py-version = "3.9"
+py-version = "3.12"
 load-plugins = [
     "pylint.extensions.code_style",
     "pylint.extensions.typing",
@@ -210,18 +211,29 @@ disable = [
     "too-many-instance-attributes",
     "too-many-locals",
     "too-many-positional-arguments",
+    "too-many-public-methods",
     "consider-using-namedtuple-or-dataclass",
     "consider-using-assignment-expr",
 ]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 show_error_codes = true
 strict = true
 disallow_any_explicit = true
 disallow_any_unimported = true
 warn_no_return = true
 warn_unreachable = true
+strict_bytes = true
+local_partial_types = true
+enable_error_code = [
+    "deprecated",
+    "explicit-override",
+    "ignore-without-code",
+    "possibly-undefined",
+    "redundant-self",
+    "truthy-iterable",
+]
 
 [tool.codespell]
 ignore-words-list = "aas"

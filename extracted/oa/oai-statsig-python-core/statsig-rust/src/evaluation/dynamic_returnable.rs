@@ -127,10 +127,20 @@ impl DynamicReturnable {
     }
 
     pub(crate) fn from_interned_value(hash: u64, value: DynamicReturnableValue) -> Self {
+        let stable_hash = stable_hash(&value);
+        Self::from_cached_value(hash, value, stable_hash)
+    }
+
+    // The interner supplies the hash paired with this backing value.
+    pub(crate) fn from_cached_value(
+        hash: u64,
+        value: DynamicReturnableValue,
+        stable_hash: u64,
+    ) -> Self {
         Self {
             hash,
-            stable_hash: NonZeroU64::new(stable_hash(&value)),
             value,
+            stable_hash: NonZeroU64::new(stable_hash),
         }
     }
 
@@ -161,14 +171,14 @@ fn stable_hash(value: &DynamicReturnableValue) -> u64 {
     match value {
         DynamicReturnableValue::Null => hashing::hash_u64_slice(&[0]),
         DynamicReturnableValue::Bool(value) => hashing::hash_u64_slice(&[1, u64::from(*value)]),
-        DynamicReturnableValue::JsonPointer(value) => {
-            stable_object_hash(value.iter().map(|(key, value)| (key.as_str(), value)))
-        }
-        DynamicReturnableValue::JsonStatic(value) => {
-            stable_object_hash(value.iter().map(|(key, value)| (key.as_str(), value)))
-        }
+        DynamicReturnableValue::JsonPointer(value) => owned_returnable_stable_hash(value),
+        DynamicReturnableValue::JsonStatic(value) => owned_returnable_stable_hash(value),
         DynamicReturnableValue::JsonArchived(value) => archived_returnable_stable_hash(value),
     }
+}
+
+pub(crate) fn owned_returnable_stable_hash(value: &HashMap<String, RkyvValue>) -> u64 {
+    stable_object_hash(value.iter().map(|(key, value)| (key.as_str(), value)))
 }
 
 pub(crate) fn archived_returnable_stable_hash(

@@ -60,6 +60,13 @@ if ! xdpyinfo -display "${worker_display}" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Optional desktop session (the Cloud Computer image sets this; the browser
+# fleet image does not, so a browser worker is unchanged): a window manager and
+# taskbar on the same display, started once the display answers.
+if [[ -n "${BROWSER_WORKER_DESKTOP_SESSION:-}" && -x "${BROWSER_WORKER_DESKTOP_SESSION}" ]]; then
+  "${BROWSER_WORKER_DESKTOP_SESSION}" &
+fi
+
 # Benchmark mode. `docker run --env` is the ONLY channel a caller has into a
 # container, so the container's own mode variable is read HERE, at the boundary,
 # and turned into an explicit argument. No Python module reads it (USD-5).

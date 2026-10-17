@@ -98,8 +98,8 @@ SCOPE_PARAMS: dict[str, tuple[str, ...] | Callable[[precheck.Parsed], str | None
     "sync": _sync,
     "artifact add": _artifact_add,
     "artifact move": _artifact_move,
-    # Without either flag a note is on a run, group or artifact, or on the active
-    # project -- which the daemon does not read: the label stays.
+    # Without either flag a note is on a run, or on the active project -- which
+    # the daemon does not read: the label stays.
     "notes create": ("project", "experiment"),
     "notes push": ("project", "experiment"),
     "notes append": ("project", "experiment"),
@@ -108,6 +108,9 @@ SCOPE_PARAMS: dict[str, tuple[str, ...] | Callable[[precheck.Parsed], str | None
     # A dataset is the team's; only a step recorded by hand (`--from`) is filed
     # under a project, and only `--project` names it here.
     "dataset add": ("project",),
+    # A summary or its visuals land on the experiment when one is named.
+    "summary push": ("experiment", "project"),
+    "visuals set": ("experiment", "project"),
 }
 
 #: Daemon writes that leave the label where it is: they name a run, an artifact,
@@ -118,6 +121,8 @@ SCOPE_PARAMS: dict[str, tuple[str, ...] | Callable[[precheck.Parsed], str | None
 NO_SCOPE: frozenset[str] = frozenset({
     *precheck.DELETES,
     "daemon override", "feedback send", "notes checkout", "notes sync",
+    # A local draft of the summary or its visuals: nothing written to Probe.
+    "summary checkout", "visuals options",
     "run set", "run tag", "run end",
     "artifact set", "artifact version-add",
     "group set", "edge add", "paper update", "paper tag",

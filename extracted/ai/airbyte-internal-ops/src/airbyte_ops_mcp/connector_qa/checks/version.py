@@ -23,14 +23,16 @@ from airbyte_ops_mcp.connector_qa.models import (
 # test configuration and documentation are not part of the released connector, so
 # a change limited to them needs no version increment. Entries ending with "/"
 # match a directory, the others match a single file. The connector matrix already
-# ignores README.md, CONTRIBUTING.md, .coveragerc and poe_tasks.toml; they are
-# listed here for a PR that also touches tests. metadata.yaml, .dockerignore and
-# build files are deliberately absent: changing them changes what is built or
-# registered.
+# ignores README.md, CONTRIBUTING.md, AGENTS.md, CLAUDE.md, .coveragerc and
+# poe_tasks.toml; they are listed here for a PR that also touches tests.
+# metadata.yaml, .dockerignore and build files are deliberately absent: changing
+# them changes what is built or registered.
 NON_PRODUCTION_PATHS = (
     "acceptance-test-config.yml",
     "README.md",
     "CONTRIBUTING.md",
+    "AGENTS.md",
+    "CLAUDE.md",
     "bootstrap.md",
     ".coveragerc",
     "poe_tasks.toml",

@@ -371,7 +371,6 @@ from local_operator.tui.widgets.ask_queue import (
     SCOPE_FLEET,
     SCOPE_SESSION,
     STATUS_OPEN,
-    STATUS_TIMED_OUT,
     AskBar,
     AskQueueList,
     AskRow,
@@ -5559,6 +5558,7 @@ class OperatorApp(App[None]):
         # `session_presentation.project_settled_rows` for the contract. Default
         # empty: a projection that never re-seeds is the cold-resume case.
         self._projection_live_call_ids: set[str] = set()
+        self._projection_peer_display_roles: dict[str, str] = {}
         self._projection_skipped_live: list[Any] = []
         #: One page per USER GESTURE, not per scroll callback. Held from the
         #: first trigger until the mount's settle pass has restored the scroll
@@ -5817,9 +5817,9 @@ class OperatorApp(App[None]):
         #: disagree about which channel Enter is aimed at.
         self._ask_mode: bool = False
         #: The wire's asks, flattened, as of the last snapshot — SETTLED ROWS
-        #: INCLUDED since design §4: the list filters them, the bar and the
-        #: sidebar mark read `_open_ask_rows()` so a settled row never inflates a
-        #: count of what is still owed.
+        #: INCLUDED since design §4: the list filters them, and the bar and the
+        #: sidebar mark (`_fleet_marks`) count ANSWERABLE rows only, so neither a
+        #: settled nor a timed-out row inflates a count of what is still owed.
         self._ask_rows: list[AskRow] = []
         #: Which queue the ONE expanded list is reading: this conversation's, or
         #: every conversation's. Set by the DOOR the user came through — the bar
@@ -5854,6 +5854,13 @@ class OperatorApp(App[None]):
         #: a second Enter could spawn a second worker and CANCEL the first one
         #: mid-engage. Every mount seeds the widget from this set.
         self._ask_in_flight: set[str] = set()
+        #: The subset of `_ask_in_flight` a SESSION-scope `x` set (`_dismiss_ask`).
+        #: Only these are cleared by the snapshot that drops their row: a FLEET
+        #: op owns its mark for the whole engage window and clears it itself in
+        #: `_fleet_ask_worker` — a snapshot sweep that inferred ownership from
+        #: which rows were loaded cleared it after a collapse, and a reopened
+        #: list then CANCELLED the engage (#2481 review round 2, M1).
+        self._ask_dismiss_in_flight: set[str] = set()
         #: ``session_id -> title`` from the session catalogue, for the fleet
         #: list's row handles (round 2: U8/U6). A fleet row names the
         #: conversation it belongs to, and the catalogue's title is the name
@@ -8029,11 +8036,16 @@ class OperatorApp(App[None]):
             # (`live_projection_call_ids`) so the pending scan below keeps a
             # gate-parked call `waiting` instead of the painter showing it
             # `running`.
+            replay.view.bind_work_source(getattr(session, "session_id", None))
             replay.prepare(
                 history,
                 bound=_viewport_message_budget(self.size.height),
                 anchor_id=source.draft.scroll_anchor_id if not source.draft.following_tail else "",
                 live_call_ids=live_projection_call_ids(session),
+                display_records=self._peer_display_records_for(
+                    history, session, bound=_viewport_message_budget(self.size.height)
+                ),
+                proof_transcript=getattr(session, "_transcript", None),
                 # The width the revealed view WILL have, asked of the view it
                 # replaces: both are `1fr` children of `#session-conversation`
                 # with the same stylesheet, so the on-screen view's scrollable
@@ -10106,8 +10118,8 @@ class OperatorApp(App[None]):
             exit_on_error=False,
         )
 
-    def _liveness_row_text(self, session: Any, *, now: float | None = None) -> str:
-        """The exact string the row would paint for ``session`` right now.
+    def _liveness_row_text(self, source: SessionInteraction, *, now: float | None = None) -> str:
+        """The exact liveness term the row would paint for ``source`` right now.
 
         THE REPAINT GATE IS ON THIS STRING, NOT ON THE VERDICT ENUM, and the
         difference is the whole feature. A FAILED probe deliberately touches
@@ -10120,11 +10132,65 @@ class OperatorApp(App[None]):
         (a failed probe does not clear the stamp) while letting the failing arm
         repaint, because the *rendering* changes as the age grows: STALE at 4 m
         and STALE at 10 m are different rows even though they are one state.
+
+        AND ONE SUPPRESSION, asked of the one shared predicate
+        (:meth:`_bring_up_in_flight`) so this string, the gate that watches it
+        and the row that paints from it cannot drift: a viewer with no stamp
+        and no retained dial honestly reads NEVER, but during a bring-up a
+        runtime IS arriving — the band narrates that window with ``starting…``
+        — and painting the verdict over it is the startup flash (measured: a
+        probe tick landing in the mount engage's spawn phase, ~2 s before the
+        bind landed, painted the false row with the cue up). ONLY NEVER is
+        suppressed: STALE and COMING carry evidence of their own. The
+        suppression yields an empty string — the same string
+        ``_show_sidebar_connection`` composes the row from — so a bring-up
+        that ends without binding repaints the verdict on the next due tick,
+        which is the state the row exists for.
         """
+        session = source.session
+        if not _is_viewer(session):
+            return ""
         verdict = owner_liveness(session, now=now)
         if verdict is OwnerLiveness.LIVE:
             return ""
+        if verdict is OwnerLiveness.NEVER and self._bring_up_in_flight(source):
+            return ""
         return liveness_text(verdict, now=now, verified_at=getattr(session, "verified_at", None))
+
+    def _liveness_fill_text(
+        self, source: SessionInteraction, *, verdict: OwnerLiveness | None = None
+    ) -> str:
+        """The EXACT connection-field string the liveness fill would paint.
+
+        THE GATE REMEMBERS THIS STRING AND THE PAINT USES IT, because the
+        liveness tail is not the whole row: a pending fork keeps its own prefix
+        in front of the tail (``forking · esc``), and it keeps it while the
+        reader is SUPPRESSED — the composition the startup flash fix added. A
+        gate that watched only the tail stored ``""`` over a row that read
+        ``forking · esc``; the next due tick compared ``"" == ""``, skipped,
+        and the takeover row outlived the bind, standing on a live session (a
+        row the unchanged gate could no longer clear in either direction).
+
+        So both callers go through this one composition:
+        ``_show_sidebar_connection`` paints what it returns and
+        ``_reprobe_liveness`` remembers it. The guards are the fill's own — a
+        non-viewer and a LIVE verdict paint nothing here (the widget carries
+        the fork cell for a live session) — so the string stays empty exactly
+        when the row does. ``verdict`` is accepted so the fill, which has just
+        classified the session to decide WHETHER to fill, does not classify it
+        a second time.
+        """
+        if not _is_viewer(source.session):
+            return ""
+        if verdict is None:
+            verdict = owner_liveness(source.session)
+        if verdict is OwnerLiveness.LIVE:
+            return ""
+        text = self._liveness_row_text(source)
+        fork_probe = getattr(source.session, "has_pending_fork", None)
+        if callable(fork_probe) and fork_probe():
+            return f"{_FORK_PENDING_TEXT} · {text}" if text else _FORK_PENDING_TEXT
+        return text
 
     async def _reprobe_liveness(self, source: SessionInteraction, session: Any) -> None:
         """One bounded probe, and a repaint when the row WOULD DIFFER FROM THE SCREEN.
@@ -10147,7 +10213,7 @@ class OperatorApp(App[None]):
         await self._liveness_probe.tick(session)
         if not self._is_current(source):
             return
-        current = self._liveness_row_text(session)
+        current = self._liveness_fill_text(source)
         if current == self._liveness_painted:
             return
         self._show_sidebar_connection(source)
@@ -10258,16 +10324,20 @@ class OperatorApp(App[None]):
         # so this branch never runs for them. A pending fork states a DIFFERENT
         # fact -- what you can do -- so the two compose, and the AGE STAYS LAST so
         # the row's ellipsis still eats the age rather than a word.
-        fork_probe = getattr(source.session, "has_pending_fork", None)
-        fork_pending = bool(fork_probe()) if callable(fork_probe) else False
         if not status and _is_viewer(source.session):
             verdict = owner_liveness(source.session)
             if verdict is not OwnerLiveness.LIVE:
-                text = liveness_text(
-                    verdict,
-                    verified_at=getattr(source.session, "verified_at", None),
-                )
-                status = f"{_FORK_PENDING_TEXT} · {text}" if fork_pending else text
+                # THE ONE COMPOSITION, asked of the helper the probe's gate also
+                # compares against (`_liveness_fill_text`), so the string
+                # remembered and the string painted cannot disagree -- including
+                # that reader's in-flight suppression, which yields an empty
+                # string while a bring-up for THIS conversation is arriving (see
+                # `_bring_up_in_flight`), AND the fork prefix that a pending fork
+                # keeps visible under it: a pending fork still renders while the
+                # liveness tail is suppressed, with no tail, because it states a
+                # DIFFERENT fact (what the user can do), and the precedence above
+                # is what keeps it visible next to a verdict of the same length.
+                status = self._liveness_fill_text(source, verdict=verdict)
                 # STALE is PROVISIONAL — a long turn ends, a SIGCONT lands, a
                 # starved loop catches up — so it takes the muted register and NOT
                 # `danger`, which stays the latch's terminal verdict. The same
@@ -12544,9 +12614,52 @@ class OperatorApp(App[None]):
         ):
             self._fast_choice = False
 
+    def _peer_display_records_for(
+        self,
+        history: list[Any],
+        session: Any = None,
+        *,
+        bound: int | None = None,
+        start: int | None = None,
+    ) -> dict[str, Any] | None:
+        session = session if session is not None else self._session
+        # Derive candidates from the requested render slice, not the session's
+        # full replay. Cross-page raw dependencies use the existing file index.
+        if start is not None:
+            history = history[start:]
+        elif bound is not None and len(history) > bound:
+            history = history[_resume_tail_start(history, bound) :]
+        history = history[-4096:]
+        transcript = getattr(session, "_transcript", None)
+        if transcript is not None:
+            from local_operator.harness.peer_cycle_display import discover_records
+
+            return discover_records(transcript, history, str(getattr(session, "session_id", "")))
+        # An attached viewer reads only the owner-selected, capability-gated
+        # page metadata. A raw Message.details stamp is never authority here.
+        return getattr(
+            getattr(session, "_display_history", None), "peer_cycle_display_records", None
+        )
+
+    def _apply_peer_display_records(self, state: Any = None) -> None:
+        if state is None:
+            state = getattr(self._session, "frontend_state", None)
+        display = getattr(state, "peer_cycle_display", None)
+        if not isinstance(display, dict):
+            return
+        for record in display.get("records", ()):
+            if not isinstance(record, dict) or record.get("producer_epoch") != getattr(
+                state, "epoch", None
+            ):
+                continue  # Old persisted refs/bodies require the cold raw-source validator.
+            self._transcript_view()._quiet_groups.apply_display_record(record)
+
     def _apply_frontend_state(self, state: Any) -> None:
         if self._status is None or state is None:
             return
+        # Metadata can arrive without a new source row. The card-result hook
+        # below retries against actual settled seats if this update won first.
+        self._apply_peer_display_records(state)
         attention = getattr(state, "attention", None)
         if isinstance(attention, dict) and attention.get("completion_token"):
             # A new canonical result may paint before the one-second receipt
@@ -14834,8 +14947,27 @@ class OperatorApp(App[None]):
             self._transcript_view().set_quiet_head_cut(
                 self._quiet_head_cut_for(history, bound, start)
             )
+            local_transcript = getattr(session, "_transcript", None)
+            loaded_history = getattr(session, "display_history_window", None)
+            # Remote validation may use already-loaded page neighbors; local
+            # replay never asks for another whole history to join proof rows.
+            loaded_proof = (
+                loaded_history() if local_transcript is None and callable(loaded_history) else None
+            )
+            # A callable alone promises no sequence. Unknown facade responses
+            # cannot authorise proof; keep the existing loaded-window fallback.
+            proof_history = list(
+                loaded_proof[-4096:] if isinstance(loaded_proof, (list, tuple)) else history[-4096:]
+            )
             projected = project_settled_rows(
-                self, history, bound=bound, start=start, fold_width=fold_width
+                self,
+                history,
+                bound=bound,
+                start=start,
+                fold_width=fold_width,
+                display_records=self._peer_display_records_for(history, bound=bound, start=start),
+                proof_history=proof_history,
+                proof_transcript=local_transcript,
             )
             # The visible transcript, so the app's own registry is the right
             # owner: a row this repaints live is one `_retire_live_tool_cards`
@@ -15742,7 +15874,7 @@ class OperatorApp(App[None]):
             # (or at the view's old top) states a minimum while older pages
             # remain. `fold_quiet_group_page` only rewrites this list; the
             # insert below still owns the mount, the anchor and the lease.
-            blocks = transcript.fold_quiet_group_page(
+            blocks = transcript.prepare_owned_head_page(
                 blocks, index, head_cut=bool(self._resume_pending_head)
             )
             # Flag BEFORE the insert's settle: a click arriving while gaps
@@ -15784,6 +15916,12 @@ class OperatorApp(App[None]):
         same conversation as the tail and must be built by the same code.
         """
         collected: list[Any] = []
+        from local_operator.tui.internal_work_membership import WorkProjector
+
+        prior_work = getattr(self, "_projection_work", None)
+        # Older pages are not appends to the live tail. A fresh local context
+        # must see the page's own loaded opener, never the current tail's user.
+        self._projection_work = WorkProjector()
         self._block_sink = collected
         try:
             # The width these blocks are about to be given is NOT passed here:
@@ -15801,6 +15939,7 @@ class OperatorApp(App[None]):
             self._project_settled_rows(page)
         finally:
             self._block_sink = None
+            self._projection_work = prior_work
             # A page can end on a bang user row whose assistant lives in the
             # already-rendered tail. Leaving the flag set would open the next
             # LIVE bash card, which is not a bang receipt.
@@ -15989,6 +16128,7 @@ class OperatorApp(App[None]):
                 result_text=result_text,
                 details=details,
                 duration_s=duration_s,
+                result=result,
             )
         self._append_image_blocks(tool_result_image_blocks(getattr(result, "content", None)))
 
@@ -24265,8 +24405,48 @@ class OperatorApp(App[None]):
         self._starting_runtime = starting
         self._push_starting_band()
 
+    def _bring_up_in_flight(self, source: SessionInteraction | None) -> bool:
+        """Whether a runtime is being brought up FOR this conversation now.
+
+        THE ONE COMPOSITION OF THE BRING-UP FACTS, because two surfaces must
+        agree about this window and a second copy is how they drift: the band
+        narrates it with ``starting…`` (:meth:`_push_starting_band`), and the
+        liveness reader must not paint its NEVER verdict over a runtime that IS
+        arriving — a probe tick landing in the mount engage's spawn phase (no
+        dial retained yet, so the reader honestly reads NEVER) painted a false
+        row ~2 s before the bind landed, which is the startup flash.
+
+        The facts, and what each one is:
+
+        * the engage running (``_starting_runtime``): the mount/draft/slash
+          engage has been started and has not reached its bind or failure;
+        * THIS conversation's paint-first attach (``_attach_behind_attempts``)
+          still in its pending or narrated phase. A JUDGED or UNSENT attempt
+          (``silences_cue``) states its outcome in the conversation's own row
+          — that is an answer, not a wait — so it is NOT in flight here: the
+          cue stays down AND the reader is free to paint what the state says;
+        * a prompt this conversation sent while cold
+          (``_prompts_awaiting_bind``): its send BINDS first, and until it
+          returns nothing has reached the owner.
+
+        Keyed by ``source.token`` like the cue itself: a bring-up left in
+        flight by a swap belongs to the conversation that left, not to the one
+        on screen.
+        """
+        attempt = self._attach_behind_attempts.get(source.token) if source is not None else None
+        if attempt is not None and attempt.silences_cue:
+            # THIS conversation's attach ended in an outcome its row states; an
+            # optimistic `starting…` beside it — or a reader that stayed silent
+            # through the verdict that answers it — would contradict it.
+            return False
+        if self._starting_runtime:
+            return True
+        if source is None:
+            return False
+        return attempt is not None or source.token in self._prompts_awaiting_bind.values()
+
     def _push_starting_band(self) -> None:
-        """Show ``starting…`` while the engage runs OR a prompt waits on the bind.
+        """Show ``starting…`` while a bring-up is in flight for this conversation.
 
         Two sources, one cue (UX round 1, U4). The engage alone ended it too
         early: the moment a prompt is accepted the background engage SURRENDERS
@@ -24279,17 +24459,14 @@ class OperatorApp(App[None]):
 
         Counted per BINDING, so a prompt left in flight by a swap cannot hold
         the cue up over the conversation that replaced it.
+
+        THE FACTS COME FROM :meth:`_bring_up_in_flight`, not a copy of them
+        kept here: the liveness reader suppresses its NEVER verdict on exactly
+        the window this cue narrates (``_liveness_row_text``), and two
+        compositions of "a bring-up is in flight" is how the cue and the
+        reader would drift.
         """
-        source = self._interaction
-        attempt = self._attach_behind_attempts.get(source.token) if source else None
-        if attempt is not None and attempt.silences_cue:
-            # THIS conversation's attach ended in an outcome its row states; an
-            # optimistic `starting…` beside it would contradict it.
-            shown = False
-        else:
-            shown = self._starting_runtime or (
-                source is not None and source.token in self._prompts_awaiting_bind.values()
-            )
+        shown = self._bring_up_in_flight(self._interaction)
         if shown == self._starting_shown:
             return
         self._starting_shown = shown
@@ -26646,7 +26823,7 @@ class OperatorApp(App[None]):
 
         ``open_count``/``truncated`` are the WIRE's own tally and its marker
         (``asks_open``/``asks_truncated``, design §4): the list header states the
-        backend's number and withholds the waiting/moved-on split when the frame
+        backend's number and withholds the pending/settled split when the frame
         is a prefix of the queue (amendment A6), so the fold's two extra facts
         have to reach the surface that prints them.
 
@@ -26693,6 +26870,11 @@ class OperatorApp(App[None]):
             # cleared HERE rather than left to go stale on a switch flipped
             # mid-session.
             self._ask_rows = []
+            # A session `x` mark rides only on `_ask_rows`; with the rows gone no
+            # snapshot would ever sweep it (#2481 review round 3, m2).
+            for ask_id in list(self._ask_dismiss_in_flight):
+                self._mark_ask_in_flight(ask_id, False)
+            self._ask_dismiss_in_flight.clear()
             self._retire_ask_secret_refusal()
             self._ask_fleet_rows = []
             self._ask_marks = {}
@@ -26704,6 +26886,13 @@ class OperatorApp(App[None]):
             self._paint_sidebar_asks()
             return
         self._ask_rows = list(rows)
+        # A session-scope `x` holds its row in flight until the frame drops it
+        # (`_dismiss_ask`); THIS is that frame. Only those marks are swept here —
+        # never a fleet op's, which `_fleet_ask_worker` ends itself (M1).
+        present_ids = {row.ask_id for row in self._ask_rows}
+        for ask_id in [i for i in self._ask_dismiss_in_flight if i not in present_ids]:
+            self._ask_dismiss_in_flight.discard(ask_id)
+            self._mark_ask_in_flight(ask_id, False)
         self._refresh_ask_secret_notice()
         #: The wire's OWN tally and its truncation marker, kept beside the rows so
         #: the list can be MOUNTED with them: a list built from the current
@@ -26770,6 +26959,12 @@ class OperatorApp(App[None]):
             row = next((item for item in active_rows if item.ask_id == self._ask_mounted_id), None)
             if row is not None:
                 self._ask_card.set_title(self._ask_card_title(row))
+                if row.lapsed:
+                    # D10: the ask lapsed UNDER the open card. It stays on screen
+                    # (yanking it would take the surface from under someone
+                    # typing) but stops taking answers; Esc returns to the list,
+                    # where the row now reads `timed out`.
+                    self._ask_card.set_read_only()
         if self._ask_mounted_id is not None and not any(
             row.ask_id == self._ask_mounted_id for row in active_rows
         ):
@@ -26821,11 +27016,17 @@ class OperatorApp(App[None]):
         if not decider.awaiting(conversation):
             return
         answerable = self._open_ask_rows()
+        # LAPSED rows are named to the reading but never counted as pending (D12):
+        # a runtime from before #2388 still counts them in the wire's tally (a
+        # current one does not), so leaving them out would read a lapsed-only
+        # queue from such a runtime as a dropped row and wait instead of settling.
+        lapsed = sum(1 for row in self._ask_rows if row.lapsed)
         reading = read_queue(
             published=len(self._ask_rows),
             outstanding_created_ms=[row.created_at for row in answerable],
             tally=self._ask_open_count,
             opened_at_ms=decider.opened_at_ms,
+            lapsed=lapsed,
         )
         settling = (
             self._swapping_session
@@ -26842,7 +27043,7 @@ class OperatorApp(App[None]):
             outstanding_ids=(
                 [row.ask_id for row in answerable]
                 if names_every_outstanding(
-                    tally=self._ask_open_count, named_outstanding=len(answerable)
+                    tally=self._ask_open_count, named_outstanding=len(answerable) + lapsed
                 )
                 else None
             ),
@@ -26909,7 +27110,7 @@ class OperatorApp(App[None]):
         return int(time.time() * 1000)
 
     def _open_ask_rows(self) -> list[AskRow]:
-        """The rows still waiting on the user: open, or timed out and answerable.
+        """The rows still waiting on the user: open, and not lapsed (D10).
 
         NOT ``late``, and that is round 1's D6/U3 fix in the second place it
         had to be made: a late answer is an ANSWER (the agent was told, one
@@ -26919,8 +27120,9 @@ class OperatorApp(App[None]):
 
         The rule is ``AskRow.answerable``, which reads the fold's own
         ``OUTSTANDING_STATUSES`` — the same set the wire's tally and the index
-        use, so a timed-out-but-answerable ask can never be counted by one
-        surface and dropped by another.
+        use, so an ask can never be counted by one surface and dropped by
+        another. Since #2388 that set is ``open`` alone: a timed-out ask is
+        settled, shown but neither offered nor counted.
         """
         return [row for row in self._ask_rows if row.answerable]
 
@@ -26956,9 +27158,9 @@ class OperatorApp(App[None]):
     def _paint_sidebar_asks(self) -> None:
         """Paint the outstanding-asks marks, unioned across the fleet and the wire.
 
-        THE MARK PREDICATE (amendment A3) is the OUTSTANDING set — ``open`` and
-        ``timed_out``, exactly what ``session_sidebar.set_asking``'s docstring
-        argues — over EVERY session, not only the current one. The source is the
+        THE MARK PREDICATE (amendment A3) is the OUTSTANDING set — ``open`` only
+        since #2388, a timed-out ask being settled; ``session_sidebar.set_asking``'s
+        docstring argues it — over EVERY session, not only the current one. The source is the
         index tally (``asks.store.read_index``), refreshed by the sidebar's own
         poll; the CURRENT session's live wire count is unioned in so an ask
         queued a moment ago marks immediately, before any index write.
@@ -27010,7 +27212,11 @@ class OperatorApp(App[None]):
         """
         marks = dict(self._ask_marks if index is None else index)
         session_id = str(getattr(getattr(self, "_session", None), "session_id", "") or "")
-        live = len(self._open_ask_rows())
+        # ANSWERABLE rows only (#2481 design D3 / UX U2), the same predicate
+        # `_read_fleet_asks` applies to the index and the desktop's marks apply
+        # (local-operator-ui #1116): the `?` mark says "you owe an answer here",
+        # and a timed-out ask owes nothing. The session's own bar still opens it.
+        live = sum(1 for row in self._ask_rows if row.answerable)
         if session_id and live:
             marks[session_id] = max(live, int(marks.get(session_id, 0)))
         return marks
@@ -27066,16 +27272,27 @@ class OperatorApp(App[None]):
         should look like.
         """
         from local_operator.asks import store
+        from local_operator.asks.visibility import lapsed_visible_ms
         from local_operator.paths import config_dir
 
         counts: dict[str, int] = {}
         total = 0
-        for session_id, entry in store.read_index(config_dir()).items():
-            asks = entry.get("asks")
-            outstanding = len(store.outstanding_asks(asks if isinstance(asks, list) else []))
-            if outstanding:
-                counts[session_id] = outstanding
-                total += outstanding
+        # Through ``index_asks`` — the SAME reader, window and re-derivation the
+        # fleet list uses (``_load_fleet_asks``) — so a mark or ``asks: N`` never
+        # counts a row the list it opens will not show (``asks.lapsed_visible_for``,
+        # decision D8; review round 1, R1-1).
+        #
+        # ANSWERABLE rows only (#2481 design D3): a lapsed ask owes no answer, so
+        # it puts no `?` in the sidebar. ``index_asks`` has already re-derived a
+        # stopped runtime's ``open`` past its deadline to ``timed_out`` against ONE
+        # stamp for the whole read, so ``is_lapsed`` on its rows is the whole rule.
+        root = config_dir()
+        for row in store.index_asks(root, lapsed_visible_ms=lapsed_visible_ms(root)):
+            status = row.get("status")
+            if store.is_outstanding(status) and not store.is_lapsed(status):
+                session_id = str(row.get("session_id") or "")
+                counts[session_id] = counts.get(session_id, 0) + 1
+                total += 1
         return counts, total
 
     def _expand_asks(self, ask_id: str | None = None, *, by_policy: bool = False) -> None:
@@ -27226,13 +27443,17 @@ class OperatorApp(App[None]):
         Two counts, deliberately: ``count`` is what the user still OWES (the OPEN
         asks — "3 questions waiting" must not include one the agent already
         gave up on), while ``present`` is whether there is anything to open at
-        all. A queue of nothing but timed-out asks is still ANSWERABLE (§5's
-        copy says so on every surface), so hiding the bar on ``count == 0``
-        would make those asks unreachable from the terminal; the bar stays and
-        its copy changes instead.
+        all. A queue of nothing but timed-out asks owes nothing (they are
+        read-only since D10), but their ``x`` dismiss lives behind the bar, so
+        hiding it on ``count == 0`` would make them unreachable from the
+        terminal; the bar stays and its copy changes instead.
         """
         answerable = self._open_ask_rows()
         waiting = [row for row in answerable if row.status == STATUS_OPEN]
+        # LAPSED asks keep the bar up (Dismiss lives behind it, D10) and are named
+        # by the chip's "N asks timed out" clause; they owe nothing, so they are
+        # neither the head question nor counted as waiting.
+        lapsed = [row for row in self._ask_rows if row.lapsed]
         self._ask_bar.set_state(
             count=len(waiting),
             head=self._ask_head_text(answerable),
@@ -27244,8 +27465,8 @@ class OperatorApp(App[None]):
             # describe). Counted over what the user still OWES, the same set
             # `count` is taken from.
             urgent_count=len([row for row in waiting if row.urgent]),
-            present=bool(answerable),
-            timed_out=len(answerable) - len(waiting),
+            present=bool(answerable) or bool(lapsed),
+            timed_out=len(lapsed),
         )
 
     def _sync_ask_tick(self) -> None:
@@ -27288,6 +27509,52 @@ class OperatorApp(App[None]):
             self._ask_tick = None
 
     def _on_ask_tick(self) -> None:
+        self._lapse_fleet_rows()
+        self._repaint_ask_countdown()
+
+    def _lapse_fleet_rows(self) -> None:
+        """Turn FLEET rows whose deadline passed on screen into lapsed rows (review m3).
+
+        The session scope re-derives on every frontend snapshot; the fleet's rows
+        are an index read taken when the door opened, and the index only says
+        ``timed_out`` when it is READ (``asks.store._shown_rows``). So a fleet
+        row left on screen past its deadline kept offering an answer — against
+        D10's "read-only on every surface". The tick applies the same re-derive
+        the store does, on a copy, and a mounted card follows it.
+        """
+        from dataclasses import replace
+
+        if not self._ask_fleet_rows:
+            return
+        now = self._ask_now_ms()
+        changed = False
+        rows: list[AskRow] = []
+        for row in self._ask_fleet_rows:
+            if row.status == "open" and row.expires_at and row.expires_at <= now:
+                row = replace(row, status="timed_out")
+                changed = True
+            rows.append(row)
+        if not changed:
+            return
+        self._ask_fleet_rows = rows
+        if self._ask_list is not None and self._ask_scope == SCOPE_FLEET:
+            self._ask_list.set_rows(
+                rows,
+                now_ms=now,
+                open_count=self._ask_fleet_open_count,
+                truncated=self._ask_fleet_truncated,
+            )
+        if (
+            self._ask_scope == SCOPE_FLEET
+            and self._ask_card is not None
+            and self._ask_mounted_id is not None
+        ):
+            mounted = next((r for r in rows if r.ask_id == self._ask_mounted_id), None)
+            if mounted is not None and mounted.lapsed:
+                self._ask_card.set_title(self._ask_card_title(mounted))
+                self._ask_card.set_read_only()
+
+    def _repaint_ask_countdown(self) -> None:
         """Repaint the countdown-bearing surface from the current clock.
 
         Only the LIST paints a deadline (``expiry_text``), so only the list is
@@ -27545,10 +27812,16 @@ class OperatorApp(App[None]):
     async def _load_fleet_asks(self) -> None:
         """Read the index off-thread, then mount the ONE list on it."""
         from local_operator.asks import store
+        from local_operator.asks.visibility import lapsed_visible_ms
         from local_operator.paths import config_dir
 
         try:
-            raw = await asyncio.to_thread(store.index_asks, config_dir())
+            # ``asks.lapsed_visible_for`` (decision D8) from the app's started
+            # watcher's snapshot (``_watch_config``), so another
+            # process's edit is already in it; only the int crosses the thread.
+            raw = await asyncio.to_thread(
+                store.index_asks, config_dir(), lapsed_visible_ms=lapsed_visible_ms(config_dir())
+            )
         except Exception:  # noqa: BLE001 — a broken index is not a crash
             logger.warning("could not read the fleet ask index", exc_info=True)
             raw = []
@@ -27568,10 +27841,13 @@ class OperatorApp(App[None]):
     async def _reload_fleet_rows(self) -> None:
         """Re-read the fleet rows after an answer, keeping the list on them."""
         from local_operator.asks import store
+        from local_operator.asks.visibility import lapsed_visible_ms
         from local_operator.paths import config_dir
 
         try:
-            raw = await asyncio.to_thread(store.index_asks, config_dir())
+            raw = await asyncio.to_thread(
+                store.index_asks, config_dir(), lapsed_visible_ms=lapsed_visible_ms(config_dir())
+            )
         except Exception:  # noqa: BLE001 — a broken index is not a crash
             logger.warning("could not read the fleet ask index", exc_info=True)
             return
@@ -27704,13 +27980,16 @@ class OperatorApp(App[None]):
     def _run_fleet_ask_op(
         self, row: AskRow, op: str, *, answers: dict[str, list[str]] | None = None
     ) -> None:
-        """Send ``op`` for ``row`` through the engage seam, in a worker (A7).
+        """Send ``op`` for ``row``, in a worker (A7).
 
         The chain is the phone daemon's cold arm exactly — engage with an
-        ``AskErrand``, send the op, close in a ``finally`` — and it runs in a
-        Textual worker because the window it must live with is the phone's own
-        (engage 30 s + ack 15 s). The row is marked IN FLIGHT for that window so
-        a second gesture cannot send the same answer twice.
+        ``AskErrand``, send the op, close in a ``finally`` — for the three ops that
+        must REACH a runtime, and for a DISMISSAL it is that same arm's no-boot door
+        (``dismiss_cold``, fork A §14): the row is settled against the log with
+        nothing dialled, so the worker returns in the time one append takes. It runs
+        in a Textual worker because the dial's window is the phone's own (engage 30 s
+        + ack 15 s); the IN FLIGHT mark covers whatever this op takes, so a second
+        gesture cannot send the same thing twice.
 
         A SECOND GESTURE IS DROPPED, NEVER RE-RUN (round 2: F2). The worker's
         group is ``exclusive=True``, so starting it again would CANCEL the
@@ -27750,42 +28029,73 @@ class OperatorApp(App[None]):
     async def _fleet_ask_worker(
         self, row: AskRow, op: str, answers: dict[str, list[str]] | None
     ) -> None:
-        """The engage-and-dial, off the UI thread's critical path (A7)."""
+        """The engage-and-dial, off the UI thread's critical path (A7).
+
+        A DISMISSAL DOES NOT ENGAGE (fork A, §14). This list's rows belong to
+        conversations that are not running — that is why they are in the FLEET — so
+        the chain below would BOOT one of them to record a view action the user made
+        on a row whose own button says "send no reply". ``dismiss_cold`` settles it
+        against the log instead, and only a live owner (one the engage seam can see
+        but this list's snapshot could not) falls back to the dial, because that
+        owner is the thing that settles the ask.
+        """
+        from local_operator.asks.dismiss import dismiss_cold
         from local_operator.mobile.attach_client import engage_session_client
         from local_operator.paths import config_dir
         from local_operator.session.runtime.launch import AskErrand
 
         failed = ""
+        settled_cold = False
         try:
-            client, _detail = await engage_session_client(
-                config_dir(), row.session_id, AskErrand(ask_id=row.ask_id)
-            )
-            try:
-                if op == "respond":
-                    target = bridge_decision_target(row, answers or {})
-                    if target is not None:
-                        # An agent-messages request: the card's answer IS a
-                        # decision and rides the verified door (`bridge_decide`
-                        # — authority-admitted, grant-bearing). The plain ask
-                        # door refuses these asks by construction, so sending it
-                        # here would leave the human with a card that cannot
-                        # answer (TB-02 wiring, PR #2378).
-                        await client.bridge_decide(*target)
+            if op == "dismiss":
+                outcome = await dismiss_cold(
+                    config_dir(), row.session_id, row.ask_id, by="terminal"
+                )
+                if outcome.get("ok"):
+                    settled_cold = True
+                elif outcome.get("code") != "ask_owner_present":
+                    # A refusal IS the message — in the queue's own words, the same
+                    # sentence the live op raises — and it must not turn into a boot
+                    # (``_ask_gesture_refusal`` renders it below, like any refusal).
+                    raise ValueError(str(outcome.get("error") or "the dismissal was refused"))
+            if not settled_cold:
+                client, _detail = await engage_session_client(
+                    config_dir(), row.session_id, AskErrand(ask_id=row.ask_id)
+                )
+                try:
+                    if op == "respond":
+                        target = bridge_decision_target(row, answers or {})
+                        if target is not None:
+                            # An agent-messages request: the card's answer IS a
+                            # decision and rides the verified door (`bridge_decide`
+                            # — authority-admitted, grant-bearing). The plain ask
+                            # door refuses these asks by construction, so sending it
+                            # here would leave the human with a card that cannot
+                            # answer (TB-02 wiring, PR #2378).
+                            await client.bridge_decide(*target)
+                        else:
+                            await client.ask_respond(row.ask_id, answers or {}, by="terminal")
+                    elif op == "decline":
+                        await client.ask_decline(row.ask_id, by="terminal")
                     else:
-                        await client.ask_respond(row.ask_id, answers or {}, by="terminal")
-                elif op == "decline":
-                    await client.ask_decline(row.ask_id, by="terminal")
-                else:
-                    await client.ask_dismiss(row.ask_id, by="terminal")
-            finally:
-                client.close()
+                        await client.ask_dismiss(row.ask_id, by="terminal")
+                finally:
+                    client.close()
         except Exception as exc:  # noqa: BLE001 — the refusal is the message
             # `AttachClient` raises with `asks/render.refusal_copy`'s own
             # sentence, so the ask says why in its own words rather than in a
             # generic notice; anything else (a dial that timed out) is passed
-            # through as it came.
-            failed = str(exc) or "the answer could not be delivered"
-            logger.warning("could not deliver a fleet answer", exc_info=True)
+            # through as it came. THE FALLBACK IS THE OP'S OWN (design round 1,
+            # D2): every refusal carries a sentence, so this only fires on a
+            # failure that said nothing — and "the answer could not be delivered"
+            # names an answer nobody was ever asked for on a dismissal, whose
+            # whole promise is that nothing is sent.
+            if op == "dismiss":
+                failed = str(exc) or "the dismissal could not be recorded."
+                logger.warning("could not record a fleet dismissal", exc_info=True)
+            else:
+                failed = str(exc) or "the answer could not be delivered."
+                logger.warning("could not deliver a fleet answer", exc_info=True)
         finally:
             self._mark_ask_in_flight(row.ask_id, False)
             await self._reload_fleet_rows()
@@ -27928,7 +28238,16 @@ class OperatorApp(App[None]):
             exit_hint=("esc", "collapse"),
             caret=caret,
         )
+        if row.lapsed:
+            # Enter or a click on a lapsed list row opens it READ-ONLY (#2481 UX
+            # U1): the explicit look at the whole question and its options, with
+            # nothing to send (D10).
+            card.set_read_only()
         draft = self._ask_drafts.pop(row.ask_id, None)
+        if row.lapsed:
+            # A draft is half an answer; restoring it would paint text into a card
+            # that will never send it (UX U6).
+            draft = None
         self._ask_card = card
         self._ask_mounted_id = row.ask_id
         self._ask_from_list = from_list
@@ -27976,20 +28295,21 @@ class OperatorApp(App[None]):
         from local_operator.tui.widgets.ask_queue import ASK_MARKER
 
         bridge = _is_bridge_ask_row(row)
-        if row.status == STATUS_TIMED_OUT:
+        if row.lapsed:
+            # D10: a lapsed card is READ-ONLY, so the title stops promising that an
+            # answer still lands. The words are the shared lapsed line (the
+            # transcript receipt in ``harness/rows.ask_timeout_notice`` and the
+            # phone's card say the same thing).
             if bridge:
                 # D2: a carriage's ask is not this user's own agent. The
                 # timeout line says the same true thing; only the SUBJECT
                 # changes, so a reader is not told their own agent asked when
                 # the request came from another member's.
                 return (
-                    f"{ASK_MARKER} this request timed out — the sender moved on; "
-                    "your answer still reaches them"
+                    f"{ASK_MARKER} this request timed out — the sender goes ahead "
+                    "without your answer"
                 )
-            return (
-                f"{ASK_MARKER} this ask timed out — the agent moved on; "
-                "your answer still reaches it"
-            )
+            return f"{ASK_MARKER} this ask timed out — the agent goes ahead without your answer"
         if bridge:
             # A cross-member request: the answer travels back to the requester,
             # so "the agent asked" (this user's own) is the wrong subject.
@@ -28156,7 +28476,9 @@ class OperatorApp(App[None]):
         outcome: Any = reader(ask_id, by="terminal")
         self._handle_ask_outcome(outcome, toast=True)
 
-    def _handle_ask_outcome(self, outcome: Any, *, toast: bool) -> None:
+    def _handle_ask_outcome(
+        self, outcome: Any, *, toast: bool, clear_in_flight: str | None = None
+    ) -> None:
         """Report a queued-ask op's verdict, whether it arrived sync or on the wire.
 
         The three ops the surfaces drive are read off whichever session holds
@@ -28174,26 +28496,38 @@ class OperatorApp(App[None]):
         """
         if inspect.isawaitable(outcome):
             self.run_worker(
-                self._await_ask_outcome(outcome, toast=toast),
+                self._await_ask_outcome(outcome, toast=toast, clear_in_flight=clear_in_flight),
                 exclusive=False,
                 exit_on_error=False,
             )
             return
-        self._ask_refusal(outcome, toast=toast)
+        self._ask_refusal(outcome, toast=toast, clear_in_flight=clear_in_flight)
 
-    async def _await_ask_outcome(self, pending: Any, *, toast: bool) -> None:
+    async def _await_ask_outcome(
+        self, pending: Any, *, toast: bool, clear_in_flight: str | None = None
+    ) -> None:
         """Await a viewer's ask op and report it in the owner's words."""
         try:
             outcome = await pending
         except Exception as exc:  # noqa: BLE001 — a dead transport is not a lost answer
             logger.warning("a queued-ask op failed on the wire", exc_info=True)
             outcome = {"ok": False, "error": str(exc) or "the ask was refused"}
-        self._ask_refusal(outcome, toast=toast)
+        self._ask_refusal(outcome, toast=toast, clear_in_flight=clear_in_flight)
 
-    def _ask_refusal(self, outcome: Any, *, toast: bool) -> None:
-        """The one place a refused ask op becomes words on screen."""
+    def _ask_refusal(
+        self, outcome: Any, *, toast: bool, clear_in_flight: str | None = None
+    ) -> None:
+        """The one place a refused ask op becomes words on screen.
+
+        ``clear_in_flight`` ends a gesture's in-flight mark on a REFUSAL only: an
+        accepted op keeps it until the snapshot that drops the row, so the row
+        never flickers back to live between the reply and the frame.
+        """
         if outcome.get("ok"):
             return
+        if clear_in_flight:
+            self._ask_dismiss_in_flight.discard(clear_in_flight)
+            self._mark_ask_in_flight(clear_in_flight, False)
         text = str(outcome.get("error") or "the ask was refused")
         if toast:
             self._ask_gesture_refusal(text)
@@ -28215,7 +28549,13 @@ class OperatorApp(App[None]):
             self._system_notice(text, "warning")
 
     def _dismiss_ask(self, ask_id: str) -> None:
-        """Take a TIMED-OUT ask out of the view. Injects nothing, ever."""
+        """Take a TIMED-OUT ask out of the view.
+
+        The dismissal's own act asks the model nothing and buys no turn; what it can
+        still OWE is the deadline notice the ask never got (fork A, §14), which the
+        next run's reconcile delivers in its dismissed wording. Its twin in
+        ``asks/queue.py`` and ``serving.py`` says the same thing for the same reason.
+        """
         fleet_row = self._fleet_row_for(ask_id)
         if fleet_row is not None and self._fleet_answer_starts_here(fleet_row):
             self._run_fleet_ask_op(fleet_row, "dismiss")
@@ -28224,8 +28564,17 @@ class OperatorApp(App[None]):
         reader: Any = getattr(session, "dismiss_ask", None)
         if not callable(reader):
             return
+        if ask_id in self._ask_in_flight:
+            return
+        # Acknowledge `x` AT ONCE (#2481 round 1): the row is marked in flight —
+        # the same `…` mark and second-press guard a fleet answer uses — until the
+        # frame that drops it lands, or a refusal clears it. Before this, a
+        # viewer's dismiss crossed the wire with nothing on screen saying the key
+        # had landed. Snapshots clear it when the row leaves (`_sync_ask_surface`).
+        self._ask_dismiss_in_flight.add(ask_id)
+        self._mark_ask_in_flight(ask_id, True)
         outcome: Any = reader(ask_id, by="terminal")
-        self._handle_ask_outcome(outcome, toast=True)
+        self._handle_ask_outcome(outcome, toast=True, clear_in_flight=ask_id)
 
     def on_ask_bar_toggled(self, message: AskBar.Toggled) -> None:
         """A click or Enter on the minimized bar: expand, or collapse if already up."""
@@ -31956,7 +32305,15 @@ class OperatorApp(App[None]):
             busy=self._terminal_loss_busy(gate_pending=gate_pending),
             gate_pending=gate_pending,
             remote_holders=False,
-            now=time.monotonic(),
+            # THE APP'S OWN CLOCK SEAM, never a bare ``time.monotonic()``. A test
+            # that crosses one of these grace windows has to control the reading,
+            # and patching the shared ``time`` module to do it rewrites the clock
+            # for EVERY consumer in the process — including a finite
+            # ``side_effect`` iterator, which an unrelated caller then drains into
+            # ``RuntimeError: coroutine raised StopIteration``. ``_clock`` is the
+            # overridable seam this app already carries for exactly this
+            # (see its docstring), so the patch stays inside one app instance.
+            now=self._clock(),
         )
         if action == "settle":
             # Only grace expiry makes an unreachable front-end gate disposable.
@@ -32270,7 +32627,7 @@ class OperatorApp(App[None]):
                 if result.is_error:
                     current_card.mark_failed(_first_line(result.text), result.text, result.details)
                 else:
-                    current_card.mark_done(result.text, result.details)
+                    current_card.mark_done(result.text, result.details, result=result)
             await persist(result)
 
         def _clear_shell_state() -> None:
@@ -33323,10 +33680,14 @@ class OperatorApp(App[None]):
     def _clock(self) -> float:
         """Monotonic seconds, as one overridable seam.
 
-        Monotonic and not ``time.time``: the only reader is the re-title
-        throttle, and a wall clock stepped backwards by NTP would silently
-        widen its window. A method rather than a direct call so a test can
-        cross a two-minute gap without sleeping through it.
+        Monotonic and not ``time.time``: the re-title throttle is its longest
+        standing reader and a wall clock stepped backwards by NTP would silently
+        widen its window. It is NOT single-reader — ``_check_terminal_frontend``
+        reads it too, for the reaper's gate/clean-exit grace windows — so a test
+        that must cross either window patches this seam rather than the shared
+        ``time`` module (which would rewrite every consumer in the process). A
+        method rather than a direct call so such a test can cross a multi-second
+        gap without sleeping through it.
         """
         return time.monotonic()
 
@@ -37782,11 +38143,24 @@ class OperatorApp(App[None]):
         # `transcript.conversation_started`.
         block.ends_empty_state = ends_empty_state
         if self._block_sink is not None:
+            from local_operator.tui.widgets.transcript import (
+                sync_work_dormancy,
+                work_record_of_block,
+            )
+
+            block.work_view_identity = self._transcript_view().work_identity
+            projector = getattr(self, "_projection_work", None)
+            if projector is not None:
+                if self._block_sink:
+                    projector.step(work_record_of_block(self._block_sink[-1]))
+                block.internal_work_membership = projector.step(work_record_of_block(block))
+                sync_work_dormancy(block, block.internal_work_membership)
             self._block_sink.append(block)
             return
         if ends_empty_state:
             self._set_welcome_visible(False)
         transcript = self._transcript_view()
+        transcript.bind_work_source(getattr(self._session, "session_id", None))
         if pin_tail:
             transcript.pin_tail(block)
         else:
@@ -37807,6 +38181,12 @@ class OperatorApp(App[None]):
         if old.navigation_anchor_id and not block.navigation_anchor_id:
             block.navigation_anchor_id = old.navigation_anchor_id
             block.navigation_anchor_part = old.navigation_anchor_part
+        # A richer same-source projection inherits its actual seat's view, just
+        # as append stamps its destination. Unmarked replacements otherwise look
+        # foreign during ordered reconciliation and split a formerly valid run.
+        # Never overwrite explicit provenance supplied by a different source.
+        if block.work_view_identity is None:
+            block.work_view_identity = old.work_view_identity
         if self._block_sink is not None:
             try:
                 index = self._block_sink.index(old)
@@ -37863,6 +38243,11 @@ class OperatorApp(App[None]):
                 block.navigation_anchor_part = self._projection_part
             self._projection_part += 1
         block.ends_empty_state = True
+        # This is a newly projected PART of the same source seat, not a foreign
+        # page. Carry its anchor's known view before insertion re-plans the run;
+        # unlike append, the ordered insertion does not pass note_append's stamp.
+        if block.work_view_identity is None:
+            block.work_view_identity = anchor.work_view_identity
         if self._block_sink is not None:
             self._block_sink.append(block)
             return
@@ -47153,17 +47538,15 @@ class OperatorApp(App[None]):
     def _aside_can_fork(self) -> bool:
         """Whether ``^f`` would work right now — the card cannot know alone.
 
-        Two inputs, one on each side: the card must hold a settled exchange,
-        and the session must not be mid-turn. The second is not caution — the
-        loop owns the message list while it runs and pairs each tool call with
-        its result, so splicing a user message into a live batch produces a
-        request no provider will accept (``Session.adopt_aside`` refuses it).
+        The card must hold a settled exchange and a session must exist. A
+        running turn no longer disables it (decision D5): ``Session.adopt_aside``
+        QUEUES a mid-turn adopt and lands it at the turn's safe boundary, so the
+        key works whenever there is something to keep.
         """
         panel = self._aside_panel()
         if panel is None or not panel.is_open or not panel.fork_messages():
             return False
-        session = self._session
-        return session is not None and not session.is_streaming
+        return self._session is not None
 
     def _sync_aside_fork_hint(self) -> None:
         """Keep the card's footer honest about whether ``^f`` is live."""
@@ -47209,9 +47592,6 @@ class OperatorApp(App[None]):
         if session is None or not hasattr(session, "adopt_aside"):
             panel.set_notice("the session is still starting…")
             return
-        if session.is_streaming:
-            panel.set_notice("the agent is mid-turn — stop it first, then ^f")
-            return
         panel.set_notice("")
         self.run_worker(self._fork_aside_worker(session, pairs), thread=False, group="aside-fork")
 
@@ -47228,6 +47608,12 @@ class OperatorApp(App[None]):
         The card is closed BEFORE the rows are mounted so the conversation the
         user asked to keep is what they are left looking at, rather than a
         popup over it.
+
+        A QUEUED adopt (the session was mid-turn) mounts nothing here: the pair
+        lands at the turn's safe boundary and the session's ``history_delta``
+        paints it then, in its real place after the turn. Mounting it now would
+        draw the exchange above the turn's still-arriving output and then a
+        second time when the delta lands.
         """
         if session is not self._session or not self._source_commands_ready():
             return
@@ -47236,7 +47622,7 @@ class OperatorApp(App[None]):
             messages.append(Message.user(question))
             messages.append(Message.assistant(answer))
         try:
-            await session.adopt_aside(messages)
+            state = await session.adopt_aside(messages)
         except Exception as error:  # noqa: BLE001 — surfaced, never swallowed
             if session is self._session:
                 self._system_notice(f"could not fork the aside: {error}", "warning")
@@ -47244,6 +47630,9 @@ class OperatorApp(App[None]):
         if session is not self._session:
             return
         self._close_aside()
+        if state == "queued":
+            self._notice("aside queued — joins the chat when this turn ends")
+            return
         for question, answer in pairs:
             self._append_block(UserBlock(question))
             block = AssistantBlock()
@@ -56117,9 +56506,14 @@ class OperatorApp(App[None]):
             is_settle_only_ask,
         )
 
-        if is_hidden_tool_name(getattr(event, "tool_name", None)) or is_quiet_turn_name(
-            getattr(event, "tool_name", None)
-        ):
+        if is_quiet_turn_name(getattr(event, "tool_name", None)):
+            # Capture BEFORE the invisible result: a later callback may close
+            # only this call's finite source interval and original view owner.
+            transcript = self._transcript_view()
+            transcript.bind_work_source(getattr(self._session, "session_id", None))
+            transcript._quiet_groups.start_peer_cycle(event.tool_call_id, message.origin)
+            return
+        if is_hidden_tool_name(getattr(event, "tool_name", None)):
             return
         # THE ASK GATE's belt (design docs/design/ask-gate.md §3): the same
         # settle-only suppression the composing gate applies, because the two
@@ -56292,6 +56686,15 @@ class OperatorApp(App[None]):
         if is_quiet_turn_result(getattr(event, "result", None)):
             if card is not None:
                 self._drop_tool_card(card)
+            # S1 still paints no sentinel. The separate display-only cycle
+            # proof requires actual no_reply name/call/start and finite owner.
+            self._transcript_view()._quiet_groups.finish_peer_cycle(
+                event.tool_call_id,
+                event.tool_name,
+                event.result,
+                message.origin,
+                event_failed=event.is_error,
+            )
             self._refresh_working_activity()
             return
         # Before the early return below: a batch that just lost one of three
@@ -56359,7 +56762,13 @@ class OperatorApp(App[None]):
         elif event.is_error:
             card.mark_failed(_first_line(result_text), result_text, details, measured_s=measured_s)
         else:
-            card.mark_done(result_text, details, measured_s=measured_s)
+            card.mark_done(result_text, details, measured_s=measured_s, result=event.result)
+        if event.tool_name in {"eval", "send"}:
+            self._apply_peer_display_records()
+        if getattr(card, "internal_work_membership", None) is not None:
+            # Outcomes can turn a member into attention. Reconcile the existing
+            # source position; never feed a completed card as a second append.
+            self._transcript_view().note_quiet_source_part(card)
         # A result that carries image blocks (a `read` of a PNG, a browser
         # screenshot) shows them under the card, so the user watches the same
         # pixels the model is about to reason over. After the card settles, so
@@ -56448,7 +56857,13 @@ class OperatorApp(App[None]):
                 )
             )
         else:
-            self._append_block(PeerMessageBlock(message.body, message.sender))
+            block = PeerMessageBlock(message.body, message.sender)
+            if message.message_id:
+                # Session._emit_peer_receipt uses the persisted CustomMessage.id,
+                # not the sender or an external alias; match replay's part-zero seat.
+                block.navigation_anchor_id = message.message_id
+                block.navigation_anchor_part = 0
+            self._append_block(block)
 
     def _announce_on_splash(
         self, text: str, kind: NoticeKind, *, headline: str | None = None
@@ -58055,7 +58470,7 @@ def _is_viewer(session: Any) -> TypeGuard[ViewerSessionProtocol]:
 
     **Why a predicate and not ``isinstance(session, ViewerSessionProtocol)``.**
     The obvious conversion is the honest-looking one and it costs three orders
-    of magnitude (~10^3x): that protocol is ``runtime_checkable`` with 147
+    of magnitude (~10^3x): that protocol is ``runtime_checkable`` with 148
     public members, and a positive ``isinstance`` walks every one of them.
     (The figure is RECOMPUTED with ``len(typing._get_protocol_attrs(...))`` at
     the time of measurement rather than adjusted by the size of one's own

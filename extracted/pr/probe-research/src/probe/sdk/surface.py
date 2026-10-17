@@ -27,6 +27,11 @@ SURFACE_HEADER = "X-Probe-Surface"
 #: Request header naming the MCP tool being served (MCP surface only).
 TOOL_HEADER = "X-Probe-Tool"
 
+#: Request header naming who drove a request when it was not the person's live
+#: session -- only ever ``backfill`` (the wizard's importer). The server stamps it
+#: as ``driven_by`` so #probe-usage reads an import as one, not as SDK use.
+ATTRIBUTION_HEADER = "X-Probe-Attribution"
+
 
 class Surface(str, Enum):
     """Which product surface a backend request originated from."""

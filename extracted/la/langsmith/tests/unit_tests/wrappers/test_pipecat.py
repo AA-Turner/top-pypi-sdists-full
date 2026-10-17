@@ -122,10 +122,7 @@ class TestPipecatDispatch:
         assert attrs["langsmith.span.kind"] == "llm"
         assert attrs["langsmith.metadata.voice_id"] == "voice-1"
         assert json.loads(attrs["gen_ai.prompt"])["messages"][0]["content"] == "hi"
-        assert (
-            json.loads(attrs["gen_ai.completion"])["messages"][0]["content"]
-            == 'Generated audio for: "hi"'
-        )
+        assert json.loads(attrs["gen_ai.completion"])["messages"][0]["content"] == 'Generated audio for: "hi"'
         assert attrs["langsmith.metadata.ls_message_view_exclude"] is True
 
     def test_turn_span(self):
@@ -151,9 +148,7 @@ class TestPipecatDispatch:
 
         attrs = _exported_attrs(proc)
         assert attrs["langsmith.span.kind"] == "llm"
-        assert json.loads(attrs["gen_ai.prompt"])["messages"][-1]["content"] == (
-            "what is 2+2?"
-        )
+        assert json.loads(attrs["gen_ai.prompt"])["messages"][-1]["content"] == ("what is 2+2?")
         assert json.loads(attrs["gen_ai.completion"])["messages"][0]["content"] == "4"
 
     def test_llm_input_messages_passed_through_verbatim(self):
@@ -449,9 +444,7 @@ class TestPipecatToolCalls:
                 )
             )
         for res in ('"A"', '"B"'):
-            proc.on_end(
-                _make_span("llm_tool_result", {"tool.result": res}, trace_id=trace_id)
-            )
+            proc.on_end(_make_span("llm_tool_result", {"tool.result": res}, trace_id=trace_id))
 
         exported = self._exported_spans(proc)
         by_name = {s.name: dict(s.attributes) for s in exported}
@@ -484,9 +477,7 @@ class TestPipecatToolCalls:
 
     def test_orphaned_call_flushed_on_shutdown(self):
         proc = _processor()
-        call = _make_span(
-            "llm_tool_call", {"tool.function_name": "hang", "tool.arguments": "{}"}
-        )
+        call = _make_span("llm_tool_call", {"tool.function_name": "hang", "tool.arguments": "{}"})
         proc.on_end(call)
         assert not proc.downstream.on_end.called
 
@@ -599,18 +590,14 @@ class TestBaseProcessorHelpers:
         # only express plain role/string-content).
         ls = TranslatedSpan.of(_make_span("x"))
         ls.set_messages(prompt=[{"role": "user", "content": "hi"}])
-        assert json.loads(ls.attributes["gen_ai.prompt"]) == {
-            "messages": [{"role": "user", "content": "hi"}]
-        }
+        assert json.loads(ls.attributes["gen_ai.prompt"]) == {"messages": [{"role": "user", "content": "hi"}]}
         assert "gen_ai.prompt.0.role" not in ls.attributes
 
     def test_set_messages_preserves_structured_fields(self):
         # tool_calls survive verbatim in the {"messages": [...]} form.
         ls = TranslatedSpan.of(_make_span("x"))
         tool_call = {"id": "c1", "function": {"name": "f", "arguments": "{}"}}
-        ls.set_messages(
-            completion=[{"role": "assistant", "content": "", "tool_calls": [tool_call]}]
-        )
+        ls.set_messages(completion=[{"role": "assistant", "content": "", "tool_calls": [tool_call]}])
         payload = json.loads(ls.attributes["gen_ai.completion"])
         assert payload["messages"][0]["tool_calls"] == [tool_call]
         assert "gen_ai.completion.0.role" not in ls.attributes
@@ -618,9 +605,7 @@ class TestBaseProcessorHelpers:
     def test_attach_audio_encodes_and_returns_true(self):
         base = self._base()
         ls = TranslatedSpan.of(_make_span("x"))
-        ok = base._attach_audio(
-            ls, name="a.wav", data=b"RIFFdata", mime_type="audio/wav"
-        )
+        ok = base._attach_audio(ls, name="a.wav", data=b"RIFFdata", mime_type="audio/wav")
         assert ok is True
         payload = json.loads(ls.attributes["langsmith.attachments"])
         assert base64.b64decode(payload[0]["content"]) == b"RIFFdata"
@@ -628,19 +613,14 @@ class TestBaseProcessorHelpers:
     def test_attach_audio_skips_oversize(self):
         base = self._base(audio_size_limit_bytes=4)
         ls = TranslatedSpan.of(_make_span("x"))
-        ok = base._attach_audio(
-            ls, name="a.wav", data=b"toolarge", mime_type="audio/wav"
-        )
+        ok = base._attach_audio(ls, name="a.wav", data=b"toolarge", mime_type="audio/wav")
         assert ok is False
         assert "langsmith.attachments" not in ls.attributes
 
     def test_attach_audio_empty_returns_false(self):
         base = self._base()
         ls = TranslatedSpan.of(_make_span("x"))
-        assert (
-            base._attach_audio(ls, name="a.wav", data=b"", mime_type="audio/wav")
-            is False
-        )
+        assert base._attach_audio(ls, name="a.wav", data=b"", mime_type="audio/wav") is False
 
     def test_stamp_static_metadata(self):
         # Static metadata lands on the draft; None values are skipped.
@@ -653,9 +633,7 @@ class TestBaseProcessorHelpers:
     def test_stamp_static_metadata_never_clobbers(self):
         # An attribute already on the span wins over the static default.
         base = self._base(metadata={"env": "static"})
-        tspan = TranslatedSpan.of(
-            _make_span("x", {"langsmith.metadata.env": "explicit"})
-        )
+        tspan = TranslatedSpan.of(_make_span("x", {"langsmith.metadata.env": "explicit"}))
         base._stamp_static_metadata(tspan)
         assert tspan.attributes["langsmith.metadata.env"] == "explicit"
 
@@ -750,10 +728,7 @@ class TestStateLifecycle:
         proc = _processor(state_ttl_seconds=60)
         proc._accumulate_audio("c1", b"\x00\x01\x02\x03", 16000, 2)
         proc._accumulate_audio("c1", b"\x04\x05\x06\x07", 16000, 2)
-        assert (
-            bytes(proc._audio_by_conversation["c1"].pcm)
-            == b"\x00\x01\x02\x03\x04\x05\x06\x07"
-        )
+        assert bytes(proc._audio_by_conversation["c1"].pcm) == b"\x00\x01\x02\x03\x04\x05\x06\x07"
 
 
 class TestExceptionIsolation:
@@ -764,9 +739,7 @@ class TestExceptionIsolation:
         span = _make_span("conversation", {"conversation.id": "c1"})
 
         # Force the handler to blow up after classification.
-        with patch.object(
-            proc, "_handle_conversation", side_effect=RuntimeError("boom")
-        ):
+        with patch.object(proc, "_handle_conversation", side_effect=RuntimeError("boom")):
             proc.on_end(span)  # must not raise
 
         # The span is still forwarded downstream (untranslated, not lost).
@@ -933,9 +906,7 @@ class TestPipecatRealtimeTranscript:
 
         aggregators.user().emit("what's the weather?")
 
-        assert proc._render_messages(trace_id) == [
-            {"role": "user", "content": "what's the weather?"}
-        ]
+        assert proc._render_messages(trace_id) == [{"role": "user", "content": "what's the weather?"}]
 
     def test_invalid_aggregator_raises(self):
         proc = _processor()
@@ -964,9 +935,7 @@ class TestPipecatRealtimeTranscript:
         proc.instrument_user_aggregator(aggregators, "conv-3")
         aggregators.user().emit("early words")
         # Pending entries are (sort_key, message) tuples.
-        assert (
-            proc._pending_user_transcripts["conv-3"][0][1]["content"] == "early words"
-        )
+        assert proc._pending_user_transcripts["conv-3"][0][1]["content"] == "early words"
 
         trace_id = 0x73
         proc._remember_thread_id(trace_id, "conv-3")
@@ -994,9 +963,7 @@ class TestPipecatRealtimeTranscript:
             )
         )
         response_attrs = _exported_attrs(proc)
-        assert json.loads(response_attrs["gen_ai.prompt"])["messages"] == [
-            {"role": "user", "content": "hi there"}
-        ]
+        assert json.loads(response_attrs["gen_ai.prompt"])["messages"] == [{"role": "user", "content": "hi there"}]
 
         proc.on_end(_make_span("conversation", {"conversation.id": "conv-4"}, trace_id))
         root = json.loads(_exported_attrs(proc)["gen_ai.prompt"])["messages"]
@@ -1137,9 +1104,7 @@ class TestPipecatRealtimeTranscript:
                 _ns("2026-01-01T00:00:04+00:00"),
             )
         )
-        proc.on_end(
-            _make_span("conversation", {"conversation.id": "conv-async"}, trace_id)
-        )
+        proc.on_end(_make_span("conversation", {"conversation.id": "conv-async"}, trace_id))
 
         root = json.loads(_exported_attrs(proc)["gen_ai.prompt"])["messages"]
         assert [m["role"] for m in root] == ["user", "assistant", "tool", "assistant"]
@@ -1267,9 +1232,7 @@ class TestPipecatUsageCapture:
         # Non-final STT results must not pollute the rollup with partials.
         proc = _processor()
         trace_id = 0x57
-        proc.on_end(
-            _make_span("stt", {"transcript": "what's", "is_final": False}, trace_id)
-        )
+        proc.on_end(_make_span("stt", {"transcript": "what's", "is_final": False}, trace_id))
         assert trace_id not in proc._transcript_by_trace
 
     def test_realtime_wrapper_spans_are_chain(self):

@@ -30,6 +30,7 @@ from fireworks.training.sdk.tito._engine import (
     _ExactTokenSampler,
     _LinearTrajectoryCore,
 )
+from fireworks.training.sdk.tito._failure_trace import TITOFailureTraceConfig, _FailureTraceRecorder
 
 _FORBIDDEN_AFFINITY_HEADERS = frozenset({"x-multi-turn-session-id", "x-session-affinity"})
 _REQUEST_LOCAL_HEADERS = frozenset({"authorization", "x-api-key", "x-fireworks-session-id"})
@@ -58,6 +59,7 @@ class TITOSidecar:
         sampling_defaults: Mapping[str, Any] | None = None,
         backend_headers_snapshot: Mapping[str, str] | None = None,
         observer: TITOEventObserver | None = None,
+        failure_trace_config: TITOFailureTraceConfig | None = None,
         default_drift_policy: TrajectoryDriftPolicy | None = None,
         prompt_mode: TITOPromptMode = "full_history",
         keepalive_seconds: float = 5.0,
@@ -78,6 +80,7 @@ class TITOSidecar:
         self._sampling_defaults = dict(sampling_defaults or {})
         self._backend_headers_snapshot = dict(backend_headers_snapshot or {})
         self._observer = observer
+        self._failure_recorder = _FailureTraceRecorder(failure_trace_config or TITOFailureTraceConfig())
         self._default_drift_policy = default_drift_policy
         self._prompt_mode = prompt_mode
         self._engines: dict[str, TITOTrajectoryEngine] = {}
@@ -105,6 +108,7 @@ class TITOSidecar:
         call_classifier: Callable[[TITOChatRequest], TITOClassification] | None = None,
         sampling_defaults: Mapping[str, Any] | None = None,
         observer: TITOEventObserver | None = None,
+        failure_trace_config: TITOFailureTraceConfig | None = None,
         keepalive_seconds: float = 5.0,
         default_drift_policy: TrajectoryDriftPolicy | None = None,
         prompt_mode: TITOPromptMode = "full_history",
@@ -129,6 +133,7 @@ class TITOSidecar:
             sampling_defaults=sampling_defaults,
             backend_headers_snapshot=normalized,
             observer=observer,
+            failure_trace_config=failure_trace_config,
             keepalive_seconds=keepalive_seconds,
             default_drift_policy=default_drift_policy,
             prompt_mode=prompt_mode,
@@ -161,6 +166,7 @@ class TITOSidecar:
             sampling_defaults=self._sampling_defaults,
             backend_headers_snapshot=self._backend_headers_snapshot,
             observer=self._observer,
+            failure_recorder=self._failure_recorder,
             default_drift_policy=self._default_drift_policy,
             prompt_mode=self._prompt_mode,
         )
@@ -203,6 +209,7 @@ class TITOSidecar:
             sampling_defaults=self._sampling_defaults,
             backend_headers_snapshot=self._backend_headers_snapshot,
             observer=self._observer,
+            failure_recorder=self._failure_recorder,
             default_drift_policy=self._default_drift_policy,
             prompt_mode=self._prompt_mode,
         )
@@ -307,17 +314,12 @@ class TITOSidecar:
     async def _write_error(self, request: Any, error: TITOError) -> Any:
         from aiohttp import web
 
-        headers = {"x-should-retry": "true" if error.should_retry else "false"}
+        headers = {
+            "x-should-retry": "true" if error.should_retry else "false",
+            "x-fireworks-error-origin": error.origin,
+            "x-fireworks-error-code": error.code,
+        }
         return web.json_response(error.openai_body(), status=error.status, headers=headers)
-
-    @staticmethod
-    def _upstream_error() -> TITOError:
-        return TITOError(
-            "tito_upstream_error",
-            502,
-            "policy inference failed before commit",
-            should_retry=True,
-        )
 
     def _credential_for(self, trajectory_id: str) -> str:
         return self._trajectory_credentials.setdefault(
@@ -425,8 +427,9 @@ class TITOSidecar:
                 result = await engine.complete(normalized, idempotency_key=idempotency_key)
             except TITOError as exc:
                 return await self._write_error(request, exc)
-            except Exception:
-                return await self._write_error(request, self._upstream_error())
+            except Exception as exc:
+                error = await engine.record_sidecar_failure(exc, normalized, started_at=started_at)
+                return await self._write_error(request, error)
             body = json.dumps(dict(result.response), separators=(",", ":"), ensure_ascii=False).encode("utf-8")
             response = web.StreamResponse(
                 status=200,
@@ -522,8 +525,9 @@ class TITOSidecar:
                     result = task.result()
                 except TITOError as exc:
                     return await self._write_error(request, exc)
-                except Exception:
-                    return await self._write_error(request, self._upstream_error())
+                except Exception as exc:
+                    error = await engine.record_sidecar_failure(exc, normalized, started_at=started_at)
+                    return await self._write_error(request, error)
                 raise AssertionError(f"completion returned before preparation: {result}")
         except asyncio.CancelledError:
             await _settle_after_transport_loss()
@@ -604,9 +608,10 @@ class TITOSidecar:
         except asyncio.CancelledError:
             await _settle_after_transport_loss()
             raise
-        except Exception:
+        except Exception as exc:
             if not await _settle_after_transport_loss():
-                await _write_sse_error(self._upstream_error())
+                error = await engine.record_sidecar_failure(exc, normalized, started_at=started_at)
+                await _write_sse_error(error)
             return response
 
     async def close(self) -> None:

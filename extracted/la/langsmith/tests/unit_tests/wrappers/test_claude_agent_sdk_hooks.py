@@ -204,10 +204,7 @@ class TestSubagentFlow:
         assert subagent_run.inputs == {"agent": "foo"}
 
         # Mappings should be set
-        assert (
-            _hooks_module._default_session.agent_to_tool_mapping["agent_123"]
-            == "tool_1"
-        )
+        assert _hooks_module._default_session.agent_to_tool_mapping["agent_123"] == "tool_1"
         assert get_subagent_run_by_tool_id("tool_1") == subagent_run
 
         # Pending should be consumed
@@ -247,10 +244,7 @@ class TestSubagentFlow:
         assert "tool_2" in _hooks_module._default_session.active_tool_runs
         tool_run, _ = _hooks_module._default_session.active_tool_runs["tool_2"]
         assert tool_run.name == "Bash"
-        assert (
-            tool_run.parent_run_id
-            == _hooks_module._default_session.subagent_runs["agent_123"].id
-        )
+        assert tool_run.parent_run_id == _hooks_module._default_session.subagent_runs["agent_123"].id
 
     def test_subagent_findable_after_stop(self):
         """Subagent run is still findable via tool_use_id after SubagentStop."""
@@ -314,9 +308,7 @@ class TestSubagentFlow:
 
         assert "agent_123" not in _hooks_module._default_session.subagent_runs
         assert "tool_1" in _hooks_module._default_session.ended_subagent_runs
-        assert (
-            _hooks_module._default_session.ended_subagent_runs["tool_1"] is subagent_run
-        )
+        assert _hooks_module._default_session.ended_subagent_runs["tool_1"] is subagent_run
         assert subagent_run.end_time is None
 
         # PostToolUse for Agent — sets outputs on subagent but doesn't end it
@@ -373,10 +365,7 @@ class TestTranscriptPathCapture:
             )
         )
 
-        assert (
-            _hooks_module._default_session.main_transcript_path
-            == "/tmp/sessions/abc.jsonl"
-        )
+        assert _hooks_module._default_session.main_transcript_path == "/tmp/sessions/abc.jsonl"
 
     def test_does_not_overwrite_on_subsequent_hooks(self):
         # Seed the default session's transcript path so the "first writer wins"
@@ -395,9 +384,7 @@ class TestTranscriptPathCapture:
             )
         )
 
-        assert (
-            _hooks_module._default_session.main_transcript_path == "/first/path.jsonl"
-        )
+        assert _hooks_module._default_session.main_transcript_path == "/first/path.jsonl"
 
     def test_clear_active_tool_runs_resets_transcript_path(self):
         _hooks_module._default_session.main_transcript_path = "/some/path.jsonl"
@@ -570,9 +557,7 @@ class TestMissingSubagentLLMRuns:
                 "message": {
                     "id": "msg_seen",
                     "model": "claude-haiku-4-5-20251001",
-                    "content": [
-                        {"type": "tool_use", "id": "tu_1", "name": "Bash", "input": {}}
-                    ],
+                    "content": [{"type": "tool_use", "id": "tu_1", "name": "Bash", "input": {}}],
                     "stop_reason": "tool_use",
                     "usage": {"input_tokens": 100, "output_tokens": 20},
                 },
@@ -601,9 +586,7 @@ class TestMissingSubagentLLMRuns:
         tracker.llm_runs_by_message_id["msg_seen"] = existing_run
 
         # Register subagent transcript
-        _hooks_module._default_session.subagent_transcript_paths.append(
-            (str(transcript), subagent_run)
-        )
+        _hooks_module._default_session.subagent_transcript_paths.append((str(transcript), subagent_run))
 
         reconcile_from_transcripts(tracker)
 
@@ -657,9 +640,7 @@ class TestMissingSubagentLLMRuns:
         )
         tracker.llm_runs_by_message_id["msg_already_seen"] = existing_run
 
-        _hooks_module._default_session.subagent_transcript_paths.append(
-            (str(transcript), subagent_run)
-        )
+        _hooks_module._default_session.subagent_transcript_paths.append((str(transcript), subagent_run))
 
         reconcile_from_transcripts(tracker)
 
@@ -821,9 +802,7 @@ class TestStopReasonAndResponseId:
     """
 
     def test_live_message_with_stop_reason_is_stored(self):
-        run = _streamed_llm_run(
-            _make_parent_run(), message_id="msg_live", stop_reason="tool_use"
-        )
+        run = _streamed_llm_run(_make_parent_run(), message_id="msg_live", stop_reason="tool_use")
 
         assert run is not None
         assert run.outputs["stop_reason"] == "tool_use"
@@ -832,9 +811,7 @@ class TestStopReasonAndResponseId:
 
     def test_absent_stop_reason_is_omitted_not_nulled(self):
         """The live stream relays ``stop_reason: null``; do not persist that."""
-        run = _streamed_llm_run(
-            _make_parent_run(), message_id="msg_live", stop_reason=None
-        )
+        run = _streamed_llm_run(_make_parent_run(), message_id="msg_live", stop_reason=None)
 
         assert run is not None
         assert "stop_reason" not in run.outputs
@@ -878,9 +855,7 @@ class TestStopReasonAndResponseId:
         )
 
         tracker = TurnLifecycle()
-        run = _streamed_llm_run(
-            _make_parent_run(), message_id="msg_stream", stop_reason=None
-        )
+        run = _streamed_llm_run(_make_parent_run(), message_id="msg_stream", stop_reason=None)
         tracker.llm_runs_by_message_id["msg_stream"] = run
         assert "stop_reason" not in run.outputs
 
@@ -913,9 +888,7 @@ class TestStopReasonAndResponseId:
         from langsmith.integrations.claude_agent_sdk._client import TurnLifecycle
 
         tracker = TurnLifecycle()
-        tracker.last_main_run = _streamed_llm_run(
-            _make_parent_run(), message_id="msg_final", stop_reason=None
-        )
+        tracker.last_main_run = _streamed_llm_run(_make_parent_run(), message_id="msg_final", stop_reason=None)
 
         tracker.set_stop_reason_from_result(MagicMock(stop_reason="end_turn"))
 
@@ -966,9 +939,7 @@ class TestStopReasonAndResponseId:
         from langsmith.integrations.claude_agent_sdk._client import TurnLifecycle
 
         tracker = TurnLifecycle()
-        tracker.last_main_run = _streamed_llm_run(
-            _make_parent_run(), message_id="msg_final", stop_reason="tool_use"
-        )
+        tracker.last_main_run = _streamed_llm_run(_make_parent_run(), message_id="msg_final", stop_reason="tool_use")
 
         tracker.set_stop_reason_from_result(MagicMock(stop_reason="end_turn"))
 
@@ -982,9 +953,7 @@ class TestStopReasonAndResponseId:
         )
 
         tracker = TurnLifecycle()
-        run = _streamed_llm_run(
-            _make_parent_run(), message_id="msg_final", stop_reason=None
-        )
+        run = _streamed_llm_run(_make_parent_run(), message_id="msg_final", stop_reason=None)
         tracker.last_main_run = run
         tracker.llm_runs_by_message_id["msg_final"] = run
         tracker.set_stop_reason_from_result(MagicMock(stop_reason="end_turn"))
@@ -1011,9 +980,7 @@ class TestStopReasonAndResponseId:
         )
 
         tracker = TurnLifecycle()
-        run = _streamed_llm_run(
-            _make_parent_run(), message_id="msg_stream", stop_reason=None
-        )
+        run = _streamed_llm_run(_make_parent_run(), message_id="msg_stream", stop_reason=None)
         tracker.llm_runs_by_message_id["msg_stream"] = run
 
         _hooks_module._default_session.main_transcript_path = _write_transcript(
@@ -1089,9 +1056,7 @@ class TestStopReasonAndResponseId:
         tracker = TurnLifecycle()
         parent = _make_parent_run()
         for mid in ("m1", "m2"):
-            tracker.llm_runs_by_message_id[mid] = _streamed_llm_run(
-                parent, message_id=mid, stop_reason=None
-            )
+            tracker.llm_runs_by_message_id[mid] = _streamed_llm_run(parent, message_id=mid, stop_reason=None)
 
         _hooks_module._default_session.main_transcript_path = _write_transcript(
             tmp_path / "main.jsonl",
@@ -1192,9 +1157,7 @@ class TestReceiveMessagesInstrumented:
         from langsmith import Client
         from langsmith.run_helpers import tracing_context
 
-        mock_client = Client(
-            session=MagicMock(), api_key="test", auto_batch_tracing=False
-        )
+        mock_client = Client(session=MagicMock(), api_key="test", auto_batch_tracing=False)
         with tracing_context(enabled=True, client=mock_client):
             asyncio.run(coro)
 
@@ -1276,10 +1239,7 @@ class TestReceiveMessagesInstrumented:
                             assert run.error is None
                             assert run.parent_run_id == parent.id
                             assert run.inputs["prompt"] == prompt
-                            assert (
-                                abs(run.start_time.timestamp() - client._ls_start_time)
-                                < 0.001
-                            )
+                            assert abs(run.start_time.timestamp() - client._ls_start_time) < 0.001
                             assert all(c.end_time is not None for c in run.child_runs)
                             break
                     await stream.aclose()
@@ -1443,16 +1403,12 @@ class TestReceiveMessagesInstrumented:
                             await stream.__anext__()
                             assert get_tracing_context() == expected
                             if ending == "result":
-                                assert isinstance(
-                                    await stream.__anext__(), ResultMessage
-                                )
+                                assert isinstance(await stream.__anext__(), ResultMessage)
                             elif ending == "exhaust":
                                 with pytest.raises(StopAsyncIteration):
                                     await stream.__anext__()
                             elif ending == "error":
-                                with pytest.raises(
-                                    RuntimeError, match="transport died"
-                                ):
+                                with pytest.raises(RuntimeError, match="transport died"):
                                     await stream.__anext__()
                         finally:
                             await stream.aclose()

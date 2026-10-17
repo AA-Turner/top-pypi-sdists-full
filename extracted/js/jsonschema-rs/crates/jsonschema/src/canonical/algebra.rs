@@ -181,6 +181,15 @@ fn intersect_pair(left: &Schema, right: &Schema, ctx: &CanonicalizationContext) 
         (SchemaKind::AnyOf(left_branches), SchemaKind::AnyOf(right_branches)) => {
             let left_branches = left_branches.as_slice();
             let right_branches = right_branches.as_slice();
+            // Checked before any branch is crossed: a product wider than what the run may still
+            // spend would exhaust the allowance partway through and leave the document `Raw`.
+            let width = left_branches.len() as u64 * right_branches.len() as u64;
+            if !ctx.take_product(width) {
+                // Out of allowance, the run reads as given up wherever it asks.
+                debug_assert!(ctx.outgrew_distribution());
+                ctx.record_inexact_intersection();
+                return Schema::truthy();
+            }
             let mut out = Vec::with_capacity(left_branches.len() * right_branches.len());
             for left in left_branches {
                 for right in right_branches {
@@ -833,11 +842,13 @@ fn value_types(values: &[CanonicalJson]) -> JsonTypeSet {
 /// overlap does, so only the overlaps need negations — a branch overlapping nothing is never
 /// negated. `None` when an overlap's negation is inexpressible.
 pub(crate) fn concrete_one_of(
-    branches: Vec<Schema>,
+    mut branches: Vec<Schema>,
     definitions: &DefinitionMap,
     ctx: &CanonicalizationContext,
 ) -> Option<Schema> {
-    let mut as_one_of = branches.clone();
+    // Every spelling of the choice expands, or stays as written, the same way.
+    branches.sort();
+    let as_one_of = branches.clone();
     // Bounded: branches sharing a wide region take an expansion whose cost has nothing to do with
     // the rest of the document, and spending the document's whole allowance on it leaves every
     // later node approximate. Out of allowance the choice keeps the form it was written in, which
@@ -846,7 +857,6 @@ pub(crate) fn concrete_one_of(
         ctx.probe(|| expand_exclusivity(branches, definitions, ctx))
     });
     if outgrew {
-        as_one_of.sort();
         return Some(Schema::new(SchemaKind::OneOf(as_one_of)));
     }
     if inexact {
@@ -864,25 +874,40 @@ fn expand_exclusivity(
     definitions: &DefinitionMap,
     ctx: &CanonicalizationContext,
 ) -> Option<Schema> {
-    let overlaps = pairwise_overlaps(&branches, ctx);
-    let mut as_one_of = branches.clone();
+    let mut removals = pairwise_overlaps(&branches, ctx)
+        .iter()
+        .map(|overlap| negate::negate_in_place(overlap, definitions, ctx))
+        .collect::<Option<Vec<_>>>()?;
+    let as_one_of = branches.clone();
     let mut result = union(branches, ctx);
-    for overlap in overlaps {
-        let removed = negate::negate_in_place(&overlap, definitions, ctx)?;
-        // Every shared region removed widens the union again, and the widths multiply, so their
-        // product bounds the intersection before it runs. Past the budget the choice keeps the
-        // exactly-one form, and the intersection would only have been discarded.
-        if negate::union_width(&result) * negate::union_width(&removed) > negate::UNION_WIDTH_BUDGET
-        {
-            as_one_of.sort();
-            return Some(Schema::new(SchemaKind::OneOf(as_one_of)));
+    // Each round removes the shared region leaving the narrowest union, so how far the expansion
+    // gets before the budget does not depend on the order the branches were written in.
+    while !removals.is_empty() {
+        let mut narrowest: Option<(usize, Schema)> = None;
+        for (index, removed) in removals.iter().enumerate() {
+            // Every shared region removed widens the union again, and the widths multiply, so
+            // their product bounds the intersection before it runs.
+            if negate::union_width(&result) * negate::union_width(removed)
+                > negate::UNION_WIDTH_BUDGET
+            {
+                continue;
+            }
+            let narrowed = intersect(result.clone(), removed.clone(), ctx);
+            if narrowest
+                .as_ref()
+                .is_none_or(|(_, best)| negate::union_width(&narrowed) < negate::union_width(best))
+            {
+                narrowest = Some((index, narrowed));
+            }
         }
-        result = intersect(result, removed, ctx);
-        // Pruning only narrows the product, so the exact width still decides the round after.
-        if negate::union_width(&result) > negate::UNION_WIDTH_BUDGET {
-            as_one_of.sort();
+        // Past the budget the choice keeps the exactly-one form.
+        let Some((index, narrowed)) = narrowest
+            .filter(|(_, narrowed)| negate::union_width(narrowed) <= negate::UNION_WIDTH_BUDGET)
+        else {
             return Some(Schema::new(SchemaKind::OneOf(as_one_of)));
-        }
+        };
+        removals.remove(index);
+        result = narrowed;
     }
     Some(result)
 }
@@ -1979,8 +2004,99 @@ fn keys_beside(leaves: &[ObjectLeaf], index: usize) -> Vec<Arc<str>> {
 }
 
 /// Whether some leaf admits the whole piece, or both halves of a key-presence split do
-/// recursively. The key list shrinks with each split, which bounds the recursion.
+/// recursively.
 fn split_piece_is_covered(
+    piece: ObjectLeaf,
+    leaves: &[Schema],
+    keys: &[Arc<str>],
+    ctx: &CanonicalizationContext,
+) -> bool {
+    // The split ends on the piece holding every key, and when no leaf can admit that one, every
+    // piece on the way to it is uncovered too: the walk would read each leaf at each key to get there.
+    if every_leaf_misses_the_piece_holding_every_key(&piece, leaves, keys, ctx) {
+        return false;
+    }
+    split_piece_is_covered_by_halves(piece, leaves, keys, ctx)
+}
+
+/// Whether the piece, made to hold every key it does not bar, still admits an object and no leaf
+/// admits all of them: each leaf constrains the value at a key the piece holds and leaves free.
+/// ```text
+/// e.g.  the piece {"type": "object", "properties": {"p0": {"type": "integer"}}} split by `p1`, `p2`
+///       against the leaves
+///         {"type": "object", "properties": {"p1": {"type": "integer"}}},
+///         {"type": "object", "properties": {"p2": {"type": "integer"}}}
+///       =>  every leaf misses {"p0": 0, "p1": "x", "p2": "x"}
+/// ```
+fn every_leaf_misses_the_piece_holding_every_key(
+    piece: &ObjectLeaf,
+    leaves: &[Schema],
+    keys: &[Arc<str>],
+    ctx: &CanonicalizationContext,
+) -> bool {
+    let mut holding = piece.clone();
+    for key in keys {
+        if matches!(
+            holding.properties.get(key).map(Schema::kind),
+            Some(SchemaKind::False)
+        ) {
+            continue;
+        }
+        if let Err(position) = holding.required.binary_search(key) {
+            holding.required.insert(position, Arc::clone(key));
+        }
+    }
+    let every_leaf_misses = leaves.iter().all(|leaf| match leaf.kind() {
+        SchemaKind::Object(leaf) => constrains_a_free_required_key(leaf.get(), &holding),
+        SchemaKind::False => true,
+        // Read off the property maps alone; a leaf packed into anything else may admit it.
+        SchemaKind::MultiType(_)
+        | SchemaKind::TypedGroup { .. }
+        | SchemaKind::String(_)
+        | SchemaKind::Integer(_)
+        | SchemaKind::Number(_)
+        | SchemaKind::Array(_)
+        | SchemaKind::Const(_)
+        | SchemaKind::Enum(_)
+        | SchemaKind::Not(_)
+        | SchemaKind::AllOf(_)
+        | SchemaKind::AnyOf(_)
+        | SchemaKind::OneOf(_)
+        | SchemaKind::Reference(_)
+        | SchemaKind::True
+        | SchemaKind::Raw(_) => false,
+    });
+    // A piece admitting nothing is covered by any leaf.
+    every_leaf_misses && !matches!(object_leaf(holding, ctx).kind(), SchemaKind::False)
+}
+
+/// Whether the schema rejects at least one value, read off its kind alone. Symbolic kinds answer
+/// `false`: what they reject depends on what they name.
+fn rejects_some_value(schema: &Schema) -> bool {
+    match schema.kind() {
+        SchemaKind::False
+        | SchemaKind::MultiType(_)
+        | SchemaKind::TypedGroup { .. }
+        | SchemaKind::String(_)
+        | SchemaKind::Integer(_)
+        | SchemaKind::Number(_)
+        | SchemaKind::Array(_)
+        | SchemaKind::Object(_)
+        | SchemaKind::Const(_)
+        | SchemaKind::Enum(_) => true,
+        SchemaKind::Not(_)
+        | SchemaKind::AllOf(_)
+        | SchemaKind::AnyOf(_)
+        | SchemaKind::OneOf(_)
+        | SchemaKind::Reference(_)
+        | SchemaKind::True
+        | SchemaKind::Raw(_) => false,
+    }
+}
+
+/// [`split_piece_is_covered`] past its shortcut. The key list shrinks with each split, which bounds
+/// the recursion.
+fn split_piece_is_covered_by_halves(
     piece: ObjectLeaf,
     leaves: &[Schema],
     keys: &[Arc<str>],
@@ -2020,8 +2136,8 @@ fn split_piece_is_covered(
     }
     let mut missing = piece;
     missing.properties.insert(Arc::clone(key), Schema::falsy());
-    split_piece_is_covered(holding, leaves, rest, ctx)
-        && split_piece_is_covered(missing, leaves, rest, ctx)
+    split_piece_is_covered_by_halves(holding, leaves, rest, ctx)
+        && split_piece_is_covered_by_halves(missing, leaves, rest, ctx)
 }
 
 /// Whether the piece demands every key the leaf does, both already packed by [`object_leaf`].
@@ -2048,6 +2164,36 @@ fn demands_every_key_of(piece: &ObjectLeaf, leaf: &ObjectLeaf) -> bool {
     leaf.required
         .iter()
         .all(|key| piece.required.binary_search(key).is_ok())
+}
+
+/// Whether `leaf` rejects a value at a key every object of `piece` holds and the piece says nothing
+/// about, so that `leaf` cannot admit every object of a `piece` that admits any. Reads the property
+/// maps alone, where deciding it by intersection would merge them.
+fn constrains_a_free_required_key(leaf: &ObjectLeaf, piece: &ObjectLeaf) -> bool {
+    free_required_keys_constrained_by(leaf, piece)
+        .next()
+        .is_some()
+}
+
+/// The keys [`constrains_a_free_required_key`] finds, in `leaf`'s order.
+fn free_required_keys_constrained_by<'a>(
+    leaf: &'a ObjectLeaf,
+    piece: &'a ObjectLeaf,
+) -> impl Iterator<Item = &'a Arc<str>> {
+    // Any of these could constrain the value at a required key beyond what the entries say.
+    let entries_say_it_all = piece.additional.is_none()
+        && piece.property_names.is_none()
+        && piece.pattern_properties.is_empty()
+        && piece.violations.is_empty();
+    leaf.properties
+        .iter()
+        .filter(move |(key, entry)| {
+            entries_say_it_all
+                && rejects_some_value(entry)
+                && piece.properties.get(key).is_none()
+                && piece.required.binary_search(key).is_ok()
+        })
+        .map(|(key, _)| key)
 }
 
 /// Whether barring any of these keys leaves the piece saying the same thing about its required
@@ -2233,16 +2379,52 @@ fn drop_required_covered_by_sibling(
         if leaves[index].additional.is_some() {
             continue;
         }
+        // Which siblings may cover a weakened leaf reads the key lists alone, and dropping a
+        // required key changes them only at that key, so each pair is read once rather than per
+        // key: a sibling comes with the one key whose drop it waits for, if any.
+        let reachable: Vec<(usize, Option<Arc<str>>)> = (0..leaves.len())
+            .filter(|&sibling| sibling != index)
+            .filter(|&sibling| demands_every_key_of(&leaves[index], &leaves[sibling]))
+            .filter_map(|sibling| {
+                let mut blocking =
+                    free_required_keys_constrained_by(&leaves[sibling], &leaves[index]);
+                let first = blocking.next().cloned();
+                // Two keys rule the sibling out whichever one is dropped.
+                blocking.next().is_none().then_some((sibling, first))
+            })
+            .collect();
         for key_index in 0..leaves[index].required.len() {
             let implied_floor = BoundCardinality::from(leaves[index].required.len() as u64);
+            let key = Arc::clone(&leaves[index].required[key_index]);
+            // Siblings ruled out by their key lists alone, before the weakened leaf is built: most
+            // pairs end here, and building it costs a copy of the leaf per key.
+            let candidates: Vec<usize> = reachable
+                .iter()
+                .filter(|(sibling, blocking)| {
+                    leaves[*sibling].required.binary_search(&key).is_err()
+                        && blocking.as_ref().is_none_or(|blocking| *blocking == key)
+                })
+                .map(|(sibling, _)| *sibling)
+                .collect();
+            // The pairs read once answer as the leaf without the key does.
+            debug_assert_eq!(candidates, {
+                let mut weakened = leaves[index].clone();
+                weakened.required.remove(key_index);
+                (0..leaves.len())
+                    .filter(|&sibling| sibling != index)
+                    .filter(|&sibling| demands_every_key_of(&weakened, &leaves[sibling]))
+                    .filter(|&sibling| !constrains_a_free_required_key(&leaves[sibling], &weakened))
+                    .collect::<Vec<_>>()
+            });
+            if candidates.is_empty() {
+                continue;
+            }
             for keep_floor in [false, true] {
                 // An explicit minimum survives the bare drop, so the fallback adds nothing.
                 if keep_floor && leaves[index].sizes.minimum.is_some() {
                     break;
                 }
-                let leaf = &leaves[index];
-                let key = Arc::clone(&leaf.required[key_index]);
-                let mut weakened = leaf.clone();
+                let mut weakened = leaves[index].clone();
                 weakened.required.remove(key_index);
                 if keep_floor {
                     weakened.sizes.minimum = Some(implied_floor.clone());
@@ -2258,18 +2440,15 @@ fn drop_required_covered_by_sibling(
                 // Probed one sibling at a time: a sibling whose intersection this run could only
                 // approximate says nothing, and wrapping the whole search in one probe would let
                 // it bury a later sibling that covers exactly.
-                let covered = (0..leaves.len())
-                    .filter(|&sibling| sibling != index)
-                    .filter(|&sibling| demands_every_key_of(&weakened, &leaves[sibling]))
-                    .any(|sibling| {
-                        holds_exactly(ctx, || {
-                            intersect(
-                                gained.clone(),
-                                object_leaf(leaves[sibling].clone(), ctx),
-                                ctx,
-                            ) == gained
-                        })
-                    });
+                let covered = candidates.iter().any(|&sibling| {
+                    holds_exactly(ctx, || {
+                        intersect(
+                            gained.clone(),
+                            object_leaf(leaves[sibling].clone(), ctx),
+                            ctx,
+                        ) == gained
+                    })
+                });
                 if covered {
                     leaves[index] = weakened;
                     return true;
@@ -2407,27 +2586,48 @@ fn widen_entry_covered_by_sibling(
         if leaves[index].additional.is_some() {
             continue;
         }
+        // The gained leaf requires this leaf's keys and the one being widened; a sibling requiring
+        // any other key accepts nothing it accepts. Read once per pair rather than per key: each
+        // sibling comes with the one key it requires beyond this leaf's, if any.
+        let reachable: Vec<(usize, Option<Arc<str>>)> = (0..leaves.len())
+            .filter(|&sibling| sibling != index && leaves[sibling].additional.is_none())
+            .filter_map(|sibling| {
+                let mut beyond = leaves[sibling]
+                    .required
+                    .iter()
+                    .filter(|demanded| leaves[index].required.binary_search(demanded).is_err());
+                let first = beyond.next().cloned();
+                beyond.next().is_none().then_some((sibling, first))
+            })
+            .collect();
         let keys: Vec<Arc<str>> = leaves[index].properties.keys().cloned().collect();
         for key in keys {
-            for sibling in (0..leaves.len()).filter(|&sibling| sibling != index) {
-                if leaves[sibling].additional.is_some() {
-                    continue;
-                }
-                // The gained leaf requires this leaf's keys and the one being widened; a
-                // sibling requiring any other key accepts nothing it accepts.
-                if !leaves[sibling].required.iter().all(|demanded| {
-                    *demanded == key || leaves[index].required.binary_search(demanded).is_ok()
-                }) {
-                    continue;
-                }
+            let candidates: Vec<usize> = reachable
+                .iter()
+                .filter(|(_, beyond)| beyond.as_ref().is_none_or(|beyond| *beyond == key))
+                .map(|(sibling, _)| *sibling)
+                .collect();
+            // The pairs read once answer as the required lists at this key do.
+            debug_assert_eq!(
+                candidates,
+                (0..leaves.len())
+                    .filter(|&sibling| sibling != index && leaves[sibling].additional.is_none())
+                    .filter(|&sibling| leaves[sibling].required.iter().all(|demanded| {
+                        *demanded == key || leaves[index].required.binary_search(demanded).is_ok()
+                    }))
+                    .collect::<Vec<_>>()
+            );
+            for sibling in candidates {
                 let entry = leaves[index]
                     .properties
                     .get(&key)
                     .expect("the key came from this leaf");
                 let sibling_entry = leaves[sibling].properties.get(&key);
+                if sibling_entry == Some(entry) {
+                    continue;
+                }
                 let mut widened = leaves[index].clone();
                 match sibling_entry {
-                    Some(other) if other == entry => continue,
                     Some(other) => {
                         // Every pattern matching the key checks it too, and the constructor keeps
                         // a named entry intersected with those. The union is narrowed the same
@@ -4302,9 +4502,10 @@ fn key_schema(leaf: &ObjectLeaf, key: &str, ctx: &CanonicalizationContext) -> Sc
 
 /// Whether the pattern reaches `key`; a pattern matches anywhere in it, as `pattern` does.
 pub(crate) fn matches_key(pattern: &Arc<str>, key: &str, ctx: &CanonicalizationContext) -> bool {
-    ctx.compile_regex(pattern)
-        .expect("pattern validated during parsing")
-        .is_match(key)
+    let matcher = ctx
+        .compile_regex(pattern)
+        .expect("pattern validated during parsing");
+    ctx.matches(&matcher, key)
 }
 
 /// Restrict a key constraint to the string domain: keys are always strings, so the branches a bare
@@ -5588,13 +5789,14 @@ fn patterns_conflict(leaf: &StringLeaf) -> bool {
 }
 
 /// A leaf's compiled patterns, built once so a scan over many members compiles nothing per member.
-struct StringMatchers {
+struct StringMatchers<'c> {
     required: Vec<Arc<CompiledMatcher>>,
     barred: Vec<Arc<CompiledMatcher>>,
+    ctx: &'c CanonicalizationContext,
 }
 
-impl StringMatchers {
-    fn compile(leaf: &StringLeaf, ctx: &CanonicalizationContext) -> Self {
+impl<'c> StringMatchers<'c> {
+    fn compile(leaf: &StringLeaf, ctx: &'c CanonicalizationContext) -> Self {
         let compile_all = |patterns: &[Arc<str>]| {
             patterns
                 .iter()
@@ -5607,6 +5809,7 @@ impl StringMatchers {
         Self {
             required: compile_all(&leaf.patterns),
             barred: compile_all(&leaf.excluded_patterns),
+            ctx,
         }
     }
 }
@@ -5635,8 +5838,14 @@ fn string_leaf_admits_text(
 ) -> Verdict {
     let length = BoundCardinality::from(bytecount::num_chars(text.as_bytes()) as u64);
     if !leaf.lengths.contains(&length)
-        || !matchers.required.iter().all(|regex| regex.is_match(text))
-        || matchers.barred.iter().any(|regex| regex.is_match(text))
+        || !matchers
+            .required
+            .iter()
+            .all(|regex| matchers.ctx.matches(regex, text))
+        || matchers
+            .barred
+            .iter()
+            .any(|regex| matchers.ctx.matches(regex, text))
         || leaf.excluded.iter().any(|value| value.as_ref() == text)
     {
         return Verdict::Rejects;

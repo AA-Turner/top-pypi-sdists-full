@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -16,6 +14,8 @@
 # For more information, see the README.rst file.
 #
 # ****************************************************************************
+
+"""GCOVR JSON report."""
 
 import os
 from typing import Any
@@ -36,7 +36,11 @@ KEY_SUMMARY_FORMAT_VERSION = "gcovr/summary_format_version"
 def write_report(
     covdata: CoverageContainer, output_file: str, options: Options
 ) -> None:
-    """Produce an JSON report in the format partially compatible with gcov JSON output."""
+    """
+    Write JSON report.
+
+    The JSON report format is partially compatible with gcov JSON output.
+    """
     write_json_output(
         {
             "gcovr/format_version": version.FORMAT_VERSION,
@@ -52,7 +56,6 @@ def write_summary_report(
     covdata: CoverageContainer, output_file: str, options: Options
 ) -> None:
     """Produce gcovr JSON summary report."""
-
     json_dict = dict[str, Any]()
 
     json_dict["root"] = force_unix_separator(
@@ -66,21 +69,22 @@ def write_summary_report(
     json_dict["files"] = files
 
     # Data
-    sorted_keys = covdata.sort_coverage(
+    filecov_list = covdata.sorted_filecov(
         sort_key=options.sort_key,
         sort_reverse=options.sort_reverse,
         by_metric="branch" if options.sort_branches else "line",
+        recurse=True,
     )
 
-    for key in sorted_keys:
-        filename = covdata[key].presentable_filename(options.root_filter)
+    for filecov in filecov_list:
+        filename = filecov.presentable_filename(options.root_filter)
         if options.json_base:
-            filename = "/".join([options.json_base, filename])
+            filename = f"{options.json_base}/{filename}"
 
         files.append(
             {
                 "filename": filename,
-                **covdata[key].stats.serialize(None, options),
+                **filecov.stats.serialize(None, options),
             }
         )
 

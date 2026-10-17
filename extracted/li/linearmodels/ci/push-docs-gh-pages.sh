@@ -20,8 +20,6 @@ else
 fi
 echo "Show information about directories"
 echo "PWD: ${PWD}"
-echo ls ${PWD}/doc/build/html
-ls ${PWD}/doc/build/html
 echo "Copy docs to devel"
 echo "cp -r ${PWD}/doc/build/html/. ${PWD}/devel/"
 cp -r "${PWD}/doc/build/html/." "${PWD}/devel/"
@@ -29,6 +27,9 @@ echo "Remove build directory"
 echo "rm -rf ${PWD}/doc/build/"
 rm -rf ${PWD}/doc/build/
 echo "Add devel"
+pushd devel
+git add .
+popd
 git add devel/.
 echo "Add new HTML/JS/CSS"
 git add ./\*.html

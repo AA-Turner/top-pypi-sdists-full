@@ -17,11 +17,52 @@ from matrx_ai.agents.types import AgentConfig
 from matrx_ai.agents.variables import AgentVariable
 from matrx_ai.config.host_turn import HostTurn, refuse_both
 from matrx_ai.config.llm_params import LLMParams
+from matrx_ai.config.template_substitution import VariablesAlreadyAppliedError
 from matrx_ai.config.unified_config import UnifiedConfig, UnifiedMessage
 from matrx_ai.config.usage_config import AggregatedUsage, TokenUsage
 from matrx_ai.orchestrator.executor import execute_ai_request
 from matrx_ai.orchestrator.mandate_carrier import mandate_carrier_passthrough
 from matrx_ai.orchestrator.requests import CompletedRequest
+
+VARIABLES_ALREADY_APPLIED_KIND = "variables_already_applied"
+
+
+def _record_variables_already_applied(error: VariablesAlreadyAppliedError, *, agent_name: Any) -> None:
+    """Record the refusal through the host's error-capture seam. Never raises."""
+    try:
+        from matrx_ai._ext import get_ext
+
+        record_error = get_ext("record_error")
+    except Exception:
+        return
+    if record_error is None:
+        return
+    try:
+        pending = record_error(
+            error,
+            kind=VARIABLES_ALREADY_APPLIED_KIND,
+            error_type=VARIABLES_ALREADY_APPLIED_KIND,
+            error_text=str(error),
+            route="matrx_ai.agents.definition.Agent",
+            payload={"agent": str(agent_name or ""), "variables": list(error.names)},
+        )
+        import inspect
+
+        if inspect.isawaitable(pending):
+            import asyncio
+
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                pending.close()
+                return
+            from matrx_utils import detached_task
+
+            detached_task(pending, name=VARIABLES_ALREADY_APPLIED_KIND)
+    except Exception:
+        # Counting the refusal must never replace it with a second failure.
+        return
+
 
 # ============================================================================
 # AGENT EXECUTE RESULT
@@ -101,7 +142,13 @@ class Agent:
         # without a second load of the same row. ``None`` = not declared.
         self.matrx_actions: dict[str, Any] | None = matrx_actions
         self.variable_values: dict[str, Any] = {}
+        # A saved agent's definitions ARE its declaration, even when they declare nothing: a
+        # name a caller passes that no definition declares never fills its text (THE VARIABLE
+        # RULE). Set by ``_build_from_config`` (``from_agent`` and every door built on it).
+        self.declares_variables: bool = False
         self._variables_applied = False
+        # The explicit values the last apply filled (new values after it fail loudly).
+        self._applied_values: dict[str, Any] | None = None
         # The pre-substitution step (``prepare_variables``) ran for these values,
         # and whatever host-owned context it produced for the later prepare hook
         # (aidream: the resource-context entries of document/sources variables).
@@ -152,9 +199,9 @@ class Agent:
 
         Resets the variables_applied flag so clones can reapply variables to their copy.
 
-        IMPORTANT: Best practice is to clone BEFORE applying variables or executing.
-        If you clone after variables are applied, the placeholders ({{var}}) are gone,
-        so setting new variables on the clone won't work as expected.
+        Cloning after variables were applied works too: every authored part keeps its
+        authored template, so the clone's own fill restarts from it (a part changed after its
+        fill raises ``VariableRefillError`` rather than being ignored).
 
         Recommended pattern:
             base = await Agent.from_prompt("id")  # Don't apply variables yet
@@ -173,11 +220,13 @@ class Agent:
             auto_context_disabled=self.auto_context_disabled,
             matrx_actions=self.matrx_actions,
         )
+        cloned.declares_variables = self.declares_variables
         # Copy variable_values but not the applied flag
         cloned.variable_values = {}  # Start fresh for new variables
         cloned.request_context = deepcopy(self.request_context)
         # Reset the applied flag
         cloned._variables_applied = False
+        cloned._applied_values = None
         cloned.control_binding_policy = self.control_binding_policy
         cloned._config_overrides = list(self._config_overrides)
         return cloned
@@ -257,8 +306,23 @@ class Agent:
         Example:
             agent.set_variables(topic="AI Safety", audience="developers")
         """
+        if self._variables_applied:
+            self._refuse_new_values_after_apply(variables)
         self.variable_values.update(variables)
         return self
+
+    def _refuse_new_values_after_apply(self, values: dict[str, Any]) -> None:
+        """New values on an applied agent fail LOUDLY and are logged (owner ruling 2026-10-16):
+        never silently ignored, never silently re-applied. Values already applied are not new."""
+        applied = self._applied_values or {}
+        changed = sorted(
+            name for name, value in values.items() if name not in applied or applied[name] != value
+        )
+        if not changed:
+            return
+        error = VariablesAlreadyAppliedError(changed)
+        _record_variables_already_applied(error, agent_name=self.name)
+        raise error
 
     def apply_variables(self, force: bool = False) -> Agent:
         """
@@ -266,7 +330,8 @@ class Agent:
         Replaces all {{variable_name}} placeholders in system_instruction and messages.
 
         Variables are only applied once by default to avoid issues with multi-turn conversations.
-        Use force=True to reapply variables.
+        Use force=True to reapply variables: the fill restarts from each part's authored
+        template, so the new values land exactly once.
 
         Uses explicit values from ``variable_values`` when supplied, otherwise
         the saved Builder defaults. Variables with neither become "".
@@ -280,15 +345,21 @@ class Agent:
         Example:
             agent.set_variables(topic="AI", audience="devs").apply_variables()
         """
-        # Skip if already applied (unless forced)
+        # Already applied (unless forced): a no-op for the values it applied; a value staged
+        # since (``set_variable``) would never land, so it refuses loudly.
         if self._variables_applied and not force:
+            self._refuse_new_values_after_apply(self.variable_values)
             return self
 
         # THE one composition (agents.variables.compose_variable_values), the same every
         # door runs: non-empty explicit value > saved default > "" for each declared name.
         from matrx_ai.agents.variables import compose_variable_values
 
-        final_values = compose_variable_values(self.variable_defaults, self.variable_values)
+        final_values = compose_variable_values(
+            self.variable_defaults,
+            self.variable_values,
+            declared_only=True if self.declares_variables else None,
+        )
 
         # Resolve explicit automatic-assignment markers from the trusted variable definition.
         # Structured-list choices become internal picklist refs and flow through the existing
@@ -313,6 +384,7 @@ class Agent:
 
         # Mark as applied
         self._variables_applied = True
+        self._applied_values = dict(self.variable_values)
 
         return self
 
@@ -472,6 +544,7 @@ class Agent:
             auto_context_disabled=agent_config.auto_context_disabled,
             matrx_actions=agent_config.matrx_actions,
         )
+        agent.declares_variables = True
         if variables:
             # Set only: the async constructor that called this runs the
             # pre-substitution step and then applies (``from_agent``).
@@ -548,7 +621,30 @@ class Agent:
             agent.apply_variables()
         return agent
 
+    async def run_first_turn_pass(self) -> Agent:
+        """THE first-turn pass, once: the pre-substitution step, then the fill.
+
+        Fills only the AUTHOR's declared ``{{name}}`` (value, else default, else
+        ""), turns ``{{!x}}`` into ``{{x}}``, evaluates sections and expands
+        declared prompt blocks — always, even with no values. Every door that is
+        about to add the person's content (or borrowed history) runs this FIRST,
+        so that content is never filled and the authored opening turn is judged
+        filled, not raw. A no-op once applied."""
+        if not self._variables_applied:
+            await self.prepare_variables()
+            self.apply_variables()
+        return self
+
     def set_user_input(self, user_input: str | list[dict[str, Any]]) -> Agent:
+        # THE ORDER LAW: the person's content never joins the config before the
+        # first-turn pass — otherwise the fill (which treats every message as
+        # authored) fills her data, and the still-raw authored opening turn is
+        # lifted into the system channel unfilled. Async doors call
+        # ``await run_first_turn_pass()`` first (prompt blocks, ``sources``
+        # values); this synchronous fallback still fills before appending, and a
+        # declared prompt block that was never resolved refuses loudly here.
+        if not self._variables_applied:
+            self.apply_variables()
         self.config.append_or_extend_user_input(user_input)
         return self
 
@@ -585,10 +681,8 @@ class Agent:
         # agent is invoked directly with no caller-provided variables.
         # Always, on the first execution: the first-turn pass also turns ``{{!x}}`` into
         # ``{{x}}`` and evaluates sections for an agent with no variables at all.
-        if not self._variables_applied:
-            # The pre-substitution step first (a ``sources`` value becomes text).
-            await self.prepare_variables()
-            self.apply_variables()
+        # The pre-substitution step first (a ``sources`` value becomes text).
+        await self.run_first_turn_pass()
         # THE HOST TURN (``matrx_ai.config.host_turn``): a machine-started turn
         # is stored host-authored — never as ``user_input``. Appended at the
         # same point a person's words would be, so the prepare hook below

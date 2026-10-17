@@ -315,8 +315,10 @@ def skills_root() -> Path | None:
 
 
 #: The researcher's own skills the daemon records by, shown whole (their
-#: `reference.md` and other files stay a `read` away).
-SHARED_SKILLS = ("track-work", "edit-notes")
+#: `reference.md` and other files stay a `read` away). `write-summary` keeps the
+#: summaries (writer-owns-summary §3.6); `overview-visuals` is a `read` away,
+#: named by track-work's Close line.
+SHARED_SKILLS = ("track-work", "write-summary", "edit-notes")
 #: The skills the team-note audit runs by (daemon-team-note-audit), shown whole:
 #: the audit itself, and how the team note is edited.
 AUDIT_SKILLS = ("audit-team-note", "edit-notes")

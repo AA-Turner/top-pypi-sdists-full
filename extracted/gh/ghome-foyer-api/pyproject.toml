@@ -5,34 +5,37 @@ build-backend = "hatchling.build"
 [project]
 name = "ghome-foyer-api"
 description = "Generated protobuf stubs for Google Home Foyer API"
-authors = [{name = "Ruslan Sayfutdinov", email = "ruslan@sayfutdinov.com"}]
+authors = [{ name = "Ruslan Sayfutdinov", email = "ruslan@sayfutdinov.com" }]
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development",
     "Typing :: Typed",
 ]
 keywords = ["Google Home", "Foyer API"]
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dynamic = ["version"]
 dependencies = [
-    "grpcio>=1.71.0,<2",
-    "protobuf>=5.29.2",
+    "grpcio>=1.83.1,<2",
+    "protobuf>=7.35.1",
 ]
 
 [dependency-groups]
 dev = [
-    "grpc-stubs>=1.53.0.6",
-    "grpcio-tools==1.71.0",
-    "mypy-protobuf>=3.6.0",
-    "mypy>=1.15.0",
-    "ruff>=0.11.11",
+    "dprint-py>=0.63.0.0",
+    # Generated code requires grpcio and protobuf at least as new as grpcio-tools and its protoc.
+    # Keep it at Home Assistant's pinned grpcio so the stubs load there.
+    "grpcio-tools==1.83.1",
+    "mypy-protobuf>=5.1.0",
+    "mypy>=2.4.0",
+    "ruff>=0.17.1",
+    "types-grpcio>=1.84.0.20260928",
 ]
 
 [project.urls]
@@ -48,7 +51,7 @@ source = "vcs"
 
 [tool.ruff]
 required-version = ">=0.11.0"
-target-version = "py39"
+target-version = "py312"
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
@@ -56,7 +59,7 @@ combine-as-imports = true
 split-on-trailing-comma = false
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 show_error_codes = true
 strict = true
 disallow_any_explicit = true

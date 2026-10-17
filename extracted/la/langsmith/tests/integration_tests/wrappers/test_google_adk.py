@@ -53,12 +53,8 @@ def _build_runner(agent, sync: bool = True):
 
     session_service = sessions.InMemorySessionService()
     if sync:
-        session_service.create_session_sync(
-            app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID
-        )
-    return runners.Runner(
-        agent=agent, app_name=APP_NAME, session_service=session_service
-    )
+        session_service.create_session_sync(app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
+    return runners.Runner(agent=agent, app_name=APP_NAME, session_service=session_service)
 
 
 async def _build_runner_async(agent):
@@ -66,12 +62,8 @@ async def _build_runner_async(agent):
     from google.adk import runners, sessions
 
     session_service = sessions.InMemorySessionService()
-    await session_service.create_session(
-        app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID
-    )
-    return runners.Runner(
-        agent=agent, app_name=APP_NAME, session_service=session_service
-    )
+    await session_service.create_session(app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
+    return runners.Runner(agent=agent, app_name=APP_NAME, session_service=session_service)
 
 
 def _extract_response(events) -> Optional[str]:
@@ -180,12 +172,8 @@ def test_sequential_agent(mock_ls_client: Client):
     configure_google_adk(name="sequential_test")
 
     with tracing_context(client=mock_ls_client, enabled=True):
-        translator = agents.Agent(
-            name="Translator", model=MODEL_NAME, description="Translates to English."
-        )
-        summarizer = agents.Agent(
-            name="Summarizer", model=MODEL_NAME, description="Summarizes text."
-        )
+        translator = agents.Agent(name="Translator", model=MODEL_NAME, description="Translates to English.")
+        summarizer = agents.Agent(name="Summarizer", model=MODEL_NAME, description="Summarizes text.")
         root = agents.SequentialAgent(
             name="TextProcessor",
             sub_agents=[translator, summarizer],

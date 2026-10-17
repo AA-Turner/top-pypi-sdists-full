@@ -82,9 +82,7 @@ class TestSyncRetry:
                 return _empty(), None
             return _started_then_exit(kwargs["command_id"]), None
 
-        monkeypatch.setattr(
-            "langsmith.sandbox._ws_execute.run_ws_stream", fake_run_ws_stream
-        )
+        monkeypatch.setattr("langsmith.sandbox._ws_execute.run_ws_stream", fake_run_ws_stream)
 
         result = sandbox.run("echo hi")
 
@@ -103,9 +101,7 @@ class TestSyncRetry:
                 return _raises(SandboxConnectTimeoutError("timed out")), None
             return _started_then_exit(kwargs["command_id"]), None
 
-        monkeypatch.setattr(
-            "langsmith.sandbox._ws_execute.run_ws_stream", fake_run_ws_stream
-        )
+        monkeypatch.setattr("langsmith.sandbox._ws_execute.run_ws_stream", fake_run_ws_stream)
 
         result = sandbox.run("echo hi")
 
@@ -130,9 +126,7 @@ class TestSyncRetry:
                 return _raises(error), None
             return _started_then_exit(kwargs["command_id"]), None
 
-        monkeypatch.setattr(
-            "langsmith.sandbox._ws_execute.run_ws_stream", fake_run_ws_stream
-        )
+        monkeypatch.setattr("langsmith.sandbox._ws_execute.run_ws_stream", fake_run_ws_stream)
 
         result = sandbox.run("echo hi")
 
@@ -148,9 +142,7 @@ class TestSyncRetry:
             calls.append(kwargs)
             return _raises(SandboxConnectionError("upgrade rejected (HTTP 404)")), None
 
-        monkeypatch.setattr(
-            "langsmith.sandbox._ws_execute.run_ws_stream", fake_run_ws_stream
-        )
+        monkeypatch.setattr("langsmith.sandbox._ws_execute.run_ws_stream", fake_run_ws_stream)
 
         with pytest.raises(SandboxConnectionError):
             sandbox.run("echo hi")
@@ -168,12 +160,8 @@ class TestSyncRetry:
             return _raises(SandboxConnectTimeoutError("timed out")), None
 
         monkeypatch.setattr("time.monotonic", lambda: clock["now"])
-        monkeypatch.setattr(
-            "time.sleep", lambda s: clock.__setitem__("now", clock["now"] + s)
-        )
-        monkeypatch.setattr(
-            "langsmith.sandbox._ws_execute.run_ws_stream", fake_run_ws_stream
-        )
+        monkeypatch.setattr("time.sleep", lambda s: clock.__setitem__("now", clock["now"] + s))
+        monkeypatch.setattr("langsmith.sandbox._ws_execute.run_ws_stream", fake_run_ws_stream)
 
         with pytest.raises(SandboxConnectTimeoutError):
             sandbox.run("echo hi")
@@ -191,9 +179,7 @@ class TestSyncRetry:
             calls.append(kwargs)
             return _empty(), None
 
-        monkeypatch.setattr(
-            "langsmith.sandbox._ws_execute.run_ws_stream", fake_run_ws_stream
-        )
+        monkeypatch.setattr("langsmith.sandbox._ws_execute.run_ws_stream", fake_run_ws_stream)
 
         with pytest.raises(_StreamEndedBeforeStarted):
             sandbox.run("echo hi", wait=False)

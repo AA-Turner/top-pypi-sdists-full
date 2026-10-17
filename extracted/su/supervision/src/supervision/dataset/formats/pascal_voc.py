@@ -108,14 +108,19 @@ def detections_to_pascal_voc(
     max_image_area_percentage: float = 1.0,
     approximation_percentage: float = 0.75,
 ) -> str:
-    """
-    Converts Detections object to Pascal VOC XML format.
+    """Converts a :class:`~supervision.detection.core.Detections` object to Pascal VOC
+    XML format.
+
+    A mask is written as one polygon object per connected component, with each hole
+    joined to its outer contour by a zero-width seam.
 
     Args:
-        detections: A Detections object containing bounding boxes,
+        detections: A :class:`~supervision.detection.core.Detections` object
+            containing bounding boxes,
             class ids, and other relevant information.
         classes: A list of class names corresponding to the
-            class ids in the Detections object.
+            class ids in the :class:`~supervision.detection.core.Detections`
+            object.
         filename: The name of the image file associated with the detections.
         image_shape: The shape of the image
             file associated with the detections.
@@ -131,7 +136,8 @@ def detections_to_pascal_voc(
     Note:
         ``detections`` is never mutated by this function; the source ``xyxy``
         array is unchanged after the call. The function is therefore safe to
-        call multiple times on the same ``Detections`` object. Empty masks and
+        call multiple times on the same
+        :class:`~supervision.detection.core.Detections` object. Empty masks and
         masks with no valid contour are written as bounding boxes; contours
         excluded by the area filters remain omitted.
     """
@@ -184,6 +190,7 @@ def detections_to_pascal_voc(
                 min_image_area_percentage=min_image_area_percentage,
                 max_image_area_percentage=max_image_area_percentage,
                 approximation_percentage=approximation_percentage,
+                bridge_holes=True,
             )
             if not polygons and not mask_to_polygons(mask=mask):
                 # Preserve area-filtered omissions; only invalid contours fall back.
@@ -212,8 +219,7 @@ def load_pascal_voc_annotations(
     force_masks: bool = False,
     show_progress: bool = False,
 ) -> tuple[list[str], list[str], dict[str, Detections]]:
-    """
-    Load Pascal VOC XML annotations in sorted image-path order.
+    """Load Pascal VOC XML annotations in sorted image-path order.
 
     Args:
         images_directory_path: The path to the directory containing the images.
@@ -230,7 +236,6 @@ def load_pascal_voc_annotations(
             and a dictionary with image paths as keys and corresponding
             Detections instances as values.
     """
-
     image_paths = sorted(
         str(path)
         for path in list_files_with_extensions(

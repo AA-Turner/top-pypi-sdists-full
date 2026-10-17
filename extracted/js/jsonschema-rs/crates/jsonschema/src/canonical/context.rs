@@ -30,12 +30,11 @@ pub(crate) enum CompiledMatcher {
 }
 
 impl CompiledMatcher {
-    /// A match error (e.g. `fancy_regex` hitting its backtrack limit) counts as no match, matching
-    /// the runtime `pattern` validator's `is_valid`.
-    pub(crate) fn is_match(&self, text: &str) -> bool {
+    /// `None` where the engine cannot finish the match, e.g. on reaching the backtrack limit.
+    fn is_match(&self, text: &str) -> Option<bool> {
         match self {
-            Self::Regex(regex) => regex.is_match(text),
-            Self::FancyRegex(regex) => regex.is_match(text).unwrap_or(false),
+            Self::Regex(regex) => Some(regex.is_match(text)),
+            Self::FancyRegex(regex) => regex.is_match(text).ok(),
         }
     }
 }
@@ -69,6 +68,9 @@ pub(crate) struct CanonicalizationContext {
     intersections_left: Cell<u64>,
     /// Variants the conditional splits of this run may still produce. Nesting multiplies them.
     variants_left: Cell<u64>,
+    /// Intersections this run has taken, which a run that gives up early leaves short of the budget.
+    #[cfg(test)]
+    intersections_taken: Cell<u64>,
     /// Set where a conditional split asked for more cases than were left.
     outgrew_cases: Cell<bool>,
     /// Address of the first subschema whose parse declined, for the pointer naming it. Compared
@@ -102,6 +104,8 @@ impl CanonicalizationContext {
             inexact_intersection: Cell::new(false),
             intersections_left: Cell::new(INTERSECTION_BUDGET),
             variants_left: Cell::new(VARIANT_BUDGET),
+            #[cfg(test)]
+            intersections_taken: Cell::new(0),
             outgrew_cases: Cell::new(false),
             declined_at: Cell::new(None),
             definitions: None,
@@ -185,6 +189,15 @@ impl CanonicalizationContext {
         self.inexact_intersection.get()
     }
 
+    /// Whether `matcher` matches `text`. A match the engine cannot finish may go either way, so the
+    /// run is discarded as an approximated one is, and the `false` returned decides nothing.
+    pub(crate) fn matches(&self, matcher: &CompiledMatcher, text: &str) -> bool {
+        matcher.is_match(text).unwrap_or_else(|| {
+            self.record_inexact_intersection();
+            false
+        })
+    }
+
     /// Run `probe`, reporting whether it reached an intersection the canonical form cannot express
     /// exactly. The flag is left as it was, so what a probe reaches decides nothing beyond its own
     /// answer. The intersection budget is not restored: it bounds the work one run may do, and
@@ -204,7 +217,21 @@ impl CanonicalizationContext {
             return false;
         }
         self.intersections_left.set(left - 1);
+        #[cfg(test)]
+        self.intersections_taken
+            .set(self.intersections_taken.get() + 1);
         true
+    }
+
+    /// Whether a product of unions with `width` branches fits in what this run may still spend. One
+    /// that does not would exhaust the allowance partway through, so it spends what is left now and
+    /// the run gives up exactly as it would had it taken the product's intersections one by one.
+    pub(crate) fn take_product(&self, width: u64) -> bool {
+        if width <= self.intersections_left.get() {
+            return true;
+        }
+        self.intersections_left.set(0);
+        false
     }
 
     /// Take `count` conditional-split variants from what this run may still spend, reporting
@@ -240,6 +267,11 @@ impl CanonicalizationContext {
         let (answer, _) = self.probe(work);
         self.intersections_left.set(budget);
         answer
+    }
+
+    #[cfg(test)]
+    pub(crate) fn intersections_taken(&self) -> u64 {
+        self.intersections_taken.get()
     }
 
     pub(crate) fn outgrew_distribution(&self) -> bool {

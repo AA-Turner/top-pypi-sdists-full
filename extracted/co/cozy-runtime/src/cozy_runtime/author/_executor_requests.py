@@ -43,13 +43,6 @@ class ChildEvents(_Request, frozen=True, kw_only=True, tag="child_events"):
     """The socket the worker nudges when one of this attempt's calls moves."""
 
 
-class Checkpoint(_Request, frozen=True, kw_only=True, tag="checkpoint"):
-    operation_key: str
-    logical_key: str
-    content_digest: str
-    length: int
-
-
 class ChildCall(_Request, frozen=True, kw_only=True, tag="child_call"):
     call_index: Annotated[int, msgspec.Meta(ge=0, le=MAX_CALL_INDEX)]
     module: str
@@ -157,18 +150,6 @@ class WriterAdopt(_Writer, frozen=True, kw_only=True, tag="adopt"):
     length: int
 
 
-class HostTier(_Request, frozen=True, kw_only=True, tag="host_tier"):
-    """One shared CPU weight buffer retained across executors. `offer` sends TensorD a
-    memfd; an ask receives the matching retained layout (`Tier` plus a memfd when held).
-    Runtime maps/pins the buffer through TensorFS; this exchange carries no GPU tensor."""
-
-    name: str
-    layout: str
-    offer: bool = False
-    #: the memfd the worker received with an offer; never on the wire
-    memfd: int = -1
-
-
 class SharedRegion(msgspec.Struct, frozen=True, kw_only=True):
     """One plane region of shared GPU memory: its chunks' bytes, in address order. One fd per
     chunk crosses the seam after the frame, in the same order."""
@@ -263,15 +244,10 @@ class ModelSource(_Request, frozen=True, kw_only=True, tag="model_source"):
     name: str = ""
 
 
-class SealedPrefetch(_Request, frozen=True, kw_only=True, tag="sealed_prefetch"):
-    """Every component's `SealedPlan` of one construction at once (a canonical JSON list in a
-    sealed memfd after the request): TensorD starts filling their CPU buffers, and each later
-    `SealedTier` ask waits only for its own. An older machine refuses; nothing changes."""
-
-    sha256: str
-    length: Annotated[int, msgspec.Meta(ge=0)]
-    #: the plans' memfd; never on the wire
-    memfd: int = -1
+class FetchChannel(_Request, frozen=True, kw_only=True, tag="fetch_channel"):
+    """A fresh fetch channel for the running call (`tensorfs.fetch`): a `Handoff` answers, one
+    connected socket following. It names only the call's selected checkpoints, never a hub
+    or credential, and ends with the call."""
 
 
 class BudgetCell(_Request, frozen=True, kw_only=True, tag="budget_cell"):
@@ -287,16 +263,14 @@ class BudgetCell(_Request, frozen=True, kw_only=True, tag="budget_cell"):
 
 type _Tagged = (
     DeviceRoom
-    | HostTier
     | DeviceTier
     | SealedTier
-    | SealedPrefetch
     | SealedStage
     | ObjectFiles
     | ModelSource
+    | FetchChannel
     | BudgetCell
     | ChildEvents
-    | Checkpoint
     | ChildCall
     | ChildPoll
     | ChildCancel
@@ -338,7 +312,8 @@ class Handoff(Answer, frozen=True, kw_only=True):
 
 
 class Tier(Answer, frozen=True, kw_only=True):
-    """The worker's answer to a `HostTier` ask; one memfd follows when `held`."""
+    """The machine's answer to a sealed layout ask (`SealedTier`); one memfd follows when
+    `held`."""
 
     held: bool = False
     descriptor: int = -1
@@ -395,11 +370,6 @@ class Room(Answer, frozen=True, kw_only=True):
     authorized_device_limit_bytes: int | UnsetType = UNSET
     #: The process cap once room was made (`process_cap/1`); -1 keeps the one it has
     cap_bytes: int = -1
-
-
-class CheckpointReceipt(Answer, frozen=True, kw_only=True):
-    receipt_id: str = ""
-    replayed: bool = False
 
 
 class CallProgress(msgspec.Struct, frozen=True, kw_only=True):
@@ -541,8 +511,8 @@ def respond(
     frame: Mapping[str, object], handler: Handler | None, received: int | None = None
 ) -> tuple[dict[str, object], socket.socket | int | None]:
     """The answer frame to one request frame, and the capability that follows it. `received`
-    is the memfd that came with the request (a `HostTier` offer); it goes to the handler or
-    is closed."""
+    is the memfd that came with the request (a `BudgetCell`); it goes to the handler or is
+    closed."""
     reply: Reply
     request: Request | None = None
     if handler is None:
@@ -552,7 +522,7 @@ def respond(
             request = decode(frame)
         except CapabilityError as exc:
             reply = refuse(exc.code, exc.message)
-    if isinstance(request, HostTier | BudgetCell):
+    if isinstance(request, BudgetCell):
         # The descriptor is only ever the one that arrived: a number on the wire is not.
         request = msgspec.structs.replace(request, memfd=-1 if received is None else received)
     elif isinstance(request, DeviceTier):
@@ -564,7 +534,7 @@ def respond(
         try:
             reply = handler(request)
         except Exception as exc:  # answered, so the executor's exchange stays in step
-            if isinstance(request, HostTier | BudgetCell) and request.memfd >= 0:
+            if isinstance(request, BudgetCell) and request.memfd >= 0:
                 with contextlib.suppress(OSError):
                     os.close(request.memfd)
             reply = refuse("request_failed", f"{type(exc).__name__}: {exc}"[:400])

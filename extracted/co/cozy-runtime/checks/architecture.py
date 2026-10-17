@@ -61,8 +61,9 @@ PACKAGE_FENCES: dict[str, tuple[str, ...]] = {
     "fusion": ("cozy_runtime.internal", "cozy_runtime.cli", "worker_protocol", "tensorfs"),
     # LM decode: static cache and CUDA-graphed steps; placement through the author protocol.
     "lm": ("cozy_runtime.internal", "cozy_runtime.cli", "worker_protocol", "tensorfs"),
-    # CUDA graphs over plane-held weights: the one capture recipe.
-    "graphs": ("cozy_runtime.internal", "cozy_runtime.cli", "worker_protocol", "tensorfs"),
+    # CUDA graphs over plane-held weights, which the executor installs on every component; a
+    # replay reports the attention it serves into the run's evidence.
+    "graphs": ("cozy_runtime.cli", "worker_protocol", "tensorfs"),
     # The activation probe (cr-075): a public mechanism surface shaped like `derive` — job
     # code and the runtime verb both build on it; it never reaches the worker planes.
     "probe": ("cozy_runtime.internal", "cozy_runtime.cli", "worker_protocol", "tensorfs"),
@@ -74,7 +75,7 @@ PACKAGE_FENCES: dict[str, tuple[str, ...]] = {
 SCOPED_TENSORFS_FILES = frozenset(
     {
         "author/_context.py",
-        "author/_model_reader.py",
+        "author/_weights.py",
         "author/_invoke.py",
         "derive/facade.py",
         "derive/operations.py",
@@ -308,7 +309,7 @@ def fence_env_authority() -> list[str]:
     # The one env read the fence protects builds the class-B/C/D child envs of
     # tracker-v2/spawn-allowlists.md (#616.d).
     bad: list[str] = []
-    # A build script beside kernel sources is in no package; its builder hands it the card.
+    # A build script beside kernel sources is in no package: the compile job hands it its env.
     for path in (p for p in py_files() if (p.parent / "__init__.py").exists()):
         if path == ENV_AUTHORITY:
             continue
@@ -658,7 +659,6 @@ STATIC_READER_IMPORTS = frozenset(
         "cozy_runtime.author",
         "cozy_runtime._interpreter",  # packaged policy reader; no authored code is imported
         "cozy_runtime.internal.package_interface",
-        "cozy_runtime.internal.bindings",
         "cozy_runtime.internal.canonical",
         "cozy_runtime.internal.static_interface",
         "cozy_runtime.internal.static_invocable",
@@ -900,7 +900,7 @@ def fence_one_address_predicate() -> list[str]:
 #: `dict[str, Any]` record's missing key, 2026-09-28). Records are decoded once, at their
 #: boundary, into typed structs; this count under `internal/` may only fall. Lower it in
 #: the change that removes some.
-ANY_CEILING = 697
+ANY_CEILING = 648
 
 
 def any_references(tree: ast.AST) -> int:

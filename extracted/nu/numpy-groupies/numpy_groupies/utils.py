@@ -9,12 +9,13 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
-from .aggregate_common import (
+from numpy_groupies.aggregate_common import (
     DEFAULT_FILL_VALUE,
     _forced_float_types,
     _forced_real_float_types,
     check_complex_dtype,
     get_aliasing,
+    is_scalar_input,
     resolve_fill_value,
 )
 
@@ -29,7 +30,7 @@ def default_fill_value(func: str | Callable[..., Any], dtype: npt.DTypeLike = No
     return resolve_fill_value(func, DEFAULT_FILL_VALUE, np.dtype(dtype) if dtype is not None else np.float64)
 
 
-def check_nton_shape(ret: np.ndarray, size, func) -> None:
+def check_nton_shape(ret: npt.NDArray[np.generic], size: int | tuple[int, ...] | None, func: str) -> None:
     """Complain early when a one-out-per-in function has to fill a hole.
 
     ``sort`` and the ``cum``-functions emit exactly one value per input item,
@@ -196,11 +197,26 @@ _forced_same_type = {
 }
 
 
-def check_dtype(dtype: npt.DTypeLike, func_str: str, a: np.ndarray, n: int | tuple[int, ...] | None) -> np.dtype:
-    if np.isscalar(a) or not a.shape:
+def scalar_dtype(a: Any) -> np.dtype:
+    """The dtype of scalar input data.
+
+    A python number carries no dtype, so its type stands in for one, while a
+    numpy scalar and a 0d array both carry the dtype of their value.  Asking
+    ``type(a)`` is not an option here: for the numpy scalar and for the 0d
+    array that is ``numpy.float32``/``numpy.ndarray``, and
+    ``np.dtype(np.ndarray)`` is the object dtype.
+    """
+    dtype = getattr(a, "dtype", None)
+    return np.dtype(type(a)) if dtype is None else np.dtype(dtype)
+
+
+def check_dtype(
+    dtype: npt.DTypeLike, func_str: str, a: npt.NDArray[np.generic], n: int | tuple[int, ...] | None
+) -> np.dtype:
+    if is_scalar_input(a):
         if func_str not in ("sum", "prod", "len"):
             raise ValueError("scalar inputs are supported only for 'sum', 'prod' and 'len'")
-        a_dtype = np.dtype(type(a))
+        a_dtype = scalar_dtype(a)
     else:
         a_dtype = a.dtype
 
@@ -307,7 +323,9 @@ def check_fill_value(fill_value, dtype, func=None):
             raise ValueError(f"fill_value must be convertible into {dtype.type.__name__}")
 
 
-def check_group_idx(group_idx: np.ndarray, a: np.ndarray | None = None, check_min: bool = True) -> None:
+def check_group_idx(
+    group_idx: npt.NDArray[np.integer], a: npt.NDArray[np.generic] | None = None, check_min: bool = True
+) -> None:
     if a is not None and group_idx.size != a.size:
         raise ValueError("The size of group_idx must be the same as a.size")
     if not issubclass(group_idx.dtype.type, np.integer):
@@ -481,7 +499,7 @@ def input_validation(
 # General tools
 
 
-def unpack(group_idx: npt.ArrayLike, ret: np.ndarray) -> np.ndarray:
+def unpack(group_idx: npt.ArrayLike, ret: npt.NDArray[np.generic]) -> npt.NDArray[np.generic]:
     """
     Take an aggregate packed array and uncompress it to the size of group_idx. This is equivalent to
     ret[group_idx].
@@ -505,7 +523,7 @@ def nanlast(x):
     return x[~np.isnan(x)][-1]
 
 
-def multi_arange(n: npt.ArrayLike) -> np.ndarray:
+def multi_arange(n: npt.ArrayLike) -> npt.NDArray[np.intp]:
     """By example:
 
         #    0  1  2  3  4  5  6  7  8
@@ -530,7 +548,7 @@ def multi_arange(n: npt.ArrayLike) -> np.ndarray:
     return np.cumsum(ret)[:-1]
 
 
-def label_contiguous_1d(X: np.ndarray) -> np.ndarray:
+def label_contiguous_1d(X: npt.NDArray[np.generic]) -> npt.NDArray[np.intp]:
     """
     WARNING: API for this function is liable to change!!!
 
@@ -568,7 +586,7 @@ def label_contiguous_1d(X: np.ndarray) -> np.ndarray:
     return L
 
 
-def relabel_groups_unique(group_idx: np.ndarray) -> np.ndarray:
+def relabel_groups_unique(group_idx: npt.NDArray[np.integer]) -> npt.NDArray[np.intp]:
     """
     See also ``relabel_groups_masked``.
 
@@ -587,7 +605,7 @@ def relabel_groups_unique(group_idx: np.ndarray) -> np.ndarray:
     return relabel_groups_masked(group_idx, keep_group)
 
 
-def relabel_groups_masked(group_idx: np.ndarray, keep_group: npt.ArrayLike) -> np.ndarray:
+def relabel_groups_masked(group_idx: npt.NDArray[np.integer], keep_group: npt.ArrayLike) -> npt.NDArray[np.intp]:
     """
     group_idx: [0 3 3 3 0 2 5 2 0 1 1 0 3 5 5]
 

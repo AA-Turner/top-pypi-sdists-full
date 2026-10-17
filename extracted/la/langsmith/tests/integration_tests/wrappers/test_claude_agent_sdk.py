@@ -12,18 +12,12 @@ except ImportError:
 from langsmith import traceable
 from langsmith.integrations.claude_agent_sdk import _hooks as _hooks_module
 
-pytestmark = pytest.mark.skipif(
-    not CLAUDE_SDK_AVAILABLE, reason="Claude Agent SDK not installed"
-)
+pytestmark = pytest.mark.skipif(not CLAUDE_SDK_AVAILABLE, reason="Claude Agent SDK not installed")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-_WEATHER_PROMPT = (
-    "You have a get_weather tool. "
-    "When the user asks about weather, call it. "
-    "Only call the tool once."
-)
+_WEATHER_PROMPT = "You have a get_weather tool. When the user asks about weather, call it. Only call the tool once."
 
 
 async def _allow_all(tool_name, tool_input, context):  # type: ignore[no-untyped-def]
@@ -54,9 +48,7 @@ async def test_tool_failure_creates_error_trace():
 
     tool_result_blocks = []
     async with claude_agent_sdk.ClaudeSDKClient(options=options) as client:
-        await client.query(
-            "Run this exact bash command: cat /tmp/__langsmith_test_nonexistent.txt"
-        )
+        await client.query("Run this exact bash command: cat /tmp/__langsmith_test_nonexistent.txt")
         async for msg in client.receive_response():
             if type(msg).__name__ == "UserMessage" and hasattr(msg, "content"):
                 for block in msg.content:
@@ -116,9 +108,7 @@ async def test_subagent():
                 "name": self.name,
                 "run_type": self.run_type,
                 "id": str(self.id),
-                "parent_run_id": str(self.parent_run_id)
-                if self.parent_run_id
-                else None,
+                "parent_run_id": str(self.parent_run_id) if self.parent_run_id else None,
             }
         )
         return original_post(self, *args, **kwargs)
@@ -140,26 +130,17 @@ async def test_subagent():
     # Should have: Agent tool, foo subagent chain, Bash tools (inside subagent)
     assert "Agent" in run_names, f"Expected Agent tool run, saw: {run_names}"
     assert "foo" in run_names, f"Expected foo subagent chain run, saw: {run_names}"
-    assert "Bash" in run_names, (
-        f"Expected Bash tool run inside subagent, saw: {run_names}"
-    )
+    assert "Bash" in run_names, f"Expected Bash tool run inside subagent, saw: {run_names}"
 
     # Verify nesting: foo should be a child of Agent
     agent_run = next(r for r in posted_runs if r["name"] == "Agent")
     foo_run = next(r for r in posted_runs if r["name"] == "foo")
-    assert foo_run["parent_run_id"] == agent_run["id"], (
-        "foo subagent should be nested under Agent tool"
-    )
+    assert foo_run["parent_run_id"] == agent_run["id"], "foo subagent should be nested under Agent tool"
 
     # Verify both Bash runs are nested under the foo subagent
-    bash_runs = [
-        r
-        for r in posted_runs
-        if r["name"] == "Bash" and r["parent_run_id"] == foo_run["id"]
-    ]
+    bash_runs = [r for r in posted_runs if r["name"] == "Bash" and r["parent_run_id"] == foo_run["id"]]
     assert len(bash_runs) >= 2, (
-        f"Expected at least 2 Bash tool runs under foo subagent,"
-        f" saw {len(bash_runs)}: {run_names}"
+        f"Expected at least 2 Bash tool runs under foo subagent, saw {len(bash_runs)}: {run_names}"
     )
 
     # Verify LLM runs under the foo subagent.
@@ -169,13 +150,10 @@ async def test_subagent():
     subagent_llm_runs = [
         r
         for r in posted_runs
-        if r["name"] == "claude.assistant.turn"
-        and r["run_type"] == "llm"
-        and r["parent_run_id"] == foo_run["id"]
+        if r["name"] == "claude.assistant.turn" and r["run_type"] == "llm" and r["parent_run_id"] == foo_run["id"]
     ]
     assert len(subagent_llm_runs) >= 2, (
-        f"Expected at least 2 LLM runs under foo subagent, saw"
-        f" {len(subagent_llm_runs)}: {subagent_llm_runs}"
+        f"Expected at least 2 LLM runs under foo subagent, saw {len(subagent_llm_runs)}: {subagent_llm_runs}"
     )
 
 
@@ -226,9 +204,7 @@ async def test_continue_session():
                 "name": self.name,
                 "run_type": self.run_type,
                 "id": str(self.id),
-                "parent_run_id": str(self.parent_run_id)
-                if self.parent_run_id
-                else None,
+                "parent_run_id": str(self.parent_run_id) if self.parent_run_id else None,
             }
         )
         return original_post(self, *args, **kwargs)
@@ -288,9 +264,7 @@ async def test_custom_tool_permission_denied():
                     if type(block).__name__ == "ToolUseBlock":
                         tool_names_seen.append(block.name)
 
-    assert any("get_weather" in n for n in tool_names_seen), (
-        f"Expected get_weather tool call, saw: {tool_names_seen}"
-    )
+    assert any("get_weather" in n for n in tool_names_seen), f"Expected get_weather tool call, saw: {tool_names_seen}"
     assert len(_hooks_module._default_session.active_tool_runs) == 0
 
 
@@ -354,18 +328,13 @@ async def test_custom_tool_permission_granted():
                     if type(block).__name__ == "ToolResultBlock":
                         tool_results_seen.append(str(getattr(block, "content", "")))
 
-    assert any("get_weather" in n for n in tool_names_seen), (
-        f"Expected get_weather tool call, saw: {tool_names_seen}"
-    )
-    assert any("Foggy" in r for r in tool_results_seen), (
-        f"Expected 'Foggy' in results, saw: {tool_results_seen}"
-    )
+    assert any("get_weather" in n for n in tool_names_seen), f"Expected get_weather tool call, saw: {tool_names_seen}"
+    assert any("Foggy" in r for r in tool_results_seen), f"Expected 'Foggy' in results, saw: {tool_results_seen}"
     assert len(_hooks_module._default_session.active_tool_runs) == 0
 
     # @traceable inner_helper should nest under the tool run
     assert captured_parent_run_id is not None, (
-        "inner_helper's parent_run_id was None — "
-        "@traceable did not find a parent context"
+        "inner_helper's parent_run_id was None — @traceable did not find a parent context"
     )
 
 
@@ -398,9 +367,7 @@ async def test_concurrent_three_clients_are_isolated():
                 "name": self.name,
                 "run_type": self.run_type,
                 "id": str(self.id),
-                "parent_run_id": str(self.parent_run_id)
-                if self.parent_run_id
-                else None,
+                "parent_run_id": str(self.parent_run_id) if self.parent_run_id else None,
             }
         )
         return original_post(self, *args, **kwargs)
@@ -408,10 +375,7 @@ async def test_concurrent_three_clients_are_isolated():
     async def run_one(label: str) -> dict:
         options = ClaudeAgentOptions(
             model="claude-haiku-4-5",
-            system_prompt=(
-                "You must call the Bash tool exactly once with command "
-                f"'echo {label}', then stop."
-            ),
+            system_prompt=(f"You must call the Bash tool exactly once with command 'echo {label}', then stop."),
             allowed_tools=["Bash"],
             permission_mode="bypassPermissions",
             max_turns=2,
@@ -454,23 +418,15 @@ async def test_concurrent_three_clients_are_isolated():
 
     for result in results:
         assert "Bash" in result["tool_names_seen"], (
-            f"Expected Bash tool call for {result['label']}, saw: "
-            f"{result['tool_names_seen']}"
+            f"Expected Bash tool call for {result['label']}, saw: {result['tool_names_seen']}"
         )
-        assert any(
-            result["label"] in output for output in result["tool_results_seen"]
-        ), (
-            f"Expected tool output containing {result['label']}, saw: "
-            f"{result['tool_results_seen']}"
+        assert any(result["label"] in output for output in result["tool_results_seen"]), (
+            f"Expected tool output containing {result['label']}, saw: {result['tool_results_seen']}"
         )
-        assert result["session_ids_seen"], (
-            f"Expected session_id for {result['label']}, saw none"
-        )
+        assert result["session_ids_seen"], f"Expected session_id for {result['label']}, saw none"
 
     bash_parent_ids = {
-        run["parent_run_id"]
-        for run in posted_runs
-        if run["name"] == "Bash" and run["run_type"] == "tool"
+        run["parent_run_id"] for run in posted_runs if run["name"] == "Bash" and run["run_type"] == "tool"
     }
     assert len(bash_parent_ids) == 3, (
         "Each concurrent client's Bash tool run should be under its own root "

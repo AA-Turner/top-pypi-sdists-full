@@ -46,9 +46,9 @@ quadratic in the worst case, and a timeout that fires mid-merge leaves a request
 holding a half-computed document with nothing useful to return. `MERGE_MAX_LINES`
 refuses the merge up front instead, and the caller degrades to the ordinary
 stale-version conflict -- the behaviour every client already handles. The cap is
-generous against a 100k-character document: prose runs 40-80 characters a line,
-so a real document is 1k-3k lines, and only a pathological one (a newline every
-few characters) reaches the cap.
+generous against a note at its 150k-character backstop: prose runs 40-80
+characters a line, so a real document is 2k-4k lines, and only a pathological
+one (a newline every few characters) reaches the cap.
 
 `autojunk` is OFF. Its heuristic drops lines that appear in more than 1% of a
 large input, which for a markdown document means blank lines and repeated
@@ -64,7 +64,7 @@ from dataclasses import dataclass
 #: Refuse rather than merge above this. See the module docstring: the cap IS the
 #: complexity bound, and refusing degrades to a conflict the caller already
 #: handles.
-MERGE_MAX_LINES = 5_000
+MERGE_MAX_LINES = 7_500
 
 #: Git's markers, deliberately verbatim. An agent that has resolved a merge
 #: conflict in a repository resolves this one without new instructions, and any

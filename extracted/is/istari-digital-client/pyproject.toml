@@ -1,6 +1,6 @@
 [project]
 name = "istari-digital-client"
-version = "13.3.2"
+version = "13.3.3"
 description = "Python client for the Istari Digital platform"
 license = { file = "LICENSE" }
 readme = "README.md"

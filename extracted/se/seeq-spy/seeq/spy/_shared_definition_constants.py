@@ -41,8 +41,8 @@ CAPSULE_SELECTION = types.SimpleNamespace(
 DEFAULT_DATE_RANGE = {
     'auto': {
         'enabled': False,
-        # moment.duration(1, 'days').valueOf() is an integer number of milliseconds, and the value is interpolated
-        # into generated formulas, so it must not become '86400000.0'.
+        # moment.duration(1, 'days').asMilliseconds() is an integer number of milliseconds, and the value is
+        # interpolated into generated formulas, so it must not become '86400000.0'.
         'duration': int(datetime.timedelta(days=1).total_seconds() * 1000),
         'offset': {'value': 0, 'units': 'min'},
         'offsetDirection': OFFSET_DIRECTION.PAST,

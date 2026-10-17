@@ -40,6 +40,9 @@ async def test_a_holder_turn_carries_the_conversations_sticky_toolset(
     class _Holder:
         config = holder_config
 
+        async def run_first_turn_pass(self) -> _Holder:
+            return self
+
     async def from_agent(agent_id: str, **_kwargs: object) -> _Holder:
         return _Holder()
 

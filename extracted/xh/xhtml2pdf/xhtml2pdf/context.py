@@ -14,12 +14,13 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import logging
 import ntpath
 import re
 import urllib.parse as urlparse
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT
 from reportlab.lib.fonts import addMapping
@@ -61,6 +62,7 @@ from xhtml2pdf.util import (
     set_value,
     shape_frag_text,
     split_by_coverage,
+    toList,
 )
 from xhtml2pdf.w3c import css
 from xhtml2pdf.xhtml2pdf_reportlab import (
@@ -121,47 +123,48 @@ class PmlParaFrag(DeepCopiedDirectly, ParaFrag):
         return n
 
 
-#: The file each embedded face was built from, by its ReportLab name. Process
-#: wide, like reportlab's font registry, so that the two can be compared at all.
+#: The md5 of the file each embedded face was built from, by its ReportLab
+#: name. Process wide, like ReportLab's font registry, which it describes.
 _embedded_font_source: dict[str, str] = {}
 
 
-def registerTTFont(fullFontName: str, file) -> None:
+def _file_digest(name: str | None) -> str | None:
+    if name is None:
+        return None
+    try:
+        with open(name, "rb") as handle:
+            return hashlib.md5(handle.read()).hexdigest()
+    except OSError:
+        return None
+
+
+def registerTTFont(fullFontName: str, file) -> str:
     """
-    Make an embedded TrueType font available to ReportLab under fullFontName.
+    Make an embedded TrueType font available to ReportLab; return its name.
 
-    Not a cache: registerFont keeps whichever object is already registered
-    under a dynamic font's name, so from the second document
-    of a process onwards the TTFont built here was discarded on arrival. This
-    builds the object that gets used and skips the ones that never did --
-    which matters because building one reads and parses the whole font file,
-    7 ms for a Latin face and 70 ms for a CJK one, per weight.
-
-    The name is all that is consulted, so a second document declaring the same
-    font-family from a different file keeps the face the first one embedded.
-    That predates this; what is new is that it says so.
+    The name is fullFontName unless that name already holds another file in
+    this process -- two documents declaring the same font-family from
+    different files -- when the file's digest is added to it, so that each
+    document draws with the file it named. A file registered once is not
+    built again: building one reads and parses the whole font file, 7 ms for
+    a Latin face and 70 ms for a CJK one, per weight.
     """
     name = file.getNamedFile()
-    if fullFontName in pdfmetrics.getRegisteredFontNames():
-        # Same name, different file: the document is going to be drawn with
-        # the other one's glyphs, and until now nothing said a word. Whether
-        # the file is the same cannot be asked of a TTFont, which does not
-        # keep its source, so the filename this render resolved is recorded
-        # alongside and compared.
+    digest = _file_digest(name)
+    registered = pdfmetrics.getRegisteredFontNames()
+    if fullFontName in registered:
         previous = _embedded_font_source.get(fullFontName)
-        if previous is not None and name is not None and previous != name:
-            log.warning(
-                "Font %r is already embedded in this process from %r, so %r is "
-                "ignored and the text is drawn with the first one. Give the two "
-                "families different names.",
-                fullFontName,
-                previous,
-                name,
-            )
-        return
-    if name is not None:
-        _embedded_font_source[fullFontName] = name
+        if previous is None or digest is None or previous == digest:
+            # The same file, or a font registered outside xhtml2pdf, which
+            # keeps its name.
+            return fullFontName
+        fullFontName = f"{fullFontName}_{digest[:8]}"
+        if fullFontName in registered:
+            return fullFontName
+    if digest is not None:
+        _embedded_font_source[fullFontName] = digest
     pdfmetrics.registerFont(TTFont(fullFontName, name))
+    return fullFontName
 
 
 def getParaFrag(style) -> ParaFrag:
@@ -402,6 +405,31 @@ class pisaCSSBuilder(css.CSSBuilder):
             data,
         )
 
+    #: The values of -pdf-frame-pages: which pages a static frame is on.
+    FRAME_PAGES: ClassVar[frozenset[str]] = frozenset({"all", "last", "not-last"})
+
+    def _framePages(self, data: dict) -> str:
+        """
+        Which pages a static frame is painted on, from -pdf-frame-pages.
+
+        Knowing the last page takes a second pass over the document, which
+        asking for it turns on, as <pdf:pagecount> does.
+        """
+        value = "".join(str(part) for part in toList(data.get("-pdf-frame-pages", "")))
+        value = value.strip().lower() or "all"
+        if value not in self.FRAME_PAGES:
+            log.warning(
+                self.c.warning(
+                    "Ignoring -pdf-frame-pages: %s; use one of %s",
+                    value,
+                    ", ".join(sorted(self.FRAME_PAGES)),
+                )
+            )
+            return "all"
+        if value != "all":
+            self.c.addPageCount()
+        return value
+
     @staticmethod
     def _getFromData(data, attr, default=None, func: Callable | None = None):
         if not func:
@@ -629,6 +657,7 @@ class pisaCSSBuilder(css.CSSBuilder):
                 frame.pisaStaticOverflowMode = getKeepInFrameMode(
                     fdata.get("-pdf-keep-in-frame-mode", "shrink")
                 )
+                frame.pisaPages = self._framePages(fdata)
                 c.frameStatic[static] = [frame, *c.frameStatic.get(static, [])]
                 staticList.append(frame)
             else:
@@ -767,42 +796,73 @@ class PageNumberText:
         # if it were empty and everything around it moves once the number
         # arrives. It comes from the example attribute of <pdf:pagenumber>.
         self.data: str = placeholder
+        #: Whether the paragraph holding it set the number as it was laid out.
+        self._resolved = False
+
+    def resolve(self, doc) -> None:
+        """Take the number of the page `doc` is laying out."""
+        pageLabel = getattr(doc, "pageLabel", None)
+        page = getattr(doc, "page", None)
+        if page is not None:
+            self.data = str(pageLabel(page) if pageLabel else page)
+            self._resolved = True
+
+    def _refresh(self) -> str:
+        # Read on every use: each layout pass draws the flowable again, and
+        # a later pass knows more (the page count, a renumbering). Only for
+        # a paragraph laid out where no document says which page it is on.
+        if not self._resolved and self.flowable.page is not None:
+            self.data = str(self.flowable.page)
+        return self.data
 
     def __contains__(self, key) -> bool:
-        if self.flowable.page is not None:
-            self.data = str(self.flowable.page)
+        self._refresh()
         return False
 
     def split(self, text: str) -> list[str]:
-        return [self.data]
+        return [self._refresh()]
 
     def __getitem__(self, index: int) -> str:
-        return self.data[index] if self.data else self.data
+        data = self._refresh()
+        return data[index] if data else data
 
     def setFlowable(self, flowable: Flowable) -> None:
         self.flowable = flowable
 
     def __str__(self) -> str:
-        return self.data
+        return self._refresh()
 
 
 class PageCountText:
     def __init__(self, *args, **kwargs) -> None:
         self.data: str = ""
+        self._resolved = False
 
-    def __str__(self) -> str:
+    def resolve(self, doc) -> None:
+        """Take the page count `doc` has: the whole document's, from a second pass."""
+        count = getattr(doc, "_page_count", None)
+        if count:
+            self.data = str(count)
+            self._resolved = True
+
+    def _refresh(self) -> str:
+        if not self._resolved and self.flowable.pagecount is not None:
+            self.data = str(self.flowable.pagecount)
         return self.data
 
+    def __str__(self) -> str:
+        return self._refresh()
+
     def __contains__(self, key) -> bool:
-        if self.flowable.pagecount is not None:
-            self.data = str(self.flowable.pagecount)
+        self._refresh()
         return False
 
     def split(self, text: str) -> list[str]:
-        return [self.data]
+        return [self._refresh()]
 
     def __getitem__(self, index: int) -> str:
-        return self.data if not self.data else self.data[index]
+        data = self._refresh()
+        return data if not data else data[index]
 
     def setFlowable(self, flowable: Flowable) -> None:
         self.flowable = flowable
@@ -855,6 +915,9 @@ class pisaContext:
         self.node: Element | None = None
         self.template = None
         self.tableData: TableData = TableData()
+        #: The side padding of <html> and <body>: what indents the page's
+        #: content, tables included (see parser._take_page_padding).
+        self.pageInset: tuple[float, float] = (0.0, 0.0)
         #: The flex container being collected, if the walk is inside one.
         self.flexData: FlexData = FlexData()
         self.err: int = 0
@@ -1797,7 +1860,7 @@ class pisaContext:
                     )
                 else:
                     # Register TTF font and special name
-                    registerTTFont(fullFontName, file)
+                    psName = registerTTFont(fullFontName, file)
 
                     # Add or replace missing styles
                     for is_bold in (0, 1):
@@ -1805,10 +1868,10 @@ class pisaContext:
                             if (
                                 "%s_%d%d" % (fontName, is_bold, is_italic)
                             ) not in self.fontList:
-                                addMapping(fontName, is_bold, is_italic, fullFontName)
+                                addMapping(fontName, is_bold, is_italic, psName)
 
                     # Register "normal" name and the place holder for style
-                    self.registerFont(fontName, [*fontAlias, fullFontName])
+                    self.registerFont(fontName, [*fontAlias, fullFontName, psName])
 
             elif font_type in {"afm", ""}:
                 if font_type == "afm":

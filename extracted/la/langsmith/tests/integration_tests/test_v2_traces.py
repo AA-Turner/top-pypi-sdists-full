@@ -77,7 +77,7 @@ async def project_with_runs(langchain_client: Client):
     async def _runs_indexed() -> Optional[str]:
         """Return the project id once at least one of its runs is queryable."""
         project_id = str(langchain_client.read_project(project_name=project_name).id)
-        async for _ in langchain_client.runs.query(
+        async for _ in langchain_client.runs.query_v2(
             project_ids=[project_id],
             min_start_time=min_start_time,
             max_start_time=max_start_time,

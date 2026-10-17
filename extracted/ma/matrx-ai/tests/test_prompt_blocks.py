@@ -243,6 +243,23 @@ def test_a_tool_bound_block_is_absent_when_the_tool_is_not_in_the_run() -> None:
     assert with_tool.prompt_block_texts == {"web_rules": "Search well."}
 
 
+def test_a_tool_bound_block_that_is_off_says_so(caplog) -> None:
+    """Never a silent "": the report (the Model view's Prompt blocks list) and the log name why."""
+    import logging
+
+    rows = [row("web_rules", "system", "Search well.", bound_tool="web_search")]
+    without = _declared("web_rules", tools=["read_file"])
+    with caplog.at_level(logging.INFO, logger="matrx_ai.prompt_blocks.resolve"):
+        resolve(without, FakeSource(rows))
+    report = without.prompt_block_report[0]
+    assert report["off"] == "tool not in run" and report["bound_tool"] == "web_search"
+    assert report["chars"] == 0
+    assert any("web_rules" in r.getMessage() and "web_search" in r.getMessage() for r in caplog.records)
+    with_tool = _declared("web_rules", tools=["web_search"])
+    resolve(with_tool, FakeSource(rows))
+    assert with_tool.prompt_block_report[0]["off"] is None
+
+
 def test_a_skill_linked_block_renders_the_skill_body_and_brings_its_tools() -> None:
     rows = [row("deep-research", "system", "", source_kind="skill", source_ref="deep-research")]
     skills = {"deep-research": SkillBody("deep-research", "Research deeply.", ("tool-a", "tool-b"))}

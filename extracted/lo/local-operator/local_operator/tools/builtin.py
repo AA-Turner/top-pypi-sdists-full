@@ -2520,15 +2520,15 @@ class BashParams(BaseModel):
         ),
     )
     # Terse on purpose, like every field here: the schema rides every request.
-    # The semantics are the three the reader needs — unset = config, 0 = no
-    # budget for this call, > 0 = explicit ceiling in MB.
+    # A positive value chooses a ceiling, never overrides the machine-wide
+    # off switch. Advertise that condition rather than promising a cap which
+    # compute_budget intentionally disables when bash.memory.enabled is false.
     memory_mb: float | None = Field(
         default=None,
         description=(
-            "Optional RAM ceiling in MB for this command's process group. Omit to "
-            "use the configured budget; 0 disables the limit for this call; a "
-            "positive number overrides it. Exceeding the limit kills the command's "
-            "group."
+            "Process-group RAM ceiling in MB. Omit for configured budget; "
+            "0 disables this call's limit. Positive overrides the budget only when "
+            "bash.memory.enabled=true. Exceeding the limit kills the group."
         ),
     )
 
@@ -4069,6 +4069,19 @@ async def execute_bash(
         injections=injections,
     )
 
+    # Latch/filter shell policy FIRST: ConfigManager's budget read can quarantine
+    # malformed YAML, making a later policy probe see an absent file and silently
+    # inherit credentials. This preserves the existing fail-closed first read.
+    # Still resolve BEFORE spawn: a cooperative runner can immediately start a
+    # separate PG outside our group accounting. Reuse this Budget for both guards.
+    memory_budget = _configured_memory_budget(params.memory_mb)
+
+    # Resource metadata is reserved, not a credential grant: caller extras or
+    # shell policy exclusion must not silently drop/widen the resolved ceiling.
+    # A command can still deliberately use env -i; this is cooperative PG
+    # accounting, not arbitrary-descendant or adversarial containment.
+    env[memory_guard.RESOLVED_MEMORY_MB_ENV] = str(memory_budget.ceiling_mb)
+
     # Real bash, not /bin/sh (#629). On macOS /bin/sh is bash 3.2 in POSIX
     # mode, which rejects process substitution and other bashisms at parse
     # time — and because this tool is NAMED bash, models write bash: 37 of 43
@@ -4195,7 +4208,6 @@ async def execute_bash(
     # host) is the pre-guard behaviour. The guard can only ever read and kill
     # THIS pgid: it never discovers a group of its own, so it cannot touch the
     # runtime or a sibling session (F5).
-    memory_budget = _configured_memory_budget(params.memory_mb)
     guard: memory_guard.Guard | None = None
     if spawned_pgid is not None and memory_budget.source != "disabled":
         guard = memory_guard.Guard(spawned_pgid, memory_budget)
@@ -8393,9 +8405,9 @@ def _scratchpad_target(
     file needs a file name — ``write(path="scratchpad://")`` is a refusal, not a
     silent write to the directory's own path.
 
-    ``size`` is the payload's length in bytes for the caller that has one
-    (``write``); it is optional because ``edit`` sees only its hunks and so is
-    judged on the name alone.
+    ``size`` is the payload's length in bytes when it is already known.
+    ``edit`` does its address/name preflight here, then checks the computed
+    payload under its file transaction before any mutation.
     """
     root = _scratchpad_root(context)
     if root is None:
@@ -9845,16 +9857,29 @@ async def execute_edit(
     # same load: file IO plus pure-Python matching and difflib over the whole
     # file. Keeping that work on the Textual loop merely moved the reported
     # freeze from the old one-hunk path into the new implementation.
-    outcome = await asyncio.to_thread(
-        _edit_file_result, path, hunks, params.anchor_line, params.path
-    )
+    is_scratchpad = _has_scratchpad_scheme(url)
+    try:
+        if is_scratchpad:
+            outcome = await asyncio.to_thread(
+                _edit_file_result,
+                path,
+                hunks,
+                params.anchor_line,
+                params.path,
+                scratch_root=_scratchpad_root(context),
+            )
+        else:
+            outcome = await asyncio.to_thread(
+                _edit_file_result, path, hunks, params.anchor_line, params.path
+            )
+    except ScratchpadContentError as exc:
+        return _invalid_arguments(tool_call_id, "edit", str(exc))
     if isinstance(outcome, str):
         return _error(tool_call_id, "edit", outcome)
     total_replacements, details = outcome
     # The URL is echoed for a scratchpad file so the result text reads as the
     # address the agent used, followed by where it landed
     # (see ``_scratchpad_address``).
-    is_scratchpad = _has_scratchpad_scheme(url)
     where = f"{url} -> {path}" if is_scratchpad else str(path)
     text = f"Edited {where}: {len(hunks)} hunk(s), {total_replacements} replacement(s) applied."
     introduced = details.pop(_MARKER_INTRODUCED_KEY, 0)
@@ -9874,10 +9899,14 @@ def _edit_file_result(
     hunks: list[EditHunk],
     anchor_line: int | None,
     caller_path: str = "",
+    *,
+    scratch_root: Path | None = None,
 ) -> tuple[int, dict[str, Any]] | str:
     """Serialize one file transaction across parent/child AgentLoops."""
     with _file_transaction(path):
-        return _edit_file_result_locked(path, hunks, anchor_line, caller_path)
+        return _edit_file_result_locked(
+            path, hunks, anchor_line, caller_path, scratch_root=scratch_root
+        )
 
 
 def _edit_file_result_locked(
@@ -9885,6 +9914,8 @@ def _edit_file_result_locked(
     hunks: list[EditHunk],
     anchor_line: int | None,
     caller_path: str = "",
+    *,
+    scratch_root: Path | None = None,
 ) -> tuple[int, dict[str, Any]] | str:
     """The current multi-hunk edit engine, synchronous for ``to_thread``.
 
@@ -10055,6 +10086,13 @@ def _edit_file_result_locked(
         )
 
     if current != original:
+        if scratch_root is not None:
+            # Hunks do not reveal the final payload size: the early URL/name
+            # check cannot bound growth. Judge the actual UTF-8 result while
+            # this file snapshot is still locked, before truncating anything.
+            # The shared guard already excludes the replaced file, preserving
+            # overwrite-to-fit recovery without counting its old bytes twice.
+            check_scratchpad_write(path, scratch_root, caller_path, len(current.encode("utf-8")))
         with path.open("w", encoding="utf-8", newline="") as stream:
             stream.write(current)
     details = _diff_details(str(path), original, current)
@@ -10142,10 +10180,45 @@ def _line_delta(before: str, after: str) -> tuple[int, int]:
 #: ledger, not the screen.
 _DIFF_DETAILS_CAP_LINES = 200
 
+#: Context lines the rendered diff shows around each change. Named because the
+#: widening re-renders hunks and must grow from the SAME gap difflib proved.
+_DIFF_CONTEXT_LINES = 2
+
 #: Scratch key on the edit/write ``details`` dict carrying the marker-introduction count
 #: from the worker thread to the coroutine that words the receipt. Popped before the
 #: result is built, so it never reaches the persisted details or a renderer.
 _MARKER_INTRODUCED_KEY = "_redaction_marker_introduced"
+
+
+#: One unified-diff hunk header. Counts default to 1 when omitted, which the
+#: grammar allows for a single-line side.
+_DIFF_HUNK_HEADER = re.compile(
+    r"@@ -([0-9]{1,9})(?:,([0-9]{1,9}))? \+([0-9]{1,9})(?:,([0-9]{1,9}))? @@"
+)
+
+
+def _complete_pem_blocks(lines: Sequence[str]) -> list[tuple[int, int]]:
+    """Inclusive ``[header, end]`` ranges of complete PRIVATE KEY armour blocks.
+
+    The existing deciders are the authority for both ends, so this cannot drift
+    from the rule that decides what is a credential: a header with no matching
+    end is NOT a block (the truncated-header residual stays where the shape
+    rules already state it). One linear pass per side, resumed past each block,
+    so a file full of blocks still costs O(lines) once.
+    """
+    blocks: list[tuple[int, int]] = []
+    index = 0
+    while index < len(lines):
+        if pem_header_line_end(lines[index]) is not None:
+            end = index
+            while end < len(lines) and not pem_end_line(lines[end]):
+                end += 1
+            if end < len(lines):
+                blocks.append((index, end))
+                index = end + 1
+                continue
+        index += 1
+    return blocks
 
 
 def _diff_details(path: str, before: str, after: str) -> dict[str, Any]:
@@ -10156,21 +10229,308 @@ def _diff_details(path: str, before: str, after: str) -> dict[str, Any]:
     diff view describe the SAME change and can never disagree about what
     happened. The diff itself powers the TUI's expanded view; it is capped
     (see ``_DIFF_DETAILS_CAP_LINES``) so the persisted details stay bounded.
+
+    A private-key block that a hunk CUTS is kept whole here, on its own side.
+    The editor's default context (``n=2``) can place body rows inside a hunk
+    while the BEGIN/END armour sits outside it, and then no single view holds a
+    credential: the publication seam's rule needs the whole span, so the body
+    rows would be judged as ordinary prose and published. The fix belongs at the
+    producer because the framing is only knowable here — the consumer sees rows,
+    not the file. Context grows into the EQUAL gap difflib already found, so no
+    line is added to or removed from the change itself: ``added``/``removed``
+    stay a fact about the file states, and executor bytes are untouched.
     """
     added, removed = _line_delta(before, after)
     if not added and not removed:
         return {"path": str(path), "added": 0, "removed": 0}
-    diff = list(
-        difflib.unified_diff(
-            before.splitlines(),
-            after.splitlines(),
-            lineterm="",
-            n=2,
-        )
+    before_lines = before.splitlines()
+    after_lines = after.splitlines()
+    # ONE matcher, addressed twice: ``unified_diff`` renders the diff, and the
+    # same opcode tuples are what the widening re-renders from. Building a
+    # second matcher over hunk slices would answer a DIFFERENT question on a
+    # file with a long repeated run -- two equal runs of the same line are not
+    # distinguishable, so the slice match aligns them differently, the change
+    # rows come back different and a credential-free diff would be withheld
+    # (review round 2, R2-1).
+    matcher = difflib.SequenceMatcher(None, before_lines, after_lines)
+    # SNAPSHOT the opcodes BEFORE grouping. ``get_grouped_opcodes`` MUTATES the
+    # list ``get_opcodes`` hands back (it rewrites the leading and trailing
+    # ``equal`` tuples as it trims them), so a later ``get_opcodes()`` call would
+    # return DIFFERENT opcodes than the ones the diff was rendered from. One
+    # snapshot, taken first, is what keeps the render and the widening describing
+    # the same edit (review round 2, R2-1).
+    opcodes = list(matcher.get_opcodes())
+    diff = ["--- ", "+++ "] + _render_groups(
+        before_lines,
+        after_lines,
+        matcher.get_grouped_opcodes(n=_DIFF_CONTEXT_LINES),
     )
+    diff = _keep_pem_blocks_whole(diff, before_lines, after_lines, opcodes)
     if len(diff) > _DIFF_DETAILS_CAP_LINES:
         diff = diff[:_DIFF_DETAILS_CAP_LINES] + ["…"]
     return {"path": str(path), "added": added, "removed": removed, "diff": diff}
+
+
+def _keep_pem_blocks_whole(
+    diff: list[str],
+    before_lines: Sequence[str],
+    after_lines: Sequence[str],
+    opcodes: Sequence[tuple[str, int, int, int, int]],
+) -> list[str]:
+    """Widen hunks so a complete PRIVATE KEY block is never split across the edge.
+
+    Every decision reads OBSERVED rows. A hunk's source slice is derived by
+    walking its TAGS (a context row consumes one before AND one after line, a
+    ``-`` row only a before one, a ``+`` row only an after one), so an
+    interleaved change maps correctly instead of being inferred from the
+    header's start alone, and the walk is checked against the DECLARED counts.
+
+    A widened hunk is re-rendered from the OPCODES OF THE MATCHER THAT MADE THE
+    DIFF, restricted to the widened slice, then checked against the original
+    change rows. Nothing here builds a second matcher: two equal runs of the
+    same line are not distinguishable, so a fresh match over a slice could align
+    them differently and report a change that never existed — which is how a
+    credential-free diff over a long repeated run came back withheld (review
+    round 2, R2-1). A rendering that cannot be verified — or a cut block that
+    cannot be kept whole — emits the truncation marker instead, so the
+    publication seam withholds the whole field rather than publishing body
+    rows: the failure direction is "hidden", never "leaked".
+    """
+    parsed = _parse_diff_hunks(diff)
+    if parsed is None:
+        return diff
+    old_blocks = _complete_pem_blocks(before_lines)
+    new_blocks = _complete_pem_blocks(after_lines)
+    widened: list[tuple[int, int, int, int, list[str]]] = []
+    for old_start, old_count, new_start, new_count, rows in parsed:
+        old_end = _cover_end(old_start, old_start + old_count, old_blocks)
+        new_end = _cover_end(new_start, new_start + new_count, new_blocks)
+        widened.append(
+            (
+                min(old_start, _cover_start(old_start, old_start + old_count, old_blocks)),
+                old_end,
+                min(new_start, _cover_start(new_start, new_start + new_count, new_blocks)),
+                new_end,
+                rows,
+            )
+        )
+    merged = _merge_touching(widened)
+    # ``parsed`` carries (start, COUNT) and the widening carries (start, END), so
+    # the comparison converts before asking whether anything moved. Unchanged
+    # geometry (no block cut, no merge) means the original rendering already
+    # stands and is returned untouched, BYTE for BYTE.
+    unchanged = merged == [(a, a + b, c, c + d, r) for a, b, c, d, r in parsed]
+    if unchanged:
+        return diff
+    out = diff[:2]
+    for old_start, old_end, new_start, new_end, rows in merged:
+        rendered = _opcodes_for_slices(
+            before_lines, after_lines, opcodes, old_start, old_end, new_start, new_end
+        )
+        if rendered is None or not _same_change_rows(rows, rendered):
+            # Cannot prove the widened rendering: mark the payload truncated so
+            # the consumer withholds it. Never publish a split block.
+            return diff[:2] + ["…"]
+        out.append(
+            _format_hunk_header(old_start, old_end - old_start, new_start, new_end - new_start)
+        )
+        out.extend(rendered)
+    return out
+
+
+def _opcodes_for_slices(
+    before_lines: Sequence[str],
+    after_lines: Sequence[str],
+    opcodes: Sequence[tuple[str, int, int, int, int]],
+    old_start: int,
+    old_end: int,
+    new_start: int,
+    new_end: int,
+) -> list[str] | None:
+    """The tagged rows for a slice, from the opcodes that PRODUCED the diff.
+
+    Each opcode is CLIPPED to the slice — a hunk boundary is exactly a clip, so
+    an ``equal`` run that starts before the slice contributes only the part
+    inside it. The caller still verifies the change rows, so a clipping that
+    could not describe the same edit is refused rather than published.
+    """
+    rows: list[str] = []
+    for tag, old_from, old_to, new_from, new_to in opcodes:
+        clip_old_from = max(old_from, old_start)
+        clip_old_to = min(old_to, old_end)
+        clip_new_from = max(new_from, new_start)
+        clip_new_to = min(new_to, new_end)
+        if clip_old_from >= clip_old_to and clip_new_from >= clip_new_to:
+            continue
+        if tag == "equal":
+            if clip_old_to - clip_old_from != clip_new_to - clip_new_from:
+                return None
+            rows.extend(" " + line for line in before_lines[clip_old_from:clip_old_to])
+        elif tag == "delete":
+            rows.extend("-" + line for line in before_lines[clip_old_from:clip_old_to])
+        elif tag == "insert":
+            rows.extend("+" + line for line in after_lines[clip_new_from:clip_new_to])
+        elif tag == "replace":
+            rows.extend("-" + line for line in before_lines[clip_old_from:clip_old_to])
+            rows.extend("+" + line for line in after_lines[clip_new_from:clip_new_to])
+        else:  # pragma: no cover - get_opcodes yields only the four above
+            return None
+    return rows
+
+
+def _parse_diff_hunks(diff: list[str]) -> list[tuple[int, int, int, int, list[str]]] | None:
+    """``(old_start, old_count, new_start, new_count, rows)`` per hunk, 0-based.
+
+    ``None`` when any header is unparsable or a hunk's rows do not reproduce its
+    declared counts — the caller then leaves the diff exactly as difflib made
+    it, because a widening derived from an unverifiable mapping would move rows
+    nobody can trace back to a file.
+    """
+    hunks: list[tuple[int, int, int, int, list[str]]] = []
+    index = 2
+    while index < len(diff):
+        header = _DIFF_HUNK_HEADER.match(diff[index])
+        if header is None:
+            return None
+        old_count = int(header.group(2) or 1)
+        new_count = int(header.group(4) or 1)
+        rows: list[str] = []
+        old_seen = new_seen = 0
+        index += 1
+        while index < len(diff) and not diff[index].startswith("@@"):
+            tag = diff[index][:1]
+            if tag == " ":
+                old_seen += 1
+                new_seen += 1
+            elif tag == "-":
+                old_seen += 1
+            elif tag == "+":
+                new_seen += 1
+            else:
+                return None
+            rows.append(diff[index])
+            index += 1
+        if old_seen != old_count or new_seen != new_count:
+            return None
+        hunks.append(
+            (int(header.group(1)) - 1, old_count, int(header.group(3)) - 1, new_count, rows)
+        )
+    return hunks or None
+
+
+def _cover_start(start: int, end: int, blocks: Sequence[tuple[int, int]]) -> int:
+    """The leftmost line of any complete block this slice OVERLAPS (else ``start``)."""
+    left = start
+    for block_start, block_end in blocks:
+        if block_start > end or block_end < start:
+            continue
+        left = min(left, block_start)
+    return left
+
+
+def _cover_end(start: int, end: int, blocks: Sequence[tuple[int, int]]) -> int:
+    """The exclusive end covering any complete block this slice OVERLAPS."""
+    right = end
+    for block_start, block_end in blocks:
+        if block_start > end or block_end < start:
+            continue
+        right = max(right, block_end + 1)
+    return right
+
+
+def _merge_touching(
+    hunks: Sequence[tuple[int, int, int, int, list[str]]],
+) -> list[tuple[int, int, int, int, list[str]]]:
+    """Merge hunks whose widened slices now meet, in source order.
+
+    ``difflib`` emits hunks sorted and non-overlapping, and widening only grows
+    a slice into the equal gap that separates it from its neighbour, so ONE
+    left-to-right pass is sufficient.
+    """
+    merged: list[tuple[int, int, int, int, list[str]]] = []
+    for old_start, old_end, new_start, new_end, rows in hunks:
+        if merged and old_start <= merged[-1][1] and new_start <= merged[-1][3]:
+            previous = merged[-1]
+            merged[-1] = (
+                previous[0],
+                max(previous[1], old_end),
+                previous[2],
+                max(previous[3], new_end),
+                previous[4],
+            )
+            continue
+        merged.append((old_start, old_end, new_start, new_end, list(rows)))
+    return merged
+
+
+def _render_groups(
+    before_lines: Sequence[str],
+    after_lines: Sequence[str],
+    groups: Iterable[Sequence[tuple[str, int, int, int, int]]],
+) -> list[str]:
+    """The hunk rows for ``difflib``'s OWN opcode groups, exactly as it renders them.
+
+    The groups come from the matcher that produced the diff, so this makes no
+    alignment decision of its own: it only spells each group as a unified-diff
+    hunk. That is why the rendering cannot disagree with the diff the same
+    matcher produced, whereas a second ``SequenceMatcher`` over a slice can
+    (review round 2, R2-1).
+    """
+    rows: list[str] = []
+    for group in groups:
+        first, last = group[0], group[-1]
+        rows.append(_format_hunk_header(first[1], last[2] - first[1], first[3], last[4] - first[3]))
+        for tag, old_from, old_to, new_from, new_to in group:
+            if tag == "equal":
+                rows.extend(" " + line for line in before_lines[old_from:old_to])
+            elif tag == "delete":
+                rows.extend("-" + line for line in before_lines[old_from:old_to])
+            elif tag == "insert":
+                rows.extend("+" + line for line in after_lines[new_from:new_to])
+            else:  # replace
+                rows.extend("-" + line for line in before_lines[old_from:old_to])
+                rows.extend("+" + line for line in after_lines[new_from:new_to])
+    return rows
+
+
+def _same_change_rows(original: Sequence[str], rendered: Sequence[str]) -> bool:
+    """Whether both renderings describe the SAME change (order-independent tags).
+
+    Context rows may legitimately differ in number between the narrow and the
+    widened rendering — that is what widening is for. The change itself may not:
+    the removed and added rows must match as multisets, because a rendering whose
+    change rows differ is describing an edit the file does not contain.
+    """
+    removed = sorted(line for line in original if line[:1] == "-")
+    added = sorted(line for line in original if line[:1] == "+")
+    return removed == sorted(line for line in rendered if line[:1] == "-") and added == sorted(
+        line for line in rendered if line[:1] == "+"
+    )
+
+
+def _format_hunk_header(old_start: int, old_count: int, new_start: int, new_count: int) -> str:
+    """``@@ … @@`` for 0-BASED ``(start, count)`` pairs, spelled as ``difflib`` does.
+
+    A zero-length range prints the line JUST BEFORE it, not the first line of it:
+    a new file shows ``-0,0`` and a truncation to empty shows ``+0,0``. That is
+    ``difflib._format_range_unified``'s rule (the unified format's own), and the
+    whole point of this producer's widening is that its output stays the diff the
+    library would have written -- a header one line off is a UI artifact and a
+    lie about where the change starts (review round 3, R3-1).
+    """
+    old = str(old_start + 1) if old_count == 1 else _format_range(old_start, old_count)
+    new = str(new_start + 1) if new_count == 1 else _format_range(new_start, new_count)
+    return f"@@ -{old} +{new} @@"
+
+
+def _format_range(start: int, count: int) -> str:
+    """``start,count`` with difflib's zero-length adjustment applied."""
+    beginning = start + 1
+    if not count:
+        # An empty range is reported as beginning at the line before it, which is
+        # what the unified spec's ``0,0`` for an empty side means.
+        beginning -= 1
+    return f"{beginning},{count}"
 
 
 def _marker_introduced(before: str, after: str) -> int:
@@ -18698,6 +19058,7 @@ BROWSER_ACTIONS = (
     "request_access",
     "await_access",
     "cancel_access",
+    "inspect_ownership",
     "recover",
     "retain",
     "release",
@@ -18888,7 +19249,18 @@ class BrowserParams(BaseModel):
         "target, the read scope (default: body), the scroll element, or the "
         "download/upload control.",
     )
-    text: str = Field(default="", description="Text to enter for 'type'; the reason for 'retain'.")
+    text: str = Field(
+        default="",
+        description="Text to enter for 'type'; the reason for 'retain'. NEVER a credential: "
+        "use 'secret_ref' so the value stays out of the transcript.",
+    )
+    secret_ref: str = Field(
+        default="",
+        description="'type': the NAME of a secret to enter instead of 'text' (e.g. "
+        "'SUDO_PASSWORD'); resolved session-first (the `ask` answer, /credential), then "
+        "the encrypted store; never shown in results, traces or logs, and registered "
+        "for redaction.",
+    )
     # One new field for the whole feature (the tool-surface ladder's rung 1):
     # `download` needs no destination (the harness chooses it), so a comma-split
     # of the existing `path` was the alternative — rejected because a filename may
@@ -19377,6 +19749,14 @@ def _validate_browser_args(action: str, params: BrowserParams) -> str:
     backend = _validate_browser_backend(action, params)
     if backend:
         return backend
+    if action != "type" and params.secret_ref.strip():
+        # Refused rather than silently ignored, the same house rule `tab` and
+        # `backend` follow: a caller that passed a ref to an action which never
+        # enters a value would otherwise believe the secret had been used.
+        return (
+            f"'secret_ref' is only valid for 'type' (got it on '{action}'): it names "
+            "the stored secret 'type' should enter into the field"
+        )
     if action == "open" and params.tab.strip():
         # Adoption legitimately carries NO url: taking over a tab the user handed
         # you does not have to navigate it, and the host's `open` adopts without
@@ -19392,6 +19772,14 @@ def _validate_browser_args(action: str, params: BrowserParams) -> str:
         problem = _validate_selector(params.selector, action)
         if problem or action == "click":
             return problem
+        if params.secret_ref.strip():
+            if params.text:
+                return "'type' takes 'text' or 'secret_ref', not both."
+            # The dash-shaped guard deliberately does NOT inspect a value we
+            # cannot see: a resolved secret may legitimately begin with a dash,
+            # and it is the session's value, never model-authored text. The
+            # read-back comparison in the lane still catches a failed fill.
+            return ""
         return _validate_typed_text(params.text)
     if action == "snapshot" and params.selector.strip():
         # Optional here — an absent selector snapshots the whole document —
@@ -19901,8 +20289,15 @@ async def _browser_click(tool_call_id: str, surface: str, raw_selector: str) -> 
 
 
 async def _browser_type(
-    tool_call_id: str, surface: str, raw_selector: str, value: str
+    tool_call_id: str, surface: str, raw_selector: str, value: str, secret_ref: str = ""
 ) -> ToolResult:
+    """`secret_ref` (when set) makes the sentences name the REF, not the value.
+
+    The fill command itself must carry the value — that is how it reaches the
+    field — but the result the model reads must not quote it back, including in
+    the read-back confirmation, which would otherwise defeat the ref in the
+    first place.
+    """
     selector = raw_selector.strip()
     # cmux `fill` REPLACES the field; cmux `type` APPENDS keystrokes to
     # whatever is already there (verified: typing "XY" into a box holding "not
@@ -19922,6 +20317,16 @@ async def _browser_type(
         # an unreadable read-back is not evidence either way and the fill's own
         # exit code stands. Said out loud, because "Typed into X." with no
         # confirmation is otherwise indistinguishable from a verified fill.
+        if secret_ref:
+            return _text(
+                tool_call_id,
+                "browser",
+                f"Typed the secret stored as {secret_ref!r} into {selector} (cmux could "
+                "not read the value back, so this is unverified). The value is not "
+                "shown here and is registered for redaction for the rest of this "
+                "session.",
+                details={"surface_id": surface, "selector": selector},
+            )
         return _text(
             tool_call_id,
             "browser",
@@ -19939,12 +20344,32 @@ async def _browser_type(
     # comparing them would flag every such fill as a failure.
     got = read_out.strip()
     if got != value.strip():
+        if secret_ref:
+            # The field-contents diagnostic (`got`) stays — it is what makes the
+            # failure actionable — while the EXPECTED side names the ref: the
+            # value must not ride into the error text either.
+            return _error(
+                tool_call_id,
+                "browser",
+                f"fill of {selector} did not take: the field holds {got!r}, not "
+                f"the value stored as {secret_ref!r}. Check the selector names an "
+                "editable field ('snapshot' shows what is there).",
+            )
         return _error(
             tool_call_id,
             "browser",
             f"fill of {selector} did not take: the field holds {got!r}, not "
             f"{value!r}. Check the selector names an editable field ('snapshot' "
             "shows what is there).",
+        )
+    if secret_ref:
+        return _text(
+            tool_call_id,
+            "browser",
+            f"Typed the secret stored as {secret_ref!r} into {selector}. The value is "
+            "not shown here and is registered for redaction for the rest of this "
+            "session.",
+            details={"surface_id": surface, "selector": selector},
         )
     return _text(
         tool_call_id,
@@ -22955,14 +23380,29 @@ async def _bridge_action(
             details=details,
         )
     if action == "type":
+        ref = params.secret_ref.strip()
         got = str(result.get("value", "")).strip()
         if got != params.text.strip():
+            # The ref-aware form names the ref on the EXPECTED side while the
+            # field-contents diagnostic (`got`) stays: it is what makes the
+            # failure actionable. With no ref this keeps the original copy
+            # byte-for-byte (existing tests pin it).
+            expected = f"the value stored as {ref!r}" if ref else repr(params.text)
             return _error(
                 tool_call_id,
                 "browser",
                 f"fill of {params.selector.strip()} did not take: the field holds "
-                f"{got!r}, not {params.text!r}. Check the selector names an editable "
+                f"{got!r}, not {expected}. Check the selector names an editable "
                 "field ('snapshot' shows what is there).",
+            )
+        if ref:
+            return _text(
+                tool_call_id,
+                "browser",
+                f"Typed the secret stored as {ref!r} into {params.selector.strip()}. "
+                "The value is not shown here and is registered for redaction for the "
+                "rest of this session.",
+                details={**details, "selector": params.selector.strip()},
             )
         return _text(
             tool_call_id,
@@ -23133,6 +23573,16 @@ async def execute_browser(
     confinement = confinement_of(context)
     if confinement is not None:
         return _error(tool_call_id, "browser", confinement.network_refusal("browser"))
+    # A diagnostic must precede host selection, initialization, recovery, the
+    # approval gate and update-note bookkeeping: all can write owner state.
+    if str(args.get("action", "")).strip().lower() == "inspect_ownership":
+        resource = getattr(getattr(context, "browser", None), "resource", None)
+        result = (
+            await resource.inspect_ownership()
+            if resource is not None
+            else {"version": 1, "local_scope_missing": True}
+        )
+        return _text(tool_call_id, "browser", json.dumps(result, sort_keys=True), details=result)
     state = _browser_state(context)
     resource = getattr(state, "resource", None)
     if resource is None or state.surface_id.startswith("surface:"):
@@ -23378,6 +23828,113 @@ async def execute_browser(
                 resource.recovered = False
 
 
+def _browser_secret_ref(
+    tool_call_id: str,
+    params: BrowserParams,
+    context: ToolContext | None,
+) -> ToolResult | None:
+    """Resolve a `secret_ref` into ``params.text``, or explain why it could not be.
+
+    The value is resolved HERE, in the session, and replaces ``params.text``
+    for this one call — that is how it reaches the field. The disclosure is
+    stated rather than glossed: the value DOES travel on the cmux CLI argv /
+    the host wire for this one call, because a keystroke has to come from
+    somewhere. What the ref buys is that the model's argument — and therefore
+    the tool call in the transcript, a trace rendering of it, and every other
+    model-visible surface — says ``secret_ref: "SUDO_PASSWORD"`` and nothing
+    else; and that the value is registered with the session's redaction sink
+    (:meth:`VariableStore.register_redaction`) BEFORE the call, so a page that
+    echoes its input back comes home as ``[redacted]`` instead of plaintext.
+
+    **Two sources, and the SESSION store is checked FIRST — the same pinned
+    precedence as the console tool's resolver.** (1) The session credential
+    store: the value the user typed into an `ask` `secret: true` question (or
+    handed over with `/credential`). It wins because it is what the user just
+    handed over, for this task, and it never touches disk. (2) The encrypted
+    long-term store (:func:`local_operator.secrets.access.retrieve_secret`,
+    the same store the `secret` tool writes): the fallback, for a value the
+    user chose to persist.
+
+    Returns ``None`` when ``params.text`` is ready, and the error result to
+    hand back when it is not. The error path names the ref and the failure,
+    never a byte of the value.
+
+    **A store that cannot register is a REFUSAL, not a downgrade** — the same
+    fail-closed rule as the console resolver: the registration is what contains
+    the value after this call, and a page that echoes it back would otherwise
+    put plaintext where the model reads. ``register_redaction`` is read with
+    ``getattr`` because ``ToolContext.variables`` is typed as the narrow
+    :class:`~local_operator.harness.types.VariableStoreProtocol`, which does not
+    declare it; every store this repo constructs is a real
+    :class:`~local_operator.variables.VariableStore`, which has it.
+    """
+    ref = params.secret_ref.strip()
+    store = getattr(context, "variables", None) if context is not None else None
+    register = getattr(store, "register_redaction", None)
+    if not callable(register):
+        return _error(
+            tool_call_id,
+            "browser",
+            "this session has no redaction sink, so a value sent through secret_ref "
+            "could not be contained after the call — and the page may echo it back as "
+            "readable text. Ask the user to type the secret into the page themselves "
+            "(the browser drives their real session, so their typing never crosses "
+            "this transcript), or store it with the `secret` tool — do not put the "
+            "value itself in `text`.",
+        )
+    credential_env = cast(
+        Callable[[], dict[str, str]] | None,
+        getattr(store, "credential_env", None),
+    )
+    session_values: dict[str, str] | None = None
+    if callable(credential_env):
+        try:
+            fetched = credential_env()
+        except Exception:  # noqa: BLE001 - a misbehaving store, not a wiring fault
+            logger.warning("browser: session credential store could not be read", exc_info=True)
+            fetched = None
+        if isinstance(fetched, dict):
+            session_values = fetched
+    value: str | None = None
+    if session_values is not None:
+        value = session_values.get(ref)
+        if value is None:
+            from local_operator.variables import normalize_credential_key
+
+            # The read applies the same normalize-on-write the store applied, so
+            # `sudo-password` finds `SUDO_PASSWORD` — `secret_ref` is model-
+            # authored text, not a key the user typed verbatim.
+            normalized = normalize_credential_key(ref)
+            if normalized is not None:
+                value = session_values.get(normalized)
+    if value is None:
+        try:
+            from local_operator.secrets.access import retrieve_secret
+
+            value = retrieve_secret(ref).decode("utf-8", errors="surrogateescape")
+        except Exception as exc:  # noqa: BLE001 - every failure is reportable, none fatal
+            # Normalise the store's own sentence to exactly one closing period:
+            # `SecretNotFound` already ends in one and the refusal template
+            # appends its own, which printed `...in this store..` (console QA
+            # round 1, Q2 — same fix, same rationale).
+            detail = str(exc).strip().rstrip(".") or "no reason was reported"
+            return _error(
+                tool_call_id,
+                "browser",
+                f"could not resolve secret_ref {ref!r}: {detail}. Get the value from the "
+                "user with an `ask` secret question (their entry into it is the "
+                "approval), store it with the `secret` tool, or have the user sign in "
+                "or type it into the page themselves, then retry — do not put the "
+                "value itself in `text`.",
+            )
+    # Registered BEFORE the call, not after: the registration is what contains a
+    # value the page may echo back, and an echo can arrive in the very same
+    # tool result this call produces.
+    register(value)
+    params.text = value
+    return None
+
+
 async def _execute_browser(
     tool_call_id: str,
     args: dict[str, Any],
@@ -23442,6 +23999,15 @@ async def _execute_browser(
     problem = _validate_browser_args(action, params)
     if problem:
         return _error(tool_call_id, "browser", problem)
+    if action == "type" and params.secret_ref.strip():
+        # Resolve the ref into `params.text` BEFORE any lane sees the call, so
+        # both dispatch lanes (the bridge wire and cmux) carry the value in the
+        # one place they already read a type payload from — and neither lane,
+        # nor anything between, ever prints it: the ref-aware result sentences
+        # in `_bridge_action` / `_browser_type` name the ref instead.
+        refusal = _browser_secret_ref(tool_call_id, params, context)
+        if refusal is not None:
+            return refusal
     state = _browser_state(context)
 
     if action in OWNERSHIP_BROWSER_ACTIONS:
@@ -23727,7 +24293,9 @@ async def _execute_browser(
     if action == "click":
         return await _browser_click(tool_call_id, surface, params.selector)
     if action == "type":
-        return await _browser_type(tool_call_id, surface, params.selector, params.text)
+        return await _browser_type(
+            tool_call_id, surface, params.selector, params.text, params.secret_ref.strip()
+        )
     return await _browser_screenshot(tool_call_id, surface, params.path, context)
 
 
@@ -23952,8 +24520,12 @@ def build_browser_tool(context: ToolContext | None) -> AgentTool | None:
         # `local_operator/browser_files.py`, which runs unconditionally, plus this
         # describer naming what the call will do.
         approval_tier="write",
+        # Inspection is a true read: the harness must not ask for a write
+        # approval before it can reach the deliberately effect-free dispatcher.
         call_approval_tier=lambda args: (
-            "exec" if str(args.get("action") or "").strip().lower() == "upload" else "write"
+            "read"
+            if str(args.get("action") or "").strip().lower() == "inspect_ownership"
+            else "exec" if str(args.get("action") or "").strip().lower() == "upload" else "write"
         ),
         concurrency="shared",
         interruptible=False,

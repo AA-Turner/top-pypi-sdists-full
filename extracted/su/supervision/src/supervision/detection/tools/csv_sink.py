@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import os
 from collections.abc import Iterable
 from typing import Any, Protocol
@@ -29,9 +30,8 @@ class WriterProtocol(Protocol):
 
 
 class CSVSink:
-    """
-    A utility class for saving detection data to a CSV file. This class is designed to
-    efficiently serialize detection objects into a CSV format, allowing for the
+    """A utility class for saving detection data to a CSV file. This class is designed
+    to efficiently serialize detection objects into a CSV format, allowing for the
     inclusion of bounding box coordinates and additional attributes like `confidence`,
     `class_id`, and `tracker_id`.
 
@@ -42,7 +42,11 @@ class CSVSink:
         When a NumPy array, list, or tuple value in custom_data (or
         detections.data) has the same length as the detection count, each
         element is written to the corresponding detection row; any other value
-        is broadcast to all rows.
+        is broadcast to all rows. A NumPy array that remains in a cell (for
+        example an embedding or the corners of an oriented box) is written as a
+        JSON list, as :class:`~supervision.detection.tools.json_sink.JSONSink` does,
+        so it can be read back with
+        ``json.loads``.
 
     Args:
         file_name: The name of the CSV file where the detections will be stored.
@@ -74,8 +78,7 @@ class CSVSink:
     """
 
     def __init__(self, file_name: str = "output.csv") -> None:
-        """
-        Initialize the CSVSink instance.
+        """Initialize the CSVSink instance.
 
         Args:
             file_name: The name of the CSV file.
@@ -112,13 +115,12 @@ class CSVSink:
         self.deferred_field_names = []
 
     def close(self) -> None:
-        """
-        Close the CSV file.
+        """Close the CSV file.
 
-        When every appended batch was empty no header has been written yet, so
-        the schema remembered from the first such batch is emitted here. This
-        keeps a run that never detected anything readable as an empty table
-        rather than as a zero-byte file.
+        When every appended batch was empty no header has been written yet, so the
+        schema remembered from the first such batch is emitted here. This keeps a run
+        that never detected anything readable as an empty table rather than as a zero-
+        byte file.
         """
         if self.file is None or self.file.closed:
             return
@@ -136,8 +138,7 @@ class CSVSink:
 
     @staticmethod
     def _slice_value(value: Any, i: int, n: int) -> Any:
-        """
-        Return the i-th element when the value stores per-detection data.
+        """Return the i-th element when the value stores per-detection data.
 
         Dispatch rules:
             - np.ndarray with ndim == 0: return as-is for broadcasting
@@ -161,11 +162,36 @@ class CSVSink:
         return value
 
     @staticmethod
+    def _format_cell(value: Any) -> Any:
+        """Return a CSV cell value, writing NumPy arrays as parseable JSON lists.
+
+        ``csv.writer`` calls ``str()``, which abbreviates arrays of more than 1000
+        elements with ``...`` and uses a space-separated, multi-line layout.
+        Arrays with at least one dimension are written as ``json.dumps`` of
+        ``tolist()``, matching
+        :class:`~supervision.detection.tools.json_sink.JSONSink`. Other values pass
+        through
+        unchanged, as do arrays JSON cannot represent (e.g. object arrays).
+
+        Args:
+            value: Value of one cell in a detection row.
+
+        Returns:
+            A JSON string for an ``np.ndarray`` with ``ndim > 0``, otherwise
+            ``value`` unchanged.
+        """
+        if isinstance(value, np.ndarray) and value.ndim > 0:
+            try:
+                return json.dumps(value.tolist())
+            except (TypeError, ValueError):
+                return value
+        return value
+
+    @staticmethod
     def parse_detection_data(
         detections: Detections, custom_data: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
-        """
-        Convert detections and optional custom data into per-detection rows.
+        """Convert detections and optional custom data into per-detection rows.
 
         Builds one dictionary per detection containing bounding box coordinates,
         detection attributes, and any values from ``detections.data`` or
@@ -215,8 +241,7 @@ class CSVSink:
     def append(
         self, detections: Detections, custom_data: dict[str, Any] | None = None
     ) -> None:
-        """
-        Append detection data to the CSV file.
+        """Append detection data to the CSV file.
 
         The CSV header is fixed by the first batch that actually contains
         detections; batches with no detections write nothing and leave the
@@ -264,7 +289,10 @@ class CSVSink:
         parsed_rows = CSVSink.parse_detection_data(detections, custom_data)
         for row in parsed_rows:
             self.writer.writerow(
-                [row.get(field_name, "") for field_name in self.field_names]
+                [
+                    CSVSink._format_cell(row.get(field_name, ""))
+                    for field_name in self.field_names
+                ]
             )
 
     @staticmethod

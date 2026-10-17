@@ -218,7 +218,10 @@ TOOL_NOTES: dict[str, ToolDocNotes] = {
             ToolDocOp(op="snapshot", blurb="Accessibility tree with click refs."),
             ToolDocOp(op="screenshot", blurb="Capture the page to a file."),
             ToolDocOp(op="click", blurb="Click a selector or snapshot ref."),
-            ToolDocOp(op="type", blurb="Type text into a field."),
+            ToolDocOp(
+                op="type",
+                blurb="Type text, or a stored secret via 'secret_ref', into a field.",
+            ),
             ToolDocOp(op="scroll", blurb="Move the viewport."),
             ToolDocOp(op="logs", blurb="Console + errors."),
             ToolDocOp(
@@ -237,6 +240,13 @@ TOOL_NOTES: dict[str, ToolDocNotes] = {
                 blurb="The chain from the element up to <html> (depth <= 16, default 12).",
             ),
             ToolDocOp(op="tabs", blurb="List agent-driven tabs."),
+            ToolDocOp(
+                op="inspect_ownership",
+                blurb=(
+                    "Read-only extension ownership snapshot; "
+                    "no recovery, allocation or approval changes."
+                ),
+            ),
             ToolDocOp(
                 op="request_access",
                 blurb="Raise the site-approval prompt for a not-yet-allowed origin.",

@@ -452,10 +452,9 @@
     paths, ssh user@host, personal e-mail) and Linear OMN-<digits> ticket references in DOCUMENTATION
     files (*.md / *.mdx / .rst / .txt / .adoc). The docs-facing union of CLAUDE.md Rule 6 and the knowledge-base
     sanitizer. Generated + corpus-accepted COMPUTE validator (OMN-13569) executed over the in-memory event
-    bus (Kafka backend in CI). Exemptions (OMN-13572): onex_change_control/ paths are exempt from the
-    OMN-<digits> rule only (local-env rules still apply); contracts/ excluded from the OMN rule; a SKILL.md
-    `ticket: OMN-NNNN` frontmatter field is exempt. Suppress a line with `doc-content-ok`; suppress a
-    doc whose subject IS these traces with `doc-content-file-ok`.
+    bus (Kafka backend in CI). Exemptions (OMN-13572): contracts/ excluded from the OMN-<digits> rule
+    (local-env rules still apply); a SKILL.md `ticket: OMN-NNNN` frontmatter field is exempt. Suppress
+    a line with `doc-content-ok`; suppress a doc whose subject IS these traces with `doc-content-file-ok`.
   language: python
   entry: python -m omnibase_core.validation.doc_content_scan.runtime_doc_content_scan
   types_or: [markdown, rst, text]
@@ -1141,6 +1140,55 @@
   language: python
   entry: python -m omnibase_core.nodes.node_spdx_headers_check_compute.runtime_spdx_headers_check
   types_or: [python, shell, bash, yaml, toml]
+  pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
+- id: check-dependency-direction
+  name: Cross-repository dependency direction (OMN-19998)
+  description: >
+    Refuse a dependency on a repository at the same or a higher layer of the declared order (omnibase_core
+    src/omnibase_core/contracts/repo_layers.yaml; registry Operating Rule 7 plus the 2026-10-15 ruling
+    that omnimarket depends on omnibase_infra, never the reverse) through any channel: Python imports,
+    pyproject dependencies, extras, groups and uv sources, requirements files, Dockerfile installs and
+    clones, workflow checkouts and pins, and scripts that install, clone or fetch another repository.
+    The staged files are checked against the repository's own .onex_ratchets/dependency_direction_baseline.yaml;
+    pre-existing violations recorded there warn, new ones fail. The full tree and the shrink-only baseline
+    ratchet run in CI through .github/workflows/dependency-direction.yml.
+  language: python
+  entry: python -m omnibase_core.handlers.handler_dependency_direction_cli
+  files: (\.py|(^|/)pyproject\.toml|(^|/)(requirements|constraints)[^/]*\.(txt|in)|(^|/)(Dockerfile|Containerfile)[^/]*|\.dockerfile|\.(sh|bash|zsh|mk)|(^|/)(GNU)?Makefile|^\.github/.*\.ya?ml)$
+  pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
+- id: check-version-floor-consumers
+  name: No floor raise ahead of registry consumers (OMN-19998)
+  description: >
+    Refuse a pyproject.toml change that raises the floor on a sibling registry package (one omnibase_core
+    src/omnibase_core/contracts/repo_layers.yaml lists) while another registry repository that installs
+    that package is not ready for it: its own exact pin or upper bound excludes the new floor, or it installs
+    the raising repository and declares a lower floor. Consumers are read from their clones at their origin
+    default branch, beside this repository's canonical clone; an unreadable consumer fails the raise.
+    The failure names each consumer pull request that must land first.
+  language: python
+  entry: python -m omnibase_core.handlers.handler_version_floor_consumers_cli
+  files: (^|/)pyproject\.toml$
+  pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
+- id: check-merge-queue-parity
+  name: Pull request CI runs every merge-queue job (OMN-19998)
+  description: >
+    In every workflow that triggers on merge_group, refuse a job the merge queue runs and pull request
+    CI can skip: no pull_request trigger, a pull_request path filter, a job if that can be true on merge_group
+    and false on pull_request, or a job gated on a needs output that its gate job computes from github.event_name.
+    Pre-existing violations recorded in the repository's .onex_ratchets/merge_queue_parity_baseline.yaml
+    warn; the baseline only shrinks against the base in CI through .github/workflows/version-drift.yml.
+  language: python
+  entry: python -m omnibase_core.handlers.handler_merge_queue_parity_cli
+  files: ^\.github/workflows/[^/]+\.ya?ml$
   pass_filenames: true
   require_serial: true
   stages: [pre-commit]

@@ -22,6 +22,7 @@ import httpx
 from matrx_utils import vcprint
 
 from matrx_ai.providers.errors import is_billing_refusal, mark_billing_checked
+from matrx_ai.providers.snapshot import capture_request_payload
 
 from .client import (
     acquire_fastino_slot,
@@ -553,6 +554,9 @@ class FastinoExtraction:
         # one-shot transport-only retry didn't cover, so those chunks raised and
         # were dropped upstream. Auth (401) and validation (400/422) are real
         # protocol violations — _handle_response raises them and we never retry.
+        # The exact JSON body sent, for chat.request_snapshot (no-op outside an
+        # executor run). Chunked fan-outs keep the most recent chunk's body.
+        capture_request_payload(payload, provider="fastino")
         last_exc: Exception | None = None
         for attempt in range(_MAX_ATTEMPTS):
             is_last = attempt == _MAX_ATTEMPTS - 1

@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,14 +15,17 @@
 #
 # ****************************************************************************
 
+"""GCOVR entry point."""
+
 import os
 import re
 import sys
-
+import traceback
 from argparse import ArgumentError, ArgumentParser, Namespace
 from typing import Any
-import traceback
 
+# formats
+from . import formats as gcovr_formats
 from .configuration import (
     argument_parser_setup,
     config_entries_from_dict,
@@ -41,12 +42,9 @@ from .filter import (
 )
 from .formats.gcov.read import GcovProgram
 from .formats.gcov.workers import Workers
-from .logging import configure_logging, update_logging, LOGGER
+from .logging import LOGGER, configure_logging, update_logging
 from .options import FilterOption
 from .version import __version__
-
-# formats
-from . import formats as gcovr_formats
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -57,7 +55,7 @@ EXIT_SUCCESS = 0
 EXIT_CMDLINE_ERROR = 1
 EXIT_LINE_NOK = 2
 EXIT_BRANCH_NOK = 4
-EXIT_DECISION_NOK = 8
+EXIT_CONDITION_OR_DECISION_NOK = 8
 EXIT_FUNCTION_NOK = 16
 EXIT_READ_ERROR = 64
 EXIT_WRITE_ERROR = 128
@@ -70,7 +68,7 @@ def get_exit_code(
     covdata: CoverageContainer,
     threshold_line: float,
     threshold_branch: float,
-    threshold_decision: float,
+    threshold_condition_or_decision: float,
     threshold_function: float,
 ) -> int:
     """Fail depending on the coverage result."""
@@ -79,16 +77,14 @@ def get_exit_code(
     if (
         threshold_line > 0.0
         or threshold_branch > 0.0
-        or threshold_decision > 0.0
+        or threshold_condition_or_decision > 0.0
         or threshold_function > 0.0
     ):
-        stats = covdata.stats
-
         line_nok = False
         if threshold_line > 0.0:
             # If there are no lines, mark as uncovered
             # (indicates no data at all, likely an error).
-            percent_lines = stats.line.percent_or(0.0)
+            percent_lines = covdata.line_coverage().percent_or(0.0)
 
             if percent_lines < threshold_line:
                 line_nok = True
@@ -101,7 +97,7 @@ def get_exit_code(
         branch_nok = False
         if threshold_branch > 0.0:
             # Allow data with no branches.
-            percent_branches = stats.branch.percent_or(100.0)
+            percent_branches = covdata.branch_coverage().percent_or(100.0)
             if percent_branches < threshold_branch:
                 branch_nok = True
                 LOGGER.error(
@@ -110,22 +106,32 @@ def get_exit_code(
                     threshold_branch,
                 )
 
-        decision_nok = False
-        if threshold_decision > 0.0:
+        condition_or_decision_nok = False
+        if threshold_condition_or_decision > 0.0:
+            # Allow data with no conditions.
+            percent_condition = covdata.condition_coverage().percent_or(100.0)
+            if percent_condition < threshold_condition_or_decision:
+                condition_or_decision_nok = True
+                LOGGER.error(
+                    "Failed minimum condition coverage (got %s%%, minimum %s%%)",
+                    percent_condition,
+                    threshold_condition_or_decision,
+                )
+
             # Allow data with no decisions.
-            percent_decision = stats.decision.percent_or(100.0)
-            if percent_decision < threshold_decision:
-                decision_nok = True
+            percent_decision = covdata.decision_coverage().percent_or(100.0)
+            if percent_decision < threshold_condition_or_decision:
+                condition_or_decision_nok = True
                 LOGGER.error(
                     "Failed minimum decision coverage (got %s%%, minimum %s%%)",
                     percent_decision,
-                    threshold_decision,
+                    threshold_condition_or_decision,
                 )
 
         function_nok = False
         if threshold_function > 0.0:
             # Allow data with no functions.
-            percent_function = stats.function.percent_or(100.0)
+            percent_function = covdata.function_coverage().percent_or(100.0)
             if percent_function < threshold_function:
                 function_nok = True
                 LOGGER.error(
@@ -138,8 +144,8 @@ def get_exit_code(
             exit_code |= EXIT_LINE_NOK
         if branch_nok:
             exit_code |= EXIT_BRANCH_NOK
-        if decision_nok:
-            exit_code |= EXIT_DECISION_NOK
+        if condition_or_decision_nok:
+            exit_code |= EXIT_CONDITION_OR_DECISION_NOK
         if function_nok:
             exit_code |= EXIT_FUNCTION_NOK
 
@@ -148,7 +154,6 @@ def get_exit_code(
 
 def create_argument_parser() -> ArgumentParser:
     """Create the argument parser."""
-
     parser = ArgumentParser(add_help=False, exit_on_error=False)
     parser.usage = "gcovr [options] [search_paths...]"
     parser.description = (
@@ -182,55 +187,53 @@ COPYRIGHT = (
 )
 
 
-def find_config_name(root: str, filename: str) -> str | None:
+def find_config_name(root: str, *filenames: str) -> str | None:
     """Find the configuration to use."""
-    if root:
-        filename = os.path.join(root, filename)
+    for filename in filenames:
+        if root:
+            filename = os.path.join(root, filename)  # noqa: PLW2901
 
-    if os.path.isfile(filename):
-        return filename
+        if os.path.isfile(filename):
+            return filename
 
     return None
 
 
 def load_config(partial_options: Namespace) -> dict[str, Any]:
-    """Load a config file if configured or found by default names"""
-    filename = getattr(partial_options, "config", None)
-    if filename is not None:
-        with open(filename, encoding="utf-8") as buf:
-            return parse_config_into_dict(parse_config_file(buf, filename))
-
+    """Load a config file if configured or found by default names."""
     root = getattr(partial_options, "root", "")
-    if filename := find_config_name(root, "gcovr.cfg"):
+    filename = getattr(partial_options, "config", None)
+    if filename is None:
+        filename = find_config_name(root, "gcovr.cfg", "gcovr.toml", "pyproject.toml")
+        if filename is None:
+            return {}
+
+    if filename.endswith(".toml"):
+        with open(filename, "rb") as buf:
+            data = tomllib.load(buf)
+            if os.path.split(filename)[1] == "pyproject.toml":
+                data = data.get("tool", {}).get("gcovr", {})
+            return parse_config_into_dict(config_entries_from_dict(data, filename))
+    else:
         with open(filename, encoding="utf-8") as buf:
             return parse_config_into_dict(parse_config_file(buf, filename))
-
-    if filename := find_config_name(root, "gcovr.toml"):
-        with open(filename, "rb") as buf:
-            data = tomllib.load(buf)
-        return parse_config_into_dict(config_entries_from_dict(data, filename))
-
-    if filename := find_config_name(root, "pyproject.toml"):
-        with open(filename, "rb") as buf:
-            data = tomllib.load(buf)
-        if (gcovr_section := data.get("tool", {}).get("gcovr")) is not None:
-            return parse_config_into_dict(
-                config_entries_from_dict(gcovr_section, filename)
-            )
-
-    return {}
 
 
 def main(args: list[str] | None = None) -> int:  # pylint: disable=too-many-return-statements
-    """The main entry point of GCOVR."""
+    """Entry point of GCOVR."""
     configure_logging()
     try:
         parser = create_argument_parser()
         cli_options = parser.parse_args(args=args)
     except SystemExit as e:
-        if e.code != 0:
-            raise SanityCheckError("Exitcode must be 0.") from e
-        return EXIT_SUCCESS
+        if e.code == 0:
+            return EXIT_SUCCESS
+        # Older versions of ArgumentParser exit instead of raising an error.
+        # See https://github.com/python/cpython/issues/121018
+        if e.code == 2:  # noqa: PLR2004
+            return EXIT_CMDLINE_ERROR
+        msg = "Exitcode must be 0 or 2."
+        raise SanityCheckError(msg) from e
     except ArgumentError as e:
         sys.stderr.write(f"gcovr: error: {e}\n")
         return EXIT_CMDLINE_ERROR
@@ -249,19 +252,6 @@ def main(args: list[str] | None = None) -> int:  # pylint: disable=too-many-retu
 
     # We need to reset the stored information her for our test framework
     GcovProgram.reset()
-
-    if options.sort_branches and options.sort_key not in [
-        "uncovered-number",
-        "uncovered-percent",
-    ]:
-        LOGGER.error(
-            "the options --sort-branches without '--sort uncovered-number' or '--sort uncovered-percent' doesn't make sense."
-        )
-        return EXIT_CMDLINE_ERROR
-
-    if options.html_title == "":
-        LOGGER.error("an empty --html-title= is not allowed.")
-        return EXIT_CMDLINE_ERROR
 
     for postfix in ["", "line", "branch"]:
         key_medium = "medium_threshold"
@@ -306,6 +296,12 @@ def main(args: list[str] | None = None) -> int:  # pylint: disable=too-many-retu
             return EXIT_CMDLINE_ERROR
 
     try:
+        if options.sort_branches and options.sort_key not in [
+            "uncovered-number",
+            "uncovered-percent",
+        ]:
+            msg = "The options --sort-branches without '--sort uncovered-number' or '--sort uncovered-percent' doesn't make sense."
+            raise RuntimeError(msg)
         gcovr_formats.validate_options(options)
     except RuntimeError as exc:
         LOGGER.error("%s", str(exc))
@@ -326,7 +322,7 @@ def main(args: list[str] | None = None) -> int:  # pylint: disable=too-many-retu
         patterns: list[FilterOption],
         default_filter: Filter | None = None,
     ) -> tuple[Filter, ...]:
-        """Setup a filter and handle the exception."""
+        """Compile the filter and handle the exceptions."""
         try:
             filters = list[Filter]()
             if len(patterns):
@@ -340,12 +336,11 @@ def main(args: list[str] | None = None) -> int:  # pylint: disable=too-many-retu
         except re.error as e:
             # mypy is thinking that the pattern can be a byte string therefore we need to explicit use !s.
             # See also discussion https://github.com/gcovr/gcovr/pull/1028#discussion_r1855437452
-            raise RuntimeError(
-                f"Error setting up filter {option}='{e.pattern!s}': {e}"
-            ) from None
+            msg = f"Error setting up filter {option}='{e.pattern!s}': {e}"
+            raise RuntimeError(msg) from None
 
     def _setup_pattern(option: str, patterns: list[str]) -> tuple[re.Pattern[str], ...]:
-        """Setup a filter and handle the exception."""
+        """Compile the patterns and handle the exceptions."""
         try:
             compiled_patterns = list[re.Pattern[str]]()
             if len(patterns):
@@ -357,9 +352,8 @@ def main(args: list[str] | None = None) -> int:  # pylint: disable=too-many-retu
         except re.error as e:
             # mypy is thinking that the pattern can be a byte string therefore we need to explicit use !s.
             # See also discussion https://github.com/gcovr/gcovr/pull/1028#discussion_r1855437452
-            raise RuntimeError(
-                f"Error setting up pattern {option}='{e.pattern!s}': {e}"
-            ) from None
+            msg = f"Error setting up pattern {option}='{e.pattern!s}': {e}"
+            raise RuntimeError(msg) from None
 
     try:
         options.include_filter = _setup_filter(
@@ -404,23 +398,26 @@ def main(args: list[str] | None = None) -> int:  # pylint: disable=too-many-retu
         LOGGER.error("%s", e)
         return EXIT_CMDLINE_ERROR
 
-    if options.fail_under_decision > 0.0 and not options.show_decision:
-        LOGGER.error("--fail-under-decision need also option --decision.")
-        return EXIT_CMDLINE_ERROR
-
     if options.show_decision:
         LOGGER.info(
             "Attention, the decision analysis is experimental. "
             "It uses a fragile heuristic and depends on the code format."
         )
 
+    # Get data files
+    if not options.search_paths:
+        options.search_paths = [options.root]
+
+        if options.gcov_objdir is not None:
+            options.search_paths.append(options.gcov_objdir)
+
     LOGGER.info("Reading coverage data...")
     try:
         covdata = gcovr_formats.read_reports(options)
-    except Workers.WorkerThreadException as exc:
+    except Workers.WorkerThreadError as exc:
         LOGGER.error("Error occurred while reading reports: %s", exc)
         return EXIT_READ_ERROR
-    except Exception:  # pylint: disable=broad-exception-caught
+    except Exception:  # pylint: disable=broad-exception-caught  # noqa: BLE001
         LOGGER.error(
             "Error occurred while reading reports:\n%s", traceback.format_exc()
         )
@@ -429,7 +426,7 @@ def main(args: list[str] | None = None) -> int:  # pylint: disable=too-many-retu
     LOGGER.info("Writing coverage report...")
     try:
         gcovr_formats.write_reports(covdata, options)
-    except Exception:  # pylint: disable=broad-exception-caught
+    except Exception:  # pylint: disable=broad-exception-caught  # noqa: BLE001
         LOGGER.error(
             "Error occurred while printing reports:\n%s", traceback.format_exc()
         )
@@ -439,7 +436,7 @@ def main(args: list[str] | None = None) -> int:  # pylint: disable=too-many-retu
         covdata,
         options.fail_under_line,
         options.fail_under_branch,
-        options.fail_under_decision,
+        options.fail_under_condition_or_decision,
         options.fail_under_function,
     )
 

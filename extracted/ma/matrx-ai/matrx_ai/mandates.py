@@ -28,7 +28,7 @@ Host side (aidream, once at startup)::
 Package side (any agent_runner in this package)::
 
     class MyAgent(NamedAgent[...]):
-        mandate_key = "pdf.content_cleaner"   # the DB decides which agent runs
+        mandate_key = "podcast.script_educational"   # the DB decides which agent runs
 
     result = await run_mandated(MyAgent, inputs=...)
 
@@ -922,8 +922,9 @@ class HeldCall:
             )
         from matrx_ai.config.template_substitution import substitute_authored
 
+        # The Holder's own text: the escape and the sections run too (config/template_substitution.py).
         # One pass: a value's own braces are data, never re-filled.
-        return substitute_authored(str(text), str(text), values, prompt_safe_value)
+        return substitute_authored(str(text), str(text), values, prompt_safe_value, unescape=True)
 
     async def finish(
         self,

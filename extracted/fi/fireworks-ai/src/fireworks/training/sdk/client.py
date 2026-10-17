@@ -366,6 +366,18 @@ class FiretitanSamplingClient(SamplingClient):
         if topk_prompt_logprobs > 0:
             raise NotImplementedError("FiretitanSamplingClient does not support topk_prompt_logprobs")
 
+    @staticmethod
+    def _prompt_token_ids(prompt: types.ModelInput) -> list[int]:
+        """Flatten a text prompt. Image chunks must be projected by the caller."""
+        chunks = getattr(prompt, "chunks", None)
+        if chunks is not None and not all(isinstance(chunk, types.EncodedTextChunk) for chunk in chunks):
+            raise ValueError(
+                "FiretitanSamplingClient.sample accepts text token prompts only. "
+                "Project image chunks to one placeholder token per image, then pass "
+                "images= with the matching base64 data URLs."
+            )
+        return list(prompt.to_ints())
+
     async def _sample_async_impl(
         self,
         prompt: types.ModelInput,
@@ -373,12 +385,17 @@ class FiretitanSamplingClient(SamplingClient):
         sampling_params: types.SamplingParams,
         include_prompt_logprobs: bool,
         topk_prompt_logprobs: int = 0,
+        *,
+        images: list[str] | None = None,
     ) -> types.SampleResponse:
         self._check_topk_prompt_logprobs_supported(topk_prompt_logprobs)
 
         tinker_types = self._training_types()
         use_firetitan_response = isinstance(sampling_params, FiretitanSamplingParams)
-        prompt_token_ids = list(prompt.to_ints())
+        # Callers with vision prompts must already project renderer image chunks
+        # into placeholder tokens (and strip sampler-owned affixes). This keeps
+        # the request aligned with training and lets the server expand the pads.
+        prompt_token_ids = self._prompt_token_ids(prompt)
         max_tokens = getattr(sampling_params, "max_tokens", None)
         if max_tokens is None:
             max_tokens = 1024
@@ -389,6 +406,8 @@ class FiretitanSamplingClient(SamplingClient):
         kwargs["logprobs"] = True
         if include_prompt_logprobs:
             kwargs["echo"] = True
+        if images:
+            kwargs["images"] = list(images)
 
         completions = await self.deployment_sampler.sample_with_prompt_tokens(
             prompt_token_ids,
@@ -487,8 +506,15 @@ class FiretitanSamplingClient(SamplingClient):
         sampling_params: types.SamplingParams,
         include_prompt_logprobs: bool = False,
         topk_prompt_logprobs: int = 0,
+        *,
+        images: list[str] | None = None,
     ) -> ConcurrentFuture[types.SampleResponse]:
-        """Generate completions with the Tinker ``SamplingClient`` signature."""
+        """Generate completions with the Tinker ``SamplingClient`` signature.
+
+        ``images`` pairs with a token prompt that already contains one
+        placeholder per image. Renderer image chunks and sampler-owned
+        affixes must be projected before calling this method.
+        """
         self._check_topk_prompt_logprobs_supported(topk_prompt_logprobs)
         return self._submit(
             self._sample_async_impl(
@@ -497,6 +523,7 @@ class FiretitanSamplingClient(SamplingClient):
                 sampling_params,
                 include_prompt_logprobs,
                 topk_prompt_logprobs,
+                images=images,
             )
         )
 
@@ -507,6 +534,8 @@ class FiretitanSamplingClient(SamplingClient):
         sampling_params: types.SamplingParams,
         include_prompt_logprobs: bool = False,
         topk_prompt_logprobs: int = 0,
+        *,
+        images: list[str] | None = None,
     ) -> types.SampleResponse:
         """Async version of :meth:`sample`."""
         return await self._await_concurrent_future(
@@ -516,6 +545,7 @@ class FiretitanSamplingClient(SamplingClient):
                 sampling_params,
                 include_prompt_logprobs,
                 topk_prompt_logprobs,
+                images=images,
             )
         )
 

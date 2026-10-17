@@ -241,7 +241,8 @@ def festival_line():
     bugs.  THIS BANNER IS NOW THE ONLY ON-SCREEN SIGN A FESTIVAL IS RUNNING --
     do not let it rot.  (The road card names it too, in statusbox.road.)"""
     from . import tournament
-    return tournament.holiday()
+    season = tournament.holiday_season()
+    return tournament.holiday() or (f"{season.title()} · {'Oct' if season == 'halloween' else 'Dec'} 1–31" if season else None)
 
 
 def home_lines(pet):
@@ -331,8 +332,9 @@ def egg_lines(pet):
         # real incubation clock.
         _hatch_line(pet),
         "",
-        "[dim]keep it cosy — it[/]",
         "[dim]hatches on its own[/]",
+        "[dim]? help · F feed on hatch[/]",
+        "[dim]C clean · O night lights[/]",
     ]
 
 
@@ -1006,7 +1008,8 @@ def help_(app):
         f"Gen    {app.pet.generation}", "",
         "[dim]the guide scrolls[/]",
         "[dim]on the display[/]", "",
-        "[dim]↑↓ scroll  ESC back[/]"])
+        "[dim]↑↓ scroll  PGUP/PGDN leap[/]",
+        "[dim]ESC back[/]"])
 
 
 def options(app):
@@ -1014,7 +1017,7 @@ def options(app):
     m = app.mode
     pet = getattr(app, "pet", None)
     row = _opts._ROWS[min(m.cursor, len(_opts._ROWS) - 1)]
-    desc = _opts._DESC.get(row, "")
+    desc = _opts.row_description(row)
     # word-wrap (card audit 2026-07-24): desc runs to 53 chars and the update
     # msg to ~49; the old [:26]/[26:52]/[:26] slices cut words mid-glyph and
     # dropped the msg's action hint.  Body budget = 14 rows (16 - title/DIV);
@@ -1026,7 +1029,7 @@ def options(app):
         lines += wrap(m.msg, 4)
         lines.append("")
     # menus audit 2026-10-14: confirmations and doors do not toggle.
-    action = {"theme": "open", "sound": "open", "account": "open",
+    action = {"colors": "toggle", "theme": "open", "sound": "open", "account": "open",
               "cloud": "toggle", "update": "check", "keys": "open",
               "new": "retire", "erase": "confirm"}[row]
     if getattr(m, "confirm", False):
@@ -1043,8 +1046,10 @@ def options(app):
             action = "restart"
         elif getattr(m, "_upd", None) not in (None, "", "…"):
             action = "install"
-    lines.append("[dim]updating…[/]" if getattr(m, "_installing", False)
-                 else f"[dim]ENTER {action}[/]")
+    from .web import is_browser
+    if row != "update" or not is_browser():
+        lines.append("[dim]updating…[/]" if getattr(m, "_installing", False)
+                     else f"[dim]ENTER {action}[/]")
     card(app, "Options", lines)
 
 
@@ -1056,6 +1061,10 @@ def themes(app):
 
 
 def sound(app):
+    from .web import is_browser
+    if is_browser():
+        card(app, "Sound", ["Unavailable on web", "", "[dim]ESC back[/]"])
+        return
     from . import sound as snd
     m = app.mode
     enabled = bool(m.sound_get())
@@ -1085,7 +1094,7 @@ def account(app):
     # menus audit 2026-10-14: describe the active field without echoing secrets.
     lines = [f"Name    {escape(_fit_cells(m.name_buf or '—', CARD_W - 8))}",
              f"Field   {m.field}", ""]
-    lines += [escape(ln) for ln in wrap(m.note, 4)]
+    lines += [escape(ln) for ln in wrap(m.note, 5)]
     lines += ["", "[dim]TAB field  ENTER go[/]", "[dim]ESC back[/]"]
     card(app, "Account", lines)
 
@@ -1311,8 +1320,16 @@ def tournament(app):
     p, t, T = app.pet, app.mode.tourney, theme
     app.stats_w.border_subtitle = gen_subtitle(p)
     if t is None:                      # cup-select phase (no bout yet)
-        card(app, "Cup", ["", "Pick a cup", "to enter."],
-             subtitle=gen_subtitle(p))
+        pan = app.mode
+        tr = pan.selected_cup()
+        # Full payment terms scroll on the LCD; keep the side card a summary.
+        lines = pan.detail_lines(tr)[:2]
+        if tr:
+            lines += ["Season: " + tr["season"],
+                      "Prelim: " + pan.prerequisite_path(tr)]
+        lines += ["3 bouts: need 20 energy"] + pan.target_lines()
+        lines = [_fit_cells(line, CARD_W) for line in lines[:14]]
+        card(app, "Cup", lines, subtitle=gen_subtitle(p))
         return
     if t.over and t.champion:
         lines = [f"[b]{p.name[:14]}[/] [dim]· cup[/]", DIV,
@@ -1401,7 +1418,7 @@ def training(app):
         lines = [f"[b]{p.name[:14]}[/] [dim]· train[/]", DIV,
                  "[b]the strike[/]", "",
                  f"Grade    {tp.grade or ''}",
-                 f"Energy   {energy}", DIV, ""]
+                 f"Energy   {energy}", DIV, "[b]SPACE to skip[/]"]
     app.stats_w.update("\n".join(lines))
 
 
@@ -1517,7 +1534,8 @@ def dna(app):
         "[dim]Stops at empty energy[/]",
         *last_rows,
         "[dim]Ties disarm; need a road[/]",
-        "[dim]ESC steps back out[/]",
+        ("[dim]Mash SPACE until time up.[/]" if m.phase == "mash"
+         else "[dim]ESC steps back out[/]"),
     ]
     app.stats_w.update("\n".join(lines))
 

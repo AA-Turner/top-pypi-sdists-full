@@ -22,6 +22,19 @@
 //! rehash are REMOVED by `verify` and then land in `wanted`, which is why a corrupted
 //! local object heals on the next pull instead of being skipped as "already present".
 
+mod fetcher;
+
+mod serve;
+
+mod volume;
+
+mod whole;
+
+pub use fetcher::{Access, Fetcher, Origin, Plain, Priority, Ticket};
+pub use serve::{serve, Grant};
+pub use volume::Volume;
+pub use whole::{resolve, whole};
+
 use crate::canon::{self, as_arr, Fields, Value};
 use crate::err::{refuse, Code, Result};
 use crate::ids::{ascii_name, hex64, Doc, ObjectRef};

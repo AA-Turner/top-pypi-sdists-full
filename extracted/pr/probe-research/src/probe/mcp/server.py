@@ -441,6 +441,7 @@ _VIEW_OPTIONS_DOC = """View-specific keys.
   trial          diff on a run: which trial's filesystem changes (required).
   path_prefix    diff on a run: narrow to one subtree.
   runs           inherited on an experiment: true lists the source runs, not their files.
+  version        summary_history on a project or experiment: read that one version's markdown instead of the list.
   field          record: a dotted field ("metadata.summary"), or a path list."""
 
 _TOKEN_BUDGET_DOC = """Response size budget, 512-8000 o200k_base tokens (default 2000), for the WHOLE response. The default fits a card or notes; start at 5000+ for a `trajectory`, `transcript` or `record` walk."""
@@ -528,7 +529,7 @@ _SK_TOP_K_DOC = (
 )
 
 
-_SK_PROJECT_DOC = """Scope BOTH channels server-side to one project."""
+_SK_PROJECT_DOC = """Scope BOTH channels server-side to one project. NOT transcripts: a scoped search drops every transcript hit (the response says so in `note`). For a project's sessions use `entity` view=sessions on the project, then view=transcript with view_options.grep."""
 
 _SK_WORKSPACE_DOC = """Scope BOTH channels server-side to one workspace."""
 
@@ -1471,7 +1472,7 @@ def create_server(
         1. `tree` (default) - projects -> experiments -> runs, walked with `ref`/`depth`
         2. `runs` - every run filed under a project, FLAT and NEWEST FIRST: the team's last N runs is `limit=N`, "what is running now" is `active=true`; `ref` narrows to a project or experiment. Unfiled runs are in browse with no `ref` or `workspace_id`
         3. `workspaces` - the team's filing locations with their NAMES (how a `workspace_id` becomes something a person can read)
-        4. `notes` - the notes catalog: what the team wrote down across every project, run and file; `query` matches note text literally (search ranks by meaning instead)
+        4. `notes` - the notes catalog: what the team wrote down across every project, experiment and run; `query` matches note text literally (search ranks by meaning instead)
         5. `files` - the team's Shared folder, or one workspace's files with `workspace_id`; `prefix` narrows to a folder. A run's or project's own files are `entity(view="artifacts")`
         6. `datasets` - team datasets (`dataset:<name>`) and unregistered run-logged dataset files; `registered`, `project`, `query` narrow
         7. `checkpoints` - every checkpoint team-wide (step, best, stored state, run); `project`/`experiment`/`run`, `best`, `stored` narrow

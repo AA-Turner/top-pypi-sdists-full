@@ -116,14 +116,95 @@ def _kimi():
     return kimi_config
 
 
-def add_marketplace(source: str, location: str) -> claude_cli.Result:
+#: Codex's refusal when a checkout for the name is on disk but its config entry
+#: is missing or points elsewhere. Lowercased; matched against lowercased output.
+_CODEX_DIFFERENT_SOURCE = "already added from a different source"
+
+
+def add_marketplace(source: str, location: str, *, name: str | None = None) -> claude_cli.Result:
+    """Add a marketplace. On Codex, given its `name`, repair an ORPHANED checkout.
+
+    Deleting the `[marketplaces.<name>]` table from `~/.codex/config.toml` (or
+    the whole file) leaves `~/.codex/.tmp/marketplaces/<name>` behind, and
+    `add` then refuses forever with "already added from a different source".
+    `upgrade` fails as "not configured as a Git marketplace", every install
+    fails as "not found in marketplace", and re-running the installer cannot
+    fix any of it. `marketplace remove` clears the stale checkout even with no
+    config entry, so the orphan is removed and `add` retried once.
+
+    Only an orphan. A name Codex still lists is a source somebody configured
+    (a fork, a local checkout under development) and is left alone; the
+    refusal comes back with the command that would replace it.
+    """
     if source == KIMI:
         return _kimi().refresh()
-    return run(
-        source,
-        ["plugin", "marketplace", "add", location],
-        timeout=claude_cli.REFRESH_TIMEOUT_S,
+    args = ["plugin", "marketplace", "add", location]
+    result = run(source, args, timeout=claude_cli.REFRESH_TIMEOUT_S)
+    if (
+        result.ok
+        or source != CODEX
+        or name is None
+        or _CODEX_DIFFERENT_SOURCE not in (result.detail or "").lower()
+    ):
+        return result
+    listed, configured = codex_marketplace_source(name)
+    if not listed:
+        return claude_cli.Result(
+            ok=False,
+            detail=(
+                f"{result.detail} (could not list Codex's marketplaces to check whether `{name}` "
+                f"is a stale checkout; `codex plugin marketplace remove {name}` clears it)"
+            ),
+            command=result.command,
+        )
+    if configured is not None:
+        return claude_cli.Result(
+            ok=False,
+            detail=(
+                f"Codex's `{name}` marketplace is configured from {configured or 'another source'}, "
+                f"not {location}; run `codex plugin marketplace remove {name}` to use the published one"
+            ),
+            command=result.command,
+        )
+    removed = run(
+        source, ["plugin", "marketplace", "remove", name], timeout=claude_cli.REFRESH_TIMEOUT_S
     )
+    if not removed.ok:
+        return claude_cli.Result(
+            ok=False,
+            detail=(
+                f"a stale `{name}` checkout with no config entry blocks `marketplace add`, and "
+                f"removing it failed: {removed.detail}"
+            ),
+            command=removed.command,
+        )
+    return run(source, args, timeout=claude_cli.REFRESH_TIMEOUT_S)
+
+
+def codex_marketplace_source(name: str) -> tuple[bool, str | None]:
+    """Whether Codex's marketplace listing was readable, and the source it has
+    CONFIGURED for `name`: None for no entry, "" for an entry with no source.
+
+    Unreadable is its own answer, not "no entry": the caller removes only a
+    name with no entry, and a failed listing must never delete a fork.
+    """
+    result = run(
+        CODEX, ["plugin", "marketplace", "list", "--json"], timeout=claude_cli.LIST_TIMEOUT_S
+    )
+    if not result.ok:
+        return False, None
+    try:
+        payload = json.loads(result.detail)
+    except (TypeError, ValueError):
+        return False, None
+    entries = payload.get("marketplaces") if isinstance(payload, dict) else None
+    if not isinstance(entries, list):
+        return False, None
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("name") == name:
+            src = entry.get("marketplaceSource")
+            return True, str(src.get("source") or "") if isinstance(src, dict) else ""
+    return True, None
 
 
 def refresh_marketplace(source: str, marketplace: str) -> claude_cli.Result:

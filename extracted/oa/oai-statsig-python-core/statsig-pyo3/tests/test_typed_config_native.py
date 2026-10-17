@@ -14,6 +14,7 @@ import pytest
 from google.protobuf.descriptor_pb2 import FieldDescriptorProto
 from google.protobuf.struct_pb2 import Struct
 from mock_scrapi import MockScrapi
+from packaged_config_fixture import packaged_config
 from statsig_python_core import (
     DynamicConfigEvaluationOptions,
     Statsig,
@@ -97,8 +98,10 @@ def _specs():
 
 
 @pytest.fixture
-def native_sdk(httpserver):
+def native_sdk(httpserver, request):
+    settings = getattr(request, "param", {})
     current = {"specs": _specs(), "requests": [], "condition": Condition()}
+    current["status"] = settings.get("status", 200)
 
     def respond(request):
         with current["condition"]:
@@ -123,11 +126,13 @@ def native_sdk(httpserver):
             fallback_to_statsig_api=False,
             enable_id_lists=False,
             output_log_level="none",
+            environment=settings.get("tier"),
         ),
     )
     try:
-        assert sdk.initialize().wait(10)
-        assert sdk.is_config_spec_ready()
+        if settings.get("initialize", True):
+            assert sdk.initialize().wait(10)
+            assert sdk.is_config_spec_ready() == (current["status"] == 200)
         yield sdk, scrapi, current
     finally:
         assert sdk.shutdown().wait(10)
@@ -163,6 +168,176 @@ def _publish(current, name="typed", *, value=None, version=None):
     return updated["time"]
 
 
+@pytest.mark.parametrize(
+    "native_sdk",
+    [{"status": 500, "tier": "production", "initialize": False}],
+    indirect=True,
+)
+def test_native_packaged_recovery_and_refresh_retention(
+    native_sdk, tmp_path, monkeypatch
+):
+    sdk, scrapi, current = native_sdk
+    package = packaged_config(
+        tmp_path,
+        monkeypatch,
+        {
+            "default": {"default_only": True},
+            "environments": {"production": {"number": 4}, "staging": {"number": 7}},
+        },
+    )
+    current["specs"]["condition_map"]["staging"] = {
+        "type": "environment_field",
+        "field": "tier",
+        "operator": "any",
+        "targetValue": ["staging"],
+        "idType": "userID",
+    }
+    current["specs"]["dynamic_configs"]["typed"] = _config("staging", {"number": 1})
+    user = StatsigUser("packaged", statsig_environment={"tier": "staging"})
+    kwargs = {
+        "message_type": package.Config,
+        "allow_packaged_fallback": True,
+        "packaged_fallback_package": package,
+    }
+    packaged = sdk.get_typed_config("typed", user, **kwargs)
+    assert packaged.value == {"number": 7} and packaged.value_source == "packaged"
+    assert not sdk.is_initialized() and current["requests"] == []
+    assert sdk.initialize().wait(10)
+    with pytest.raises(TypedConfigUnavailableError):
+        sdk.get_typed_config(
+            "typed",
+            user,
+            message_type=package.Config,
+            allow_packaged_fallback=False,
+            options=DynamicConfigEvaluationOptions(disable_exposure_logging=True),
+        )
+    callbacks = Queue()
+    sdk.register_typed_config_callback(
+        "typed", user, callbacks.put, message_type=package.Config
+    )
+    result = sdk.get_typed_config("typed", user, **kwargs)
+    assert result.value == {"number": 7} and result.value_source == "packaged"
+    assert not sdk.is_config_spec_ready()
+    assert callbacks.empty()
+    assert sdk.flush_events().wait(10)
+    assert not any(
+        event["eventName"].endswith("_exposure") for event in scrapi.get_logged_events()
+    )
+    current["status"] = 200
+    _wait_for(sdk.is_config_spec_ready)
+    remote = sdk.get_typed_config("typed", user, **kwargs)
+    assert remote.value == {"number": 1} and remote.value_source == "statsig"
+    assert callbacks.get(timeout=10).value_source == "statsig"
+    assert sdk.flush_events().wait(10)
+    assert any(
+        event["eventName"] == "statsig::config_exposure"
+        for event in scrapi.get_logged_events()
+    )
+    current["status"] = 500
+    with current["condition"]:
+        before = len(current["requests"])
+        assert current["condition"].wait_for(
+            lambda: len(current["requests"]) >= before + 2, timeout=10
+        )
+    retained = sdk.get_typed_config(
+        "typed",
+        StatsigUser("unseen", statsig_environment={"tier": "staging"}),
+        **kwargs,
+    )
+    assert retained.value == {"number": 1} and retained.value_source == "statsig"
+
+    updated = copy.deepcopy(current["specs"])
+    del updated["dynamic_configs"]["typed"]
+    updated["time"] += 1
+    current["specs"], current["status"] = updated, 200
+    quiet = DynamicConfigEvaluationOptions(disable_exposure_logging=True)
+    _wait_for(
+        lambda: sdk.get_dynamic_config(user, "typed", quiet).details.lcut
+        == updated["time"]
+    )
+    with pytest.raises(TypedConfigUnavailableError):
+        sdk.get_typed_config("typed", user, **kwargs)
+    assert sdk.get_dynamic_config(user, "typed", quiet).get("number", -1) == -1
+    with pytest.raises(TypedConfigUnavailableError):
+        _read(sdk, user=user)
+
+    updated = copy.deepcopy(current["specs"])
+    updated["dynamic_configs"]["typed"] = _config("public", {"number": 2})
+    updated["time"] += 1
+    current["specs"] = updated
+    _wait_for(
+        lambda: sdk.get_dynamic_config(user, "typed", quiet).details.lcut
+        == updated["time"]
+    )
+    restored = sdk.get_typed_config("typed", user, **kwargs)
+    assert restored.value == {"number": 2} and restored.value_source == "statsig"
+
+
+@pytest.mark.parametrize(
+    "native_sdk", [{"status": 500, "initialize": False}], indirect=True
+)
+def test_native_defaults_to_inferred_package_and_respects_opt_out_with_override(
+    native_sdk, tmp_path, monkeypatch
+):
+    sdk, _, current = native_sdk
+    package = packaged_config(
+        tmp_path,
+        monkeypatch,
+        {"default": {"number": 7}},
+        name="inferred_config_package",
+        generated=True,
+    )
+    assert (
+        package.Config.__module__
+        == "oaiproto.statsig_configs.inferred_config_package.config_pb2"
+    )
+    override = packaged_config(
+        tmp_path, monkeypatch, {"default": {"number": 9}}, name="other_defaults"
+    )
+    user = StatsigUser("user")
+    with pytest.raises(TypedConfigUnavailableError):
+        sdk.get_typed_config(
+            "typed",
+            user,
+            message_type=package.Config,
+            allow_packaged_fallback=False,
+            packaged_fallback_package=override,
+        )
+    inferred = sdk.get_typed_config("typed", user, message_type=package.Config)
+    explicit = sdk.get_typed_config(
+        "another_config",
+        user,
+        message_type=package.Config,
+        packaged_fallback_package=override,
+    )
+    assert inferred.value.number == 7 and inferred.value_source == "packaged"
+    assert explicit.value.number == 9 and explicit.value_source == "packaged"
+    assert not sdk.is_initialized() and current["requests"] == []
+
+
+def test_native_remote_values_and_overrides_precede_packaged_fallback(
+    native_sdk, tmp_path, monkeypatch
+):
+    sdk, _, current = native_sdk
+    package = packaged_config(tmp_path, monkeypatch, "invalid JSON")
+    kwargs = {
+        "message_type": FieldDescriptorProto,
+        "allow_packaged_fallback": True,
+        "packaged_fallback_package": package,
+    }
+    assert (
+        sdk.get_typed_config("typed", StatsigUser("user"), **kwargs).value.number == 1
+    )
+    sdk.override_dynamic_config("missing", {"number": 11})
+    override = sdk.get_typed_config("missing", StatsigUser("user"), **kwargs)
+    assert override.value.number == 11 and override.value_source == "statsig"
+    assert override.details.reason == "LocalOverride:Recognized"
+    lcut = _publish(current, value={"number": "invalid"}, version=2)
+    _wait_for(lambda: _read(sdk).details.lcut == lcut)
+    with pytest.raises(TypedConfigConversionError):
+        sdk.get_typed_config("typed", StatsigUser("user"), **kwargs)
+
+
 def test_native_current_users_attributes_options_and_coherent_metadata(native_sdk):
     sdk, _, _ = native_sdk
     first_user = StatsigUser("first", custom={"marker": "A"})
@@ -175,7 +350,7 @@ def test_native_current_users_attributes_options_and_coherent_metadata(native_sd
         result = _read(sdk, "context", user)
         ordinary = sdk.get_dynamic_config(user, "context")
         assert result.value == ordinary.value == expected
-        assert result.to_dict() == ordinary.to_dict()
+        assert result.to_dict() == {**ordinary.to_dict(), "value_source": "statsig"}
     first_user.custom = {"marker": "B"}
     assert _read(sdk, "context", first_user).value == {}
     first_user.custom = {"marker": "A"}

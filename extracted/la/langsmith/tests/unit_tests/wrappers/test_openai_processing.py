@@ -69,9 +69,7 @@ def test_infer_invocation_params_ignores_non_mapping_metadata(metadata):
 
 
 def test_infer_invocation_params_no_longer_stamps_ls_agent_type():
-    result = _infer_invocation_params(
-        "chat", "openai", {}, False, {"model": "gpt-4o-mini"}
-    )
+    result = _infer_invocation_params("chat", "openai", {}, False, {"model": "gpt-4o-mini"})
     assert "ls_agent_type" not in result
 
 
@@ -97,14 +95,10 @@ def test_traceable_kwargs_stamps_root_at_top_level(monkeypatch):
     assert result["metadata"]["ls_agent_type"] == "root"
 
 
-@pytest.mark.parametrize(
-    "wrapper_tag", ["root", "middleware", "subagent", "compaction"]
-)
+@pytest.mark.parametrize("wrapper_tag", ["root", "middleware", "subagent", "compaction"])
 def test_traceable_kwargs_preserves_user_supplied_tag(monkeypatch, wrapper_tag):
     monkeypatch.setattr(run_helpers, "get_current_run_tree", lambda: None)
-    result = _traceable_kwargs_with_ls_agent_type(
-        {"metadata": {"ls_agent_type": wrapper_tag}}
-    )
+    result = _traceable_kwargs_with_ls_agent_type({"metadata": {"ls_agent_type": wrapper_tag}})
     assert result["metadata"]["ls_agent_type"] == wrapper_tag
 
 
@@ -127,9 +121,7 @@ def test_traceable_kwargs_does_not_mutate_input(monkeypatch):
 
 def test_traceable_kwargs_preserves_other_user_metadata(monkeypatch):
     monkeypatch.setattr(run_helpers, "get_current_run_tree", lambda: None)
-    result = _traceable_kwargs_with_ls_agent_type(
-        {"metadata": {"customer_id": "cust-123"}}
-    )
+    result = _traceable_kwargs_with_ls_agent_type({"metadata": {"customer_id": "cust-123"}})
     assert result["metadata"]["customer_id"] == "cust-123"
     assert result["metadata"]["ls_agent_type"] == "root"
 

@@ -23,13 +23,9 @@ def test_collection_groups_langsmith_tests_by_suite(monkeypatch):
         obj=object(),
         get_closest_marker=lambda name: None,
     )
-    monkeypatch.setattr(
-        pytest_plugin, "_get_test_suite_name", lambda obj: "default-suite"
-    )
+    monkeypatch.setattr(pytest_plugin, "_get_test_suite_name", lambda obj: "default-suite")
 
-    plugin.pytest_collection_finish(
-        SimpleNamespace(items=[langsmith_item, regular_item])
-    )
+    plugin.pytest_collection_finish(SimpleNamespace(items=[langsmith_item, regular_item]))
     plugin.add_process_to_test_suite("default-suite", langsmith_item.nodeid)
 
     assert plugin.test_suites == {"default-suite": [langsmith_item.nodeid]}
@@ -63,9 +59,7 @@ def test_setup_outcome_replaces_running_status(failed, skipped, expected_status)
 
 def test_table_counts_collected_tests_without_results():
     plugin = object.__new__(pytest_plugin.LangSmithPlugin)
-    plugin.test_suites = {
-        "suite": ["test_example.py::test_passed", "test_example.py::test_missing"]
-    }
+    plugin.test_suites = {"suite": ["test_example.py::test_passed", "test_example.py::test_missing"]}
     plugin.test_suite_urls = {}
     plugin.process_status = {
         "test_example.py::test_passed": {"status": "passed"},

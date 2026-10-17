@@ -1298,6 +1298,12 @@ How to read this schema:
         help="Do not bake any dependencies. Directly used the image provided",
     )
 
+    suspend = ConfigField(
+        field_type=bool,
+        default=False,
+        help="Suspend the app when true; resume it when false. Defaults to false.",
+    )
+
     force_upgrade = ConfigField(
         cli_meta=CLIOption(
             name="force_upgrade",

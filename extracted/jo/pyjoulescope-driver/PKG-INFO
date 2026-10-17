@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: pyjoulescope_driver
-Version: 2.5.2
+Version: 2.5.4
 Summary: Joulescope™ driver
 Home-page: https://joulescope-driver.readthedocs.io/en/latest/
 Author: Jetperch LLC
 Author-email: joulescope-dev@jetperch.com
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Bug Reports, https://github.com/jetperch/joulescope_driver/issues
 Project-URL: Funding, https://www.joulescope.com
 Project-URL: Twitter, https://twitter.com/joulescope
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Embedded Systems
@@ -46,8 +47,8 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
+Dynamic: license-expression
 Dynamic: project-url
 Dynamic: requires-dist
 Dynamic: requires-python

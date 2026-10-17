@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datafusion-query-builder
-Version: 0.3.1
+Version: 0.4.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -74,6 +74,14 @@ The JSONB key-exists operators are first-class: `col("attributes").has_key("gen_
 renders `attributes ? 'gen_ai.input.messages'` — a cheap presence check that never extracts the
 value (contrast `raw("attributes ->> 'k'").is_not_null()`, which reads the whole value out just to
 test it). `has_any_key` and `has_all_keys` render `?|` / `?&`.
+
+CTEs default to leaving materialization up to the engine. Use
+`table("chosen").with_cte("chosen", source, materialized=True)` to emit
+`AS MATERIALIZED`, or `materialized=False` to emit `AS NOT MATERIALIZED`.
+Omitting the keyword (or passing `None`) preserves plain `AS (...)` SQL.
+These directives require engine support; rendering them does not guarantee that
+an engine honors them. Rust callers can use `with_cte_materialization(name, source, Some(true))`;
+the existing two-argument `with_cte` method is unchanged.
 
 ## Architecture
 

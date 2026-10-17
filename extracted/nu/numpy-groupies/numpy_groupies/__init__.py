@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import sys
+import warnings
 from typing import TYPE_CHECKING, Any
 
-from .aggregate_purepy import aggregate as aggregate_py
+from numpy_groupies.aggregate_purepy import aggregate as aggregate_py
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -19,14 +21,13 @@ aggregate = aggregate_py
 try:
     import numpy as np
 except ImportError:
-    aggregate_np = aggregate_ufunc = dummy_no_impl
+    aggregate_np = dummy_no_impl
     multi_arange = label_contiguous_1d = dummy_no_impl
 else:
-    from .aggregate_numpy import aggregate
+    from numpy_groupies.aggregate_numpy import aggregate, step_count, step_indices
 
     aggregate_np = aggregate
-    from .aggregate_numpy_ufunc import aggregate as aggregate_ufunc
-    from .utils import (
+    from numpy_groupies.utils import (
         default_fill_value,
         label_contiguous_1d,
         multi_arange,
@@ -42,13 +43,15 @@ try:
 except ImportError:
     aggregate_nb = None
 else:
-    from .aggregate_numba import aggregate as aggregate_nb
-    from .aggregate_numba import step_count, step_indices, unpack_into
+    from numpy_groupies.aggregate_numba import aggregate as aggregate_nb
+    from numpy_groupies.aggregate_numba import step_count, step_indices, unpack_into
 
     aggregate = aggregate_nb
 
 
-def uaggregate(group_idx: npt.ArrayLike, a: npt.ArrayLike, out: Any = None, **kwargs: Any) -> Any:
+def uaggregate(
+    group_idx: npt.ArrayLike, a: npt.ArrayLike, out: npt.NDArray[np.generic] | None = None, **kwargs: Any
+) -> npt.NDArray[np.generic]:
     """
     Aggregate the values of ``a`` by the groups in ``group_idx`` and broadcast the result
     back to the size of ``a``, so that every element carries the result of its own group.
@@ -80,7 +83,7 @@ def uaggregate(group_idx: npt.ArrayLike, a: npt.ArrayLike, out: Any = None, **kw
 
 try:
     # Version is added only when packaged
-    from ._version import __version__
+    from numpy_groupies._version import __version__
 except ImportError:
     try:
         from setuptools_scm import get_version
@@ -89,3 +92,11 @@ except ImportError:
     else:
         __version__ = get_version(root="..", relative_to=__file__)
         del get_version
+
+if sys.version_info[:2] < (3, 11):
+    warnings.warn(
+        "numpy-groupies will require Python 3.11 or newer from version 0.15, "
+        "and the 0.14 releases are the last to support Python 3.10.",
+        DeprecationWarning,
+        stacklevel=2,
+    )

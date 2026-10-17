@@ -8,12 +8,18 @@ run (:class:`PromptBlocksMissing`) before any provider call. Block text is a val
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from matrx_ai.prompt_blocks.conditions import matches
 from matrx_ai.prompt_blocks.errors import PromptBlocksMissing, PromptBlockSourceUnavailable
 from matrx_ai.prompt_blocks.models import LEVEL_ORDER, BlockRow, ModelFacts, ResolvedBlock
 from matrx_ai.prompt_blocks.source import BlockSource, get_block_source
+
+logger = logging.getLogger(__name__)
+
+#: A tool-bound block whose tool the run does not carry: it sends "", and says so.
+OFF_TOOL_NOT_IN_RUN = "tool not in run"
 
 
 def declared_names(raw: Any) -> list[str]:
@@ -99,7 +105,16 @@ async def resolve_declared_blocks(
         if row is None:
             continue
         if row.bound_tool and row.bound_tool not in run_tools:
-            resolved.append(ResolvedBlock(name, "", row.level, row.id, None, row.source_kind, row.bound_tool))
+            logger.info(
+                "prompt block %r is off: its tool %r is not in this run (tools: %s)",
+                name, row.bound_tool, sorted(run_tools) or "none",
+            )
+            resolved.append(
+                ResolvedBlock(
+                    name, "", row.level, row.id, None, row.source_kind, row.bound_tool,
+                    off=OFF_TOOL_NOT_IN_RUN,
+                )
+            )
             continue
         variant = None
         if row.variants:

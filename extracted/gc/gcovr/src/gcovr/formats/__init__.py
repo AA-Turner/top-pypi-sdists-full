@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,74 +15,104 @@
 #
 # ****************************************************************************
 
+"""GCOVR report formats."""
+
 from typing import Callable
 
-from ..data_model.coverage import FileCoverage
 from ..data_model.container import CoverageContainer
+from ..data_model.coverage import FileCoverage
 from ..data_model.merging import get_merge_mode_from_options
+from ..exceptions import SanityCheckError
 from ..filter import is_file_excluded
+from ..formats.base import BaseHandler
 from ..logging import LOGGER
 from ..options import GcovrConfigOption, Options, OutputOrDefault
 from ..utils import search_file
 
-
 # the handler
-from .gcov import GcovHandler
 from .clover import CloverHandler
 from .cobertura import CoberturaHandler
 from .coveralls import CoverallsHandler
 from .csv import CsvHandler
+from .gcov import GcovHandler
 from .html import HtmlHandler
 from .jacoco import JaCoCoHandler
 from .json import JsonHandler
 from .lcov import LcovHandler
 from .llvm import LlvmHandler
 from .markdown import MarkdownHandler
-from .sonarqube import SonarqubeHandler
+from .sonarqube import SonarQubeHandler
 from .txt import TxtHandler
+
+ALL_HANDLERS = list[type[BaseHandler]](
+    [
+        GcovHandler,
+        LlvmHandler,
+        TxtHandler,
+        HtmlHandler,
+        CsvHandler,
+        JsonHandler,
+        MarkdownHandler,
+        CloverHandler,
+        CoberturaHandler,
+        CoverallsHandler,
+        JaCoCoHandler,
+        LcovHandler,
+        SonarQubeHandler,
+    ]
+)
+
+
+def get_option_groups() -> list[dict[str, str]]:
+    """Validate the command line options of the format handlers."""
+    return [handler.get_option_group() for handler in ALL_HANDLERS]
 
 
 def get_options() -> list[GcovrConfigOption]:
     """Get the list of all options from the format handlers."""
     return [
-        o
-        for o in [
-            *GcovHandler.get_options(),
-            *CloverHandler.get_options(),
-            *CoberturaHandler.get_options(),
-            *CoverallsHandler.get_options(),
-            *CsvHandler.get_options(),
-            *HtmlHandler.get_options(),
-            *JaCoCoHandler.get_options(),
-            *JsonHandler.get_options(),
-            *LcovHandler.get_options(),
-            *LlvmHandler.get_options(),
-            *MarkdownHandler.get_options(),
-            *SonarqubeHandler.get_options(),
-            *TxtHandler.get_options(),
-        ]
-        if isinstance(o, GcovrConfigOption)
+        option
+        for options in [handler.get_options() for handler in ALL_HANDLERS]
+        for option in options
+        if isinstance(option, GcovrConfigOption)
     ]
 
 
 def validate_options(options: Options) -> None:
     """Validate the command line options of the format handlers."""
-    for handler in [
-        GcovHandler,
-        CloverHandler,
-        CoberturaHandler,
-        CoverallsHandler,
-        CsvHandler,
-        HtmlHandler,
-        JaCoCoHandler,
-        JsonHandler,
-        LcovHandler,
-        LlvmHandler,
-        MarkdownHandler,
-        SonarqubeHandler,
-        TxtHandler,
-    ]:
+    for handler in ALL_HANDLERS:
         handler(options).validate_options()
+
+    if options.json_tracefile or options.cobertura_tracefile:
+        for option, key in [
+            ("--exclude-directory", "exclude_directory"),
+            ("--exclude-noncode-lines", "exclude_noncode_lines"),
+            ("--exclude-throw-branches", "exclude_throw_branches"),
+            ("--exclude-unreachable-branches", "exclude_unreachable_branches"),
+            ("--exclude-function-lines", "exclude_function_lines"),
+            ("--exclude-function", "exclude_function"),
+            ("--exclude-lines-by-pattern", "exclude_lines_by_pattern"),
+            ("--exclude-branches-by-pattern", "exclude_branches_by_pattern"),
+            ("--warn-excluded-lines-with-hits", "warn_excluded_lines_with_hits"),
+            (
+                "--gcov-allowed-working-directory-root",
+                "gcov_allowed_working_directory_roots",
+            ),
+        ]:
+            if options.get(key):
+                LOGGER.warning(
+                    "Option %s has no effect when generating reports from tracefiles.",
+                    option,
+                )
+        for option, key in [
+            ("--include-internal-functions", "exclude_internal_functions"),
+            ("--no-markers", "respect_exclusion_markers"),
+        ]:
+            if not options.get(key):
+                LOGGER.warning(
+                    "Option %s has no effect when generating reports from tracefiles.",
+                    option,
+                )
 
 
 def read_reports(options: Options) -> CoverageContainer:
@@ -100,10 +128,19 @@ def read_reports(options: Options) -> CoverageContainer:
     else:
         covdata = GcovHandler(options).read_report()
 
-    if not covdata:
-        LOGGER.warning(
-            "All coverage data is filtered out. Please check your paths and filters."
+    # Check if the diff information is available for all files, or for none of the files.
+    # Otherwise, the report generation is not possible.
+    if (
+        len(
+            {
+                filecov.is_compare_info_available()
+                for filecov in covdata.filecov(recurse=True)
+            }
         )
+        == 2  # noqa: PLR2004
+    ):
+        msg = "Some files have diff information, while others do not."
+        raise SanityCheckError(msg)
 
     if options.include_search_filter:
         for search_path in options.search_paths or [options.root]:
@@ -127,6 +164,16 @@ def read_reports(options: Options) -> CoverageContainer:
                 covdata.insert_file_coverage(
                     filecov, get_merge_mode_from_options(options)
                 )
+
+    if not covdata:
+        LOGGER.warning(
+            "All coverage data is filtered out. Please check your paths and filters."
+        )
+
+    covdata.update_diff()
+
+    LOGGER.debug("Removing directories with only one child...")
+    covdata.collapse_directories_with_single_child()
 
     if options.merge_lines:
         covdata.merge_lines(options)
@@ -280,7 +327,7 @@ def write_reports(covdata: CoverageContainer, options: Options) -> None:
         generators.append(
             (
                 [options.sonarqube],
-                SonarqubeHandler(options).write_report,
+                SonarQubeHandler(options).write_report,
                 lambda: LOGGER.warning(
                     "SonarQube output skipped - "
                     "consider providing an output file with `--sonarqube=OUTPUT`."
@@ -313,6 +360,9 @@ def write_reports(covdata: CoverageContainer, options: Options) -> None:
                 default_output = None
         if output is not None:
             try:
+                # Clear the properties before calling each writer
+                for data in covdata.traverse():
+                    data.properties.clear()
                 format_writer(covdata, output.abspath)
             except RuntimeError as e:
                 writer_errors.append(str(e))
@@ -345,6 +395,5 @@ def write_reports(covdata: CoverageContainer, options: Options) -> None:
 
     if writer_errors:
         errors_as_string = "\n".join(writer_errors)
-        raise RuntimeError(
-            f"Not all output files where written successful:\n{errors_as_string}"
-        )
+        msg = f"Not all output files were written successfully:\n{errors_as_string}"
+        raise RuntimeError(msg)

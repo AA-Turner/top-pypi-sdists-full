@@ -352,7 +352,7 @@ class ConversationService:
             SharedConversationResponse,
         )
 
-    # Feedback management methods (EPMCDME-14625)
+    # Feedback management methods
 
     def create_feedback(self, request: FeedbackCreateRequest) -> FeedbackCreateResponse:
         """Submit like/dislike feedback on an assistant message.
@@ -385,7 +385,7 @@ class ConversationService:
             json_data=request.model_dump(by_alias=True, exclude_none=True),
         )
 
-    # Conversation finishing (EPMCDME-11067)
+    # Conversation finishing
 
     def finish(self, conversation_id: str) -> ConversationFinishResponse:
         """Mark a conversation as finished (owner-only).

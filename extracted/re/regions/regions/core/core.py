@@ -920,8 +920,15 @@ class SphericalSkyRegion(Region):
 
     @staticmethod
     def _standardize_frame(frame):
-        # Standardize frame format: get as an astropy coordinate frame class
-        frame = get_astropy_frame_class(frame)
+        # Standardize frame format:
+        if isinstance(frame, BaseCoordinateFrame):
+            # Strip any attached data, keeping the frame attributes
+            return frame.replicate_without_data()
+
+        # Otherwise, get an astropy coordinate frame class,
+        # and create an instance without data:
+        frame_cls = get_astropy_frame_class(frame)
+        frame = frame_cls()
         return frame
 
     def _validate_frame_transformation(self, frame):
@@ -1052,7 +1059,7 @@ class SphericalSkyRegion(Region):
         transform an ICRS coordinate that has an obstime attribute to FK4; in
         this case, one likely would want to use this information. Thus, the
         default for ``merge_attributes`` is `True`, in which the precedence is
-        as follows: (1) explicitly set (i.e., non-default) values in the
+        as follows: (1) explicitly set (i.e., nondefault) values in the
         destination frame; (2) explicitly set values in the source; (3) default
         value in the destination frame.
 

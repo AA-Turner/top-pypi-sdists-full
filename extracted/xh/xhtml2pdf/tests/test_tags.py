@@ -1,16 +1,20 @@
 import base64
+import hashlib
 import io
+import logging
 import re
 from pathlib import Path
 from typing import NamedTuple
 from unittest import TestCase
 from xml.dom import minidom
 
+from PIL import Image
 from pypdf import PdfReader
 from pypdf.generic import ArrayObject
 from reportlab.pdfbase.pdfmetrics import stringWidth
 
 from xhtml2pdf import pisa, tags
+from xhtml2pdf.charts import HorizontalLine
 from xhtml2pdf.context import pisaContext
 from xhtml2pdf.document import pisaStory
 from xhtml2pdf.parser import AttrContainer, pisaGetAttributes
@@ -142,7 +146,7 @@ class BadInputKeepsTheDocumentTestCase(TestCase):
         with self.assertNoLogs("xhtml2pdf", level="WARNING"):
             result = self.convert(
                 '<canvas type="graph" width="200" height="100">'
-                '{"type": "pie", "data": [[1, 2]], "labels": ["a", "b"]}</canvas>'
+                '{"type": "pie", "data": [1, 2], "labels": ["a", "b"]}</canvas>'
             )
         self.assertEqual(0, result.err)
 
@@ -199,6 +203,40 @@ class CorruptImageTestCase(TestCase):
         self.assert_left_out(
             "<style>@page {{ background-image: url('{uri}') }}</style><p>after</p>"
         )
+
+
+class DistinctImagesTestCase(TestCase):
+    """Every image is drawn with its own pixels; a repeated one is embedded once."""
+
+    @staticmethod
+    def png_uri(color: tuple[int, int, int, int]) -> str:
+        buf = io.BytesIO()
+        Image.new("RGBA", (64, 48), color).save(buf, format="PNG")
+        return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+    def image_digests(self, uris: list[str]) -> list[str]:
+        imgs = "".join(f'<img src="{uri}" width="64" height="48"/> ' for uri in uris)
+        dest = io.BytesIO()
+        result = pisa.pisaDocument(
+            io.StringIO(f"<html><body><p>{imgs}</p></body></html>"), dest
+        )
+        self.assertEqual(0, result.err)
+        xobjects = PdfReader(io.BytesIO(dest.getvalue())).pages[0]["/Resources"][
+            "/XObject"
+        ]
+        return [
+            hashlib.md5(x.get_object().get_data()).hexdigest()
+            for x in xobjects.values()
+        ]
+
+    def test_different_pngs_stay_different(self) -> None:
+        colors = [(255, 0, 0, 255), (0, 160, 0, 255), (0, 0, 255, 255)]
+        digests = self.image_digests([self.png_uri(c) for c in colors])
+        self.assertEqual(3, len(set(digests)))
+
+    def test_the_same_png_twice_is_embedded_once(self) -> None:
+        uri = self.png_uri((255, 0, 0, 255))
+        self.assertEqual(1, len(self.image_digests([uri, uri])))
 
 
 class ChartParametersTestCase(TestCase):
@@ -350,6 +388,91 @@ class ChartParametersTestCase(TestCase):
         self.assertEqual(["a", "1", "b", "2", "c", "3"], labels[:6])
 
 
+class ChartWarningsTestCase(TestCase):
+    """A chart property that does nothing says so."""
+
+    @staticmethod
+    def render(chart: str) -> None:
+        pisa.pisaDocument(
+            io.StringIO(
+                f'<html><body><canvas type="graph" width="300" height="150">{chart}'
+                "</canvas></body></html>"
+            ),
+            io.BytesIO(),
+        )
+
+    def json_warnings(self, chart: str) -> list[str]:
+        """What is said about the chart's JSON, and only that."""
+        found: list[str] = []
+        handler = logging.Handler(logging.WARNING)
+        handler.emit = lambda record: found.append(record.getMessage())
+        logger = logging.getLogger("xhtml2pdf")
+        level = logger.level
+        logger.addHandler(handler)
+        logger.setLevel(logging.WARNING)
+        try:
+            self.render(chart)
+        finally:
+            logger.removeHandler(handler)
+            logger.setLevel(level)
+        return [line for line in found if "in the JSON of" in line]
+
+    def warnings(self, chart: str) -> list[str]:
+        found = self.json_warnings(chart)
+        self.assertTrue(found)
+        return found
+
+    def test_a_key_the_chart_does_not_read(self) -> None:
+        (line,) = self.warnings(
+            '{"type": "verticalbar", "data": [[1, 2]], "labels": ["a", "b"],'
+            ' "barThickness": 5, "legend": {"x": 1, "colour": "red"}}'
+        )
+        self.assertIn("'barThickness'", line)
+        self.assertIn("'legend.colour'", line)
+
+    def test_a_value_the_property_does_not_take(self) -> None:
+        (line,) = self.warnings(
+            '{"type": "verticalbar", "data": [[1, 2]], "labels": ["a", "b"],'
+            ' "barWidth": "wide"}'
+        )
+        self.assertIn("'barWidth'", line)
+        self.assertIn("'wide'", line)
+
+    def test_a_line_chart_takes_its_category_axis(self) -> None:
+        chart = HorizontalLine()
+        chart.set_properties(
+            {
+                "data": [[1, 2, 3]],
+                "labels": ["a", "b", "c"],
+                "categoryAxis": {"strokeColor": "red", "labels": {"angle": 30}},
+            }
+        )
+        self.assertEqual(30, chart.categoryAxis.labels.angle)
+        self.assertEqual(
+            [],
+            self.json_warnings(
+                '{"type": "horizontalline", "data": [[1, 2, 3]],'
+                ' "labels": ["a", "b", "c"], "categoryAxis": {"labels": {"angle": 30}}}'
+            ),
+        )
+
+    def test_a_chart_that_uses_every_key_says_nothing(self) -> None:
+        for chart in (
+            (
+                '{"type": "verticalbar", "data": [[1, 2]], "labels": ["a", "b"],'
+                ' "barWidth": 5, "valueAxis": {"valueMin": 0},'
+                ' "categoryAxis": {"labels": {"angle": 30}}}'
+            ),
+            (
+                '{"type": "pie", "data": [3, 1], "labels": ["x", "y"],'
+                ' "title": {"_text": "T", "x": 10, "y": 10},'
+                ' "legend": {"x": 10, "y": 10}, "slices": {"strokeColor": "white"}}'
+            ),
+        ):
+            with self.subTest(chart):
+                self.assertEqual([], self.json_warnings(chart))
+
+
 class SelfClosingTocTestCase(TestCase):
     """
     <pdf:toc /> puts the table of contents where it is written.
@@ -495,6 +618,65 @@ class CanvasGraphTestCase(TestCase):
 
         self.assertIn("1 0 0 rg", stream)
         self.assertIn("n 0 0 200 100 re", stream)
+
+
+class CanvasPlacementTestCase(TestCase):
+    """A chart takes the margins, padding and text-align of the block it is in."""
+
+    CHART = (
+        '<canvas type="graph" width="300" height="120">'
+        '{"type": "verticalbar", "data": [[1, 2, 3]], "labels": ["a", "b", "c"]}'
+        "</canvas>"
+    )
+
+    def runs(self, body: str) -> dict[str, tuple[float, float]]:
+        """The (x, y) of each run of text, y up from the bottom of the page."""
+        dest = io.BytesIO()
+        result = pisa.pisaDocument(
+            io.StringIO(
+                "<html><head><style>p { margin: 0 }</style></head>"
+                f"<body><p>before</p>{body}<p>after</p></body></html>"
+            ),
+            dest,
+        )
+        self.assertEqual(0, result.err)
+        found: dict[str, tuple[float, float]] = {}
+
+        def visit(text, cm, tm, _font, _size) -> None:
+            if text.strip() and text.strip() not in found:
+                found[text.strip()] = (
+                    tm[4] * cm[0] + tm[5] * cm[2] + cm[4],
+                    tm[4] * cm[1] + tm[5] * cm[3] + cm[5],
+                )
+
+        PdfReader(io.BytesIO(dest.getvalue())).pages[0].extract_text(visitor_text=visit)
+        return found
+
+    def test_the_margins_of_the_block_around_it(self) -> None:
+        plain = self.runs(self.CHART)
+        spaced = self.runs(f"<div style='margin: 40pt 0'>{self.CHART}</div>")
+        self.assertAlmostEqual(plain["a"][1] - 40, spaced["a"][1], places=1)
+        self.assertAlmostEqual(plain["after"][1] - 80, spaced["after"][1], places=1)
+
+    def test_the_padding_of_the_block_around_it(self) -> None:
+        plain = self.runs(self.CHART)
+        padded = self.runs(
+            f"<div style='padding: 30pt; border: 1pt solid red'>{self.CHART}</div>"
+        )
+        self.assertAlmostEqual(plain["a"][0] + 31, padded["a"][0], places=1)
+        self.assertAlmostEqual(plain["a"][1] - 31, padded["a"][1], places=1)
+
+    def test_the_text_around_it_in_its_block_is_kept(self) -> None:
+        with self.assertNoLogs("xhtml2pdf", level="WARNING"):
+            found = self.runs(f"<div>lead {self.CHART} tail</div>")
+        # y grows up the page: the lead above the chart, the tail below it.
+        self.assertGreater(found["lead"][1], found["a"][1])
+        self.assertGreater(found["a"][1], found["tail"][1])
+
+    def test_text_align_center_centres_it(self) -> None:
+        plain = self.runs(self.CHART)
+        centred = self.runs(f"<div style='text-align: center'>{self.CHART}</div>")
+        self.assertGreater(centred["a"][0] - plain["a"][0], 100)
 
 
 class FormFieldTestCase(TestCase):

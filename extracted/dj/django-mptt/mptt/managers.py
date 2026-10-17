@@ -60,8 +60,15 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
             self.tree_model = _get_tree_model(model)
 
             self._base_manager = None
-            if self.tree_model and self.tree_model is not model:
-                # _base_manager is the treemanager on tree_model
+            if (
+                self.tree_model
+                and self.tree_model is not model
+                and not model._meta.proxy
+            ):
+                # _base_manager is the treemanager on tree_model (MTI only).
+                # Proxy models share the same DB table so they don't need
+                # delegation; keeping _base_manager None lets their own
+                # queryset be used, which returns instances of the proxy class.
                 self._base_manager = self.tree_model._tree_manager
 
     def get_queryset(self, *args, **kwargs):
@@ -123,18 +130,22 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
         if direction == "asc":
             max_attr = opts.left_attr
             min_attr = opts.right_attr
+            level_op = max_op  # ancestors are at a lower (smaller) level
         elif direction == "desc":
             max_attr = opts.right_attr
             min_attr = opts.left_attr
+            level_op = min_op  # descendants are at a higher (larger) level
 
         tree_key = opts.tree_id_attr
         min_key = f"{min_attr}__{min_op}"
         max_key = f"{max_attr}__{max_op}"
+        level_key = f"{opts.level_attr}__{level_op}"
 
         q = queryset.order_by(opts.tree_id_attr, opts.parent_attr, opts.left_attr).only(
             opts.tree_id_attr,
             opts.left_attr,
             opts.right_attr,
+            opts.level_attr,
             min_attr,
             max_attr,
             opts.parent_attr,
@@ -154,35 +165,37 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
         ):
             next_lft = None
             for node in list(group[1]):
-                tree, lft, rght, min_val, max_val = (
+                tree, lft, rght, min_val, max_val, level = (
                     getattr(node, opts.tree_id_attr),
                     getattr(node, opts.left_attr),
                     getattr(node, opts.right_attr),
                     getattr(node, min_attr),
                     getattr(node, max_attr),
+                    getattr(node, opts.level_attr),
                 )
                 if next_lft is None:
                     next_lft = rght + 1
-                    min_max = {"min": min_val, "max": max_val}
+                    min_max = {"min": min_val, "max": max_val, "level": level}
                 elif lft == next_lft:
-                    if min_val < min_max["min"]:
-                        min_max["min"] = min_val
-                    if max_val > min_max["max"]:
-                        min_max["max"] = max_val
+                    min_max["min"] = min(min_max["min"], min_val)
+                    min_max["max"] = max(min_max["max"], max_val)
+                    min_max["level"] = min(min_max["level"], level)
                     next_lft = rght + 1
                 elif lft != next_lft:
                     filters |= Q(
                         **{
                             tree_key: tree,
+                            level_key: min_max["level"],
                             min_key: min_max["min"],
                             max_key: min_max["max"],
                         }
                     )
-                    min_max = {"min": min_val, "max": max_val}
+                    min_max = {"min": min_val, "max": max_val, "level": level}
                     next_lft = rght + 1
             filters |= Q(
                 **{
                     tree_key: tree,
+                    level_key: min_max["level"],
                     min_key: min_max["min"],
                     max_key: min_max["max"],
                 }
@@ -398,6 +411,8 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
         return qs.update(**self._translate_lookups(**items))
 
     def _get_connection(self, **hints):
+        if self._db:
+            return connections[self._db]
         return connections[router.db_for_write(self.model, **hints)]
 
     def add_related_count(
@@ -558,7 +573,10 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
         self, node, target, position="last-child", save=True, refresh_target=True
     ):
         if self.tree_model._mptt_is_tracking:
-            # delegate to insert_node and clean up the gaps later.
+            # delegate to insert_node and clean up the gaps later. The tree
+            # the node is leaving needs a rebuild too, otherwise the gap
+            # stays in its ancestors' rght values (#483).
+            self.tree_model._mptt_track_tree_modified(getattr(node, self.tree_id_attr))
             return self.insert_node(
                 node,
                 target,
@@ -602,11 +620,30 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
         ``MPTTMeta.order_insertion_by``.  In most cases you should just
         move the node yourself by setting node.parent.
         """
+        if not self.tree_model._mptt_is_tracking:
+            # The move calculations use the in-memory tree fields of both
+            # nodes. If another move has happened since the instances were
+            # loaded these are stale and the raw SQL would corrupt the tree
+            # (#257, #568). Skip inside delay_mptt_updates(), the tracking
+            # layer manages tree state there independently.
+            self._refresh_tree_fields(node, include_parent=True)
+            if target is not None:
+                self._refresh_tree_fields(target)
         self._move_node(node, target, position=position)
         node.save()
         node_moved.send(
             sender=node.__class__, instance=node, target=target, position=position
         )
+
+    def _refresh_tree_fields(self, node, include_parent=False):
+        fields = [self.left_attr, self.right_attr, self.tree_id_attr, self.level_attr]
+        if include_parent:
+            fields.append(self.parent_attr)
+        node.refresh_from_db(fields=fields)
+        if include_parent:
+            node._mptt_cached_fields[self.parent_attr] = (
+                node._mptt_meta.get_raw_field_value(node, self.parent_attr)
+            )
 
     @delegate_manager
     def root_node(self, tree_id):
@@ -1120,7 +1157,7 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
             level_change,
             left_right_change,
             parent,
-            new_parent_right,
+            _new_parent_right,
         ) = self._calculate_inter_tree_move_values(node, target, position)
 
         tree_width = right - left + 1
@@ -1308,7 +1345,7 @@ class TreeManager(models.Manager.from_queryset(TreeQuerySet)):
             level_change,
             left_right_change,
             parent,
-            right_shift,
+            _right_shift,
         ) = self._calculate_inter_tree_move_values(node, target, position)
 
         # Create space for the tree which will be inserted

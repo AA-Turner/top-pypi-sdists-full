@@ -348,6 +348,9 @@ class ToolType(StrEnum):
     EXTERNAL_MCP = "external"
     AGENT = "agent"
     EXTERNAL_HANDLER = "external_handler"
+    # A catalog Tool (``source_kind='catalog'``): one job row run by the ONE
+    # host-injected catalog executor (``catalog_seam.configure_catalog_executor``).
+    CATALOG = "catalog"
 
 
 def _is_image_ref_output(output: Any) -> bool:

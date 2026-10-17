@@ -823,8 +823,8 @@ impl NetworkProviderReqwest {
 
         log_d!(TAG, "Wrote {} bytes to in-memory buffer", bytes.len());
 
-        Ok(ResponseData::from_bytes_with_headers(
-            bytes.to_vec(),
+        Ok(ResponseData::from_shared_bytes_with_headers(
+            Arc::from(bytes.as_ref()),
             headers,
         ))
     }
@@ -979,6 +979,10 @@ fn get_response_headers(response: &reqwest::Response) -> Option<HashMap<String, 
 #[cfg(test)]
 #[path = "../__tests__/net_provider_reqwest_http2_tests.rs"]
 mod http2_tests;
+
+#[cfg(test)]
+#[path = "../__tests__/net_provider_reqwest_shared_bytes_tests.rs"]
+mod shared_bytes_tests;
 
 #[cfg(test)]
 mod tests {

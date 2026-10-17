@@ -15,14 +15,45 @@ import socket
 import sys
 import warnings
 from functools import partial
-from importlib.metadata import PackageNotFoundError, version
 from inspect import Parameter, _ParameterKind
 from typing import TYPE_CHECKING, TypeVar
+from urllib.parse import unquote, urlsplit, urlunsplit
+
+from pact.__version__ import __version__
+from pact._url import DEFAULT_PORTS
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
 logger = logging.getLogger(__name__)
+
+
+def strip_url_credentials(url: str) -> tuple[str, str | None, str | None]:
+    """
+    Remove the username and password from a URL.
+
+    The host is lowercased, and an explicit port 80 for `http` or 443 for
+    `https` is dropped. The path and query pass through unencoded.
+
+    Args:
+        url:
+            The URL, which may contain credentials.
+
+    Returns:
+        The URL without credentials, followed by the percent-decoded username
+        and password, each `None` if absent.
+    """
+    parts = urlsplit(url)
+    username = unquote(parts.username) if parts.username else None
+    password = unquote(parts.password) if parts.password else None
+
+    netloc = parts.hostname or ""
+    if ":" in netloc:
+        netloc = f"[{netloc}]"
+    if parts.port is not None and parts.port != DEFAULT_PORTS.get(parts.scheme):
+        netloc = f"{netloc}:{parts.port}"
+
+    return urlunsplit(parts._replace(netloc=netloc)), username, password
 
 
 def user_agent() -> str:
@@ -35,10 +66,8 @@ def user_agent() -> str:
     Returns:
         The formatted `User-Agent` string.
     """
-    try:
-        pact_ver = version("pact-python")
-    except PackageNotFoundError:
-        pact_ver = "unknown"
+    # Deferred as `importlib.metadata` is slow to import and rarely needed.
+    from importlib.metadata import PackageNotFoundError, version  # noqa: PLC0415
 
     try:
         requests_ver = version("requests")
@@ -46,7 +75,7 @@ def user_agent() -> str:
         requests_ver = "unknown"
 
     py_ver = "{}.{}.{}".format(*sys.version_info[:3])
-    return f"pact-python/{pact_ver} requests/{requests_ver} python/{py_ver}"
+    return f"pact-python/{__version__} requests/{requests_ver} python/{py_ver}"
 
 
 _PYTHON_FORMAT_TO_JAVA_DATETIME = {

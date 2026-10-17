@@ -1329,6 +1329,58 @@ class GetObjectsForUser(TestCase):
         )
         self.assertEqual(set(objects.values_list("id", flat=True)), {ctypes[0].id, ctypes[1].id})
 
+    def test_global_perm_with_partial_group_object_perms(self):
+        # Global perm covers one codename; group grants only one of the two remaining ones on ctypes[0].
+        self.user.groups.add(self.group)
+        ctypes = list(ContentType.objects.all().order_by("id"))
+        assign_perm("contenttypes.change_contenttype", self.user)
+        assign_perm("delete_contenttype", self.group, ctypes[0])
+        assign_perm("delete_contenttype", self.group, ctypes[1])
+        assign_perm("add_contenttype", self.user, ctypes[1])
+
+        objects = get_objects_for_user(
+            self.user,
+            [
+                "contenttypes.change_contenttype",
+                "contenttypes.delete_contenttype",
+                "contenttypes.add_contenttype",
+            ],
+        )
+        self.assertEqual(set(objects.values_list("id", flat=True)), {ctypes[1].id})
+
+    @mock.patch("guardian.shortcuts.guardian_settings.LEGACY_GLOBAL_PERMS_GROUP_UNION", True)
+    def test_global_perm_with_partial_group_object_perms_legacy(self):
+        # Legacy (pre-3.5.1) behaviour: any single group object perm is unioned in.
+        self.user.groups.add(self.group)
+        ctypes = list(ContentType.objects.all().order_by("id"))
+        assign_perm("contenttypes.change_contenttype", self.user)
+        assign_perm("delete_contenttype", self.group, ctypes[0])
+        assign_perm("delete_contenttype", self.group, ctypes[1])
+        assign_perm("add_contenttype", self.user, ctypes[1])
+
+        with self.assertWarns(DeprecationWarning):
+            objects = get_objects_for_user(
+                self.user,
+                [
+                    "contenttypes.change_contenttype",
+                    "contenttypes.delete_contenttype",
+                    "contenttypes.add_contenttype",
+                ],
+            )
+        self.assertEqual(set(objects.values_list("id", flat=True)), {ctypes[0].id, ctypes[1].id})
+
+    @mock.patch("guardian.shortcuts.guardian_settings.LEGACY_GLOBAL_PERMS_GROUP_UNION", True)
+    def test_legacy_setting_does_not_warn_for_unaffected_calls(self):
+        # Without groups, or with a single remaining codename, legacy mode changes nothing.
+        self.user.groups.add(self.group)
+        assign_perm("contenttypes.change_contenttype", self.user)
+        perms = ["contenttypes.change_contenttype", "contenttypes.delete_contenttype", "contenttypes.add_contenttype"]
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            get_objects_for_user(self.user, perms, use_groups=False)
+            get_objects_for_user(self.user, perms[:2])
+
     def test_varchar_primary_key(self):
         """
         Verify that the function works when the objects that should be returned

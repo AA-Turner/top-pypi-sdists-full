@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plette
-Version: 2.3.0
+Version: 2.4.0
 Summary: Structured Pipfile and Pipfile.lock models.
 Author-email: Tzu-ping Chung <uranusjr@gmail.com>
 License: ISC License

@@ -26,6 +26,7 @@ from reportlab.graphics.barcode import createBarcodeDrawing
 from reportlab.graphics.charts.legends import Legend
 from reportlab.graphics.charts.textlabels import Label
 from reportlab.graphics.shapes import Rect
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch, mm
 from reportlab.pdfbase import pdfmetrics
@@ -40,6 +41,7 @@ from xhtml2pdf.charts import (
     HorizontalLine,
     LegendedPieChart,
     PieChart,
+    ReadKeys,
     VerticalBar,
     font_resolver,
 )
@@ -60,6 +62,7 @@ from xhtml2pdf.util import (
     getSize,
 )
 from xhtml2pdf.xhtml2pdf_reportlab import (
+    PageNumberReset,
     PmlDrawing,
     PmlFrame,
     PmlImage,
@@ -836,6 +839,15 @@ class pisaTagPDFPAGENUMBER(pisaTag):
         c.frag.pageNumber = False
 
 
+class pisaTagPDFRESETPAGENUMBER(pisaTag):
+    """<pdf:resetpagenumber value="1" />."""
+
+    def start(self, c: pisaContext) -> None:
+        c.addPara()
+        c.addStory(PageNumberReset(int(self.attr.value)))
+        c.addPageCount()
+
+
 class pisaTagPDFPAGECOUNT(pisaTag):
     """<pdf:pagecount />."""
 
@@ -1139,8 +1151,10 @@ class pisaTagCANVAS(pisaTag):
             "legendedPie": LegendedPieChart,
         }
 
-    def start(self, c: pisaContext) -> None:
-        pass
+    def start(self, c: pisaContext) -> None:  # noqa: PLR6301
+        # The text before the chart is a paragraph of its own: what the
+        # element holds is read as its JSON, and only that.
+        c.addPara()
 
     @staticmethod
     def _length(value, default: float) -> float | None:
@@ -1183,6 +1197,8 @@ class pisaTagCANVAS(pisaTag):
             data = json.loads(c.text)
         except json.JSONDecodeError as exc:
             log.warning("Cannot read the JSON of a <canvas type=graph>: %s", exc)
+        if isinstance(data, dict):
+            data = ReadKeys(data)
 
         if data and c.node:
             nodetype = dict(c.node.attributes).get("type")
@@ -1219,7 +1235,7 @@ class pisaTagCANVAS(pisaTag):
             # but only when the JSON places nothing itself: a chart with its
             # own coordinates is laid out around them, and resizing it under
             # the author would move everything else out of place.
-            if not self.GEOMETRY & set(data):
+            if not any(key in data for key in self.GEOMETRY):
                 self.chart.x = self.chart.y = self.CHART_INSET
                 self.chart.width = max(width - 2 * self.CHART_INSET, 1)
                 self.chart.height = max(height - 2 * self.CHART_INSET, 1)
@@ -1254,4 +1270,17 @@ class pisaTagCANVAS(pisaTag):
             # ADD CHART TO DRAW OBJECT
             draw.add(self.chart)
             draw.fit_contents("<canvas type=graph>")
+            unread = data.unread() if isinstance(data, ReadKeys) else []
+            if unread:
+                log.warning(
+                    "Ignoring %s in the JSON of a <canvas type=graph>: no %s chart"
+                    " reads them",
+                    ", ".join(repr(path) for path in unread),
+                    charttype,
+                )
+            # Placed like an image in its line: the text-align of the block
+            # around it lines it up.
+            draw.hAlign = {TA_CENTER: "CENTER", TA_RIGHT: "RIGHT"}.get(
+                c.frag.alignment, "LEFT"
+            )
             c.addStory(draw)

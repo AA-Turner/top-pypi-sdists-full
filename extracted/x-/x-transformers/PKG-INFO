@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: x-transformers
-Version: 2.31.7
+Version: 2.31.8
 Summary: X-Transformers
 Project-URL: Homepage, https://pypi.org/project/x-transformers/
 Project-URL: Repository, https://codeberg.org/lucidrains/x-transformers
@@ -2908,6 +2908,18 @@ ids_out, num_out, is_number_mask = model.generate(start_ids, start_nums, 17)
     archivePrefix = {arXiv},
     primaryClass  = {cs.LG},
     url           = {https://arxiv.org/abs/2608.08888}
+}
+```
+
+```bibtex
+@misc{kimiteam2026kimik3openfrontier,
+    title   = {Kimi K3: Open Frontier Intelligence},
+    author  = {Kimi Team},
+    year    = {2026},
+    eprint  = {2607.24653},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.CL},
+    url     = {https://arxiv.org/abs/2607.24653},
 }
 ```
 

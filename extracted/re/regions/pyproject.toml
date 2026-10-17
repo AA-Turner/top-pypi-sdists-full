@@ -23,9 +23,9 @@ classifiers = [
     'Topic :: Scientific/Engineering :: Astronomy',
 ]
 dynamic = ['version']
-requires-python = '>=3.11'
+requires-python = '>=3.12'
 dependencies = [
-    'astropy >= 6.1.7',
+    'astropy >= 7.0',
     'numpy >= 2.0',
 ]
 
@@ -35,21 +35,25 @@ Documentation = 'https://astropy-regions.readthedocs.io/en/stable/'
 
 [project.optional-dependencies]
 all = [
-    'matplotlib >= 3.9',
+    'matplotlib >= 3.10',
     'shapely >= 2.1',
 ]
 test = [
     'gwcs >= 0.22',
+    'pytest >= 8.0',
     'pytest-arraydiff >= 0.6.1',
-    'pytest-astropy >= 0.11',
+    'pytest-astropy-header >= 0.2.2',
+    'pytest-doctestplus >= 1.4',
+    'pytest-filter-subpackage >= 0.2',
+    'pytest-remotedata >= 0.4.1',
     'pytest-xdist >= 3.7',
-    'tox >= 4.16',
+    'tox >= 4.18',
 ]
 docs = [
     'regions[all]',
     'sphinx >= 8.2',  # keep in sync with docs/conf.py
     'sphinx-astropy[confv3] >= 1.11',
-    'sphinx_design >= 0.6',
+    'sphinx_design >= 0.7',
 ]
 dev = [
     'pre-commit >= 4.0',
@@ -59,7 +63,7 @@ dev = [
 [build-system]
 requires = [
     'cython >= 3.1.2, < 4',
-    'extension-helpers >= 1.3, < 2',
+    'extension-helpers >= 1.4, < 2',
     'numpy >= 2.0',
     'setuptools >= 77.0.1',
     'setuptools_scm >= 8.2',
@@ -179,8 +183,9 @@ exclude_dirs = ['*/tests/test_casa_mask.py']
 skips = ['*_test.py', '*/test_*.py', '*/tests/helpers.py']
 
 [tool.cibuildwheel]
-# explicitly skip free-threaded builds
+# Explicitly skip free-threaded builds
 skip = ["cp*t-*"]
+environment = { EXTENSION_HELPERS_PY_LIMITED_API = "cp312" }
 
 [tool.repo-review]
 ignore = [
@@ -218,7 +223,7 @@ checks = [
     'SS06',  # single-line summary
 ]
 
-# don't report on objects that match any of these regex;
+# Don't report on objects that match any of these regex;
 # remember to use single quotes for regex in TOML
 exclude = [
     '\._.*',  # private functions/methods
@@ -229,13 +234,10 @@ exclude = [
 [tool.ruff]
 line-length = 79
 
-[tool.ruff.lint.pylint]
-max-statements = 130
-
 [tool.ruff.lint]
 select = [
-    'B', 'COM', 'D', 'E', 'F', 'FLY', 'I', 'INT', 'N', 'NPY', 'PERF', 'PL', 'Q',
-    'RSE', 'SIM', 'UP', 'W'
+    'B', 'COM', 'CPY', 'D', 'E', 'F', 'FLY', 'I', 'INT', 'N', 'NPY', 'PERF',
+    'PL', 'Q', 'RSE', 'SIM', 'UP', 'W'
 ]
 ignore = [
     'E501',
@@ -257,13 +259,17 @@ ignore = [
     'PLR0912',
     'PLR0913',
     'PLR0915',
+    'PLR0917',  # too-many-positional-arguments
     'PLR2004',
     'PLW1641',  # eq-without-hash
     'PLW2901',
     'Q000',
     'SIM910',
-    'UP038',
 ]
+
+[tool.ruff.lint.flake8-copyright]
+min-file-size = 1  # skip empty files (< 1 byte), e.g., __init__.py
+notice-rgx = 'Licensed under a 3-clause BSD style license - see LICENSE.rst'
 
 [tool.ruff.lint.per-file-ignores]
 '__init__.py' = ['D104', 'I']
@@ -273,5 +279,5 @@ ignore = [
 [tool.ruff.lint.pydocstyle]
 convention = 'numpy'
 
-[tool.distutils.bdist_wheel]
-py-limited-api = "cp311"
+[tool.ruff.lint.pylint]
+max-statements = 130

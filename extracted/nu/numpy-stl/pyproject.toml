@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "numpy-stl"
-version = "4.0.1"
+version = "4.1.0"
 description = "Library to make reading, writing and modifying both binary and ascii STL files easy."
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -37,6 +37,7 @@ email = "Wolph@Wol.ph"
 
 [project.urls]
 Homepage = "https://github.com/WoLpH/numpy-stl/"
+Funding = "https://github.com/sponsors/wolph"
 
 [project.scripts]
 stl = "stl.main:main"

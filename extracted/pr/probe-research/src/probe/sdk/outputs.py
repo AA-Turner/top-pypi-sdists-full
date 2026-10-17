@@ -1525,7 +1525,6 @@ class OutputCapture:
                 kind=kind_to_send(kind),
                 content_type=None,
                 meta=self._meta(full, storage),
-                notes=None,
                 span_id=None,
                 step_index=None,
                 allow_copy=False,

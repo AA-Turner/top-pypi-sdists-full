@@ -3,7 +3,6 @@ from enum import IntEnum
 import datetime
 import typing
 
-import Common.Util
 import QuantConnect
 import QuantConnect.Algorithm
 import QuantConnect.Algorithm.Framework.Alphas
@@ -27,6 +26,7 @@ import QuantConnect.Securities.Future
 import QuantConnect.Securities.Option
 import QuantConnect.Statistics
 import QuantConnect.Storage
+import QuantConnect.Util
 import System
 import System.Collections.Concurrent
 import System.Collections.Generic
@@ -249,7 +249,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         ...
 
     @property
-    def deployment_details(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+    def deployment_details(self) -> QuantConnect.Util.ReadOnlyExtendedDictionary[str, str]:
         """
         Gets a read-only view of the deployment details shared by the brokerage, data queue handler or any other component,
         for example account information. Usually empty when not running in live mode
@@ -554,7 +554,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         """
         ...
 
-    def get_parameters(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+    def get_parameters(self) -> QuantConnect.Util.ReadOnlyExtendedDictionary[str, str]:
         """Gets a read-only dictionary with all current parameters"""
         ...
 
@@ -843,7 +843,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         """
         ...
 
-    def set_deployment_details(self, deployment_details: Common.Util.ReadOnlyExtendedDictionary[str, str]) -> None:
+    def set_deployment_details(self, deployment_details: QuantConnect.Util.ReadOnlyExtendedDictionary[str, str]) -> None:
         """
         Sets the deployment details read-only view
         

@@ -26,13 +26,15 @@ use crate::observability::observability_client_adapter::{MetricType, Observabili
 use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::observability::sdk_errors_observer::ErrorBoundaryEvent;
 use crate::sdk_event_emitter::{SdkEvent, SdkEventEmitter};
-use crate::specs_adapter::remote_config_value_hydrator::RemoteConfigValueHydrator;
+use crate::specs_adapter::remote_config_value_hydrator::{
+    JsonStoreHydrationContext, RemoteConfigValueHydrator,
+};
 use crate::specs_response::parse_options::{SpecsResponseParseOptions, with_parse_options};
 use crate::specs_response::proto_compression::{ProtoCompression, is_compressed_protobuf_response};
 use crate::specs_response::proto_specs::{
     ProtobufHydrationContext, ProtobufStoreParseBase, ProtobufUpdate, SpecsFieldChecksums,
-    VerifiedRemoteConfigValues, deserialize_protobuf_for_store_with_hydration_and_checksums,
-    deserialize_protobuf_for_store_with_options,
+    VerifiedRemoteConfigValues, deserialize_protobuf_for_store_with_options,
+    prepare_protobuf_store_update,
 };
 use crate::specs_response::spec_types::{
     ConditionOperator, SpecsResponseFull, SpecsResponseNoUpdates,
@@ -392,33 +394,59 @@ impl SpecStore {
             .collect()
     }
 
-    pub fn set_values(&self, mut specs_update: SpecsUpdate) -> Result<(), StatsigErr> {
+    pub fn set_values(&self, specs_update: SpecsUpdate) -> Result<(), StatsigErr> {
+        self.set_values_reporting_response(specs_update, None)
+    }
+
+    fn set_values_reporting_response(
+        &self,
+        mut specs_update: SpecsUpdate,
+        response_has_updates: Option<&AtomicBool>,
+    ) -> Result<(), StatsigErr> {
         let _output_scope = self.output_policy.enter();
         let update_started_at = Instant::now();
         // Updating the spec store is a three step process:
         // 1. Prep (serialized writer path). Deserialize and compare to the current snapshot.
         // 2. Apply (serialized writer path). Publish a new immutable snapshot.
         // 3. Notify (no writer lock). Emit SDK events and update the data store.
-        let locked_result = {
+        let mut decoded_has_updates = None;
+        let locked_result = (|| {
             let Some(_update_guard) = self.try_lock_for_update("set_values") else {
                 return Err(StatsigErr::LockFailure(
                     "Failed to acquire spec store update lock for set_values".to_string(),
                 ));
             };
 
-            let prep_result = self.specs_update_prep(&mut specs_update)?;
+            let prep_result =
+                self.specs_update_prep(&mut specs_update, &mut decoded_has_updates)?;
             self.apply_prep_result(prep_result, &specs_update)
+                .map_err(|e: StatsigErr| {
+                    log_error_to_statsig_and_console!(self.ops_stats, TAG, e);
+                    e
+                })
+        })();
+        if let Some(response_has_updates) = response_has_updates {
+            response_has_updates.store(
+                decoded_has_updates
+                    .unwrap_or_else(|| response_body_has_updates(&mut specs_update.data)),
+                Ordering::Relaxed,
+            );
         }
-        .map_err(|e: StatsigErr| {
-            log_error_to_statsig_and_console!(self.ops_stats, TAG, e);
-            e
-        })?;
+        let locked_result = locked_result?;
 
         self.finish_set_values(locked_result, specs_update, update_started_at, true)
     }
 }
 
 // -------------------------------------------------------------------------------------------- [ Private ]
+
+fn response_body_has_updates(data: &mut ResponseData) -> bool {
+    let has_updates = data
+        .deserialize_into::<SpecsResponseNoUpdates>()
+        .map_or(true, |response| response.has_updates);
+    let _ = data.rewind();
+    has_updates
+}
 
 enum PrepResult {
     HasUpdates {
@@ -475,6 +503,99 @@ struct SpecUpdateNotification {
 }
 
 impl SpecStore {
+    pub(crate) async fn set_values_with_json_hydration_metrics(
+        &self,
+        update: SpecsUpdate,
+        hydration: SpecsUpdateHydration,
+        response_has_updates: &AtomicBool,
+    ) -> Result<(), StatsigErr> {
+        self.output_policy
+            .scope(self.set_values_with_json_hydration(
+                update,
+                hydration.hydrator.as_ref(),
+                &hydration.source_url,
+                Some(response_has_updates),
+            ))
+            .await
+    }
+
+    async fn set_values_with_json_hydration(
+        &self,
+        mut specs_update: SpecsUpdate,
+        hydrator: &RemoteConfigValueHydrator,
+        source_url: &str,
+        response_has_updates: Option<&AtomicBool>,
+    ) -> Result<(), StatsigErr> {
+        let update_started_at = Instant::now();
+        if specs_update.has_updates == Some(false) {
+            return self.set_values_reporting_response(specs_update, response_has_updates);
+        }
+
+        // Reuse proofs belong to this immutable snapshot. Downloads happen
+        // outside the writer lock, and a changed base rejects the candidate.
+        let parse_base = self.load_data();
+        let capture_data_store_bytes = self
+            .writable_data_store_for_update(&specs_update.source, &specs_update.data)
+            .is_some();
+        let hydrated = match hydrator
+            .prepare_json_store_update(
+                &mut specs_update.data,
+                JsonStoreHydrationContext {
+                    source_url,
+                    current_verified_values: &parse_base.verified_remote_values,
+                    mmap_project_id: self.mmap_project_id,
+                    preserve_session_update_mode: self.preserve_session_update_mode,
+                    capture_data_store_bytes,
+                    response_has_updates,
+                },
+            )
+            .await
+        {
+            Ok(Some(hydrated)) => hydrated,
+            Ok(None) => {
+                return self.set_values_reporting_response(specs_update, response_has_updates);
+            }
+            Err(error) => {
+                if let Some(response_has_updates) = response_has_updates {
+                    response_has_updates.store(
+                        response_body_has_updates(&mut specs_update.data),
+                        Ordering::Relaxed,
+                    );
+                }
+                return Err(error);
+            }
+        };
+
+        let prep_result = if self.are_current_values_newer(&parse_base, &hydrated.values) {
+            PrepResult::CurrentValuesNewer
+        } else if hydrated.values.has_updates {
+            PrepResult::HasUpdates {
+                field_checksums: SpecsFieldChecksums::from_specs(&hydrated.values),
+                values: hydrated.values,
+                response_format: SpecsFormat::Json,
+                is_delta: false,
+                spec_decode_stats: hydrated.spec_decode_stats,
+                verified_remote_values: hydrated.verified_remote_values,
+            }
+        } else {
+            PrepResult::NoUpdates
+        };
+
+        let locked_result = self.apply_hydrated_prep_result(
+            &parse_base,
+            prep_result,
+            &specs_update,
+            SpecsFormat::Json,
+        )?;
+
+        self.finish_set_values(
+            locked_result,
+            specs_update,
+            update_started_at,
+            capture_data_store_bytes,
+        )
+    }
+
     async fn set_values_with_protobuf_hydration(
         &self,
         mut specs_update: SpecsUpdate,
@@ -513,7 +634,7 @@ impl SpecStore {
             .writable_data_store_for_update(&specs_update.source, &specs_update.data)
             .is_some();
         let (protobuf_update, spec_decode_stats, hydrated_data_store_bytes, verified_remote_values) =
-            match deserialize_protobuf_for_store_with_hydration_and_checksums(
+            match prepare_protobuf_store_update(
                 &self.ops_stats,
                 ProtobufStoreParseBase {
                     specs: parse_base.snapshot.as_ref(),
@@ -593,30 +714,12 @@ impl SpecStore {
             }
         };
 
-        let locked_result = {
-            let Some(_update_guard) =
-                self.try_lock_for_update("set_values_with_protobuf_hydration")
-            else {
-                return Err(StatsigErr::LockFailure(
-                    "Failed to acquire spec store update lock for hydrated protobuf set_values"
-                        .to_string(),
-                ));
-            };
-
-            let current_data = self.load_data();
-            if !same_parse_base(&parse_base, &current_data) {
-                return Err(StatsigErr::LockFailure(
-                    "Spec store base changed while hydrated protobuf update was parsing"
-                        .to_string(),
-                ));
-            }
-
-            self.apply_prep_result(prep_result, &specs_update)
-        }
-        .map_err(|error: StatsigErr| {
-            log_error_to_statsig_and_console!(self.ops_stats, TAG, error);
-            error
-        })?;
+        let locked_result = self.apply_hydrated_prep_result(
+            &parse_base,
+            prep_result,
+            &specs_update,
+            SpecsFormat::Protobuf,
+        )?;
 
         self.finish_set_values(
             locked_result,
@@ -624,6 +727,36 @@ impl SpecStore {
             update_started_at,
             capture_hydrated_data_store_bytes,
         )
+    }
+
+    fn apply_hydrated_prep_result(
+        &self,
+        parse_base: &SpecStoreData,
+        prep_result: PrepResult,
+        specs_update: &SpecsUpdate,
+        response_format: SpecsFormat,
+    ) -> Result<LockedSetValuesResult, StatsigErr> {
+        let (operation, format_label) = match response_format {
+            SpecsFormat::Json => ("set_values_with_json_hydration", "JSON"),
+            SpecsFormat::Protobuf => ("set_values_with_protobuf_hydration", "protobuf"),
+        };
+        let result = {
+            let Some(_update_guard) = self.try_lock_for_update(operation) else {
+                return Err(StatsigErr::LockFailure(format!(
+                    "Failed to acquire spec store update lock for hydrated {format_label} set_values"
+                )));
+            };
+            if !same_parse_base(parse_base, &self.load_data()) {
+                return Err(StatsigErr::LockFailure(format!(
+                    "Spec store base changed while hydrated {format_label} update was parsing"
+                )));
+            }
+            self.apply_prep_result(prep_result, specs_update)
+        };
+        result.map_err(|error: StatsigErr| {
+            log_error_to_statsig_and_console!(self.ops_stats, TAG, error);
+            error
+        })
     }
 
     fn apply_prep_result(
@@ -854,7 +987,11 @@ impl SpecStore {
         }
     }
 
-    fn specs_update_prep(&self, specs_update: &mut SpecsUpdate) -> Result<PrepResult, StatsigErr> {
+    fn specs_update_prep(
+        &self,
+        specs_update: &mut SpecsUpdate,
+        decoded_has_updates: &mut Option<bool>,
+    ) -> Result<PrepResult, StatsigErr> {
         if specs_update.has_updates == Some(false) {
             return Ok(PrepResult::NoUpdates);
         }
@@ -884,6 +1021,11 @@ impl SpecStore {
                 },
                 spec_decode_stats,
             )) => {
+                // A successful in-place decode need not validate trailing bytes. Only true
+                // is conclusive here: the legacy metrics parser also calls invalid JSON full.
+                if matches!(response_format, SpecsFormat::Json) && next_values.has_updates {
+                    *decoded_has_updates = Some(true);
+                }
                 if self.are_current_values_newer(&read_data, &next_values) {
                     return Ok(PrepResult::CurrentValuesNewer);
                 }
@@ -916,6 +1058,11 @@ impl SpecStore {
             .data
             .deserialize_into::<SpecsResponseNoUpdates>();
 
+        *decoded_has_updates = Some(
+            second_deserialize_result
+                .as_ref()
+                .map_or(true, |response| response.has_updates),
+        );
         let second_deserialize_error = match second_deserialize_result {
             Ok(result) => {
                 if !result.has_updates {
@@ -1630,7 +1777,7 @@ impl SpecsUpdateListener for SpecStore {
 
     async fn did_receive_specs_update_async(
         &self,
-        mut update: SpecsUpdate,
+        update: SpecsUpdate,
         hydration: Option<SpecsUpdateHydration>,
     ) -> Result<(), StatsigErr> {
         self.output_policy
@@ -1652,11 +1799,13 @@ impl SpecsUpdateListener for SpecStore {
                         .await;
                 }
 
-                hydration
-                    .hydrator
-                    .hydrate_response(&mut update.data, &hydration.source_url)
-                    .await?;
-                self.set_values(update)
+                self.set_values_with_json_hydration(
+                    update,
+                    hydration.hydrator.as_ref(),
+                    &hydration.source_url,
+                    None,
+                )
+                .await
             })
             .await
     }
@@ -1759,23 +1908,22 @@ impl SpecStore {
         states.retain(|name, _| propagation.contains_key(name));
         for (name, observation) in propagation {
             // apply_update may reject an older generation. Never attribute it to the installed file.
-            if published_lists
-                .get(&name)
-                .is_none_or(|list| list.metadata.file_id != observation.file_id)
-            {
+            let Some(list) = published_lists.get(&name) else {
+                continue;
+            };
+            if list.metadata.file_id != observation.file_id {
                 continue;
             }
             let initialized = states.contains_key(&name) && data.id_lists.contains_key(&name);
-            if let Some((lcut, prev_lcut)) =
-                states
-                    .entry(name.clone())
-                    .or_default()
-                    .apply(observation, initialized, now)
+            if let Some((lcut, prev_lcut, applied_at)) = states
+                .entry(name.clone())
+                .or_default()
+                .apply(observation, list.metadata.size, initialized, now)
             {
                 self.ops_stats.log(ObservabilityEvent::new_event(
                     MetricType::Dist,
                     "id_list_propagation_diff".to_string(),
-                    now.saturating_sub(lcut) as f64,
+                    applied_at.saturating_sub(lcut) as f64,
                     Some(HashMap::from([
                         ("source".to_string(), SpecsSource::Network.to_string()),
                         ("id_list_name".to_string(), name),

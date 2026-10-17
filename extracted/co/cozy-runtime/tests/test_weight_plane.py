@@ -9,11 +9,13 @@ card, so run it under the shared GPU lock.
 
 from __future__ import annotations
 
+import ctypes
 import gc
 import io
 import mmap
 import os
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -29,10 +31,11 @@ from tensorfs.derived import Derivation, Part, Target, Tensor  # noqa: E402
 from cozy_runtime.author._activity import asides  # noqa: E402
 from cozy_runtime.author._loader import census  # noqa: E402
 from cozy_runtime.author.kernels import rms_rope_split_half  # noqa: E402
+from cozy_runtime.derive.microscale import encode_fp8_rowwise  # noqa: E402
 from cozy_runtime.internal import accel, paging, plane, spill, weight_policy  # noqa: E402
 from cozy_runtime.internal import weights as weights_module  # noqa: E402
 from cozy_runtime.internal.derive import Observations, serving_substrate  # noqa: E402
-from cozy_runtime.internal.encoding import SPEC_PLAIN  # noqa: E402
+from cozy_runtime.internal.encoding import SPEC_PLAIN, SPEC_ROWWISE  # noqa: E402
 from cozy_runtime.internal.fill import Checkpoint  # noqa: E402
 from cozy_runtime.internal.weights import (  # noqa: E402
     INDIVISIBLE,
@@ -45,7 +48,6 @@ from cozy_runtime.internal.weights import (  # noqa: E402
 )
 from cozy_runtime.internal.weights_sink import weights_transaction_id  # noqa: E402
 
-pytestmark = pytest.mark.skipif(not plane.available(), reason="a TensorFS with the weight plane")
 # These tests fill the card to its last megabytes: never on one a desktop is drawn on.
 on_card = pytest.mark.skipif(
     not accel.present(torch, "cuda") or accel.drives_display(0),
@@ -101,12 +103,23 @@ def write_checkpoint(root: Path) -> tuple[Checkpoint, dict[str, Any]]:
     return store_component(root, "stack", values), {k: v.half() for k, v in values.items()}
 
 
-def store_component(root: Path, name: str, values: dict[str, Any]) -> Checkpoint:
-    """`values` as one component's fp16 tensors in a real TensorFS store."""
-    tensors = {
-        key: Tensor("f16", tuple(value.shape), SPEC_PLAIN, {"value": Part("f16", value.shape)})
-        for key, value in values.items()
-    }
+def store_component(
+    root: Path, name: str, values: dict[str, Any], fp8: Collection[str] = ()
+) -> Checkpoint:
+    """`values` as one component's fp16 tensors in a real TensorFS store; those named in
+    `fp8` stored fp8-rowwise (data and a per-row scale)."""
+    parts: dict[str, dict[str, bytes]] = {}
+    tensors: dict[str, Tensor] = {}
+    for key, value in values.items():
+        shape = tuple(value.shape)
+        if key in fp8:
+            encoded = encode_fp8_rowwise(key, value.float().numpy())
+            parts[key] = {"data": encoded.payload, "scale": encoded.companions[0].raw}
+            roles = {"data": Part("f8_e4m3fn", shape), "scale": Part("f32", shape[:1])}
+            tensors[key] = Tensor("f16", shape, SPEC_ROWWISE, roles)
+        else:
+            parts[key] = {"value": value.half().numpy().tobytes()}
+            tensors[key] = Tensor("f16", shape, SPEC_PLAIN, {"value": Part("f16", shape)})
     store = Store.ensure(str(root / "store"))
     writer = store.begin_derived(
         weights_transaction_id("plane-test", "create", "sha256:" + "1" * 64, "model"),
@@ -119,8 +132,9 @@ def store_component(root: Path, name: str, values: dict[str, Any]) -> Checkpoint
         ).native_arguments(1 << 30),
         work_fingerprint="sha256:" + "2" * 64,
     )
-    for key, value in values.items():
-        writer.add_part(name, key, "value", io.BytesIO(value.half().numpy().tobytes()))
+    for key, roles in parts.items():
+        for role, data in roles.items():
+            writer.add_part(name, key, role, io.BytesIO(data))
     writer.add_config(name, io.BytesIO(b"{}"))
     receipt = writer.commit()
     return Checkpoint.from_store(store, "sha256:" + receipt["manifest"]["sha256"])
@@ -136,6 +150,7 @@ def load(
     name: str = "stack",
     factory: Any = None,
     scope: str = "run",
+    leaves: str = "accept",
 ) -> Any:
     """Construct on meta and register with the plane, as the executor's prepare does."""
     backend = PlaneBackend.for_script(
@@ -144,6 +159,7 @@ def load(
         weights=weights,
         construction=key,
         release="plane-test/1",
+        encoded_leaves=leaves,
         tiers=tiers,
     )
     # the serving substrate: parameters weightless, buffers no checkpoint supplies real
@@ -738,11 +754,12 @@ def test_an_activation_estimate_larger_than_the_card_never_refuses_the_stage(car
 
 
 @on_gpu
-def test_an_earlier_stages_idle_cache_is_neither_kept_nor_counted(card: Any) -> None:
-    """SeedVR2 run 5937: a VAE decode left torch 5.5 GiB of idle cache; the transformer's next
-    stage was planned in what the driver had beside it (a 0.5 GiB budget), and the cache counted
-    as its activations. Before a stage plans, torch's idle cache beyond the stage's activations
-    goes back to the driver; what is still cached at its entry is no activation of its own."""
+def test_an_earlier_stages_idle_cache_stays_until_a_stage_needs_its_room(card: Any) -> None:
+    """A VAE decode's 5 GiB of idle cache went back to the driver at every stage's exit, and the
+    next request's decode mapped it again: 45 ms a request on an RTX 5090, seconds on a host whose
+    driver maps slowly (runs 9466-9479). It stays while the next stage's weights fit beside it, and
+    is no activation of that stage's own; it goes back when they do not (SeedVR2 run 5937: a
+    transformer planned beside a decode's 5.5 GiB had a 0.5 GiB budget)."""
     weights = card.weights
     model = load(weights, card.checkpoint, "cached")
     x = torch.ones(4, HIDDEN, device="cuda", dtype=torch.float16)
@@ -758,13 +775,26 @@ def test_an_earlier_stages_idle_cache_is_neither_kept_nor_counted(card: Any) -> 
         return torch.cuda.memory_reserved() - torch.cuda.memory_allocated()
 
     stage("decode", 512 << 20)
-    weights.seed_activations({"encode": 1 << 30})  # room for its cache: it stays
+    assert idle() >= 512 << 20, "a stage's exit keeps its cache"
     stage("encode", 0)
-    assert idle() >= 512 << 20
+    assert idle() >= 512 << 20, "its weights are mapped: nothing needs the room"
     assert model.residency.peaks["encode"] < weight_policy.MARGIN, "the cache was not its own"
-    model.residency.admit("denoise", ("stack",))
-    assert idle() < 512 << 20, "nothing measured for the stage: its plan has the room"
-    model.residency.release("denoise", ("stack",))
+    segments = torch.cuda.memory_stats()["num_device_alloc"]
+    stage("decode", 512 << 20)
+    assert torch.cuda.memory_stats()["num_device_alloc"] == segments, "the decode reused it"
+    # Its weights unmapped, under a cap that leaves them no room beside the cache: it goes back.
+    model.residency.unpark()
+    weights.set_budget(0)
+    weights.set_budget(-1)
+    weights.measure_context()
+    held = max(weights.context_bytes, 0) + torch.cuda.memory_reserved()
+    weights.set_cap(held + weight_policy.MARGIN)
+    try:
+        model.residency.admit("denoise", ("stack",))
+        assert idle() < 512 << 20, "its weights needed the room"
+        model.residency.release("denoise", ("stack",))
+    finally:
+        weights.set_cap(-1)
 
 
 @on_card
@@ -797,6 +827,71 @@ def test_a_bind_that_runs_out_of_device_memory_plans_again_in_what_is_left(card:
     assert weights.facts().oom_retries > retries
     assert weights.facts().streamed["stack"].resident_blocks < BLOCKS
     assert all(torch.equal(a, b) for a, b in zip(resident, squeezed, strict=True))
+
+
+@contextmanager
+def held_elsewhere(nbytes: int) -> Iterator[None]:
+    """`nbytes` of the card outside torch and the plane, through the driver itself: as
+    another process, or the machine's custody, holds them."""
+    cuda = ctypes.CDLL("libcuda.so.1")
+    pointer = ctypes.c_uint64()
+    assert cuda.cuMemAlloc_v2(ctypes.byref(pointer), ctypes.c_size_t(nbytes)) == 0
+    try:
+        yield
+    finally:
+        cuda.cuMemFree_v2(pointer)
+
+
+@on_card
+def test_a_map_the_device_refuses_unmaps_idle_weights_and_the_stage_runs(
+    card: Any, tmp_path: Path
+) -> None:
+    """Runs 9374 and 6972: a stage's map was refused by the device, not by the plane's
+    budget. That budget counted the float copies an idle component's decoded weights hold
+    (torch's bytes) as room to map into, while the rest of the card was taken. Each retry
+    planned in the same budget, moved those copies to host memory (every later step read
+    them over the bus: run 9461 ran 4x slower) and the stage failed with "needs 0 B". The
+    budget is held to what the device gives: the idle weights leave, the stage streams, and
+    it computes the same bits with no tensor moved to host."""
+    weights = card.weights
+    generator = torch.Generator().manual_seed(17)
+    tall = 3 * BLOCKS
+    values = {"embed": torch.rand(HIDDEN, generator=generator) + 0.5}
+    for index in range(tall):
+        for name in ("proj", "out"):
+            values[f"blocks.{index}.{name}.weight"] = (
+                torch.randn(HIDDEN, HIDDEN, generator=generator) / HIDDEN**0.5
+            )
+        values[f"blocks.{index}.norm"] = torch.rand(HIDDEN, generator=generator) + 0.5
+
+    class Tall(Stack):
+        def __init__(self) -> None:
+            super().__init__()
+            self.blocks.extend(Block() for _ in range(tall - BLOCKS))
+
+    stage = load(weights, store_component(tmp_path / "tall", "stack", values), "tall", factory=Tall)
+    eight = {k: v for k, v in values.items() if k == "embed" or int(k.split(".")[1]) < BLOCKS}
+    fp8 = {key for key in eight if key.endswith(".weight")}
+    idle = load(
+        weights, store_component(tmp_path / "fp8", "stack", eight, fp8), "fp8", leaves="refuse"
+    )
+    assert {idle.backend.resolved[f"stack.{key}"].route for key in fp8} == {"decoded_float"}
+    x = torch.randn(64, HIDDEN, device="cuda", dtype=torch.float16)
+    weights.set_budget(1 << 30)
+    expected = run(stage, x, passes=1)
+    weights.vacate()
+    run(idle, x, passes=1)  # bound and idle: a float copy of every block's weights
+    assert weights.decoded() >= 2 * BLOCKS * HIDDEN * HIDDEN * 2 > weight_policy.MARGIN
+    weights.set_budget(-1)  # each stage's budget from what the driver has
+    torch.cuda.empty_cache()
+    free, _ = torch.cuda.mem_get_info()
+    moved = spill.MOVED[0]
+    weights.modes.clear()
+    with held_elsewhere(free - (128 << 20)):
+        got = run(stage, x, passes=1)
+    assert "short of device memory" in weights.modes, "the device refused no map"
+    assert spill.MOVED[0] == moved, "a tensor went to host memory instead"
+    assert same(expected, got)
 
 
 @on_card
@@ -876,8 +971,16 @@ def test_an_op_with_no_room_left_moves_the_tensors_the_process_holds_to_host(car
     assert same(reference, capped)
     assert facts.spilled_bytes - moved >= 128 << 20
     assert all(t.is_cuda and bool((t == i).all()) for i, t in enumerate(held))
+    # cudaMalloc's alignment holds in host memory too: a moved cuBLASLt workspace off it is
+    # INVALID_VALUE (run 9141).
+    assert any(map(spill.hosted, held)) and all(t.data_ptr() % 256 == 0 for t in held)
     assert spill.PRESSED[0] and spill.USED, "after a spill, ops are noted for the next one"
-    del held, capped, reference
+    # Runs 10143-10144: left in host memory, a cache read at every step made a decode 5x
+    # slower. With room again (the next request), they come back, values and tensors the same.
+    assert weights.restore_spilled() > 0
+    assert not any(map(spill.hosted, held))
+    assert all(t.is_cuda and bool((t == i).all()) for i, t in enumerate(held))
+    del x, held, capped, reference  # the input is a candidate too: no op reads it after the first
     gc.collect()
     spill.release(torch)
     assert not spill.HELD, "every moved tensor is gone"
@@ -1955,6 +2058,101 @@ def test_a_group_gpus_denoise_keeps_a_resident_set_after_a_one_pass_warm_up(card
     kept = weights.facts().streamed["stack"].resident_blocks
     assert 0 < kept < BLOCKS, kept
     assert same(resident, denoised)
+
+
+@on_gpu
+def test_a_group_gpus_first_decode_keeps_its_denoisers_weights_under_a_cap(
+    tmp_path: Path,
+) -> None:
+    """Runs 6719 and 6772 (H3 on 2x H100): a group GPU's first decode, its activations not
+    measured yet, kept only its own streaming window and unmapped the DiT, which the next
+    segment read back whole (51 GiB, 1.3-2.0 s). Under the owner's cap the decode streams
+    through its own window and the denoiser stays mapped: its next stage misses nothing."""
+    weights = Weights(torch, torch.device("cuda", 0), "cuda")
+    weights.set_budget(-1, pinned=1 << 30)
+    (tmp_path / "dit").mkdir()
+    (tmp_path / "vae").mkdir()
+    dit = load(weights, write_checkpoint(tmp_path / "dit")[0], "dit")
+    vae = load(weights, write_checkpoint(tmp_path / "vae")[0], "vae")
+    x = torch.randn(64, HIDDEN, device="cuda", dtype=torch.float16)
+
+    def staged(model: Any, method: str, passes: int) -> list[Any]:
+        model.residency.admit(method, ("stack",))
+        try:
+            with torch.inference_mode():
+                return [model.stack(x) for _ in range(passes)]
+        finally:
+            model.residency.release(method, ("stack",))
+
+    weights.grouped = True
+    weights.set_cap(room(weights, 1 << 30))
+    try:
+        reference = staged(dit, "denoise", 3)  # streams its first pass, then grows
+        denoiser = dit.residency.components["stack"]
+        held = weights.resident_bytes(denoiser)
+        assert held > 0
+        staged(vae, "decode", 1)
+        assert weights.resident_bytes(denoiser) == held
+        misses = weights.facts().misses
+        assert same(staged(dit, "denoise", 1), reference[:1])
+        assert weights.facts().misses == misses
+    finally:
+        weights.set_cap(-1)
+        torch.cuda.empty_cache()
+
+
+@on_card
+def test_a_components_call_runs_without_a_dispatch_layer_and_recovers_whole(card: Any) -> None:
+    """A component's own call inside the process's recovery: its first is observed, the next
+    pass no op through the dispatch layer, and its blocks run on the stage's held leases. One
+    that runs out of device memory outside its blocks makes room and runs again from its
+    start, exactly, its ops recovering one by one from then on."""
+    weights = card.weights
+    model = load(weights, card.checkpoint, "root")
+    component = model.residency.components["stack"]
+    x = torch.randn(8192, HIDDEN, device="cuda", dtype=torch.float16)
+    weights.set_budget(1 << 30)
+    reference = run(model, x, passes=1)
+    kind = weights_module._OPS.setdefault(id(torch), weights_module._ops_type(torch))
+    counted = {"ops": 0, "acquires": 0}
+    original_run, original_acquire = kind._run, WeightResidency._acquire
+
+    def op(self: Any, *args: Any) -> Any:
+        counted["ops"] += 1
+        return original_run(self, *args)
+
+    def acquire(self: Any, *args: Any) -> Any:
+        counted["acquires"] += 1
+        return original_acquire(self, *args)
+
+    kind._run, WeightResidency._acquire = op, acquire
+    ballast = None
+    try:
+        for _ in range(2):  # a cyclic stage: its second entry holds its resident blocks
+            model.residency.admit("run", ("stack",))
+            with weights.recovering(), torch.inference_mode():
+                model.stack(x)
+            model.residency.release("run", ("stack",))
+        assert component.effects is not None and not component.effects.writes
+        assert set(component.holds) == {region.index for region in component.blocks}
+        counted.update(ops=0, acquires=0)
+        model.residency.admit("run", ("stack",))
+        with weights.recovering(), torch.inference_mode():
+            steady = model.stack(x)
+            assert counted == {"ops": 0, "acquires": 0}
+            retries = weights.oom_retries
+            torch.cuda.empty_cache()
+            free, _ = torch.cuda.mem_get_info()
+            # less than `x * embed` takes: the call's first op, outside every block
+            ballast = torch.empty(free - (16 << 20), dtype=torch.uint8, device="cuda")
+            out = model.stack(x)
+    finally:
+        kind._run, WeightResidency._acquire = original_run, original_acquire
+        model.residency.release("run", ("stack",))
+        del ballast
+        torch.cuda.empty_cache()
+    assert component.tight and weights.oom_retries > retries
+    assert same(reference, [steady]) and same(reference, [out])
 
 
 @on_card

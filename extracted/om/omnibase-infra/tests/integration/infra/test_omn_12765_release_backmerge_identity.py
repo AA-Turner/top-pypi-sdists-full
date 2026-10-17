@@ -90,6 +90,9 @@ def test_release_backmerge_preserves_proven_runtime_core_pin() -> None:
     ModelTicketContract, so the proven runtime advances to core 0.47.39, the
     first release that carries its binds_ac rules (omnibase_core#1935); spi
     stays 0.23.5.
+
+    OMN-21146 refresh: the proven runtime advances to core 0.47.44, the floor
+    omnimarket dev declares; spi stays 0.23.5.
     """
 
     uv_lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
@@ -97,7 +100,13 @@ def test_release_backmerge_preserves_proven_runtime_core_pin() -> None:
     pins = _declared_pins()
 
     # The proven runtime pins the published PyPI releases (exact versions).
-    assert pins["omnibase-core"] == "0.47.39"
+    locked = tomllib.loads(uv_lock)
+    core_packages = [p for p in locked["package"] if p["name"] == "omnibase-core"]
+    assert len(core_packages) == 1
+    core = core_packages[0]
+    assert pins["omnibase-core"] == core["version"]
+    assert tuple(int(part) for part in core["version"].split(".")) >= (0, 47, 44)
+    assert core["source"] == {"registry": "https://pypi.org/simple"}
     assert pins["omnibase-spi"] == "0.23.5"
 
     # The retired git-rev overrides must be gone from both manifest and lock:

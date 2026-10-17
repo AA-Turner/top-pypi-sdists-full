@@ -53,29 +53,75 @@ class SubstitutionMatrix(Generic[S1, S2]):
     At last a valid matrix name can be given, which is loaded from the
     internal matrix database. The following matrices are available:
 
-        - Nucleotide substitution matrices from NCBI database
-            - **NUC** - Also usable with ambiguous alphabet
+    .. list-table::
+       :header-rows: 1
+       :widths: 19 11 50 20
 
-        - Protein substitution matrices from NCBI database
-
-            - **PAM<n>**
-            - **BLOSUM<n>**
-            - **MATCH** - Only differentiates between match and mismatch
-            - **IDENTITY** - Strongly penalizes mismatches
-            - **GONNET** - Not usable with default protein alphabet
-            - **DAYHOFF**
-
-        - Corrected protein substitution matrices :footcite:`Hess2016`,
-          **<BLOCKS>** is the BLOCKS version, the matrix is based on
-
-            - **BLOSUM<n>_<BLOCKS>**
-            - **RBLOSUM<n>_<BLOCKS>**
-            - **CorBLOSUM<n>_<BLOCKS>**
-
-        - Structural alphabet substitution matrices
-
-            - **3Di** - For 3Di alphabet from ``foldseek`` :footcite:`VanKempen2024`
-            - **PB** - For Protein Blocks alphabet from *PBexplore* :footcite:`Barnoud2017`
+       * - Name
+         - Alphabet
+         - Description
+         - Ref.
+       * - **NUC**
+         - Nucleotide
+         - NCBI NUC.4.4 matrix supporting ambiguous nucleotide symbols
+         -
+       * - **PAM<n>**
+         - Protein
+         - Point accepted mutation matrices
+         - :footcite:`Dayhoff1978`
+       * - **BLOSUM<n>**
+         - Protein
+         - BLOCKS substitution matrices for the available clustering
+           thresholds; **BLOSUMN** is also available
+         - :footcite:`Henikoff1992`
+       * - **MATCH**
+         - Protein
+         - Simple matrix assigning 1 to matches and -1 to mismatches
+         -
+       * - **IDENTITY**
+         - Protein
+         - Identity matrix assigning 1 to matches and -10000 to mismatches
+         -
+       * - **GONNET**
+         - Protein
+         - Gonnet PAM250 matrix; not usable with the default protein alphabet
+         - :footcite:`Gonnet1992`
+       * - **DAYHOFF**
+         - Protein
+         - Original Dayhoff PAM250 matrix
+         - :footcite:`Dayhoff1978`
+       * - **VTML<n>**
+         - Protein
+         - Variable Time Maximum Likelihood matrices for the available PAM
+           distances
+         - :footcite:`Muller2002`
+       * - **BLOSUM<n>_<BLOCKS>**
+         - Protein
+         - Matrices computed with the original BLOSUM implementation from
+           BLOCKS database version ``<BLOCKS>``
+         - :footcite:`Hess2016`
+       * - **RBLOSUM<n>_<BLOCKS>**
+         - Protein
+         - Matrices computed with the first correction to the BLOSUM
+           implementation from BLOCKS database version ``<BLOCKS>``
+         - :footcite:`Hess2016`
+       * - **CorBLOSUM<n>_<BLOCKS>**
+         - Protein
+         - Matrices computed with the further corrected BLOSUM implementation
+           from BLOCKS database version ``<BLOCKS>``
+         - :footcite:`Hess2016`
+       * - **3Di**
+         - 3Di
+         - Foldseek substitution matrix for the 3Di structural alphabet
+         - :footcite:`VanKempen2024`
+       * - **PB**
+         - PB
+         - PBxplore substitution matrix for the *Protein Blocks* alphabet
+         - :footcite:`Barnoud2017`
+       * - **CLESUM**
+         - CLePAPS
+         - Conformation letter substitution matrix for the *CLePAPS* alphabet
+         - :footcite:`Wang2008`
 
     A list of all available matrix names is returned by
     :meth:`list_db()`.
@@ -624,6 +670,50 @@ class SubstitutionMatrix(Generic[S1, S2]):
             matrix_dict[symbol, undefined_symbol] = undefined_mismatch
             matrix_dict[undefined_symbol, symbol] = undefined_mismatch
         matrix_dict[undefined_symbol, undefined_symbol] = undefined_match
+        return SubstitutionMatrix(
+            alphabet,
+            alphabet,
+            matrix_dict,
+        )
+
+    @staticmethod
+    @functools.cache
+    def std_clepaps_matrix(
+        unknown_match: int = 200, unknown_mismatch: int = -200
+    ) -> SubstitutionMatrix[str, str]:
+        """
+        Get the *CLESUM* substitution matrix for *CLePAPS* sequence.
+        :footcite:`Wang2008`
+
+        Parameters
+        ----------
+        unknown_match, unknown_mismatch : int, optional
+            The match and mismatch score for the unknown symbol.
+            The default values were chosen arbitrarily, but are in the order of
+            magnitude of the other score values.
+
+        Returns
+        -------
+        matrix : SubstitutionMatrix
+            Default matrix.
+
+        References
+        ----------
+
+        .. footbibliography::
+        """
+        from biotite.structure.alphabet.clepaps import ClepapsSequence
+
+        alphabet = ClepapsSequence.alphabet
+        unknown_symbol = ClepapsSequence.unknown_symbol
+        matrix_dict = SubstitutionMatrix.dict_from_db("CLESUM")
+        # Add match/mismatch scores for the unknown symbol
+        for symbol in alphabet:
+            if symbol == unknown_symbol:
+                continue
+            matrix_dict[symbol, unknown_symbol] = unknown_mismatch
+            matrix_dict[unknown_symbol, symbol] = unknown_mismatch
+        matrix_dict[unknown_symbol, unknown_symbol] = unknown_match
         return SubstitutionMatrix(
             alphabet,
             alphabet,

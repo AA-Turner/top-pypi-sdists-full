@@ -74,7 +74,7 @@ class AnnulusPixelRegion(PixelRegion, abc.ABC):
         """
         Rotate the region.
 
-        Positive ``angle`` corresponds to counter-clockwise rotation.
+        Positive ``angle`` corresponds to counterclockwise rotation.
 
         Parameters
         ----------
@@ -231,9 +231,10 @@ class CircleAnnulusPixelRegion(AnnulusPixelRegion):
             The sky region. An ellipse annulus is returned if
             ``as_ellipse`` is `True`.
         """
+        center = wcs.pixel_to_world(self.center.x, self.center.y)
         if as_ellipse:
-            center, scale_major, scale_minor, angle = pixel_to_sky_svd_scales(
-                (self.center.x, self.center.y), wcs)
+            scale_major, scale_minor, angle = pixel_to_sky_svd_scales(
+                wcs, (self.center.x, self.center.y))
             inner_width = 2 * self.inner_radius * scale_major * u.arcsec
             outer_width = 2 * self.outer_radius * scale_major * u.arcsec
             inner_height = 2 * self.inner_radius * scale_minor * u.arcsec
@@ -247,8 +248,8 @@ class CircleAnnulusPixelRegion(AnnulusPixelRegion):
                 inner_height, outer_height, angle=angle,
                 meta=self.meta.copy(), visual=self.visual.copy())
 
-        center, mean_scale = pixel_to_sky_mean_scale(
-            (self.center.x, self.center.y), wcs)
+        mean_scale = pixel_to_sky_mean_scale(
+            wcs, (self.center.x, self.center.y))
         inner_radius = self.inner_radius * mean_scale * u.arcsec
         outer_radius = self.outer_radius * mean_scale * u.arcsec
         return CircleAnnulusSkyRegion(center, inner_radius, outer_radius,
@@ -370,7 +371,7 @@ class CircleAnnulusSkyRegion(SkyRegion):
         """
         if as_ellipse:
             center, scale_major, scale_minor, angle = sky_to_pixel_svd_scales(
-                self.center, wcs)
+                wcs, self.center)
             inner_radius_arcsec = self.inner_radius.to_value(u.arcsec)
             outer_radius_arcsec = self.outer_radius.to_value(u.arcsec)
             inner_width = 2 * inner_radius_arcsec * scale_major
@@ -382,7 +383,7 @@ class CircleAnnulusSkyRegion(SkyRegion):
                 inner_height, outer_height, angle=angle,
                 meta=self.meta.copy(), visual=self.visual.copy())
 
-        center, mean_scale = sky_to_pixel_mean_scale(self.center, wcs)
+        center, mean_scale = sky_to_pixel_mean_scale(wcs, self.center)
         inner_radius = self.inner_radius.to_value(u.arcsec) * mean_scale
         outer_radius = self.outer_radius.to_value(u.arcsec) * mean_scale
         return CircleAnnulusPixelRegion(PixCoord(*center), inner_radius,
@@ -609,9 +610,9 @@ class AsymmetricAnnulusPixelRegion(AnnulusPixelRegion):
     outer_height : float
         The outer height of the annulus (before rotation) in pixels.
     angle : `~astropy.units.Quantity`, optional
-        The rotation angle of the annulus, measured anti-clockwise. If
-        set to zero (the default), the width axis is lined up with the x
-        axis.
+        The rotation angle of the annulus, measured counterclockwise. If
+        set to zero (the default), the width axis is lined up with the
+        x-axis.
     meta : `~regions.RegionMeta` or `dict`, optional
         A dictionary that stores the meta attributes of the region.
     visual : `~regions.RegionVisual` or `dict`, optional
@@ -630,7 +631,7 @@ class AsymmetricAnnulusPixelRegion(AnnulusPixelRegion):
                                   'pixels as a float.')
     outer_height = PositiveScalar('The outer height (before rotation) in '
                                   'pixels as a float.')
-    angle = ScalarAngle('The rotation angle measured anti-clockwise as a '
+    angle = ScalarAngle('The rotation angle measured counterclockwise as a '
                         '|Quantity| angle.')
     meta = RegionMetaDescr('The meta attributes as a |RegionMeta|')
     visual = RegionVisualDescr('The visual attributes as a |RegionVisual|.')
@@ -667,15 +668,18 @@ class AsymmetricAnnulusPixelRegion(AnnulusPixelRegion):
         # The photutils helpers measure the sky rotation as a position
         # angle (PA) from North; regions measures it from the RA axis.
         # Convert between them with a 90 deg offset.
-        center, outer_width, outer_height, angle = pixel_shape_to_sky_svd(
-            (self.center.x, self.center.y), wcs, self.outer_width,
-            self.outer_height, self.angle.to_value(u.radian))
-        _, inner_width, inner_height, _ = pixel_shape_to_sky_svd(
-            (self.center.x, self.center.y), wcs, self.inner_width,
-            self.inner_height, self.angle.to_value(u.radian))
-        angle = (angle + 90 * u.deg).wrap_at(360 * u.deg)
-        return (center, inner_width * u.arcsec, outer_width * u.arcsec,
-                inner_height * u.arcsec, outer_height * u.arcsec, angle)
+        # Both shapes share the center and rotation, so they are
+        # converted with one WCS evaluation. The rotation angle is that
+        # of the outer shape.
+        center = wcs.pixel_to_world(self.center.x, self.center.y)
+        widths, heights, angles = pixel_shape_to_sky_svd(
+            wcs, (self.center.x, self.center.y),
+            [self.outer_width, self.inner_width],
+            [self.outer_height, self.inner_height],
+            self.angle.to_value(u.radian))
+        angle = (angles[0] + 90 * u.deg).wrap_at(360 * u.deg)
+        return (center, widths[1] * u.arcsec, widths[0] * u.arcsec,
+                heights[1] * u.arcsec, heights[0] * u.arcsec, angle)
 
 
 class AsymmetricAnnulusSkyRegion(SkyRegion):
@@ -697,9 +701,13 @@ class AsymmetricAnnulusSkyRegion(SkyRegion):
     outer_height : `~astropy.units.Quantity`
         The outer height of the annulus (before rotation) as an angle.
     angle : `~astropy.units.Quantity`, optional
-        The rotation angle of the annulus, measured anti-clockwise. If
+        The rotation angle of the annulus, measured counterclockwise. If
         set to zero (the default), the width axis is lined up with the
-        longitude axis of the celestial coordinates.
+        longitude axis of the ``center`` coordinate frame (e.g., ICRS or
+        Galactic). When the region is converted to pixels with a WCS
+        whose celestial frame differs from that frame, the angle is
+        converted to the equivalent angle in the WCS frame, so the
+        region keeps the same orientation on the sky.
     meta : `~regions.RegionMeta` or `dict`, optional
         A dictionary that stores the meta attributes of the region.
     visual : `~regions.RegionVisual` or `dict`, optional
@@ -719,7 +727,7 @@ class AsymmetricAnnulusSkyRegion(SkyRegion):
                                        'as a |Quantity| angle.')
     outer_height = PositiveScalarAngle('The outer height (before rotation) '
                                        'as a |Quantity| angle.')
-    angle = ScalarAngle('The rotation angle measured anti-clockwise as a'
+    angle = ScalarAngle('The rotation angle measured counterclockwise as a'
                         '|Quantity| angle.')
     meta = RegionMetaDescr('The meta attributes as a |RegionMeta|')
     visual = RegionVisualDescr('The visual attributes as a |RegionVisual|.')
@@ -744,18 +752,18 @@ class AsymmetricAnnulusSkyRegion(SkyRegion):
         # Convert regions sky angle (from RA axis) to photutils PA (from
         # North) by subtracting 90 deg.
         sky_angle_rad = self.angle.to_value(u.radian) - math.pi / 2
-        center, outer_width, outer_height, angle = sky_shape_to_pixel_svd(
-            self.center, wcs,
-            self.outer_width.to_value(u.arcsec),
-            self.outer_height.to_value(u.arcsec),
+        # Both shapes share the center and rotation, so they are
+        # converted with one WCS inversion and one evaluation. The
+        # rotation angle is that of the outer shape.
+        center, widths, heights, angles = sky_shape_to_pixel_svd(
+            wcs, self.center,
+            [self.outer_width.to_value(u.arcsec),
+             self.inner_width.to_value(u.arcsec)],
+            [self.outer_height.to_value(u.arcsec),
+             self.inner_height.to_value(u.arcsec)],
             sky_angle_rad)
-        _, inner_width, inner_height, _ = sky_shape_to_pixel_svd(
-            self.center, wcs,
-            self.inner_width.to_value(u.arcsec),
-            self.inner_height.to_value(u.arcsec),
-            sky_angle_rad)
-        return (PixCoord(*center), inner_width, outer_width, inner_height,
-                outer_height, angle)
+        return (PixCoord(*center), widths[1], widths[0], heights[1],
+                heights[0], angles[0])
 
 
 class EllipseAnnulusPixelRegion(AsymmetricAnnulusPixelRegion):
@@ -780,8 +788,8 @@ class EllipseAnnulusPixelRegion(AsymmetricAnnulusPixelRegion):
         pixels.
     angle : `~astropy.units.Quantity`, optional
         The rotation angle of the elliptical annulus, measured
-        anti-clockwise. If set to zero (the default), the width axis is
-        lined up with the x axis.
+        counterclockwise. If set to zero (the default), the width axis
+        is lined up with the x-axis.
     meta : `~regions.RegionMeta` or `dict`, optional
         A dictionary that stores the meta attributes of the region.
     visual : `~regions.RegionVisual` or `dict`, optional
@@ -825,7 +833,7 @@ class EllipseAnnulusPixelRegion(AsymmetricAnnulusPixelRegion):
                                   'pixels as a float.')
     outer_height = PositiveScalar('The outer height (before rotation) in '
                                   'pixels as a float.')
-    angle = ScalarAngle('The rotation angle measured anti-clockwise as a '
+    angle = ScalarAngle('The rotation angle measured counterclockwise as a '
                         '|Quantity| angle.')
 
     _component_class = EllipsePixelRegion
@@ -891,8 +899,12 @@ class EllipseAnnulusSkyRegion(AsymmetricAnnulusSkyRegion):
         an angle.
     angle : `~astropy.units.Quantity`, optional
         The rotation angle of the elliptical annulus, measured
-        anti-clockwise. If set to zero (the default), the width axis is
-        lined up with the longitude axis of the celestial coordinates.
+        counterclockwise. If set to zero (the default), the width axis
+        is lined up with the longitude axis of the ``center`` coordinate
+        frame (e.g., ICRS or Galactic). When the region is converted to
+        pixels with a WCS whose celestial frame differs from that frame,
+        the angle is converted to the equivalent angle in the WCS frame,
+        so the region keeps the same orientation on the sky.
     meta : `~regions.RegionMeta` or `dict`, optional
         A dictionary that stores the meta attributes of the region.
     visual : `~regions.RegionVisual` or `dict`, optional
@@ -911,7 +923,7 @@ class EllipseAnnulusSkyRegion(AsymmetricAnnulusSkyRegion):
                                        'as a |Quantity| angle.')
     outer_height = PositiveScalarAngle('The outer height (before rotation) '
                                        'as a |Quantity| angle.')
-    angle = ScalarAngle('The rotation angle measured anti-clockwise as a '
+    angle = ScalarAngle('The rotation angle measured counterclockwise as a '
                         '|Quantity| angle.')
 
     _component_class = EllipseSkyRegion
@@ -975,8 +987,8 @@ class RectangleAnnulusPixelRegion(AsymmetricAnnulusPixelRegion):
         pixels.
     angle : `~astropy.units.Quantity`, optional
         The rotation angle of the rectangular annulus, measured
-        anti-clockwise. If set to zero (the default), the width axis is
-        lined up with the x axis.
+        counterclockwise. If set to zero (the default), the width axis
+        is lined up with the x-axis.
     meta : `~regions.RegionMeta` or `dict`, optional
         A dictionary that stores the meta attributes of the region.
     visual : `~regions.RegionVisual` or `dict`, optional
@@ -1020,7 +1032,7 @@ class RectangleAnnulusPixelRegion(AsymmetricAnnulusPixelRegion):
                                   'pixels as a float.')
     outer_height = PositiveScalar('The outer height (before rotation) in '
                                   'pixels as a float.')
-    angle = ScalarAngle('The rotation angle measured anti-clockwise as a '
+    angle = ScalarAngle('The rotation angle measured counterclockwise as a '
                         '|Quantity| angle.')
 
     _component_class = RectanglePixelRegion
@@ -1034,15 +1046,18 @@ class RectangleAnnulusPixelRegion(AsymmetricAnnulusPixelRegion):
         # The photutils SVD helpers measure the sky rotation as a
         # position angle (PA) from North; regions measures it from the
         # RA axis. Convert between them with a 90 deg offset.
-        center, outer_width, outer_height, angle = pixel_shape_to_sky_svd(
-            (self.center.x, self.center.y), wcs, self.outer_width,
-            self.outer_height, self.angle.to_value(u.radian))
-        _, inner_width, inner_height, _ = pixel_shape_to_sky_svd(
-            (self.center.x, self.center.y), wcs, self.inner_width,
-            self.inner_height, self.angle.to_value(u.radian))
-        angle = (angle + 90 * u.deg).wrap_at(360 * u.deg)
-        return (center, inner_width * u.arcsec, outer_width * u.arcsec,
-                inner_height * u.arcsec, outer_height * u.arcsec, angle)
+        # Both shapes share the center and rotation, so they are
+        # converted with one WCS evaluation. The rotation angle is that
+        # of the outer shape.
+        center = wcs.pixel_to_world(self.center.x, self.center.y)
+        widths, heights, angles = pixel_shape_to_sky_svd(
+            wcs, (self.center.x, self.center.y),
+            [self.outer_width, self.inner_width],
+            [self.outer_height, self.inner_height],
+            self.angle.to_value(u.radian))
+        angle = (angles[0] + 90 * u.deg).wrap_at(360 * u.deg)
+        return (center, widths[1] * u.arcsec, widths[0] * u.arcsec,
+                heights[1] * u.arcsec, heights[0] * u.arcsec, angle)
 
     def to_polygon(self):
         """
@@ -1095,8 +1110,12 @@ class RectangleAnnulusSkyRegion(AsymmetricAnnulusSkyRegion):
         an angle.
     angle : `~astropy.units.Quantity`, optional
         The rotation angle of the rectangular annulus, measured
-        anti-clockwise. If set to zero (the default), the width axis is
-        lined up with the longitude axis of the celestial coordinates.
+        counterclockwise. If set to zero (the default), the width axis
+        is lined up with the longitude axis of the ``center`` coordinate
+        frame (e.g., ICRS or Galactic). When the region is converted to
+        pixels with a WCS whose celestial frame differs from that frame,
+        the angle is converted to the equivalent angle in the WCS frame,
+        so the region keeps the same orientation on the sky.
     meta : `~regions.RegionMeta` or `dict`, optional
         A dictionary that stores the meta attributes of the region.
     visual : `~regions.RegionVisual` or `dict`, optional
@@ -1115,7 +1134,7 @@ class RectangleAnnulusSkyRegion(AsymmetricAnnulusSkyRegion):
                                        'as a |Quantity| angle.')
     outer_height = PositiveScalarAngle('The outer height (before rotation) '
                                        'as a |Quantity| angle.')
-    angle = ScalarAngle('The rotation angle measured anti-clockwise as a '
+    angle = ScalarAngle('The rotation angle measured counterclockwise as a '
                         '|Quantity| angle.')
 
     _component_class = RectangleSkyRegion
@@ -1129,18 +1148,18 @@ class RectangleAnnulusSkyRegion(AsymmetricAnnulusSkyRegion):
         # Convert regions sky angle (from RA axis) to photutils PA (from
         # North) by subtracting 90 deg.
         sky_angle_rad = self.angle.to_value(u.radian) - math.pi / 2
-        center, outer_width, outer_height, angle = sky_shape_to_pixel_svd(
-            self.center, wcs,
-            self.outer_width.to_value(u.arcsec),
-            self.outer_height.to_value(u.arcsec),
+        # Both shapes share the center and rotation, so they are
+        # converted with one WCS inversion and one evaluation. The
+        # rotation angle is that of the outer shape.
+        center, widths, heights, angles = sky_shape_to_pixel_svd(
+            wcs, self.center,
+            [self.outer_width.to_value(u.arcsec),
+             self.inner_width.to_value(u.arcsec)],
+            [self.outer_height.to_value(u.arcsec),
+             self.inner_height.to_value(u.arcsec)],
             sky_angle_rad)
-        _, inner_width, inner_height, _ = sky_shape_to_pixel_svd(
-            self.center, wcs,
-            self.inner_width.to_value(u.arcsec),
-            self.inner_height.to_value(u.arcsec),
-            sky_angle_rad)
-        return (PixCoord(*center), inner_width, outer_width, inner_height,
-                outer_height, angle)
+        return (PixCoord(*center), widths[1], widths[0], heights[1],
+                heights[0], angles[0])
 
     def to_polygon(self, wcs):
         """

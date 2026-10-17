@@ -428,6 +428,26 @@ def _build_cx_request_error(ur_data: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _settled_finish_reason(
+    ur_data: dict[str, Any], req_list: list[dict[str, Any]]
+) -> str | None:
+    """The finish reason a settled user request records.
+
+    The request-level value when the run set one; otherwise the FINAL provider
+    call's own reported reason. Without the fallback a completed request read
+    ``finish_reason=NULL`` while its last ``chat.request`` said ``stop`` — a
+    "completed" with no account of how it ended. A final call that reported no
+    reason (image models) stays ``None``: nothing is borrowed from an earlier call.
+    """
+    if ur_data.get("finish_reason"):
+        return str(ur_data["finish_reason"])
+    if not req_list:
+        return None
+    final = max(req_list, key=lambda r: int(r.get("iteration") or 0))
+    fr = final.get("finish_reason")
+    return str(fr) if fr else None
+
+
 def _is_valid_uuid(value: str | None) -> bool:
     if not value:
         return False
@@ -1553,6 +1573,7 @@ async def persist_completed_request(
                 "input_tokens": req.get("input_tokens"),
                 "output_tokens": req.get("output_tokens"),
                 "cached_tokens": req.get("cached_tokens"),
+                "cache_write_tokens": req.get("cache_write_tokens"),
                 "total_tokens": req.get("total_tokens"),
                 "cost": req.get("cost"),
                 "api_duration_ms": req.get("api_duration_ms"),
@@ -1784,8 +1805,9 @@ async def persist_completed_request(
                 ),
             }
 
-            if ur_data.get("finish_reason"):
-                ur_update_data["finish_reason"] = ur_data["finish_reason"]
+            settled_finish_reason = _settled_finish_reason(ur_data, req_list)
+            if settled_finish_reason:
+                ur_update_data["finish_reason"] = settled_finish_reason
             if ur_data.get("error"):
                 ur_update_data["error"] = _cx_error_text(ur_data["error"])
 

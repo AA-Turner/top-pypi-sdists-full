@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-grappelli
-Version: 5.0.0
+Version: 5.0.1
 Summary: A jazzy skin for the Django Admin-Interface.
 Home-page: http://django-grappelli.readthedocs.org
 Download-URL: 
@@ -11,6 +11,9 @@ Project-URL: Source, https://github.com/sehmaschine/django-grappelli
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
@@ -64,17 +67,37 @@ Documentation
 
 https://django-grappelli.readthedocs.io/en/latest/
 
-Releases
---------
+Compatibility
+-------------
+
+Every combination below is exercised on CI for each push and pull request
+(see ``.github/workflows/tests.yml``):
+
++---------+-------------+-------------+-------------+
+| Django  | Python 3.12 | Python 3.13 | Python 3.14 |
++=========+=============+=============+=============+
+| 6.1     | ✅          | ✅          | ✅          |
++---------+-------------+-------------+-------------+
+| 6.0     | ✅          | ✅          | ✅          |
++---------+-------------+-------------+-------------+
+| 5.2 LTS | ✅          | ✅          | ✅          |
++---------+-------------+-------------+-------------+
 
 **Grappelli is always developed against the latest stable Django release and is NOT tested with Django's master branch.**
 
-* Grappelli 5.0.0 (April 29th, 2026): Compatible with Django 6.x
-* Grappelli 4.0.4 (April 28th, 2026): Compatible with Django 5.x
+Releases
+--------
 
-Current development branches:
-
-* Grappelli 5.0.1 (Development version for Django 6.0, see branch Stable/5.0.x)
-* Grappelli 4.0.5 (Development version for Django 5.0, see branch Stable/4.0.x)
++-----------+--------+------------------+------------------+
+| Grappelli | Django | Released         | Branch           |
++===========+========+==================+==================+
+| 5.0.2     | 6.x    | in development   | ``stable/5.0.x`` |
++-----------+--------+------------------+------------------+
+| 5.0.1     | 6.x    | Oct 16th, 2026   | ``master``       |
++-----------+--------+------------------+------------------+
+| 4.0.5     | 5.x    | in development   | ``stable/4.0.x`` |
++-----------+--------+------------------+------------------+
+| 4.0.4     | 5.x    | Apr 28th, 2026   |                  |
++-----------+--------+------------------+------------------+
 
 Older versions are available at GitHub, but are not supported anymore.

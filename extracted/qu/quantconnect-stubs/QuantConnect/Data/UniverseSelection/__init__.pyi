@@ -26,13 +26,9 @@ QuantConnect_Data_UniverseSelection_FuncUniverse_T = typing.TypeVar("QuantConnec
 QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T")
 QuantConnect_Data_UniverseSelection__EventContainer_Callable = typing.TypeVar("QuantConnect_Data_UniverseSelection__EventContainer_Callable")
 QuantConnect_Data_UniverseSelection__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Data_UniverseSelection__EventContainer_ReturnType")
-QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T")
-QuantConnect_Data_UniverseSelection_FundamentalService_Get_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_FundamentalService_Get_T")
 QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_UniverseExtensions_TryGetUniverse_T")
 QuantConnect_Data_UniverseSelection_UniverseDecorator_TryGetUnderlying_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_UniverseDecorator_TryGetUnderlying_T")
-QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T")
 QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_GetDefault_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_GetDefault_T")
-QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T")
 
 
 class Schedule(System.Object):
@@ -835,35 +831,8 @@ class BaseChainUniverseData(QuantConnect.Data.UniverseSelection.BaseDataCollecti
         ...
 
 
-class _Typed_IFundamentalDataProvider_Get(typing.Generic[QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T]):
-    """"""
-
-    @overload
-    def __call__(self, time: typing.Union[datetime.datetime, datetime.date], security_identifier: QuantConnect.SecurityIdentifier, name: QuantConnect.Data.Fundamental.FundamentalProperty) -> QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T:
-        """
-        Will fetch the requested fundamental information for the requested time and symbol
-        
-        :param time: The time to request this data for
-        :param security_identifier: The security identifier
-        :param name: The name of the fundamental property
-        :returns: The fundamental information.
-        """
-        ...
-
-
-class _IFundamentalDataProvider_Get:
-    """"""
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T]) -> QuantConnect.Data.UniverseSelection._Typed_IFundamentalDataProvider_Get[QuantConnect_Data_UniverseSelection_IFundamentalDataProvider_Get_T]:
-        ...
-
-
 class IFundamentalDataProvider(metaclass=abc.ABCMeta):
     """"""
-
-    @property
-    def get(self) -> QuantConnect.Data.UniverseSelection._IFundamentalDataProvider_Get:
-        ...
 
     def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
         """
@@ -872,29 +841,6 @@ class IFundamentalDataProvider(metaclass=abc.ABCMeta):
         :param data_provider: The data provider instance to use
         :param live_mode: True if running in live mode
         """
-        ...
-
-
-class _Typed_BaseFundamentalDataProvider_Get(typing.Generic[QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T]):
-    """"""
-
-    @overload
-    def __call__(self, time: typing.Union[datetime.datetime, datetime.date], security_identifier: QuantConnect.SecurityIdentifier, name: QuantConnect.Data.Fundamental.FundamentalProperty) -> QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T:
-        """
-        Will fetch the requested fundamental information for the requested time and symbol
-        
-        :param time: The time to request this data for
-        :param security_identifier: The security identifier
-        :param name: The name of the fundamental property
-        :returns: The fundamental information.
-        """
-        ...
-
-
-class _BaseFundamentalDataProvider_Get:
-    """"""
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T]) -> QuantConnect.Data.UniverseSelection._Typed_BaseFundamentalDataProvider_Get[QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_Get_T]:
         ...
 
 
@@ -944,10 +890,6 @@ class BaseFundamentalDataProvider(System.Object, QuantConnect.Data.UniverseSelec
     def data_provider(self, value: QuantConnect.Interfaces.IDataProvider) -> None:
         ...
 
-    @property
-    def get(self) -> QuantConnect.Data.UniverseSelection._BaseFundamentalDataProvider_Get:
-        ...
-
     get_default: QuantConnect.Data.UniverseSelection._BaseFundamentalDataProvider_GetDefault
 
     def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
@@ -969,29 +911,6 @@ class BaseFundamentalDataProvider(System.Object, QuantConnect.Data.UniverseSelec
     @overload
     def is_none(type: typing.Type, value: typing.Any) -> bool:
         """True if the given value is none"""
-        ...
-
-
-class _Typed_CoarseFundamentalDataProvider_Get(typing.Generic[QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T]):
-    """"""
-
-    @overload
-    def __call__(self, time: typing.Union[datetime.datetime, datetime.date], security_identifier: QuantConnect.SecurityIdentifier, name: QuantConnect.Data.Fundamental.FundamentalProperty) -> QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T:
-        """
-        Will fetch the requested fundamental information for the requested time and symbol
-        
-        :param time: The time to request this data for
-        :param security_identifier: The security identifier
-        :param name: The name of the fundamental property
-        :returns: The fundamental information.
-        """
-        ...
-
-
-class _CoarseFundamentalDataProvider_Get:
-    """"""
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T]) -> QuantConnect.Data.UniverseSelection._Typed_CoarseFundamentalDataProvider_Get[QuantConnect_Data_UniverseSelection_CoarseFundamentalDataProvider_Get_T]:
         ...
 
 
@@ -1153,10 +1072,6 @@ class CoarseFundamentalDataProvider(QuantConnect.Data.UniverseSelection.BaseFund
         def split_factor(self) -> float:
             """Gets the split factor for the given date"""
             ...
-
-    @property
-    def get(self) -> QuantConnect.Data.UniverseSelection._CoarseFundamentalDataProvider_Get:
-        ...
 
     def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
         """
@@ -1329,45 +1244,8 @@ class ScheduledUniverse(QuantConnect.Data.UniverseSelection.Universe, QuantConne
         ...
 
 
-class _Typed_FundamentalService_Get(typing.Generic[QuantConnect_Data_UniverseSelection_FundamentalService_Get_T]):
-    """"""
-
-    @overload
-    def __call__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], name: QuantConnect.Data.Fundamental.FundamentalProperty) -> QuantConnect_Data_UniverseSelection_FundamentalService_Get_T:
-        """
-        Will fetch the requested fundamental information for the requested time and symbol
-        
-        :param time: The time to request this data for
-        :param symbol: The symbol instance
-        :param name: The name of the fundamental property
-        :returns: The fundamental information.
-        """
-        ...
-
-    @overload
-    def __call__(self, time: typing.Union[datetime.datetime, datetime.date], security_identifier: QuantConnect.SecurityIdentifier, name: QuantConnect.Data.Fundamental.FundamentalProperty) -> QuantConnect_Data_UniverseSelection_FundamentalService_Get_T:
-        """
-        Will fetch the requested fundamental information for the requested time and symbol
-        
-        :param time: The time to request this data for
-        :param security_identifier: The security identifier
-        :param name: The name of the fundamental property
-        :returns: The fundamental information.
-        """
-        ...
-
-
-class _FundamentalService_Get:
-    """"""
-
-    def __getitem__(self, type: typing.Type[QuantConnect_Data_UniverseSelection_FundamentalService_Get_T]) -> QuantConnect.Data.UniverseSelection._Typed_FundamentalService_Get[QuantConnect_Data_UniverseSelection_FundamentalService_Get_T]:
-        ...
-
-
 class FundamentalService(System.Object):
     """Fundamental data provider service"""
-
-    get: QuantConnect.Data.UniverseSelection._FundamentalService_Get
 
     @staticmethod
     @overload

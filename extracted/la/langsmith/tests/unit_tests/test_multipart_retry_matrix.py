@@ -85,9 +85,7 @@ def endpoint(socket_enabled):
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     # poll_interval bounds how long shutdown() blocks. The 0.5s default would
     # dominate this file's runtime; 0 would work too but busy-spins.
-    threading.Thread(
-        target=server.serve_forever, kwargs={"poll_interval": 0.001}, daemon=True
-    ).start()
+    threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.001}, daemon=True).start()
     ep.url = f"http://127.0.0.1:{server.server_address[1]}"
     yield ep
     server.shutdown()
@@ -144,9 +142,7 @@ def _payload(n_runs=1):
     would pin a message shape that never occurs in production.
     """
     ops, ids = _ops(n_runs)
-    parts = [
-        serialized_run_operation_to_multipart_parts_and_context(op)[0] for op in ops
-    ]
+    parts = [serialized_run_operation_to_multipart_parts_and_context(op)[0] for op in ops]
     return join_multipart_parts_and_context(parts), ids
 
 
@@ -206,9 +202,7 @@ def _one_example_payload():
     RETRY_MATRIX,
     ids=[f"{s}{'+retry-after' if ra else ''}" for s, ra, _, _ in RETRY_MATRIX],
 )
-def test_multipart_retry_counts(
-    endpoint, no_sleep, status, retry_after, expected_requests, retried_by
-):
+def test_multipart_retry_counts(endpoint, no_sleep, status, retry_after, expected_requests, retried_by):
     """Pin the exact number of POSTs each failure mode produces."""
     endpoint.status = status
     endpoint.retry_after = retry_after
@@ -231,9 +225,7 @@ def test_multipart_retry_counts(
     RETRYABLE_ROWS,
     ids=[f"{s}{'+retry-after' if ra else ''}" for s, ra, _, _ in RETRYABLE_ROWS],
 )
-def test_multipart_retry_counts_streamed_body(
-    endpoint, no_sleep, status, retry_after, expected_requests, retried_by
-):
+def test_multipart_retry_counts_streamed_body(endpoint, no_sleep, status, retry_after, expected_requests, retried_by):
     """Same matrix, but forced through the streamed ``RewindableMultipartBody``
     branch instead of the buffered-to-bytes one.
 
@@ -281,10 +273,7 @@ PREPARE_MULTIPART_DATA_RETRY_MATRIX = [
 @pytest.mark.parametrize(
     "status,retry_after,expected_requests,retried_by",
     PREPARE_MULTIPART_DATA_RETRY_MATRIX,
-    ids=[
-        f"{s}{'+retry-after' if ra else ''}"
-        for s, ra, _, _ in PREPARE_MULTIPART_DATA_RETRY_MATRIX
-    ],
+    ids=[f"{s}{'+retry-after' if ra else ''}" for s, ra, _, _ in PREPARE_MULTIPART_DATA_RETRY_MATRIX],
 )
 def test_prepare_multipart_data_retry_counts_streamed_body(
     endpoint, no_sleep, status, retry_after, expected_requests, retried_by
@@ -303,9 +292,7 @@ def test_prepare_multipart_data_retry_counts_streamed_body(
     client = _client(endpoint)
 
     with mock.patch("langsmith.client._MULTIPART_INLINE_MAX_BYTES", 0):
-        body, data, opened_files_dict = client._prepare_multipart_data(
-            _one_example_payload(), include_dataset_id=False
-        )
+        body, data, opened_files_dict = client._prepare_multipart_data(_one_example_payload(), include_dataset_id=False)
         try:
             with pytest.raises(Exception):
                 client.request_with_retries(
@@ -338,12 +325,8 @@ def test_retry_after_header_value_drives_the_delay(endpoint, no_sleep):
 
     client._send_multipart_req(_one_run_payload())
 
-    assert no_sleep.call_args_list, (
-        "429 carrying Retry-After was not retried at all, so no backoff happened"
-    )
-    assert [c.args[0] for c in no_sleep.call_args_list] == [
-        pytest.approx(2, abs=0.01)
-    ] * 3
+    assert no_sleep.call_args_list, "429 carrying Retry-After was not retried at all, so no backoff happened"
+    assert [c.args[0] for c in no_sleep.call_args_list] == [pytest.approx(2, abs=0.01)] * 3
 
 
 def test_app_loop_does_not_back_off(endpoint, no_sleep):
@@ -369,9 +352,7 @@ def test_app_loop_does_not_back_off(endpoint, no_sleep):
         (429, True),
     ],
 )
-def test_exhausted_batch_is_dropped_not_requeued(
-    endpoint, no_sleep, tmp_path, monkeypatch, status, dumped
-):
+def test_exhausted_batch_is_dropped_not_requeued(endpoint, no_sleep, tmp_path, monkeypatch, status, dumped):
     """Once retries stop, the batch is gone unless LANGSMITH_FAILED_TRACES_DIR is set.
 
     Nothing re-enqueues it: ``_tracing_thread_handle_batch`` calls
@@ -433,11 +414,7 @@ def _only_warning(caplog):
     twelve POSTs for a 500 still produce exactly one warning, not one per
     attempt.
     """
-    msgs = [
-        r.getMessage()
-        for r in caplog.records
-        if r.levelno == logging.WARNING and r.name == "langsmith.client"
-    ]
+    msgs = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING and r.name == "langsmith.client"]
     assert len(msgs) == 1, f"expected exactly one warning, got {len(msgs)}: {msgs}"
     return msgs[0]
 
@@ -532,17 +509,11 @@ def test_warning_message_is_explicit_about_data_loss(endpoint, no_sleep, caplog)
 
     client._send_multipart_req(_one_run_payload())
 
-    (record,) = [
-        r
-        for r in caplog.records
-        if r.name == "langsmith.client" and r.levelno >= logging.WARNING
-    ]
+    (record,) = [r for r in caplog.records if r.name == "langsmith.client" and r.levelno >= logging.WARNING]
     msg = record.getMessage().lower()
 
     assert record.levelno >= logging.ERROR, "unrecoverable data loss should be ERROR"
     assert "1 run" in msg, "should say how many runs were lost"
-    assert any(w in msg for w in ("dropped", "discarded", "lost")), (
-        "should say the data is gone"
-    )
+    assert any(w in msg for w in ("dropped", "discarded", "lost")), "should say the data is gone"
     assert "will not be retried" in msg, "should say retries are over"
     assert "langsmith_failed_traces_dir" in msg, "should point at the mitigation"

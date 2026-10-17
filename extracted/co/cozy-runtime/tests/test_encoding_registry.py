@@ -11,7 +11,6 @@ import tensorfs
 from cozy_runtime.derive import quantization
 from cozy_runtime.internal.encoding import (
     SPEC_INT8_CONVROT256,
-    SPEC_MXFP8,
     SPEC_NVFP4,
     SPEC_PLAIN,
     SPEC_ROWWISE,
@@ -19,11 +18,15 @@ from cozy_runtime.internal.encoding import (
     SPEC_SCALED_SCALAR,
     SPEC_SCALED_SCALAR_WEIGHT_ONLY,
     SPEC_VECTORS,
+    Capabilities,
+    DeviceFacts,
+    Encoded,
+    EncodingRefusal,
     RolePart,
+    Selector,
     launch_providers,
     selection,
 )
-from cozy_runtime.internal.encoding.leaves import MicroScaledNativeLeaf
 
 VECTORS = Path(__file__).resolve().parents[1] / "src/cozy_runtime/internal/encoding/vectors"
 RETIRED = {
@@ -34,6 +37,8 @@ RETIRED = {
     "sha256:5fb5ffc9e387cd1e54fb9877058294f6965fdc0e504ab8799ac310d90f3fe489",
     "sha256:796a50ed4d63e0b7cfc70a8cd797a5fe796bba64cb3143de4d35f059653f5d80",
 }
+#: `mxfp8/1`, removed from this Runtime; TensorFS may still seed it.
+MXFP8 = "sha256:7e9b1ad8f2e5ddd236a4d4303042d632a96eadef4f25d44eb0fb63124cec7cfd"
 
 
 def test_every_provider_is_reviewed_against_the_exact_tensorfs_03_seed() -> None:
@@ -44,7 +49,6 @@ def test_every_provider_is_reviewed_against_the_exact_tensorfs_03_seed() -> None
         SPEC_ROWWISE_KEEPDIM,
         SPEC_SCALED_SCALAR,
         SPEC_SCALED_SCALAR_WEIGHT_ONLY,
-        SPEC_MXFP8,
         SPEC_INT8_CONVROT256,
         SPEC_NVFP4,
     }
@@ -54,7 +58,6 @@ def test_every_provider_is_reviewed_against_the_exact_tensorfs_03_seed() -> None
     assert quantization.PLAIN_SPEC == SPEC_PLAIN
     assert set(quantization._ARTIFACT_SPECS.values()) == {
         SPEC_ROWWISE,
-        SPEC_MXFP8,
         SPEC_INT8_CONVROT256,
         SPEC_NVFP4,
     }
@@ -83,7 +86,6 @@ def test_reviewed_roles_and_vector_bytes_did_not_move() -> None:
         SPEC_ROWWISE_KEEPDIM: ({"data", "scale"}, set()),
         SPEC_SCALED_SCALAR: ({"data", "weight_scale"}, {"input_scale"}),
         SPEC_SCALED_SCALAR_WEIGHT_ONLY: ({"data", "weight_scale"}, {"input_scale"}),
-        SPEC_MXFP8: ({"data", "scale"}, set()),
         SPEC_INT8_CONVROT256: ({"data", "scale"}, set()),
         SPEC_NVFP4: ({"weight", "weight_scale", "weight_scale_2"}, set()),
     }
@@ -96,16 +98,14 @@ def test_reviewed_roles_and_vector_bytes_did_not_move() -> None:
         assert measured == expected
 
 
-def test_mxfp8_padded_scale_storage_has_one_provider_price() -> None:
-    provider = MicroScaledNativeLeaf(SPEC_MXFP8)
-    parts = {
-        "data": RolePart("data", "f8_e4m3fn", (2, 1056), 2112),
-        "scale": RolePart("scale", "u8", (2, 33), 66),
-    }
-    # cuBLAS scales occupy complete 128x4 tiles: 2x33 becomes 128x36.
-    assert provider.resident_bytes(parts) == 2112 + 128 * 36
-    assert provider.fill_scratch_bytes(parts) == 3 * 128 * 36
-    assert provider.resident_bits_per_element(parts, 2112) == 8 * (2112 + 128 * 36) / 2112
+def test_an_mxfp8_tensor_refuses_at_bind() -> None:
+    providers = launch_providers()
+    assert MXFP8 not in providers
+    selector = Selector(providers, Capabilities(), DeviceFacts("cpu", "CPU", 0, "", "", 0))
+    parts = (RolePart("data", "f8_e4m3fn", (2, 64), 128), RolePart("scale", "u8", (2, 2), 4))
+    with pytest.raises(EncodingRefusal) as refused:
+        selector.candidates("w", Encoded(MXFP8, "mxfp8/1", parts), "bf16", (2, 64))
+    assert refused.value.code in {"spec_unreviewed", "unknown_encoding"}
 
 
 def test_a_spec_the_installed_tensorfs_lacks_is_skipped_with_one_warning(

@@ -106,6 +106,22 @@ def _absolute_http_url(raw: str | None, base_url: str) -> str | None:
     return resolved
 
 
+#: Query parameters that NAME a social page (a video ``?v=``, a Facebook ``profile.php?id=``). Everything else on a
+#: social link is junk to the account (``view_as=subscriber``, ``utm_*``, ``fbclid``, ``si``, ``hl``…) and is cut
+#: before the link is stored, so one account is one address (live defect 2026-10-15: a brand's YouTube carried
+#: ``?view_as=subscriber`` into its stored profile).
+_SOCIAL_IDENTIFYING_PARAMS = frozenset({"v", "id", "fbid", "story_fbid", "list"})
+
+
+def clean_social_url(url: str) -> str:
+    """``url`` without its fragment and every query parameter that does not name the page."""
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+    parts = urlsplit(url)
+    keep = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=False) if k.lower() in _SOCIAL_IDENTIFYING_PARAMS]
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(keep), ""))
+
+
 def _social_kind(url: str) -> str | None:
     host = (urlparse(url).hostname or "").lower()
     host = host.removeprefix("www.")
@@ -226,7 +242,7 @@ def extract_homepage_candidates(
                         add(
                             "social",
                             kind,
-                            url=url,
+                            url=clean_social_url(url),
                             context={"where": "schema.org sameAs", "schema_path": schema_path},
                             confidence=0.98,
                         )
@@ -350,7 +366,7 @@ def extract_homepage_candidates(
             add(
                 "social",
                 kind,
-                url=link.target_url,
+                url=clean_social_url(link.target_url),
                 context={"where": "homepage link", "anchor_text": link.anchor_text},
                 confidence=0.92,
             )

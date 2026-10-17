@@ -2,13 +2,16 @@
 
 THIS IS HOW WE DO IT:
 1. Only DECLARED variables are filled: the exact text ``{{name}}`` for each name given.
-2. Filled ONCE, on the first turn. Never again.
+2. Filled ONCE, on the first turn. A second fill (a forced re-apply, a clone) restarts from the
+   authored template — never from filled text — and a part changed since refuses loudly.
 3. A declared variable with no value becomes ``""``.
 4. Every other ``{{...}}`` is left exactly as written. The server never searches text for
    braces, never reports them, never removes them.
 5. One pass: text a value brings in is never filled.
-6. The one escape: ``{{!name}}`` in the author's text becomes ``{{name}}``, in the same pass.
-   Nothing else.
+6. The one escape: ``{{!name}}`` in the author's text becomes ``{{name}}``, in the same pass
+   (also ``{{!#name}}``, ``{{!^name}}``, ``{{!/name}}`` and ``{{!<name>}}``), only when ``name`` is
+   a DECLARED variable or block name (the same set the fill uses, verbatim). Every other
+   ``{{!...}}`` (``{{!todo}}``, ``{{! a comment }}``, ``{{!}}``) is left as written.
 7. Sections (Mustache), authored text only, same pass, evaluated before the slots are filled:
    ``{{#name}}...{{/name}}`` stays only when declared ``name`` has a value that is not empty or
    whitespace-only; ``{{^name}}...{{/name}}`` stays only when it is empty. Empty is decided once,
@@ -20,6 +23,9 @@ THIS IS HOW WE DO IT:
    wrapper is part of the form); empty text becomes ``""``. Block text is a value: never filled,
    never section-evaluated, never unescaped. An undeclared ``{{<x>}}`` is left as written.
    ``{{!<name>}}`` is the escape (rule 6).
+9. A platform value (``PlatformValue`` / ``PlatformList`` / ``PlatformDict``: an undeclared
+   ``vsc_*`` or ``__name__`` key a door passes through for its own use) is never filled and never
+   forms a section, whatever its type.
 """
 
 from __future__ import annotations
@@ -31,9 +37,127 @@ from typing import Any
 ESCAPE_OPEN = "{{!"
 
 
+class VariableRefillError(RuntimeError):
+    """A second fill could not restart a part from its authored template.
+
+    Every fill starts again from each part's authored template, so a value's own braces are
+    never filled. A part whose text changed after its fill (or that the fill removed) cannot
+    restart honestly; the refill refuses instead of being silently ignored."""
+
+    def __init__(self, part: str, reason: str) -> None:
+        super().__init__(
+            f"Cannot fill variables again: {part} {reason}. Fill a fresh copy of the agent's "
+            "authored definition instead."
+        )
+        self.part = part
+        self.reason = reason
+
+
+class VariablesAlreadyAppliedError(RuntimeError):
+    """New values were given to an agent whose variables were already applied.
+
+    Variables are filled once. New values on an applied agent were silently stored and never
+    reached the prompt; they now refuse loudly (owner ruling 2026-10-16) and are recorded."""
+
+    def __init__(self, names: list[str]) -> None:
+        super().__init__(
+            f"Variables were already applied to this agent; the new values for "
+            f"{', '.join(names)} would never reach its prompt. Fill a fresh copy instead "
+            "(agent.clone().with_variables(...)), or refill deliberately with "
+            "set_variable(...) then apply_variables(force=True)."
+        )
+        self.names = names
+
+
+#: Set on a part by its fill: the text the fill produced. A later fill restarts from the authored
+#: template only when the part still holds exactly this text.
+FILLED_ATTR = "_filled_text"
+
+
+def restart_point(part: Any, current: Any, label: str) -> None:
+    """Refuse a refill of ``part`` when its text changed since its last fill (``current`` != the
+    text that fill produced). A part never filled passes."""
+    filled = getattr(part, FILLED_ATTR, None)
+    if filled is not None and current != filled:
+        raise VariableRefillError(label, "was changed after its variables were filled")
+
+
+def escape_pattern(declared: Any = ()) -> str | None:
+    """Rule 6, exactly: ``{{!`` + optional ``#``/``^``/``/`` + NAME + ``}}``, or ``{{!<`` + NAME +
+    ``>}}`` — where NAME is a ``declared`` name, verbatim. ``None`` when nothing is declared."""
+    names = sorted({str(n) for n in declared if str(n)}, key=len, reverse=True)
+    if not names:
+        return None
+    name = "(?:" + "|".join(re.escape(n) for n in names) + ")"
+    return r"\{\{!(?P<e>[#^/]?" + name + r"|<" + name + r">)\}\}"
+
+
+#: The person's typed content, marked the moment it joins a message: never filled, escaped or
+#: section-evaluated, however many times a pass runs (THE USER-INPUT LAW).
+_DATA_ATTR = "_variable_data"
+#: Typed text glued onto the end of an AUTHORED text block: that tail is data, the head is the
+#: authored template.
+_DATA_TAIL_ATTR = "_variable_data_tail"
+
+
+def mark_as_data(content: Any) -> None:
+    """Mark a content block as data: no pass ever fills it."""
+    try:
+        setattr(content, _DATA_ATTR, True)
+    except (AttributeError, TypeError):
+        pass
+
+
+def is_data(content: Any) -> bool:
+    return bool(getattr(content, _DATA_ATTR, False))
+
+
+def add_data_tail(content: Any, tail: str) -> None:
+    """Record ``tail`` (already appended to ``content.text``) as data glued to an authored block."""
+    try:
+        setattr(content, _DATA_TAIL_ATTR, getattr(content, _DATA_TAIL_ATTR, "") + tail)
+    except (AttributeError, TypeError):
+        pass
+
+
+def data_tail(content: Any) -> str:
+    return getattr(content, _DATA_TAIL_ATTR, "") or ""
+
+
 class OffValue(str):
     """A toggle's off label (``toggleValues[0]``, default "No"): fills its slot with its text, but a
     ``{{#name}}`` section treats it as empty. Composition (``agents.variables``) marks it."""
+
+
+class PlatformValue(str):
+    """A value a door passes through for its own use (an undeclared ``vsc_*`` or ``__name__`` key):
+    kept in the run's values, never filled into text and never a section (rule 9). Composition
+    (``agents.variables``) marks it."""
+
+
+class PlatformList(list):
+    """``PlatformValue`` for a list (``__agent_user_input__`` as content parts, ``vsc_open_files``)."""
+
+
+class PlatformDict(dict):
+    """``PlatformValue`` for a dict."""
+
+
+def as_platform_value(value: Any) -> Any:
+    """Mark a door's own value so substitution never fills it (rule 9), whatever its type: a list
+    or dict keeps its shape; anything else (text, a number, ``None``) becomes ``PlatformValue``
+    text."""
+    if is_platform_value(value):
+        return value
+    if isinstance(value, list):
+        return PlatformList(value)
+    if isinstance(value, dict):
+        return PlatformDict(value)
+    return PlatformValue("" if value is None else value)
+
+
+def is_platform_value(value: Any) -> bool:
+    return isinstance(value, (PlatformValue, PlatformList, PlatformDict))
 
 
 def is_empty_value(value: Any) -> bool:
@@ -173,15 +297,22 @@ def substitute_authored(
 ) -> str:
     """Fill the declared slots of ``template`` in ``text`` in one pass.
 
-    ``unescape`` also turns ``{{!`` into ``{{`` — only while ``text`` is still the
+    ``unescape`` also turns an escape ``{{!name}}`` into ``{{name}}`` (rule 6) — only while ``text`` is still the
     untouched authored template, so a value's text is never changed. ``sections`` (default: same as
     ``unescape``) evaluates the ``{{#name}}`` / ``{{^name}}`` sections first, on that same text.
     ``blocks`` maps each DECLARED prompt block name to its resolved text (rule 8)."""
+    if any(is_platform_value(v) for v in variables.values()):
+        variables = {k: v for k, v in variables.items() if not is_platform_value(v)}
     if (unescape if sections is None else sections) and text == template:
         text = template = apply_sections(template, variables, render)
     names = authored_names(template, variables)
     block_names = [n for n in (blocks or {}) if block_token(n) in template]
-    strip = unescape and text == template and ESCAPE_OPEN in text
+    escape = (
+        escape_pattern([*variables, *(blocks or {})])
+        if unescape and text == template and ESCAPE_OPEN in text
+        else None
+    )
+    strip = escape is not None and re.search(escape, text) is not None
     if not names and not strip and not block_names:
         return text
     alternatives = []
@@ -192,7 +323,7 @@ def substitute_authored(
         block_names.sort(key=len, reverse=True)
         alternatives.append(r"\{\{<(?P<b>" + "|".join(re.escape(n) for n in block_names) + r")>\}\}")
     if strip:
-        alternatives.append(re.escape(ESCAPE_OPEN))
+        alternatives.append(escape)
     rendered = {name: render(variables[name]) for name in names}
     wrapped = {name: wrap_block(name, str((blocks or {})[name] or "")) for name in block_names}
     pattern = re.compile("|".join(alternatives))
@@ -203,7 +334,7 @@ def substitute_authored(
             return rendered[groups["v"]]
         if groups.get("b") is not None:
             return wrapped[groups["b"]]
-        return "{{"
+        return "{{" + groups["e"] + "}}"
 
     return pattern.sub(replace, text)
 
@@ -220,20 +351,37 @@ def authored_template_messages(
 
     ONE implementation for every host that takes a client-carried ``messages[]`` (aidream
     ``/ai/manual`` + ``/ai/chat``, matrx-local's engine). The client says how many leading wire
-    messages are authored; nothing is inferred from text. ``build_unified_config`` lifts
-    system/developer messages into the system instruction and keeps every other message in
-    order, so the authored ones are the first K config messages, K = the non-system messages
-    among the first N wire messages. Capture the result by identity right after the config is
-    built and pass it as ``replace_variables(..., template_messages=...)``. ``None``/0 (an older
-    client) = nothing is filled: typed text and history are never filled.
+    messages are authored; nothing is inferred from text. ``UnifiedConfig.from_dict`` lifts the
+    authored system/developer messages into the system instruction and the config builder drops
+    every blank message (``message_config.is_blank_message``), keeping the rest in order, so the
+    authored ones are the first K config messages, K = the non-system, non-blank messages among
+    the first N wire messages — counted with the builder's own blank test, so a blank authored
+    message can never shift the selection onto history or the typed turn. Capture the result by
+    identity right after the config is built and pass it as
+    ``replace_variables(..., template_messages=...)``. ``None``/0 (an older client) = nothing is
+    filled: typed text and history are never filled.
     """
     count = template_message_count or 0
     if count <= 0:
         return []
+    from matrx_ai.config.message_config import UnifiedMessage, is_blank_message
 
     def _role(m: Any) -> str:
         role = m.get("role") if isinstance(m, Mapping) else getattr(m, "role", None)
         return str(getattr(role, "value", role))
 
-    authored = sum(1 for m in list(wire_messages)[:count] if _role(m) not in _SYSTEM_ROLES)
+    def _kept(m: Any) -> bool:
+        if isinstance(m, UnifiedMessage):
+            message = m
+        elif isinstance(m, Mapping):
+            message = UnifiedMessage.from_dict(dict(m))
+        elif hasattr(m, "model_dump"):
+            message = UnifiedMessage.from_dict(m.model_dump(exclude_none=True))
+        else:
+            return True  # not a wire shape the builder reads; counted as before
+        return not is_blank_message(message)
+
+    authored = sum(
+        1 for m in list(wire_messages)[:count] if _role(m) not in _SYSTEM_ROLES and _kept(m)
+    )
     return list(config_messages)[:authored]

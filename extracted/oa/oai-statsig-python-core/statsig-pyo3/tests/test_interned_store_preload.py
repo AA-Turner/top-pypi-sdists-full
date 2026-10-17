@@ -59,8 +59,12 @@ def test_interned_store_preload(server_setup):
     assert log_provider.error_count == 0
 
 
-def test_interned_store_mmap_preload(server_setup):
-    _run_isolated("_assert_interned_store_mmap_preload", *server_setup)
+@pytest.mark.parametrize("preload_kind", ["single", "multi"])
+@pytest.mark.parametrize("precompute", ["omitted", "false", "true"])
+def test_interned_store_mmap_preload(server_setup, preload_kind, precompute):
+    _run_isolated(
+        "_assert_interned_store_mmap_preload", *server_setup, preload_kind, precompute
+    )
 
 
 def _run_isolated(function_name, *args):
@@ -83,16 +87,23 @@ def _run_isolated(function_name, *args):
     )
 
 
-def _assert_interned_store_mmap_preload(specs_url, log_event_url):
+def _assert_interned_store_mmap_preload(specs_url, log_event_url, preload_kind, precompute):
     sdk_key = "secret-key"
 
     fetch_complete = InternedStore.fetch_and_write_mmap(sdk_key, specs_url)
     assert fetch_complete.wait(5)
-    report = InternedStore.preload_mmap_multi(
-        [sdk_key], [f"missing-{uuid.uuid4()}"]
+    options = (
+        {} if precompute == "omitted"
+        else {"precompute_returnable_stable_hashes": precompute == "true"}
     )
-    assert report.loaded == 1
-    assert report.skipped_optional_indexes == [0]
+    if preload_kind == "single":
+        assert InternedStore.preload_mmap(sdk_key, **options) is None
+    else:
+        report = InternedStore.preload_mmap_multi(
+            [sdk_key], [f"missing-{uuid.uuid4()}"], **options
+        )
+        assert report.loaded == 1
+        assert report.skipped_optional_indexes == [0]
 
     memory = InternedStore.mmap_reader_memory_snapshot()
     assert memory is not None
@@ -135,11 +146,16 @@ def _assert_interned_store_mmap_preload(specs_url, log_event_url):
     assert log_provider.error_count == 0
 
 
-def test_interned_store_mmap_missing_required():
-    _run_isolated("_assert_mmap_missing_required")
+@pytest.mark.parametrize("precompute", ["omitted", "false", "true"])
+def test_interned_store_mmap_missing_required(precompute):
+    _run_isolated("_assert_mmap_missing_required", precompute)
 
 
-def _assert_mmap_missing_required():
+def _assert_mmap_missing_required(precompute):
+    options = (
+        {} if precompute == "omitted"
+        else {"precompute_returnable_stable_hashes": precompute == "true"}
+    )
     sdk_key = f"missing-{uuid.uuid4()}"
     message = "Invalid operation: No committed interned mmap V2 artifact was found"
     for preload, argument in (
@@ -147,7 +163,7 @@ def _assert_mmap_missing_required():
         (InternedStore.preload_mmap_multi, [sdk_key]),
     ):
         with pytest.raises(RuntimeError) as raised:
-            preload(argument)
+            preload(argument, **options)
         assert type(raised.value) is RuntimeError
         assert str(raised.value) == message
         assert raised.value.args == (message,)

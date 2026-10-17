@@ -17,7 +17,7 @@ from langsmith.client import (
     convert_prompt_to_openai_format,
 )
 from tests.integration_tests.conftest import skip_if_rate_limited
-from tests.utils.any_int import AnyInt
+from tests.integration_tests.any_int import AnyInt
 
 
 @pytest.fixture
@@ -221,9 +221,7 @@ def test_delete_prompt(langsmith_client: Client, prompt_template_1: ChatPromptTe
     assert not langsmith_client._prompt_exists(prompt_name)
 
 
-def test_pull_prompt_object(
-    langsmith_client: Client, prompt_template_1: ChatPromptTemplate
-):
+def test_pull_prompt_object(langsmith_client: Client, prompt_template_1: ChatPromptTemplate):
     prompt_name = f"test_prompt_{uuid4().hex[:8]}"
     langsmith_client.push_prompt(prompt_name, object=prompt_template_1)
 
@@ -242,9 +240,7 @@ def test_pull_prompt(langsmith_client: Client, prompt_template_1: ChatPromptTemp
     # test pulling with just prompt name
     pulled_prompt = langsmith_client.pull_prompt(prompt_name)
     assert isinstance(pulled_prompt, ChatPromptTemplate)
-    assert (
-        pulled_prompt.metadata and pulled_prompt.metadata["lc_hub_repo"] == prompt_name
-    )
+    assert pulled_prompt.metadata and pulled_prompt.metadata["lc_hub_repo"] == prompt_name
 
     # test pulling with private owner (-) and name
     pulled_prompt_2 = langsmith_client.pull_prompt(f"-/{prompt_name}")
@@ -256,10 +252,7 @@ def test_pull_prompt(langsmith_client: Client, prompt_template_1: ChatPromptTemp
         f"{tenant_handle}/{prompt_name}", dangerously_pull_public_prompt=True
     )
     assert pulled_prompt.metadata and pulled_prompt_3.metadata
-    assert (
-        pulled_prompt.metadata["lc_hub_commit_hash"]
-        == pulled_prompt_3.metadata["lc_hub_commit_hash"]
-    )
+    assert pulled_prompt.metadata["lc_hub_commit_hash"] == pulled_prompt_3.metadata["lc_hub_commit_hash"]
     assert pulled_prompt_3.metadata["lc_hub_owner"] == tenant_handle
 
     # test pulling with handle, name and commit hash
@@ -271,22 +264,15 @@ def test_pull_prompt(langsmith_client: Client, prompt_template_1: ChatPromptTemp
 
     # test pulling without handle, with commit hash
     assert pulled_prompt_4.metadata
-    pulled_prompt_5 = langsmith_client.pull_prompt(
-        f"{prompt_name}:{pulled_prompt_4.metadata['lc_hub_commit_hash']}"
-    )
+    pulled_prompt_5 = langsmith_client.pull_prompt(f"{prompt_name}:{pulled_prompt_4.metadata['lc_hub_commit_hash']}")
     assert pulled_prompt_5.metadata
-    assert (
-        pulled_prompt_4.metadata["lc_hub_commit_hash"]
-        == pulled_prompt_5.metadata["lc_hub_commit_hash"]
-    )
+    assert pulled_prompt_4.metadata["lc_hub_commit_hash"] == pulled_prompt_5.metadata["lc_hub_commit_hash"]
 
     langsmith_client.delete_prompt(prompt_name)
 
 
 @skip_if_rate_limited
-def test_push_and_pull_prompt(
-    langsmith_client: Client, prompt_template_2: ChatPromptTemplate
-):
+def test_push_and_pull_prompt(langsmith_client: Client, prompt_template_2: ChatPromptTemplate):
     prompt_name = f"test_prompt_{uuid4().hex[:8]}"
 
     push_result = langsmith_client.push_prompt(prompt_name, object=prompt_template_2)
@@ -299,9 +285,7 @@ def test_push_and_pull_prompt(
 
     # should fail
     with pytest.raises(ls_utils.LangSmithUserError):
-        langsmith_client.push_prompt(
-            f"random_handle/{prompt_name}", object=prompt_template_2
-        )
+        langsmith_client.push_prompt(f"random_handle/{prompt_name}", object=prompt_template_2)
 
 
 @skip_if_rate_limited
@@ -322,9 +306,7 @@ def test_pull_prompt_include_model(langsmith_client: Client, prompt_with_model: 
 
 
 @skip_if_rate_limited
-def test_get_latest_commit_hash(
-    langsmith_client: Client, prompt_template_1: ChatPromptTemplate
-):
+def test_get_latest_commit_hash(langsmith_client: Client, prompt_template_1: ChatPromptTemplate):
     prompt_name = f"test_prompt_{uuid4().hex[:8]}"
     langsmith_client.push_prompt(prompt_name, object=prompt_template_1)
 
@@ -363,9 +345,7 @@ def test_create_commit(
     prompt_name = f"test_create_commit_{uuid4().hex[:8]}"
     try:
         # this should fail because the prompt does not exist
-        commit_url = langsmith_client.create_commit(
-            prompt_name, object=prompt_template_2
-        )
+        commit_url = langsmith_client.create_commit(prompt_name, object=prompt_template_2)
         pytest.fail("Expected LangSmithNotFoundError was not raised")
     except ls_utils.LangSmithNotFoundError as e:
         assert str(e) == "Prompt does not exist, you must create it first."
@@ -463,9 +443,7 @@ def test_list_prompts_filter(
     expected_count: int,
 ):
     prompt_name = f"test_list_filter_{uuid4().hex[:8]}"
-    langsmith_client.push_prompt(
-        prompt_name, object=prompt_template_1, is_public=is_public
-    )
+    langsmith_client.push_prompt(prompt_name, object=prompt_template_1, is_public=is_public)
 
     response = langsmith_client.list_prompts(is_public=is_public, query=prompt_name)
 
@@ -477,9 +455,7 @@ def test_list_prompts_filter(
 
 
 @skip_if_rate_limited
-def test_update_prompt_archive(
-    langsmith_client: Client, prompt_template_1: ChatPromptTemplate
-):
+def test_update_prompt_archive(langsmith_client: Client, prompt_template_1: ChatPromptTemplate):
     prompt_name = f"test_archive_{uuid4().hex[:8]}"
     langsmith_client.push_prompt(prompt_name, object=prompt_template_1)
 
@@ -513,14 +489,10 @@ def test_list_prompts_sorting(
     for name in prompt_names:
         langsmith_client.push_prompt(name, object=prompt_template_1)
 
-    response = langsmith_client.list_prompts(
-        sort_field=sort_field, sort_direction=sort_direction, limit=10
-    )
+    response = langsmith_client.list_prompts(sort_field=sort_field, sort_direction=sort_direction, limit=10)
 
     assert len(response.repos) >= 3
-    sorted_names = [
-        repo.repo_handle for repo in response.repos if repo.repo_handle in prompt_names
-    ]
+    sorted_names = [repo.repo_handle for repo in response.repos if repo.repo_handle in prompt_names]
     assert sorted_names == sorted(sorted_names, reverse=(sort_direction == "desc"))
 
     for name in prompt_names:

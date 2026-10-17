@@ -116,7 +116,29 @@ def normalize_youtube_url(value: str) -> str:
 # (file_id ↔ url ↔ file_uri exactly-one-set per the MediaRef contract).
 # Returns True when the block should be DROPPED (e.g. user supplied
 # nothing for an optional slot).
+_MEDIA_FIELDS = ("url", "file_id", "file_uri", "base64_data")
+
+
 def _substitute_and_coerce_media_fields(content: Any, variables: dict[str, Any]) -> bool:
+    """Fill a media part from its authored template (a refill restarts there), and record the
+    filled fields so a later refill can tell whether the part changed since."""
+    from matrx_ai.config.template_substitution import FILLED_ATTR, restart_point
+
+    # A refill restarts every identifier field from the authored template (the re-route
+    # moves values between fields, so the template is the only honest starting point).
+    authored = getattr(content, "_authored_template", None)
+    if authored is None:
+        content._authored_template = {f: getattr(content, f, None) for f in _MEDIA_FIELDS}
+    else:
+        restart_point(content, {f: getattr(content, f, None) for f in _MEDIA_FIELDS}, "a media part")
+        for f in _MEDIA_FIELDS:
+            setattr(content, f, authored.get(f))
+    drop = _fill_media_fields(content, variables)
+    setattr(content, FILLED_ATTR, {f: getattr(content, f, None) for f in _MEDIA_FIELDS})
+    return drop
+
+
+def _fill_media_fields(content: Any, variables: dict[str, Any]) -> bool:
     """Substitute {{var}} into url/file_id/file_uri/base64_data fields on a
     media content block. Re-routes the value to the right field per
     MediaRef contract. Returns True iff the block should be dropped from
@@ -126,6 +148,7 @@ def _substitute_and_coerce_media_fields(content: Any, variables: dict[str, Any])
         coerce_to_media_ref,
     )
 
+    from matrx_ai.config.prompt_values import prompt_safe_value
     from matrx_ai.config.template_substitution import substitute_authored
 
     # The fields the pass actually changed are the ones a declared slot filled; one that
@@ -134,16 +157,17 @@ def _substitute_and_coerce_media_fields(content: Any, variables: dict[str, Any])
     templated_fields: list[str] = []
 
     # Substitute in any string field.
-    for field_name in ("url", "file_id", "file_uri", "base64_data"):
+    for field_name in _MEDIA_FIELDS:
         current = getattr(content, field_name, None)
         if not current or not isinstance(current, str):
             continue
-        # THE one substitution rule (one pass): config/template_substitution.py.
+        # THE one substitution rule (one pass): config/template_substitution.py — and the one
+        # render text slots use (a boolean is ``true``/``false``, never Python's ``True``).
         substituted = substitute_authored(
             current,
             current,
             variables,
-            lambda value: "" if value is None else str(value),
+            prompt_safe_value,
         )
         # Trim — variable value can include leading/trailing whitespace.
         if substituted != current:

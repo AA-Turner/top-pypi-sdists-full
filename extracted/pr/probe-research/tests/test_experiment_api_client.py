@@ -942,14 +942,25 @@ def test_the_detail_carries_the_document_and_the_notes_headroom():
         _placed(
             {
                 ("GET", _BASE): _detail(
-                    document="# Plan", notes_limit_chars=100000, notes_remaining_chars=99999
+                    document="# Plan",
+                    notes_limit_tokens=30000,
+                    notes_tokens=1,
+                    notes_remaining_tokens=29999,
+                    notes_limit_chars=150000,
+                    notes_remaining_chars=149999,
                 )
             }
         )
     )
     assert client.get_experiment_document(E) == "# Plan"
     leaf = client.get_experiment_leaf(E, project_id=P)
-    assert (leaf["notes_limit_chars"], leaf["notes_remaining_chars"]) == (100000, 99999)
+    # The token headroom the advisories read, and the character backstop's pair.
+    assert (leaf["notes_limit_tokens"], leaf["notes_tokens"], leaf["notes_remaining_tokens"]) == (
+        30000,
+        1,
+        29999,
+    )
+    assert (leaf["notes_limit_chars"], leaf["notes_remaining_chars"]) == (150000, 149999)
     # Never the leaf door (`GET /v1/projects/{E}`), which 0.209.0 read these from.
     assert rec.calls == [f"GET /v1/scopes/{E}", f"GET {_BASE}", f"GET {_BASE}"]
 

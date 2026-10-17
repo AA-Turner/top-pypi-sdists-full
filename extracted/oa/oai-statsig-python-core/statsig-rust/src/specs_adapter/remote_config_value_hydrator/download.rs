@@ -1,3 +1,5 @@
+use crate::networking::retry::{RetryPolicy, retryable_state_error};
+use crate::networking::{HttpMethod, NetworkError};
 use std::collections::HashMap;
 use std::io::Read;
 use std::sync::{
@@ -29,7 +31,7 @@ pub(super) const MAX_IN_FLIGHT_HYDRATION_BYTES: usize = 64 * 1024 * 1024;
 pub(super) const MAX_ACTIVE_RESPONSE_RESERVATION_BYTES: usize = MAX_IN_FLIGHT_HYDRATION_BYTES * 2;
 pub(crate) const DOWNLOAD_CONCURRENCY: usize = 8;
 const DOWNLOAD_RETRIES: u32 = 2;
-const DOWNLOAD_TIMEOUT_MS: u64 = 2_000;
+const DOWNLOAD_TIMEOUT_MS: u64 = 3_000;
 
 static GLOBAL_DOWNLOAD_SLOTS: Semaphore = Semaphore::const_new(DOWNLOAD_CONCURRENCY);
 static GLOBAL_DOWNLOAD_BYTES: Semaphore = Semaphore::const_new(MAX_IN_FLIGHT_HYDRATION_BYTES);
@@ -292,61 +294,76 @@ impl RemoteConfigValueHydrator {
                 "remote value download byte budget is unavailable",
             )
         })?;
-        let response = self
-            .network
-            .get_with_response_limit(
-                RequestArgs {
-                    url: reference.download_url.to_string(),
-                    retries: DOWNLOAD_RETRIES,
-                    timeout_ms: DOWNLOAD_TIMEOUT_MS,
-                    ..RequestArgs::new()
+        self.network
+            .retry_executor(RetryPolicy {
+                attempts: DOWNLOAD_RETRIES + 1,
+                jitter: false,
+            })
+            .run(
+                |_, index| async move {
+                    let response = self
+                        .network
+                        .request_once(
+                            HttpMethod::GET,
+                            RequestArgs {
+                                url: reference.download_url.to_string(),
+                                timeout_ms: DOWNLOAD_TIMEOUT_MS,
+                                retries: DOWNLOAD_RETRIES,
+                                ..RequestArgs::new()
+                            },
+                            Some(reference.metadata.byte_length),
+                            false,
+                            true,
+                            index,
+                        )
+                        .await
+                        .map_err(StatsigErr::NetworkError)?;
+                    let mut response_data = response.data.ok_or_else(|| {
+                        StatsigErr::NetworkError(NetworkError::RequestFailed(
+                            reference.download_url.to_string(),
+                            response.status_code,
+                            "Missing remote value body".into(),
+                        ))
+                    })?;
+                    let content_type = response_data
+                        .get_header_ref("content-type")
+                        .cloned()
+                        .ok_or_else(|| {
+                            hydration_error(
+                                HydrationFailureReason::MissingResponseContentType,
+                                &format!(
+                                    "remote value {} response omitted Content-Type",
+                                    reference.metadata.sha256
+                                ),
+                            )
+                        })?;
+                    let started_at = Instant::now();
+                    let result = (|| {
+                        let bytes = read_body_with_limit(&mut response_data, &reference.metadata)?;
+                        verify_body(&bytes, &reference.metadata, &content_type)?;
+                        Ok(Arc::new(bytes))
+                    })();
+                    self.log_phase_latency(started_at.elapsed(), HydrationPhase::Verify);
+                    result
                 },
-                reference.metadata.byte_length,
+                |error| retryable_state_error(error).then_some(u32::MAX),
+                |_| false,
+                || {
+                    StatsigErr::NetworkError(NetworkError::ShutdownError(
+                        reference.download_url.to_string(),
+                    ))
+                },
             )
             .await
             .map_err(|error| {
-                hydration_error(
-                    HydrationFailureReason::DownloadFailed,
-                    &format!(
-                        "failed to download remote value {}: {}",
-                        reference.metadata.sha256, error
-                    ),
-                )
-            })?;
-
-        let response_error = response.error;
-        let mut response_data = response.data.ok_or_else(|| {
-            let error_suffix = response_error
-                .as_deref()
-                .map_or(String::new(), |error| format!(": {error}"));
-            hydration_error(
-                HydrationFailureReason::EmptyResponse,
-                &format!(
-                    "remote value {} returned no body{error_suffix}",
-                    reference.metadata.sha256
-                ),
-            )
-        })?;
-        let content_type = response_data
-            .get_header_ref("content-type")
-            .cloned()
-            .ok_or_else(|| {
-                hydration_error(
-                    HydrationFailureReason::MissingResponseContentType,
-                    &format!(
-                        "remote value {} response omitted Content-Type",
-                        reference.metadata.sha256
-                    ),
-                )
-            })?;
-        let started_at = Instant::now();
-        let result = (|| {
-            let bytes = read_body_with_limit(&mut response_data, &reference.metadata)?;
-            verify_body(&bytes, &reference.metadata, &content_type)?;
-            Ok(Arc::new(bytes))
-        })();
-        self.log_phase_latency(started_at.elapsed(), HydrationPhase::Verify);
-        result
+                if matches!(error, StatsigErr::NetworkError(_)) {
+                    hydration_error(HydrationFailureReason::DownloadFailed, &error.to_string())
+                } else if matches!(error, StatsigErr::SerializationError(_)) {
+                    hydration_error(HydrationFailureReason::BodyReadFailed, &error.to_string())
+                } else {
+                    error
+                }
+            })
     }
 }
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oai_statsig_python_core
-Version: 0.35.0
+Version: 0.36.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -113,8 +113,10 @@ update. A failing Python capability check is treated as read-only.
 
 ## Packages
 
-Python protobuf-typed reads and explicit publication callbacks are described in
-[Python typed configs](docs/python-typed-configs.md).
+Protobuf-typed reads and publication callbacks are described in
+[Typed dynamic configs](docs/typed-configs.md), with Python, Node, and Go API guides.
+See [Python mmap preload](docs/python-mmap-preload.md) for optional returnable hash
+precomputation when loading writer-published artifacts.
 
 Bindings
 

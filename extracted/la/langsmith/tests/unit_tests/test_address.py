@@ -13,18 +13,15 @@ from unittest import mock
 
 import pytest
 
+from langsmith._internal._addressing import address_to_lrn
+from langsmith.address import address_from_env
+
 import langsmith as ls
 from langsmith import utils as ls_utils
 from langsmith._internal import _addressing, _context
 from langsmith._internal._uuid import uuid7_deterministic
 from langsmith._internal._v2_migration_utils import QueryBackend as _QueryBackend
-from langsmith.address import (
-    EnvAddressError,
-    address_from_env,
-    address_to_lrn,
-    ensure_address,
-    ensure_agent,
-)
+from langsmith.address import EnvAddressError
 from langsmith.client import Client
 from langsmith.run_helpers import get_current_run_tree, trace, traceable
 from langsmith.run_trees import RunTree, _Baggage
@@ -82,9 +79,7 @@ def _root() -> tuple:
 
 
 def _agent(agent_id: str, environment: str) -> str:
-    return address_to_lrn(
-        ensure_address({"kind": "AGENT", "id": agent_id, "environment": environment})
-    )
+    return address_to_lrn(ls.agent_address(agent_id, environment))
 
 
 def _from_env() -> Optional[str]:
@@ -96,30 +91,12 @@ def _from_env() -> Optional[str]:
 
 
 class TestConstructors:
-    def test_public_factories(self) -> None:
-        assert ls.agent_address("support", "Production") == SUPPORT
-        assert (
-            ls.experiment_address("0190C3D4-0000-7000-8000-0000000000B1") == EXPERIMENT
-        )
-        assert ls.evaluator_address() == EVALUATOR
-        for address in (SUPPORT, EXPERIMENT, EVALUATOR):
-            assert json.loads(json.dumps(address)) == address
-
-    def test_plain_dict_normalization(self) -> None:
-        value = {"kind": "AGENT", "id": "support", "environment": "production"}
-        with ls.tracing_context(address=value):
-            assert ls.get_tracing_context()["address"] == SUPPORT
-        assert value["environment"] == "production"
-        assert _addressing.normalize_replicas([value]) == [{"address": SUPPORT}]
-
     def test_agent_renders_its_lrn(self) -> None:
         assert address_to_lrn(SUPPORT) == SUPPORT_LRN
 
     @pytest.mark.parametrize("agent_id", ["a", "a" * 63, "support-v2"])
     def test_valid_agent_ids(self, agent_id: str) -> None:
-        assert _agent(agent_id, "local") == (
-            f"lrn:agents/{agent_id}/environments/local"
-        )
+        assert _agent(agent_id, "local") == (f"lrn:agents/{agent_id}/environments/local")
 
     @pytest.mark.parametrize(
         ("agent_id", "error"),
@@ -142,17 +119,10 @@ class TestConstructors:
         with pytest.raises(ls_utils.LangSmithUserError, match="environment must be"):
             _agent("support", environment)
 
-    @pytest.mark.parametrize(
-        "environment", ["local", "development", "staging", "production"]
-    )
+    @pytest.mark.parametrize("environment", ["local", "development", "staging", "production"])
     def test_environments_are_uppercased(self, environment: str) -> None:
         for given in (environment, environment.upper(), environment.title()):
-            assert (
-                ensure_address({"kind": "AGENT", "id": "a", "environment": given})[
-                    "environment"
-                ]
-                == environment.upper()
-            )
+            assert ls.agent_address("a", given)["environment"] == environment.upper()
 
     def test_from_env_with_nothing_set(self) -> None:
         assert _from_env() is None
@@ -184,9 +154,7 @@ class TestConstructors:
         ],
         ids=["only_id", "only_environment", "bad_id", "bad_environment"],
     )
-    def test_from_env_rejects_half_or_invalid(
-        self, monkeypatch: pytest.MonkeyPatch, env: dict, match: str
-    ) -> None:
+    def test_from_env_rejects_half_or_invalid(self, monkeypatch: pytest.MonkeyPatch, env: dict, match: str) -> None:
         _set_env(monkeypatch, **env)
         with pytest.raises(EnvAddressError, match=match):
             _from_env()
@@ -196,41 +164,48 @@ class TestConstructors:
         assert _from_env() is None
 
     def test_agent_is_an_address(self) -> None:
-        assert isinstance(SUPPORT, dict)
-        assert not isinstance(SUPPORT_LRN, dict)
-        assert (
-            ensure_address(
-                {"kind": "AGENT", "id": "support", "environment": "PRODUCTION"}
-            )
-            == SUPPORT
-        )
+        assert type(SUPPORT) is dict
+        assert isinstance(SUPPORT_LRN, str)
+        assert ls.agent_address(id="support", environment="PRODUCTION") == SUPPORT
 
     def test_agent_renders_the_api_address(self) -> None:
-        assert ensure_address(SUPPORT) == {
+        assert SUPPORT == {
             "kind": "AGENT",
             "id": "support",
             "environment": "PRODUCTION",
         }
 
     def test_json_round_trip(self) -> None:
-        address = json.loads(json.dumps(SUPPORT))
-        assert ensure_agent(address) == SUPPORT
-        with ls.tracing_context(address=address):
+        import json
+
+        for address in (SUPPORT, EXPERIMENT, EVALUATOR):
+            assert json.loads(json.dumps(address)) == address
+        with ls.tracing_context(address=json.loads(json.dumps(SUPPORT))):
             assert ls.get_tracing_context()["address"] == SUPPORT
 
     @pytest.mark.parametrize(
         "value",
         [
-            "support",
-            SUPPORT_LRN,
-            42,
-            object(),
-            {},
+            {"kind": "AGENT", "id": "INVALID", "environment": "local"},
+            {"kind": "AGENT", "id": "support", "environment": "invalid"},
+            {"kind": "AGENT", "id": "support"},
+            {"id": "support", "environment": "local"},
             {"kind": "UNKNOWN"},
-            {"kind": "AGENT", "id": "Bad", "environment": "production"},
-            {"kind": "AGENT", "id": "support", "environment": "qa"},
         ],
     )
+    def test_plain_dict_validation(self, value: dict) -> None:
+        with pytest.raises(ls_utils.LangSmithUserError):
+            with ls.tracing_context(address=value):
+                pass
+
+    def test_plain_dict_normalization(self) -> None:
+        value = {"kind": "AGENT", "id": "support", "environment": "production"}
+        with ls.tracing_context(address=value):
+            assert ls.get_tracing_context()["address"] == SUPPORT
+        assert value["environment"] == "production"
+        assert _addressing.normalize_replicas([value]) == [{"address": SUPPORT}]
+
+    @pytest.mark.parametrize("value", ["support", SUPPORT_LRN, 42, object()])
     def test_entry_points_reject_anything_but_an_address(self, value: Any) -> None:
         with pytest.raises(ls_utils.LangSmithUserError, match="(?i)address"):
             with ls.tracing_context(address=value):
@@ -243,21 +218,30 @@ class TestConstructors:
             RunTree(name="r", address=value)
 
 
-EXPERIMENT = ensure_address(
-    {"kind": "EXPERIMENT", "id": "0190C3D4-0000-7000-8000-0000000000B1"}
-)
-EVALUATOR = ensure_address({"kind": "EVALUATOR"})
+EXPERIMENT = ls.experiment_address("0190C3D4-0000-7000-8000-0000000000B1")
+EVALUATOR = ls.evaluator_address()
 
 
 class TestOtherAddresses:
     """Addresses of other features name a project for the query APIs only."""
 
+    def test_public_factories(self) -> None:
+        assert ls.agent_address("support", "Production") == SUPPORT
+        assert ls.experiment_address("0190C3D4-0000-7000-8000-0000000000B1") == EXPERIMENT
+        assert ls.evaluator_address() == EVALUATOR
+        for address in (SUPPORT, EXPERIMENT, EVALUATOR):
+            assert json.loads(json.dumps(address)) == address
+
+    def test_they_are_addresses(self) -> None:
+        for address in (SUPPORT, EXPERIMENT, EVALUATOR):
+            assert isinstance(address, dict)
+
     def test_the_api_addresses(self) -> None:
-        assert ensure_address(EXPERIMENT) == {
+        assert EXPERIMENT == {
             "kind": "EXPERIMENT",
             "id": "0190c3d4-0000-7000-8000-0000000000b1",
         }
-        assert ensure_address(EVALUATOR) == {"kind": "EVALUATOR"}
+        assert EVALUATOR == {"kind": "EVALUATOR"}
 
     @pytest.mark.parametrize(
         "value",
@@ -274,11 +258,7 @@ class TestOtherAddresses:
     )
     def test_an_experiment_id_must_be_a_uuid(self, value: Any) -> None:
         with pytest.raises(ls_utils.LangSmithUserError, match="UUID"):
-            ensure_address({"kind": "EXPERIMENT", "id": value})
-
-    def test_they_are_addresses(self) -> None:
-        for address in (SUPPORT, EXPERIMENT, EVALUATOR):
-            assert isinstance(address, dict)
+            ls.experiment_address(value)
 
     @pytest.mark.parametrize("address", [EXPERIMENT, EVALUATOR], ids=["exp", "eval"])
     def test_only_an_agent_can_receive_traces(self, address: Any) -> None:
@@ -331,9 +311,7 @@ class TestAddressObjectsAtEntryPoints:
 
     def test_replica_objects(self) -> None:
         assert _addressing.normalize_replicas([SUPPORT]) == [{"address": SUPPORT}]
-        assert _addressing.normalize_replicas([{"address": SUPPORT}]) == [
-            {"address": SUPPORT}
-        ]
+        assert _addressing.normalize_replicas([{"address": SUPPORT}]) == [{"address": SUPPORT}]
 
     def test_a_replica_must_be_an_address(self) -> None:
         with pytest.raises(ls_utils.LangSmithUserError, match="(?i)address"):
@@ -392,16 +370,12 @@ class TestLrnIsWireOnly:
 class TestPrecedence:
     """The first level naming a project or an address decides, either mode."""
 
-    def test_tracing_context_address_beats_a_decorator_project(
-        self, client: Client
-    ) -> None:
+    def test_tracing_context_address_beats_a_decorator_project(self, client: Client) -> None:
         f = traceable(project_name="deco")(_root.__wrapped__)
         with ls.tracing_context(enabled=True, client=client, address=SUPPORT):
             assert f() == (None, SUPPORT)
 
-    def test_tracing_context_project_beats_a_decorator_address(
-        self, client: Client
-    ) -> None:
+    def test_tracing_context_project_beats_a_decorator_address(self, client: Client) -> None:
         f = traceable(address=SUPPORT)(_root.__wrapped__)
         with ls.tracing_context(enabled=True, client=client, project_name="ctx"):
             assert f() == ("ctx", None)
@@ -519,9 +493,7 @@ class TestBadEnv:
         warned = [r for r in caplog.records if UNTRACED in r.getMessage()]
         assert len(warned) == 1, "expected one warning for one cause"
 
-    def test_trace_runs_untraced(
-        self, env: dict, client: Client, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_trace_runs_untraced(self, env: dict, client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
         _set_env(monkeypatch, **env)
         with mock.patch.object(Client, "create_run") as create_run:
             with ls.tracing_context(enabled=True, client=client):
@@ -529,9 +501,7 @@ class TestBadEnv:
                     pass
         create_run.assert_not_called()
 
-    def test_create_run_drops_the_run(
-        self, env: dict, client: Client, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_create_run_drops_the_run(self, env: dict, client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
         _set_env(monkeypatch, **env)
         with mock.patch.object(Client, "_filter_for_sampling") as sampled:
             assert client.create_run("r", {}, "chain") is None
@@ -574,9 +544,7 @@ class TestBadEnv:
     ],
     ids=["half_an_address", "invalid_agent_id", "address_and_project", "address_only"],
 )
-def test_client_warns_about_an_unusable_env(
-    monkeypatch: pytest.MonkeyPatch, env: dict, warning: Optional[str]
-) -> None:
+def test_client_warns_about_an_unusable_env(monkeypatch: pytest.MonkeyPatch, env: dict, warning: Optional[str]) -> None:
     _set_env(monkeypatch, **env)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -588,9 +556,7 @@ def test_client_warns_about_an_unusable_env(
         assert len(messages) == 1 and warning in messages[0]
 
 
-def test_a_parent_naming_a_destination_survives_a_bad_env(
-    client: Client, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_a_parent_naming_a_destination_survives_a_bad_env(client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
     """Only a root consults the env; a child copies its parent."""
     headers = RunTree(name="up", project_name="upstream").to_headers()
     _set_env(monkeypatch, LANGSMITH_AGENT_ENVIRONMENT="staging")
@@ -624,9 +590,7 @@ class TestPropagation:
         assert (ctx["project_name"], ctx["address"]) == (None, SUPPORT)
 
     def test_headers_round_trip(self) -> None:
-        headers = RunTree(
-            name="up", address=SUPPORT, tags=["t"], extra={"metadata": {"k": "v"}}
-        ).to_headers()
+        headers = RunTree(name="up", address=SUPPORT, tags=["t"], extra={"metadata": {"k": "v"}}).to_headers()
         baggage = headers["baggage"]
         assert f"langsmith-address={urllib.parse.quote(SUPPORT_LRN)}" in baggage
         assert "langsmith-agent" not in baggage
@@ -647,9 +611,7 @@ class TestPropagation:
         [{"project_name": "mine"}, {"address": SUPPORT}],
         ids=["project", "address"],
     )
-    def test_trace_names_a_header_parent_without_a_destination(
-        self, client: Client, named: dict
-    ) -> None:
+    def test_trace_names_a_header_parent_without_a_destination(self, client: Client, named: dict) -> None:
         headers = {"langsmith-trace": RunTree(name="up").dotted_order}
         with ls.tracing_context(enabled=True, client=client):
             with trace("child", parent=headers, client=client, **named) as run:
@@ -679,9 +641,7 @@ class TestPropagation:
     )
     def test_a_malformed_header_address_is_ignored(self, bad: str) -> None:
         headers = RunTree(name="up", project_name="upstream").to_headers()
-        child = RunTree.from_headers(
-            {**headers, "baggage": f"{headers['baggage']},{bad}"}
-        )
+        child = RunTree.from_headers({**headers, "baggage": f"{headers['baggage']},{bad}"})
         assert child is not None
         assert _destination(child) == ("upstream", None)
 
@@ -752,21 +712,14 @@ class TestWire:
             assert bad not in str(error.value)
 
     @pytest.mark.parametrize("update", [False, True])
-    def test_a_run_tree_keeps_its_address_on_the_batch_path(
-        self, client: Client, update: bool
-    ) -> None:
+    def test_a_run_tree_keeps_its_address_on_the_batch_path(self, client: Client, update: bool) -> None:
         """`batch_ingest_runs` / `multipart_ingest` dump pydantic runs."""
         run = RunTree(name="r", address=SUPPORT)
         payload = client._run_transform(run, update=update)
         assert payload["address"] == SUPPORT_LRN
 
     def test_a_payload_address_object_is_rendered_once(self) -> None:
-        payload = {
-            "id": "x",
-            "address": ensure_address(
-                {"kind": "AGENT", "id": "support", "environment": "Production"}
-            ),
-        }
+        payload = {"id": "x", "address": ls.agent_address("support", "Production")}
         _addressing.apply_to_payload(payload)
         assert payload["address"] == SUPPORT_LRN
 
@@ -793,9 +746,7 @@ class TestWire:
         _addressing.apply_to_payload(payload)
         assert payload == {"name": "r", "session_name": "p"}
 
-    def test_the_env_fills_in_an_unaddressed_post(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_the_env_fills_in_an_unaddressed_post(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _set_env(
             monkeypatch,
             LANGSMITH_AGENT_ID="support",
@@ -805,9 +756,7 @@ class TestWire:
         _addressing.apply_to_payload(payload)
         assert payload == {"id": "x", "address": STAGING_LRN}
 
-    def test_an_update_does_not_read_the_env(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_an_update_does_not_read_the_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _set_env(
             monkeypatch,
             LANGSMITH_AGENT_ID="support",
@@ -840,9 +789,7 @@ class TestWire:
         [{"project_id": "p"}, {"session_id": "s"}],
         ids=lambda k: next(iter(k)),
     )
-    def test_feedback_rejects_a_project_beside_an_address(
-        self, client: Client, project: dict
-    ) -> None:
+    def test_feedback_rejects_a_project_beside_an_address(self, client: Client, project: dict) -> None:
         with pytest.raises(ls_utils.LangSmithUserError, match="not both"):
             client.create_feedback(key="k", address=SUPPORT, **project)
 
@@ -850,9 +797,7 @@ class TestWire:
         with pytest.raises(ls_utils.LangSmithUserError):
             self._feedback("support")
 
-    def _url_client(
-        self, monkeypatch: pytest.MonkeyPatch, project: uuid.UUID
-    ) -> mock.MagicMock:
+    def _url_client(self, monkeypatch: pytest.MonkeyPatch, project: uuid.UUID) -> mock.MagicMock:
         """Resolve every address to `project`, in a workspace with a fixed tenant."""
         api = mock.MagicMock()
         api.sessions.resolve.return_value = mock.Mock(session_id=str(project))
@@ -878,20 +823,13 @@ class TestWire:
         )
 
     def _url(self, client: Client, run: Any) -> str:
-        return (
-            f"{client._host_url}/o/{self.TENANT}/projects/p/{self.PROJECT}/"
-            f"r/{run.id}?poll=true"
-        )
+        return f"{client._host_url}/o/{self.TENANT}/projects/p/{self.PROJECT}/r/{run.id}?poll=true"
 
-    def test_an_addressed_run_url_resolves_the_address(
-        self, client: Client, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_an_addressed_run_url_resolves_the_address(self, client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
         api = self._url_client(monkeypatch, self.PROJECT)
         run = RunTree(name="r", address=SUPPORT, client=client)
         assert client._construct_run_url(run=run) == self._url(client, run)
-        api.sessions.resolve.assert_called_once_with(
-            kind="AGENT", id="support", environment="PRODUCTION"
-        )
+        api.sessions.resolve.assert_called_once_with(kind="AGENT", id="support", environment="PRODUCTION")
 
     def test_a_run_without_an_address_takes_one_as_an_argument(
         self, client: Client, monkeypatch: pytest.MonkeyPatch
@@ -901,9 +839,7 @@ class TestWire:
         run = self._plain_run()
         url = client._construct_run_url(run=run, address=STAGING)
         assert url == self._url(client, run)
-        api.sessions.resolve.assert_called_once_with(
-            kind="AGENT", id="support", environment="STAGING"
-        )
+        api.sessions.resolve.assert_called_once_with(kind="AGENT", id="support", environment="STAGING")
 
     def test_an_address_argument_outranks_the_default_project_of_a_run_tree(
         self, client: Client, monkeypatch: pytest.MonkeyPatch
@@ -914,9 +850,7 @@ class TestWire:
         assert run.session_name
         url = client._construct_run_url(run=run, address=STAGING)
         assert url == self._url(client, run)
-        api.sessions.resolve.assert_called_once_with(
-            kind="AGENT", id="support", environment="STAGING"
-        )
+        api.sessions.resolve.assert_called_once_with(kind="AGENT", id="support", environment="STAGING")
 
     def test_a_run_url_rejects_a_project_beside_an_address(
         self, client: Client, monkeypatch: pytest.MonkeyPatch
@@ -930,7 +864,7 @@ class TestWire:
         ("address", "query"),
         [
             (SUPPORT, {"kind": "AGENT", "id": "support", "environment": "PRODUCTION"}),
-            (EXPERIMENT, {"kind": "EXPERIMENT", "id": str(EXPERIMENT["id"])}),
+            (EXPERIMENT, {"kind": "EXPERIMENT", "id": EXPERIMENT["id"]}),
             (EVALUATOR, {"kind": "EVALUATOR"}),
         ],
         ids=["agent", "experiment", "evaluator"],
@@ -944,9 +878,7 @@ class TestWire:
     ) -> None:
         api = self._url_client(monkeypatch, self.PROJECT)
         run = self._plain_run()
-        assert client._construct_run_url(run=run, address=address) == self._url(
-            client, run
-        )
+        assert client._construct_run_url(run=run, address=address) == self._url(client, run)
         api.sessions.resolve.assert_called_once_with(**query)
 
     def test_a_run_url_rejects_a_string_address(self, client: Client) -> None:
@@ -954,9 +886,7 @@ class TestWire:
         with pytest.raises(ls_utils.LangSmithUserError):
             client._construct_run_url(run=run, address=SUPPORT_LRN)  # type: ignore[arg-type]
 
-    def test_the_run_tree_url_resolves_its_address(
-        self, client: Client, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_the_run_tree_url_resolves_its_address(self, client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
         self._url_client(monkeypatch, self.PROJECT)
         run = RunTree(name="r", address=SUPPORT, client=client)
         with (
@@ -975,6 +905,4 @@ def test_the_address_classes_carry_the_address_suffix() -> None:
     for name in ("Agent", "Experiment", "Evaluator"):
         assert not hasattr(ls, name), name
         assert getattr(ls, f"{name}Address") is getattr(ls.address, f"{name}Address")
-    assert ensure_address(
-        {"kind": "AGENT", "id": "a", "environment": "local"}
-    ) == ensure_address({"kind": "AGENT", "id": "a", "environment": "LOCAL"})
+    assert ls.agent_address("a", "local") == ls.agent_address("a", "LOCAL")

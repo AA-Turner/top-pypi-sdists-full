@@ -56,6 +56,7 @@ from matrx_ai.config import (
 )
 from matrx_ai.config.usage_config import TokenUsage
 from matrx_ai.providers.keys import keyed_provider_client
+from matrx_ai.providers.snapshot import capture_request_payload
 
 # The research settings an author may set, and their wire values.
 _THINKING_SUMMARIES_OFF = frozenset({"never"})
@@ -504,6 +505,7 @@ class GoogleDeepResearchAgent:
             warnings.filterwarnings(
                 "ignore", message="Interactions usage is experimental.*", category=UserWarning
             )
+            capture_request_payload({**kwargs, "stream": True}, provider="google")
             stream = await self._interactions.create(**kwargs, stream=True)
         resumes = 0
         while True:

@@ -1106,7 +1106,9 @@ def test_browse_annotates_nodes_with_ref_and_available_views(app, client):
             "papers",
             "readme",
             "record",
+            "sessions",
             "summary",
+            "summary_history",
         ]
     }
     assert "completeness" not in envelope

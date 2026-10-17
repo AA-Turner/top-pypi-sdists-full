@@ -20,6 +20,9 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "SciQLopPlots/SciQLopNDProjectionPlot.hpp"
+#include <QScopedValueRollback>
+#include <algorithm>
+#include <stdexcept>
 #include "SciQLopPlots/ColorScaleController.hpp"
 #include "SciQLopPlots/Plotables/SciQLopNDProjectionCurves.hpp"
 #include "SciQLopPlots/Plotables/SciQLopTimeColoredCurve.hpp"
@@ -65,25 +68,30 @@ SciQLopGraphInterface* SciQLopNDProjectionPlot::_adopt(SciQLopGraphInterface* gr
     return graph;
 }
 
+void SciQLopNDProjectionPane::rescale_axes(const QList<SciQLopPlotAxisInterface*>& axes) noexcept
+{
+    auto* projection = qobject_cast<SciQLopNDProjectionPlot*>(parentWidget());
+    if (projection && projection->axis_linking() == ProjectionAxisLinking::SameScale)
+        projection->rescale_axes();
+    else
+        SciQLopPlot::rescale_axes(axes);
+}
+
 SciQLopNDProjectionPlot::SciQLopNDProjectionPlot(std::size_t projection_count, QWidget* parent)
 {
     auto layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     this->setLayout(layout);
-    for (auto i = 0UL; i < projection_count; i++)
+    const auto n = static_cast<int>(projection_count);
+    for (int i = 0; i < n; i++)
     {
-        auto plot = new SciQLopPlot(this);
+        auto plot = new SciQLopNDProjectionPane(this);
+        plot->setObjectName(QString("Pane %1").arg(i + 1));
         layout->addWidget(plot);
         m_plots.append(plot);
-        if (i > 0)
-        {
-            plot->x_axis()->couple_range_with(m_plots[i - 1]->y_axis());
-        }
+        m_dimension_pairs.append({ i, (i + 1) % n });
     }
-    if (projection_count > 2)
-    {
-        m_plots[0]->x_axis()->couple_range_with(m_plots.last()->y_axis());
-    }
+    _link_axes(true);
     if (!m_plots.isEmpty())
         _setup_color_scale();
     m_time_axis = new SciQLopPlotDummyAxis(this);
@@ -93,47 +101,152 @@ SciQLopNDProjectionPlot::SciQLopNDProjectionPlot(std::size_t projection_count, Q
 
 void SciQLopNDProjectionPlot::set_axis_labels(const QStringList& dimension_names) noexcept
 {
-    const auto n = m_plots.size();
-    if (dimension_names.size() != n)
+    if (dimension_names.size() != m_plots.size())
         return;
+    m_dimension_names = dimension_names;
+    _apply_axis_labels();
+}
 
-    for (int i = 0; i < n; ++i)
+void SciQLopNDProjectionPlot::_apply_axis_labels()
+{
+    if (m_dimension_names.size() != m_plots.size())
+        return;
+    for (int i = 0; i < m_plots.size(); ++i)
     {
-        m_plots[i]->x_axis()->set_label(dimension_names[i % n]);
-        m_plots[i]->y_axis()->set_label(dimension_names[(i + 1) % n]);
+        const auto [x, y] = m_dimension_pairs[i];
+        m_plots[i]->x_axis()->set_label(m_dimension_names[x]);
+        m_plots[i]->y_axis()->set_label(m_dimension_names[y]);
+        m_plots[i]->setObjectName(m_dimension_names[x] + "-" + m_dimension_names[y]);
     }
+}
+
+void SciQLopNDProjectionPlot::set_dimension_pairs(const QList<QPair<int, int>>& pairs)
+{
+    const auto n = m_plots.size();
+    const auto valid = [n](const QPair<int, int>& p)
+    { return p.first != p.second && p.first >= 0 && p.second >= 0 && p.first < n && p.second < n; };
+    if (pairs.size() != n || !std::all_of(pairs.cbegin(), pairs.cend(), valid))
+        throw std::invalid_argument("Projection: expected " + std::to_string(n)
+                                    + " pairs of two different dimensions in [0, "
+                                    + std::to_string(n) + ")");
+    if (linked_axes())
+        _link_axes(false);
+    m_dimension_pairs = pairs;
+    if (linked_axes())
+        _link_axes(true);
+    _apply_axis_labels();
+}
+
+// Every axis showing a dimension is coupled to the previous one showing it: a chain.
+void SciQLopNDProjectionPlot::_link_axes(bool linked)
+{
+    for (int dim = 0; dim < m_plots.size(); ++dim)
+    {
+        SciQLopPlotAxisInterface* previous = nullptr;
+        for (int i = 0; i < m_plots.size(); ++i)
+        {
+            const auto [x, y] = m_dimension_pairs[i];
+            auto* axis = x == dim ? m_plots[i]->x_axis() : y == dim ? m_plots[i]->y_axis() : nullptr;
+            if (!axis)
+                continue;
+            if (previous && linked)
+                axis->couple_range_with(previous);
+            else if (previous)
+                axis->decouple_range_from(previous);
+            previous = axis;
+        }
+    }
+}
+
+void SciQLopNDProjectionPlot::set_axis_linking(ProjectionAxisLinking linking) noexcept
+{
+    if (m_axis_linking == linking)
+        return;
+    const bool was_linked = linked_axes();
+    if (m_axis_linking == ProjectionAxisLinking::SameScale)
+        _set_same_scale(false);
+    m_axis_linking = linking;
+    if (was_linked != linked_axes())
+        _link_axes(linked_axes());
+    if (linking == ProjectionAxisLinking::SameScale)
+        _set_same_scale(true);
+    Q_EMIT axis_linking_changed(linking);
 }
 
 void SciQLopNDProjectionPlot::set_linked_axes(bool linked) noexcept
 {
-    if (m_linked_axes != linked)
+    if (linked != linked_axes())
+        set_axis_linking(linked ? ProjectionAxisLinking::ByDimension
+                                : ProjectionAxisLinking::Independent);
+}
+
+void SciQLopNDProjectionPlot::rescale_axes() noexcept
+{
     {
-        m_linked_axes = linked;
-        for (decltype(m_plots.size()) i = 0; i < m_plots.size(); i++)
-        {
-            auto plot = m_plots[i];
-            if (i > 0)
-            {
-                if (linked)
-                    plot->x_axis()->couple_range_with(m_plots[i - 1]->y_axis());
-                else
-                    plot->x_axis()->decouple_range_from(m_plots[i - 1]->y_axis());
-            }
-        }
-        if (m_plots.size() > 2)
-        {
-            if (linked)
-                m_plots[0]->x_axis()->couple_range_with(m_plots.last()->y_axis());
-            else
-                m_plots[0]->x_axis()->decouple_range_from(m_plots.last()->y_axis());
-        }
+        // Each pane's fit would otherwise squeeze the axes fitted before it to its own span.
+        QScopedValueRollback guard(m_equalizing_spans, true);
+        for (auto* plot : m_plots)
+            static_cast<SciQLopNDProjectionPane*>(plot)->fit_own_axes();
     }
+    if (m_axis_linking == ProjectionAxisLinking::SameScale)
+        _equalize_spans(nullptr);
+}
+
+QList<SciQLopPlotAxisInterface*> SciQLopNDProjectionPlot::_pane_axes() const
+{
+    QList<SciQLopPlotAxisInterface*> axes;
+    for (auto* plot : m_plots)
+        axes << plot->x_axis() << plot->y_axis();
+    return axes;
+}
+
+void SciQLopNDProjectionPlot::_set_same_scale(bool enabled)
+{
+    for (const auto& connection : std::as_const(m_same_scale_connections))
+        disconnect(connection);
+    m_same_scale_connections.clear();
+    if (!enabled)
+        return;
+    set_equal_aspect_ratio(true);
+    for (auto* axis : _pane_axes())
+        m_same_scale_connections << connect(axis, &SciQLopPlotAxisInterface::range_changed, this,
+                                            [this, axis] { _equalize_spans(axis); });
+    _equalize_spans(nullptr);
+}
+
+// Every axis takes the span of the one that changed, around its own centre. Without a source
+// (switching the mode on) the widest span wins, so nothing in view gets cut.
+void SciQLopNDProjectionPlot::_equalize_spans(const SciQLopPlotAxisInterface* source)
+{
+    if (m_equalizing_spans)
+        return;
+    QScopedValueRollback guard(m_equalizing_spans, true);
+    const auto axes = _pane_axes();
+    double span = 0;
+    if (source)
+        span = source->range().size();
+    else
+        for (const auto* axis : axes)
+            span = std::max(span, axis->range().size());
+    for (auto* axis : axes)
+        if (axis != source && axis->range().size() != span)
+        {
+            const double c = axis->range().center();
+            axis->set_range(c - span / 2, c + span / 2);
+        }
 }
 
 void SciQLopNDProjectionPlot::set_equal_aspect_ratio(bool enabled) noexcept
 {
+    const bool refused = !enabled && m_axis_linking == ProjectionAxisLinking::SameScale;
+    if (refused)
+        enabled = true;
     if (m_equal_aspect_ratio == enabled)
+    {
+        if (refused)
+            Q_EMIT equal_aspect_ratio_changed(enabled); // views that showed it off go back
         return;
+    }
     m_equal_aspect_ratio = enabled;
 
     for (auto* plot : m_plots)
@@ -153,6 +266,7 @@ void SciQLopNDProjectionPlot::set_equal_aspect_ratio(bool enabled) noexcept
     }
     if (enabled)
         _enforce_equal_aspect();
+    Q_EMIT equal_aspect_ratio_changed(enabled);
 }
 
 void SciQLopNDProjectionPlot::_enforce_equal_aspect()
@@ -207,10 +321,10 @@ SciQLopGraphInterface* SciQLopNDProjectionPlot::add_reference_curve(
     else
     {
         QList<SciQLopPyBuffer> paired_data;
-        for (int i = 0; i < n; ++i)
+        for (const auto& [x, y] : std::as_const(m_dimension_pairs))
         {
-            paired_data.append(dimensions[i % n]);
-            paired_data.append(dimensions[(i + 1) % n]);
+            paired_data.append(dimensions[x]);
+            paired_data.append(dimensions[y]);
         }
         graph->set_data(paired_data);
     }

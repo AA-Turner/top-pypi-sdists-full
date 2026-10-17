@@ -31,15 +31,9 @@ def test_compute_test_metrics_deprecation_warning() -> None:
     def evaluator(run: ls_schemas.Run, example=None) -> dict:
         return {"key": "stub", "score": 1}
 
-    with mock.patch(
-        "langsmith.beta._evals._load_nested_traces", return_value=[run]
-    ) as load_traces:
-        with pytest.warns(
-            DeprecationWarning, match="compute_test_metrics\\(\\) is deprecated"
-        ):
-            beta.compute_test_metrics(
-                "some-project", evaluators=[evaluator], client=client
-            )
+    with mock.patch("langsmith.beta._evals._load_nested_traces", return_value=[run]) as load_traces:
+        with pytest.warns(DeprecationWarning, match="compute_test_metrics\\(\\) is deprecated"):
+            beta.compute_test_metrics("some-project", evaluators=[evaluator], client=client)
 
     load_traces.assert_called_once()
     client.evaluate_run.assert_called_once()

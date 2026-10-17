@@ -998,19 +998,15 @@ Step 2 — say what things are.
     later, and it is the part nobody did at the time. It matters more than the
     upload.
 
-    The description goes in --notes:
-
-        probe artifact add --project <project> <path> \\
-            --notes "<what it is, what produced it, what it shows>"
+    Files carry no notes of their own: name the ones that matter, by path, in
+    the project's documents below, one line each.
 
     NEVER put the description in --name. The name is the file's relative path
     and nothing else: the folder tree is built by splitting it on '/', the
     dashboard works out how to preview a file from the extension at its end, and
-    both break the moment a sentence is appended to it. --notes is a real field
-    on every anchor; use it and leave the name alone.
+    both break the moment a sentence is appended to it.
 
-    For what no single file explains, use the two project-level documents for
-    their different audiences:
+    Use the two project-level documents for their different audiences:
 
     - Put what this project is and how the pieces relate in its dashboard-visible
       authored Markdown, which is a block INSIDE the Overview page that the
@@ -2848,6 +2844,7 @@ def run(
     import_changed: bool = False,
     import_unverified: bool = False,
     retry_dead: bool = False,
+    review_excluded: bool = False,
     background: bool = False,
     back_to_selection: bool = False,
 ):
@@ -3027,6 +3024,7 @@ def run(
                         import_changed=import_changed,
                         import_unverified=import_unverified,
                         retry_dead=retry_dead,
+                        review_excluded=review_excluded,
                         **(
                             {"wandb_approval": wandb_approvals[target]}
                             if target in wandb_approvals
@@ -3087,6 +3085,7 @@ def run(
             import_changed=import_changed,
             import_unverified=import_unverified,
             retry_dead=retry_dead,
+            review_excluded=review_excluded,
             background=background,
             **(
                 {"wandb_source": wandb_choices[target], "offer_wandb": False}

@@ -1523,7 +1523,9 @@ def _resolve_auto_code_change(
     Lives in ``replay()`` (the one call guaranteed to run on every replay) so it
     works no matter how the replay was launched. Precedence: a
     ``BITFAB_CODE_CHANGE_PATH`` override, else the ``git diff`` of the working
-    tree vs HEAD (or vs the merge-base with ``BITFAB_CODE_CHANGE_BASE``). All
+    tree vs HEAD (or vs the merge-base with ``BITFAB_CODE_CHANGE_BASE``). A
+    clean working tree falls back to the point where HEAD split from the default
+    branch, so committed branch work still shows. All
     best-effort: any failure yields ``None`` and the replay proceeds with no
     code change. An explicit ``code_change_files`` always wins over this.
     """
@@ -1580,6 +1582,128 @@ def _cc_resolve_base(root: str) -> tuple[str, str] | None:
     return ("HEAD", "uncommitted (vs HEAD)") if _cc_ref_exists(root, "HEAD") else None
 
 
+def _cc_list_changes(root: str, base: str) -> list[tuple[str, str, str]]:
+    tracked = (
+        _git(
+            root,
+            ["diff", "--name-status", "--find-renames", "-z", base, "--", ":!.bitfab"],
+        )
+        or ""
+    )
+    untracked = (
+        _git(
+            root,
+            ["ls-files", "--others", "--exclude-standard", "-z", "--", ":!.bitfab"],
+        )
+        or ""
+    )
+    entries = _cc_parse_name_status_z(tracked)
+    entries += [("A", p, p) for p in untracked.split("\0") if p]
+    return entries
+
+
+_CC_MAX_BRANCH_WALK = 1000
+
+
+def _cc_default_branch_candidates(root: str) -> list[str]:
+    origin_head = (
+        _git(root, ["rev-parse", "--abbrev-ref", "origin/HEAD"]) or ""
+    ).strip()
+    candidates = [
+        origin_head if origin_head and origin_head != "origin/HEAD" else None,
+        "origin/main",
+        "origin/master",
+        "main",
+        "master",
+    ]
+    return list(dict.fromkeys(ref for ref in candidates if ref))
+
+
+def _cc_default_branch(root: str) -> str | None:
+    return next(
+        (
+            ref
+            for ref in _cc_default_branch_candidates(root)
+            if _cc_ref_exists(root, ref)
+        ),
+        None,
+    )
+
+
+def _cc_current_branch_refs(root: str) -> set[str]:
+    branch = (_git(root, ["symbolic-ref", "--short", "-q", "HEAD"]) or "").strip()
+    if not branch:
+        return set()
+    remotes = (_git(root, ["remote"]) or "").split()
+    return {f"refs/heads/{branch}"} | {
+        f"refs/remotes/{remote}/{branch}" for remote in remotes
+    }
+
+
+def _cc_own_branch_refs(root: str) -> set[str]:
+    upstream = (
+        _git(root, ["rev-parse", "--symbolic-full-name", "@{upstream}"]) or ""
+    ).strip()
+    own = _cc_current_branch_refs(root)
+    if upstream:
+        own.add(upstream)
+    return own
+
+
+def _cc_on_default_branch(root: str, default: str) -> bool:
+    full_name = (
+        _git(root, ["rev-parse", "--symbolic-full-name", default]) or ""
+    ).strip()
+    return bool(full_name) and full_name in _cc_current_branch_refs(root)
+
+
+def _cc_branch_tips(root: str) -> dict[str, str]:
+    own = _cc_own_branch_refs(root)
+    listing = (
+        _git(
+            root,
+            [
+                "for-each-ref",
+                "--format=%(objectname) %(refname)",
+                "refs/heads",
+                "refs/remotes",
+            ],
+        )
+        or ""
+    )
+    tips: dict[str, str] = {}
+    for line in listing.splitlines():
+        sha, _, ref = line.partition(" ")
+        if not ref or ref in own or ref.endswith("/HEAD"):
+            continue
+        tips.setdefault(
+            sha, ref.removeprefix("refs/heads/").removeprefix("refs/remotes/")
+        )
+    return tips
+
+
+def _cc_resolve_branch_point(root: str) -> tuple[str, str] | None:
+    head = (_git(root, ["rev-parse", "HEAD"]) or "").strip()
+    if not head:
+        return None
+    default = _cc_default_branch(root)
+    if default and _cc_on_default_branch(root, default):
+        return None
+    default_base = (
+        (_git(root, ["merge-base", "HEAD", default]) or "").strip() if default else ""
+    )
+    walk = ["rev-list", "--first-parent", f"--max-count={_CC_MAX_BRANCH_WALK}", "HEAD"]
+    if default_base:
+        walk.append(f"^{default_base}")
+    tips = _cc_branch_tips(root)
+    for sha in (_git(root, walk) or "").split()[1:]:
+        if sha in tips:
+            return sha, f"vs {tips[sha]}"
+    if default_base and default_base != head:
+        return default_base, f"vs {default}"
+    return None
+
+
 def _cc_blob_bytes(root: str, ref: str, path: str) -> int:
     out = _git(root, ["cat-file", "-s", f"{ref}:{path}"])
     try:
@@ -1606,34 +1730,15 @@ def _capture_code_change_from_git(
         resolved = _cc_resolve_base(root)
         if not resolved:
             return None
-        base, against = resolved
-
-        tracked = (
-            _git(
-                root,
-                [
-                    "diff",
-                    "--name-status",
-                    "--find-renames",
-                    "-z",
-                    base,
-                    "--",
-                    ":!.bitfab",
-                ],
-            )
-            or ""
-        )
-        untracked = (
-            _git(
-                root,
-                ["ls-files", "--others", "--exclude-standard", "-z", "--", ":!.bitfab"],
-            )
-            or ""
-        )
-        entries = _cc_parse_name_status_z(tracked)
-        entries += [("A", p, p) for p in untracked.split("\0") if p]
+        entries = _cc_list_changes(root, resolved[0])
+        if not entries and resolved[0] == "HEAD":
+            branch_point = _cc_resolve_branch_point(root)
+            if branch_point:
+                resolved = branch_point
+                entries = _cc_list_changes(root, branch_point[0])
         if not entries:
             return None
+        base, against = resolved
 
         files: list[CodeChangeFile] = []
         total = 0

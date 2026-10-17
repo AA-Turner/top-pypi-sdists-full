@@ -1,5 +1,6 @@
 import inspect
 import operator
+import os
 import sys
 import threading
 from functools import reduce, wraps
@@ -48,7 +49,7 @@ class classpropertytype(property):
     def __init__(self, name, bases=(), members=None):
         if members is None:
             members = {}
-        return super().__init__(
+        super().__init__(
             members.get("__get__"),
             members.get("__set__"),
             members.get("__delete__"),
@@ -315,7 +316,9 @@ class MPTTModelBase(ModelBase):
         """
 
         if not issubclass(cls, models.Model):
-            raise ValueError(_("register() expects a Django model class argument"))
+            raise ValueError(  # noqa: TRY004
+                _("register() expects a Django model class argument")
+            )
 
         if not hasattr(cls, "_mptt_meta"):
             cls._mptt_meta = MPTTOptions(**kwargs)
@@ -403,11 +406,13 @@ class MPTTModelBase(ModelBase):
                     tree_manager = cls._default_manager
                 else:
                     for cls_manager in cls._meta.managers:
-                        if isinstance(cls_manager, TreeManager):
-                            # prefer any locally defined manager (i.e. keep going if not local)
-                            if cls_manager.model is cls:
-                                tree_manager = cls_manager
-                                break
+                        # prefer any locally defined manager (i.e. keep going if not local)
+                        if (
+                            isinstance(cls_manager, TreeManager)
+                            and cls_manager.model is cls
+                        ):
+                            tree_manager = cls_manager
+                            break
 
                 if tree_manager and tree_manager.model is not cls:
                     tree_manager = tree_manager._copy_to_model(cls)
@@ -604,7 +609,8 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
             }
         )
 
-        return self._tree_manager.filter(ancestors | descendants)
+        manager = self._tree_manager._base_manager or self._tree_manager
+        return manager.filter(ancestors | descendants)
 
     @raise_if_unsaved
     def get_children(self):
@@ -621,8 +627,8 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
         ``cache_tree_children`` filter, no database query is required.
         """
         if hasattr(self, "_cached_children"):
-            qs = self._tree_manager.filter(pk__in=[n.pk for n in self._cached_children])
-            qs._result_cache = self._cached_children
+            qs = self._tree_manager._mptt_filter(parent=self)
+            qs._result_cache = list(self._cached_children)
             return qs
         else:
             if self.is_leaf_node():
@@ -736,7 +742,7 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
         """
         Returns the root node of this model instance's tree.
         """
-        if self.is_root_node() and type(self) == self._tree_manager.tree_model:
+        if self.is_root_node() and type(self) is self._tree_manager.tree_model:
             return self
 
         return self._tree_manager._mptt_filter(
@@ -781,7 +787,12 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
         Convenience method for calling ``TreeManager.insert_node`` with this
         model instance.
         """
-        self._tree_manager.insert_node(
+        _tm = (
+            self._tree_manager.db_manager(self._state.db)
+            if self._state.db
+            else self._tree_manager
+        )
+        _tm.insert_node(
             self,
             target,
             position,
@@ -809,7 +820,11 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
         Returns ``True`` if this model instance is a root node,
         ``False`` otherwise.
         """
-        return getattr(self, self._mptt_meta.parent_attr + "_id") is None
+        opts = self._mptt_meta
+        return (
+            getattr(self, opts.parent_attr + "_id") is None
+            and getattr(self, opts.parent_attr) is None
+        )
 
     @raise_if_unsaved
     def is_descendant_of(self, other, include_self=False):
@@ -855,7 +870,7 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
         self._tree_manager.move_node(self, target, position)
 
     def _is_saved(self, using=None):
-        if self.pk is None or self._mpttfield("tree_id") is None:
+        if self._state.adding or self._mpttfield("tree_id") is None:
             return False
         opts = self._meta
         if opts.pk.remote_field is None:
@@ -905,10 +920,22 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
         tree option set, the node will be inserted or moved to the
         appropriate position to maintain ordering by the specified field.
         """
+        using = kwargs.get("using")
+        if using is not None:
+            # Set _state.db early so that router-based DB selection
+            # (e.g. in get_ordered_insertion_target) routes to the right
+            # database, not the default.
+            self._state.db = using
+
         do_updates = self.__class__._mptt_updates_enabled
         track_updates = self.__class__._mptt_is_tracking
 
         opts = self._mptt_meta
+        _tm = (
+            self._tree_manager.db_manager(self._state.db)
+            if self._state.db
+            else self._tree_manager
+        )
 
         if not (do_updates or track_updates):
             # inside manager.disable_mptt_updates(), don't do any updates.
@@ -924,9 +951,7 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
                     setattr(self, opts.right_attr, left + 1)
                     setattr(self, opts.level_attr, parent._mpttfield("level") + 1)
                     setattr(self, opts.tree_id_attr, parent._mpttfield("tree_id"))
-                    self._tree_manager._post_insert_update_cached_parent_right(
-                        parent, 2
-                    )
+                    _tm._post_insert_update_cached_parent_right(parent, 2)
                 else:
                     setattr(self, opts.left_attr, 1)
                     setattr(self, opts.right_attr, 2)
@@ -979,6 +1004,21 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
                 same_order = True
 
             if not same_order:
+                if not track_updates:
+                    # Refresh MPTT tree fields from the database before moving.
+                    # Another save may have already reshuffled tree_ids since
+                    # this instance was loaded; using stale in-memory values
+                    # in _make_sibling_of_root_node corrupts the tree (#687).
+                    # Skip inside delay_mptt_updates(): the tracking layer
+                    # manages tree state there independently.
+                    self.refresh_from_db(
+                        fields=[
+                            opts.left_attr,
+                            opts.right_attr,
+                            opts.tree_id_attr,
+                            opts.level_attr,
+                        ]
+                    )
                 parent = getattr(self, opts.parent_attr)
                 opts.set_raw_field_value(self, opts.parent_attr, old_parent_id)
                 try:
@@ -1002,7 +1042,7 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
                         )
 
                     if right_sibling:
-                        self._tree_manager._move_node(
+                        _tm._move_node(
                             self,
                             right_sibling,
                             "left",
@@ -1012,12 +1052,12 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
                     else:
                         # Default movement
                         if parent_id is None:
-                            root_nodes = self._tree_manager.root_nodes()
+                            root_nodes = _tm.root_nodes()
                             try:
                                 rightmost_sibling = root_nodes.exclude(
                                     pk=self.pk
                                 ).order_by("-" + opts.tree_id_attr)[0]
-                                self._tree_manager._move_node(
+                                _tm._move_node(
                                     self,
                                     rightmost_sibling,
                                     "right",
@@ -1027,9 +1067,7 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
                             except IndexError:
                                 pass
                         else:
-                            self._tree_manager._move_node(
-                                self, parent, "last-child", save=False
-                            )
+                            _tm._move_node(self, parent, "last-child", save=False)
 
                     if parent_id is not None and update_cached_parent:
                         # Update rght of cached parent
@@ -1105,7 +1143,7 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
             super().save(*args, **kwargs)
         finally:
             if collapse_old_tree is not None:
-                self._tree_manager._create_tree_space(collapse_old_tree, -1)
+                _tm._create_tree_space(collapse_old_tree, -1)
 
         self._mptt_saved = True
         opts.update_mptt_cached_fields(self)
@@ -1137,13 +1175,16 @@ class MPTTModel(models.Model, metaclass=MPTTModelBase):
         tree_width = self._mpttfield("right") - self._mpttfield("left") + 1
         target_right = self._mpttfield("right")
         tree_id = self._mpttfield("tree_id")
-        self._tree_manager._close_gap(tree_width, target_right, tree_id)
+        _tm = (
+            self._tree_manager.db_manager(self._state.db)
+            if self._state.db
+            else self._tree_manager
+        )
+        _tm._close_gap(tree_width, target_right, tree_id)
         parent = cached_field_value(self, self._mptt_meta.parent_attr)
         if parent:
             right_shift = -self.get_descendant_count() - 2
-            self._tree_manager._post_insert_update_cached_parent_right(
-                parent, right_shift
-            )
+            _tm._post_insert_update_cached_parent_right(parent, right_shift)
 
         return super().delete(*args, **kwargs)
 
@@ -1174,11 +1215,11 @@ def _check_no_testing_generators(self):
         curframe = inspect.currentframe()
         call_frame = inspect.getouterframes(curframe, 0)
         call_file = call_frame[5][1]
-        call_directory = call_file.split("/")[-2]
+        call_directory = os.path.basename(os.path.dirname(call_file))
         if "model_bakery" in call_file and not getattr(
             settings, "MPTT_ALLOW_TESTING_GENERATORS", False
         ):
-            raise Exception(
+            raise Exception(  # noqa: TRY002
                 f"The {call_directory} populates django-mptt fields with random values which leads to unpredictable behavior. "
                 "If you really want to generate this model that way, please set MPTT_ALLOW_TESTING_GENERATORS=True in your settings.",
             )

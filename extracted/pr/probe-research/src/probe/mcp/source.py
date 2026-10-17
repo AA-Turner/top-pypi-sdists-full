@@ -62,14 +62,13 @@ _SESSION_ID_RE = re.compile(r"\A[A-Za-z0-9._:-]{8,200}\Z")
 #: `kind_rank` per notes-catalog kind, exactly as the catalog's SQL arms number
 #: them (app/notes_catalog/service.py): the tiebreak inside one `created_at`,
 #: and the middle third of its cursor. The team note has none -- it is never in
-#: a keyset page.
+#: a keyset page. Groups (2) and artifacts (1) no longer carry notes; a row of
+#: either from an older server has no rank, and the caller finds it instead.
 _NOTE_KIND_RANK: dict[str, int] = {
     NoteCatalogKind.PROJECT: 6,
     NoteCatalogKind.EXPERIMENT: 5,
     NoteCatalogKind.RUN: 4,
     NoteCatalogKind.SUB_NOTE: 3,
-    NoteCatalogKind.GROUP: 2,
-    NoteCatalogKind.ARTIFACT: 1,
 }
 
 # How long a cached `GET /v1/me` answer is reused. EVERY envelope carries the
@@ -664,13 +663,21 @@ class ResearchOSSource:
                     raise source_changed("saved team-note version is unavailable") from exc
             else:
                 note = self.client.get_team_note()
-            return EntityType.TEAM_NOTE.value, {
+            entity = {
                 "body": note.get("body") or "",
                 "version": note.get("version"),
                 "updated_at": note.get("updated_at"),
                 "updated_by": note.get("updated_by"),
-                "remaining_chars": note.get("remaining_chars"),
             }
+            # Fullness in TOKENS, the unit the cap refuses in (`remaining_chars`
+            # measures the character backstop now). A count the server could not
+            # give -- or a server older than token caps -- adds nothing, never a
+            # number in the wrong unit.
+            for key in ("tokens", "limit_tokens", "remaining_tokens"):
+                value = note.get(key)
+                if isinstance(value, int) and not isinstance(value, bool):
+                    entity[key] = value
+            return EntityType.TEAM_NOTE.value, entity
         kind, _, value = ref.partition(":")
         if not value:
             value = kind
@@ -1239,6 +1246,73 @@ class ResearchOSSource:
         the experiment detail's ``document`` (server X21)."""
         return self.client.get_experiment_document(experiment_id, project_id=project_id)
 
+    # -- an entity's sessions, one page at a time ------------------------------
+
+    def project_sessions(
+        self, project_id: str, *, order: str, limit: int, after: str | None = None
+    ) -> dict:
+        """``GET /v1/projects/{P}/sessions``: `{sessions, session_total,
+        next_after}`, the captured sessions that worked on the project or on
+        something in it, in `order` (`newest` | `oldest`), past `after`."""
+        return self.client.list_project_sessions(project_id, order=order, after=after, limit=limit)
+
+    def experiment_sessions(
+        self,
+        experiment_id: str,
+        *,
+        project_id: str | None,
+        order: str,
+        limit: int,
+        after: str | None = None,
+    ) -> dict:
+        """``GET /v1/projects/{P}/experiments/{E}/sessions``: the same page as
+        `project_sessions`, for an experiment."""
+        return self.client.list_experiment_sessions(
+            experiment_id, project_id=project_id, order=order, after=after, limit=limit
+        )
+
+    # -- the recorder-written summary ------------------------------------------
+    #
+    # `kind` is `project` or `experiment`; an experiment is located by its id
+    # and, when the card carried it, its project (the SDK locates it otherwise).
+
+    @staticmethod
+    def _summary_anchor(kind: str, entity_id: str, project_id: str | None) -> dict[str, str]:
+        if kind == EntityType.EXPERIMENT:
+            anchor = {"experiment": entity_id}
+            if project_id:
+                anchor["project"] = project_id
+            return anchor
+        return {"project": entity_id}
+
+    def summary(self, kind: str, entity_id: str, *, project_id: str | None = None) -> dict:
+        """``GET …/summary``: `{markdown, version, edited_at, edited_by, via,
+        session_title, you, today, mode}`. A 404 is the SDK's `NotFoundError`:
+        on a server predating the route it is what "no such route" looks like."""
+        return self.client.get_summary(**self._summary_anchor(kind, entity_id, project_id))
+
+    def summary_versions(
+        self,
+        kind: str,
+        entity_id: str,
+        *,
+        project_id: str | None = None,
+        before: int | None = None,
+        limit: int,
+    ) -> dict:
+        """``GET …/summary/versions``: `{versions, next_before}`, newest first."""
+        return self.client.list_summary_versions(
+            **self._summary_anchor(kind, entity_id, project_id), before=before, limit=limit
+        )
+
+    def summary_version(
+        self, kind: str, entity_id: str, version: int, *, project_id: str | None = None
+    ) -> dict:
+        """``GET …/summary/versions/{v}``: one version, `markdown` included."""
+        return self.client.get_summary_version(
+            version, **self._summary_anchor(kind, entity_id, project_id)
+        )
+
     # -- versioned note documents ---------------------------------------------
 
     def notes_document(self, kind: str, entity: dict) -> tuple[str | None, int | None]:
@@ -1272,8 +1346,6 @@ class ResearchOSSource:
                     )
                 elif kind == "run":
                     saved = self.client.transport.get(f"/v1/runs/{entity_id}/notes/versions/{version}")
-                elif kind == "group":
-                    saved = self.client.transport.get(f"/v1/groups/{entity_id}/notes/versions/{version}")
                 else:
                     raise errors.ValidationError("Unsupported notes document kind", status=422)
             except errors.NotFoundError as exc:

@@ -69,6 +69,9 @@ PLUGIN_ID = "probe-research@research-os-agent"
 # reports as an error. What IS a failure is an installed tap still behind the
 # manifest after the run: that one used to pass in silence (`tap_verdict`).
 MARKETPLACE = "research-os-agent"
+MARKETPLACE_REPO = "prbe-ai/research-os-agent"
+#: Codex's `marketplace upgrade` refusal for a name with no config entry.
+_CODEX_NOT_CONFIGURED = "is not configured as a git marketplace"
 
 _UPGRADE_TIMEOUT_S = 300.0
 _HTTP_TIMEOUT_S = 5.0
@@ -1257,6 +1260,12 @@ def update_codex_plugins() -> PluginResult:
     before_versions = _codex_plugin_versions(codex)
     failed_run = None
     result = plugin_cli.refresh_marketplace(plugin_cli.CODEX, MARKETPLACE)
+    if not result.ok and _CODEX_NOT_CONFIGURED in (result.detail or "").lower():
+        # The config entry is gone (a hand-edited or deleted config.toml),
+        # so `upgrade` can never succeed again. Re-add it -- which also clears
+        # a stale checkout left behind -- and refresh once more.
+        added = plugin_cli.add_marketplace(plugin_cli.CODEX, MARKETPLACE_REPO, name=MARKETPLACE)
+        result = plugin_cli.refresh_marketplace(plugin_cli.CODEX, MARKETPLACE) if added.ok else added
     refresh_failed = not result.ok
     if not result.ok:
         failed_run = result

@@ -25,7 +25,7 @@ from rich.text import Text
 
 from .. import terminal
 from ..abstractions.image import Image
-from ..abstractions.vm import VM, identity, prepare_image
+from ..abstractions.vm import DEFAULT_VM_BASE_IMAGE, VM, identity, prepare_image
 from ..abstractions.volume import Volume
 from ..channel import GatewayHTTPError, ServiceClient, rpc_timeout
 from ..clients.gateway import ListContainersRequest
@@ -33,6 +33,7 @@ from ..config import SDKSettings, get_config_context, get_settings, set_settings
 from ..exceptions import SandboxConnectionError
 from ..logging import StoredStdoutInterceptor
 from ..tunnel import bridge_tunnel
+from ..utils import local_process_kwargs
 from . import extraclick
 from .extraclick import ClickManagementGroup
 from .machine_format import format_cpu, format_memory
@@ -71,7 +72,11 @@ def _vm(service, name):
 
 
 def _progress(message, done, as_json=False):
-    return nullcontext() if as_json else terminal.StepTracker().step(message, done)
+    return (
+        nullcontext()
+        if as_json or terminal.json_output()
+        else terminal.StepTracker().step(message, done)
+    )
 
 
 def _image(dockerfile=None, build_context=None, image_id=None, image_uri=None, secrets=()):
@@ -79,7 +84,9 @@ def _image(dockerfile=None, build_context=None, image_id=None, image_uri=None, s
         Image.from_dockerfile(dockerfile, build_context)
         if dockerfile
         else (
-            Image.from_id(image_id) if image_id else Image(base_image=image_uri or "ubuntu:22.04")
+            Image.from_id(image_id)
+            if image_id
+            else Image(base_image=image_uri or DEFAULT_VM_BASE_IMAGE)
         )
     )
     image.ignore_python = True
@@ -123,7 +130,21 @@ def _open_browser(vm, port, url):
         # Older/self-hosted gateways can still seed a cookie directly. Keep
         # the temporary credential out of normal terminal output.
         url = vm.access_url(port, ttl=3600)
-    webbrowser.open(url)
+    _launch_browser(url)
+
+
+def _launch_browser(url):
+    if sys.platform == "darwin":
+        # The stdlib macOS opener forks osascript; isolate it from gRPC.
+        subprocess.run(
+            [sys.executable, "-c", "import sys, webbrowser; webbrowser.open(sys.stdin.read())"],
+            input=url,
+            text=True,
+            check=True,
+            **local_process_kwargs(sys.executable),
+        )
+    else:
+        webbrowser.open(url)
 
 
 def _show(info, as_json):
@@ -194,7 +215,7 @@ def _show(info, as_json):
     "--disk-size",
     help="Writable disk over the base image; 1–100 GiB, default 50 GiB.",
 )
-@click.option("--image", "image_uri", help="Base registry image; defaults to ubuntu:22.04.")
+@click.option("--image", "image_uri", help="Base registry image; defaults to Ubuntu 24.04.")
 @click.option("--image-id", help="Existing image with Beam VM services installed.")
 @click.option(
     "--dockerfile", type=click.Path(exists=True, dir_okay=False), help="Build a custom VM image."
@@ -329,6 +350,7 @@ def new(
     idle_action=None,
 ):
     """Create a VM with a durable root. NAME defaults to a friendly generated name."""
+    as_json = as_json or terminal.json_output()
     if sum(bool(v) for v in (image_uri, image_id, dockerfile, template)) > 1:
         raise click.UsageError("Choose one of --image, --image-id, --dockerfile or --template")
     if build_context and not dockerfile:
@@ -339,7 +361,11 @@ def new(
         env_map = extraclick.env_vars_to_dict(env)
     except ValueError as exc:
         raise click.UsageError(str(exc)) from exc
-    image = _image(dockerfile, build_context, image_id, image_uri, build_secret)
+    image = (
+        _image(dockerfile, build_context, image_id, image_uri, build_secret)
+        if dockerfile or image_id or image_uri or build_secret
+        else None
+    )
     vm = VM(
         name,
         image=image,
@@ -373,8 +399,7 @@ def new(
     )
     with StoredStdoutInterceptor(capture_logs=as_json):
         with _progress("Creating VM", "VM ready", as_json):
-            vm.create(wait=False)
-            vm.wait()
+            vm.create()
         if sync_dir:
             _sync(vm, sync_dir, False)
     _show(vm.info, as_json)
@@ -402,6 +427,7 @@ def image_group():
 @extraclick.pass_service_client
 def image_build(service, build_context, dockerfile, build_secret, desktop, as_json):
     """Build a VM image from a local Dockerfile."""
+    as_json = as_json or terminal.json_output()
     dockerfile = dockerfile or str(Path(build_context) / "Dockerfile")
     image = _image(dockerfile, build_context, secrets=build_secret)
     with StoredStdoutInterceptor(capture_logs=as_json):
@@ -423,6 +449,7 @@ def image_build(service, build_context, dockerfile, build_secret, desktop, as_js
 @extraclick.pass_service_client
 def list_vms(service, include_all, as_json, metadata=(), status=None):
     """List VM resources, disk sizes and current uptime."""
+    as_json = as_json or terminal.json_output()
     records = VM.list(
         all=include_all,
         metadata=_key_values(metadata) if metadata else None,
@@ -624,6 +651,8 @@ def _copy_share_link(url):
                 timeout=2,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                # Let macOS use posix_spawn instead of forking active gRPC threads.
+                close_fds=sys.platform != "darwin",
             )
             return True
         except (OSError, subprocess.SubprocessError):
@@ -795,6 +824,7 @@ def fork_vm(service, source, name, as_json):
 @extraclick.pass_service_client
 def exec_vm(service, name, command, cwd, timeout=0, detach=False, as_json=False):
     """Run a command; put CLI options before NAME."""
+    as_json = as_json or terminal.json_output()
     from .container import exec_container
 
     command = _command(command)
@@ -846,6 +876,7 @@ def exec_vm(service, name, command, cwd, timeout=0, detach=False, as_json=False)
 @extraclick.pass_service_client
 def processes_vm(service, name, as_json):
     """List managed processes and their exit status."""
+    as_json = as_json or terminal.json_output()
     processes = _vm(service, name).process.list_processes()
     rows = [
         {"pid": p.pid, "args": p.args, "cwd": p.cwd, "exit_code": p.exit_code}
@@ -967,7 +998,7 @@ def ports_vm(service, name, as_json):
 @extraclick.pass_service_client
 def expose_vm(service, name, port, protected=None, as_json=False, url_only=False):
     """Publish a port and show how to open it; private links sign you in."""
-    if as_json and url_only:
+    if (as_json or terminal.json_output()) and url_only:
         raise click.UsageError("Choose --json or --url")
     vm = _vm(service, name)
     vm.expose(port, protected=protected)
@@ -1079,7 +1110,7 @@ def ssh_vm(service, name, command):
     argv = ["ssh", *_ssh_options(vm), "-p", "2222", "--", "root@" + vm.name]
     if command:
         argv += [shlex.join(command)]
-    raise click.exceptions.Exit(subprocess.call(argv))
+    raise click.exceptions.Exit(subprocess.call(argv, **local_process_kwargs(argv[0])))
 
 
 @management.command("scp")
@@ -1101,7 +1132,7 @@ def scp_vm(service, source, destination, recursive):
         + (["-r"] if recursive else [])
         + [source, destination]
     )
-    raise click.exceptions.Exit(subprocess.call(args))
+    raise click.exceptions.Exit(subprocess.call(args, **local_process_kwargs(args[0])))
 
 
 def _sync(vm, directory, watch):
@@ -1116,7 +1147,7 @@ def _sync(vm, directory, watch):
         f"root@{vm.name}:/workspace/",
     ]
     if not watch:
-        subprocess.run(args, check=True)
+        subprocess.run(args, check=True, **local_process_kwargs(args[0]))
     else:
         from watchdog.events import FileSystemEventHandler
         from watchdog.observers import Observer
@@ -1131,12 +1162,12 @@ def _sync(vm, directory, watch):
         observer.schedule(Handler(), str(directory), recursive=True)
         observer.start()
         try:
-            subprocess.run(args, check=True)
+            subprocess.run(args, check=True, **local_process_kwargs(args[0]))
             while True:
                 if changed.wait(1):
                     time.sleep(0.2)
                     changed.clear()
-                    subprocess.run(args, check=True)
+                    subprocess.run(args, check=True, **local_process_kwargs(args[0]))
         finally:
             observer.stop()
             observer.join()
@@ -1310,7 +1341,11 @@ def prompt_vm(service, name, prompt, agent, background, cwd):
     vm = _vm(service, name)
     session = "prompt-" + uuid.uuid4().hex[:12]
     log_dir = "/workspace/.beam-vm/logs"
-    command = ["claude", "-p", prompt] if agent == "claude" else ["codex", "exec", prompt]
+    command = (
+        ["claude", "-p", prompt]
+        if agent == "claude"
+        else ["codex", "exec", "--skip-git-repo-check", prompt]
+    )
     shell = f"mkdir -p {log_dir}; set -o pipefail; {shlex.join(command)} 2>&1 | tee {log_dir}/{session}.log"
     if background:
         process = vm.process.exec(

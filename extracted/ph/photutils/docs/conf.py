@@ -105,6 +105,13 @@ release = metadata.version(project)
 version = '.'.join(release.split('.')[:2])
 dev = 'dev' in release
 
+# The heading above the newest "What's New" page in the release notes
+# index depends on whether this is a development or a release build.
+whatsnew_heading = 'Development Version' if dev else 'Current Release'
+rst_epilog += f"""
+.. |whatsnew_heading| replace:: {whatsnew_heading}
+"""
+
 # -- Options for HTML output --------------------------------------------------
 
 html_theme_options = {
@@ -123,12 +130,17 @@ html_theme_options = {
          'type': 'fontawesome',
          },
     ],
+    # The theme counts page views only on astropy.org hosts, so the
+    # GoatCounter script would load on every page but never count.
+    'goatcounter_analytics_url': False,
+    'pygments_dark_style': 'nord',
 }
 
 html_title = f'{project} {release}'
 html_show_sourcelink = False
 html_favicon = os.path.join('_static', 'photutils_logo.ico')
 html_static_path = ['_static']
+templates_path = ['_templates']
 html_css_files = ['custom.css']  # path relative to _static
 
 # Output file base name for HTML help builder.

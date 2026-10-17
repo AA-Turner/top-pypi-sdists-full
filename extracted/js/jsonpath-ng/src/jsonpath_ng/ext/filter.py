@@ -31,6 +31,22 @@ OPERATOR_MAP = {
     "=~": lambda a, b: True if isinstance(a, str) and re.search(b, a) else False,
 }
 
+# RFC 9535 section 2.3.5.2.2: `a != b` is true if and only if `a == b` is false,
+# and `a <= b` is true if and only if `a < b` or `a == b`.
+#
+# Only numbers and strings are ordered, so for JSON null and for booleans
+# the ordering comparisons reduce to equality.
+# Each function receives whether the two values are equal.
+EQUALITY_ONLY_OPERATOR_MAP = {
+    "!=": operator.not_,
+    "==": bool,
+    "=": bool,
+    "<=": bool,
+    ">=": bool,
+    "<": lambda equal: False,
+    ">": lambda equal: False,
+}
+
 
 class Filter(JSONPath):
     """The JSONQuery filter"""
@@ -106,14 +122,34 @@ class Expression(JSONPath):
 
         if self.op == "!":
             return [] if found else [wrapped_datum]
+
+        # A comparison with the literal `null` has `None` as its value, which is
+        # otherwise only the case for the existence test and negation handled above.
+        null_comparison = self.op is not None and self.value is None
         if not found:
-            return []
+            # RFC 9535 section 2.3.5.2.2: a missing value is not equal to `null`.
+            return [wrapped_datum] if null_comparison and self.op == "!=" else []
         if self.op is None:
             return found
 
         result = []
         for data in found:
             value = data.value
+            if null_comparison:
+                if EQUALITY_ONLY_OPERATOR_MAP[self.op](value is None):
+                    result.append(data)
+                continue
+            if self.op != "=~" and (
+                isinstance(value, bool) or isinstance(self.value, bool)
+            ):
+                # A boolean is never equal to a number according to RFC 9535.
+                # However, in Python, bool is a subclass of int and is comparable
+                # via equality (`False == 0`, `True == 1`).
+                # Therefore, an identity comparison (`is`) is used,
+                # which relies on the fact that bools in Python are singletons.
+                if EQUALITY_ONLY_OPERATOR_MAP[self.op](value is self.value):
+                    result.append(data)
+                continue
             if type(self.value) is int and isinstance(value, str):
                 try:
                     value = int(value)
@@ -145,4 +181,5 @@ class Expression(JSONPath):
         if self.op is None:
             return "%s" % self.target
         else:
-            return f"{self.target} {self.op} {self.value}"
+            value = "null" if self.value is None else self.value
+            return f"{self.target} {self.op} {value}"

@@ -7,12 +7,16 @@ import time
 import uuid
 import asyncio
 import hashlib
+import logging
 import secrets
+import traceback
 from types import MappingProxyType
 from typing import Any, Literal, Mapping, Callable, Protocol, Sequence
 from functools import partial
 from dataclasses import field, replace, dataclass
 from concurrent.futures import ThreadPoolExecutor
+
+import httpx
 
 from fireworks.training.sdk.routing import RoutingReferences, freeze_routing, routing_to_wire
 from fireworks.training.sdk.sampling import (
@@ -29,6 +33,7 @@ from fireworks.training.sdk.tito._types import (
     TITORenderer,
     TITOCallRecord,
     TITOCallResult,
+    TITOParseError,
     TITOPromptMode,
     TITOCallOutcome,
     TITOChatRequest,
@@ -48,6 +53,10 @@ from fireworks.training.sdk.tito._types import (
     _MetricAccumulator,
     _server_attempt_value,
 )
+from fireworks.training.sdk.tito._failure_trace import _FailureTraceRecorder
+from fireworks.training.sdk.sampling_observability import SamplingRequestError, extract_request_id
+
+logger = logging.getLogger(__name__)
 
 # Rendering and durable debug writes are deliberately bounded and separated.
 # One render worker preserves the renderer/tokenizer's existing serialized
@@ -92,6 +101,7 @@ class _TrajectoryState:
     policy_task: asyncio.Task[Any] | None = None
     auxiliary_tasks: set[asyncio.Task[Any]] = field(default_factory=set)
     transport_tasks: set[asyncio.Task[Any]] = field(default_factory=set)
+    discard_error: TITOError | None = None
     terminalizing: bool = False
     last_policy_commit_at: float | None = None
     sampler_calls: int = 0
@@ -186,6 +196,7 @@ class _LinearTrajectoryCore:
         sampling_defaults: Mapping[str, Any] | None = None,
         backend_headers_snapshot: Mapping[str, str] | None = None,
         observer: TITOEventObserver | None = None,
+        failure_recorder: _FailureTraceRecorder | None = None,
         default_drift_policy: TrajectoryDriftPolicy | None = None,
         prompt_mode: TITOPromptMode = "full_history",
     ) -> None:
@@ -226,6 +237,7 @@ class _LinearTrajectoryCore:
         self.sampling_defaults = MappingProxyType(_freeze_json(defaults))
         self._backend_headers_snapshot = MappingProxyType(dict(backend_headers_snapshot or {}))
         self.observer = observer
+        self.failure_recorder = failure_recorder
         self.default_drift_policy = default_drift_policy or TrajectoryDriftPolicy()
         self._state: _TrajectoryState | None = None
         self._tombstone: _Tombstone | None = None
@@ -261,6 +273,9 @@ class _LinearTrajectoryCore:
         return {
             "metadata": dict(state.metadata),
             "renderer_id": self.renderer.renderer_id,
+            "renderer_class": type(self.renderer).__qualname__,
+            "tokenizer_fingerprint": getattr(self.renderer, "tokenizer_fingerprint", None),
+            "certification_id": getattr(self.renderer, "certification_id", None),
             "model": str(getattr(self.sampler, "model", "policy")),
             "max_context_tokens": self.max_context_tokens,
             "max_output_tokens": self.max_output_tokens,
@@ -288,9 +303,8 @@ class _LinearTrajectoryCore:
         )
         try:
             self._record(state, "trajectory_open", self._trajectory_open_payload(state))
-        except Exception:
-            self._state = None
-            self._trajectory_id = None
+        except BaseException:
+            self._rollback_trajectory_open(state)
             raise
         return state.trajectory_id
 
@@ -311,10 +325,18 @@ class _LinearTrajectoryCore:
         try:
             await self._record_async(state, "trajectory_open", self._trajectory_open_payload(state))
         except BaseException:
-            self._state = None
-            self._trajectory_id = None
+            self._rollback_trajectory_open(state)
             raise
         return state.trajectory_id
+
+    def _rollback_trajectory_open(self, state: _TrajectoryState) -> None:
+        self._state = None
+        self._trajectory_id = None
+        if self.failure_recorder is not None:
+            try:
+                self.failure_recorder.close_trajectory(state.trajectory_id, "abandoned")
+            except Exception:
+                logger.warning("TITO trace cleanup failed after trajectory creation", exc_info=True)
 
     def _record(
         self,
@@ -323,6 +345,8 @@ class _LinearTrajectoryCore:
         payload: Mapping[str, Any],
         arrays: Mapping[str, Sequence[Any]] | None = None,
     ) -> None:
+        if self.failure_recorder is not None:
+            self.failure_recorder.record(event, state.trajectory_id, payload, arrays)
         if self.observer is not None:
             try:
                 self.observer.record(event, state.trajectory_id, payload, arrays)
@@ -341,12 +365,12 @@ class _LinearTrajectoryCore:
         arrays: Mapping[str, Sequence[Any]] | None = None,
     ) -> None:
         observer = self.observer
-        if observer is None:
+        if observer is None and (self.failure_recorder is None or not self.failure_recorder.config.enabled):
             return
         cancelled: asyncio.CancelledError | None = None
         operation = asyncio.get_running_loop().run_in_executor(
             _TITO_OBSERVER_EXECUTOR,
-            partial(observer.record, event, state.trajectory_id, payload, arrays),
+            partial(self._record, state, event, payload, arrays),
         )
         try:
             # Cancellation must not split the debug barrier from the state
@@ -359,6 +383,8 @@ class _LinearTrajectoryCore:
                     break
                 except asyncio.CancelledError as exc:
                     cancelled = exc
+        except TITOError:
+            raise
         except Exception as exc:
             raise TITOError(
                 "tito_debug_storage_error",
@@ -973,6 +999,17 @@ class _LinearTrajectoryCore:
             close_reason="token_drift",
         )
 
+    @staticmethod
+    def _completion_error(reason: str, message: str) -> TITOError:
+        return TITOError(
+            "tito_sdk_sampling_parse_error",
+            422,
+            message,
+            origin="sdk_parser",
+            discard_trajectory=True,
+            context={"validation_error_code": reason},
+        )
+
     def _validate_completion(
         self,
         plan: _TurnPlan,
@@ -981,42 +1018,36 @@ class _LinearTrajectoryCore:
         include_top_sampling: bool,
     ) -> SampledCompletion:
         if len(result.completions) != 1:
-            raise TITOError(
+            raise self._completion_error(
                 "tito_sampler_contract_error",
-                502,
                 f"expected one completion, got {len(result.completions)}",
             )
         completion = result.completions[0]
         prompt = tuple(completion.full_tokens[: completion.prompt_len])
         output = tuple(completion.full_tokens[completion.prompt_len :])
         if prompt != plan.prepared_prompt_ids:
-            raise TITOError(
+            raise self._completion_error(
                 "tito_prompt_mismatch",
-                502,
                 "deployment returned prompt IDs that differ from the prepared prompt",
             )
         if len(output) != completion.completion_len:
-            raise TITOError(
+            raise self._completion_error(
                 "tito_completion_alignment_error",
-                502,
                 "completion token count is inconsistent",
             )
         if not output:
-            raise TITOError(
+            raise self._completion_error(
                 "tito_completion_alignment_error",
-                502,
                 "deployment returned an empty completion",
             )
         if len(output) > plan.effective_output_tokens:
-            raise TITOError(
+            raise self._completion_error(
                 "tito_completion_alignment_error",
-                502,
                 "deployment returned more completion IDs than the effective output budget",
             )
         if len(prompt) + len(output) > self.max_context_tokens:
-            raise TITOError(
+            raise self._completion_error(
                 "tito_completion_alignment_error",
-                502,
                 "deployment response exceeds the sidecar context budget",
             )
         for name, values in (
@@ -1026,17 +1057,13 @@ class _LinearTrajectoryCore:
             ("inference_topk_logprobs", completion.inference_topk_logprobs),
         ):
             if values is not None and len(values) != len(output):
-                raise TITOError(
+                raise self._completion_error(
                     "tito_completion_alignment_error",
-                    502,
                     f"{name} is not aligned with completion token IDs",
                 )
-        if (completion.inference_topk_token_ids is None) != (
-            completion.inference_topk_logprobs is None
-        ):
-            raise TITOError(
+        if (completion.inference_topk_token_ids is None) != (completion.inference_topk_logprobs is None):
+            raise self._completion_error(
                 "tito_completion_alignment_error",
-                502,
                 "top-k token ids and logprobs must be present together",
             )
         if completion.inference_topk_token_ids is not None:
@@ -1046,25 +1073,22 @@ class _LinearTrajectoryCore:
                 strict=True,
             ):
                 if not token_ids or len(token_ids) != len(logprobs):
-                    raise TITOError(
+                    raise self._completion_error(
                         "tito_completion_alignment_error",
-                        502,
                         "top-k token ids and logprobs are not aligned",
                     )
         if include_routing_matrix and (
             completion.routing_matrices is None or len(completion.routing_matrices) != len(output)
         ):
-            raise TITOError(
+            raise self._completion_error(
                 "tito_completion_alignment_error",
-                502,
                 "completion-only routing matrices are not aligned with completion IDs",
             )
         if include_top_sampling and (
             completion.top_sampling_references is None or len(completion.top_sampling_references) != len(output)
         ):
-            raise TITOError(
+            raise self._completion_error(
                 "tito_completion_alignment_error",
-                502,
                 "top-K sampling references are not aligned with completion IDs",
             )
         return completion
@@ -1078,24 +1102,73 @@ class _LinearTrajectoryCore:
                 completion.text,
                 completion.finish_reason,
             )
+        except TITOParseError as parser_error:
+            raise TITOError(
+                "tito_sdk_parse_error",
+                422,
+                "local TITO parser rejected the sampled output; discard this trajectory",
+                origin="sdk_parser",
+                discard_trajectory=True,
+                context={"parser_error_type": type(parser_error).__name__},
+            ) from parser_error
         except Exception as parser_error:
-            fallback = self.renderer.fallback_assistant_text(
-                request,
-                completion_ids,
-                completion.finish_reason,
-                parser_error,
+            raise TITOError(
+                "tito_sdk_parser_internal_error",
+                422,
+                "local TITO parser raised an unexpected exception; discard this trajectory",
+                origin="sdk_parser",
+                discard_trajectory=True,
+                context={"parser_error_type": type(parser_error).__name__},
+            ) from parser_error
+
+    @staticmethod
+    def _operation_error(error: Exception, phase: str) -> TITOError:
+        if isinstance(error, httpx.HTTPStatusError):
+            status = error.response.status_code
+            return TITOError(
+                "tito_server_http_error",
+                status,
+                "upstream inference returned an HTTP error",
+                origin="server",
+                should_retry=status in {408, 429, 500, 502, 503, 504},
+                context={"upstream_status": status, "upstream_request_id": extract_request_id(error.response.headers)},
             )
-            if fallback is None:
-                raise TITOError(
-                    "tito_model_malformed_output",
-                    502,
-                    "assistant output cannot be represented losslessly on this protocol",
-                ) from parser_error
-            return TITOParsedAssistant(
-                message={"role": "assistant", "content": fallback},
-                output_kind="text",
-                parser_fallback=True,
+        if isinstance(error, SamplingRequestError):
+            return TITOError(
+                "tito_server_http_error" if error.final_status is not None else "tito_transport_error",
+                error.final_status or 502,
+                "upstream sampling exhausted its retry budget",
+                origin="server" if error.final_status is not None else "transport",
+                # The sampler already exhausted its bounded retries. Do not
+                # multiply them in the OpenAI client talking to this sidecar.
+                context={**error.as_error_record(), "upstream_status": error.final_status},
             )
+        if isinstance(error, (httpx.RequestError, ConnectionError, TimeoutError)):
+            return TITOError(
+                "tito_transport_error",
+                504 if isinstance(error, (TimeoutError, httpx.TimeoutException)) else 502,
+                "upstream inference transport failed",
+                origin="transport",
+                should_retry=True,
+            )
+        attempts = getattr(error, "server_attempts", ())
+        if phase == "completion_validation" or (phase == "inference" and attempts and attempts[-1].status_code == 200):
+            return TITOError(
+                "tito_sdk_sampling_parse_error",
+                422,
+                "local SDK could not decode a successful sampling response; discard this trajectory",
+                origin="sdk_parser",
+                discard_trajectory=True,
+                context={"parser_error_type": type(error).__name__},
+            )
+        return TITOError(
+            "tito_sdk_internal_error",
+            500,
+            "local TITO SDK operation failed",
+            origin="sdk",
+            discard_trajectory=True,
+            context={"phase": phase},
+        )
 
     @staticmethod
     def _response(
@@ -1198,10 +1271,50 @@ class _LinearTrajectoryCore:
             if sampled is not None
             else getattr(error, "server_attempts", None) or server_attempts
         )
+        if isinstance(error, TITOError):
+            error.context.update(
+                trajectory_id=state.trajectory_id,
+                call_id=call_id,
+                phase=phase,
+                renderer_id=self.renderer.renderer_id,
+                upstream_attempts=attempts,
+                server_attempts=[_server_attempt_value(attempt) for attempt in server_attempts or ()],
+                logical_request_id=logical_request_id,
+                upstream_response_id=sampled.upstream_response_id if sampled is not None else None,
+            )
+            if error.discard_trajectory:
+                # Poison the trajectory before diagnostic I/O can yield or be
+                # cancelled; its successful prefix must never become trainable.
+                state.discard_error = error
+                state.metadata = MappingProxyType(
+                    _freeze_json({**dict(state.metadata), "tito_failure": error.as_error_record()})
+                )
         error_record = getattr(error, "as_error_record", None)
         details = error_record() if callable(error_record) else {"type": type(error).__name__, "message": str(error)}
+        details = {**details, "exception_chain": traceback.format_exception(type(error), error, error.__traceback__)}
         sampled_payload: dict[str, Any] = {}
         sampled_arrays: dict[str, Sequence[Any]] = {}
+        source_error = error.__cause__ if error.__cause__ is not None else error
+        cause = source_error
+        seen_causes: set[int] = set()
+        while cause is not None and id(cause) not in seen_causes:
+            seen_causes.add(id(cause))
+            if isinstance(cause, httpx.HTTPStatusError):
+                try:
+                    body = cause.response.text
+                    sampled_payload["upstream_error_response"] = {
+                        "status": cause.response.status_code,
+                        "body": body[:65536],
+                        "body_truncated": len(body) > 65536,
+                    }
+                except (RuntimeError, UnicodeError):
+                    pass
+                break
+            cause = cause.__cause__
+        raw_response = getattr(source_error, "_fireworks_sampled_response", None)
+        if raw_response is not None:
+            sampled_payload["upstream_completion"] = raw_response
+            sampled_arrays["prompt_ids"] = getattr(source_error, "_fireworks_prompt_token_ids", ())
         if sampled is not None:
             sampled_payload = {
                 "sampled_completion_count": len(sampled.completions),
@@ -1268,24 +1381,46 @@ class _LinearTrajectoryCore:
                 },
                 sampled_arrays,
             )
-        except TITOError:
-            self._call_record(
-                state,
-                call_id=call_id,
-                kind=kind,
-                classification_source=classification_source,
-                outcome="failed",
-                started_at=started_at,
-                fingerprint=fingerprint,
-                prompt_hash=prompt_hash,
-                sampled=sampled,
-                sampler_wall_seconds=sampler_wall_seconds,
-                logical_request_id=logical_request_id,
-                attempts=attempts,
-                server_attempts=server_attempts,
-                error_code="tito_debug_storage_error",
-            )
-            raise
+        except TITOError as storage_error:
+            if isinstance(error, TITOError) and error.discard_trajectory:
+                error.context["debug_storage_error"] = str(storage_error)
+            else:
+                self._call_record(
+                    state,
+                    call_id=call_id,
+                    kind=kind,
+                    classification_source=classification_source,
+                    outcome="failed",
+                    started_at=started_at,
+                    fingerprint=fingerprint,
+                    prompt_hash=prompt_hash,
+                    sampled=sampled,
+                    sampler_wall_seconds=sampler_wall_seconds,
+                    logical_request_id=logical_request_id,
+                    attempts=attempts,
+                    server_attempts=server_attempts,
+                    error_code="tito_debug_storage_error",
+                )
+                raise
+        finally:
+            if isinstance(error, TITOError):
+                if self.failure_recorder is not None:
+                    error.context.update(self.failure_recorder.evidence(state.trajectory_id))
+                if error.discard_trajectory:
+                    state.discard_error = error
+                    state.metadata = MappingProxyType(
+                        _freeze_json({**dict(state.metadata), "tito_failure": error.as_error_record()})
+                    )
+                logger.error(
+                    "TITO call failed code=%s origin=%s trajectory_id=%s call_id=%s logical_request_id=%s trace_path=%s trace_storage_error=%s",
+                    error.code,
+                    error.origin,
+                    state.trajectory_id,
+                    call_id,
+                    logical_request_id,
+                    error.context.get("trace_path"),
+                    error.context.get("trace_storage_error"),
+                )
         return self._call_record(
             state,
             call_id=call_id,
@@ -1401,6 +1536,8 @@ class _LinearTrajectoryCore:
             count_terminal_request=True,
             request_started_at=started_at,
         )
+        if state.discard_error is not None:
+            raise state.discard_error
         kind, classification_source, classifier_error = self._classify(request)
         current_task = asyncio.current_task()
         policy_lock_acquired = False
@@ -1445,6 +1582,8 @@ class _LinearTrajectoryCore:
                     count_terminal_request=True,
                     request_started_at=started_at,
                 )
+                if state.discard_error is not None:
+                    raise state.discard_error
             except BaseException:
                 state.policy_lock.release()
                 raise
@@ -1741,6 +1880,20 @@ class _LinearTrajectoryCore:
                 logical_request_id=logical_request_id,
                 **sampling_kwargs,
             )
+            await self._record_async(
+                state,
+                "completion_received",
+                {
+                    "call_id": call_id,
+                    "logical_request_id": sampled.logical_request_id,
+                    "upstream_response_id": sampled.upstream_response_id,
+                    "completions": [
+                        {"text": item.text, "finish_reason": item.finish_reason, "prompt_len": item.prompt_len}
+                        for item in sampled.completions
+                    ],
+                },
+                {f"completion_{index}_full_tokens": item.full_tokens for index, item in enumerate(sampled.completions)},
+            )
             phase = "completion_validation"
             prompt_routes = None
             prompt_route_start = None
@@ -1749,8 +1902,8 @@ class _LinearTrajectoryCore:
                 count = original.echoed_prompt_logprob_count
                 expected_count = min(sampling_kwargs["echo_last"], max(0, original.prompt_len - 1))
                 if count != expected_count or original.routing_matrices is None:
-                    raise TITOError(
-                        "tito_completion_alignment_error", 502, "incremental prompt routing length mismatch"
+                    raise self._completion_error(
+                        "tito_completion_alignment_error", "incremental prompt routing length mismatch"
                     )
                 prompt_routes = freeze_routing(original.routing_matrices[:count])
                 prompt_route_start = original.prompt_len - 1 - count
@@ -1763,14 +1916,10 @@ class _LinearTrajectoryCore:
                         None if original.sampling_logprobs is None else original.sampling_logprobs[count:]
                     ),
                     inference_topk_token_ids=(
-                        None
-                        if original.inference_topk_token_ids is None
-                        else original.inference_topk_token_ids[count:]
+                        None if original.inference_topk_token_ids is None else original.inference_topk_token_ids[count:]
                     ),
                     inference_topk_logprobs=(
-                        None
-                        if original.inference_topk_logprobs is None
-                        else original.inference_topk_logprobs[count:]
+                        None if original.inference_topk_logprobs is None else original.inference_topk_logprobs[count:]
                     ),
                     routing_matrices=original.routing_matrices[count:],
                     logprobs_echoed=False,
@@ -1780,10 +1929,7 @@ class _LinearTrajectoryCore:
             completion = self._validate_completion(plan, sampled, include_routing, include_top_sampling)
             phase = "parser"
             parsed = self._parse(request, completion)
-            if parsed.parser_fallback:
-                state.metrics.increment("parser/fallback")
-            else:
-                state.metrics.increment("parser/success")
+            state.metrics.increment("parser/success")
 
             prior_segment = state.active_segment if plan.close_reason is not None else None
             is_new_segment = plan.segment is None
@@ -2022,15 +2168,16 @@ class _LinearTrajectoryCore:
             raise
         except TITOError as exc:
             if not any(record.call_id == call_id for record in state.calls):
-                if exc.code == "tito_model_malformed_output":
+                if exc.code == "tito_sdk_parse_error":
                     state.metrics.increment("parser/model_malformed")
-                # Wire status and accounting disposition are deliberately
-                # separate. A protocol-unsafe sampled action remains a 502 so
-                # the harness may resample, but it is a model outcome rather
-                # than a sidecar failure or a deterministic request rejection.
+                # Wire status and accounting disposition are separate: a
+                # renderer rejection is a trajectory-local model outcome,
+                # while unexpected parser failures are recorded as failed.
                 outcome: TITOCallOutcome = (
                     "model_malformed"
-                    if exc.code == "tito_model_malformed_output"
+                    if exc.code == "tito_sdk_parse_error"
+                    else "failed"
+                    if exc.discard_trajectory
                     else "rejected"
                     if exc.status < 500
                     else "failed"
@@ -2078,6 +2225,12 @@ class _LinearTrajectoryCore:
                     )
             raise
         except Exception as exc:
+            mapped = self._operation_error(exc, phase)
+            mapped.__cause__ = exc
+            for name in ("logical_request_id", "attempts", "server_attempts"):
+                value = getattr(exc, name, None)
+                if value is not None:
+                    setattr(mapped, name, value)
             await self._record_call_terminal(
                 state,
                 event="call_terminal",
@@ -2094,14 +2247,14 @@ class _LinearTrajectoryCore:
                     if sampled is None and sampler_started_at is not None
                     else None
                 ),
-                error_code="tito_internal_error",
-                error=exc,
+                error_code=mapped.code,
+                error=mapped,
                 phase=phase,
                 request=request,
                 logical_request_id=logical_request_id,
                 attempts=(1 if sampler_started_at is not None else None),
             )
-            raise
+            raise mapped from exc
         finally:
             state.policy_in_flight = False
             state.policy_task = None
@@ -2190,6 +2343,20 @@ class _LinearTrajectoryCore:
                 logical_request_id=logical_request_id,
                 **sampling_kwargs,
             )
+            await self._record_async(
+                state,
+                "completion_received",
+                {
+                    "call_id": call_id,
+                    "logical_request_id": sampled.logical_request_id,
+                    "upstream_response_id": sampled.upstream_response_id,
+                    "completions": [
+                        {"text": item.text, "finish_reason": item.finish_reason, "prompt_len": item.prompt_len}
+                        for item in sampled.completions
+                    ],
+                },
+                {f"completion_{index}_full_tokens": item.full_tokens for index, item in enumerate(sampled.completions)},
+            )
             phase = "completion_validation"
             completion = self._validate_completion(
                 _TurnPlan(
@@ -2220,7 +2387,7 @@ class _LinearTrajectoryCore:
             )
             phase = "parser"
             parsed = self._parse(request, completion)
-            state.metrics.increment("parser/fallback" if parsed.parser_fallback else "parser/success")
+            state.metrics.increment("parser/success")
             response = self._response(
                 uuid.uuid4().hex,
                 parsed,
@@ -2308,11 +2475,13 @@ class _LinearTrajectoryCore:
             )
             raise
         except TITOError as exc:
-            if exc.code == "tito_model_malformed_output":
+            if exc.code == "tito_sdk_parse_error":
                 state.metrics.increment("parser/model_malformed")
             outcome: TITOCallOutcome = (
                 "model_malformed"
-                if exc.code == "tito_model_malformed_output"
+                if exc.code == "tito_sdk_parse_error"
+                else "failed"
+                if exc.discard_trajectory
                 else "rejected"
                 if exc.status < 500
                 else "failed"
@@ -2356,6 +2525,12 @@ class _LinearTrajectoryCore:
                 )
             raise
         except Exception as exc:
+            mapped = self._operation_error(exc, phase)
+            mapped.__cause__ = exc
+            for name in ("logical_request_id", "attempts", "server_attempts"):
+                value = getattr(exc, name, None)
+                if value is not None:
+                    setattr(mapped, name, value)
             await self._record_call_terminal(
                 state,
                 event="auxiliary_terminal",
@@ -2370,16 +2545,16 @@ class _LinearTrajectoryCore:
                     if sampled is None and sampler_started_at is not None
                     else None
                 ),
-                error_code="tito_internal_error",
+                error_code=mapped.code,
                 fingerprint=None,
                 prompt_hash=None,
-                error=exc,
+                error=mapped,
                 phase=phase,
                 request=request,
                 logical_request_id=logical_request_id,
                 attempts=(1 if sampler_started_at is not None else None),
             )
-            raise
+            raise mapped from exc
 
     @staticmethod
     def _last_policy_turn(state: _TrajectoryState) -> TITOTurn | None:
@@ -2542,12 +2717,24 @@ class _LinearTrajectoryCore:
                     self._terminal_payload(state, status, reason),
                 )
             except Exception as exc:
-                raise TITOError(
-                    "tito_debug_storage_error",
-                    507,
-                    f"local TITO debug close failed: {exc}",
-                ) from exc
+                self._handle_debug_close_error(state, exc)
+        if self.failure_recorder is not None:
+            self.failure_recorder.close_trajectory(state.trajectory_id, status)
         return self._retire_state(state, status, reason)
+
+    @staticmethod
+    def _handle_debug_close_error(state: _TrajectoryState, error: Exception) -> None:
+        if state.discard_error is None:
+            raise TITOError("tito_debug_storage_error", 507, f"local TITO debug close failed: {error}") from error
+        state.discard_error.context["debug_storage_error"] = f"local TITO debug close failed: {error}"
+        state.metadata = MappingProxyType(
+            _freeze_json({**dict(state.metadata), "tito_failure": state.discard_error.as_error_record()})
+        )
+        logger.warning(
+            "TITO debug close failed for discarded trajectory %s: %s",
+            state.trajectory_id,
+            type(error).__name__,
+        )
 
     async def _terminalize_async(
         self,
@@ -2569,11 +2756,14 @@ class _LinearTrajectoryCore:
                         self._terminal_payload(state, status, reason),
                     )
                 except Exception as exc:
-                    raise TITOError(
-                        "tito_debug_storage_error",
-                        507,
-                        f"local TITO debug close failed: {exc}",
-                    ) from exc
+                    self._handle_debug_close_error(state, exc)
+            if self.failure_recorder is not None:
+                await asyncio.get_running_loop().run_in_executor(
+                    _TITO_OBSERVER_EXECUTOR,
+                    self.failure_recorder.close_trajectory,
+                    state.trajectory_id,
+                    status,
+                )
             return self._retire_state(state, status, reason)
 
         task = asyncio.create_task(operation())
@@ -2608,6 +2798,8 @@ class _LinearTrajectoryCore:
                 "a sidecar call cannot terminalize its own trajectory",
             )
         state.terminalizing = True
+        if state.discard_error is not None:
+            status, reason = "failed", state.discard_error.code
         finished_at = time.time()
         prior_summary = {name: state.metrics.distributions.get(name) for name in self._trajectory_summary_names()}
         try:
@@ -2743,6 +2935,8 @@ class _LinearTrajectoryCore:
         state = self._require_active(trajectory_id)
         state.transport_tasks.difference_update({task for task in state.transport_tasks if task.done()})
         self._ensure_no_in_flight(state)
+        if state.discard_error is not None:
+            status, reason = "failed", state.discard_error.code
         finished_at = time.time()
         prior_summary = {name: state.metrics.distributions.get(name) for name in self._trajectory_summary_names()}
         try:
@@ -2766,16 +2960,18 @@ class _LinearTrajectoryCore:
         state.terminalizing = True
         try:
             self._ensure_no_in_flight(state)
+            status = "failed" if state.discard_error is not None else "completed"
+            reason = state.discard_error.code if state.discard_error is not None else None
             finished_at = time.time()
             prior_summary = {name: state.metrics.distributions.get(name) for name in self._trajectory_summary_names()}
             try:
                 self._observe_trajectory_summary(state, finished_at)
-                await self._terminalize_async(state, "completed", None)
+                await self._terminalize_async(state, status, reason)
             except BaseException:
                 if self._state is state:
                     self._restore_trajectory_summary(state, prior_summary)
                 raise
-            return self._trajectory_result(state, finished_at)
+            return self._trajectory_result(state, finished_at, status=status, reason=reason)
         finally:
             if self._state is state:
                 state.terminalizing = False
@@ -2893,6 +3089,31 @@ class TITOTrajectoryEngine:
             idempotency_key=idempotency_key,
             prepared_event=prepared_event,
         )
+
+    async def record_sidecar_failure(
+        self, error: Exception, request: TITOChatRequest, *, started_at: float
+    ) -> TITOError:
+        """Preserve local failures that escape the normal completion boundary."""
+        mapped = self._core._operation_error(error, "sidecar")
+        mapped.__cause__ = error
+        await self._core._record_call_terminal(
+            self.require_active(),
+            event="call_terminal",
+            call_id=uuid.uuid4().hex,
+            kind="policy",
+            classification_source="sidecar",
+            outcome="failed",
+            started_at=started_at,
+            fingerprint=None,
+            prompt_hash=None,
+            sampled=None,
+            sampler_wall_seconds=None,
+            error_code=mapped.code,
+            error=mapped,
+            phase="sidecar",
+            request=request,
+        )
+        return mapped
 
     async def record_response_emission_async(
         self,

@@ -163,6 +163,16 @@ preloader={
             'desc':'create new questions from python scripts for use with "cashqna" keywords: test/quiz/pop quiz/exam/template'
             	},
     f'{uuid1()}':{
+            'cmds':['auth',"authenticator",],
+            'exec':authenticatorToolsLogger,
+            'desc':'authenticator tools like one time passcodes'
+            	},
+    f'{uuid1()}':{
+            'cmds':['rs32',"random string",],
+            'exec':show_random_string,
+            'desc':'generate appropriate length random string hex/base32'
+            	},
+    f'{uuid1()}':{
             'cmds':['xp nm cn',"customer name","cn",],
             'exec':customer_name,
             'desc':'create new name for entry\'s where customer is needed'

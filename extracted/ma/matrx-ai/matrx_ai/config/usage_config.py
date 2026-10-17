@@ -787,6 +787,12 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
         await ai_catalog_manager.ensure_loaded()
 
         lookup: dict[str, ModelPricing] = {}
+        # (vendor, provider_model_id) → pricing, for callers that only know the
+        # name the PROVIDER was called with (a browser-held realtime session
+        # reports the wire model it connected with). Exact, never a prefix; a
+        # wire id two offerings bill differently is dropped, not guessed.
+        wire_pricing: dict[str, ModelPricing] = {}
+        ambiguous_wire: set[str] = set()
         orphan_models: list[str] = []
         parked_models: list[str] = []
         invalid: dict[str, str] = {}
@@ -827,11 +833,29 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
                 model_pricing = ModelPricing(model_name=model.name, api=api, tiers=tiers)
                 lookup[str(offering.id)] = model_pricing
                 priced_offerings.append(model_pricing)
+                wire = str(offering.provider_model_id or "")
+                if wire and api:
+                    key = _wire_key(api, wire)
+                    existing = wire_pricing.get(key)
+                    if existing is not None and existing.tiers != model_pricing.tiers:
+                        ambiguous_wire.add(key)
+                    elif existing is None:
+                        wire_pricing[key] = model_pricing
 
             # A name-only lookup is safe only when every route bills the same.
             # Exact offering IDs are always indexed and always win at use time.
             if priced_offerings and all(item == priced_offerings[0] for item in priced_offerings):
                 lookup[model.name] = priced_offerings[0]
+
+        for key, model_pricing in wire_pricing.items():
+            if key not in ambiguous_wire:
+                lookup[key] = model_pricing
+        if ambiguous_wire:
+            vcprint(
+                f"[Pricing] {len(ambiguous_wire)} provider wire id(s) are billed differently by "
+                f"different offerings and resolve only by offering id: {', '.join(sorted(ambiguous_wire))}",
+                color="yellow",
+            )
 
         if parked_models:
             vcprint(
@@ -1039,6 +1063,42 @@ def _pricing_miss(model_name: str, api: str) -> None:
     )
 
 
+def _wire_key(api: str, provider_model_id: str) -> str:
+    return f"wire:{api}:{provider_model_id}"
+
+
+def lookup_model_pricing(
+    lookup: dict[str, ModelPricing],
+    *,
+    offering_id: str = "",
+    model_name: str = "",
+    provider_model_name: str = "",
+    api: str = "",
+) -> ModelPricing | None:
+    """The ONE pricing resolution — every key is exact, tried in this order:
+
+    1. the offering id (the exact route that served the call) — when given, it
+       is the only answer;
+    2. the catalog model name (``ai.model_definition.name``);
+    3. the provider's wire id under its vendor (``ai.offering.provider_model_id``
+       on an endpoint of ``api``) — for a caller that only knows the name the
+       provider was called with, e.g. a browser-held realtime session.
+
+    Never a prefix or a fuzzy match — see ``_pricing_miss``.
+    """
+    if offering_id:
+        return lookup.get(offering_id)
+    if model_name and model_name in lookup:
+        return lookup[model_name]
+    if api:
+        for wire in (provider_model_name, model_name):
+            if wire:
+                hit = lookup.get(_wire_key(api, wire))
+                if hit is not None:
+                    return hit
+    return None
+
+
 def resolve_usage_basis(
     model_name: str, api: str = "", offering_id: str = ""
 ) -> tuple[bool, str | None]:
@@ -1054,7 +1114,9 @@ def resolve_usage_basis(
     if not model_name or not is_pricing_lookup_warm():
         return (False, None)
     lookup = _get_db_pricing_lookup()
-    model_pricing = lookup.get(offering_id) if offering_id else lookup.get(model_name)
+    model_pricing = lookup_model_pricing(
+        lookup, offering_id=offering_id, model_name=model_name, api=api
+    )
     if model_pricing is None:
         _pricing_miss(model_name, api)
         return (False, None)
@@ -1137,6 +1199,21 @@ class TokenUsage:
     def total_tokens(self) -> int:
         return self.input_tokens + self.output_tokens + self.cached_input_tokens
 
+    @property
+    def cache_write_tokens(self) -> int:
+        """Prompt-cache WRITE tokens this call paid for (all lifetimes), from the verbatim
+        usage: Anthropic ``cache_creation_input_tokens``; OpenAI
+        ``input_tokens_details.cache_write_tokens``. 0 when the provider reports none."""
+        raw = self.raw_usage if isinstance(self.raw_usage, dict) else {}
+        value = raw.get("cache_creation_input_tokens")
+        if value is None:
+            details = raw.get("input_tokens_details")
+            value = details.get("cache_write_tokens") if isinstance(details, dict) else None
+        try:
+            return max(0, int(value or 0))
+        except (TypeError, ValueError):
+            return 0
+
     def calculate_cost(self, pricing_lookup: dict[str, ModelPricing] | None = None) -> float | None:
         """Return our canonical catalog-calculated cost for this call.
 
@@ -1167,10 +1244,12 @@ class TokenUsage:
             lookup_is_warm = is_pricing_lookup_warm()
 
         # EXACT match only — a prefix fallback here is a billing lottery. See _pricing_miss.
-        model_pricing = (
-            lookup.get(self.offering_id)
-            if self.offering_id
-            else lookup.get(self.matrx_model_name)
+        model_pricing = lookup_model_pricing(
+            lookup,
+            offering_id=self.offering_id,
+            model_name=self.matrx_model_name,
+            provider_model_name=self.provider_model_name,
+            api=self.api,
         )
 
         if not model_pricing:

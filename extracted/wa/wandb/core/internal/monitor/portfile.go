@@ -3,6 +3,7 @@ package monitor
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -11,13 +12,13 @@ import (
 )
 
 // portfile is used to communicate the token of the gRPC service
-// started by the wandb-xpu sidecar binary to the wandb-core process.
+// started by the wandb-symon sidecar binary to the wandb-core process.
 type portfile struct {
 	Path string
 }
 
 func NewPortfile() *portfile {
-	file, err := os.CreateTemp("", "wandb-xpu-portfile-*")
+	file, err := os.CreateTemp("", "wandb-symon-portfile-*")
 	if err != nil {
 		return nil
 	}
@@ -25,9 +26,9 @@ func NewPortfile() *portfile {
 	return &portfile{Path: file.Name()}
 }
 
-// Read reads the target URI from the portfile, polling until it appears
-// or ctx is canceled.
-func (p *portfile) Read(ctx context.Context) (string, error) {
+// Read reads the target URI from the portfile, polling until it appears,
+// ctx is canceled or exited is closed.
+func (p *portfile) Read(ctx context.Context, exited <-chan struct{}) (string, error) {
 	for {
 		target, err := p.ReadFile()
 		if err == nil {
@@ -37,6 +38,8 @@ func (p *portfile) Read(ctx context.Context) (string, error) {
 		select {
 		case <-ctx.Done():
 			return "", fmt.Errorf("reading portfile %s: %w", p.Path, ctx.Err())
+		case <-exited:
+			return "", errors.New("wandb-symon exited before writing its portfile")
 		case <-time.After(20 * time.Millisecond):
 		}
 	}

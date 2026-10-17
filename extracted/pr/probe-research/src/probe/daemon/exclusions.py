@@ -511,13 +511,28 @@ def shlex_split(text: str) -> list[str]:
         return text.split()
 
 
+def _command_tokens(command: str) -> list[str]:
+    """The words of a shell command with its operators split out as words of their
+    own, stuck or not (`cd /o;rg` is `cd`, `/o`, `;`, `rg`), newlines as `;`."""
+    try:
+        lexer = shlex.shlex(command.replace("\n", " ; "), posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        return list(lexer)
+    except ValueError:
+        return command.split()
+
+
+def _operator(token: str) -> bool:
+    return token in _SEPARATORS or bool(token) and set(token) <= set("&|;()")
+
+
 #: Programs that read the files they are given (a bare name included: `cat secret.txt`).
 _FILE_READERS = frozenset({
     "cat", "head", "tail", "less", "more", "bat", "batcat", "nl", "wc", "sort", "uniq", "cut", "awk",
     "gawk", "sed", "xxd", "od", "hexdump", "strings", "jq", "yq", "cmp", "diff", "file", "md5sum",
     "sha1sum", "sha224sum", "sha256sum", "sha384sum", "sha512sum", "b2sum", "cksum", "shasum", "base64",
     "tac", "grep", "egrep", "fgrep", "rg", "ag", "ack",
-    "cp", "mv", "tar", "zip", "gzip", "zcat", "column", "fold", "paste", "iconv", "openssl", "pdftotext",
+    "cp", "mv", "tar", "zip", "gzip", "gunzip", "zcat", "column", "fold", "paste", "iconv", "openssl", "pdftotext",
 })
 #: Programs that read a whole tree when given a folder (or the current one).
 _TREE_READERS = frozenset({"rg", "ag", "ack", "find", "fd", "fdfind", "tree", "du"})
@@ -531,28 +546,160 @@ _GIT_LOG_PATCH = ("-p", "--patch", "-u", "--stat", "--numstat", "--shortstat", "
                   "--name-status", "--raw", "--summary", "--full-diff", "--cc", "-c")
 
 
+#: The long options of a tree reader that take the next word as their value, so the
+#: tree it walks may be the current folder's (GNU's, which reads any unambiguous start
+#: of a long option: `--ig` is `--ignore`).
+_VALUE_LONGS = {
+    "ls": ("--ignore", "--hide", "--time-style", "--format", "--sort", "--width", "--tabsize", "--quoting-style",
+           "--indicator-style", "--block-size", "--time"),
+    "du": ("--block-size", "--max-depth", "--threshold", "--exclude", "--time-style"),
+}
+#: Their short options that take a value, GNU's and BSD's (BSD ls `-D FORMAT`, BSD du
+#: `-I MASK`): in a cluster the rest of it, or the next word, is the value.
+_VALUE_LETTERS = {"ls": "DITw", "du": "BIXdt"}
+#: A word of find's leading options (as `shell._FIND_LEADING`): GNU's -H -L -P, BSD's
+#: -E -X -d -s -x, in a cluster, ending in BSD's -f whose value is a start folder.
+_FIND_LEADING = re.compile(r"-([EHLPXdsx]*)(?:f(.*))?")
+
+
+def _spells(word: str, name: str) -> bool:
+    """Whether `word` is the long option `name`, or a start of it GNU reads as it."""
+    given = word.split("=", 1)[0]
+    return word.startswith("--") and len(given) > 2 and name.startswith(given)
+
+
+def drops_file_names(command: str) -> bool:
+    """Whether an rg or grep in `command` prints matches without the names of the
+    files they came from (`rg -I` / `--no-filename`, `grep -h` / `--no-filename`),
+    which the output filter goes by. Read broadly: any word of such a part."""
+    letter = {"rg": "I", "grep": "h", "egrep": "h", "fgrep": "h"}
+    program = None
+    for word in _command_tokens(command):
+        if _operator(word):
+            program = None
+        elif program is None:
+            if not (word in _WRAPPERS or word == "env" or ("=" in word and not word.startswith("-"))):
+                program = os.path.basename(word)  # past `sudo`, `env X=1`, as `command_reads` reads it
+        elif program in letter and word.startswith("-") and word != "-":
+            if word.startswith("--") and _spells(word, "--no-filename"):
+                return True
+            if not word.startswith("--") and letter[program] in word[1:]:
+                return True
+    return False
+
+
+def _no_name_left(program: str, args: list[str]) -> bool:
+    """ls / du: whether, with every word an option may take as its value taken (after
+    a long one, `--ig /tmp`; after a short cluster ending in a value letter,
+    `-RaI /tmp`), no name is left, so the tree it walks is the current folder."""
+    skip = names_only = False
+    for a in args:
+        if skip:
+            skip = False
+        elif names_only or a == "-" or not a.startswith("-"):
+            return False
+        elif a == "--":
+            names_only = True
+        elif a.startswith("--"):
+            skip = "=" not in a and any(_spells(a, name) for name in _VALUE_LONGS[program])
+        else:
+            skip = a[-1] in _VALUE_LETTERS[program]
+    return True
+
+
+def _find_starts(args: list[str]) -> tuple[list[str], bool]:
+    """find's start folders, past its leading options (-H -L -P -D X -Olevel, BSD's
+    flags and `-f PATH`) and a `--`; and whether it may walk `.` as well (`-fstype`
+    is GNU's test, BSD's `-f stype`)."""
+    starts: list[str] = []
+    walks_here = False
+    k = 0
+    while k < len(args):
+        a = args[k]
+        if a == "--":
+            k += 1
+            break
+        if a == "-D":
+            k += 2
+            continue
+        if a.startswith("-O"):
+            k += 1
+            continue
+        flags = _FIND_LEADING.fullmatch(a)
+        if not flags or not (flags.group(1) or flags.group(2) is not None):
+            break
+        k += 1
+        if flags.group(2):
+            starts.append(flags.group(2))
+            walks_here = True
+        elif flags.group(2) is not None and k < len(args):
+            starts.append(args[k])
+            k += 1
+    while k < len(args) and not args[k].startswith(("-", "(", "!", ")", ",")):
+        starts.append(args[k])
+        k += 1
+    return starts, walks_here
+
+
+def _grep_recurses(args: list[str]) -> bool:
+    """grep -r / -R in any spelling, or `-d` / `--directories` with anything but
+    `read` or `skip` (GNU takes any start of `recurse`, BSD any case)."""
+    for k, a in enumerate(args):
+        if a == "--":
+            break
+        if not a.startswith("-") or a == "-":
+            continue
+        following = args[k + 1] if k + 1 < len(args) else ""
+        if a.startswith("--"):
+            if _spells(a, "--recursive") or _spells(a, "--dereference-recursive"):
+                return True
+            if _spells(a, "--directories") and (a.split("=", 1)[1] if "=" in a else following) not in ("read", "skip"):
+                return True
+            continue
+        if "r" in a[1:] or "R" in a[1:]:
+            return True
+        for i, letter in enumerate(a[1:]):
+            if letter == "d":
+                if (a[i + 2 :] or following) not in ("read", "skip"):
+                    return True
+                break
+            if letter in "efmABCD":  # the rest of the word is this option's value
+                break
+    return False
+
+
 def command_reads(command: str, cwd: str | None) -> tuple[list[str], list[str]]:
     """`(files, trees)` a shell command reads, as far as its words say: files a
     reader is given (`cat secret.txt`, a bare name included), and folders a tree
     reader walks (`rg x .`, `grep -r`, `find`, `ls -R`, `diff -r`, a repo-wide
-    `git diff` / `git show` / `git status` / `git log -p`), following `cd X &&`.
-    Paths that do not exist are left out (a bare word is a word). Never raises."""
+    `git diff` / `git show` / `git status` / `git log -p`), in every folder a `cd`
+    may have left it in, as bash runs it: after `&&` the folder the `cd` reached;
+    after `;`, `||` or a newline any folder reached so far (the `cd` may have
+    failed); and a `cd` in a pipeline moves nothing (each side is a subshell:
+    `cd /x | rg -I KEY .` searches here), but as the pipeline's last part under
+    `shopt -s lastpipe` it runs in this shell, so what follows may run in its
+    folder too (`true | cd /x; rg .`). Paths that do not exist are left out (a
+    bare word is a word). Never raises."""
     files: list[str] = []
     trees: list[str] = []
-    try:
-        lexer = shlex.shlex(command.replace("\n", " ; "), posix=True, punctuation_chars=True)
-        lexer.whitespace_split = True
-        tokens = list(lexer)
-    except ValueError:
-        tokens = command.split()
-    here = cwd or os.getcwd()
-    segments: list[list[str]] = [[]]
-    for token in tokens:
-        if token in _SEPARATORS or (token and set(token) <= set("&|;()")):
-            segments.append([])
+    start = cwd or os.getcwd()
+    segments: list[tuple[str, list[str]]] = [("", [])]  # (the operator before it, its words)
+    for token in _command_tokens(command):
+        if _operator(token):
+            segments.append((token, []))
         else:
-            segments[-1].append(token)
-    for words in segments:
+            segments[-1][1].append(token)
+    seen, success, previous = [start], [start], [start]
+    for k, (before, words) in enumerate(segments):
+        if before == "&&":
+            heres = success
+        elif before in ("|", "|&"):
+            heres = previous
+        else:
+            heres = list(seen)
+        piped = before in ("|", "|&") or (k + 1 < len(segments) and segments[k + 1][0] in ("|", "|&"))
+        previous = heres
+        success = heres
         while words and ("=" in words[0] and not words[0].startswith("-") or words[0] in _WRAPPERS
                          or words[0] == "env"):
             words = words[1:]
@@ -560,44 +707,56 @@ def command_reads(command: str, cwd: str | None) -> tuple[list[str], list[str]]:
             continue
         program = os.path.basename(words[0])
         args = words[1:]
-        if program == "cd":
+        if program in ("cd", "pushd", "popd"):
             target = next((a for a in args if not a.startswith("-")), None)
-            if target:
-                here = os.path.normpath(os.path.join(here, os.path.expanduser(target)))
+            if program == "popd" or args[:1] == ["-"]:
+                moved = list(seen)  # back to a folder seen before
+            else:
+                target = os.path.expanduser(target if target is not None else "~")  # a bare `cd` goes home
+                moved = [os.path.normpath(os.path.join(here, target)) for here in heres]
+            # In a pipeline the `cd` runs in a subshell and moves nothing -- unless it is
+            # the last part under `shopt -s lastpipe`, which runs it in this shell: there
+            # its folder is one more the later parts may run in, never the only one.
+            success = [*heres, *(f for f in moved if f not in heres)] if piped else moved
+            seen += [folder for folder in moved if folder not in seen]
             continue
-        options = [a for a in args if a.startswith("-") and a != "-"]
-        positional = [a for a in args if not a.startswith("-")]
-        if program == "git":
-            git_reads(args, here, files, trees)
-            continue
-        recursive = program in _TREE_READERS or (
-            program in ("grep", "egrep", "fgrep") and any(
-                o in ("-r", "-R", "--recursive", "--dereference-recursive")
-                or (not o.startswith("--") and ("r" in o[1:] or "R" in o[1:])) for o in options)
-        ) or (program == "ls" and any(o == "--recursive" or (not o.startswith("--") and "R" in o[1:]) for o in options)) \
-            or (program == "diff" and any(o in ("-r", "--recursive") or (not o.startswith("--") and "r" in o[1:])
-                                          for o in options))
-        if program == "find":  # start folders come before the expression
-            starts = []
-            for a in args:
-                if a.startswith(("-", "(", "!", ")")):
-                    break
-                starts.append(a)
-            positional = starts
-        # Option values and patterns are positional words too; which word is a
-        # path is not knowable without each program's option table, so: the
-        # words that exist are what is read, and with none, the folder it runs in.
-        paths = [os.path.join(here, os.path.expanduser(a)) for a in positional]
-        existing = [p for p in paths if os.path.lexists(p)]
-        if recursive:
-            folders = [p for p in existing if os.path.isdir(p)]
-            if folders:
-                trees.extend(folders)
-            elif program != "diff" and not [p for p in existing if not os.path.isdir(p)]:
-                trees.append(here)
-        if program in _FILE_READERS or recursive:
-            files.extend(p for p in existing if not os.path.isdir(p))
+        for here in heres:
+            _part_reads(program, args, here, files, trees)
     return files, trees
+
+
+def _part_reads(program: str, args: list[str], here: str, files: list[str], trees: list[str]) -> None:
+    """`command_reads` for one command, run in `here`."""
+    options = [a for a in args if a.startswith("-") and a != "-"]
+    positional = [a for a in args if not a.startswith("-")]
+    if program == "git":
+        git_reads(args, here, files, trees)
+        return
+    recursive = program in _TREE_READERS or (
+        program in ("grep", "egrep", "fgrep") and _grep_recurses(args)
+    ) or (program == "ls" and any(_spells(o, "--recursive") or (not o.startswith("--") and "R" in o[1:])
+                                  for o in options)) \
+        or (program == "diff" and any(o == "-r" or _spells(o, "--recursive")
+                                      or (not o.startswith("--") and "r" in o[1:]) for o in options))
+    walks_here = recursive and program in _VALUE_LONGS and _no_name_left(program, args)
+    if program == "find":  # start folders come before the expression
+        positional, walks_find = _find_starts(args)
+        walks_here = walks_here or walks_find
+    # Option values and patterns are positional words too; which word is a
+    # path is not knowable without each program's option table, so: the
+    # words that exist are what is read, and with none, the folder it runs in.
+    paths = [os.path.join(here, os.path.expanduser(a)) for a in positional]
+    existing = [p for p in paths if os.path.lexists(p)]
+    if recursive:
+        folders = [p for p in existing if os.path.isdir(p)]
+        if folders:
+            trees.extend(folders)
+        elif program != "diff" and not [p for p in existing if not os.path.isdir(p)]:
+            trees.append(here)
+        if walks_here and here not in trees:
+            trees.append(here)
+    if program in _FILE_READERS or recursive:
+        files.extend(p for p in existing if not os.path.isdir(p))
 
 
 def command_bases(command: str, cwd: str | None) -> list[str]:
@@ -606,10 +765,14 @@ def command_bases(command: str, cwd: str | None) -> list[str]:
     a `(cd x); cat y` reads `y` where it ran, but a `cd x && cat y` in x)."""
     here = cwd or os.getcwd()
     bases = [here]
-    words = shlex_split(command.replace("\n", " ; "))
-    for k, word in enumerate(words[:-1]):
+    words = _command_tokens(command)  # `cd /o;rg`: the folder is `/o`, not `/o;`
+    for k, word in enumerate(words):
         if word in ("cd", "pushd", "-C"):
-            target = words[k + 1]
+            target = words[k + 1] if k + 1 < len(words) else ""
+            if not target or _operator(target):
+                if word == "-C":
+                    continue
+                target = "~"  # a bare `cd` goes home
             for base in list(bases):
                 folder = os.path.normpath(os.path.join(base, os.path.expanduser(target)))
                 if folder not in bases:

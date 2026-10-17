@@ -8,6 +8,12 @@ ACCESS_TOKEN_APP_NAME: Final = "com.google.android.apps.chromecast.app"
 ACCESS_TOKEN_CLIENT_SIGNATURE: Final = "24bb24c05e47e0aefa68a58a766179d9b613a600"
 ACCESS_TOKEN_DURATION: Final = 60 * 60
 ACCESS_TOKEN_SERVICE: Final = "oauth2:https://www.google.com/accounts/OAuthLogin"
+# An access token that may only read the account's email address
+EMAIL_ACCESS_TOKEN_SERVICE: Final = (
+    "oauth2:https://www.googleapis.com/auth/userinfo.email"
+)
+# From https://accounts.google.com/.well-known/openid-configuration
+USERINFO_URL: Final = "https://openidconnect.googleapis.com/v1/userinfo"
 
 ANDROID_ID_LENGTH: Final = 16
 MASTER_TOKEN_LENGTH: Final = 216
@@ -17,8 +23,12 @@ LOCAL_AUTH_TOKEN_LENGTH: Final = 108
 GOOGLE_HOME_FOYER_API: Final = "googlehomefoyer-pa.googleapis.com:443"
 
 HOMEGRAPH_DURATION: Final = 24 * 60 * 60
+# Seconds to wait for a response from Google
+REQUEST_TIMEOUT: Final = 10
 
 DISCOVERY_TIMEOUT: Final = 2
+# Milliseconds to wait for each zeroconf service lookup
+SERVICE_INFO_TIMEOUT: Final = 3000
 DEFAULT_DISCOVERY_PORT: Final = 0
 
 GOOGLE_HOME_MODELS: Final = [

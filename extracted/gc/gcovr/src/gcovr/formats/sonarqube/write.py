@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,29 +15,39 @@
 #
 # ****************************************************************************
 
+"""GCOVR SonarQube report."""
+
+from typing import TYPE_CHECKING
+
 from lxml import etree  # nosec # We only write XML files
 
 from ...data_model.container import CoverageContainer
-from ...data_model.stats import CoverageStat, DecisionCoverageStat
 from ...logging import LOGGER
 from ...options import Options
 from ...utils import write_xml_output
+
+if TYPE_CHECKING:
+    from ...data_model.stats import CoverageStat, DecisionCoverageStat
 
 
 def write_report(
     covdata: CoverageContainer, output_file: str, options: Options
 ) -> None:
-    """produce an XML report in the SonarQube generic coverage format"""
-
+    """Write an XML report in the SonarQube generic coverage format."""
     if not any(
-        filter(lambda filecov: filecov.condition_coverage().total > 0, covdata.values())  # type: ignore [arg-type]
+        filter(
+            lambda filecov: filecov.condition_coverage().total > 0,  # type: ignore [arg-type]
+            covdata.filecov(recurse=True),
+        )
     ) and (options.sonarqube_metric == "condition"):
         LOGGER.warning("No condition coverage data found.")
 
     root_elem = etree.Element("coverage")
     root_elem.set("version", "1")
 
-    for _, filecov in sorted(covdata.items()):
+    for filecov in sorted(
+        covdata.filecov(recurse=True), key=lambda filecov: filecov.filename
+    ):
         filename = filecov.presentable_filename(options.root_filter)
 
         file_node = etree.Element("file")

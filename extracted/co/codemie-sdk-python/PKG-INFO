@@ -1,15 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: codemie-sdk-python
-Version: 0.1.696
+Version: 0.1.698
 Summary: CodeMie SDK for Python
-Author: Vadym Vlasenko
-Author-email: vadym_vlasenko@epam.com
+License: Apache-2.0
+Author: CodeMie
 Requires-Python: >=3.12,<4.0
+Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Dist: pydantic (>=2.12.2,<3.0.0)
 Requires-Dist: pyyaml (>=6.0.2,<7.0.0)
 Requires-Dist: requests (>=2.31.0,<3.0.0)
+Project-URL: Homepage, https://github.com/codemie-ai/codemie-sdk
+Project-URL: Issues, https://github.com/codemie-ai/codemie-sdk/issues
+Project-URL: Repository, https://github.com/codemie-ai/codemie-sdk
 Description-Content-Type: text/markdown
 
 # CodeMie Python SDK
@@ -87,11 +94,11 @@ from codemie_sdk import CodeMieClient
 
 # Initialize client with authentication parameters
 client = CodeMieClient(
-    auth_server_url="https://keycloak.eks-core.aws.main.edp.projects.epam.com/auth",
+    auth_server_url="https://your-keycloak-host.example.com/auth",
     auth_client_id="your-client-id",
     auth_client_secret="your-client-secret",
     auth_realm_name="your-realm",
-    codemie_api_domain="https://codemie.lab.epam.com/code-assistant-api"
+    codemie_api_domain="https://your-codemie-host.example.com/code-assistant-api"
 )
 ```
 
@@ -1662,7 +1669,7 @@ client = CodeMieClient(
 
 ## Support
 
-For providing credentials please contact AI/Run CodeMie Team: Vadym_Vlasenko@epam.com or Nikita_Levyankov@epam.com
+For questions and bug reports, open an issue via GitHub Issues. To report a security vulnerability, follow the policy in [SECURITY.md](../../SECURITY.md).
 
 ## Development
 
@@ -1693,7 +1700,6 @@ poetry run ruff format
 # Build package
 poetry build
 # Or make build
-
-# Publish to PyPI
-make publish
 ```
+
+Maintainers publish releases through the release workflow. See [RELEASING.md](../../docs/RELEASING.md).

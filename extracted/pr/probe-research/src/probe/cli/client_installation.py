@@ -37,6 +37,7 @@ def snapshot(
     *,
     complete: bool = True,
     alongside: Sequence[Pass] = (),
+    reports_removals: bool = True,
 ) -> dict[str, str]:
     """Return schema v2 using installed state, not runtime health.
 
@@ -82,6 +83,15 @@ def snapshot(
 
     The merge covers the agents IN THIS RUN, not every agent on the machine: a
     run that names one agent still reports that agent alone.
+
+    `reports_removals=False` is for a run that cannot have removed anything --
+    Update changes versions, never settings. What it does not see it reports
+    `unknown`, which the server reads as "keep what you know", never `absent`.
+    The agents an Update covers are the ones on PATH in the shell that spawned
+    it (a session-start hook's, often), so one Update reaching fewer agents
+    than the last reported capture `absent` and posted a false "Probe removed"
+    (one customer, 2026-10-15, CLI 0.258.0: 2 in 3 minutes, each put back by
+    the next session's Update).
     """
     latest = _latest_per_agent((*alongside, (caps, complete)))
     finished = [state for state, done in latest if done]
@@ -90,7 +100,7 @@ def snapshot(
     def reported(has) -> Installed:
         if any(has(state) for state in finished):
             return Installed.INSTALLED
-        return Installed.UNKNOWN if unfinished else Installed.ABSENT
+        return Installed.UNKNOWN if unfinished or not reports_removals else Installed.ABSENT
 
     return {
         "schema_version": 2,
@@ -110,9 +120,9 @@ def _latest_per_agent(passes: Sequence[Pass]) -> list[Pass]:
     return list(latest.values())
 
 
-#: What `merged_registration` is holding -- (passes, settings) per
-#: registration -- or None outside one.
-_held: list[tuple[tuple[Pass, ...], Settings | None]] | None = None
+#: What `merged_registration` is holding -- (passes, settings,
+#: reports_removals) per registration -- or None outside one.
+_held: list[tuple[tuple[Pass, ...], Settings | None, bool]] | None = None
 
 
 @contextmanager
@@ -143,8 +153,16 @@ def merged_registration() -> Iterator[list[str]]:
     held, _held = _held, None
     if not held:
         return
-    *earlier, (latest, done) = [one for passes, _settings in held for one in passes]
-    warnings.extend(register(latest, settings=held[-1][1], complete=done, alongside=earlier))
+    *earlier, (latest, done) = [one for passes, _settings, _removals in held for one in passes]
+    warnings.extend(
+        register(
+            latest,
+            settings=held[-1][1],
+            complete=done,
+            alongside=earlier,
+            reports_removals=all(removals for _passes, _settings, removals in held),
+        )
+    )
 
 
 def register(
@@ -153,6 +171,7 @@ def register(
     settings: Settings | None = None,
     complete: bool = True,
     alongside: Sequence[Pass] = (),
+    reports_removals: bool = True,
 ) -> list[str]:
     """Register actual post-action state and adopt a legacy MCP PAT if present.
 
@@ -170,19 +189,24 @@ def register(
     `snapshot`). Inside `merged_registration` nothing is sent here; the block
     sends one registration when it ends.
 
+    `reports_removals=False`: a run that cannot remove anything (see
+    `snapshot`); held registrations combine it, so one such pass covers all.
+
     Returns human-facing warnings. A 404 is ignored throughout so a newly
     released wizard stays compatible with an older or self-hosted backend during
     rollout.
     """
     if _held is not None:
-        _held.append(((*alongside, (caps, complete)), settings))
+        _held.append(((*alongside, (caps, complete)), settings, reports_removals))
         return []
     settings = settings or resolve()
     if not settings.token:
         return []
 
     warnings: list[str] = []
-    state = snapshot(caps, complete=complete, alongside=alongside)
+    state = snapshot(
+        caps, complete=complete, alongside=alongside, reports_removals=reports_removals
+    )
     try:
         with Client(
             base_url=settings.base_url,

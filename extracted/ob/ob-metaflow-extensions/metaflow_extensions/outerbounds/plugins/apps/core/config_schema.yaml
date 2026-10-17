@@ -302,6 +302,11 @@ properties:
     default: false
     mutation_behavior: union
     cli_option: --force-upgrade
+  suspend:
+    description: Suspend the app when true; resume it when false. Defaults to false.
+    type: boolean
+    default: false
+    mutation_behavior: union
   skip_code_package:
     description: |-
       When True, skip code packaging and rely on the container's embedded source code. When running the deployer programmatically, If this field is set, then the user cannot pass `code_package` parameter to the AppDeployer

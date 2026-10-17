@@ -248,7 +248,7 @@ def _populated(client, app, *, spans: int = 3):
         "version": 3,
         "updated_at": "2026-08-18T04:00:00Z",
         "updated_by": "user:11111111-1111-1111-1111-111111111111",
-        "remaining_chars": 99_950,
+        "remaining_chars": 149_950,
     }
     # A captured coding-agent session with all three reads present, keyed by
     # (id, source) on the transcript because `source` is part of the document's

@@ -24,9 +24,7 @@ def test_messages_with_raw_response_sync(stream: bool):
 
     mock_session = mock.MagicMock()
     ls_client = langsmith.Client(session=mock_session)
-    patched_client = wrap_anthropic(
-        anthropic.Anthropic(), tracing_extra={"client": ls_client}
-    )
+    patched_client = wrap_anthropic(anthropic.Anthropic(), tracing_extra={"client": ls_client})
     messages = [{"role": "user", "content": "Say 'foo'"}]
 
     collect = Collector()
@@ -42,10 +40,7 @@ def test_messages_with_raw_response_sync(stream: bool):
 
         # Verify we can access headers
         assert raw_response.headers is not None
-        assert (
-            "content-type" in raw_response.headers
-            or "Content-Type" in raw_response.headers
-        )
+        assert "content-type" in raw_response.headers or "Content-Type" in raw_response.headers
 
         # Verify we can parse the response
         message = raw_response.parse()
@@ -64,9 +59,7 @@ async def test_messages_with_raw_response_async(stream: bool):
 
     mock_session = mock.MagicMock()
     ls_client = langsmith.Client(session=mock_session)
-    patched_client = wrap_anthropic(
-        anthropic.AsyncAnthropic(), tracing_extra={"client": ls_client}
-    )
+    patched_client = wrap_anthropic(anthropic.AsyncAnthropic(), tracing_extra={"client": ls_client})
     messages = [{"role": "user", "content": "Say 'foo'"}]
 
     collect = Collector()
@@ -82,10 +75,7 @@ async def test_messages_with_raw_response_async(stream: bool):
 
         # Verify we can access headers
         assert raw_response.headers is not None
-        assert (
-            "content-type" in raw_response.headers
-            or "Content-Type" in raw_response.headers
-        )
+        assert "content-type" in raw_response.headers or "Content-Type" in raw_response.headers
 
         # Verify we can parse the response
         message = raw_response.parse()

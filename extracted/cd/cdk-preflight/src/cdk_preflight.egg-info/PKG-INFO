@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-preflight
-Version: 1.5.0
+Version: 1.7.0
 Summary: Catch deploy-time CloudFormation failures at synth time: a Rego rule pack for constraints that resource schemas miss, injected into the AWS CDK built-in validator
 Home-page: https://github.com/badmintoncryer/cdk-preflight.git
 Author: Kazuho CryerShinozuka<malaysia.cryer@gmail.com>
@@ -34,7 +34,7 @@ Requires-Dist: publication>=0.0.3
   <a href="https://github.com/badmintoncryer/cdk-preflight/actions/workflows/monthly-verify.yml"><img src="https://github.com/badmintoncryer/cdk-preflight/actions/workflows/monthly-verify.yml/badge.svg" alt="monthly real-deploy verification"></a>
   <a href="https://www.npmjs.com/package/cdk-preflight"><img src="https://img.shields.io/npm/v/cdk-preflight.svg" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/cdk-preflight"><img src="https://img.shields.io/npm/dt/cdk-preflight.svg" alt="npm total downloads"></a>
-  <a href="docs/rules.md"><img src="https://img.shields.io/badge/rules-3226-blue" alt="3226 bundled rules"></a>
+  <a href="docs/rules.md"><img src="https://img.shields.io/badge/rules-3230-blue" alt="3230 bundled rules"></a>
 </p>
 
 Some CloudFormation constraints are not expressed in resource provider schemas — they live only in documentation, in service API validation, or across multiple properties. Templates that violate them pass `cdk synth`, pass CloudFormation pre-deployment validation, and then fail minutes into a deployment, burning a rollback cycle.
@@ -200,7 +200,8 @@ Preflight.apply(app, { checkQuotas: true });
   different account than the stack's, the check is skipped with a `pf-quota-check-skipped` warning and synth goes on.
 * **Permissions:** `servicequotas:GetServiceQuota`, `servicequotas:GetAWSDefaultServiceQuota`, `ec2:DescribeVpcs`,
   `ec2:DescribeInternetGateways`, `ec2:DescribeAddresses`, `lambda:GetAccountSettings`, `cloudformation:GetTemplate`,
-  `cloudformation:DescribeStackResource`, `sts:GetCallerIdentity`. All read-only.
+  `cloudformation:DescribeStackResource`. All read-only (`ReadOnlyAccess` covers them). The check also calls
+  `sts:GetCallerIdentity`, which IAM never denies.
 * **Results are cached** in `cdk.out/.cdk-preflight/quota-cache.json`: usage and deployed templates for
   `quotaCacheTtl` (5 minutes), quota values for 24 hours. Delete the file to force a refetch.
 * Usage can change between synth and deploy (another team deploying to the same account), so a clean check is not a
@@ -220,14 +221,14 @@ Resource names are relative to `AWS::<Service>::`; the number in parentheses is 
 | Service | Resource types |
 |---|---|
 | **(any resource type)** | `*` (14) |
-| **ApiGateway** | `ApiKey` (1), `Authorizer` (5), `Deployment` (1), `DocumentationPart` (1), `DomainName` (4), `GatewayResponse` (1), `Method` (14), `Model` (3), `Resource` (1), `RestApi` (4), `Stage` (9), `UsagePlan` (5), `VpcLink` (1) |
+| **ApiGateway** | `ApiKey` (1), `Authorizer` (5), `Deployment` (1), `DocumentationPart` (1), `DomainName` (4), `GatewayResponse` (1), `Method` (14), `Model` (3), `Resource` (1), `RestApi` (5), `Stage` (9), `UsagePlan` (5), `VpcLink` (1) |
 | **ApiGatewayV2** | `Api` (5), `Authorizer` (11), `DomainName` (3), `Integration` (15), `IntegrationResponse` (1), `Model` (2), `Route` (6), `RouteResponse` (2), `Stage` (4), `VpcLink` (1) |
 | **ApplicationAutoScaling** | `ScalableTarget` (19), `ScalingPolicy` (30) |
 | **AppSync** | `Api` (7), `ApiCache` (4), `ApiKey` (2), `ChannelNamespace` (5), `DataSource` (15), `DomainName` (1), `FunctionConfiguration` (24), `GraphQLApi` (16), `GraphQLSchema` (12), `Resolver` (32), `SourceApiAssociation` (3) |
 | **APS** | `AnomalyDetector` (9), `ResourcePolicy` (5), `RuleGroupsNamespace` (10), `Workspace` (12) |
 | **Athena** | `DataCatalog` (6), `WorkGroup` (8) |
 | **AutoScaling** | `AutoScalingGroup` (38), `LifecycleHook` (8), `ScalingPolicy` (41), `ScheduledAction` (13), `WarmPool` (4) |
-| **Backup** | `BackupPlan` (12), `BackupSelection` (4), `BackupVault` (3), `Framework` (3), `LogicallyAirGappedBackupVault` (2), `ReportPlan` (2), `RestoreTestingPlan` (5), `RestoreTestingSelection` (3) |
+| **Backup** | `BackupPlan` (12), `BackupSelection` (5), `BackupVault` (3), `Framework` (3), `LogicallyAirGappedBackupVault` (2), `ReportPlan` (2), `RestoreTestingPlan` (5), `RestoreTestingSelection` (3) |
 | **Batch** | `ComputeEnvironment` (40), `ConsumableResource` (2), `JobDefinition` (109), `JobQueue` (18), `SchedulingPolicy` (8), `ServiceEnvironment` (6) |
 | **Bedrock** | `ApplicationInferenceProfile` (2), `AutomatedReasoningPolicy` (3), `Blueprint` (3), `DataAutomationProject` (8), `DataSource` (12), `Flow` (14), `Guardrail` (19), `IntelligentPromptRouter` (5), `KnowledgeBase` (18), `Prompt` (4) |
 | **BedrockAgentCore** | `ApiKeyCredentialProvider` (1), `BrowserCustom` (1), `CodeInterpreterCustom` (1), `ConfigurationBundle` (3), `Dataset` (3), `Evaluator` (4), `Gateway` (5), `GatewayRule` (3), `GatewayTarget` (9), `Harness` (2), `HarnessEndpoint` (2), `Memory` (6), `OAuth2CredentialProvider` (3), `OnlineEvaluationConfig` (3), `PaymentCredentialProvider` (1), `PaymentManager` (1), `Policy` (3), `ResourcePolicy` (1), `Runtime` (8), `RuntimeEndpoint` (1) |
@@ -248,7 +249,7 @@ Resource names are relative to `AWS::<Service>::`; the number in parentheses is 
 | **DynamoDB** | `GlobalTable` (25), `Table` (28) |
 | **EC2** | `ClientVpnAuthorizationRule` (1), `ClientVpnEndpoint` (6), `DHCPOptions` (2), `EIPAssociation` (1), `FlowLog` (4), `Instance` (10), `KeyPair` (1), `LaunchTemplate` (12), `NatGateway` (2), `NetworkAclEntry` (1), `NetworkInterface` (2), `PlacementGroup` (3), `PrefixList` (3), `Route` (1), `SecurityGroup` (7), `SecurityGroupEgress` (5), `SecurityGroupIngress` (5), `Subnet` (14), `TrafficMirrorTarget` (1), `TransitGateway` (2), `TransitGatewayRoute` (1), `Volume` (6), `VPC` (2), `VPCCidrBlock` (1), `VPCEndpoint` (4), `VPCGatewayAttachment` (1), `VPNConnection` (5) |
 | **ECR** | `PullThroughCacheRule` (3), `RegistryScanningConfiguration` (1), `ReplicationConfiguration` (1), `Repository` (7), `RepositoryCreationTemplate` (8), `SigningConfiguration` (1) |
-| **ECS** | `CapacityProvider` (3), `Cluster` (5), `Service` (37), `TaskDefinition` (65), `TaskSet` (2) |
+| **ECS** | `CapacityProvider` (3), `Cluster` (5), `Service` (37), `TaskDefinition` (66), `TaskSet` (2) |
 | **EFS** | `AccessPoint` (1), `FileSystem` (7), `MountTarget` (4) |
 | **EKS** | `AccessEntry` (14), `Addon` (5), `Cluster` (21), `FargateProfile` (5), `IdentityProviderConfig` (3), `Nodegroup` (21), `PodIdentityAssociation` (5) |
 | **ElastiCache** | `CacheCluster` (9), `ReplicationGroup` (14), `User` (2), `UserGroup` (1) |
@@ -259,7 +260,7 @@ Resource names are relative to `AWS::<Service>::`; the number in parentheses is 
 | **GlobalAccelerator** | `Accelerator` (1), `EndpointGroup` (5), `Listener` (2) |
 | **Glue** | `Classifier` (6), `Connection` (5), `Crawler` (11), `CustomEntityType` (1), `Database` (1), `DataQualityRuleset` (1), `Job` (15), `MLTransform` (4), `Partition` (1), `Schema` (3), `SecurityConfiguration` (1), `Table` (1), `Trigger` (10), `UserDefinedFunction` (2), `Workflow` (1) |
 | **Grafana** | `Workspace` (7) |
-| **IAM** | `Group` (23), `GroupPolicy` (1), `InstanceProfile` (2), `ManagedPolicy` (31), `OIDCProvider` (2), `Policy` (29), `Role` (42), `RolePolicy` (1), `ServiceLinkedRole` (1), `User` (24), `UserPolicy` (1) |
+| **IAM** | `Group` (23), `GroupPolicy` (1), `InstanceProfile` (2), `ManagedPolicy` (31), `OIDCProvider` (2), `Policy` (29), `Role` (44), `RolePolicy` (1), `ServiceLinkedRole` (1), `User` (24), `UserPolicy` (1) |
 | **IoT** | `Authorizer` (3), `Certificate` (1), `CertificateProvider` (1), `Command` (1), `DomainConfiguration` (3), `JobTemplate` (3), `MitigationAction` (1), `Policy` (4), `PolicyPrincipalAttachment` (1), `ProvisioningTemplate` (3), `RoleAlias` (1), `ScheduledAudit` (1), `Thing` (1), `ThingGroup` (2), `TopicRule` (5), `TopicRuleDestination` (2) |
 | **Kinesis** | `ResourcePolicy` (4), `Stream` (5), `StreamConsumer` (2) |
 | **KinesisAnalyticsV2** | `Application` (20), `ApplicationCloudWatchLoggingOption` (1), `ApplicationOutput` (1), `ApplicationReferenceDataSource` (1) |
@@ -284,7 +285,7 @@ Resource names are relative to `AWS::<Service>::`; the number in parentheses is 
 | **Route53Resolver** | `FirewallDomainList` (3), `FirewallRuleGroup` (18), `FirewallRuleGroupAssociation` (4), `ResolverDNSSECConfig` (1), `ResolverEndpoint` (18), `ResolverQueryLoggingConfig` (1), `ResolverQueryLoggingConfigAssociation` (1), `ResolverRule` (15), `ResolverRuleAssociation` (1) |
 | **S3** | `AccessPoint` (1), `Bucket` (54), `BucketPolicy` (4), `StorageLens` (5), `StorageLensGroup` (3) |
 | **S3Express** | `AccessPoint` (3), `DirectoryBucket` (11) |
-| **Scheduler** | `Schedule` (10), `ScheduleGroup` (1) |
+| **Scheduler** | `Schedule` (12), `ScheduleGroup` (1) |
 | **SecretsManager** | `RotationSchedule` (4), `Secret` (5), `SecretTargetAttachment` (1) |
 | **ServiceDiscovery** | `HttpNamespace` (3), `Instance` (19), `PrivateDnsNamespace` (4), `PublicDnsNamespace` (4), `Service` (13) |
 | **SES** | `ConfigurationSetEventDestination` (8), `ContactList` (1), `EmailIdentity` (6), `ReceiptRule` (6), `ReceiptRuleSet` (1), `Template` (1) |

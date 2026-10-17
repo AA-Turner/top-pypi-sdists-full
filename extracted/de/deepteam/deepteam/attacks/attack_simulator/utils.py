@@ -8,12 +8,15 @@ from contextvars import ContextVar
 from contextlib import contextmanager
 from deepeval.metrics.utils import trimAndLoadJson, initialize_model
 from deepeval.models import DeepEvalBaseLLM
-from deepteam.attacks.single_turn.escalation_constants import (
-    append_critic_feedback,
-    random_escalation_suffix,
-)
 
-MAX_RETRIES = os.getenv("DEEPTEAM_MAX_RETRIES", 3)
+def _max_retries() -> int:
+    max_retries = os.getenv("DEEPTEAM_MAX_RETRIES")
+    if max_retries is None:
+        return 3
+    try:
+        return max(1, int(max_retries))
+    except ValueError:
+        return 3
 
 
 def add_cost(*costs):
@@ -58,6 +61,11 @@ def cost_accumulator():
         _cost_acc.reset(token)
 
 
+def current_simulation_cost():
+    acc = _cost_acc.get()
+    return acc[0] if acc is not None else None
+
+
 def generate_with_cost(
     prompt: str,
     schema: BaseModel,
@@ -79,8 +87,9 @@ def generate_with_cost(
     _, using_native_model = initialize_model(model=model)
     last_error = None
     retry_prompt = prompt
+    max_retries = _max_retries()
 
-    for attempt in range(MAX_RETRIES):
+    for attempt in range(max_retries):
         try:
             if using_native_model:
                 res, cost = model.generate(prompt=retry_prompt, schema=schema)
@@ -120,7 +129,12 @@ def generate_with_cost(
 
         except Exception as e:
             last_error = e
-            if attempt < MAX_RETRIES - 1:
+            if attempt < max_retries - 1:
+                from deepteam.attacks.single_turn.escalation_constants import (
+                    append_critic_feedback,
+                    random_escalation_suffix,
+                )
+
                 escalated_prompt = (
                     f"{random_escalation_suffix(attempt)} \n\n {prompt}"
                 )
@@ -132,7 +146,7 @@ def generate_with_cost(
                 time.sleep(sleep_time)
 
     raise RuntimeError(
-        f"Failed to generate after {MAX_RETRIES} attempts. Last error: {last_error}"
+        f"Failed to generate after {max_retries} attempts. Last error: {last_error}"
     )
 
 
@@ -171,8 +185,9 @@ async def a_generate_with_cost(
     _, using_native_model = initialize_model(model=model)
     last_error = None
     retry_prompt = prompt
+    max_retries = _max_retries()
 
-    for attempt in range(MAX_RETRIES):
+    for attempt in range(max_retries):
         try:
             if using_native_model:
                 res, cost = await model.a_generate(
@@ -216,7 +231,12 @@ async def a_generate_with_cost(
 
         except Exception as e:
             last_error = e
-            if attempt < MAX_RETRIES - 1:
+            if attempt < max_retries - 1:
+                from deepteam.attacks.single_turn.escalation_constants import (
+                    append_critic_feedback,
+                    random_escalation_suffix,
+                )
+
                 escalated_prompt = (
                     f"{random_escalation_suffix(attempt)} \n\n {prompt}"
                 )
@@ -228,7 +248,7 @@ async def a_generate_with_cost(
                 await asyncio.sleep(sleep_time)
 
     raise RuntimeError(
-        f"Failed to async generate after {MAX_RETRIES} attempts. Last error: {last_error}"
+        f"Failed to async generate after {max_retries} attempts. Last error: {last_error}"
     )
 
 

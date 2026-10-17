@@ -190,6 +190,7 @@ from istari_digital_client.legacy.v2.models.oidc_config_health_check_request imp
 from istari_digital_client.legacy.v2.models.oidc_provider_data import OidcProviderData
 from istari_digital_client.legacy.v2.models.open_change_request_response import OpenChangeRequestResponse
 from istari_digital_client.legacy.v2.models.operating_system import OperatingSystem
+from istari_digital_client.legacy.v2.models.optional_total_page_job import OptionalTotalPageJob
 from istari_digital_client.legacy.v2.models.optional_total_page_system import OptionalTotalPageSystem
 from istari_digital_client.legacy.v2.models.output_schema import OutputSchema
 from istari_digital_client.legacy.v2.models.output_type import OutputType

@@ -3,13 +3,11 @@
     prepare   decode -> resolve -> normalize -> preflight     (nothing is admitted yet)
     invoke    hydrate -> inject -> call -> validate -> finalize
 
-The split is the seam a PLAN is chosen across. A serving attempt prepares BEFORE the
-worker admits it, so the normalized features and the preflight digests the planner
-prices against are the exact ones the handler then runs on; a job prepares inside its own
-accepted attempt, because a job has no ladder to price (cr-009). Both call these two
-functions, in this order, and neither resolves a request twice.
+The split is the seam a PLAN is chosen across. An attempt prepares BEFORE the worker
+admits it, so the normalized features and the preflight digests the planner prices
+against are the exact ones the handler then runs on, and no request resolves twice.
 
-Every door runs this. `run`, `job` and a socket-served attempt are user experiences over
+Every door runs this. `run` and a socket-served attempt are user experiences over
 these functions, never second execution implementations (§8) — and the per-service fakes are
 capability adapters over THIS kernel, never a parallel behavioral runtime (§1.6). Where the
 worker/executor process boundary, process records and device leases go is cr-008a's;
@@ -23,8 +21,9 @@ environment, protocol or network), so it lives beside the types it enforces and
 from __future__ import annotations
 
 import asyncio
+import functools
 import hashlib
-from collections.abc import Callable, Coroutine, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass, field, is_dataclass
 from pathlib import Path
@@ -32,7 +31,7 @@ from typing import TYPE_CHECKING, Any, get_args, get_type_hints
 
 import msgspec
 
-from cozy_runtime.author._activity import asides
+from cozy_runtime.author._activity import asides, event_loop, observing
 from cozy_runtime.author._app import Registration
 from cozy_runtime.author._artifacts import ModelArtifact
 from cozy_runtime.author._assets import (
@@ -65,29 +64,22 @@ from cozy_runtime.author._executor_requests import Publish, Published
 from cozy_runtime.author._markers import AssetBound
 from cozy_runtime.author._media import KIND_MEDIA, admits
 from cozy_runtime.author._model import Model
-from cozy_runtime.author._model_reader import ReadValues, WeightsReader
 from cozy_runtime.author._observations import Observation, Track
 from cozy_runtime.author._services import (
     MAX_OUTPUT_BYTES,
     AdjustmentRow,
     Adjustments,
     Attempt,
-    Budget,
-    BudgetFacts,
-    CheckpointDeclaration,
-    Checkpoints,
-    CheckpointSave,
     Egress,
     Outputs,
     ProgressFrame,
-    Scratch,
     Secrets,
     Settings,
     Telemetry,
 )
 from cozy_runtime.author._signature import Param, Surface
 from cozy_runtime.author._walker import field_values, strip, unwrap_optional, walk
-from cozy_runtime.author.publication import upload_checkpoint
+from cozy_runtime.author._weights import ReadValues, Weights
 
 if TYPE_CHECKING:
     from tensorfs.derived import Derivation, DerivedTransaction, SourceCapability
@@ -114,7 +106,7 @@ class Invocation:
 
     A `Tree` field naming a ref absent from this mapping never hydrates and refuses typed:
     the grant IS the read capability, and there is no ambient store handle anywhere on the
-    author surface for a job to reach around it (§2, jobs.md §1).
+    author surface to reach around it (§2).
     """
     assets: Mapping[str, GrantedInput] = field(default_factory=dict)
     """input_id -> the verified, spooled input asset (cr-012). The worker fetched it
@@ -126,15 +118,8 @@ class Invocation:
     """An explicit deployment ceiling narrows every field's own `AssetBound`.
     None honors each installed field's declared bound, with 64 MiB for fields that
     declare none. A larger field never widens an undeclared sibling's allowance."""
-    scratch: Path | None = None
-    """The RUN's scratch tree — the same directory across attempts of one run, which is what
-    makes `Scratch.checkpoint_dir(key=)` resumable rather than merely named (§2)."""
-    checkpoints: Callable[[CheckpointSave], CheckpointDeclaration] | None = None
-    """The checkpoint DECLARATION exchange. Distinct from the lossy progress lane on
-    purpose: the lossy lane has no authority over a recorded fact. It carries no bytes —
-    see `Checkpoints` (#553a)."""
-    budget: BudgetFacts | None = None
-    """Cost-governor facts from the typed config channel. Never read from environment."""
+    sources: Mapping[str, Weights[Any]] = field(default_factory=dict)
+    """`Weights[M]` parameter -> its raw checkpoint, read through this attempt's source."""
     weights_values: ReadValues | None = None
     tensorfs_source: Callable[[str], SourceCapability] | None = None
     tensorfs_output: Callable[[str, Derivation], DerivedTransaction] | None = None
@@ -145,8 +130,6 @@ class Invocation:
     observations alike. Best-effort, never authoritative."""
     activity: Callable[[int, bool, bool, bool], None] | None = None
     calls: _Broker | None = None
-    publish_to: str = ""
-    """The repository the owner granted this root: each Model it returns is uploaded there."""
     publish: Callable[[Publish], Published] | None = None
     """`Outputs.publish`'s exchange with the machine, which journals the run's output log."""
 
@@ -272,20 +255,23 @@ def _bind_tensorfs(
         record.check_open("Context TensorFS capability")
         ctx.raise_if_cancelled()
 
-    def source(model: Model[object]) -> SourceCapability:
+    def source(weights: Weights[Any]) -> SourceCapability:
         current()
         if source_reader is None or not any(
-            model is candidate for candidate in inv.models.values()
+            weights is candidate for candidate in inv.sources.values()
         ):
             raise CapabilityError(
-                "source is not an admitted model input", code="weights_source_ungranted"
+                "source is not an admitted Weights input", code="weights_source_ungranted"
             )
-        capability = source_reader(model.checkpoint_ref)
+        capability = source_reader(weights.checkpoint_ref)
         handles.callback(capability.close)
 
         def inspect(components: Sequence[str], configs: Sequence[str]) -> Any:
             current()
-            return capability.inspect(components=components, configs=configs)
+            try:
+                return capability.inspect(components=components, configs=configs)
+            finally:
+                current()
 
         def read_part(component: str, key: str, role: str, offset: int, into: object) -> None:
             current()
@@ -331,6 +317,9 @@ def _bind_tensorfs(
         return receipt_adopter(receipt)
 
     ctx._tensorfs_source, ctx._tensorfs_output, ctx._tensorfs_adopt = source, output, adopt
+    for weights in inv.sources.values():
+        weights._bind(functools.partial(source, weights), inv.weights_values)
+        handles.callback(weights._bind, None, None)
 
 
 def invoke(prepared: PreparedRequest, inv: Invocation, record: Attempt) -> InvocationResult:
@@ -364,7 +353,7 @@ def invoke(prepared: PreparedRequest, inv: Invocation, record: Attempt) -> Invoc
         inv.calls.bind(ctx, Telemetry(record, ctx))
     token = _current.set(inv.calls)
     try:
-        result = _call(surface, kwargs, inv.publish_to, inv.activity)
+        result = _call(surface, kwargs, inv.activity)
         if inv.calls is not None:
             inv.calls.finish()
     finally:
@@ -438,12 +427,7 @@ def run_prepared(
 def attempt(
     registration: Registration, wire: Mapping[str, object], inv: Invocation
 ) -> tuple[InvocationResult | None, Outcome, Attempt]:
-    """PREPARE then RUN, for the door that does both at once — a job.
-
-    A serving attempt prepares BEFORE the worker admits it, which is the whole point of
-    the split; a job is accept-then-prepare by design (cr-009) and has nothing to price a
-    ladder against. Both call the same two functions, in the same order.
-    """
+    """PREPARE then RUN, for a caller with no plan to price between them (a test or tool)."""
     try:
         prepared = prepare(
             registration,
@@ -608,7 +592,7 @@ def declares_assets(tp: object) -> bool:
 
 
 def declares_trees(tp: object) -> bool:
-    """The same fact for input TREES — a job's typed model/dataset/checkpoint inputs."""
+    """The same fact for input TREES: typed model, dataset and checkpoint inputs."""
     return _declares(tp, Tree)
 
 
@@ -630,7 +614,7 @@ def _materialize_trees(payload: object, inv: Invocation) -> None:
     """Bind every declared input tree to the root the GRANT materialized for it (§2).
 
     An ungranted ref is a typed refusal here rather than a `FileNotFoundError` deep in the
-    body: a job that names a read it was never granted must not reach the filesystem at all.
+    body: a function that names a read it was never granted must not reach the filesystem.
     """
     if not declares_trees(type(payload)):
         return
@@ -640,7 +624,7 @@ def _materialize_trees(payload: object, inv: Invocation) -> None:
             raise InvalidRequest(
                 f"input tree {tree.ref!r} is not granted to this attempt: this run "
                 f"materialized {sorted(inv.trees) or 'no trees'}. A tree is a digest-verified "
-                "READ CAPABILITY minted by the RecordOwner, never a path a job may name",
+                "READ CAPABILITY minted by the RecordOwner, never a path a function may name",
                 code="tree_ungranted",
             )
         root, digest = granted
@@ -899,7 +883,7 @@ def _inject(
             kwargs[param.name] = getattr(overlay.payload, param.name)
         elif param.role == "preflight":
             kwargs[param.name] = facts
-        elif param.role == "model":
+        elif param.role in ("model", "weights"):
             model = _model(param, inv)
             artifact = getattr(overlay.payload, param.name, None) if surface.invocable else None
             if artifact is not None and (
@@ -925,11 +909,11 @@ def _inject(
 
 
 def _model(param: Param, inv: Invocation) -> object:
-    model = inv.models.get(param.name)
+    model = (inv.sources if param.role == "weights" else inv.models).get(param.name)
     if model is None:
         raise InvalidRequest(
-            f"no model bound for parameter {param.name!r}: bindings state selection "
-            "(package.toml / the deployment binding), code states capability",
+            f"no model bound for parameter {param.name!r}: the run names none and the slot "
+            "declares no default",
             code="unbound_model",
             fields=[param.name],
         )
@@ -952,16 +936,6 @@ def _service(
             return Settings(_settings_value(param.arg, inv.settings, "settings"))
         case "secrets":
             return Secrets(_settings_value(param.arg, inv.secrets, "secrets"))
-        case "scratch":
-            return Scratch(attempt, inv.scratch)
-        case "checkpoints":
-            return Checkpoints(attempt, inv.checkpoints)
-        case "budget":
-            return Budget(attempt, inv.budget)
-        case "weights_read":
-            return WeightsReader(
-                attempt, inv.models, ctx.tensorfs_source, inv.cancel, inv.weights_values
-            )
     raise ConformanceError(f"no injector for capability {param.capability!r}")
 
 
@@ -985,7 +959,6 @@ def _settings_value(schema: object, value: object, what: str) -> Any:
 def _call(
     surface: Surface,
     kwargs: Mapping[str, object],
-    publish_to: str = "",
     activity_sink: Callable[[int, bool, bool, bool], None] | None = None,
 ) -> object:
     """`def` runs right here on the calling (executor) thread; `async def` runs on a
@@ -993,21 +966,15 @@ def _call(
 
     `await` interleaves I/O within one attempt and never admits a second — this function
     is synchronous, so law 8's one-active-GPU-attempt rule is unchanged by the spelling.
-    A granted destination receives the returned Models before the attempt closes.
     """
-    from cozy_runtime.author._activity import event_loop, observing
-
     with observing(activity_sink):
-        if not surface.is_async and not publish_to:
+        if not surface.is_async:
             return surface.fn(**kwargs)
         loop = event_loop()
         try:
-            if surface.is_async:
-                coroutine = surface.fn(**kwargs)
-                assert asyncio.iscoroutine(coroutine)
-            else:
-                coroutine = _returned(surface.fn(**kwargs))
-            return loop.run_until_complete(_published(coroutine, publish_to))
+            coroutine = surface.fn(**kwargs)
+            assert asyncio.iscoroutine(coroutine)
+            return loop.run_until_complete(coroutine)
         finally:
             if (broker := _current.get()) is not None:
                 broker.closed = True
@@ -1019,35 +986,7 @@ def _call(
             loop.close()
 
 
-async def _returned(value: object) -> object:
-    return value
-
-
-async def _published(coroutine: Coroutine[Any, Any, object], destination: str) -> object:
-    """Upload each distinct Model the root returned, in result order, then return it."""
-    result = await coroutine
-    if destination:
-        for model in dict.fromkeys(models_in(result)):
-            await upload_checkpoint(model, destination=destination)
-    return result
-
-
 # ------------------------------------------------------------------------- result
-
-
-def models_in(value: object, _seen: set[int] | None = None) -> list[ModelArtifact]:
-    """Every Model reachable from a value, in declaration order."""
-    seen = _seen if _seen is not None else set()
-    if isinstance(value, ModelArtifact):
-        return [value]
-    if id(value) in seen:
-        return []
-    seen.add(id(value))
-    if isinstance(value, (list, tuple, set, frozenset)):
-        return [m for item in value for m in models_in(item, seen)]
-    if isinstance(value, dict):
-        return [m for item in value.values() for m in models_in(item, seen)]
-    return [m for member in field_values(value).values() for m in models_in(member, seen)]
 
 
 def assets_in(value: object, _seen: set[int] | None = None) -> list[Asset]:

@@ -21,11 +21,11 @@ class TestBatch:
     @parametrize
     def test_method_create(self, client: OursPrivacy) -> None:
         batch = client.batch.create(
-            token="x",
+            token="P",
             events=[
                 {
-                    "distinct_id": "x",
-                    "event": "x",
+                    "distinct_id": "P",
+                    "event": "P",
                 }
             ],
         )
@@ -35,11 +35,11 @@ class TestBatch:
     @parametrize
     def test_raw_response_create(self, client: OursPrivacy) -> None:
         response = client.batch.with_raw_response.create(
-            token="x",
+            token="P",
             events=[
                 {
-                    "distinct_id": "x",
-                    "event": "x",
+                    "distinct_id": "P",
+                    "event": "P",
                 }
             ],
         )
@@ -53,11 +53,11 @@ class TestBatch:
     @parametrize
     def test_streaming_response_create(self, client: OursPrivacy) -> None:
         with client.batch.with_streaming_response.create(
-            token="x",
+            token="P",
             events=[
                 {
-                    "distinct_id": "x",
-                    "event": "x",
+                    "distinct_id": "P",
+                    "event": "P",
                 }
             ],
         ) as response:
@@ -79,11 +79,11 @@ class TestAsyncBatch:
     @parametrize
     async def test_method_create(self, async_client: AsyncOursPrivacy) -> None:
         batch = await async_client.batch.create(
-            token="x",
+            token="P",
             events=[
                 {
-                    "distinct_id": "x",
-                    "event": "x",
+                    "distinct_id": "P",
+                    "event": "P",
                 }
             ],
         )
@@ -93,11 +93,11 @@ class TestAsyncBatch:
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncOursPrivacy) -> None:
         response = await async_client.batch.with_raw_response.create(
-            token="x",
+            token="P",
             events=[
                 {
-                    "distinct_id": "x",
-                    "event": "x",
+                    "distinct_id": "P",
+                    "event": "P",
                 }
             ],
         )
@@ -111,11 +111,11 @@ class TestAsyncBatch:
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncOursPrivacy) -> None:
         async with async_client.batch.with_streaming_response.create(
-            token="x",
+            token="P",
             events=[
                 {
-                    "distinct_id": "x",
-                    "event": "x",
+                    "distinct_id": "P",
+                    "event": "P",
                 }
             ],
         ) as response:

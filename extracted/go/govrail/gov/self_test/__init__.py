@@ -297,6 +297,65 @@ def _watchdog_env_marked() -> bool:
 
 
 
+def _classify_project_failure(p: Path, probed: dict[str, list[str]]) -> list[str]:
+    """#421: a project case that fails on its RESTORE/CLEAN leg may be
+    asserting against a non-green baseline — on a fresh checkout the
+    declared gate is already red because the project's materialization
+    step never ran, and the case's failure message reads as a case or
+    gate defect. Re-run the DECLARED gate once against the untouched
+    tree (after the cases finish; their traps restore the mutations):
+    red baseline → the failure is classified environment-suspect with
+    the fix named. `probed` memoizes per gate id — several failing
+    cases may declare the same gate, and the tree does not change
+    between probes. Green (or an unknown gate / config error) classifies
+    nothing: the generic hand-repro hint stands."""
+    try:
+        declared = _harness_gate_rx().findall("\n".join(
+            p.read_text(encoding="utf-8", errors="replace").splitlines()[:5]))
+    except OSError:
+        return []
+    if not declared:
+        return []
+    gid = declared[0]
+    if gid not in probed:
+        probed[gid] = []
+        # In-process on purpose: a subprocess would resolve whatever
+        # `gov` sits on the path (a pinned, older copy) and inherit the
+        # seal precheck's refusals — neither belongs in a probe whose
+        # only question is "is this gate red on the untouched tree".
+        try:
+            try:
+                from .. import gates as gates_mod
+            except ImportError:  # direct-script execution (scratch)
+                import gates as gates_mod
+            import contextlib
+            import io as _io
+            _modes, all_gates, concurrency, _dm = gates_mod.load_config(
+                "gates.json")
+            gate = next((g for g in all_gates if g.id == gid), None)
+            if gate is not None and gate.enabled:
+                buf = _io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    rc = gates_mod.run_gates([gate], [gid],
+                                             concurrency or 1, False)
+                probed[gid] = (
+                    [f"    baseline probe: gate '{gid}' is already red "
+                     "on the untouched tree — environment-suspect: this "
+                     "case's restore leg asserts against a non-green "
+                     "baseline; fix the baseline first (on a fresh "
+                     "checkout this is usually the project's "
+                     "materialization step, e.g. a sync/vendor script)"]
+                    if rc == 1 else [])
+        except Exception:  # noqa: BLE001 — a probe that cannot run classifies nothing
+            probed[gid] = []
+    return probed[gid]
+
+
+def _harness_gate_rx():
+    from ._harness import GATE_RX
+    return GATE_RX
+
+
 def main(argv: list[str] | None = None) -> int:
     try:
         from ..root import anchor_to_git_root
@@ -328,18 +387,34 @@ def main(argv: list[str] | None = None) -> int:
                              "per-gate case list and the case-authoring "
                              "remedy (the default reports coverage counts "
                              "only, #337)")
-    parser.add_argument("--case", metavar="NAME",
-                        help="run one tools-family case by name and exit — "
-                             "the diagnostic building block of the clean-env "
-                             "replay (#139); implies --scope tools")
+    parser.add_argument("--case", metavar="NAME_OR_PATH",
+                        help="run ONE case and exit: a tools-family case "
+                             "by name, or a project case by path "
+                             "(.gov/rejections/case-foo.sh — #445-1: the "
+                             "single-flaky-case fix loop); implies "
+                             "--scope tools")
     args = parser.parse_args(argv)
 
     if args.case:
+        _scrub_environment()
+        # #445-1: a project case is named by its PATH (.gov/rejections/…)
+        # — the fix-loop for one flaky case re-runs it 30 times without
+        # paying the suite. Tools-family cases keep the by-name form.
+        candidate = Path(args.case)
+        if "/" in args.case or "\\" in args.case \
+                or candidate.suffix in (".sh", ".bash", ".py"):
+            if not candidate.is_file():
+                print(f"self-test: no such project case: {args.case}",
+                      file=sys.stderr)
+                return 2
+            line, ok = _run_project_case(candidate)
+            print(line)
+            return 0 if ok else 1
         case = _find_case(args.case)
         if case is None:
-            parser.error(f"unknown case '{args.case}' — not in CASES or the "
-                         "diagnostic probes")
-        _scrub_environment()
+            parser.error(f"unknown case '{args.case}' — not in CASES, the "
+                         "diagnostic probes, or an existing project-case "
+                         "path")
         # --case is the innermost single-case execution (the pool's
         # watchdog forked this very process to reach here): run direct
         line, ok = _run_tool_case_direct(case)
@@ -369,6 +444,7 @@ def main(argv: list[str] | None = None) -> int:
     # under project failures (their scripts may legitimately need this
     # environment; an automatic replay would prove nothing).
     counts = {"tool-defect": 0, "environment-suspect": 0, "unclassified": 0}
+    baseline_probes: dict[str, list[str]] = {}
     for idx, (line, ok) in enumerate(results):
         print(line)
         if ok:
@@ -383,19 +459,51 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     counts["unclassified"] += 1
         else:
-            print("    clean-env comparison not attempted — project cases "
-                  "run arbitrary scripts; reproduce by hand in a minimal "
-                  "environment.")
-            counts["unclassified"] += 1
+            case = project_jobs[idx - len(tool_jobs)]
+            # #429: on Windows a "cannot execute" FAIL is the OS refusing
+            # a shebang script — the environment speaking, not 15 proofs
+            # that never ran being gate defects. Named before the
+            # baseline probe (a gate that cannot exec proves nothing).
+            if os.name == "nt" and "cannot execute" in line:
+                print("    environment-suspect: Windows cannot exec "
+                      "shebang cases directly — export GOV_CASE_BASH to "
+                      "a Git Bash binary (System32's bash.exe is WSL and "
+                      "mangles Windows paths); the case never ran, so "
+                      "this says nothing about the gate")
+                counts["environment-suspect"] += 1
+                continue
+            baseline = _classify_project_failure(case, baseline_probes)
+            if baseline:
+                for verdict in baseline:
+                    print(verdict)
+                    counts["environment-suspect"] += 1
+            else:
+                print("    clean-env comparison not attempted — project "
+                      "cases run arbitrary scripts; reproduce by hand in "
+                      "a minimal environment.")
+                counts["unclassified"] += 1
     _coverage_report(explain=getattr(args, "explain", False))
     tools_n, project_n = len(tool_jobs), len(project_jobs)
     parts = [f"tools {tools_n}" if tools_n else "", f"project {project_n}" if project_n else ""]
     family = " + ".join(p for p in parts if p)
     crash_rc = _fail_if_thread_crashed()
+    skips = sum(1 for line, ok in results if ok and line.startswith("SKIP "))
     if failures or crash_rc:
         if failures:
             tally = ", ".join(f"{k} {v}" for k, v in counts.items())
             print(f"self-test: {len(failures)} failure(s) ({family}) — {tally}")
+            # #409: the failure headline derives from the FAILURE LIST —
+            # it names the failing item, never whichever PASS line
+            # happened to print last (and never a rerun hint pinned to a
+            # test that passed). On stderr, the lane the gate runner's
+            # summary quotes first (D26): the blocking summary of
+            # `gov run --gate self-test` now opens with the real
+            # rejection case instead of burying it mid-output.
+            head = failures[0]
+            if len(failures) > 1:
+                head += f" (+{len(failures) - 1} more)"
+            print(f"self-test: {head}", file=sys.stderr)
         return 1
-    print(f"self-test: {family or 'no cases selected'} — all pass")
+    print(f"self-test: {family or 'no cases selected'} — all pass"
+          + (f" ({skips} skip-loud)" if skips else ""))
     return 0

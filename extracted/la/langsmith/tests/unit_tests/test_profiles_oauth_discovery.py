@@ -24,9 +24,7 @@ def _response(status: int, payload: Optional[Any], *, json_error: bool = False):
     return response
 
 
-def _patch_get(
-    monkeypatch: pytest.MonkeyPatch, handler: Callable[[str], Any]
-) -> list[str]:
+def _patch_get(monkeypatch: pytest.MonkeyPatch, handler: Callable[[str], Any]) -> list[str]:
     """Route requests.get through handler, recording the URLs probed."""
     seen: list[str] = []
 
@@ -151,9 +149,7 @@ def test_rejects_issuer_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_rejects_off_origin_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     def handler(url: str) -> Any:
         if url == f"{BASE}{WELL_KNOWN}":
-            return _response(
-                200, _metadata(BASE, "https://evil.example.com/oauth/token")
-            )
+            return _response(200, _metadata(BASE, "https://evil.example.com/oauth/token"))
         return _response(404, None, json_error=True)
 
     _patch_get(monkeypatch, handler)

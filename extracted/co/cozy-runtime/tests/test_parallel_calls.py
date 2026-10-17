@@ -30,7 +30,7 @@ from cozy_runtime.internal import (  # noqa: E402
 )
 from cozy_runtime.internal.config import seal_snapshot  # noqa: E402
 from cozy_runtime.internal.executor import Executor  # noqa: E402
-from cozy_runtime.internal.executor_commands import Budget, Prefetch  # noqa: E402
+from cozy_runtime.internal.executor_commands import Budget  # noqa: E402
 from cozy_runtime.internal.parallel import cp, mirror, wire  # noqa: E402
 from cozy_runtime.internal.parallel.group import RankGroup  # noqa: E402
 from cozy_runtime.internal.parallel.mirror import mirror_component  # noqa: E402
@@ -108,8 +108,6 @@ def test_leader_calls_real_follower_executors_twice(tmp_path: Path, degree: int,
         pytest.importorskip("diffusers")
     if kind == "h3-lora":
         pytest.importorskip("peft")
-    if kind == "staged" and not plane.available():
-        pytest.skip("a TensorFS with the weight plane")
     fixture = Path(__file__).parent / "testdata" / "parallel_calls.py"
 
     def launch(module_argv: list[str], fd: int) -> spawn.Child:
@@ -417,6 +415,49 @@ def test_a_call_run_again_starts_from_the_state_it_found(tmp_path: Path) -> None
     assert not torch.distributed.is_initialized()
 
 
+def test_a_call_that_fails_for_good_leaves_the_state_it_found(tmp_path: Path) -> None:
+    """GPU 0 fails inside a mirrored call after writing into a buffer the call did not make:
+    its call journal puts the buffer back, as a follower's does, so the next call starts from
+    the state the failed one found. A group GPU's blocks keep no journal of their own."""
+    fixture = Path(__file__).parent / "testdata" / "parallel_calls.py"
+
+    def launch(module_argv: list[str], fd: int) -> spawn.Child:
+        return spawn.spawn_follower(
+            python=sys.executable,
+            module_argv=[str(fixture), *module_argv[2:]],
+            inherit_fd=fd,
+            env={**os.environ, "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"},
+        )
+
+    group = RankGroup(degree=2, backend="cpu:gloo", root=str(tmp_path), launch=launch)
+    model: Any = collective_model()
+    roots = {"block": model.block, "overlay": model.overlay, "spare": model.spare}
+    ours, theirs = socket.socketpair()
+    leader: Any = Executor(Channel(ours), tmp_path, world=2)
+    leader.device_kind = "cpu"
+    leader.group, leader.torch = group, torch
+    try:
+        group.spawn()
+        group.form(torch, {})
+        leader.pg = group.pg
+        mirror_component(
+            model.block,
+            name=("fixture", "block"),
+            prepared={("fixture", key): (model, root) for key, root in roots.items()},
+            group=group,
+            spool=lambda: tmp_path / "attempt",
+            journaled=leader._call_journal,
+        )
+        with pytest.raises(RuntimeError, match="GPU 0 ran out of memory"):
+            model.fail_on_leader(counted=True)
+        assert float(model.block.seen) == 0.0, "GPU 0's write was put back"
+    finally:
+        group.close()
+        ours.close()
+        theirs.close()
+    assert not torch.distributed.is_initialized()
+
+
 @pytest.mark.parametrize("before_plane", [False, True])
 def test_the_plane_budget_reaches_the_followers_that_answer_it(
     tmp_path: Path, before_plane: bool
@@ -424,8 +465,6 @@ def test_the_plane_budget_reaches_the_followers_that_answer_it(
     """Run 2566: GPU 0 sent the plane's `budget` to a follower that refused the command, and
     the group broke. Every follower of this Runtime answers it. One from before the plane
     does not say `weight_plane/1` in its hello, so it is never sent it, and the group serves."""
-    if not plane.available():
-        pytest.skip("a TensorFS with the weight plane")
     fixture = Path(__file__).parent / "testdata" / "parallel_calls.py"
     env = {**os.environ, "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
 
@@ -466,7 +505,6 @@ def test_the_plane_budget_reaches_the_followers_that_answer_it(
         else:
             assert follower["pinned_budget_bytes"] == reply["plane"]["pinned_budget_bytes"]
             assert follower["pinned_budget_bytes"] > 0
-        assert leader.prefetch(Prefetch(construction="parallel-test"))["ok"]
         assert not group.broken
     finally:
         group.close()

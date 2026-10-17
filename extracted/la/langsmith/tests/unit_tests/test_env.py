@@ -35,9 +35,7 @@ def test_git_info() -> None:
         pytest.skip("Git information is not available, skipping test.")
 
 
-def _patch_git_remote(
-    monkeypatch: pytest.MonkeyPatch, remote_url: str
-) -> list[list[str]]:
+def _patch_git_remote(monkeypatch: pytest.MonkeyPatch, remote_url: str) -> list[list[str]]:
     calls: list[list[str]] = []
     outputs = {
         ("rev-parse", "--is-inside-work-tree"): "true",
@@ -101,12 +99,8 @@ def test_git_info_caches_sanitized_remote_url(monkeypatch: pytest.MonkeyPatch) -
     remote_url = "https://user:token@github.com/langchain-ai/langsmith-sdk.git"
     calls = _patch_git_remote(monkeypatch, remote_url)
     try:
-        assert get_git_info()["remote_url"] == (
-            "https://github.com/langchain-ai/langsmith-sdk.git"
-        )
-        assert get_git_info()["remote_url"] == (
-            "https://github.com/langchain-ai/langsmith-sdk.git"
-        )
+        assert get_git_info()["remote_url"] == ("https://github.com/langchain-ai/langsmith-sdk.git")
+        assert get_git_info()["remote_url"] == ("https://github.com/langchain-ai/langsmith-sdk.git")
         assert calls.count(["remote", "get-url", "origin"]) == 1
     finally:
         get_git_info.cache_clear()
@@ -124,9 +118,7 @@ def test_git_info_caches_sanitized_remote_url(monkeypatch: pytest.MonkeyPatch) -
         "LANGSMITH_GCP_CREDENTIALS",
     ],
 )
-def test_env_var_metadata_excludes_signing_secrets(
-    monkeypatch: pytest.MonkeyPatch, secret_var: str
-) -> None:
+def test_env_var_metadata_excludes_signing_secrets(monkeypatch: pytest.MonkeyPatch, secret_var: str) -> None:
     monkeypatch.setenv(secret_var, "super-secret-value")
     monkeypatch.setenv("LANGSMITH_LANGGRAPH_API_VARIANT", "local")
     monkeypatch.setenv("LANGCHAIN_REVISION_ID", "abc123")
@@ -146,9 +138,7 @@ def test_env_var_metadata_excludes_signing_secrets(
         ({"LANGSMITH_REVISION_ID": "", "LANGCHAIN_REVISION_ID": "legacy"}, "legacy"),
     ],
 )
-def test_env_var_metadata_revision_id(
-    monkeypatch: pytest.MonkeyPatch, env: dict, expected: str
-) -> None:
+def test_env_var_metadata_revision_id(monkeypatch: pytest.MonkeyPatch, env: dict, expected: str) -> None:
     for name, value in env.items():
         monkeypatch.setenv(name, value)
     get_langchain_env_var_metadata.cache_clear()
@@ -165,9 +155,7 @@ def test_env_var_metadata_revision_id(
         "LANGSMITH_AGENT_ID",
     ],
 )
-def test_env_var_metadata_excludes_agent_addressing(
-    monkeypatch: pytest.MonkeyPatch, agent_var: str
-) -> None:
+def test_env_var_metadata_excludes_agent_addressing(monkeypatch: pytest.MonkeyPatch, agent_var: str) -> None:
     """Agent addressing is a first-class run field, so keep it out of metadata.
 
     Neither name matches the sensitive-substring filter, so they only stay out

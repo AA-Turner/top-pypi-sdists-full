@@ -2,6 +2,51 @@ import tomlkit
 
 from .base import DataModel, DataValidationError
 
+# All recognized keys for a Pipfile package entry (dict form).
+# Any key not in this set will trigger a validation error so that typos
+# like ``commit = "…"`` (should be ``ref``) are caught early.
+KNOWN_PACKAGE_KEYS = frozenset(
+    {
+        # VCS back-ends
+        "git",
+        "svn",
+        "hg",
+        "bzr",
+        # VCS ref / sub-directory
+        "ref",
+        "subdirectory",
+        # Package metadata
+        "name",
+        "version",
+        "extras",
+        "editable",
+        "markers",
+        "os_markers",
+        "hashes",
+        "index",
+        "no_binary",
+        "pip_args",
+        # Pipenv resolver control
+        "skip_resolver",
+        # Path / file source
+        "path",
+        "file",
+        # PEP 508 environment-marker short-hands (also accepted as top-level keys)
+        "os_name",
+        "sys_platform",
+        "platform_machine",
+        "platform_python_implementation",
+        "platform_release",
+        "platform_system",
+        "platform_version",
+        "python_version",
+        "python_full_version",
+        "implementation_name",
+        "implementation_version",
+    }
+)
+
+
 class PackageSpecfiers(DataModel):
     # TODO: one could add here more validation for path editable
     # and more stuff which is currently allowed and undocumented
@@ -9,8 +54,24 @@ class PackageSpecfiers(DataModel):
     __OPTIONAL__ = {
         "editable": bool,
         "version": str,
-        "extras": list
+        "extras": list,
+        "pip_args": list,
     }
+
+    @classmethod
+    def validate(cls, data):
+        super().validate(data)
+        # Reject unrecognised keys so that typos are caught early
+        # (e.g. ``commit`` instead of ``ref``).
+        if isinstance(data, dict):
+            unknown = set(data.keys()) - KNOWN_PACKAGE_KEYS
+            if unknown:
+                raise DataValidationError(
+                    f"Unrecognized Pipfile option(s): {', '.join(sorted(unknown))}. "
+                    "Valid options include: version, extras, editable, markers, "
+                    "ref, git, svn, hg, bzr, path, file, index, subdirectory, "
+                    "pip_args, hashes, no_binary, skip_resolver, and PEP 508 marker keys."
+                )
 
 
 class Package(DataModel):

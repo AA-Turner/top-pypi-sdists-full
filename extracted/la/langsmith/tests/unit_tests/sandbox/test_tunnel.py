@@ -267,16 +267,12 @@ class TestPortValidation:
             (5432, 70000, "local_port"),
         ],
     )
-    def test_invalid_ports_raise(
-        self, mock_sandbox: object, remote: int, local: int, match: str
-    ) -> None:
+    def test_invalid_ports_raise(self, mock_sandbox: object, remote: int, local: int, match: str) -> None:
         with pytest.raises(ValueError, match=match):
             mock_sandbox.tunnel(remote, local_port=local)  # type: ignore[union-attr]
 
     @patch("langsmith.sandbox._tunnel.Tunnel._start")
-    def test_valid_ports_pass_validation(
-        self, mock_start: MagicMock, mock_sandbox: object
-    ) -> None:
+    def test_valid_ports_pass_validation(self, mock_start: MagicMock, mock_sandbox: object) -> None:
         t = mock_sandbox.tunnel(5432, local_port=15432)  # type: ignore[union-attr]
         assert isinstance(t, Tunnel)
         assert t.remote_port == 5432

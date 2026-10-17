@@ -61,6 +61,7 @@ from local_operator.harness.approval import (
 )
 from local_operator.harness.approval import transition_authority
 from local_operator.harness.jobs import TRAJECTORY_SEQ_KEY
+from local_operator.harness.rows import user_row_text
 from local_operator.harness.types import (
     AgentEndEvent,
     AgentEvent,
@@ -1274,7 +1275,7 @@ class ServingSessionHandle(SessionHandle):
         Called by ``Session.publish_ask_state`` (which the queue drives on every
         enqueue/answer/decline/dismiss/reconcile) so the phone projection carries
         the new asks WITHOUT waiting for the next unrelated refresh. The count is
-        the session's OUTSTANDING tally (open + timed-out-and-answerable), passed
+        the session's OUTSTANDING tally (open asks; timed-out ones are settled), passed
         through rather than re-derived here. The legacy card is re-fronted by the
         same call, because ``_publish_pending_gate``
         reads the fold's ``pending`` — which now falls back to the head open
@@ -3366,7 +3367,17 @@ class ServingSessionHandle(SessionHandle):
                 # the pipeline to settle before it does anything (memo §2.1).
                 self._maybe_supplement(event)
 
-        unsubscribe = self._session.subscribe(handler)
+        from local_operator.mobile.peer_cycles import bind_owner_peer_cycles
+
+        unsubscribe_peer_source = bind_owner_peer_cycles(
+            self._fold, self._session, self._notify, self._loop
+        )
+        unsubscribe_events = self._session.subscribe(handler)
+
+        def unsubscribe() -> None:
+            unsubscribe_peer_source()
+            unsubscribe_events()
+
         try:
             self._fold.fold_history(self._session.history())
         except Exception:  # noqa: BLE001 — history is a convenience, not a gate
@@ -4154,9 +4165,29 @@ class ServingSessionHandle(SessionHandle):
         would leave the session named after the greeting), fire at most once,
         and run the call as a background task so the title arrives ALONGSIDE
         the turn rather than after it.
+
+        ``text`` is the SENT message, and for a ``$skill`` invocation that is
+        the EXPANDED payload rather than the line the user typed: expansion is
+        the CLIENT's duty (a desktop renders ``skills.invoke.render_invocation``'s
+        payload itself, in ``local-operator-ui``'s ``skill-invocation.ts``), so
+        the harness never sees the typed line on its own. Naming from the
+        payload titles the conversation "The user invoked the `research`
+        skill…" and puts the whole SKILL.md body in the list row — the defect
+        ``docs/design/history-fold-convergence.md`` row D8 calls out.
+
+        Collapsed HERE rather than at the one call site today, because this is
+        the gate every naming path on this handle passes through: the
+        provisional label below, the opener stashed for a route-edge retry and
+        the generation prompt then cannot disagree about what the user said.
+        It is the same rule the TUI applies by handing its own submit the typed
+        line (``tui/app.py`` ``named = typed or text``), read back out of the
+        payload's own ``invocation`` attribute rather than out of a second
+        store, so the two surfaces title the same conversation the same way.
+        A message that is not a payload comes back unchanged.
         """
         from local_operator.session import naming
 
+        text = user_row_text(text)
         if self._name_requested or naming.is_low_signal(text):
             return
         if getattr(self._session, "conversation_name", ""):
@@ -4764,7 +4795,11 @@ class ServingSessionHandle(SessionHandle):
         if bridge_meta and receives_bridge_meta(self._session):
             peer_kwargs["bridge_meta"] = bridge_meta
         result = await self._session.receive_peer_message(text, **peer_kwargs)
-        self._fold.note_peer_message(text, sender=sender or {})
+        # Updated folds receive the actual delivery event with its canonical
+        # message ID. Never create an unrelated optimistic alias which cannot
+        # join the source proof. Old owners retain the prior echo behavior.
+        if self._projection.peer_cycles != 1:
+            self._fold.note_peer_message(text, sender=sender or {}, message_id=message_id)
         self._notify()
         return AckDetail(
             str(result),
@@ -5768,7 +5803,12 @@ class ServingSessionHandle(SessionHandle):
 
     @_on_session_loop
     async def ask_dismiss(self, ask_id: str, by: str = "") -> str:
-        """Dismiss a timed-out ask from the view. Injects nothing, ever."""
+        """Dismiss a timed-out ask from the view. Asks the model nothing, ever.
+
+        The dismissal's own act injects nothing; the deadline notice the ask had
+        not delivered is a separate, still-owed row (fork A, 2026-10-16, design
+        §14), and ``dismiss_ask``'s ``_settled`` reconcile is what delivers it.
+        """
         outcome = self._session.dismiss_ask(ask_id, by=by or "remote")
         if not outcome.get("ok"):
             raise ValueError(str(outcome.get("error") or "the dismissal was refused"))
@@ -6811,14 +6851,23 @@ class ServingSessionHandle(SessionHandle):
         return await complete(messages, **fields)
 
     @_on_session_loop
-    async def adopt_aside(self, messages: list[dict[str, Any]]) -> str:
-        """Fork a viewer's aside exchange into the durable conversation."""
+    async def adopt_aside(self, messages: list[dict[str, Any]]) -> AckDetail:
+        """Fork a viewer's aside exchange into the durable conversation.
+
+        ``adopt_state`` rides the ack (decision D4) so the caller can tell a
+        pair written now from one QUEUED for the turn's safe boundary; a
+        session that answers ``None`` (an older one, a test double) applied it.
+        """
         from local_operator.harness.types import Message
 
         parsed = [Message.model_validate(message) for message in messages]
-        await self._session.adopt_aside(parsed)
+        state = await self._session.adopt_aside(parsed) or "applied"
         self._notify()
-        return f"forked {len(parsed) // 2} aside exchange(s) into the chat"
+        if state == "queued":
+            detail = f"queued {len(parsed) // 2} aside exchange(s) for the end of this turn"
+        else:
+            detail = f"forked {len(parsed) // 2} aside exchange(s) into the chat"
+        return AckDetail(detail, {}, {"adopt_state": state})
 
     @_on_session_loop
     async def recall_steer(self, command_id: str) -> str:

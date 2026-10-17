@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import io
 import pathlib
-from typing import Any, Dict, List, Union, TypeVar, Iterable, Optional, cast
+from types import MappingProxyType
+from typing import Any, Dict, List, Union, Mapping, TypeVar, Iterable, Optional, cast
 from datetime import date, datetime
 from typing_extensions import Required, Annotated, TypedDict
 
@@ -395,6 +396,42 @@ async def test_dictionary_items(use_async: bool) -> None:
         foo_baz: Annotated[str, PropertyInfo(alias="fooBaz")]
 
     assert await transform({"foo": {"foo_baz": "bar"}}, Dict[str, DictItems], use_async) == {"foo": {"fooBaz": "bar"}}
+
+
+class MappingItems(TypedDict):
+    foo_baz: Annotated[str, PropertyInfo(alias="fooBaz")]
+    when: Annotated[Union[str, datetime, None], PropertyInfo(format="iso8601")]
+
+
+class TypedDictMappingField(TypedDict, total=False):
+    items: Annotated[Mapping[str, MappingItems], PropertyInfo(alias="ITEMS")]
+    json: Mapping[str, Union[str, float, Iterable[object], Mapping[str, object], None]]
+
+
+@parametrize
+@pytest.mark.asyncio
+async def test_mapping_items(use_async: bool) -> None:
+    # `Mapping[str, T]` params are transformed just like `Dict[str, T]`
+    dt = datetime.fromisoformat("2023-02-23T14:16:36.337692+00:00")
+    assert await transform({"foo": {"foo_baz": "bar", "when": dt}}, Mapping[str, MappingItems], use_async) == {
+        "foo": {"fooBaz": "bar", "when": "2023-02-23T14:16:36.337692+00:00"}
+    }
+    assert await transform({"items": {"a": {"foo_baz": "x", "when": None}}}, TypedDictMappingField, use_async) == {
+        "ITEMS": {"a": {"fooBaz": "x", "when": None}}
+    }  # type: ignore[comparison-overlap]
+
+    # JSON-like values are passed through unchanged
+    value = {"a": {"b": [1, {"c": None}], "d": "e"}, "f": 1.5, "g": None}
+    assert await transform({"json": value}, TypedDictMappingField, use_async) == {"json": value}
+
+    # mapping inputs that are not dicts are converted to dicts
+    proxy = MappingProxyType({"foo": MappingProxyType({"foo_baz": "proxy", "when": None})})
+    result = cast(Any, await transform(proxy, Mapping[str, MappingItems], use_async))
+    assert type(result) is dict
+    assert result == {"foo": {"fooBaz": "proxy", "when": None}}
+
+    # a bare, unparameterized `Mapping` is left as-is
+    assert await transform({"foo_baz": "bar"}, Mapping, use_async) == {"foo_baz": "bar"}  # type: ignore[type-arg]
 
 
 class TypedDictIterableUnionStr(TypedDict):

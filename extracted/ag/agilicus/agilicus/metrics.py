@@ -1,7 +1,15 @@
 from agilicus.input_helpers import pop_item_if_none, strip_none
-from . import context
 from . import connectors
+from . import context
 from . import orgs
+from .metrics_commands.metrics import (  # noqa: F401
+    format_usage_metrics,
+    query_adoption,
+    query_fleet_usage,
+    query_resource_usage,
+    query_usage,
+    query_user_usage,
+)
 from .output.table import (
     column,
     format_table,

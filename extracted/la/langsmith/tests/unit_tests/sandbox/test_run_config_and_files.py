@@ -22,9 +22,7 @@ DATAPLANE = "https://sandbox-router.example.com/sb-123"
 
 @pytest.fixture
 def client():
-    return SandboxClient(
-        api_endpoint="http://test-server:8080", api_key="test-key", max_retries=0
-    )
+    return SandboxClient(api_endpoint="http://test-server:8080", api_key="test-key", max_retries=0)
 
 
 @pytest.fixture
@@ -44,12 +42,8 @@ class TestRunConfigModel:
         assert RunConfig(env_vars={}).to_payload() == {"env_vars": {}}
 
     def test_from_dict_round_trip(self):
-        parsed = RunConfig.from_dict(
-            {"user": "1000:1000", "work_dir": "/workspace", "env_vars": {"A": "1"}}
-        )
-        assert parsed == RunConfig(
-            user="1000:1000", work_dir="/workspace", env_vars={"A": "1"}
-        )
+        parsed = RunConfig.from_dict({"user": "1000:1000", "work_dir": "/workspace", "env_vars": {"A": "1"}})
+        assert parsed == RunConfig(user="1000:1000", work_dir="/workspace", env_vars={"A": "1"})
 
     def test_snapshot_without_run_config_is_none(self, httpx_mock: HTTPXMock, client):
         httpx_mock.add_response(
@@ -121,9 +115,7 @@ class TestRunConfigOnRequests:
         with pytest.raises(ValueError, match="deprecated env/cwd"):
             sandbox.run("echo hi", run_config=RunConfig(user="app"), **deprecated)
 
-    def test_deprecated_fields_still_work_alone(
-        self, httpx_mock: HTTPXMock, sandbox, monkeypatch
-    ):
+    def test_deprecated_fields_still_work_alone(self, httpx_mock: HTTPXMock, sandbox, monkeypatch):
         monkeypatch.setenv("LANGSMITH_EXPERIMENTAL_FEATURES", "sandbox_sse_exec")
         httpx_mock.add_response(
             url=f"{DATAPLANE}/execute/stream/start",
@@ -228,9 +220,7 @@ class TestFileSearch:
         assert result.matches[0].size_bytes == 12
 
     def test_ls_is_the_non_recursive_glob(self, httpx_mock: HTTPXMock, sandbox):
-        httpx_mock.add_response(
-            url=f"{DATAPLANE}/glob", json={"matches": [], "truncated": False}
-        )
+        httpx_mock.add_response(url=f"{DATAPLANE}/glob", json={"matches": [], "truncated": False})
         sandbox.ls("/workspace")
         assert json.loads(httpx_mock.get_requests()[0].content) == {
             "pattern": "*",

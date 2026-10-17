@@ -254,14 +254,9 @@ def test_finish_reason(patched_client: genai.Client, mock_ls_client: Client):
     assert response.candidates[0].finish_reason == FinishReason.STOP
 
 
-def test_multimodal_image_generation(
-    patched_client: genai.Client, mock_ls_client: Client
-):
+def test_multimodal_image_generation(patched_client: genai.Client, mock_ls_client: Client):
     """Test multimodal response with both text and image output."""
-    multimodal_prompt = (
-        "Create a picture of a nano banana dish in a fancy restaurant "
-        "with a Gemini theme"
-    )
+    multimodal_prompt = "Create a picture of a nano banana dish in a fancy restaurant with a Gemini theme"
 
     response = patched_client.models.generate_content(
         model="gemini-2.5-flash-image",
@@ -311,9 +306,7 @@ def test_multimodal_image_generation(
     assert "content" in outputs or "role" in outputs
 
 
-def test_multimodal_input_with_text_only(
-    patched_client: genai.Client, mock_ls_client: Client
-):
+def test_multimodal_input_with_text_only(patched_client: genai.Client, mock_ls_client: Client):
     """Test that multimodal input structure (list of contents) works correctly."""
     # Use list format for contents (multimodal structure) but only with text
     multimodal_input = [{"role": "user", "parts": [{"text": "What is AI in 5 words?"}]}]

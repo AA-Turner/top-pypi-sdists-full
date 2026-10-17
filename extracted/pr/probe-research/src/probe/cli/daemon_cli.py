@@ -11,7 +11,9 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
+import time
 from typing import Optional
 
 import typer
@@ -326,17 +328,26 @@ def approvals_cmd(
     list_only: bool = typer.Option(False, "--list", help="only list them; ask nothing"),
 ) -> None:
     """Questions Probe is holding for you (the daemon's, and feedback for the Probe team). In a terminal,
-    answer each y/n.
+    answer each y/n. Then the shell commands the daemon ran on Jev's yes in the last day, which nobody was asked.
 
     The coding agent normally puts these to you word for word with its question
     tool; this is the fallback for harnesses without one, and for anything left
     unanswered. Only a real terminal can answer (the agent's shell cannot)."""
     from probe.daemon import approvals as appr
+    from probe.sdk import agent_session
 
     board = appr.Board()
     waiting = board.waiting()
+    agent_sid = agent_session.session_id_from_env()
+    in_agent = agent_sid is not None or agent_session.detect_agent() is not None
+    # Whose Jev runs this shell sees (`_echo_jev_approved`): a coding agent its own
+    # session's, and so does the daemon (its `probe` carries only PROBE_DAEMON_SESSION).
+    daemon_sid = None if agent_sid else os.environ.get(agent_session.DAEMON_SESSION_ENV)
+    own_sid = agent_sid or (daemon_sid if agent_session.valid_session_id(daemon_sid) else None)
+    scoped = in_agent or bool(daemon_sid)
     if not waiting:
         typer.echo("nothing is waiting for you")
+        _echo_jev_approved(own_sid, scoped=scoped)
         return
     # A CONVENIENCE, NOT A SECURITY BOUNDARY. The agent's shell has no terminal,
     # so this keeps it from answering here by accident; it cannot stop a process
@@ -347,19 +358,17 @@ def approvals_cmd(
     # And a shell that carries a coding agent's session (`script -qc` included,
     # which keeps the environment) lists only: the researcher answers in a
     # terminal of their own, which carries no agent session.
-    from probe.sdk import agent_session
-
-    in_agent = agent_session.session_id_from_env() is not None or agent_session.detect_agent() is not None
     interactive = sys.stdin.isatty() and sys.stdout.isatty() and not list_only and not in_agent
     answered_feedback = False
     for req in waiting:
         q = req.question
-        typer.echo(f"\n[{q.header}] {q.question}\n  y = {q.yes_label}   n = {q.no_label}")
+        typer.echo(f"\n[{q.header}] {_indented(_shown(q.question), '    ', first=False)}\n"
+                   f"  y = {q.yes_label}   n = {q.no_label}")
         # A long diff is asked here only (never cut in a chat question); print it whole.
         for key in ("command", "diff"):
             full = req.facts.get(key)
             if isinstance(full, str) and full and full not in q.question:
-                typer.echo(f"  the whole {key}:\n{full}")
+                typer.echo(f"  the whole {key}:\n{_indented(_shown(full), '    ')}")
         if not interactive:
             continue
         choice = typer.prompt("y/n", default="n").strip().lower()
@@ -377,6 +386,103 @@ def approvals_cmd(
                    "terminal of their own, with `probe approvals` there, or says no with `probe deny <id>` there)")
     elif not interactive:
         typer.echo("\n(answer in your own terminal: `probe approvals`; say no with `probe deny <id>`)")
+    _echo_jev_approved(own_sid, scoped=scoped)
+
+
+#: Characters a terminal acts on or that hide text, by Unicode category: controls
+#: (an escape sequence, a carriage return), formats (a bidi override, a zero-width
+#: joiner), line and paragraph separators, surrogates, private-use and unassigned
+#: code points (some terminals draw these with no width).
+_HIDDEN = frozenset({"Cc", "Cf", "Zl", "Zp", "Cs", "Co", "Cn"})
+#: And what a terminal draws with no width whatever its category: Unicode's
+#: Default_Ignorable_Code_Point set (variation selectors, the combining grapheme
+#: joiner, the Hangul and Khmer fillers, tags), which `unicodedata` cannot look
+#: up. A string of variation selectors can carry a whole payload unseen.
+_INVISIBLE = ((0x00AD, 0x00AD), (0x034F, 0x034F), (0x061C, 0x061C), (0x115F, 0x1160), (0x17B4, 0x17B5),
+              (0x180B, 0x180F), (0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x206F), (0x3164, 0x3164),
+              (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF), (0xFFA0, 0xFFA0), (0xFFF0, 0xFFF8), (0x1BCA0, 0x1BCA3),
+              (0x1D173, 0x1D17A), (0xE0000, 0xE0FFF))
+
+
+def _hidden(ch: str) -> bool:
+    import unicodedata
+
+    if ch in "\n\t":
+        return False
+    code = ord(ch)
+    return unicodedata.category(ch) in _HIDDEN or any(lo <= code <= hi for lo, hi in _INVISIBLE)
+
+
+def _shown(text: str) -> str:
+    """`text` with each `_hidden` character printed as its escape (`\\x1b`,
+    `\\ufe00`), so text the daemon's model wrote cannot redraw, hide or carry
+    unseen part of a line. Line breaks and tabs stay; so do other spaces (NBSP,
+    U+3000) and every printable script."""
+    return "".join(ch.encode("unicode_escape").decode("ascii") if _hidden(ch) else ch for ch in text)
+
+
+def _indented(text: str, pad: str, *, first: bool = True) -> str:
+    """Each line of `text` after `pad` (the first too, unless `first` is False).
+    `probe approvals`' own lines start at column 0 or 2, so with a 4-space pad a
+    line the model wrote never starts where one of them does (a line the terminal
+    wraps can still reach column 0)."""
+    lines = text.split("\n")
+    return "\n".join(pad + line if i or first else line for i, line in enumerate(lines))
+
+
+#: How far back `probe approvals` lists the commands Jev ran without asking, and how many.
+JEV_SHOWN_S = 24 * 3600
+JEV_SHOWN = 20
+
+
+def _echo_jev_approved(own_sid: str | None, *, scoped: bool) -> None:
+    """The shell commands the daemon ran on Jev's yes in the last day
+    (`store.jev_approved`), by session, newest first, each whole (Jev is never
+    asked about one longer than `approvals.COMMAND_CHARS`). Nobody was asked
+    about them, so this is where the researcher sees them (R2). It says when
+    it shows fewer than ran, or could not read a session's logbook.
+
+    A coding agent's shell (`scoped`) sees its own session's only: this output
+    lands in its transcript, which is uploaded with that session, and another
+    session's commands are another project's."""
+    from probe.daemon import store
+
+    if scoped and own_sid is None:
+        # An agent whose session is unknown: none of them is its own. Said, not dropped.
+        typer.echo("\n(what Jev ran without asking is listed by `probe approvals` in the researcher's own terminal)")
+        return
+    found = store.jev_approved(time.time() - JEV_SHOWN_S, JEV_SHOWN, session_id=own_sid if scoped else None)
+    if not found.rows and not found.unreadable and not found.damaged:
+        return
+    which = "in this session, " if scoped else ""
+    typer.echo(f"\nRun without asking you, on Jev's yes ({which}the last {JEV_SHOWN_S // 3600} hours, newest first):")
+    by_session: dict[str, list[dict]] = {}
+    for row in found.rows:
+        by_session.setdefault(row["session_id"], []).append(row)
+    for session_id, rows in by_session.items():
+        typer.echo(f"  session {_shown(session_id)}")
+        for row in rows:
+            when = time.strftime("%Y-%m-%d %H:%M", time.localtime(row["at"]))
+            if row["ended"] != "ran":
+                ended = store.JEV_ENDINGS[row["ended"]]
+            else:
+                ended = "no exit code (timed out or stopped)" if row["exit_code"] is None else f"exit {row['exit_code']}"
+            typer.echo(f"    {when}  p={row['lowest']}  {ended}")
+            for line in _shown(row["command"]).split("\n"):
+                typer.echo(f"      {line}")
+    left_out = found.total - len(found.rows)
+    if left_out:
+        hidden = {sid: n - len(by_session.get(sid, [])) for sid, n in found.by_session.items()}
+        where = ", ".join(f"session {_shown(sid)}: {n}" for sid, n in hidden.items() if n > 0)
+        typer.echo(f"  and {left_out} more not shown ({where}): every one is in `probe companion log <session>`")
+    elif found.rows:
+        typer.echo("  (every decision the daemon made in a session: `probe companion log <session>`)")
+    if found.unreadable:
+        typer.echo(f"  ({found.unreadable} session logbook(s) could not be read just now (written by a newer Probe "
+                   "CLI, damaged, or busy), so this list may be missing some)")
+    if found.damaged:
+        typer.echo(f"  ({found.damaged} logbook line(s) that name Jev are in a shape the daemon never writes, so "
+                   "they are left out; this list may be missing some)")
 
 
 def deny_cmd(request_id: str = typer.Argument(..., help="the question's id, e.g. 7f3a09c1"),

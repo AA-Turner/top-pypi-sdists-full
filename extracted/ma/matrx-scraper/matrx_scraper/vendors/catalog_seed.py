@@ -63,6 +63,28 @@ EXTRA_OUTPUT_FIELDS: dict[str, tuple[str, ...]] = {
     "trustpilot_reviews": ("company_overall_rating", "company_rating_name", "company_total_reviews"),
 }
 
+#: Fields a person looks for first, put at the top of a source's ``output_fields`` (the table and the
+#: comparison hide everything past the first few by default, so a census order that buries the rating
+#: at position 11 hides the one number people came for). Seed order wins over live on a re-seed.
+LEAD_OUTPUT_FIELDS: dict[str, tuple[str, ...]] = {
+    "google_maps_place": ("name", "rating", "reviews_count", "category", "address"),
+}
+
+
+#: The provider spells some output keys wrong (``Review_auther``, ``Eelite_status`` on Yelp reviews). The
+#: catalog lists the right spelling; aidream's ``data_fetch.mapper.VENDOR_KEY_FIXES`` renames the records.
+OUTPUT_FIELD_FIXES: dict[str, str] = {"Review_auther": "review_author", "Eelite_status": "elite_status"}
+
+
+def fix_output_fields(fields: list[str]) -> list[str]:
+    return [OUTPUT_FIELD_FIXES.get(f, f) for f in fields]
+
+
+def lead_first(key: str, fields: list[str]) -> list[str]:
+    lead = [f for f in LEAD_OUTPUT_FIELDS.get(key, ()) if f in fields]
+    return lead + [f for f in fields if f not in lead]
+
+
 #: Columns a person curates in the live table: the seed fills them only while NULL, never overwrites.
 FILL_ONLY_FIELDS = ("featured", "known_issue", "sort_order")
 
@@ -159,7 +181,7 @@ def merge_fields(seed_fields: dict[str, Any], live: dict[str, Any]) -> dict[str,
     for k, v in seed_fields.items():
         cur = live.get(k)
         if k == "output_fields":
-            v = merge_list(v, cur)
+            v = merge_list(v, fix_output_fields(list(cur or [])))
         elif k == "metadata":
             v = merge_metadata(v, cur)
         elif k in FILL_ONLY_FIELDS:
@@ -258,7 +280,8 @@ def _row(*, key: str, label: str, item: dict[str, Any], spec: dict[str, Any], da
     return {
         "key": key, "label": label, "group_name": item["group"], "subgroup": item.get("subgroup"),
         "description": item.get("description") or "", "input_kind": kind, "input_spec": spec,
-        "output_fields": merge_list(list(item.get("output_fields") or []), list(EXTRA_OUTPUT_FIELDS.get(key, ()))),
+        "output_fields": lead_first(key, fix_output_fields(merge_list(
+            list(item.get("output_fields") or []), list(EXTRA_OUTPUT_FIELDS.get(key, ()))))),
         "key_column": key_column,
         "url_pattern": url_pattern, "auto_route": auto_route, "enabled": True, "featured": False,
         "verified_live": verified, "known_issue": known_issue, "supports_collection": True,

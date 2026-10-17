@@ -160,27 +160,50 @@ def test_run_set_notes_empty_string_clears_rather_than_reading_as_absent(wired, 
     assert wired.runs[run_id]["notes"] == ""
 
 
-def test_group_notes_at_create_and_set(wired, capsys):
+def test_group_create_still_creates_the_group_and_drops_its_notes(wired, capsys):
+    """Sweep groups no longer carry notes. An agent on an older skill that still
+    passes `--notes` gets its group, one warning, and nothing sent as notes."""
     cli.main(["run", "start", "--experiment", "e", "--name", "r1"])
     experiment_id = wired.runs[capsys.readouterr().out.strip()]["experiment_id"]
+    before = len(wired.requests)
 
     rc = cli.main(
-        [
-            "group",
-            "create",
-            experiment_id,
-            "--name",
-            "h100-hunt",
-            "--notes",
-            "Chasing 16xH100 across us-central1.",
-        ]
+        ["group", "create", experiment_id, "--name", "h100-hunt", "--notes", "Chasing 16xH100."]
     )
-    assert rc == 0
-    group_id = json.loads(capsys.readouterr().out)["id"]
-    assert wired.groups[group_id]["notes"] == "Chasing 16xH100 across us-central1."
 
-    assert cli.main(["group", "set", group_id, "--notes", "Abandoned: every zone exhausted."]) == 0
-    assert wired.groups[group_id]["notes"] == "Abandoned: every zone exhausted."
+    captured = capsys.readouterr()
+    assert rc == 0
+    group_id = json.loads(captured.out)["id"]
+    assert wired.groups[group_id]["name"] == "h100-hunt"
+    assert not wired.groups[group_id].get("notes")
+    assert captured.err.count("--notes is ignored") == 1
+    assert "notes on sweep groups were removed" in captured.err
+    [create] = [r for r in wired.requests[before:] if r.method == "POST"]
+    assert "notes" not in json.loads(create.content)
+
+
+def test_group_set_notes_is_refused_and_writes_nothing(wired, capsys):
+    """Refused, not ignored: a `group set` whose only job was the note would
+    otherwise exit 0 having written nothing. Beside `--name` it refuses the
+    whole command, so nothing lands half."""
+    cli.main(["run", "start", "--experiment", "e", "--name", "r1"])
+    experiment_id = wired.runs[capsys.readouterr().out.strip()]["experiment_id"]
+    cli.main(["group", "create", experiment_id, "--name", "g"])
+    group_id = json.loads(capsys.readouterr().out)["id"]
+    before = len(wired.requests)
+
+    assert cli.main(["group", "set", group_id, "--notes", "Abandoned."]) == 1
+    assert "notes on sweep groups were removed; use the experiment's notes" in (
+        capsys.readouterr().err
+    )
+    assert cli.main(["group", "set", group_id, "--name", "g2", "--notes", "Abandoned."]) == 1
+    assert not [r for r in wired.requests[before:] if r.method == "PATCH"]
+    assert wired.groups[group_id]["name"] == "g"
+
+    assert cli.main(["group", "set", group_id, "--name", "g2"]) == 0
+    assert wired.groups[group_id]["name"] == "g2"
+    [patch] = [r for r in wired.requests[before:] if r.method == "PATCH"]
+    assert json.loads(patch.content) == {"name": "g2"}
 
 
 def test_group_set_requires_a_field(wired, capsys):
@@ -190,7 +213,7 @@ def test_group_set_requires_a_field(wired, capsys):
     group_id = json.loads(capsys.readouterr().out)["id"]
 
     assert cli.main(["group", "set", group_id]) == 2
-    assert "pass at least one of --name/--spec/--notes" in capsys.readouterr().err
+    assert "pass at least one of --name/--spec" in capsys.readouterr().err
 
 
 def test_log_command(wired, capsys):
@@ -280,11 +303,13 @@ def test_artifact_add_forwards_span_content_type_and_meta(wired, capsys, tmp_pat
     assert body["meta"]["written_during_run"] is True
 
 
-def test_artifact_notes_reach_the_wire_on_a_project_anchor(wired, capsys, tmp_path):
-    """0095. `--meta` is run-only and ScopedUploadRequest forbids extras, so before
-    `notes` a project upload had NO way to describe itself -- which is why agents
-    concatenated the description onto `name` and broke the extension, the preview
-    and the derived folder. The name must stay a bare path."""
+def test_artifact_notes_never_reach_the_wire_and_the_file_still_uploads(
+    wired, capsys, tmp_path
+):
+    """Files no longer carry notes. An older skill's `--notes` still uploads the
+    file, says once that it was ignored, and sends no `notes`. The name stays a
+    bare path (0095: a description appended to it broke the extension, the
+    preview and the derived folder)."""
     artifact = tmp_path / "tape_utils.py"
     artifact.write_text("import torch\n")
 
@@ -309,13 +334,31 @@ def test_artifact_notes_reach_the_wire_on_a_project_anchor(wired, capsys, tmp_pa
         request for request in wired.requests if request.url.path.endswith("/artifacts/uploads")
     )
     body = json.loads(presign.content)
-    assert body["notes"] == "shared TAPE plumbing: prediction heads + tokenizer glue."
+    assert "notes" not in body
     assert body["name"] == "odyssey/experiments/tape_utils.py"
+    err = capsys.readouterr().err
+    assert err.count("--notes is ignored: notes on files were removed; say what a file is in "
+                     "its run's notes") == 1
+
+
+def test_artifact_set_is_a_tombstone_that_writes_nothing(wired, capsys):
+    """`--notes` was `artifact set`'s only option, so the command stays only to
+    say it was removed: exit 1, nothing sent, and gone from the help."""
+    before = len(wired.requests)
+
+    assert cli.main(["artifact", "set", "id:0c5d7c41-c6cf-47ad-97c2-3074e03d89fb",
+                     "--notes", "what this file is"]) == 1
+    assert "notes on files were removed" in capsys.readouterr().err
+    assert cli.main(["artifact", "set", "0c5d7c41-c6cf-47ad-97c2-3074e03d89fb"]) == 1
+    assert wired.requests[before:] == []
+    assert cli.main(["artifact", "--help"]) == 0
+    assert " set " not in capsys.readouterr().out
 
 
 def test_notes_are_not_rejected_as_a_run_only_field(wired, capsys, tmp_path):
     """`--kind/--step/--span/--meta` are refused on a non-run anchor. `--notes`
-    must NOT join them: it is the one descriptive field every anchor accepts."""
+    must NOT join them: an older skill passes it on any anchor, and its file
+    must still upload (the notes are ignored)."""
     artifact = tmp_path / "f.csv"
     artifact.write_text("a,b\n")
     assert (
@@ -456,7 +499,7 @@ def test_help_offers_upload_and_no_stale_hook_adapter(capsys):
     rc = cli.main(["--help"])
     assert rc == 0
     output = capsys.readouterr().out
-    assert "notes on any entity" in output
+    assert "notes on a project" in output
     assert "internal coding-agent adapter commands" not in output
     # Invoking it must fail outright, not just be undocumented. Asserted by
     # exit code rather than by scanning help text for "hook": rich wraps the

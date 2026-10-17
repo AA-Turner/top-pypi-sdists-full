@@ -3749,3 +3749,6 @@ mod phase_tests;
 
 #[path = "protobuf_hydration_budget_tests.rs"]
 mod protobuf_budget_tests;
+
+#[path = "remote_config_full_inline_reuse_tests.rs"]
+mod full_inline_reuse_tests;

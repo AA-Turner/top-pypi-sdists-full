@@ -1,13 +1,17 @@
+"""Utilities for panel models: dummy variables, singleton removal and test data."""
+
 from __future__ import annotations
 
 from linearmodels.compat.pandas import ANNUAL_FREQ
+from linearmodels.compat.scipy import coo_array, csc_array, csr_array
 
 from collections import defaultdict
-from typing import Literal, NamedTuple, TypeVar, cast
+from collections.abc import Callable
+from typing import Any, Literal, NamedTuple, TypeVar, cast
 
 import numpy as np
 import numpy.random
-from pandas import DataFrame, concat, date_range
+from pandas import CategoricalDtype, DataFrame, concat, date_range
 import scipy.sparse as sp
 
 from linearmodels.shared.utility import panel_to_frame
@@ -38,7 +42,7 @@ __all__ = [
 
 
 class AbsorbingEffectError(Exception):
-    pass
+    """Error raised when the effects absorb one or more of the variables."""
 
 
 absorbing_error_msg = """
@@ -56,7 +60,7 @@ Set drop_absorbed=True to automatically drop absorbed variables.
 
 
 class AbsorbingEffectWarning(Warning):
-    pass
+    """Warning issued when absorbed variables are dropped from the regression."""
 
 
 absorbing_warn_msg = """
@@ -65,13 +69,13 @@ Variables have been fully absorbed and have removed from the regression:
 {absorbed_variables}
 """
 
-SparseArray = TypeVar("SparseArray", sp.csc_matrix, sp.csr_matrix, sp.coo_matrix)
+SparseArray = TypeVar("SparseArray", csr_array, csc_array, coo_array)
 SparseOrDense = TypeVar(
     "SparseOrDense",
     linearmodels.typing.data.Float64Array,
-    sp.csc_matrix,
-    sp.csr_matrix,
-    sp.coo_matrix,
+    csc_array,
+    csr_array,
+    coo_array,
 )
 
 
@@ -79,26 +83,28 @@ def preconditioner(
     d: SparseOrDense, *, copy: bool = False
 ) -> tuple[SparseOrDense, linearmodels.typing.data.Float64Array]:
     """
+    Scale the columns of an array to have unit 2-norm.
+
     Parameters
     ----------
-    d : array_like
-        Array to precondition
-    copy : bool
+    d : array_like or csc_array or csr_array or coo_array
+        Array to precondition. Dense input is converted with ``np.asarray``.
+    copy : bool, optional
         Flag indicating whether the operation should be in-place, if possible.
-        If True, when a new array will always be returned.
+        If True, a new array is always returned. The default is False.
 
     Returns
     -------
-    d : array_like
-        Array with same type as input array. If copy is False, and d is
-        an ndarray or a csc_matrix, then the operation is inplace
+    d : ndarray or csc_array or csr_array or coo_array
+        Array with the same type as the input array. If copy is False, and d is
+        an ndarray or a csc_array, then the operation is inplace.
     cond : ndarray
-        Array of conditioning numbers defined as the square root of the column
-        2-norms (nvar,)
+        Conditioning numbers with shape (nvar,), defined as the square root of
+        the 2-norm of each column.
     """
     # Dense path
     if not sp.issparse(d):
-        klass = None if type(d) is np.ndarray else d.__class__
+        klass: Any = None if type(d) is np.ndarray else d.__class__
         d_id = id(d)
         d = np.asarray(d)
         if id(d) == d_id or copy:
@@ -110,20 +116,20 @@ def preconditioner(
         return d, cond
 
     klass = None
-    if not isinstance(d, sp.csc_matrix):
+    if not isinstance(d, csc_array):
         klass = d.__class__
-        d_csc = sp.csc_matrix(d)
+        d_csc = csc_array(d)
     else:
-        assert isinstance(d, sp.csc_matrix)
+        assert isinstance(d, csc_array)
         d_csc = d
         if copy:
             d_csc = d.copy()
 
     cond = cast(
         "linearmodels.typing.data.Float64Array",
-        np.sqrt(d_csc.multiply(d_csc).sum(0)).A1,
+        np.asarray(np.sqrt(d_csc.multiply(d_csc).sum(0))).ravel(),
     )
-    locs = np.zeros_like(d_csc.indices)
+    locs: np.ndarray = np.zeros_like(d_csc.indices)
     locs[d_csc.indptr[1:-1]] = 1
     locs = np.cumsum(locs)
     d_csc.data /= np.take(cond, locs)
@@ -143,44 +149,68 @@ def dummy_matrix(
     drop_all: bool = False,
     precondition: bool = True,
 ) -> tuple[
-    sp.csc_matrix | sp.csr_matrix | sp.coo_matrix,
+    csc_array | csr_array | coo_array,
     linearmodels.typing.data.Float64Array,
 ]:
     """
+    Construct a sparse matrix of dummy variables from category codes.
+
     Parameters
     ----------
-    cats: {DataFrame, ndarray}
-        Array containing the category codes of pandas categoricals
-        (nobs, ncats)
-    output_format: {"csc", "csr", "coo", "array"}
-        Output format. Default is csc (csc_matrix). Supported output
-        formats are:
+    cats : DataFrame or array_like
+        Array containing the category codes of pandas categoricals with shape
+        (nobs, ncats). A DataFrame must only contain categoricals. An array
+        is converted with ``np.asarray`` and must have 2 dimensions.
+    output_format : {"csc", "csr", "coo"}, optional
+        Format of the sparse output. The default is "csc". The formats are:
 
-        * "csc" - sparse matrix in compressed column form
-        * "csr" - sparse matrix in compressed row form
-        * "coo" - sparse matrix in coordinate form
+        * "csc" - sparse array in compressed column form (csc_array)
+        * "csr" - sparse array in compressed row form (csr_array)
+        * "coo" - sparse array in coordinate form (coo_array)
 
-    drop: {"first", "last"}
+    drop : {"first", "last"}, optional
         Exclude either the first or last category. This only applies when
-        cats contains more than one column, unless `drop_all` is True.
-    drop_all : bool
-        Flag indicating whether all sets of dummies should exclude one category
-    precondition : bool
+        cats contains more than one column, unless `drop_all` is True. The
+        default is "first".
+    drop_all : bool, optional
+        Flag indicating whether all sets of dummies should exclude one
+        category. The default is False.
+    precondition : bool, optional
         Flag indicating whether the columns of the dummy matrix should be
-        preconditioned to have unit 2-norm.
+        preconditioned to have unit 2-norm. The default is True.
 
     Returns
     -------
-    dummies : array_like
-        Array, either sparse or dense, of size nobs x ncats containing the
-        dummy variable values
+    dummies : csc_array or csr_array or coo_array
+        Sparse array, with the format set by `output_format`, of size
+        nobs by ndummies containing the dummy variable values.
     cond : ndarray
-        Conditioning number of each column
+        Conditioning number of each column.
+
+    Raises
+    ------
+    TypeError
+        If cats is a DataFrame with a column that is not categorical.
+    ValueError
+        If cats is an array that does not have 2 dimensions, or if
+        `output_format` is not one of the supported formats.
     """
     if isinstance(cats, DataFrame):
+        for col in cats:
+            if not isinstance(cats[col].dtype, CategoricalDtype):
+                raise TypeError(
+                    "cats must only contain categorical columns, but the column "
+                    f"{col!r} has dtype {cats[col].dtype}. Pass the category codes "
+                    "as an array to use other columns."
+                )
         codes = np.column_stack([np.asarray(cats[c].cat.codes) for c in cats])
     else:
         codes = np.asarray(cats)
+        if codes.ndim != 2:
+            raise ValueError(
+                "cats must be a DataFrame or a 2-d array with a column for each "
+                f"set of categories, but it has {codes.ndim} dimension(s)."
+            )
 
     data: dict[str, list[np.ndarray]] = defaultdict(list)
     total_dummies = 0
@@ -196,14 +226,16 @@ def dummy_matrix(
         cols = replacements[inverse]
         if i == 0 and not drop_all:
             retain = np.arange(nobs)
-        elif drop == "first":
+        elif drop.lower() == "first":
             # remove first
             retain = cols != 0
-        else:  # drop == "last"
+        elif drop.lower() == "last":
             # remove last
             retain = cols != (ncategories - 1)
+        else:
+            raise ValueError(f"Unknown drop option: {drop}")
         rows = rows[retain]
-        col_adj = -1 if (drop == "first" and i > 0) else 0
+        col_adj = -1 if (drop.lower() == "first" and i > 0) else 0
         cols = cols[retain] + total_dummies + col_adj
         values = np.ones(rows.shape)
         data["values"].append(values)
@@ -212,11 +244,11 @@ def dummy_matrix(
         total_dummies += ncategories - (i > 0)
 
     if output_format == "csc":
-        fmt = sp.csc_matrix
+        fmt: Callable[..., Any] = csc_array
     elif output_format == "csr":
-        fmt = sp.csr_matrix
+        fmt = csr_array
     elif output_format == "coo":
-        fmt = sp.coo_matrix
+        fmt = coo_array
     else:
         raise ValueError(f"Unknown format: {output_format}")
     out = fmt(
@@ -239,22 +271,24 @@ def _remove_node(
     orig_dest: linearmodels.typing.data.IntArray,
 ) -> tuple[int, int]:
     """
+    Remove a node that has one link and step to its neighbor.
+
     Parameters
     ----------
     node : int
-        ID of the node to remove
+        ID of the node to remove.
     meta : ndarray
         Array with rows containing node, count, and address where
-        address is used to find the first occurrence in orig_desk
+        address is used to find the first occurrence in orig_dest.
     orig_dest : ndarray
-        Array with rows containing origin and destination nodes
+        Array with rows containing origin and destination nodes.
 
     Returns
     -------
     next_node : int
-        ID of the next node in the branch
+        ID of the next node in the branch.
     next_count : int
-        Count of the next node in the branch
+        Count of the next node in the branch.
 
     Notes
     -----
@@ -297,15 +331,15 @@ def _py_drop_singletons(
     orig_dest: linearmodels.typing.data.IntArray,
 ) -> None:
     """
-    Loop through the nodes and recursively drop singleton chains
+    Loop through the nodes and recursively drop singleton chains.
 
     Parameters
     ----------
     meta : ndarray
         Array with rows containing node, count, and address where
-        address is used to find the first occurrence in orig_desk
+        address is used to find the first occurrence in orig_dest.
     orig_dest : ndarray
-        Array with rows containing origin and destination nodes
+        Array with rows containing origin and destination nodes.
     """
     for i in range(meta.shape[0]):
         if meta[i, 1] == 1:
@@ -321,19 +355,21 @@ if not HAS_CYTHON:
 
 
 def in_2core_graph(
-    cats: linearmodels.typing.data.ArrayLike,
+    cats: DataFrame | np.ndarray,
 ) -> linearmodels.typing.data.BoolArray:
     """
+    Find the observations that are in the 2-core of the graph.
+
     Parameters
     ----------
-    cats: {DataFrame, ndarray}
+    cats : DataFrame or ndarray
         Array containing the category codes of pandas categoricals
-        (nobs, ncats)
+        with shape (nobs, ncats). A DataFrame must only contain categoricals.
 
     Returns
     -------
-    retain : ndarray
-        Boolean array that marks non-singleton entries as True
+    ndarray
+        Boolean array that marks non-singleton entries as True.
     """
     if isinstance(cats, DataFrame):
         cats = np.column_stack([np.asarray(cats[c].cat.codes) for c in cats])
@@ -395,19 +431,21 @@ def in_2core_graph(
 
 
 def in_2core_graph_slow(
-    cats: linearmodels.typing.data.ArrayLike,
+    cats: DataFrame | np.ndarray,
 ) -> linearmodels.typing.data.BoolArray:
     """
+    Find the observations in the 2-core using a reference method.
+
     Parameters
     ----------
-    cats: {DataFrame, ndarray}
+    cats : DataFrame or ndarray
         Array containing the category codes of pandas categoricals
-        (nobs, ncats)
+        with shape (nobs, ncats). A DataFrame must only contain categoricals.
 
     Returns
     -------
-    retain : ndarray
-        Boolean array that marks non-singleton entries as True
+    ndarray
+        Boolean array that marks non-singleton entries as True.
 
     Notes
     -----
@@ -435,117 +473,199 @@ def in_2core_graph_slow(
     return retain
 
 
+# A column is absorbed if less than this share of its norm, measured before the effects
+# were absorbed, is left. Both iterative algorithms that absorb effects, LSMR and the
+# method of alternating projections (HDFE), stop with an error of about 1e-8 of the
+# norm of the data, and the error is up to 100 times larger when the effects are only
+# weakly connected. The tolerance is well above that, and far above machine precision.
+_ABSORBED_TOL = 1e-5
+
+
+def _absorbed_columns(
+    x: linearmodels.typing.data.Float64Array,
+    x_orig: linearmodels.typing.data.Float64Array | None = None,
+    constant: int | None = None,
+) -> list[tuple[int, list[int]]]:
+    """
+    Find the columns that are absorbed or collinear with the columns before them
+
+    Parameters
+    ----------
+    x : ndarray
+        Regressors after the effects were absorbed, with shape (nobs, ncol).
+    x_orig : ndarray, optional
+        Regressors before the effects were absorbed, with the same shape as x.
+        Only the norm of each column is used. If not provided, x is assumed to be
+        exact, and only columns that are collinear with the columns before them
+        are found.
+    constant : int, optional
+        The location of a constant column. It is retained, and the other columns
+        are compared with it first, so that a column that was restored as its
+        grand mean is found.
+
+    Returns
+    -------
+    list of tuple of (int, list of int)
+        The columns to drop, in order. Each is paired with the sorted indices
+        of the columns in the relation that makes it redundant: the column
+        itself and the retained columns that it depends on.
+
+    Notes
+    -----
+    Every column is divided by the norm that it had before the effects were
+    absorbed, so that a column of size 1 is not touched by the effects and a
+    column of size 0 was absorbed entirely. The columns are processed in order,
+    and a column is dropped if less than ``_ABSORBED_TOL`` of it is left after it
+    is orthogonalized to the retained columns before it. The tolerance does not
+    depend on the units of the columns, and is above the error of the algorithms
+    that absorb the effects. Without x_orig, the columns are divided by their own
+    norm and the tolerance is the one of ``numpy.linalg.matrix_rank``.
+    """
+    tol = _ABSORBED_TOL if x_orig is not None else max(x.shape) * np.finfo(float).eps
+    nobs, ncol = x.shape
+    order = list(range(ncol))
+    if constant is not None:
+        order.remove(constant)
+        order.insert(0, constant)
+    norms = np.linalg.norm(x if x_orig is None else x_orig, axis=0)
+
+    basis = np.empty((nobs, ncol))  # Orthonormal basis of the retained columns
+    nbasis = 0
+    unit_constant = None
+    retained: list[int] = []
+    scale: dict[int, float] = {}
+    absorbed: list[tuple[int, list[int]]] = []
+    for j in order:
+        col = x[:, j]
+        norm = float(norms[j])
+        if x_orig is None and unit_constant is not None:
+            # Without the original data, measure the part that is not constant
+            norm = float(np.linalg.norm(col - unit_constant * (unit_constant @ col)))
+        scale[j] = norm if norm > 0.0 else 1.0
+        scaled = col / scale[j]
+        resid = scaled
+        for _ in range(2):  # Orthogonalizing twice removes the rounding error
+            resid = resid - basis[:, :nbasis] @ (basis[:, :nbasis].T @ resid)
+        size = float(np.linalg.norm(resid))
+        if j == constant or size >= tol:
+            retained.append(j)
+            if size > 0.0:
+                basis[:, nbasis] = resid / size
+                if j == constant:
+                    unit_constant = basis[:, nbasis]
+                nbasis += 1
+            continue
+
+        # The relation is the column and the retained columns that make it redundant
+        relation = [j]
+        if retained:
+            others = x[:, retained] / np.array([scale[i] for i in retained])
+            coefs = np.linalg.lstsq(others, scaled, rcond=None)[0]
+            share = np.abs(coefs) * np.linalg.norm(others, axis=0)
+            relation.extend(i for i, s in zip(retained, share, strict=True) if s >= tol)
+        absorbed.append((j, sorted(relation)))
+    return absorbed
+
+
 def check_absorbed(
     x: linearmodels.typing.data.Float64Array,
     variables: list[str] | tuple[str, ...],
     x_orig: linearmodels.typing.data.Float64Array | None = None,
 ) -> None:
     """
-    Check a regressor matrix for variables absorbed
+    Check a regressor matrix for variables absorbed by the effects.
 
     Parameters
     ----------
     x : ndarray
-        Regressor matrix to check
-    variables : list[str]
-        List of variable names
-    x_orig : ndarray
-        Original data. If provided uses a norm check to ascertain if all
-        variables have been absorbed.
+        Regressor matrix to check, after the effects were absorbed.
+    variables : list of str or tuple of str
+        Variable names, in the order of the columns of x.
+    x_orig : ndarray, optional
+        Regressors before the effects were absorbed, with the same shape as x. A
+        column of x is absorbed if less than 1e-5 of the norm of the same
+        column of x_orig is left, so that the check does not depend on the units
+        of the variables and detects the columns that the algorithm that
+        absorbed the effects left with an error of its tolerance. If not
+        provided, only columns that are collinear with other columns are
+        found.
+
+    Raises
+    ------
+    AbsorbingEffectError
+        If a column is absorbed by the effects or is collinear with other
+        columns after the effects are removed.
     """
     if x.size == 0:
         return
 
-    rank = np.linalg.matrix_rank(x)
-    if rank < x.shape[1]:
-        xpx = x.T @ x
-        vals, vecs = np.linalg.eigh(xpx)
-        nabsorbed = x.shape[1] - rank
-        tol = np.sort(vals)[nabsorbed - 1]
-        absorbed = vals <= tol
-        absorbed_vecs = vecs[:, absorbed]
-        rows = []
-        for i in range(nabsorbed):
-            abs_vec = np.abs(absorbed_vecs[:, i])
-            tol = abs_vec.max() * np.finfo(np.float64).eps * abs_vec.shape[0]
-            vars_idx = np.where(np.abs(absorbed_vecs[:, i]) > tol)[0]
-            rows.append(" " * 10 + ", ".join(str(variables[vi]) for vi in vars_idx))
-        absorbed_variables = "\n".join(rows)
-        msg = absorbing_error_msg.format(absorbed_variables=absorbed_variables)
-        raise AbsorbingEffectError(msg)
-    if x_orig is None:
+    absorbed = _absorbed_columns(x, x_orig)
+    if not absorbed:
         return
-
-    new_norm = np.linalg.norm(x, axis=0)
-    orig_norm = np.linalg.norm(x_orig, axis=0)
-    if np.all(((new_norm / orig_norm) ** 2) < np.finfo(float).eps):
-        raise AbsorbingEffectError(
-            "All exog variables have been absorbed. The model cannot be estimated."
-        )
+    if x_orig is not None:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            size = np.linalg.norm(x, axis=0) / np.linalg.norm(x_orig, axis=0)
+        if np.all(~(size >= _ABSORBED_TOL)):
+            raise AbsorbingEffectError(
+                "All exog variables have been absorbed. The model cannot be estimated."
+            )
+    rows = [
+        " " * 10 + ", ".join(str(variables[i]) for i in relation)
+        for _, relation in absorbed
+    ]
+    msg = absorbing_error_msg.format(absorbed_variables="\n".join(rows))
+    raise AbsorbingEffectError(msg)
 
 
 def not_absorbed(
     x: linearmodels.typing.data.Float64Array,
     has_constant: bool = False,
     loc: int | None = None,
+    x_orig: linearmodels.typing.data.Float64Array | None = None,
 ) -> list[int]:
     """
-    Construct a list of the indices of regressors that are not absorbed
+    Construct a list of the indices of regressors that are not absorbed.
 
     Parameters
     ----------
     x : ndarray
-        Regressor matrix to check
-    has_constant : bool
-        Flag indicating that x has a constant column
-    loc : int
-        The location of the constant column
+        Regressor matrix to check, after the effects were absorbed.
+    has_constant : bool, optional
+        Flag indicating that x has a constant column. The default is False.
+    loc : int, optional
+        The location of the constant column. It is always retained, and the
+        other columns are compared with it first.
+    x_orig : ndarray, optional
+        Regressors before the effects were absorbed, with the same shape as x. A
+        column of x is absorbed if less than 1e-5 of the norm of the same
+        column of x_orig is left, so that the check does not depend on the units
+        of the variables. A column is also dropped if it is collinear with the
+        retained columns before it, using the same tolerance. If not provided,
+        only columns that are collinear with other columns are dropped.
 
     Returns
     -------
-    retain : list[int]
-        List of columns to retain
+    list of int
+        Columns to retain.
     """
-    if np.linalg.matrix_rank(x) == x.shape[1]:
-        return list(range(x.shape[1]))
+    constant = None
     if has_constant:
         assert isinstance(loc, int)
-        check = [i for i in range(x.shape[1]) if i != loc]
-        const = x[:, [loc]]
-        sub = x[:, check]
-        x = sub - const @ np.linalg.lstsq(const, sub, rcond=None)[0]
-    xpx = x.T @ x
-    vals, _ = np.linalg.eigh(xpx)
-    if vals.max() == 0.0:
-        if has_constant:
-            assert isinstance(loc, int)
-            return [loc]
-        return []
-
-    tol = vals.max() * x.shape[1] * np.finfo(np.float64).eps
-    absorbed = vals < tol
-    nabsorbed = absorbed.sum()
-    _, r = np.linalg.qr(x)
-    threshold = np.sort(np.abs(np.diag(r)))[nabsorbed]
-    drop = np.where(np.abs(np.diag(r)) < threshold)[0]
-    retain: set[int] = set(range(x.shape[1])).difference(drop)
-    if has_constant:
-        assert isinstance(loc, int)
-        retain = {idx + (idx >= loc) for idx in retain}
-        retain.update({loc})
-    return sorted(retain)
+        constant = loc
+    dropped = {i for i, _ in _absorbed_columns(x, x_orig, constant)}
+    return [i for i in range(x.shape[1]) if i not in dropped]
 
 
-class PanelModelData(NamedTuple):
+class PanelModelData(NamedTuple):  # numpydoc ignore=PR02
     """
-    Typed namedtuple to hold simulated panel data
+    Typed namedtuple to hold simulated panel data.
 
     Parameters
     ----------
     data : DataFrame
-        DataFrame containing the panel model's data
+        DataFrame containing the panel model's data.
     weights : DataFrame
-        DataFrame containing  the panel model's weights
+        DataFrame containing the panel model's weights.
     other_effects : DataFrame
         DataFrame containing the panel model's effects,
         excluding time and entity effects.
@@ -559,6 +679,17 @@ class PanelModelData(NamedTuple):
     clusters: DataFrame
 
 
+def _integers(
+    rng: numpy.random.RandomState | numpy.random.Generator,
+    high: int,
+    size: tuple[int, ...],
+) -> linearmodels.typing.data.IntArray:
+    """Random integers in [0, high) from a RandomState or a Generator."""
+    if isinstance(rng, numpy.random.Generator):
+        return rng.integers(0, high, size)
+    return rng.randint(0, high, size)
+
+
 def generate_panel_data(
     nentity: int = 971,
     ntime: int = 7,
@@ -567,32 +698,35 @@ def generate_panel_data(
     missing: float = 0,
     other_effects: int = 2,
     ncats: int | list[int] = 4,
-    rng: numpy.random.RandomState | None = None,
+    rng: numpy.random.RandomState | numpy.random.Generator | None = None,
 ) -> PanelModelData:
     """
-    Simulate panel data for testing
+    Simulate panel data for testing.
 
     Parameters
     ----------
-    nentity : int
-        The number of entities in the panel.
-    ntime : int
-        The number of time periods in the panel.
-    nexog : int
-        The number of explanatory variables in the dataset.
-    const : bool
-        Flag indicating that the model should include a constant.
-    missing : float
-        The percentage of values that are missing. Should be between 0 and 100.
-    other_effects : int
-        The number of other effects generated.
-    ncats : Union[int, Sequence[int]]
+    nentity : int, optional
+        The number of entities in the panel. The default is 971.
+    ntime : int, optional
+        The number of time periods in the panel. The default is 7.
+    nexog : int, optional
+        The number of explanatory variables in the dataset. The default
+        is 5.
+    const : bool, optional
+        Flag indicating that the model should include a constant. The
+        default is False.
+    missing : float, optional
+        The fraction of values that are missing, between 0 and 1. The
+        default is 0, so that no values are missing.
+    other_effects : int, optional
+        The number of other effects generated. The default is 2.
+    ncats : int or list of int, optional
         The number of categories to use in other_effects and variance
-        clusters. If list-like, then it must have as many elements
-        as other_effects.
-    rng : RandomState
-        A NumPy RandomState instance. If not provided, one is initialized
-        using a fixed seed.
+        clusters. If a list, then it must have as many elements as
+        other_effects. The default is 4.
+    rng : numpy.random.RandomState or numpy.random.Generator, optional
+        A NumPy RandomState or Generator instance. If not provided, a
+        RandomState is initialized using a fixed seed.
 
     Returns
     -------
@@ -638,12 +772,11 @@ def generate_panel_data(
         _c = []
         for i in range(other_effects):
             nc = ncats[i]
-            _c.append(rng.randint(0, nc, (1, t, n)))
+            _c.append(_integers(rng, nc, (1, t, n)))
         c = np.concatenate(_c, 0)
 
     vcats = [f"varcat.{i}" for i in range(2)]
-    vc2 = np.ones((2, t, 1)) @ rng.randint(0, n // 2, (2, 1, n))
-    vc1 = vc2[[0]]
+    vc2 = np.ones((2, t, 1)) @ _integers(rng, n // 2, (2, 1, n))
 
     if const:
         x[0] = 1.0
@@ -677,14 +810,9 @@ def generate_panel_data(
         c, items=cats, major_axis=time, minor_axis=entities, swap=True
     )
     other_eff = c_df.reindex(index)
-    vc1_df = panel_to_frame(
-        vc1, items=vcats[:1], major_axis=time, minor_axis=entities, swap=True
-    )
-    vc1_df = vc1_df.reindex(index)
-    vc2_df = panel_to_frame(
+    clusters = panel_to_frame(
         vc2, items=vcats, major_axis=time, minor_axis=entities, swap=True
     )
-    vc2_df = vc2_df.reindex(index)
-    clusters = concat([vc1_df, vc2_df], sort=False)
+    clusters = clusters.reindex(index)
     data = concat([y_df, x_df], axis=1, sort=False)
     return PanelModelData(data, w_df, other_eff, clusters)

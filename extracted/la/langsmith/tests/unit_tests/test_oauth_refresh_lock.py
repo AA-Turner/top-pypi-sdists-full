@@ -16,20 +16,14 @@ from langsmith._internal import _profiles
 
 def _write_meta(lock_dir: str, created_at: str, owner: str) -> None:
     os.makedirs(lock_dir, exist_ok=True)
-    with open(
-        os.path.join(lock_dir, lock_mod._LOCK_METADATA_FILE), "w", encoding="utf-8"
-    ) as f:
+    with open(os.path.join(lock_dir, lock_mod._LOCK_METADATA_FILE), "w", encoding="utf-8") as f:
         f.write(created_at + "\n" + owner + "\n")
 
 
 def test_remove_stale_lock_breaks_expired_timestamp(tmp_path):
     lock_dir = str(tmp_path / "config.json.oauth.lock.lock")
     stale = time.time() - lock_mod._LOCK_STALE_AFTER - 1
-    iso = (
-        datetime.datetime.fromtimestamp(stale, datetime.timezone.utc)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    iso = datetime.datetime.fromtimestamp(stale, datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     _write_meta(lock_dir, iso, "someone-else")
 
     assert lock_mod._remove_stale_lock(lock_dir) is True
@@ -38,9 +32,7 @@ def test_remove_stale_lock_breaks_expired_timestamp(tmp_path):
 
 def test_remove_stale_lock_keeps_fresh_lock(tmp_path):
     lock_dir = str(tmp_path / "config.json.oauth.lock.lock")
-    iso = (
-        datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
-    )
+    iso = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
     _write_meta(lock_dir, iso, "someone-else")
 
     assert lock_mod._remove_stale_lock(lock_dir) is False
@@ -94,9 +86,7 @@ def test_oauth_refresh_lock_serializes_same_path(tmp_path):
     config_path = tmp_path / "config.json"
     with lock_mod.oauth_refresh_lock(config_path, deadline=time.monotonic() + 5):
         with pytest.raises((TimeoutError, OSError)):
-            with lock_mod.oauth_refresh_lock(
-                config_path, deadline=time.monotonic() + 0.05
-            ):
+            with lock_mod.oauth_refresh_lock(config_path, deadline=time.monotonic() + 0.05):
                 pass
 
 
@@ -141,12 +131,8 @@ def test_refresh_skips_network_when_disk_already_fresh(tmp_path, monkeypatch):
 
     # Two independent loads simulate two processes: each gets its own
     # in-memory state, so B does NOT see A's refresh except via disk.
-    auth_a = _profiles.ProfileAuth(
-        _profiles.load_profile_client_config(), api_key_header="x-api-key"
-    )
-    auth_b = _profiles.ProfileAuth(
-        _profiles.load_profile_client_config(), api_key_header="x-api-key"
-    )
+    auth_a = _profiles.ProfileAuth(_profiles.load_profile_client_config(), api_key_header="x-api-key")
+    auth_b = _profiles.ProfileAuth(_profiles.load_profile_client_config(), api_key_header="x-api-key")
 
     headers_a = auth_a.get_auth_headers()
     headers_b = auth_b.get_auth_headers()

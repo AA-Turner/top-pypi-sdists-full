@@ -19,7 +19,7 @@ import subprocess
 import tempfile
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -258,6 +258,13 @@ class LazyDVCMount:
     # anything re-deriving S3 access for this mount's content (e.g. direct
     # agent-VM fuse mounts) must use THIS config's bucket/prefix/refresh.
     s3_config: S3Config | None = None
+    # ``bucket/key`` of every blob smart_commit has uploaded through this mount.
+    # The overlay is never drained, so without this every checkpoint re-PUTs
+    # every file written since mount. Keys are content-addressed and nothing
+    # deletes dvc-cache objects, so a key uploaded once stays valid. Only this
+    # process's own uploads count: a restored manifest's blobs may live under
+    # another repo's prefix (cross-repo / download-token restores).
+    uploaded_keys: set[str] = field(default_factory=set)
 
     @property
     def meta_path(self) -> Path:
@@ -940,6 +947,10 @@ async def smart_commit(
 
     batch_uploads: list[tuple[str, str]] = []
     temp_files: list[str] = []
+    queued_keys: set[str] = set()
+
+    def _uploaded_id(key: str) -> str:
+        return f"{s3_config.bucket}/{key}"
 
     def _store_manifest_entry(entry: DVCManifestEntry) -> None:
         existing = entries_by_relpath.get(entry.relpath)
@@ -971,15 +982,18 @@ async def smart_commit(
         size = len(data)
         new_md5 = hashlib.md5(data).hexdigest()
         key = dvc_file_key(s3_config, new_md5)
+        upload_id = _uploaded_id(key)
 
-        if is_symlink:
+        if upload_id not in mount.uploaded_keys and upload_id not in queued_keys:
+            # Upload the bytes that were hashed, not the live overlay path: a
+            # write landing between the hash and the batch upload would
+            # otherwise store different bytes under this md5 key.
             tmp = tempfile.NamedTemporaryFile(delete=False)
             tmp.write(data)
             tmp.close()
             temp_files.append(tmp.name)
             batch_uploads.append((tmp.name, key))
-        else:
-            batch_uploads.append((str(local_path), key))
+            queued_keys.add(upload_id)
 
         entry = DVCManifestEntry(
             relpath=relpath,
@@ -991,55 +1005,61 @@ async def smart_commit(
         )
         return entry, size
 
-    for relpath, entry in original_files.items():
-        if relpath in deleted:
-            continue
-        if relpath in modified:
-            if _current_path_kind(relpath) != "file":
-                deleted.add(relpath)
+    # Everything that writes temp copies sits inside the try so a failed read or
+    # upload never leaves them behind.
+    try:
+        for relpath, entry in original_files.items():
+            if relpath in deleted:
+                continue
+            if relpath in modified:
+                if _current_path_kind(relpath) != "file":
+                    deleted.add(relpath)
+                    continue
+                new_entry, size = _process_overlay_file(relpath)
+                _store_manifest_entry(new_entry)
+                total_size += size
+            else:
+                entry_size = entry.size or 0
+                if entry_size == 0 and entry.md5:
+                    try:
+                        entry_size = os.lstat(mountpoint / relpath).st_size
+                    except OSError:
+                        pass
+                if entry_size != (entry.size or 0):
+                    entry = entry.model_copy(update={"size": entry_size})
+                _store_manifest_entry(entry)
+                total_size += entry_size
+
+        for relpath in created:
+            current_kind = _current_path_kind(relpath)
+            if current_kind != "file" or not os.path.lexists(overlay_dir / relpath):
+                if os.path.lexists(overlay_dir / relpath):
+                    _smart_commit_debug(
+                        "skipping created relpath=%s because current_kind=%s overlay_kind=%s mount_kind=%s",
+                        relpath,
+                        current_kind,
+                        _path_kind_for_debug(overlay_dir / relpath),
+                        _path_kind_for_debug(mountpoint / relpath),
+                    )
                 continue
             new_entry, size = _process_overlay_file(relpath)
             _store_manifest_entry(new_entry)
             total_size += size
-        else:
-            entry_size = entry.size or 0
-            if entry_size == 0 and entry.md5:
-                try:
-                    entry_size = os.lstat(mountpoint / relpath).st_size
-                except OSError:
-                    pass
-            if entry_size != (entry.size or 0):
-                entry = entry.model_copy(update={"size": entry_size})
-            _store_manifest_entry(entry)
-            total_size += entry_size
 
-    for relpath in created:
-        current_kind = _current_path_kind(relpath)
-        if current_kind != "file" or not os.path.lexists(overlay_dir / relpath):
-            if os.path.lexists(overlay_dir / relpath):
-                _smart_commit_debug(
-                    "skipping created relpath=%s because current_kind=%s overlay_kind=%s mount_kind=%s",
-                    relpath,
-                    current_kind,
-                    _path_kind_for_debug(overlay_dir / relpath),
-                    _path_kind_for_debug(mountpoint / relpath),
-                )
-            continue
-        new_entry, size = _process_overlay_file(relpath)
-        _store_manifest_entry(new_entry)
-        total_size += size
+        for relpath, mode in dir_modes.items():
+            _store_manifest_entry(DVCManifestEntry(relpath=relpath, mode=mode, isdir=True))
 
-    for relpath, mode in dir_modes.items():
-        _store_manifest_entry(DVCManifestEntry(relpath=relpath, mode=mode, isdir=True))
-
-    if batch_uploads:
-        await s3_upload_batch(s3_config, batch_uploads)
-
-    for tmp_path in temp_files:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
+        if batch_uploads:
+            await s3_upload_batch(s3_config, batch_uploads)
+            # Only after the whole batch succeeded: a failed batch raises, so
+            # the next checkpoint retries every key it queued.
+            mount.uploaded_keys |= queued_keys
+    finally:
+        for tmp_path in temp_files:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
     entries = [entries_by_relpath[relpath].model_dump(exclude_none=True) for relpath in sorted(entries_by_relpath)]
     if len(entries) != len({entry["relpath"] for entry in entries}):
@@ -1058,14 +1078,16 @@ async def smart_commit(
     manifest_json = json.dumps(entries).encode()
     manifest_md5 = hashlib.md5(manifest_json).hexdigest()
     manifest_key = f"{s3_config.cache_prefix}/{manifest_md5[:2]}/{manifest_md5[2:]}.dir"
-    await s3_upload_bytes(s3_config, manifest_key, manifest_json)
+    if _uploaded_id(manifest_key) not in mount.uploaded_keys:
+        await s3_upload_bytes(s3_config, manifest_key, manifest_json)
 
-    # Verify manifest was uploaded
-    verify = await s3_download_bytes(s3_config, manifest_key)
-    if len(verify) != len(manifest_json):
-        raise RuntimeError(
-            f"Manifest verification failed: uploaded {len(manifest_json)} bytes but read back {len(verify)} bytes"
-        )
+        # Verify manifest was uploaded
+        verify = await s3_download_bytes(s3_config, manifest_key)
+        if len(verify) != len(manifest_json):
+            raise RuntimeError(
+                f"Manifest verification failed: uploaded {len(manifest_json)} bytes but read back {len(verify)} bytes"
+            )
+        mount.uploaded_keys.add(_uploaded_id(manifest_key))
 
     dvc_yaml = (
         f"outs:\n"

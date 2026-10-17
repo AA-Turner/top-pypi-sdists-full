@@ -38,9 +38,9 @@ class RectanglePixelRegion(PixelRegion):
     height : float
         The height of the rectangle (before rotation) in pixels.
     angle : `~astropy.units.Quantity`, optional
-        The rotation angle of the rectangle, measured anti-clockwise. If
-        set to zero (the default), the width axis is lined up with the x
-        axis.
+        The rotation angle of the rectangle, measured counterclockwise.
+        If set to zero (the default), the width axis is lined up with
+        the x-axis.
     meta : `~regions.RegionMeta` or `dict`, optional
         A dictionary that stores the meta attributes of the region.
     visual : `~regions.RegionVisual` or `dict`, optional
@@ -76,7 +76,7 @@ class RectanglePixelRegion(PixelRegion):
                            'pixels as a float.')
     height = PositiveScalar('The height of the rectangle (before rotation) '
                             'in pixels as a float.')
-    angle = ScalarAngle('The rotation angle measured anti-clockwise as a '
+    angle = ScalarAngle('The rotation angle measured counterclockwise as a '
                         '|Quantity| angle.')
     meta = RegionMetaDescr('The meta attributes as a |RegionMeta|')
     visual = RegionVisualDescr('The visual attributes as a |RegionVisual|.')
@@ -120,8 +120,9 @@ class RectanglePixelRegion(PixelRegion):
         # The photutils SVD helpers measure the sky rotation as a
         # position angle (PA) from North; regions measures it from the
         # RA axis. Convert between them with a 90 deg offset.
-        center, sky_width, sky_height, angle = pixel_shape_to_sky_svd(
-            (self.center.x, self.center.y), wcs, self.width, self.height,
+        center = wcs.pixel_to_world(self.center.x, self.center.y)
+        sky_width, sky_height, angle = pixel_shape_to_sky_svd(
+            wcs, (self.center.x, self.center.y), self.width, self.height,
             self.angle.to_value(u.radian))
         angle = (angle + 90 * u.deg).wrap_at(360 * u.deg)
         width = Angle(sky_width, 'arcsec')
@@ -210,7 +211,7 @@ class RectanglePixelRegion(PixelRegion):
         xy = xy[0] - origin[0], xy[1] - origin[1]
         width = self.width
         height = self.height
-        # matplotlib expects rotation in degrees (anti-clockwise)
+        # matplotlib expects rotation in degrees (counterclockwise)
         angle = self.angle.to_value(u.deg)
 
         mpl_kwargs = self.visual.define_mpl_kwargs(self._mpl_artist)
@@ -360,7 +361,7 @@ class RectanglePixelRegion(PixelRegion):
         """
         Rotate the region.
 
-        Positive ``angle`` corresponds to counter-clockwise rotation.
+        Positive ``angle`` corresponds to counterclockwise rotation.
 
         Parameters
         ----------
@@ -392,9 +393,13 @@ class RectangleSkyRegion(SkyRegion):
     height : `~astropy.units.Quantity`
         The height of the rectangle (before rotation) as an angle.
     angle : `~astropy.units.Quantity`, optional
-        The rotation angle of the rectangle, measured anti-clockwise. If
-        set to zero (the default), the width axis is lined up with the
-        longitude axis of the celestial coordinates.
+        The rotation angle of the rectangle, measured counterclockwise.
+        If set to zero (the default), the width axis is lined up with
+        the longitude axis of the ``center`` coordinate frame (e.g.,
+        ICRS or Galactic). When the region is converted to pixels with a
+        WCS whose celestial frame differs from that frame, the angle is
+        converted to the equivalent angle in the WCS frame, so the
+        region keeps the same orientation on the sky.
     meta : `~regions.RegionMeta` or `dict`, optional
         A dictionary that stores the meta attributes of the region.
     visual : `~regions.RegionVisual` or `dict`, optional
@@ -408,7 +413,7 @@ class RectangleSkyRegion(SkyRegion):
                                 'as a |Quantity| angle.')
     height = PositiveScalarAngle('The height of the rectangle (before '
                                  'rotation) as a |Quantity| angle.')
-    angle = ScalarAngle('The rotation angle measured anti-clockwise as a '
+    angle = ScalarAngle('The rotation angle measured counterclockwise as a '
                         '|Quantity| angle.')
     meta = RegionMetaDescr('The meta attributes as a |RegionMeta|')
     visual = RegionVisualDescr('The visual attributes as a |RegionVisual|.')
@@ -426,7 +431,7 @@ class RectangleSkyRegion(SkyRegion):
         # Convert regions sky angle (from RA axis) to photutils PA (from
         # North) by subtracting 90 deg.
         center, pix_width, pix_height, angle = sky_shape_to_pixel_svd(
-            self.center, wcs,
+            wcs, self.center,
             self.width.to_value(u.arcsec),
             self.height.to_value(u.arcsec),
             self.angle.to_value(u.radian) - np.pi / 2)

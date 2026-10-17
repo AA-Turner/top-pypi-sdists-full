@@ -20,7 +20,6 @@ from typing import Any, Dict, List, Literal, Optional
 
 from .document_rpc import (
     DOCUMENT_RPC_DEFAULT_CHANGE_MODE_FEATURE,
-    DOCUMENT_RPC_FEATURES,
     DOCUMENT_RPC_REQUEST_TIMEOUT_FEATURE,
     build_document_invoke_request,
     build_document_open_params,
@@ -55,11 +54,12 @@ from .protocol import (
     COLLABORATION_AUTH_PER_OPEN_FEATURE,
     normalize_collaboration_auth,
 )
+from .sdk_policy import SDK_POLICY
 
 logger = logging.getLogger('superdoc.transport')
 
-DOCUMENT_HOST_REQUIRED_FEATURES = (*DOCUMENT_RPC_FEATURES, 'host.shutdown')
-DOCUMENT_HOST_AUTHOR_FEATURE = 'document.open.author'
+DOCUMENT_HOST_REQUIRED_FEATURES = tuple(SDK_POLICY['documentRequiredFeatures'])
+DOCUMENT_HOST_AUTHOR_FEATURE = SDK_POLICY['features']['documentAuthor']
 _MAX_DOCUMENT_HOST_REQUEST_TIMEOUT_MS = 2_147_483_647
 
 
@@ -70,7 +70,7 @@ def _required_host_features(
     request_timeout_ms: Optional[int],
 ) -> tuple[str, ...]:
     if process_mode == 'cli':
-        return ('cli.invoke', 'host.shutdown')
+        return tuple(SDK_POLICY['cliRequiredFeatures'])
     return (
         *DOCUMENT_HOST_REQUIRED_FEATURES,
         *(() if user is None else (DOCUMENT_HOST_AUTHOR_FEATURE,)),

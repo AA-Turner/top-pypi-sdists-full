@@ -30,9 +30,7 @@ from langsmith.sandbox import (
 @pytest.fixture
 async def client():
     """Create an AsyncSandboxClient with retries disabled for test isolation."""
-    async with AsyncSandboxClient(
-        api_endpoint="http://test-server:8080", max_retries=0
-    ) as c:
+    async with AsyncSandboxClient(api_endpoint="http://test-server:8080", max_retries=0) as c:
         yield c
 
 
@@ -157,9 +155,7 @@ class TestAsyncSandboxClientInit:
 class TestAsyncSandboxOperations:
     """Tests for async sandbox operations."""
 
-    async def test_create_sandbox(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_create_sandbox(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test creating a sandbox."""
         httpx_mock.add_response(
             method="POST",
@@ -176,13 +172,9 @@ class TestAsyncSandboxOperations:
 
         assert sandbox.name == "test-sandbox"
         assert sandbox.id == "550e8400-e29b-41d4-a716-446655440003"
-        assert (
-            sandbox.dataplane_url == "https://sandbox-router.example.com/tenant/sb-123"
-        )
+        assert sandbox.dataplane_url == "https://sandbox-router.example.com/tenant/sb-123"
 
-    async def test_create_sandbox_forwards_proxy_config(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_create_sandbox_forwards_proxy_config(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """proxy_config should appear verbatim in the POST body."""
         import json
 
@@ -206,9 +198,7 @@ class TestAsyncSandboxOperations:
         body = json.loads(httpx_mock.get_request().content)
         assert body["proxy_config"] == proxy_config
 
-    async def test_create_sandbox_does_not_accept_raw_mounts(
-        self, client: AsyncSandboxClient
-    ):
+    async def test_create_sandbox_does_not_accept_raw_mounts(self, client: AsyncSandboxClient):
         """Raw mounts are intentionally only accepted inside mount_config."""
         with pytest.raises(TypeError):
             await getattr(client, "create_sandbox")(
@@ -227,9 +217,7 @@ class TestAsyncSandboxOperations:
                 ],
             )
 
-    async def test_create_sandbox_forwards_mount_config(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_create_sandbox_forwards_mount_config(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """mount_config should appear as a nested public field in the POST body."""
         import json
 
@@ -321,9 +309,7 @@ class TestAsyncSandboxOperations:
             "access_control": {"allow_list": ["github.com", "*.amazonaws.com"]},
         }
 
-    async def test_create_sandbox_omits_proxy_config_when_none(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_create_sandbox_omits_proxy_config_when_none(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """proxy_config must not appear in the payload when not provided."""
         import json
 
@@ -340,9 +326,7 @@ class TestAsyncSandboxOperations:
         body = json.loads(httpx_mock.get_request().content)
         assert "proxy_config" not in body
 
-    async def test_create_sandbox_merges_custom_headers(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_create_sandbox_merges_custom_headers(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test per-request headers override default client headers."""
         httpx_mock.add_response(
             method="POST",
@@ -366,9 +350,7 @@ class TestAsyncSandboxOperations:
         assert request.headers.get("X-Api-Key") == "override-key"
         assert request.headers.get("X-Test-Header") == "sandbox-client"
 
-    async def test_sandbox_async_context_manager(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_sandbox_async_context_manager(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test sandbox with async context manager."""
         httpx_mock.add_response(
             method="POST",
@@ -391,9 +373,7 @@ class TestAsyncSandboxOperations:
         requests = httpx_mock.get_requests()
         assert any(r.method == "DELETE" for r in requests)
 
-    async def test_sandbox_timeout(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_sandbox_timeout(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test sandbox creation timeout."""
         httpx_mock.add_response(
             method="POST",
@@ -405,9 +385,7 @@ class TestAsyncSandboxOperations:
         with pytest.raises(ResourceTimeoutError):
             await client.create_sandbox(snapshot_id="snap-1")
 
-    async def test_list_sandboxes(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_list_sandboxes(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test listing sandboxes."""
         httpx_mock.add_response(
             method="GET",
@@ -426,9 +404,7 @@ class TestAsyncSandboxOperations:
         assert len(sandboxes) == 1
         assert sandboxes[0].name == "sandbox-1"
 
-    async def test_delete_sandbox(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_delete_sandbox(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test deleting a sandbox."""
         httpx_mock.add_response(
             method="DELETE",
@@ -439,9 +415,7 @@ class TestAsyncSandboxOperations:
         # Should not raise
         await client.delete_sandbox("test-sandbox")
 
-    async def test_update_sandbox(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_update_sandbox(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test updating a sandbox's name."""
         httpx_mock.add_response(
             method="PATCH",
@@ -453,16 +427,12 @@ class TestAsyncSandboxOperations:
             },
         )
 
-        sandbox = await client.update_sandbox(
-            "my-sandbox", new_name="my-sandbox-renamed"
-        )
+        sandbox = await client.update_sandbox("my-sandbox", new_name="my-sandbox-renamed")
 
         assert sandbox.name == "my-sandbox-renamed"
         assert sandbox.id == "550e8400-e29b-41d4-a716-446655440003"
 
-    async def test_update_sandbox_not_found(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_update_sandbox_not_found(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test updating a non-existent sandbox."""
         httpx_mock.add_response(
             method="PATCH",
@@ -474,9 +444,7 @@ class TestAsyncSandboxOperations:
         with pytest.raises(ResourceNotFoundError):
             await client.update_sandbox("nonexistent", new_name="new-name")
 
-    async def test_update_sandbox_name_conflict(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_update_sandbox_name_conflict(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test updating sandbox to a name that already exists."""
         httpx_mock.add_response(
             method="PATCH",
@@ -490,9 +458,7 @@ class TestAsyncSandboxOperations:
 
         assert exc_info.value.resource_type == "sandbox"
 
-    async def test_update_sandbox_proxy_config(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_update_sandbox_proxy_config(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test replacing a sandbox's proxy config."""
         config = proxy_config(
             rules=[
@@ -524,9 +490,7 @@ class TestAsyncSandboxOperations:
         request = httpx_mock.get_requests()[-1]
         assert json.loads(request.content) == {"proxy_config": config}
 
-    async def test_update_sandbox_proxy_config_not_ready(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_update_sandbox_proxy_config_not_ready(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """A proxy-config update on a stopped sandbox is a typed not-ready error."""
         httpx_mock.add_response(
             method="PATCH",
@@ -534,10 +498,7 @@ class TestAsyncSandboxOperations:
             json={
                 "detail": {
                     "error": "InvalidRequest",
-                    "message": (
-                        'sandbox "my-sandbox" is in "stopped" state, '
-                        'must be "ready" to update proxy config'
-                    ),
+                    "message": ('sandbox "my-sandbox" is in "stopped" state, must be "ready" to update proxy config'),
                 }
             },
             status_code=400,
@@ -546,9 +507,7 @@ class TestAsyncSandboxOperations:
         with pytest.raises(SandboxNotReadyError, match="stopped"):
             await client.update_sandbox("my-sandbox", proxy_config={"rules": []})
 
-    async def test_create_sandbox_async_returns_provisioning(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_create_sandbox_async_returns_provisioning(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test async sandbox creation returns provisioning status."""
         httpx_mock.add_response(
             method="POST",
@@ -563,9 +522,7 @@ class TestAsyncSandboxOperations:
             status_code=201,
         )
 
-        sandbox = await client.create_sandbox(
-            snapshot_id="snap-1", wait_for_ready=False
-        )
+        sandbox = await client.create_sandbox(snapshot_id="snap-1", wait_for_ready=False)
 
         assert sandbox.name == "test-sandbox"
         assert sandbox.status == "provisioning"
@@ -579,9 +536,7 @@ class TestAsyncSandboxOperations:
         assert payload["wait_for_ready"] is False
         assert "timeout" not in payload
 
-    async def test_get_sandbox_status(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_get_sandbox_status(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test getting sandbox status."""
         httpx_mock.add_response(
             method="GET",
@@ -594,9 +549,7 @@ class TestAsyncSandboxOperations:
         assert isinstance(status, ResourceStatus)
         assert status.status == "provisioning"
 
-    async def test_get_sandbox_status_not_found(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_get_sandbox_status_not_found(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test getting status of non-existent sandbox."""
         httpx_mock.add_response(
             method="GET",
@@ -608,9 +561,7 @@ class TestAsyncSandboxOperations:
         with pytest.raises(ResourceNotFoundError):
             await client.get_sandbox_status("nonexistent")
 
-    async def test_wait_for_sandbox_ready(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_wait_for_sandbox_ready(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test polling until sandbox is ready."""
         httpx_mock.add_response(
             method="GET",
@@ -637,9 +588,7 @@ class TestAsyncSandboxOperations:
         assert sandbox.name == "my-sandbox"
         assert sandbox.status == "ready"
 
-    async def test_wait_for_sandbox_failed(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_wait_for_sandbox_failed(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test polling detects failure."""
         httpx_mock.add_response(
             method="GET",
@@ -650,16 +599,12 @@ class TestAsyncSandboxOperations:
             },
         )
 
-        with pytest.raises(
-            ResourceCreationError, match="No capacity available"
-        ) as exc_info:
+        with pytest.raises(ResourceCreationError, match="No capacity available") as exc_info:
             await client.wait_for_sandbox("my-sandbox", poll_interval=0.01)
 
         assert exc_info.value.resource_type == "sandbox"
 
-    async def test_wait_for_sandbox_timeout(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_wait_for_sandbox_timeout(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test polling timeout."""
         httpx_mock.add_response(
             method="GET",
@@ -672,9 +617,7 @@ class TestAsyncSandboxOperations:
 
         assert exc_info.value.last_status == "provisioning"
 
-    async def test_create_sandbox_with_retention(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_create_sandbox_with_retention(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Creating a sandbox with idle and delete-after-stop retention."""
         httpx_mock.add_response(
             method="POST",
@@ -706,9 +649,7 @@ class TestAsyncSandboxOperations:
         assert payload["idle_ttl_seconds"] == 600
         assert payload["delete_after_stop_seconds"] == 86400
 
-    async def test_create_sandbox_retention_omitted_when_none(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_create_sandbox_retention_omitted_when_none(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Retention fields are omitted from payload when None."""
         httpx_mock.add_response(
             method="POST",
@@ -729,31 +670,21 @@ class TestAsyncSandboxOperations:
         assert "idle_ttl_seconds" not in payload
         assert "delete_after_stop_seconds" not in payload
 
-    async def test_create_sandbox_retention_validation_negative(
-        self, client: AsyncSandboxClient
-    ):
+    async def test_create_sandbox_retention_validation_negative(self, client: AsyncSandboxClient):
         """Negative retention values raise ValueError."""
         with pytest.raises(ValueError, match="must be >= 0"):
             await client.create_sandbox(snapshot_id="snap-1", idle_ttl_seconds=-1)
         with pytest.raises(ValueError, match="must be >= 0"):
-            await client.create_sandbox(
-                snapshot_id="snap-1", delete_after_stop_seconds=-1
-            )
+            await client.create_sandbox(snapshot_id="snap-1", delete_after_stop_seconds=-1)
 
-    async def test_create_sandbox_retention_validation_not_multiple_of_60(
-        self, client: AsyncSandboxClient
-    ):
+    async def test_create_sandbox_retention_validation_not_multiple_of_60(self, client: AsyncSandboxClient):
         """Non-multiple-of-60 retention values raise ValueError."""
         with pytest.raises(ValueError, match="must be a multiple of 60"):
             await client.create_sandbox(snapshot_id="snap-1", idle_ttl_seconds=90)
         with pytest.raises(ValueError, match="must be a multiple of 60"):
-            await client.create_sandbox(
-                snapshot_id="snap-1", delete_after_stop_seconds=90
-            )
+            await client.create_sandbox(snapshot_id="snap-1", delete_after_stop_seconds=90)
 
-    async def test_create_sandbox_retention_zero_allowed(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_create_sandbox_retention_zero_allowed(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Zero is accepted on both retention fields."""
         httpx_mock.add_response(
             method="POST",
@@ -776,9 +707,7 @@ class TestAsyncSandboxOperations:
         assert sandbox.idle_ttl_seconds == 0
         assert sandbox.delete_after_stop_seconds == 0
 
-    async def test_update_sandbox_with_retention(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_update_sandbox_with_retention(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Update both retention fields simultaneously."""
         httpx_mock.add_response(
             method="PATCH",
@@ -810,18 +739,14 @@ class TestAsyncSandboxOperations:
         assert payload["delete_after_stop_seconds"] == 7200
         assert "name" not in payload
 
-    async def test_update_sandbox_retention_validation(
-        self, client: AsyncSandboxClient
-    ):
+    async def test_update_sandbox_retention_validation(self, client: AsyncSandboxClient):
         """Update path enforces the same retention bounds as create."""
         with pytest.raises(ValueError, match="must be >= 0"):
             await client.update_sandbox("my-sandbox", idle_ttl_seconds=-60)
         with pytest.raises(ValueError, match="must be >= 0"):
             await client.update_sandbox("my-sandbox", delete_after_stop_seconds=-60)
 
-    async def test_update_sandbox_name_and_retention(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_update_sandbox_name_and_retention(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Renaming and updating retention in one call."""
         httpx_mock.add_response(
             method="PATCH",
@@ -849,9 +774,7 @@ class TestAsyncSandboxOperations:
         assert payload["name"] == "my-sandbox-renamed"
         assert payload["delete_after_stop_seconds"] == 3600
 
-    async def test_list_sandboxes_includes_status(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_list_sandboxes_includes_status(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test that list_sandboxes parses status fields."""
         httpx_mock.add_response(
             method="GET",
@@ -876,9 +799,7 @@ class TestAsyncSandboxOperations:
         assert sandboxes[0].status == "ready"
         assert sandboxes[1].status == "provisioning"
 
-    async def test_create_sandbox_with_snapshot_name(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_create_sandbox_with_snapshot_name(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test creating a sandbox by snapshot name (server-side resolution)."""
         import json
 
@@ -929,9 +850,7 @@ class TestAsyncSandboxOperations:
         assert "snapshot_id" not in body
         assert "snapshot_name" not in body
 
-    async def test_create_sandbox_rejects_both_snapshot_identifiers(
-        self, client: AsyncSandboxClient
-    ):
+    async def test_create_sandbox_rejects_both_snapshot_identifiers(self, client: AsyncSandboxClient):
         """Test that snapshot_id / snapshot_name are mutually exclusive."""
 
         with pytest.raises(
@@ -940,9 +859,7 @@ class TestAsyncSandboxOperations:
         ):
             await client.create_sandbox(snapshot_id="snap-1", snapshot_name="my-snap")
 
-    async def test_list_snapshots(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_list_snapshots(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test listing snapshots with no filters."""
         httpx_mock.add_response(
             method="GET",
@@ -967,15 +884,11 @@ class TestAsyncSandboxOperations:
         request = httpx_mock.get_request()
         assert request.url.query == b""
 
-    async def test_list_snapshots_with_filters(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_list_snapshots_with_filters(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test listing snapshots forwards name_contains/limit/offset."""
         httpx_mock.add_response(
             method="GET",
-            url=(
-                "http://test-server:8080/snapshots?name_contains=env&limit=10&offset=5"
-            ),
+            url=("http://test-server:8080/snapshots?name_contains=env&limit=10&offset=5"),
             json={
                 "snapshots": [
                     {
@@ -997,13 +910,9 @@ class TestAsyncSandboxOperations:
         params = dict(request.url.params)
         assert params == {"name_contains": "env", "limit": "10", "offset": "5"}
 
-    async def test_create_snapshot_from_dockerfile_orchestrates(
-        self, client: AsyncSandboxClient, tmp_path
-    ):
+    async def test_create_snapshot_from_dockerfile_orchestrates(self, client: AsyncSandboxClient, tmp_path):
         """Test async Dockerfile snapshot wrapper syncs, builds, and finalizes."""
-        (tmp_path / "Dockerfile").write_text(
-            "FROM scratch\nCOPY hello.txt /hello.txt\n"
-        )
+        (tmp_path / "Dockerfile").write_text("FROM scratch\nCOPY hello.txt /hello.txt\n")
         (tmp_path / "hello.txt").write_text("hello")
 
         class FakeAsyncSandbox:
@@ -1029,9 +938,7 @@ class TestAsyncSandboxOperations:
         fake_sandbox = FakeAsyncSandbox()
 
         with (
-            patch.object(
-                client, "sandbox", AsyncMock(return_value=fake_sandbox)
-            ) as sandbox_mock,
+            patch.object(client, "sandbox", AsyncMock(return_value=fake_sandbox)) as sandbox_mock,
             patch.object(
                 client,
                 "capture_snapshot",
@@ -1079,9 +986,7 @@ class TestAsyncSandboxOperations:
         assert kwargs["docker_image"].startswith("langsmith-snapshot-build:")
         assert kwargs["fs_capacity_bytes"] is None
 
-    async def test_create_snapshot_from_dockerfile_forwards_builder_size(
-        self, client: AsyncSandboxClient, tmp_path
-    ):
+    async def test_create_snapshot_from_dockerfile_forwards_builder_size(self, client: AsyncSandboxClient, tmp_path):
         """vcpus/mem_bytes are forwarded to the builder sandbox."""
         (tmp_path / "Dockerfile").write_text("FROM scratch\n")
 
@@ -1101,9 +1006,7 @@ class TestAsyncSandboxOperations:
                 return ExecutionResult(stdout="", stderr="", exit_code=0)
 
         with (
-            patch.object(
-                client, "sandbox", AsyncMock(return_value=FakeAsyncSandbox())
-            ) as sandbox_mock,
+            patch.object(client, "sandbox", AsyncMock(return_value=FakeAsyncSandbox())) as sandbox_mock,
             patch.object(
                 client,
                 "capture_snapshot",
@@ -1173,9 +1076,7 @@ class TestAsyncSnapshotTags:
             "tag": "v2",
         }
 
-    async def test_list_snapshot_tags_lists_every_tag(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_list_snapshot_tags_lists_every_tag(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         httpx_mock.add_response(
             method="GET",
             url="http://test-server:8080/snapshots-by-name/my-env",
@@ -1212,9 +1113,7 @@ class TestAsyncSnapshotTags:
 class TestAsyncConnectionErrors:
     """Tests for async connection error handling."""
 
-    async def test_connection_error_on_sandbox_create(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_connection_error_on_sandbox_create(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test connection error when creating sandbox."""
         import httpx
 
@@ -1227,9 +1126,7 @@ class TestAsyncConnectionErrors:
 class TestGenerateDownloadURL:
     """Tests for AsyncSandboxClient.generate_download_url()."""
 
-    async def test_download_url_happy_path(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_download_url_happy_path(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test minting a download link returns DownloadURL with correct fields."""
         httpx_mock.add_response(
             method="POST",
@@ -1251,9 +1148,7 @@ class TestGenerateDownloadURL:
         assert request is not None
         assert json.loads(request.content) == {"path": "/tmp/report.pdf"}
 
-    async def test_download_url_optional_fields(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_download_url_optional_fields(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test expiry and response headers are sent when provided."""
         httpx_mock.add_response(
             method="POST",
@@ -1278,9 +1173,7 @@ class TestGenerateDownloadURL:
             "content_disposition": "inline",
         }
 
-    async def test_download_url_not_found(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_download_url_not_found(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test 404 raises ResourceNotFoundError."""
         httpx_mock.add_response(
             method="POST",
@@ -1295,17 +1188,13 @@ class TestGenerateDownloadURL:
     async def test_download_url_invalid_expiry(self, client: AsyncSandboxClient):
         """Test non-positive expires_in_seconds raises ValueError."""
         with pytest.raises(ValueError, match="greater than 0"):
-            await client.generate_download_url(
-                "my-sandbox", "/tmp/f", expires_in_seconds=0
-            )
+            await client.generate_download_url("my-sandbox", "/tmp/f", expires_in_seconds=0)
 
 
 class TestService:
     """Tests for AsyncSandboxClient.service()."""
 
-    async def test_service_happy_path(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_service_happy_path(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test getting a service URL returns AsyncServiceURL with correct fields."""
         httpx_mock.add_response(
             method="POST",
@@ -1325,9 +1214,7 @@ class TestService:
         assert svc.service_url == "http://uuid--3000.svc.example.com/"
         assert svc.expires_at == "2099-01-01T00:00:00Z"
 
-    async def test_service_custom_expiry(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_service_custom_expiry(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test custom expires_in_seconds is sent in payload."""
         httpx_mock.add_response(
             method="POST",
@@ -1350,9 +1237,7 @@ class TestService:
         assert body["port"] == 3000
         assert body["expires_in_seconds"] == 3600
 
-    async def test_service_not_found(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_service_not_found(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test 404 raises ResourceNotFoundError."""
         httpx_mock.add_response(
             method="POST",
@@ -1374,9 +1259,7 @@ class TestService:
         with pytest.raises(ValueError, match="between 1 and 86400"):
             await client.service("my-sandbox", 3000, expires_in_seconds=0)
 
-    async def test_service_has_refresher(
-        self, client: AsyncSandboxClient, httpx_mock: HTTPXMock
-    ):
+    async def test_service_has_refresher(self, client: AsyncSandboxClient, httpx_mock: HTTPXMock):
         """Test returned AsyncServiceURL has a working refresher."""
         httpx_mock.add_response(
             method="POST",
@@ -1420,8 +1303,5 @@ class TestAsyncSandboxClientRepr:
         # Ensure the repr shows the API URL
         assert "https://api.smith.langchain.com/v2/sandboxes" in repr_str
         # Ensure it's properly formatted
-        assert (
-            repr_str
-            == "AsyncSandboxClient (API URL: https://api.smith.langchain.com/v2/sandboxes)"
-        )
+        assert repr_str == "AsyncSandboxClient (API URL: https://api.smith.langchain.com/v2/sandboxes)"
         await client.aclose()

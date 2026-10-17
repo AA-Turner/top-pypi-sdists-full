@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: objgraph
-Version: 3.6.2
+Version: 3.7.0
 Summary: Draws Python object reference graphs with graphviz
 Home-page: https://mg.pov.lt/objgraph/
 Author: Marius Gedminas
@@ -9,33 +9,40 @@ License: MIT
 Project-URL: Source, https://github.com/mgedmin/objgraph
 Keywords: object graph visualization graphviz garbage collection
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: ipython
 Requires-Dist: graphviz; extra == "ipython"
 Provides-Extra: test
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 Python Object Graphs
 ====================
 
-.. image:: https://github.com/mgedmin/objgraph/workflows/build/badge.svg?branch=master
+.. image:: https://github.com/mgedmin/objgraph/actions/workflows/build.yml/badge.svg?branch=master
    :target: https://github.com/mgedmin/objgraph/actions
    :alt: Build Status
-
-.. image:: https://ci.appveyor.com/api/projects/status/github/mgedmin/objgraph?branch=master&svg=true
-   :target: https://ci.appveyor.com/project/mgedmin/objgraph
-   :alt: Build Status (Windows)
 
 .. image:: https://coveralls.io/repos/mgedmin/objgraph/badge.svg?branch=master
    :target: https://coveralls.io/r/mgedmin/objgraph?branch=master
@@ -99,6 +106,19 @@ Report bugs at https://github.com/mgedmin/objgraph/issues.
 Changes
 =======
 
+
+
+3.7.0 (2026-10-16)
+------------------
+
+- Fix `get_leaking_objects` with an ``objects`` argument to not ignore
+  references from other sources.  Closes `issue 82
+  <https://github.com/mgedmin/objgraph/issues/82>`_.
+  Also fix ``get_leaking_objects([])`` causing an UnboundLocalError.
+
+- Add support for Python 3.14 and 3.15.
+
+- Drop support for Python 3.7, 3.8, and 3.9.
 
 
 3.6.2 (2024-10-10)

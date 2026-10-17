@@ -442,6 +442,14 @@ def _coverage_report(explain: bool = False) -> None:
     if explain and any("(NONE" in l for l in lines) and not undeclared:
         print("  write one: .gov/rejections/case-<gate-id>.sh, shebang on "
               "line 1, '# gate: <id>' within the first five lines")
+        # #416: the 10s budget cannot carry a build-needing proof — the
+        # sanctioned shape is check-then-skip-loudly, stated where the
+        # authoring remedy is read (the README carries the long form).
+        print("  a proof whose vehicle is expensive to produce (a linked "
+             "binary, a fetched fixture) does not build it in the case: "
+             "check for its presence and skip loudly (`echo SKIP ...; "
+             "exit 0`) when absent — the gate itself builds inside its "
+             "own --timeout")
     if stray:
         print(f"note: case names unknown gate(s): {', '.join(stray)}")
 
@@ -449,24 +457,90 @@ def _coverage_report(explain: bool = False) -> None:
 GATE_RX = re.compile(r"(?m)^#\s*gate:\s*([a-z][a-z0-9-]*)")
 
 
+def _case_shell() -> list[str] | None:
+    """The POSIX shell that runs .sh project cases on Windows (#429).
+
+    CreateProcess cannot exec a shebang script, and a bare `bash` name
+    resolves through CreateProcess's OWN order — which on a stock
+    Windows box finds System32's WSL bash, not the Git Bash PATH names
+    first, and the case then runs in a foreign mount where node
+    resolution and path shapes differ. Resolution order: $GOV_CASE_BASH
+    (the operator knows their bash), then shutil.which with the WSL
+    candidate excluded. None = no usable bash (the caller reports a
+    FAIL with the env knob named, environment-shaped)."""
+    if os.name != "nt":
+        return None  # POSIX execs shebangs natively; never routed
+    knob = os.environ.get("GOV_CASE_BASH", "").strip()
+    if knob:
+        return [knob]
+    candidate = shutil.which("bash")
+    if candidate and "system32" in candidate.lower() \
+            and "windows" in candidate.lower():
+        candidate = None  # the WSL bash trap (#429 layer two)
+    return [candidate] if candidate else None
+
+
 def _run_project_case(p: Path) -> tuple[str, bool]:
-    """(report line, ok) — exit 0 means the rejection proof holds."""
+    """(report line, ok) — exit 0 means the rejection proof holds.
+
+    #416: a case whose proof vehicle is absent may skip LOUDLY — a
+    recognized ``SKIP`` marker on the first stdout line is surfaced as
+    its own report line (still exit-0 semantics: a budget-skip is a
+    pass the reader can see, never a silent one)."""
     if not os.access(p, os.X_OK):
         return f"FAIL {p} (not executable — chmod +x it)", False
+    argv = [str(p)]
+    if os.name == "nt" and p.suffix in (".sh", ".bash"):
+        # #429: CreateProcess cannot exec a shebang script — route .sh
+        # cases through a resolved POSIX shell (GOV_CASE_BASH, or a
+        # which-found bash with the System32 WSL candidate excluded).
+        # A case WITHOUT a shebang keeps the direct spawn: the
+        # missing-shebang FAIL is the contract everywhere (a bash
+        # indirection would silently run it and turn the bad-case
+        # proof into a pass), and the OSError below names it.
+        has_shebang = p.read_text(encoding="utf-8",
+                                  errors="replace").startswith("#!")
+        if has_shebang:
+            shell = _case_shell()
+            if shell is None:
+                return (f"FAIL {p} (Windows cannot exec a shebang case "
+                        "and no bash was found — export GOV_CASE_BASH "
+                        "to your Git Bash, e.g. "
+                        "D:\\Git\\usr\\bin\\bash.exe; System32's "
+                        "bash.exe is WSL and mangles Windows paths)",
+                        False)
+            argv = [*shell, p.as_posix()]
     try:
         proc = _run_text(
-            [str(p)], capture_output=True, text=True,
+            argv, capture_output=True, text=True,
             timeout=REJECTION_TIMEOUT_S, cwd=str(Path.cwd()), env=_case_env(),
         )
     except subprocess.TimeoutExpired:
         return f"FAIL {p} (timed out after {REJECTION_TIMEOUT_S}s)", False
     except OSError as e:
-        return f"FAIL {p} (cannot execute — missing shebang? {e.strerror})", False
+        # #429: on Windows this class is the environment speaking (no
+        # bash routed), not 15 proofs that never ran reading as gate
+        # defects — name the env shape.
+        detail = f"cannot execute — missing shebang? {e.strerror}"
+        if os.name == "nt":
+            detail += (" — Windows cannot exec shebang cases directly; "
+                       "export GOV_CASE_BASH to a Git Bash binary "
+                       "(not System32's WSL bash)")
+        return f"FAIL {p} ({detail})", False
     if proc.returncode == 0:
+        first = next((l for l in (proc.stdout or "").splitlines()
+                      if l.strip()), "")
+        if _SKIP_RX.search(first):
+            return f"SKIP {p} — {first.strip()}", True
         return f"PASS {p}", True
     tail = ((proc.stdout or "") + (proc.stderr or "")).strip().splitlines()
     why = f": {tail[0]}" if tail else ""
     return f"FAIL {p} (exit {proc.returncode}{why})", False
+
+
+# #416: the loud-skip marker — the word SKIP (a case's own voice, upper
+# case, its first output line) anywhere on that line.
+_SKIP_RX = re.compile(r"\bSKIP\b")
 
 
 def _project_cases() -> list[Path]:

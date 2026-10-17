@@ -100,5 +100,8 @@ def test_the_declared_field_count_the_plan_rests_on():
     sticky toolset, TOOL-SOURCES.md), twinned.
 
     One fewer since 2026-10-10: system_prompt_spans retired with content blocks and <<MATRX>>
-    (prompt blocks plan §8.3)."""
-    assert len(dataclasses.fields(UnifiedConfig)) == 108
+    (prompt blocks plan §8.3).
+
+    109 since 2026-10-16: extended_prompt_cache (the agent's long-cache setting,
+    config/cache_marks.py), twinned."""
+    assert len(dataclasses.fields(UnifiedConfig)) == 109

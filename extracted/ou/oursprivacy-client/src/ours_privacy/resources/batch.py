@@ -63,7 +63,8 @@ class BatchResource(SyncAPIResource):
         `distinctId`, and mixed validation or queue outcomes are reported per row.
 
         Args:
-          token: The token for your Source. You can find this in the dashboard.
+          token: The token for your Source. You can find this in the dashboard. Leading and
+              trailing whitespace is removed before validation.
 
           events: A list of `/track`-shaped events to validate and enqueue together.
 
@@ -131,7 +132,8 @@ class AsyncBatchResource(AsyncAPIResource):
         `distinctId`, and mixed validation or queue outcomes are reported per row.
 
         Args:
-          token: The token for your Source. You can find this in the dashboard.
+          token: The token for your Source. You can find this in the dashboard. Leading and
+              trailing whitespace is removed before validation.
 
           events: A list of `/track`-shaped events to validate and enqueue together.
 

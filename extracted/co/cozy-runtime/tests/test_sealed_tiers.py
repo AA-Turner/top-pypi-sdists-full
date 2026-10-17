@@ -30,7 +30,7 @@ from cozy_runtime.author._executor_requests import SealedPlan  # noqa: E402
 from cozy_runtime.internal import canonical, plane, spawn  # noqa: E402
 from cozy_runtime.internal.executor import Executor  # noqa: E402
 from cozy_runtime.internal.executor_commands import Binding, Load  # noqa: E402
-from cozy_runtime.internal.fill import Checkpoint, FillRefusal  # noqa: E402
+from cozy_runtime.internal.fill import Checkpoint  # noqa: E402
 from cozy_runtime.internal.parallel.group import RankGroup  # noqa: E402
 from cozy_runtime.internal.seam import Channel  # noqa: E402
 from cozy_runtime.internal.weights import HostTiers, Weights  # noqa: E402
@@ -45,10 +45,6 @@ from test_weight_plane import (  # noqa: E402
     write_checkpoint,
 )
 
-pytestmark = pytest.mark.skipif(
-    not plane.sealed_available(), reason="a TensorFS that adopts sealed host layouts"
-)
-
 
 class Machine:
     """The machine's half: fill each asked layout once, keep it, hand out read-only views."""
@@ -60,7 +56,6 @@ class Machine:
         self.staged = staged
         self.held: dict[tuple[str, str], int] = {}
         self.fills = 0
-        self.prefetches = 0
         self.sourced = 0
         self.stage_asks: list[tuple[int, ...]] = []
         self.handed = 0
@@ -145,14 +140,6 @@ class Machine:
                 continue
             assert frame.get("descriptor") is True
             sent = self.plans(frame, channel.recv_memfd())
-            if frame["kind"] == "sealed_prefetch":  # fill every plan now; asks then hit
-                self.prefetches += 1
-                for doc in [] if self.staged else msgspec.convert(sent, list[SealedPlan]):
-                    fd = self.answer(doc)
-                    if fd is not None:
-                        os.close(fd)
-                channel.send({"event": "answer", "seq": frame["seq"], "ok": True})
-                continue
             if frame["kind"] == "object_files":
                 files = self.object_files(msgspec.convert(sent, SealedPlan))
                 self.handed += len(files)
@@ -202,10 +189,7 @@ class Session:
         executor = self.executor = Executor(Channel(ours), tmp)
         staged = stage is not None
         self.tiers = HostTiers(
-            ask=lambda *_: None,
-            offer=lambda *_: None,
             seal=(lambda p: executor._seal_tier(p, stage)) if staged else executor._seal_tier,
-            prefetch=executor._prefetch_tiers,
             stage=executor._stage_tier if staged else None,
             files=executor._object_files if staged else None,
         )
@@ -229,7 +213,6 @@ def test_an_executor_computes_on_the_machines_sealed_layout_and_reads_no_store(
         model = load(weights, checkpoint, "sealed", tiers=first.tiers)
         component = model.backend.components["stack"]
         assert component.sealed and machine.fills == 1
-        assert machine.prefetches == 1  # filled before the ask, which then found it held
         assert_pinned(weights, component, values)
         x = torch.rand(4, HIDDEN, generator=torch.Generator().manual_seed(3)).half()
         reference = Stack()
@@ -240,7 +223,6 @@ def test_an_executor_computes_on_the_machines_sealed_layout_and_reads_no_store(
         held = plane.stats(weights.plane).host
         assert held.fill_bytes == 0 and held.disk_read_bytes >= 0
         assert held.sealed_bytes >= component.ws.nbytes // 2, held
-        assert model.backend.stats["leases"]["acquisitions"] == 0  # no store lease at all
 
         # A GPU executor's tier (no device here): pinned inside the machine's budget only.
         budget = 64 << 20
@@ -293,8 +275,6 @@ def test_with_model_sources_an_executor_opens_no_store(tmp_path: Path) -> None:
         )
         assert checkpoint.store is None and checkpoint.header_bytes == stored.header_bytes
         assert checkpoint.model_assets() == stored.model_assets()
-        with pytest.raises(FillRefusal, match="reads no store"):
-            checkpoint.acquire()
         weights = Weights(torch, torch.device("cpu"), "cpu")
         model = load(weights, checkpoint, "sourced", tiers=session.tiers)
         assert model.backend.components["stack"].sealed and machine.sourced >= 1
@@ -305,7 +285,6 @@ def test_with_model_sources_an_executor_opens_no_store(tmp_path: Path) -> None:
         with torch.inference_mode():
             expected = reference(x)
         assert same(run(model, x, passes=1), [expected])
-        assert model.backend.stats["leases"]["acquisitions"] == 0
 
         # Register the real CPU construction to exercise the executor's reuse branch.
         # CUDA construction admission is separate; reuse must retain these same grants
@@ -367,7 +346,7 @@ def test_a_groups_follower_asks_the_machine_through_rank_0_and_opens_no_store(
             sourced=lambda name: leader._model_source(manifest, name),
         )
         weights = Weights(torch, torch.device("cpu"), "cpu")
-        model = load(weights, checkpoint, "group", tiers=leader._tiers(False, True))
+        model = load(weights, checkpoint, "group", tiers=leader._tiers(True))
         assert model.backend.components["stack"].sealed
         x = torch.rand(4, HIDDEN, generator=torch.Generator().manual_seed(3)).half()
         reference = Stack()
@@ -376,11 +355,10 @@ def test_a_groups_follower_asks_the_machine_through_rank_0_and_opens_no_store(
             expected = hashlib.sha256(reference(x).numpy().tobytes()).hexdigest()
         reply = group.reply_one(1, "adopt")
         assert reply["ok"] and not group.broken, (reply, group.broken)
-        assert reply["store"] is False and reply["leases"] == 0
+        assert reply["store"] is False
         assert reply["assets"] == len(stored.model_assets())
         assert reply["sealed"] == [True, True] and reply["refined"] is True
         assert reply["outputs"] == [expected, expected]
-        assert reply["refused"] is True  # only the machine's layouts and files are relayed
         # one copy of each layout for both GPUs: the coarse one, and the follower's finer one
         assert machine.fills == 2 and len(machine.held) == 2
         assert_pinned(weights, model.backend.components["stack"], values)
@@ -390,7 +368,6 @@ def test_a_groups_follower_asks_the_machine_through_rank_0_and_opens_no_store(
         machine.close()
 
 
-@pytest.mark.skipif(not plane.sealed_holes(), reason="a TensorFS that reads holes from files")
 def test_a_layout_staged_in_part_pins_only_what_was_staged_and_reads_no_store(
     tmp_path: Path,
 ) -> None:
@@ -413,7 +390,6 @@ def test_a_layout_staged_in_part_pins_only_what_was_staged_and_reads_no_store(
             ticket.wait()
         tier = plane.stats(gpu.plane).host
         assert tier.used == 0 and tier.fill_bytes == 0, tier  # holes: nothing here to pin
-        assert model.backend.stats["leases"]["acquisitions"] == 0
 
         # Streaming blocks are asked for as stages plan them; this machine has no room left.
         plan, tiers = component.staging

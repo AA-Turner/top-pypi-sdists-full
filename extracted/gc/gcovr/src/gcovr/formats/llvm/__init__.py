@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -17,21 +15,39 @@
 #
 # ****************************************************************************
 
-import logging
+"""GCOVR LLVM coverage report input handler."""
+
 import os
+
 from ...data_model.container import CoverageContainer
 from ...formats.base import BaseHandler
 from ...options import GcovrConfigOption
 
-LOGGER = logging.getLogger("gcovr")
+OPTION_GROUP_NAME = "LLVM options"
+OPTION_GROUP = OPTION_GROUP_NAME.casefold().replace(" ", "_")
 
 
 class LlvmHandler(BaseHandler):
     """Class to handle LLVM JSON tracefile format."""
 
     @classmethod
+    def get_option_group(cls) -> dict[str, str]:
+        """Get the description of the option group."""
+        return {
+            "key": OPTION_GROUP,
+            "name": OPTION_GROUP_NAME,
+            "description": (
+                "Options for reading LLVM source based code coverage reports, "
+                "<https://clang.llvm.org/docs/SourceBasedCodeCoverage.html#creating-coverage-reports>."
+            ),
+        }
+
+    @classmethod
     def get_options(cls) -> list[GcovrConfigOption | str]:
+        """Get the report options."""
         return [
+            # JSON option use for validation
+            "json_compare",
             # Global options needed for processing
             "keep_intermediate_files",
             "delete_input_files",
@@ -55,7 +71,7 @@ class LlvmHandler(BaseHandler):
             GcovrConfigOption(
                 "llvm_profdata_cmd",
                 ["--llvm-profdata-executable"],
-                group="llvm_options",
+                group=OPTION_GROUP,
                 help=(
                     "Use a particular llvm-profdata executable to convert LLVM profraw files. "
                     "This switches from searching gcno/gcda files and using gcov to searching "
@@ -68,7 +84,7 @@ class LlvmHandler(BaseHandler):
             GcovrConfigOption(
                 "llvm_cov_binaries",
                 ["--llvm-cov-binary"],
-                group="llvm_options",
+                group=OPTION_GROUP,
                 help=(
                     "The binary to export the coverage data for. See help of 'llvm-cov export' command. "
                     "The option can be used multiple times."
@@ -78,14 +94,23 @@ class LlvmHandler(BaseHandler):
             ),
         ]
 
+    def validate_options(self) -> None:
+        """Validate options."""
+        if self.options.llvm_profdata_cmd and self.options.json_compare:
+            msg = "A LLVM report is not possible with --json-compare."
+            raise RuntimeError(msg)
+
     def read_report(self) -> CoverageContainer:
-        from .read import read_report  # pylint: disable=import-outside-toplevel # Lazy loading is intended here
+        """Read report."""
+        # Lazy loading is intended here
+        from .read import (  # pylint: disable=import-outside-toplevel  # noqa: PLC0415
+            read_report,
+        )
 
         # This can't be checked during validation of arguments because it's not needed together with the
         # tracefiles
         if not self.options.llvm_cov_binaries:
-            raise RuntimeError(
-                "Missing --llvm-cov-binary, needed for llvm-cov execution."
-            )
+            msg = "Missing --llvm-cov-binary, needed for llvm-cov execution."
+            raise RuntimeError(msg)
 
         return read_report(self.options)

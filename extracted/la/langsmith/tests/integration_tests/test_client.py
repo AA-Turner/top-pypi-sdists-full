@@ -66,9 +66,7 @@ logger = logging.getLogger(__name__)
 _dataset_deletion_lock = threading.Lock()
 
 
-def safe_delete_dataset(
-    client: Client, dataset_id: str = None, dataset_name: str = None
-):
+def safe_delete_dataset(client: Client, dataset_id: str = None, dataset_name: str = None):
     """Delete a dataset with thread safety to prevent deadlocks in parallel tests."""
     with _dataset_deletion_lock:
         try:
@@ -81,9 +79,7 @@ def safe_delete_dataset(
             logger.warning(f"Failed to delete dataset: {e}")
 
 
-def wait_for(
-    condition: Callable[[], bool], max_sleep_time: int = 120, sleep_time: int = 3
-):
+def wait_for(condition: Callable[[], bool], max_sleep_time: int = 120, sleep_time: int = 3):
     """Wait for a condition to be true."""
     start_time = time.time()
     while time.time() - start_time < max_sleep_time:
@@ -129,9 +125,7 @@ async def test_evaluators_generated_client_crud(
 ) -> None:
     """Exercise the generated OpenAPI evaluators resource end to end."""
     evaluator = None
-    name = "__sdk_evaluator_integration_" + "".join(
-        random.sample(string.ascii_lowercase, 10)
-    )
+    name = "__sdk_evaluator_integration_" + "".join(random.sample(string.ascii_lowercase, 10))
 
     try:
         created = await langchain_client.evaluators.create(
@@ -160,39 +154,26 @@ async def test_evaluators_generated_client_crud(
         assert updated.evaluator is not None
         assert updated.evaluator.name == updated_name
 
-        evaluators = [
-            item
-            async for item in langchain_client.evaluators.list(
-                name_contains=updated_name, limit=10
-            )
-        ]
+        evaluators = [item async for item in langchain_client.evaluators.list(name_contains=updated_name, limit=10)]
         assert evaluator.id in {item.id for item in evaluators}
     finally:
         if evaluator is not None and evaluator.id is not None:
-            await langchain_client.evaluators.delete(
-                evaluator.id, delete_run_rules=True
-            )
+            await langchain_client.evaluators.delete(evaluator.id, delete_run_rules=True)
 
 
 async def test_aread_project(langchain_client: Client) -> None:
     """Exercise the async aread_project method against the LangSmith API."""
-    project_name = "__sdk_aread_project_integration_" + "".join(
-        random.sample(string.ascii_lowercase, 10)
-    )
+    project_name = "__sdk_aread_project_integration_" + "".join(random.sample(string.ascii_lowercase, 10))
     created = langchain_client.create_project(project_name)
     try:
         project = await langchain_client.aread_project(project_name=project_name)
         assert project.id == created.id
         assert project.name == project_name
 
-        project_by_id = await langchain_client.aread_project(
-            project_id=str(created.id), include_stats=True
-        )
+        project_by_id = await langchain_client.aread_project(project_id=str(created.id), include_stats=True)
         assert project_by_id.id == created.id
 
-        nonexistent_name = "__sdk_aread_project_missing_" + "".join(
-            random.sample(string.ascii_lowercase, 10)
-        )
+        nonexistent_name = "__sdk_aread_project_missing_" + "".join(random.sample(string.ascii_lowercase, 10))
         with pytest.raises(LangSmithNotFoundError):
             await langchain_client.aread_project(project_name=nonexistent_name)
     finally:
@@ -222,9 +203,7 @@ def test_datasets(parameterized_multipart_client: Client) -> None:
     dataset2 = parameterized_multipart_client.read_dataset(dataset_id=dataset_id)
     assert dataset.id == dataset2.id
 
-    datasets = list(
-        parameterized_multipart_client.list_datasets(dataset_ids=[dataset_id])
-    )
+    datasets = list(parameterized_multipart_client.list_datasets(dataset_ids=[dataset_id]))
     assert len(datasets) > 0
     assert dataset_id in [dataset.id for dataset in datasets]
 
@@ -259,9 +238,7 @@ def test_datasets(parameterized_multipart_client: Client) -> None:
     )
     updated_example = parameterized_multipart_client.read_example(example.id)
     assert updated_example.id == example.id
-    updated_example_value = parameterized_multipart_client.read_example(
-        updated_example.id
-    )
+    updated_example_value = parameterized_multipart_client.read_example(updated_example.id)
     assert updated_example_value.inputs["col1"] == "updatedExampleCol1"
     assert updated_example_value.outputs is not None
     assert updated_example_value.outputs["col2"] == "updatedExampleCol2"
@@ -309,9 +286,7 @@ def test_datasets(parameterized_multipart_client: Client) -> None:
     assert len(examples2) == 2
 
     hard_delete_example = examples2[0]
-    parameterized_multipart_client.delete_examples(
-        example_ids=[hard_delete_example.id], hard_delete=True
-    )
+    parameterized_multipart_client.delete_examples(example_ids=[hard_delete_example.id], hard_delete=True)
     examples_after_hard_delete = list(
         parameterized_multipart_client.list_examples(dataset_id=new_dataset.id)  # type: ignore
     )
@@ -329,16 +304,14 @@ def test_datasets(parameterized_multipart_client: Client) -> None:
     # Find the example with empty inputs that we just created
     empty_input_examples = [ex for ex in examples3 if ex.inputs == {}]
     assert len(empty_input_examples) == 1, (
-        f"Expected exactly 1 example with empty inputs, "
-        f"found {len(empty_input_examples)}"
+        f"Expected exactly 1 example with empty inputs, found {len(empty_input_examples)}"
     )
 
     empty_example = empty_input_examples[0]
     # The backend currently returns None for outputs when None is provided,
     # regardless of flags
     assert empty_example.outputs is None, (
-        f"Expected None outputs for example created with outputs=None, "
-        f"got {empty_example.outputs}"
+        f"Expected None outputs for example created with outputs=None, got {empty_example.outputs}"
     )
     safe_delete_dataset(parameterized_multipart_client, dataset_id=dataset_id)
 
@@ -373,15 +346,8 @@ def test_list_examples(langchain_client: "Client") -> None:
     dataset = _create_dataset(langchain_client, dataset_name)
 
     try:
-        inputs, outputs, splits = zip(
-            *[
-                ({"text": text}, {"label": label}, split)
-                for text, label, split in examples
-            ]
-        )
-        langchain_client.create_examples(
-            inputs=inputs, outputs=outputs, splits=splits, dataset_id=dataset.id
-        )
+        inputs, outputs, splits = zip(*[({"text": text}, {"label": label}, split) for text, label, split in examples])
+        langchain_client.create_examples(inputs=inputs, outputs=outputs, splits=splits, dataset_id=dataset.id)
 
         batch1 = [
             ListReq("all", {}),
@@ -394,9 +360,7 @@ def test_list_examples(langchain_client: "Client") -> None:
         ]
 
         with ThreadPoolExecutor(max_workers=min(8, len(batch1))) as tp:
-            results1 = dict(
-                tp.map(lambda r: _fetch_list(langchain_client, dataset.id, r), batch1)
-            )
+            results1 = dict(tp.map(lambda r: _fetch_list(langchain_client, dataset.id, r), batch1))
 
         assert len(results1["all"]) == len(examples)
         assert len(results1["offset_limit"]) == 2
@@ -410,8 +374,7 @@ def test_list_examples(langchain_client: "Client") -> None:
         to_move = [
             ex.id
             for ex in example_list_train_test
-            if ex.metadata is not None
-            and "test" in ex.metadata.get("dataset_split", [])
+            if ex.metadata is not None and "test" in ex.metadata.get("dataset_split", [])
         ][0]
 
         langchain_client.update_example(example_id=to_move, split="train")
@@ -421,9 +384,7 @@ def test_list_examples(langchain_client: "Client") -> None:
             ListReq("train_after_move", {"splits": ["train"]}),
         ]
         with ThreadPoolExecutor(max_workers=len(batch2)) as tp:
-            results2 = dict(
-                tp.map(lambda r: _fetch_list(langchain_client, dataset.id, r), batch2)
-            )
+            results2 = dict(tp.map(lambda r: _fetch_list(langchain_client, dataset.id, r), batch2))
 
         assert len(results2["test_after_move"]) == 1
         assert len(results2["train_after_move"]) == 4
@@ -442,15 +403,11 @@ def test_list_examples(langchain_client: "Client") -> None:
             ListReq("meta_both", {"metadata": {"foo": "bar", "baz": "qux"}}),
             ListReq("meta_miss", {"metadata": {"foo": "bar", "baz": "quux"}}),
             ListReq("filter_exists_baz", {"filter": 'exists(metadata, "baz")'}),
-            ListReq(
-                "filter_has_foo", {"filter": 'has("metadata", \'{"foo": "bar"}\')'}
-            ),
+            ListReq("filter_has_foo", {"filter": 'has("metadata", \'{"foo": "bar"}\')'}),
             ListReq("filter_exists_bazzz", {"filter": 'exists(metadata, "bazzz")'}),
         ]
         with ThreadPoolExecutor(max_workers=min(8, len(batch3))) as tp:
-            results3 = dict(
-                tp.map(lambda r: _fetch_list(langchain_client, dataset.id, r), batch3)
-            )
+            results3 = dict(tp.map(lambda r: _fetch_list(langchain_client, dataset.id, r), batch3))
 
         assert len(results3["all_after_create"]) == len(examples) + 1
         assert len(results3["meta_foo"]) == 1
@@ -601,11 +558,7 @@ def test_upload_examples_multipart(langchain_client: Client):
     assert "test_file" in example_with_id.attachments
 
     # Verify example with outputs and multiple attachments
-    example_with_outputs = next(
-        ex
-        for ex in examples
-        if ex.outputs and ex.outputs.get("response") == "test response"
-    )
+    example_with_outputs = next(ex for ex in examples if ex.outputs and ex.outputs.get("response") == "test response")
     assert len(example_with_outputs.attachments) == 2
     assert "file1" in example_with_outputs.attachments
     assert "file2" in example_with_outputs.attachments
@@ -708,20 +661,14 @@ def test_create_dataset(langchain_client: Client) -> None:
         inputs={"input": "hello world"},
         outputs={"output": "bcde"},
     )
-    initial_examples = list(
-        langchain_client.list_examples(dataset_id=dataset.id, as_of=initial_version)
-    )
+    initial_examples = list(langchain_client.list_examples(dataset_id=dataset.id, as_of=initial_version))
     assert len(initial_examples) == 1
     latest_examples = list(langchain_client.list_examples(dataset_id=dataset.id))
     assert len(latest_examples) == 2
-    latest_tagged_examples = list(
-        langchain_client.list_examples(dataset_id=dataset.id, as_of="latest")
-    )
+    latest_tagged_examples = list(langchain_client.list_examples(dataset_id=dataset.id, as_of="latest"))
     assert len(latest_tagged_examples) == 2
     assert latest_tagged_examples == latest_examples
-    diffs = langchain_client.diff_dataset_versions(
-        loaded_dataset.id, from_version=initial_version, to_version="latest"
-    )
+    diffs = langchain_client.diff_dataset_versions(loaded_dataset.id, from_version=initial_version, to_version="latest")
     assert diffs.examples_added == [example_2.id]
     assert diffs.examples_removed == []
     assert diffs.examples_modified == [example.id]
@@ -795,16 +742,12 @@ def test_list_datasets(langchain_client: Client) -> None:
     ds1n = "__test_list_datasets1" + uuid7().hex
     ds2n = "__test_list_datasets2" + uuid7().hex
     try:
-        dataset1 = langchain_client.create_dataset(
-            ds1n, data_type=DataType.llm, metadata={"foo": "barqux"}
-        )
+        dataset1 = langchain_client.create_dataset(ds1n, data_type=DataType.llm, metadata={"foo": "barqux"})
         dataset2 = langchain_client.create_dataset(ds2n, data_type=DataType.kv)
         assert dataset1.url is not None
         assert dataset2.url is not None
 
-        datasets = list(
-            langchain_client.list_datasets(dataset_ids=[dataset1.id, dataset2.id])
-        )
+        datasets = list(langchain_client.list_datasets(dataset_ids=[dataset1.id, dataset2.id]))
         assert len(datasets) == 2
         assert dataset1.id in [dataset.id for dataset in datasets]
         assert dataset2.id in [dataset.id for dataset in datasets]
@@ -815,17 +758,11 @@ def test_list_datasets(langchain_client: Client) -> None:
         assert len(datasets) > 0
         assert dataset1.id in {dataset.id for dataset in datasets}
         # Sub-filter on name
-        datasets = list(
-            langchain_client.list_datasets(
-                dataset_ids=[dataset1.id, dataset2.id], dataset_name=ds1n
-            )
-        )
+        datasets = list(langchain_client.list_datasets(dataset_ids=[dataset1.id, dataset2.id], dataset_name=ds1n))
         assert len(datasets) == 1
         # Sub-filter on metadata
         datasets = list(
-            langchain_client.list_datasets(
-                dataset_ids=[dataset1.id, dataset2.id], metadata={"foo": "barqux"}
-            )
+            langchain_client.list_datasets(dataset_ids=[dataset1.id, dataset2.id], metadata={"foo": "barqux"})
         )
         assert len(datasets) == 1
 
@@ -854,9 +791,7 @@ def test_list_datasets(langchain_client: Client) -> None:
 
 @pytest.mark.require_clickhouse
 @pytest.mark.skip(reason="This test is flaky")
-def test_create_run_with_masked_inputs_outputs(
-    langchain_client: Client, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_create_run_with_masked_inputs_outputs(langchain_client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
     project_name = "__test_create_run_with_masked_inputs_outputs" + uuid7().hex
     monkeypatch.setenv("LANGCHAIN_HIDE_INPUTS", "true")
     monkeypatch.setenv("LANGCHAIN_HIDE_OUTPUTS", "true")
@@ -909,9 +844,7 @@ def test_create_run_with_masked_inputs_outputs(
 
 
 @freeze_time("2023-01-01")
-def test_create_chat_example(
-    monkeypatch: pytest.MonkeyPatch, langchain_client: Client
-) -> None:
+def test_create_chat_example(monkeypatch: pytest.MonkeyPatch, langchain_client: Client) -> None:
     from langchain_core.messages import FunctionMessage, HumanMessage
 
     dataset_name = "__createChatExample-test-dataset"
@@ -951,9 +884,7 @@ def test_create_chat_example(
             "type": "function",
             "data": {
                 "content": "",
-                "additional_kwargs": {
-                    "function_call": {"arguments": "args", "name": "foo"}
-                },
+                "additional_kwargs": {"function_call": {"arguments": "args", "name": "foo"}},
             },
         },
     }
@@ -963,19 +894,13 @@ def test_create_chat_example(
 @pytest.mark.require_clickhouse
 @pytest.mark.parametrize("use_multipart_endpoint", [True, False])
 @pytest.mark.slow
-def test_batch_ingest_runs(
-    langchain_client: Client, use_multipart_endpoint: bool
-) -> None:
+def test_batch_ingest_runs(langchain_client: Client, use_multipart_endpoint: bool) -> None:
     _session = "__test_batch_ingest_runs + " + str(uuid7)
     trace_id = uuid7()
     trace_id_2 = uuid7()
     run_id_2 = uuid7()
-    current_time = datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y%m%dT%H%M%S%fZ"
-    )
-    later_time = (
-        datetime.datetime.now(datetime.timezone.utc) + timedelta(seconds=1)
-    ).strftime("%Y%m%dT%H%M%S%fZ")
+    current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    later_time = (datetime.datetime.now(datetime.timezone.utc) + timedelta(seconds=1)).strftime("%Y%m%dT%H%M%S%fZ")
 
     """
     Here we create:
@@ -1012,8 +937,7 @@ def test_batch_ingest_runs(
             "session_name": _session,
             "name": "run 2",
             "run_type": "chain",
-            "dotted_order": f"{current_time}{str(trace_id)}."
-            f"{later_time}{str(run_id_2)}",
+            "dotted_order": f"{current_time}{str(trace_id)}.{later_time}{str(run_id_2)}",
             "trace_id": str(trace_id),
             "parent_run_id": str(trace_id),
             "inputs": {"input1": 5, "input2": 6},
@@ -1022,8 +946,7 @@ def test_batch_ingest_runs(
     runs_to_update = [
         {
             "id": str(run_id_2),
-            "dotted_order": f"{current_time}{str(trace_id)}."
-            f"{later_time}{str(run_id_2)}",
+            "dotted_order": f"{current_time}{str(trace_id)}.{later_time}{str(run_id_2)}",
             "trace_id": str(trace_id),
             "parent_run_id": str(trace_id),
             "outputs": {"output1": 4, "output2": 5},
@@ -1071,9 +994,7 @@ def test_batch_ingest_runs(
     assert run3.error == "error"
 
 
-def test_multipart_ingest_empty(
-    langchain_client: Client, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_multipart_ingest_empty(langchain_client: Client, caplog: pytest.LogCaptureFixture) -> None:
     runs_to_create: list[dict] = []
     runs_to_update: list[dict] = []
 
@@ -1089,9 +1010,7 @@ def test_multipart_ingest_create_with_attachments_error(
 ) -> None:
     _session = "__test_multipart_ingest_create_with_attachments"
     trace_a_id = uuid7()
-    current_time = datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y%m%dT%H%M%S%fZ"
-    )
+    current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
     runs_to_create: list[dict] = [
         {
@@ -1119,14 +1038,10 @@ def test_multipart_ingest_create_with_attachments_error(
 
 @pytest.mark.require_clickhouse
 @pytest.mark.slow
-def test_multipart_ingest_create_with_attachments(
-    langchain_client: Client, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_multipart_ingest_create_with_attachments(langchain_client: Client, caplog: pytest.LogCaptureFixture) -> None:
     _session = "__test_multipart_ingest_create_with_attachments"
     trace_a_id = uuid7()
-    current_time = datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y%m%dT%H%M%S%fZ"
-    )
+    current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
     runs_to_create: list[dict] = [
         {
@@ -1149,16 +1064,12 @@ def test_multipart_ingest_create_with_attachments(
 
     # make sure no warnings logged
     with caplog.at_level(logging.WARNING, logger="langsmith.client"):
-        langchain_client.multipart_ingest(
-            create=runs_to_create, update=[], dangerously_allow_filesystem=True
-        )
+        langchain_client.multipart_ingest(create=runs_to_create, update=[], dangerously_allow_filesystem=True)
         langchain_client.flush()
         assert not caplog.records
         wait_for(lambda: _get_run(str(trace_a_id), langchain_client))
         created_run = langchain_client.read_run(run_id=str(trace_a_id))
-        assert sorted(created_run.attachments.keys()) == sorted(["foo", "bar"]), (
-            f"See failed run at {created_run.url}"
-        )
+        assert sorted(created_run.attachments.keys()) == sorted(["foo", "bar"]), f"See failed run at {created_run.url}"
         assert created_run.attachments["foo"]["reader"].read() == b"bar"
         assert (
             created_run.attachments["bar"]["reader"].read()
@@ -1168,16 +1079,10 @@ def test_multipart_ingest_create_with_attachments(
 
 @pytest.mark.require_clickhouse
 @pytest.mark.slow
-def test_multipart_ingest_update_with_attachments_no_paths(
-    langchain_client: Client, caplog: pytest.LogCaptureFixture
-):
-    _session = (
-        "__test_multipart_ingest_update_with_attachments_no_paths" + uuid7().hex[:6]
-    )
+def test_multipart_ingest_update_with_attachments_no_paths(langchain_client: Client, caplog: pytest.LogCaptureFixture):
+    _session = "__test_multipart_ingest_update_with_attachments_no_paths" + uuid7().hex[:6]
     trace_a_id = uuid7()
-    current_time = datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y%m%dT%H%M%S%fZ"
-    )
+    current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
     runs_to_create: list[dict] = [
         {
@@ -1241,9 +1146,7 @@ def test_multipart_ingest_update_with_attachments_error(
     _session = "__test_multipart_ingest_update_with_attachments"
 
     trace_a_id = uuid7()
-    current_time = datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y%m%dT%H%M%S%fZ"
-    )
+    current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
     runs_to_create: list[dict] = [
         {
@@ -1285,14 +1188,10 @@ def test_multipart_ingest_update_with_attachments_error(
 # TODO: fix flakiness
 @pytest.mark.require_clickhouse
 @pytest.mark.skip(reason="Flakey")
-def test_multipart_ingest_update_with_attachments(
-    langchain_client: Client, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_multipart_ingest_update_with_attachments(langchain_client: Client, caplog: pytest.LogCaptureFixture) -> None:
     _session = "__test_multipart_ingest_update_with_attachments"
     trace_a_id = uuid7()
-    current_time = datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y%m%dT%H%M%S%fZ"
-    )
+    current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     runs_to_create: list[dict] = [
         {
             "id": str(trace_a_id),
@@ -1327,9 +1226,7 @@ def test_multipart_ingest_update_with_attachments(
                 },
             }
         ]
-        langchain_client.multipart_ingest(
-            create=[], update=runs_to_update, dangerously_allow_filesystem=True
-        )
+        langchain_client.multipart_ingest(create=[], update=runs_to_update, dangerously_allow_filesystem=True)
 
         # this would fail if the internal file handle wasn't closed
         assert image_path.read_bytes() == image_content
@@ -1346,9 +1243,7 @@ def test_multipart_ingest_update_with_attachments(
         )
 
 
-def test_multipart_ingest_create_then_update(
-    langchain_client: Client, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_multipart_ingest_create_then_update(langchain_client: Client, caplog: pytest.LogCaptureFixture) -> None:
     _session = "__test_multipart_ingest_create_then_update"
 
     trace_a_id = uuid7()
@@ -1392,9 +1287,7 @@ def test_multipart_ingest_create_then_update(
         assert not caplog.records
 
 
-def test_multipart_ingest_update_then_create(
-    langchain_client: Client, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_multipart_ingest_update_then_create(langchain_client: Client, caplog: pytest.LogCaptureFixture) -> None:
     _session = "__test_multipart_ingest_update_then_create"
 
     trace_a_id = uuid7()
@@ -1439,15 +1332,11 @@ def test_multipart_ingest_update_then_create(
         assert not caplog.records
 
 
-def test_multipart_ingest_create_wrong_type(
-    langchain_client: Client, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_multipart_ingest_create_wrong_type(langchain_client: Client, caplog: pytest.LogCaptureFixture) -> None:
     _session = "__test_multipart_ingest_create_then_update"
 
     trace_a_id = uuid7()
-    current_time = datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y%m%dT%H%M%S%fZ"
-    )
+    current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
     runs_to_create: list[dict] = [
         {
@@ -1468,10 +1357,7 @@ def test_multipart_ingest_create_wrong_type(
         # this should 422
         assert len(caplog.records) == 1, "Should get 1 warning for 422, not retried"
         assert all(
-            "422" in record.message
-            or "429" in record.message
-            or "400" in record.message
-            for record in caplog.records
+            "422" in record.message or "429" in record.message or "400" in record.message for record in caplog.records
         ), [record.message for record in caplog.records]
 
 
@@ -1588,9 +1474,7 @@ def test_fallback_json_serialization():
         ("Text\ud83d\udcac", "Text💬"),
         ("收花🙄·到", "收花🙄·到"),
     ]
-    pydantic_surrogates = [
-        (Document(content=item), expected) for item, expected in raw_surrogates
-    ]
+    pydantic_surrogates = [(Document(content=item), expected) for item, expected in raw_surrogates]
 
     # Compare decoded values rather than bytes: which encoder produced the
     # output is an implementation detail. The stdlib-json fallback keeps
@@ -1611,14 +1495,10 @@ def test_runs_stats():
     assert stats
 
 
-def test_slow_run_read_multipart(
-    langchain_client: Client, caplog: pytest.LogCaptureFixture
-):
+def test_slow_run_read_multipart(langchain_client: Client, caplog: pytest.LogCaptureFixture):
     myobj = {f"key_{i}": f"val_{i}" for i in range(500)}
     id_ = str(uuid7())
-    current_time = datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y%m%dT%H%M%S%fZ"
-    )
+    current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     run_to_create = {
         "id": id_,
         "session_name": "default",
@@ -1639,9 +1519,7 @@ def test_slow_run_read_multipart(
             if not self.start_time:
                 self.start_time = time.time()
             logger.debug(
-                f"[{self.called}]: {monitor.bytes_read} bytes,"
-                f" {time.time() - self.start_time:.2f} seconds"
-                " elapsed",
+                f"[{self.called}]: {monitor.bytes_read} bytes, {time.time() - self.start_time:.2f} seconds elapsed",
             )
             if self.called == 1:
                 time.sleep(6)
@@ -1684,14 +1562,10 @@ def test_list_examples_attachments_keys(langchain_client: Client) -> None:
     )
 
     # Get examples with attachments
-    with_attachments = next(
-        langchain_client.list_examples(dataset_id=dataset.id, include_attachments=True)
-    )
+    with_attachments = next(langchain_client.list_examples(dataset_id=dataset.id, include_attachments=True))
 
     # Get examples without attachments
-    without_attachments = next(
-        langchain_client.list_examples(dataset_id=dataset.id, include_attachments=False)
-    )
+    without_attachments = next(langchain_client.list_examples(dataset_id=dataset.id, include_attachments=False))
 
     with_keys = set(with_attachments.dict().keys())
     without_keys = set(without_attachments.dict().keys())
@@ -1722,9 +1596,7 @@ def test_mime_type_is_propogated(langchain_client: Client) -> None:
         ],
     )
 
-    example = next(
-        langchain_client.list_examples(dataset_id=dataset.id, include_attachments=True)
-    )
+    example = next(langchain_client.list_examples(dataset_id=dataset.id, include_attachments=True))
     assert example.attachments["test_file"]["mime_type"] == "text/plain"
 
     example = langchain_client.read_example(example_id=example.id)
@@ -1756,9 +1628,7 @@ def test_evaluate_mime_type_is_propagated(langchain_client: Client) -> None:
         assert attachments["test_file"]["mime_type"] == "text/plain"
         return {"answer": "hi there"}
 
-    def evaluator(
-        outputs: dict, reference_outputs: dict, attachments: dict
-    ) -> Dict[str, Any]:
+    def evaluator(outputs: dict, reference_outputs: dict, attachments: dict) -> Dict[str, Any]:
         # Verify we receive the attachment data
         assert attachments["test_file"]["mime_type"] == "text/plain"
         return {
@@ -1790,16 +1660,12 @@ async def test_aevaluate_mime_type_is_propogated(langchain_client: Client) -> No
         ],
     )
 
-    async def target(
-        inputs: Dict[str, Any], attachments: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def target(inputs: Dict[str, Any], attachments: Dict[str, Any]) -> Dict[str, Any]:
         # Verify we receive the attachment data
         assert attachments["test_file"]["mime_type"] == "text/plain"
         return {"answer": "hi there"}
 
-    async def evaluator(
-        outputs: dict, reference_outputs: dict, attachments: dict
-    ) -> Dict[str, Any]:
+    async def evaluator(outputs: dict, reference_outputs: dict, attachments: dict) -> Dict[str, Any]:
         # Verify we receive the attachment data
         assert attachments["test_file"]["mime_type"] == "text/plain"
         return {
@@ -1839,9 +1705,7 @@ def test_evaluate_with_attachments_multiple_evaluators(
         assert image_data.read() == b"fake image data for testing"
         return {"answer": "test image"}
 
-    def evaluator_1(
-        outputs: dict, reference_outputs: dict, attachments: dict
-    ) -> Dict[str, Any]:
+    def evaluator_1(outputs: dict, reference_outputs: dict, attachments: dict) -> Dict[str, Any]:
         assert "image" in attachments
         assert "presigned_url" in attachments["image"]
         image_data = attachments["image"]["reader"]
@@ -1852,9 +1716,7 @@ def test_evaluate_with_attachments_multiple_evaluators(
             )
         }
 
-    def evaluator_2(
-        outputs: dict, reference_outputs: dict, attachments: dict
-    ) -> Dict[str, Any]:
+    def evaluator_2(outputs: dict, reference_outputs: dict, attachments: dict) -> Dict[str, Any]:
         assert "image" in attachments
         assert "presigned_url" in attachments["image"]
         image_data = attachments["image"]["reader"]
@@ -1904,9 +1766,7 @@ def test_evaluate_with_attachments(langchain_client: Client) -> None:
         assert image_data.read() == b"fake image data for testing"
         return {"answer": "test image"}
 
-    def evaluator(
-        outputs: dict, reference_outputs: dict, attachments: dict
-    ) -> Dict[str, Any]:
+    def evaluator(outputs: dict, reference_outputs: dict, attachments: dict) -> Dict[str, Any]:
         assert "image" in attachments
         assert "presigned_url" in attachments["image"]
         image_data = attachments["image"]["reader"]
@@ -1949,9 +1809,7 @@ def test_evaluate_with_attachments_not_in_target(langchain_client: Client) -> No
     def target(inputs: Dict[str, Any]) -> Dict[str, Any]:
         return {"answer": "test image"}
 
-    def evaluator(
-        outputs: dict, reference_outputs: dict, attachments: dict
-    ) -> Dict[str, Any]:
+    def evaluator(outputs: dict, reference_outputs: dict, attachments: dict) -> Dict[str, Any]:
         assert "image" in attachments
         assert "presigned_url" in attachments["image"]
         image_data = attachments["image"]["reader"]
@@ -2018,9 +1876,7 @@ def test_evaluate_with_no_attachments(langchain_client: Client) -> None:
             )
         }
 
-    results = evaluate(
-        target, data=dataset_name, evaluators=[evaluator], client=langchain_client
-    )
+    results = evaluate(target, data=dataset_name, evaluators=[evaluator], client=langchain_client)
 
     assert len(results) == 2
     for result in results:
@@ -2047,9 +1903,7 @@ async def test_aevaluate_with_attachments(langchain_client: Client) -> None:
 
     langchain_client.create_examples(dataset_id=dataset.id, examples=examples)
 
-    async def target(
-        inputs: Dict[str, Any], attachments: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def target(inputs: Dict[str, Any], attachments: Dict[str, Any]) -> Dict[str, Any]:
         # Verify we receive the attachment data
         assert "image" in attachments
         assert "presigned_url" in attachments["image"]
@@ -2057,17 +1911,13 @@ async def test_aevaluate_with_attachments(langchain_client: Client) -> None:
         assert image_data.read() == bytes(f"data: {inputs['index']}", "utf-8")
         return {"answer": "test image"}
 
-    async def evaluator_1(
-        inputs: dict, outputs: dict, reference_outputs: dict, attachments: dict
-    ) -> bool:
+    async def evaluator_1(inputs: dict, outputs: dict, reference_outputs: dict, attachments: dict) -> bool:
         assert "image" in attachments
         assert "presigned_url" in attachments["image"]
         image_data = attachments["image"]["reader"]
         return image_data.read() == bytes(f"data: {inputs['index']}", "utf-8")
 
-    async def evaluator_2(
-        inputs: dict, outputs: dict, reference_outputs: dict, attachments: dict
-    ) -> bool:
+    async def evaluator_2(inputs: dict, outputs: dict, reference_outputs: dict, attachments: dict) -> bool:
         assert "image" in attachments
         assert "presigned_url" in attachments["image"]
         image_data = attachments["image"]["reader"]
@@ -2120,9 +1970,7 @@ async def test_aevaluate_with_attachments_not_in_target(
         # Verify we receive the attachment data
         return {"answer": "test image"}
 
-    async def evaluator(
-        outputs: dict, reference_outputs: dict, attachments: dict
-    ) -> Dict[str, Any]:
+    async def evaluator(outputs: dict, reference_outputs: dict, attachments: dict) -> Dict[str, Any]:
         assert "image" in attachments
         assert "presigned_url" in attachments["image"]
         image_data = attachments["image"]["reader"]
@@ -2133,9 +1981,7 @@ async def test_aevaluate_with_attachments_not_in_target(
             )
         }
 
-    results = await langchain_client.aevaluate(
-        target, data=dataset_name, evaluators=[evaluator], num_repetitions=2
-    )
+    results = await langchain_client.aevaluate(target, data=dataset_name, evaluators=[evaluator], num_repetitions=2)
 
     assert len(results) == 2
     async for result in results:
@@ -2163,9 +2009,7 @@ async def test_aevaluate_with_no_attachments(langchain_client: Client) -> None:
     )
     langchain_client.upload_examples_multipart(dataset_id=dataset.id, uploads=[example])
 
-    async def target(
-        inputs: Dict[str, Any], attachments: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def target(inputs: Dict[str, Any], attachments: Dict[str, Any]) -> Dict[str, Any]:
         # Verify we receive an empty attachments dict
         assert isinstance(attachments, dict)
         assert len(attachments) == 0
@@ -2178,9 +2022,7 @@ async def test_aevaluate_with_no_attachments(langchain_client: Client) -> None:
             )
         }
 
-    results = await aevaluate(
-        target, data=dataset_name, evaluators=[evaluator], client=langchain_client
-    )
+    results = await aevaluate(target, data=dataset_name, evaluators=[evaluator], client=langchain_client)
 
     assert len(results) == 2
     async for result in results:
@@ -2198,12 +2040,8 @@ def test_examples_length_validation(langchain_client: Client) -> None:
     inputs = [{"text": "hello"}, {"text": "world"}]
     outputs = [{"response": "hi"}]  # One less than inputs
     with pytest.raises(ValueError) as exc_info:
-        langchain_client.create_examples(
-            inputs=inputs, outputs=outputs, dataset_id=dataset.id
-        )
-    assert "Length of outputs (1) does not match length of inputs (2)" in str(
-        exc_info.value
-    )
+        langchain_client.create_examples(inputs=inputs, outputs=outputs, dataset_id=dataset.id)
+    assert "Length of outputs (1) does not match length of inputs (2)" in str(exc_info.value)
 
     # Create some valid examples for testing update
     langchain_client.create_examples(
@@ -2211,9 +2049,7 @@ def test_examples_length_validation(langchain_client: Client) -> None:
         outputs=[{"response": "hi"}, {"response": "earth"}],
         dataset_id=dataset.id,
     )
-    example_ids = [
-        example.id for example in langchain_client.list_examples(dataset_id=dataset.id)
-    ]
+    example_ids = [example.id for example in langchain_client.list_examples(dataset_id=dataset.id)]
 
     # Test update_examples validation
     with pytest.raises(ValueError) as exc_info:
@@ -2222,9 +2058,7 @@ def test_examples_length_validation(langchain_client: Client) -> None:
             inputs=[{"text": "new hello"}],  # One less than example_ids
             outputs=[{"response": "new hi"}, {"response": "new earth"}],
         )
-    assert "Length of inputs (1) does not match length of examples (2)" in str(
-        exc_info.value
-    )
+    assert "Length of inputs (1) does not match length of examples (2)" in str(exc_info.value)
 
     # Clean up
     safe_delete_dataset(langchain_client, dataset_id=dataset.id)
@@ -2235,9 +2069,9 @@ def test_new_create_example(parameterized_multipart_client: Client) -> None:
     dataset_name = "__test_update_examples_output" + uuid7().hex
     dataset = _create_dataset(parameterized_multipart_client, dataset_name)
 
-    supports_attachments = (
-        parameterized_multipart_client.info.instance_flags or {}
-    ).get("dataset_examples_multipart_enabled", False)
+    supports_attachments = (parameterized_multipart_client.info.instance_flags or {}).get(
+        "dataset_examples_multipart_enabled", False
+    )
 
     example_id = uuid7()
     parameterized_multipart_client.create_example(
@@ -2255,9 +2089,7 @@ def test_new_create_example(parameterized_multipart_client: Client) -> None:
         ),
     )
 
-    retrieved_example = parameterized_multipart_client.read_example(
-        example_id=example_id
-    )
+    retrieved_example = parameterized_multipart_client.read_example(example_id=example_id)
 
     assert retrieved_example.id == example_id
     assert retrieved_example.dataset_id == dataset.id
@@ -2275,9 +2107,9 @@ def test_new_create_examples(parameterized_multipart_client: Client) -> None:
     dataset_name = "__test_update_examples_output" + uuid7().hex
     dataset = _create_dataset(parameterized_multipart_client, dataset_name)
 
-    supports_attachments = (
-        parameterized_multipart_client.info.instance_flags or {}
-    ).get("dataset_examples_multipart_enabled", False)
+    supports_attachments = (parameterized_multipart_client.info.instance_flags or {}).get(
+        "dataset_examples_multipart_enabled", False
+    )
 
     example_id = uuid7()
     example = dict(
@@ -2294,16 +2126,10 @@ def test_new_create_examples(parameterized_multipart_client: Client) -> None:
         del example["attachments"]
 
     # Use new way of passing example
-    parameterized_multipart_client.create_examples(
-        dataset_name=dataset_name, examples=[example]
-    )
+    parameterized_multipart_client.create_examples(dataset_name=dataset_name, examples=[example])
 
-    retrieved_example = parameterized_multipart_client.read_example(
-        example_id=example_id
-    )
-    examples_in_dataset = parameterized_multipart_client.list_examples(
-        dataset_id=dataset.id
-    )
+    retrieved_example = parameterized_multipart_client.read_example(example_id=example_id)
+    examples_in_dataset = parameterized_multipart_client.list_examples(dataset_id=dataset.id)
     assert len(list(examples_in_dataset)) == 1
 
     assert retrieved_example.id == example_id
@@ -2323,12 +2149,8 @@ def test_new_create_examples(parameterized_multipart_client: Client) -> None:
         outputs=[{"answer": "A real image"}],
     )
 
-    retrieved_example = parameterized_multipart_client.read_example(
-        example_id=example_id2
-    )
-    examples_in_dataset = parameterized_multipart_client.list_examples(
-        dataset_id=dataset.id
-    )
+    retrieved_example = parameterized_multipart_client.read_example(example_id=example_id2)
+    examples_in_dataset = parameterized_multipart_client.list_examples(dataset_id=dataset.id)
     assert len(list(examples_in_dataset)) == 2
 
     assert retrieved_example.id == example_id2
@@ -2345,9 +2167,9 @@ def test_new_update_examples(parameterized_multipart_client: Client) -> None:
     dataset_name = "__test_update_examples_output" + uuid7().hex
     dataset = _create_dataset(parameterized_multipart_client, dataset_name)
 
-    supports_attachments = (
-        parameterized_multipart_client.info.instance_flags or {}
-    ).get("dataset_examples_multipart_enabled", False)
+    supports_attachments = (parameterized_multipart_client.info.instance_flags or {}).get(
+        "dataset_examples_multipart_enabled", False
+    )
 
     example_id = uuid7()
     example = dict(
@@ -2364,9 +2186,7 @@ def test_new_update_examples(parameterized_multipart_client: Client) -> None:
         del example["attachments"]
 
     # Create some valid examples for testing update
-    parameterized_multipart_client.create_examples(
-        dataset_name=dataset_name, examples=[example]
-    )
+    parameterized_multipart_client.create_examples(dataset_name=dataset_name, examples=[example])
 
     example_update = ExampleUpdate(
         id=example_id,
@@ -2381,13 +2201,9 @@ def test_new_update_examples(parameterized_multipart_client: Client) -> None:
         ),
     )
 
-    parameterized_multipart_client.update_examples(
-        dataset_id=dataset.id, updates=[example_update]
-    )
+    parameterized_multipart_client.update_examples(dataset_id=dataset.id, updates=[example_update])
 
-    retrieved_example = parameterized_multipart_client.read_example(
-        example_id=example_id
-    )
+    retrieved_example = parameterized_multipart_client.read_example(example_id=example_id)
 
     assert retrieved_example.id == example_id
     assert retrieved_example.dataset_id == dataset.id
@@ -2414,9 +2230,7 @@ def test_new_update_examples(parameterized_multipart_client: Client) -> None:
         ),
     )
 
-    retrieved_example = parameterized_multipart_client.read_example(
-        example_id=example_id
-    )
+    retrieved_example = parameterized_multipart_client.read_example(example_id=example_id)
 
     assert retrieved_example.id == example_id
     assert retrieved_example.dataset_id == dataset.id
@@ -2481,9 +2295,7 @@ def test_update_examples_multiple_datasets(langchain_client: Client) -> None:
     )
 
     with pytest.raises(LangSmithConflictError):
-        langchain_client.update_examples(
-            dataset_id=dataset1.id, updates=[example_update_1, example_update_2]
-        )
+        langchain_client.update_examples(dataset_id=dataset1.id, updates=[example_update_1, example_update_2])
 
     with pytest.raises(LangSmithConflictError):
         langchain_client.update_examples(
@@ -2595,12 +2407,9 @@ def test_create_examples_xor_dataset_args(langchain_client: Client) -> None:
 
     with pytest.raises(
         ValueError,
-        match="Exactly one argument in each of the following "
-        "groups must be defined: dataset_id, dataset_name",
+        match="Exactly one argument in each of the following groups must be defined: dataset_id, dataset_name",
     ):
-        langchain_client.create_examples(
-            dataset_name=dataset_name, dataset_id=dataset.id
-        )
+        langchain_client.create_examples(dataset_name=dataset_name, dataset_id=dataset.id)
 
     # Clean up
     safe_delete_dataset(langchain_client, dataset_id=dataset.id)
@@ -2622,12 +2431,8 @@ def test_create_examples_errors(langchain_client: Client) -> None:
     """Test create_examples fails in a number of cases."""
     dataset_name = "__test_create_examples_errors" + uuid7().hex
     dataset = _create_dataset(langchain_client, dataset_name)
-    with pytest.raises(
-        ValueError, match="Cannot specify 'outputs' when 'examples' is specified."
-    ):
-        langchain_client.create_examples(
-            dataset_id=dataset.id, outputs={"foo": "bar"}, examples=[ExampleCreate()]
-        )
+    with pytest.raises(ValueError, match="Cannot specify 'outputs' when 'examples' is specified."):
+        langchain_client.create_examples(dataset_id=dataset.id, outputs={"foo": "bar"}, examples=[ExampleCreate()])
 
     # Clean up
     safe_delete_dataset(langchain_client, dataset_id=dataset.id)
@@ -2639,13 +2444,9 @@ def test_create_examples_batching(parameterized_multipart_client: Client) -> Non
     dataset = _create_dataset(parameterized_multipart_client, dataset_name)
 
     # Test batching with 250 examples (> default batch_size=200)
-    examples = [
-        {"inputs": {"q": f"Q{i}"}, "outputs": {"a": f"A{i}"}} for i in range(250)
-    ]
+    examples = [{"inputs": {"q": f"Q{i}"}, "outputs": {"a": f"A{i}"}} for i in range(250)]
 
-    result = parameterized_multipart_client.create_examples(
-        dataset_id=dataset.id, examples=examples
-    )
+    result = parameterized_multipart_client.create_examples(dataset_id=dataset.id, examples=examples)
 
     assert result["count"] == 250
     assert len(result["example_ids"]) == 250
@@ -2678,17 +2479,13 @@ def test_create_examples_large_multipart_batching(
         for i in range(20)  # ~100MB total payload
     ]
 
-    result = parameterized_multipart_client.create_examples(
-        dataset_id=dataset.id, examples=examples
-    )
+    result = parameterized_multipart_client.create_examples(dataset_id=dataset.id, examples=examples)
 
     assert result["count"] == 20
     assert len(result["example_ids"]) == 20
 
     # Verify attachments were uploaded
-    first_example = parameterized_multipart_client.read_example(
-        result["example_ids"][0]
-    )
+    first_example = parameterized_multipart_client.read_example(result["example_ids"][0])
     if hasattr(first_example, "attachments") and first_example.attachments:
         assert len(first_example.attachments) == 2
 
@@ -2716,17 +2513,13 @@ def test_create_examples_large_multipart_batching_parallel(
         for i in range(20)  # ~100MB total payload
     ]
 
-    result = parameterized_multipart_client.create_examples(
-        dataset_id=dataset.id, examples=examples, max_concurrency=3
-    )
+    result = parameterized_multipart_client.create_examples(dataset_id=dataset.id, examples=examples, max_concurrency=3)
 
     assert result["count"] == 20
     assert len(result["example_ids"]) == 20
 
     # Verify attachments were uploaded
-    first_example = parameterized_multipart_client.read_example(
-        result["example_ids"][0]
-    )
+    first_example = parameterized_multipart_client.read_example(result["example_ids"][0])
     if hasattr(first_example, "attachments") and first_example.attachments:
         assert len(first_example.attachments) == 2
 
@@ -2743,15 +2536,11 @@ def test_create_examples_invalid_max_concurrency(
 
     # Test max_concurrency < 1
     with pytest.raises(ValueError, match="max_concurrency must be between 1 and 3"):
-        parameterized_multipart_client.create_examples(
-            dataset_id=dataset.id, examples=examples, max_concurrency=0
-        )
+        parameterized_multipart_client.create_examples(dataset_id=dataset.id, examples=examples, max_concurrency=0)
 
     # Test max_concurrency > 3
     with pytest.raises(ValueError, match="max_concurrency must be between 1 and 3"):
-        parameterized_multipart_client.create_examples(
-            dataset_id=dataset.id, examples=examples, max_concurrency=4
-        )
+        parameterized_multipart_client.create_examples(dataset_id=dataset.id, examples=examples, max_concurrency=4)
 
     safe_delete_dataset(parameterized_multipart_client, dataset_id=dataset.id)
 
@@ -2762,9 +2551,7 @@ def test_create_examples_boundary_concurrency(
     """Test max_concurrency boundary values (1 and 3)."""
     dataset_name = "__test_boundary_" + uuid7().hex
     dataset = _create_dataset(parameterized_multipart_client, dataset_name)
-    examples = [
-        {"inputs": {"q": f"Q{i}"}, "outputs": {"a": f"A{i}"}} for i in range(50)
-    ]
+    examples = [{"inputs": {"q": f"Q{i}"}, "outputs": {"a": f"A{i}"}} for i in range(50)]
 
     # Test min value (sequential)
     result1 = parameterized_multipart_client.create_examples(
@@ -2774,9 +2561,7 @@ def test_create_examples_boundary_concurrency(
     assert len(result1["example_ids"]) == 50
 
     # Test max value (max parallelism)
-    examples2 = [
-        {"inputs": {"q": f"Q{i}_2"}, "outputs": {"a": f"A{i}_2"}} for i in range(50)
-    ]
+    examples2 = [{"inputs": {"q": f"Q{i}_2"}, "outputs": {"a": f"A{i}_2"}} for i in range(50)]
     result2 = parameterized_multipart_client.create_examples(
         dataset_id=dataset.id, examples=examples2, max_concurrency=3
     )
@@ -2797,9 +2582,7 @@ def test_create_examples_empty_list(parameterized_multipart_client: Client) -> N
 
     # Test max_concurrency > 3
     with pytest.raises(ValueError, match="Must specify either 'examples' or 'inputs.'"):
-        parameterized_multipart_client.create_examples(
-            dataset_id=dataset.id, examples=[]
-        )
+        parameterized_multipart_client.create_examples(dataset_id=dataset.id, examples=[])
 
 
 @pytest.mark.xfail(reason="Need to wait for backend changes to go endpoint")
@@ -2915,13 +2698,8 @@ def test_update_example_with_attachments_operations(langchain_client: Client) ->
     assert "renamed_image" in retrieved_example.attachments
     assert "image2" in retrieved_example.attachments
     assert "image1" not in retrieved_example.attachments
-    assert (
-        retrieved_example.attachments["image2"]["reader"].read() == b"fake image data 2"
-    )
-    assert (
-        retrieved_example.attachments["renamed_image"]["reader"].read()
-        == b"fake image data 1"
-    )
+    assert retrieved_example.attachments["image2"]["reader"].read() == b"fake image data 2"
+    assert retrieved_example.attachments["renamed_image"]["reader"].read() == b"fake image data 1"
 
     langchain_client.update_example(
         dataset_id=dataset.id,
@@ -2937,9 +2715,7 @@ def test_update_example_with_attachments_operations(langchain_client: Client) ->
     # Check that only the renamed attachment exists
     assert len(retrieved_example.attachments) == 1
     assert "image3" in retrieved_example.attachments
-    assert (
-        retrieved_example.attachments["image3"]["reader"].read() == b"fake image data 3"
-    )
+    assert retrieved_example.attachments["image3"]["reader"].read() == b"fake image data 3"
 
     # Clean up
     safe_delete_dataset(langchain_client, dataset_id=dataset.id)
@@ -3018,19 +2794,14 @@ def test_bulk_update_examples_with_attachments_operations(
     assert "image2" not in updated_example_2.attachments
 
     # Check attachment data
-    assert (
-        updated_example_1.attachments["renamed_image1"]["reader"].read()
-        == b"fake image data 1"
-    )
+    assert updated_example_1.attachments["renamed_image1"]["reader"].read() == b"fake image data 1"
     assert updated_example_2.attachments["extra"]["reader"].read() == b"extra data"
 
     # Clean up
     safe_delete_dataset(langchain_client, dataset_id=dataset.id)
 
 
-def test_examples_multipart_attachment_path(
-    langchain_client: Client, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_examples_multipart_attachment_path(langchain_client: Client, caplog: pytest.LogCaptureFixture) -> None:
     """Test uploading examples with attachments via multipart endpoint."""
     dataset_name = "__test_upload_examples_multipart" + uuid7().hex
     dataset = _create_dataset(langchain_client, dataset_name)
@@ -3145,9 +2916,7 @@ def test_examples_multipart_attachment_path(
             dangerously_allow_filesystem=True,
         )
         # Should succeed but skip the missing file
-        assert (
-            result["count"] == 1
-        )  # Example is created but without the missing attachment
+        assert result["count"] == 1  # Example is created but without the missing attachment
         assert "Attachment file not found" in caplog.text
 
     # Clean up
@@ -3179,9 +2948,7 @@ def test_update_examples_multipart(langchain_client: Client) -> None:
         },
     )
 
-    created_examples = langchain_client.upload_examples_multipart(
-        dataset_id=dataset.id, uploads=[example_1, example_2]
-    )
+    created_examples = langchain_client.upload_examples_multipart(dataset_id=dataset.id, uploads=[example_1, example_2])
     assert created_examples["count"] == 2
 
     # Now create update operations
@@ -3206,9 +2973,7 @@ def test_update_examples_multipart(langchain_client: Client) -> None:
     )
 
     # Test updating multiple examples at once
-    updated_examples = langchain_client.update_examples_multipart(
-        dataset_id=dataset.id, updates=[update_1, update_2]
-    )
+    updated_examples = langchain_client.update_examples_multipart(dataset_id=dataset.id, updates=[update_1, update_2])
     assert updated_examples["count"] == 2
 
     # Verify the updates
@@ -3225,12 +2990,8 @@ def test_update_examples_multipart(langchain_client: Client) -> None:
     assert "file1" in example_1_updated.attachments
     assert "new_file1" in example_1_updated.attachments
     assert "file2" not in example_1_updated.attachments
-    assert (
-        example_1_updated.attachments["new_file1"]["reader"].read() == b"new content 1"
-    )
-    assert (
-        example_1_updated.attachments["file1"]["reader"].read() == b"original content 1"
-    )
+    assert example_1_updated.attachments["new_file1"]["reader"].read() == b"new content 1"
+    assert example_1_updated.attachments["file1"]["reader"].read() == b"original content 1"
 
     # Verify second example updates
     example_2_updated = next(ex for ex in updated if ex.id == example_ids[1])
@@ -3241,12 +3002,8 @@ def test_update_examples_multipart(langchain_client: Client) -> None:
     assert "file3" in example_2_updated.attachments
     assert "new_file2" in example_2_updated.attachments
     assert "file4" not in example_2_updated.attachments
-    assert (
-        example_2_updated.attachments["file3"]["reader"].read() == b"original content 3"
-    )
-    assert (
-        example_2_updated.attachments["new_file2"]["reader"].read() == b"new content 2"
-    )
+    assert example_2_updated.attachments["file3"]["reader"].read() == b"original content 3"
+    assert example_2_updated.attachments["new_file2"]["reader"].read() == b"new content 2"
 
     # Test updating non-existent example doesn't do anything
     with pytest.raises(LangSmithNotFoundError):
@@ -3278,9 +3035,7 @@ def test_update_examples_multipart(langchain_client: Client) -> None:
     assert response["count"] == 1
     example_1_updated = langchain_client.read_example(example_ids[0])
     assert list(example_1_updated.attachments.keys()) == ["new_file1"]
-    assert (
-        example_1_updated.attachments["new_file1"]["reader"].read() == b"new content 1"
-    )
+    assert example_1_updated.attachments["new_file1"]["reader"].read() == b"new content 1"
 
     # Test new attachments have priority
     response = langchain_client.update_examples_multipart(
@@ -3353,9 +3108,7 @@ def test_annotation_queue_crud(langchain_client: Client):
     queue_id = uuid7()
 
     # Test creation
-    queue = langchain_client.create_annotation_queue(
-        name=queue_name, description="Test queue", queue_id=queue_id
-    )
+    queue = langchain_client.create_annotation_queue(name=queue_name, description="Test queue", queue_id=queue_id)
     assert queue.name == queue_name
     assert queue.id == queue_id
 
@@ -3366,9 +3119,7 @@ def test_annotation_queue_crud(langchain_client: Client):
 
     # Test updating
     new_name = f"updated_{queue_name}"
-    langchain_client.update_annotation_queue(
-        queue_id=queue_id, name=new_name, description="Updated description"
-    )
+    langchain_client.update_annotation_queue(queue_id=queue_id, name=new_name, description="Updated description")
 
     updated_queue = langchain_client.read_annotation_queue(queue_id)
     assert updated_queue.name == new_name
@@ -3438,15 +3189,11 @@ def test_list_annotation_queues(langchain_client: Client):
     try:
         # Create test queues
         for name in queue_names:
-            queue = langchain_client.create_annotation_queue(
-                name=name, description="Test queue"
-            )
+            queue = langchain_client.create_annotation_queue(name=name, description="Test queue")
             queue_ids.append(queue.id)
 
         # Test listing with various filters
-        queues = list(
-            langchain_client.list_annotation_queues(queue_ids=queue_ids[:2], limit=2)
-        )
+        queues = list(langchain_client.list_annotation_queues(queue_ids=queue_ids[:2], limit=2))
         assert len(queues) == 2
 
         # Test name filter
@@ -3455,9 +3202,7 @@ def test_list_annotation_queues(langchain_client: Client):
         assert queues[0].name == queue_names[0]
 
         # Test name_contains filter
-        queues = list(
-            langchain_client.list_annotation_queues(name_contains="test_queue")
-        )
+        queues = list(langchain_client.list_annotation_queues(name_contains="test_queue"))
         assert len(queues) >= 3  # Could be more if other tests left queues
 
     finally:
@@ -3473,9 +3218,7 @@ def test_annotation_queue_runs(langchain_client: Client):
     queue_name = f"test_queue_{uuid7().hex[:8]}"
     project_name = f"test_project_{uuid7().hex[:8]}"
     # Create a queue
-    queue = langchain_client.create_annotation_queue(
-        name=queue_name, description="Test queue"
-    )
+    queue = langchain_client.create_annotation_queue(name=queue_name, description="Test queue")
 
     # Create some test runs
     run_ids = [uuid7() for _ in range(3)]
@@ -3503,9 +3246,7 @@ def test_annotation_queue_runs(langchain_client: Client):
     langchain_client.add_runs_to_annotation_queue(queue_id=queue.id, run_ids=run_ids)
 
     # Test getting run at index
-    run_info = langchain_client.get_run_from_annotation_queue(
-        queue_id=queue.id, index=0
-    )
+    run_info = langchain_client.get_run_from_annotation_queue(queue_id=queue.id, index=0)
     assert run_info.id in run_ids
 
     # Test listing all runs in the queue
@@ -3518,9 +3259,7 @@ def test_annotation_queue_runs(langchain_client: Client):
     assert len(limited) == 1
 
     # Test deleting a run from queue
-    langchain_client.delete_run_from_annotation_queue(
-        queue_id=queue.id, run_id=run_ids[2]
-    )
+    langchain_client.delete_run_from_annotation_queue(queue_id=queue.id, run_id=run_ids[2])
 
     # Test that runs are deleted
     with pytest.raises(LangSmithNotFoundError):
@@ -3543,9 +3282,7 @@ def test_annotation_queue_runs_by_key(langchain_client: Client):
     """Test adding runs to an annotation queue via the SmithDB by-key path."""
     queue_name = f"test_queue_{uuid7().hex[:8]}"
     project_name = f"test_project_{uuid7().hex[:8]}"
-    queue = langchain_client.create_annotation_queue(
-        name=queue_name, description="Test by-key queue"
-    )
+    queue = langchain_client.create_annotation_queue(name=queue_name, description="Test by-key queue")
 
     run_ids = [uuid7() for _ in range(2)]
     for i, run_id in enumerate(run_ids):
@@ -3945,9 +3682,7 @@ def test_run_ops_buffer_integration(langchain_client: Client) -> None:
 
             # Check that outputs were modified
             assert stored_run.outputs["processed"] is True
-            assert (
-                stored_run.outputs["original_output_count"] == 3
-            )  # result + processed_index
+            assert stored_run.outputs["original_output_count"] == 3  # result + processed_index
             assert stored_run.outputs["result"] == f"output_{i}"
             assert stored_run.outputs["processed_index"] == i * 2
 
@@ -4042,14 +3777,8 @@ def test_otel_trace_attributes(monkeypatch: pytest.MonkeyPatch):
     readable_span = future.get(timeout=0.1)
     readable_span = cast(ReadableSpan, readable_span)
     assert readable_span.attributes[_otel_exporter.GEN_AI_OPERATION_NAME] == "chat"
-    assert (
-        readable_span.attributes[_otel_exporter.GENAI_PROMPT]
-        == '{"prompt":"Hello, OTEL!"}'
-    )
-    assert (
-        readable_span.attributes[_otel_exporter.GENAI_COMPLETION]
-        == '{"answer":"Hello, User!"}'
-    )
+    assert readable_span.attributes[_otel_exporter.GENAI_PROMPT] == '{"prompt":"Hello, OTEL!"}'
+    assert readable_span.attributes[_otel_exporter.GENAI_COMPLETION] == '{"answer":"Hello, User!"}'
 
 
 @pytest.mark.require_clickhouse
@@ -4077,9 +3806,7 @@ def test_get_experiment_results(langchain_client: Client) -> None:
         assert image_data.read() == b"fake image data for testing"
         return {"answer": "test image"}
 
-    def evaluator(
-        outputs: dict, reference_outputs: dict, attachments: dict
-    ) -> Dict[str, Any]:
+    def evaluator(outputs: dict, reference_outputs: dict, attachments: dict) -> Dict[str, Any]:
         assert "image" in attachments
         assert "presigned_url" in attachments["image"]
         image_data = attachments["image"]["reader"]
@@ -4104,9 +3831,7 @@ def test_get_experiment_results(langchain_client: Client) -> None:
 
     while time.time() - start < 15:
         try:
-            experiment_results = langchain_client.get_experiment_results(
-                name=experiment_name
-            )
+            experiment_results = langchain_client.get_experiment_results(name=experiment_name)
 
             # Test that we get run stats
             assert experiment_results["run_stats"] is not None
@@ -4123,22 +3848,15 @@ def test_get_experiment_results(langchain_client: Client) -> None:
             examples_list = list(experiment_results["examples_with_runs"])
             assert len(examples_list) > 0
             # Test with limit parameter
-            limited_results = langchain_client.get_experiment_results(
-                name=experiment_name, limit=1
-            )
+            limited_results = langchain_client.get_experiment_results(name=experiment_name, limit=1)
             limited_examples = list(limited_results["examples_with_runs"])
             assert len(limited_examples) == 1
 
             # Test stats are the same (since stats come from project)
-            assert (
-                limited_results["run_stats"]["run_count"]
-                == experiment_results["run_stats"]["run_count"]
-            )
+            assert limited_results["run_stats"]["run_count"] == experiment_results["run_stats"]["run_count"]
 
             # Test preview mode - should be faster and return preview data
-            preview_results = langchain_client.get_experiment_results(
-                name=experiment_name, preview=True
-            )
+            preview_results = langchain_client.get_experiment_results(name=experiment_name, preview=True)
             assert len(list(preview_results["examples_with_runs"])) > 0
         except AssertionError:
             if time.time() - start > 11:
@@ -4161,9 +3879,7 @@ def test_create_insights_job(langchain_client: Client) -> None:
             {
                 "role": "assistant",
                 "content": None,
-                "tool_calls": [
-                    {"name": "existential_crisis", "args": {"trigger": "how am i"}}
-                ],
+                "tool_calls": [{"name": "existential_crisis", "args": {"trigger": "how am i"}}],
             },
             {"role": "tool", "content": "you are panicking"},
             {"role": "assitant", "content": "i am panicking"},
@@ -4171,9 +3887,7 @@ def test_create_insights_job(langchain_client: Client) -> None:
     ]
 
     session_name = f"test-insights-{uuid7()})"
-    insights_job = langchain_client.generate_insights(
-        chat_histories=chat_histories, name=session_name
-    )
+    insights_job = langchain_client.generate_insights(chat_histories=chat_histories, name=session_name)
     assert insights_job.name == session_name
     assert insights_job.status in ["queued", "running", "success"]
 
@@ -4224,9 +3938,7 @@ def _v2_get_project_id_or_skip(
         except Exception as e:
             msg = str(e)
             if "projects:read" in msg or "403" in msg:
-                pytest.skip(
-                    "requires projects:read permission (service key limitation)"
-                )
+                pytest.skip("requires projects:read permission (service key limitation)")
         time.sleep(sleep_time)
     pytest.fail(f"Project {project_name!r} not found after {max_retries} retries")
 
@@ -4271,7 +3983,7 @@ async def test_runs_retrieve(v2_client: Client) -> None:
     run = None
     for _ in range(15):
         try:
-            run = await v2_client.runs.retrieve(
+            run = await v2_client.runs.retrieve_v2(
                 run_id=run_id,
                 project_id=project_id,
                 start_time=start.isoformat(),
@@ -4295,7 +4007,7 @@ async def test_runs_query(v2_client: Client) -> None:
     for _ in range(15):
         runs = [
             r
-            async for r in v2_client.runs.query(
+            async for r in v2_client.runs.query_v2(
                 project_ids=[project_id],
                 selects=_V2_DEFAULT_SELECTS,
             )

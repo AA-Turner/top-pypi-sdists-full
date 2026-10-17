@@ -193,7 +193,13 @@ def _match_family(name: str, families: list[DeclaredFamily]) -> DeclaredFamily |
 
 
 def is_owned(db: DbTool, owner_executors: set[str]) -> bool:
-    """Whether this DB tool belongs to the current validator host."""
+    """Whether this DB tool belongs to the current validator host.
+
+    Catalog rows (``source_kind='catalog'``) are data run by one executor,
+    never owned by code, so they are never drift.
+    """
+    if db.source_kind == "catalog":
+        return False
     return bool(set(db.executors) & owner_executors) or (
         not db.executors and db.source_kind == "native"
     )

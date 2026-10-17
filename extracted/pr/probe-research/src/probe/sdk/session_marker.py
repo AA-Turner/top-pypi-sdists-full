@@ -1121,6 +1121,11 @@ WRITE_GROUPS = frozenset(
         "source",
         "dataset",
         "checkpoint",
+        # A project's or experiment's summary and its Metrics-center visuals,
+        # kept by the recorder (writer-owns-summary): `summary push` and
+        # `visuals set` record; `summary checkout` and `visuals options` read.
+        "summary",
+        "visuals",
     }
 )
 
@@ -1154,7 +1159,6 @@ READ_VERBS = frozenset(
         "cat",
         "diff",
         "search",
-        "export",
         "events",
         "coordinates",
         "download",
@@ -1192,6 +1196,8 @@ READ_VERBS = frozenset(
         # `paper find`: the research literature (the MCP's `find_papers`), an
         # outside index; it adds nothing to the team's records.
         "find",
+        # `visuals options`: what a summary's tables and charts may name.
+        "options",
     }
 )
 
@@ -1227,6 +1233,16 @@ HELP_FLAG = "--help"
 READ_GROUPS = frozenset(
     {"metrics", "series", "get", "bundle", "events", "coordinates", "shared", "provenance"}
 )
+
+#: Commands inside a `READ_GROUPS` group that record rather than print:
+#: `metrics backfill` stores a derived curve, `shared add` uploads into the
+#: team's Shared folder, `shared share|unshare` move a file into or out of it.
+#: Read as reads, `read` let them through.
+READ_GROUP_WRITES = frozenset({"metrics backfill", "shared add", "shared share", "shared unshare"})
+
+#: ...and the ones that remove: cleanup, never refused, as `REMOVAL_VERBS` is in
+#: a write group. Read as reads, `off` refused them.
+READ_GROUP_REMOVALS = frozenset({"metrics delete", "shared delete"})
 
 #: WHAT THE AGENT STILL WRITES IN THE `daemon` STATE, without `--directed`: the
 #: launch of a run and the run's own data -- the `instrument-code` surface the
@@ -1340,6 +1356,10 @@ def classify_probe_args(args: "list[str]") -> "tuple[str | None, str]":
         return (None, "probe " + command)
     if head in TOP_LEVEL_WRITES:
         return ("write", "probe " + head)
+    if command in READ_GROUP_WRITES:
+        return ("write", "probe " + command)
+    if command in READ_GROUP_REMOVALS:
+        return (None, "probe " + head)
     if head in READ_GROUPS:
         return ("read", "probe " + head)
     if command in DIRECTED_ONLY:
@@ -1387,9 +1407,19 @@ def daemon_allows_agent(matched: str) -> bool:
 #: questions the daemon holds for the researcher: in an agent's shell the CLI
 #: only lists them and answers nothing (`daemon_cli.approvals_cmd`). Never
 #: `deny`: a no is the researcher's.
+#: The rest, none a listing of the team's work: what Probe's own messages send
+#: the agent to -- `outbox status` (the banner on every command, a `run end`
+#: that could not close), `run check` (the SDK's capture warning), `sync` (an
+#: offline run's "deliver it with `probe sync`"), `artifact download`
+#: (`instrument-code`: a checkpoint back, bytes `probe ask` cannot hand over) --
+#: and this machine's diagnostics: `daemon status` (is the daemon `probe ask`
+#: waits on alive), `whoami` and `context list` (which team the runs land in),
+#: `wandb discover` and `wandb key status` (local scans ahead of a `--directed`
+#: W&B import).
 DAEMON_PROFILE_ALLOWED = frozenset(
     {"ask", "session status", "session parent", "ignore check", "run expect", "doctor", "paper find",
-     "feedback send", "approvals"}
+     "feedback send", "approvals", "outbox status", "run check", "sync", "artifact download",
+     "daemon status", "whoami", "context list", "wandb discover", "wandb key status"}
 )
 
 #: The researcher's switch and defaults, typed into a shell. In the daemon
@@ -1477,8 +1507,9 @@ def daemon_profile_allows(args: "list[str]") -> "tuple[bool, str]":
         return (True, "probe")
     head = words[0]
     two = " ".join(words[:2])
-    if head in DAEMON_PROFILE_ALLOWED or two in DAEMON_PROFILE_ALLOWED:
-        return (True, "probe " + (two if two in DAEMON_PROFILE_ALLOWED else head))
+    for key in (" ".join(words[:3]), two, head):
+        if key in DAEMON_PROFILE_ALLOWED:
+            return (True, "probe " + key)
     kind, matched = classify_probe_args(args)
     if kind == "write" and carries_directed(args) and two not in RESEARCHER_SWITCH:
         return (True, matched)
@@ -2154,7 +2185,7 @@ INLINE_DISPLAY = "on (inline)"
 #: The skills an inline agent records by (the main agent's versions), shipped as
 #: plain files in the lean plugin's `inline/` folder (`make sync-daemon-plugin`;
 #: never under `skills/`, which would list them); pi names its own package's.
-INLINE_SKILL_FILES = ("track-work/SKILL.md", "edit-notes/SKILL.md")
+INLINE_SKILL_FILES = ("track-work/SKILL.md", "write-summary/SKILL.md", "edit-notes/SKILL.md")
 #: What the agent is told when the researcher switches to inline, and again after
 #: a compaction or resume (Richard's approved text, 2026-10-06). Short on purpose:
 #: Claude Code saves hook context over ~2 KB to a file, so the skills go by path.
@@ -2163,7 +2194,8 @@ INLINE_SKILL_FILES = ("track-work/SKILL.md", "edit-notes/SKILL.md")
 INLINE_NOTICE = (
     "Probe is `on (inline)` for this conversation: the Probe daemon is off, and you read and "
     "write Probe yourself with the `probe` CLI, recording the work as it happens. Before "
-    "recording, read the two skills you record by: {track_work} and {edit_notes}. {reads}"
+    "recording, read the three skills you record by: {track_work}, {write_summary} and {edit_notes}. "
+    "{reads}"
 )
 #: How an inline agent reads where the CLI has the read bridge (`probe mcp tools|call`,
 #: CLI 0.220.0: the hooks' `version_check.INLINE_BRIDGE_MIN_CLI`).
@@ -2391,12 +2423,17 @@ def inline_intervals(session_id: str) -> "list[tuple[float, float | None]]":
     return out
 
 
-def inline_notice(track_work: "str | Path", edit_notes: "str | Path", *, bridge: bool) -> str:
-    """`INLINE_NOTICE` naming the two skill files the agent records by; `bridge`:
+def inline_notice(
+    track_work: "str | Path", write_summary: "str | Path", edit_notes: "str | Path", *, bridge: bool
+) -> str:
+    """`INLINE_NOTICE` naming the skill files the agent records by, in
+    `INLINE_SKILL_FILES` order; `bridge`:
     this machine's CLI has `probe mcp tools|call` (`INLINE_READS`), else it is
     too old to read Probe inline (`INLINE_READS_OLD_CLI`)."""
     reads = INLINE_READS if bridge else INLINE_READS_OLD_CLI
-    return INLINE_NOTICE.format(track_work=track_work, edit_notes=edit_notes, reads=reads)
+    return INLINE_NOTICE.format(
+        track_work=track_work, write_summary=write_summary, edit_notes=edit_notes, reads=reads
+    )
 
 
 def _inline_shown_path(session_id: str) -> Path:

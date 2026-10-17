@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: moz.l10n
-Version: 0.14.2
+Version: 0.15.0
 Summary: Mozilla tools for localization
 Author: Mozilla, Eemeli Aro
 Author-email: Mozilla <l10n-drivers@mozilla.org>, Eemeli Aro <eemeli@mozilla.com>
@@ -12,7 +12,6 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -28,7 +27,7 @@ Requires-Dist: iniparse~=0.5
 Requires-Dist: polib~=1.2
 Requires-Dist: tomli>=1.1.0 ; python_full_version < '3.11'
 Requires-Dist: lxml>=6.0.0,<7.0.0 ; extra == 'xml'
-Requires-Python: >=3.9, <4
+Requires-Python: >=3.10, <4
 Project-URL: repository, https://github.com/mozilla/moz-l10n
 Provides-Extra: xml
 Description-Content-Type: text/markdown

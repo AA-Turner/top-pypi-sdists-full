@@ -72,7 +72,7 @@ from .config import Settings, resolve
 from .tags import canonical_tags
 from .filetype import name_with_extension
 from .hashing import fingerprint
-from .secret_gate import check_upload, freeze_upload, prepare_upload
+from .secret_gate import ArtifactRedactedWarning, check_upload, freeze_upload, prepare_upload
 from .session_marker import WIZARD_HINT
 from .journal import (
     UNPLACED_PROJECT,
@@ -418,6 +418,14 @@ _PREDATES_FORKS = (
 )
 
 
+#: What a server without the summary and visuals routes (a route-absent 404)
+#: is told: the CLI ships on its own train.
+_PREDATES_SUMMARIES = (
+    "this Probe server predates recorder summaries (GET/PUT .../summary, .../visuals); "
+    "upgrade the server, or keep the previous probe release until it is"
+)
+
+
 def _moved_away(exc: errors.RosError) -> bool:
     """A 404 or 410 at an experiment's remembered or supplied project: it may
     have moved, so it is worth placing again. Not a route-absent 404."""
@@ -494,6 +502,15 @@ def _from_experiment_api(row: object) -> object:
     if "question" in out:
         out.setdefault("description", out["question"])
     return out
+
+
+def _session_page_params(order: str, after: str | None, limit: int) -> dict[str, Any]:
+    """The query of a session-page read (`list_project_sessions`,
+    `list_experiment_sessions`): `order` as given, `after` only when set."""
+    params: dict[str, Any] = {"order": order, "limit": limit}
+    if after is not None:
+        params["after"] = after
+    return params
 
 
 def _is_uuid(value: object) -> bool:
@@ -1827,13 +1844,16 @@ class Client:
         on the filesystem forever. A caller-supplied ``_redact`` still runs, on
         top.
 
-        `notes` gets `scrub_text`, not `default_scrub`. The two are not
-        interchangeable: `default_scrub` redacts by KEY NAME, which is right for
-        a structured payload and wrong for prose -- `notes` is not a sensitive
-        key, so a bare token or a `PROBE_TOKEN=...` assignment inside the text
-        sails straight through it. `scrub_text` is the value-level pass built
-        for exactly that (redaction.py's own comment says so). String leaves
-        inside `meta` get the same treatment for the same reason.
+        String leaves inside `meta` get `scrub_text` on top of `default_scrub`.
+        The two are not interchangeable: `default_scrub` redacts by KEY NAME,
+        which is right for a structured payload and wrong for prose, so a bare
+        token or a `PROBE_TOKEN=...` assignment under an innocent key sails
+        straight through it. `scrub_text` is the value-level pass built for
+        exactly that (redaction.py's own comment says so).
+
+        No `notes`: files stopped carrying notes, so nothing queues one. A
+        caller that still passes it has it dropped here rather than failing
+        the whole upload on an unexpected keyword.
         """
         check_upload(kwargs.get("src_path"))
         try:
@@ -1843,9 +1863,7 @@ class Client:
             # caller's synchronous fallback with it.
             from .redaction import default_scrub, scrub_text
 
-            notes = kwargs.get("notes")
-            if isinstance(notes, str):
-                kwargs["notes"] = scrub_text(notes)
+            kwargs.pop("notes", None)
             meta = kwargs.get("meta")
             if isinstance(meta, dict):
                 scrubbed = default_scrub(meta)
@@ -1856,16 +1874,12 @@ class Client:
                         k: (scrub_text(v) if isinstance(v, str) else v) for k, v in scrubbed.items()
                     }
                 kwargs["meta"] = scrubbed
-            if self._redact is not None:
-                for field in ("meta", "notes"):
-                    value = kwargs.get(field)
-                    if not isinstance(value, dict):
-                        continue
-                    # Only structured values go to a caller redactor: its
-                    # declared type is dict -> dict, and round-tripping a string
-                    # through a wrapper key silently DROPPED the value whenever
-                    # the redactor returned an allowlisted subset.
-                    kwargs[field] = self._redact(value)
+            if self._redact is not None and isinstance(kwargs.get("meta"), dict):
+                # Only structured values go to a caller redactor: its declared
+                # type is dict -> dict, and round-tripping a string through a
+                # wrapper key silently DROPPED the value whenever the redactor
+                # returned an allowlisted subset.
+                kwargs["meta"] = self._redact(kwargs["meta"])
             kwargs = default_scrub(kwargs)
             return self.journal.append_upload(**kwargs)
         except Exception as enqueue_error:  # noqa: BLE001 -- see the docstring
@@ -2705,16 +2719,18 @@ class Client:
 
         Backpressure and source changes raise: the importer retains its intent.
         Reusing a correlation replays the frozen request, never newer source bytes.
+        ``notes`` is accepted and ignored (files no longer carry notes).
         """
-        from .redaction import default_scrub, scrub_text
+        from .notes import FILE_NOTES_REMOVED, warn_notes_ignored
+        from .redaction import default_scrub
 
+        warn_notes_ignored(notes, FILE_NOTES_REMOVED)
         result = self._delivery_journal().append_upload(
             correlation=correlation,
             anchor=Anchor(anchor).value,
             anchor_id=anchor_id,
             name=name,
             src_path=path,
-            notes=scrub_text(notes) if notes is not None else None,
             meta=default_scrub(meta) if meta is not None else None,
             content_type=content_type,
             kind=kind,
@@ -2738,9 +2754,12 @@ class Client:
         content_hash: str | None = None,
         size_bytes: int | None = None,
     ) -> dict:
-        """Record a pointer through the same outbox, retaining its artifact ID."""
-        from .redaction import default_scrub, scrub_text
+        """Record a pointer through the same outbox, retaining its artifact ID.
+        ``notes`` is accepted and ignored (files no longer carry notes)."""
+        from .notes import FILE_NOTES_REMOVED, warn_notes_ignored
+        from .redaction import default_scrub
 
+        warn_notes_ignored(notes, FILE_NOTES_REMOVED)
         anchor = Anchor(anchor)
         # Literal paths, one per anchor, for the reason `_presign_anchored` gives:
         # a segment table here once mapped EXPERIMENT to `experiments`, which the
@@ -2764,7 +2783,6 @@ class Client:
                 "name": name,
                 "uri": uri,
                 "is_reference": True,
-                "notes": scrub_text(notes) if notes is not None else None,
                 "meta": default_scrub(meta) if meta is not None else None,
                 "kind": kind,
                 "content_type": content_type,
@@ -2797,6 +2815,14 @@ class Client:
     def delivery_state(self, correlation: str) -> dict:
         """Read queued, failed, discarded, or delivered state without waking a worker."""
         return self._delivery_journal().delivery_state(correlation)
+
+    def discard_delivery(self, correlation: str) -> dict:
+        """Tombstone a request that has not delivered -- queued, dead-lettered
+        or half-appended -- so no drain or retry sends it again. It moves to
+        ``discarded/``, like `probe outbox discard`; a delivered or unknown one
+        is left as it is. Returns the state afterwards: still ``queued`` when
+        another drain held the outbox (see `Journal.discard_request`)."""
+        return self._delivery_journal().discard_request(correlation)
 
     def resume_delivery(self, correlation: str) -> dict:
         """Resume an already frozen request, including after the source is remounted."""
@@ -3329,6 +3355,88 @@ class Client:
         """Read the complete saved unified Overview; never queue generation."""
         return self.transport.get(f"/v1/projects/{project_id}/overview")
 
+    def list_project_sessions(
+        self,
+        project_id: str,
+        *,
+        order: str = "oldest",
+        after: str | None = None,
+        limit: int = 50,
+    ) -> dict:
+        """``GET /v1/projects/{P}/sessions``: one page of the coding-agent
+        sessions that worked on the project or on something in it --
+        ``{sessions, session_total, next_after}``.
+
+        ``order`` is ``oldest`` (by when each session first touched the
+        project, the detail read's order) or ``newest`` (the most recently
+        active first). Pages past the first pass the previous page's
+        ``next_after`` back as ``after``; ``limit`` is at most 50. An
+        experiment id here is a 404: use :meth:`list_experiment_sessions`."""
+        return self.transport.get(
+            f"/v1/projects/{project_id}/sessions",
+            params=_session_page_params(order, after, limit),
+        )
+
+    # -- summaries (recorder-written, project and experiment) -----------------
+    #
+    # ONE method per read for BOTH anchors, keyed by which of `project` /
+    # `experiment` is given, as the CLI's `probe summary` is (`--project P` |
+    # `--experiment E [--project P]`). The experiment's project is located the
+    # way every experiment read locates it (`_locate_experiment`).
+
+    def _summary_anchor(
+        self, project: str | None, experiment: str | None
+    ) -> tuple[str, str | None]:
+        """``(project id, experiment ref | None)`` for a summary read."""
+        if experiment is not None:
+            return self._locate_experiment(experiment, project)
+        if project is None:
+            raise ValueError("name the anchor: project=<ref> or experiment=<ref>")
+        return str(project), None
+
+    def get_summary(self, *, project: str | None = None, experiment: str | None = None) -> dict:
+        """``GET …/summary``: the project's or experiment's summary as Markdown
+        (``markdown`` is ``""`` with no page), with ``version``, ``edited_at``,
+        ``edited_by``, ``via``, ``session_title``, ``you``, ``today`` and the
+        tenant's ``mode`` (``lane`` | ``recorder``)."""
+        p, e = self._summary_anchor(project, experiment)
+        if e is None:
+            return self.transport.get(f"/v1/projects/{p}/summary")
+        return self.transport.get(f"/v1/projects/{p}/experiments/{e}/summary")
+
+    def list_summary_versions(
+        self,
+        *,
+        project: str | None = None,
+        experiment: str | None = None,
+        before: int | None = None,
+        limit: int = 20,
+    ) -> dict:
+        """``GET …/summary/versions``: ``{versions, next_before}``, newest first,
+        each ``{version, created_at, created_by, source, via, mode,
+        session_title, size_chars}``. ``before`` resumes past a version number
+        (a page's ``next_before``); ``limit`` is at most 50."""
+        params: dict[str, Any] = {"limit": limit}
+        if before is not None:
+            params["before"] = before
+        p, e = self._summary_anchor(project, experiment)
+        if e is None:
+            return self.transport.get(f"/v1/projects/{p}/summary/versions", params=params)
+        return self.transport.get(
+            f"/v1/projects/{p}/experiments/{e}/summary/versions", params=params
+        )
+
+    def get_summary_version(
+        self, version: int, *, project: str | None = None, experiment: str | None = None
+    ) -> dict:
+        """``GET …/summary/versions/{v}``: one version's ``markdown`` with its
+        ``created_at``, ``created_by``, ``source``, ``via`` and ``mode``."""
+        p, e = self._summary_anchor(project, experiment)
+        v = int(version)
+        if e is None:
+            return self.transport.get(f"/v1/projects/{p}/summary/versions/{v}")
+        return self.transport.get(f"/v1/projects/{p}/experiments/{e}/summary/versions/{v}")
+
     def list_project_contributors(self, project_id: str) -> list[dict]:
         """Who worked on this project. `direct` false = their work is in a
         subproject, named by `via_project_id`."""
@@ -3708,11 +3816,10 @@ class Client:
         ``ScopedUploadRequest`` forbids extras and the resulting error does not say
         which field was the problem.
 
-        ``notes`` is the exception and is accepted on EVERY anchor (0095). That is
-        the point of it: `ScopedUploadRequest` forbidding extras meant a
-        project/experiment upload had no way to describe itself at all, so agents
-        concatenated the description onto ``name`` -- which is the file's relative
-        posix path, so it broke the extension, the preview and the derived folder.
+        ``notes`` is accepted and ignored with a DeprecationWarning: files no
+        longer carry notes, so what a file IS goes in its run's notes. Never in
+        ``name``, which is the file's relative posix path: a description there
+        breaks the extension, the preview and the derived folder (0095).
 
         Strict by design — no fail-open reference fallback. The fallback exists on
         :meth:`Run.log_artifact` so a training loop is never blocked by a flaky
@@ -3723,10 +3830,18 @@ class Client:
         # route reads its extension. A caller naming the upload for what it IS
         # ("ckpt") rather than where it came from loses that, so it is restored from
         # the local path. Idempotent -- a name that has one is untouched.
-        from .redaction import default_scrub, scrub_text
+        from .notes import FILE_NOTES_REMOVED, warn_notes_ignored
+        from .redaction import default_scrub, scrub_string
 
-        name = scrub_text(name_with_extension(name, path))
-        notes = scrub_text(notes) if notes is not None else None
+        warn_notes_ignored(notes, FILE_NOTES_REMOVED)
+        # `scrub_string`, not `scrub_text`. The name is a repo-relative path, and
+        # `scrub_text`'s home-path rule read every `/Users/<x>` or `/home/<x>`
+        # FOLDER in it as a home directory and cut the rest to `<path>`:
+        # `pages/Admin/Users/Edit.tsx` and `pages/Admin/Users/New.tsx` both
+        # became `pages/Admin<path>` and overwrote each other. The server refuses
+        # a name with a leading `/` or a backslash (422); a caller naming a file
+        # by a drive path like `C:/Users/<x>/...` keeps the user name in it.
+        name = scrub_string(name_with_extension(name, path))
         meta = default_scrub(meta)
         run_only = {
             "kind": kind,
@@ -3759,7 +3874,6 @@ class Client:
                 content_type=content_type,
                 kind=kind,
                 meta=meta,
-                notes=notes,
                 span_id=span_id,
                 step_index=step_index,
             )
@@ -3783,7 +3897,11 @@ class Client:
         ``pending`` artifact row and returns a presigned PUT. Called by
         :meth:`upload_fingerprinted` on every attempt -- a remembered URL or
         row is never trusted (the reaper may have expired both) -- and by the
-        async enqueue's capped best-effort ping (1A)."""
+        async enqueue's capped best-effort ping (1A). ``notes`` is accepted and
+        ignored (files no longer carry notes)."""
+        from .notes import FILE_NOTES_REMOVED, warn_notes_ignored
+
+        warn_notes_ignored(notes, FILE_NOTES_REMOVED)
         anchor = Anchor(anchor)
         if anchor in _SCOPED_ANCHORS:
             req = ScopedUploadRequest(
@@ -3791,7 +3909,6 @@ class Client:
                 content_hash=digest,
                 size_bytes=size,
                 content_type=content_type,
-                notes=notes,
             )
         else:
             req = UploadRequest(
@@ -3803,7 +3920,6 @@ class Client:
                 step_index=step_index,
                 kind=kind,
                 meta=meta or None,
-                notes=notes,
             )
         return self._presign_anchored(
             anchor, anchor_id, req.model_dump(mode="json", exclude_none=True)
@@ -3832,7 +3948,11 @@ class Client:
         drainer, 11A). Phase-aware failure handling lives HERE, where the phase
         is known: a 404 on confirm after a ``have`` dedup is success (see below),
         and every attempt re-presigns rather than trusting a remembered URL.
+        ``notes`` is accepted and ignored (files no longer carry notes).
         """
+        from .notes import FILE_NOTES_REMOVED, warn_notes_ignored
+
+        warn_notes_ignored(notes, FILE_NOTES_REMOVED, stacklevel=4)
         anchor = Anchor(anchor)
         presign = self.presign_upload(
             anchor,
@@ -3843,7 +3963,6 @@ class Client:
             content_type=content_type,
             kind=kind,
             meta=meta,
-            notes=notes,
             span_id=span_id,
             step_index=step_index,
         )
@@ -4516,7 +4635,8 @@ class Client:
 
     def get_experiment_leaf(self, experiment_id: str, *, project_id: str | None = None) -> dict:
         """The experiment with its authored ``document`` and the notes' headroom
-        pair (``notes_limit_chars``, ``notes_remaining_chars``).
+        (``notes_limit_tokens``, ``notes_tokens``, ``notes_remaining_tokens``; the
+        ``notes_*_chars`` pair beside them measures the character backstop).
 
         Kept for callers of 0.209.0, which read these from the experiment's
         PROJECT address (``GET /v1/projects/{E}``). The experiment detail carries
@@ -4539,6 +4659,140 @@ class Client:
                 f"/v1/projects/{project}/experiments/{experiment}/overview/status"
             )
         return self.transport.get(f"/v1/projects/{project}/experiments/{experiment}/overview")
+
+    def list_experiment_sessions(
+        self,
+        experiment_id: str,
+        *,
+        project_id: str | None = None,
+        order: str = "oldest",
+        after: str | None = None,
+        limit: int = 50,
+    ) -> dict:
+        """``GET /v1/projects/{P}/experiments/{E}/sessions``: one page of the
+        coding-agent sessions that worked on the experiment or on something in
+        it -- ``{sessions, session_total, next_after}``, the same page shape and
+        parameters as :meth:`list_project_sessions`."""
+        project, experiment = self._locate_experiment(experiment_id, project_id)
+        return self.transport.get(
+            f"/v1/projects/{project}/experiments/{experiment}/sessions",
+            params=_session_page_params(order, after, limit),
+        )
+
+    # -- summaries and Metrics-center visuals (writer-owns-summary) -------------
+    # A project's or an experiment's summary is its Overview page as Markdown,
+    # kept by whoever records the session (the daemon's writer, an inline agent,
+    # the main agent with Probe on). Every method takes `project=`, and
+    # `experiment=` (an id or slug) for an experiment's page; the reads are
+    # `get_summary`, `list_summary_versions` and `get_summary_version` above:
+    #
+    #   GET  .../summary                   SummaryOut {markdown, version, you, today, mode, ...}
+    #   PUT  .../summary                   {markdown, expected_version, session_id, directed}
+    #   GET  .../summary/versions          {versions, next_before}
+    #   GET  .../summary/versions/{v}      one version's Markdown
+    #   GET  .../visuals/options           the closed set `visuals set` picks from
+    #   PUT  .../visuals                   {visuals, expected_version, directed}
+    #
+    # where `...` is `/v1/projects/{P}` or `/v1/projects/{P}/experiments/{E}`.
+    # The PUTs are NOT retried on a 503: `summary_writer_off` answers the same
+    # until the team's switch moves, and a retry only delays saying so.
+
+    def _summary_route(self, call_project, call_experiment, project_id, experiment_id):
+        """Call the project route, or the experiment's (placed through
+        `_on_experiment`). A server without these routes answers FastAPI's own
+        404, said as `CapabilityUnavailable("summaries")`."""
+        try:
+            if experiment_id is not None:
+                return self._on_experiment(call_experiment, str(experiment_id), project_id)
+            if not project_id:
+                raise ValueError("name the anchor: project=<ref> or experiment=<ref>")
+            return call_project(str(project_id))
+        except CapabilityUnavailable as exc:
+            raise CapabilityUnavailable("summaries", _PREDATES_SUMMARIES) from exc
+        except errors.NotFoundError as exc:
+            if _route_absent(exc):
+                raise CapabilityUnavailable("summaries", _PREDATES_SUMMARIES) from exc
+            raise
+
+    def put_summary(
+        self,
+        markdown: str,
+        *,
+        expected_version: int,
+        project: str | None = None,
+        experiment: str | None = None,
+        session_id: str | None = None,
+        directed: bool = False,
+    ) -> dict:
+        """Replace the summary: ``{version, markdown}`` (``markdown`` is what a
+        fresh GET now returns). Raises ``ConflictError`` on a 409 whose
+        ``detail.code`` says why: ``version_moved`` (``detail`` carries the
+        head's ``version`` and ``markdown`` to merge onto),
+        ``erased_since_checkout`` (check out again: no merge) or
+        ``session_erased``; ``ValidationError`` on a 422 (``detail.code`` and
+        ``detail.message`` state the limit); ``ServerError`` 503
+        ``summary_writer_off`` while the team's pages are the overview lane's."""
+        body: dict[str, Any] = {
+            "markdown": markdown,
+            "expected_version": int(expected_version),
+            "session_id": session_id,
+            "directed": bool(directed),
+        }
+        return self._summary_route(
+            lambda p: self.transport.request(
+                "PUT", f"/v1/projects/{p}/summary", json_body=body, idempotent=False
+            ).json(),
+            lambda p, e: self.transport.request(
+                "PUT", f"/v1/projects/{p}/experiments/{e}/summary", json_body=body, idempotent=False
+            ).json(),
+            project,
+            experiment,
+        )
+
+    def get_visuals_options(
+        self, *, project: str | None = None, experiment: str | None = None
+    ) -> dict:
+        """What the Metrics center's tables and charts may name, in the names
+        the server's checker accepts: ``scope``, ``eligible`` / ``reason``,
+        ``version`` (the page's: send it back as ``expected_version``),
+        ``current`` (the stored list), ``kinds``, ``runs`` (newest first) /
+        ``runs_truncated`` / ``statuses``, ``metrics`` (``key``, ``kind``,
+        ``dimensions``, ``per_sample``) / ``metrics_open``, ``summary_paths``
+        / ``config_paths`` / ``paths_truncated`` and ``caps`` (None when not
+        eligible)."""
+        return self._summary_route(
+            lambda p: self.transport.get(f"/v1/projects/{p}/visuals/options"),
+            lambda p, e: self.transport.get(f"/v1/projects/{p}/experiments/{e}/visuals/options"),
+            project,
+            experiment,
+        )
+
+    def put_visuals(
+        self,
+        visuals: list,
+        *,
+        expected_version: int,
+        project: str | None = None,
+        experiment: str | None = None,
+        directed: bool = False,
+    ) -> dict:
+        """Replace the Metrics center's tables and charts: ``{version, visuals:
+        [{id, kind}]}``. ``ConflictError`` (409 ``version_moved``, ``detail``
+        carries the ``current`` list: no merge, choose again),
+        ``ValidationError`` (422 ``visuals_refused``: the checker's message),
+        ``ServerError`` 503 ``summary_writer_off``."""
+        body = {"visuals": list(visuals), "expected_version": int(expected_version),
+                "directed": bool(directed)}
+        return self._summary_route(
+            lambda p: self.transport.request(
+                "PUT", f"/v1/projects/{p}/visuals", json_body=body, idempotent=False
+            ).json(),
+            lambda p, e: self.transport.request(
+                "PUT", f"/v1/projects/{p}/experiments/{e}/visuals", json_body=body, idempotent=False
+            ).json(),
+            project,
+            experiment,
+        )
 
     def update_experiment(
         self,
@@ -4735,7 +4989,7 @@ class Client:
     def _warn_if_notes_dropped(sent: str | None, row: dict, what: str) -> None:
         """Surface the silent drop when the backend predates research-os 0096.
 
-        Neither RunPatch/RunCreate nor the group schemas forbid extra fields, so an
+        Neither RunPatch nor RunCreate forbids extra fields, so an
         older backend ACCEPTS `notes`, ignores it, and answers 2xx -- the caveat
         vanishes and the caller is told it succeeded. This is the 0094 hazard, and
         the check is free: create and PATCH both return the row, so nothing extra
@@ -4772,21 +5026,25 @@ class Client:
         Pass the returned ``id`` to :meth:`create_run` as ``group_id`` to file a run
         under it. 409 if the name is taken within the experiment.
 
-        ``notes`` (server 0096) is free text about the sweep itself — what varies,
-        what it was testing, why it was abandoned. Put it HERE rather than in
-        ``name``: the name is part of the group's uniqueness key within the
-        experiment, so a description appended to it does not merely read badly, it
-        changes the row's identity and mints a second group instead of colliding
-        with the one it describes."""
-        model = RunGroupCreate(name=name, kind=kind, spec=spec or {}, notes=notes)
-        body = model.model_dump(mode="json", exclude_none=True)
-        row = self._on_experiment(
+        ``notes`` is accepted and ignored with a DeprecationWarning: sweep groups
+        no longer carry notes, so what a sweep tested goes in the experiment's
+        notes. Never put it in ``name`` either: the name is part of the group's
+        uniqueness key within the experiment, so a description appended to it
+        mints a second group instead of colliding with the one it describes."""
+        from .notes import GROUP_NOTES_REMOVED, warn_notes_ignored
+
+        warn_notes_ignored(notes, GROUP_NOTES_REMOVED)
+        model = RunGroupCreate(name=name, kind=kind, spec=spec or {})
+        body = {
+            key: value
+            for key, value in model.model_dump(mode="json", exclude_none=True).items()
+            if key != "notes"
+        }
+        return self._on_experiment(
             lambda p, e: self.transport.post(f"/v1/projects/{p}/experiments/{e}/groups", body),
             experiment_id,
             project_id,
         )
-        self._warn_if_notes_dropped(notes, row, "run groups")
-        return row
 
     def list_groups(self, experiment_id: str, *, project_id: str | None = None) -> list[dict]:
         """The experiment's run groups, newest first
@@ -4810,21 +5068,27 @@ class Client:
     ) -> dict:
         """Field-replace PATCH: only the fields you pass change.
 
-        ``notes`` is the field most likely to be written here rather than at
-        create — what a sweep was actually testing tends to be known after it has
-        run. Omitting it leaves any existing note alone; passing ``""`` clears it."""
+        ``notes`` is accepted and ignored with a DeprecationWarning, never sent:
+        sweep groups no longer carry notes (the server refuses a notes write
+        here), so what a sweep tested goes in the experiment's notes. A call
+        with ``notes`` alone writes nothing and returns the group as it is."""
+        from .notes import GROUP_NOTES_REMOVED, warn_notes_ignored
+
+        warn_notes_ignored(notes, GROUP_NOTES_REMOVED)
         # THE GUARD READS THE CALLER'S ARGUMENTS, not the dumped model. The
-        # generated model tracks the backend's, and the backend added `force`
-        # with a default of `False` -- which `exclude_none` keeps, so the body
-        # was never empty and an argumentless `update_group()` stopped raising
-        # and started PATCHing a group with nothing in it.
-        if name is None and spec is None and notes is None:
-            raise ValueError("update_group needs at least one of name/spec/notes")
-        model = RunGroupPatch(name=name, spec=spec, notes=notes)
-        body = model.model_dump(mode="json", exclude_none=True)
-        row = self.transport.patch(f"/v1/groups/{group_id}", body)
-        self._warn_if_notes_dropped(notes, row, "run groups")
-        return row
+        # generated model tracks the backend's, and a default it adds (`force`
+        # was one) survives `exclude_none`, so the body is never empty and an
+        # argumentless `update_group()` would PATCH a group with nothing in it.
+        if name is None and spec is None:
+            if notes is not None:
+                return self.get_group(group_id)
+            raise ValueError("update_group needs at least one of name/spec")
+        # Only the two fields this call can send: a default the generated model
+        # carries for the old notes write (`force`) would make the server refuse
+        # the whole PATCH as a notes write.
+        dumped = RunGroupPatch(name=name, spec=spec).model_dump(mode="json", exclude_none=True)
+        body = {key: value for key, value in dumped.items() if key in ("name", "spec")}
+        return self.transport.patch(f"/v1/groups/{group_id}", body)
 
     # -- runs (create) ------------------------------------------------------
     @staticmethod
@@ -7945,7 +8209,15 @@ class Client:
         Raises ``CheckpointNotStored`` naming what is missing, or where a
         location-only checkpoint is, before writing anything."""
         row = self.get_artifact(checkpoint) if isinstance(checkpoint, str) else checkpoint
-        return _checkpoints.download(self, row, dest)
+        result = _checkpoints.download(self, row, dest)
+        if result.get("redacted"):
+            warnings.warn(
+                f"probe: checkpoint {result.get('checkpoint')} has files stored with a credential "
+                f"masked, so they differ from what was saved: {', '.join(result['redacted'])}",
+                ArtifactRedactedWarning,
+                stacklevel=2,
+            )
+        return result
 
     # -- the data catalog (plan data-catalog C1-C11; probe.sdk.catalog) -------
     # Datasets, checkpoints and sources as first-class things. These are the
@@ -9599,8 +9871,9 @@ class Client:
     #: NO "trial". `PATCH /v1/trials/{id}` accepts the same notes writes and this
     #: client deliberately never sends them -- see `_NOTE_TARGETS` in the CLI for
     #: the reasoning. `update_trial` reaches that route for title and description,
-    #: so the parity check still covers it.
-    NOTES_ENTITIES = ("project", "experiment", "run", "group", "artifact")
+    #: so the parity check still covers it. No "group" or "artifact" either:
+    #: sweep groups and files stopped carrying notes (`notes.FILE_NOTES_REMOVED`).
+    NOTES_ENTITIES = ("project", "experiment", "run")
 
     def _write_notes(
         self, entity: str, entity_id: str, body: dict, *, strict: bool = False, sync: bool = False
@@ -9617,8 +9890,8 @@ class Client:
 
         An APPEND is fail-open but never queues a refusal, which is what
         `raise_permanent` means here. This used to say an append "fails only
-        transiently" and that was false: a document at MAX_DOCUMENT_NOTES
-        refuses every further append with a 422 naming the cap, permanently. The
+        transiently" and that was false: a document at its cap refuses every
+        further append with a 422 naming the cap, permanently. The
         SDK swallowed it, the CLI printed "appended to <kind> notes" and exited
         0, and the paragraph went to the outbox to be dead-lettered -- so an
         agent kept appending to a document that had stopped accepting anything,
@@ -9638,7 +9911,7 @@ class Client:
         # Spelled out per entity rather than through a {entity: segment} map, and
         # test_parity is why: it reads these call sites STATICALLY to prove every
         # path the client calls is one the backend declares. A computed path is
-        # invisible to that check, which would take five real routes out of its
+        # invisible to that check, which would take three real routes out of its
         # coverage and hand it one phantom `/v1/{route}` instead.
         # `sync` is SEPARATE from `strict` and not implied by it: strict decides
         # whether a refusal is journaled, sync decides whether the request is
@@ -9661,10 +9934,6 @@ class Client:
             )
         if entity == "run":
             return self.write("PATCH", f"/v1/runs/{entity_id}", body, **kw)
-        if entity == "group":
-            return self.write("PATCH", f"/v1/groups/{entity_id}", body, **kw)
-        if entity == "artifact":
-            return self.write("PATCH", f"/v1/artifacts/{entity_id}", body, **kw)
         raise errors.RosError(
             f"{entity!r} carries no notes; expected one of {', '.join(self.NOTES_ENTITIES)}"
         )
@@ -9720,17 +9989,14 @@ class Client:
             )
         if entity == "run":
             return self.transport.get(f"/v1/runs/{entity_id}/sub-notes")
-        if entity == "group":
-            return self.transport.get(f"/v1/groups/{entity_id}/sub-notes")
-        if entity == "artifact":
-            return self.transport.get(f"/v1/artifacts/{entity_id}/sub-notes")
         raise errors.RosError(
             f"{entity!r} carries no sub-notes; expected one of {', '.join(self.NOTES_ENTITIES)}"
         )
 
     def get_sub_note(self, sub_note_id: str) -> dict:
-        """One sub-note WITH its body and headroom (`remaining_chars`,
-        `limit_chars` — the write responses deliberately omit the body)."""
+        """One sub-note WITH its body and headroom (`tokens`, `limit_tokens`,
+        `remaining_tokens`; `remaining_chars` / `limit_chars` are the character
+        backstop's) — the write responses deliberately omit the body."""
         return self.transport.get(f"/v1/sub-notes/{sub_note_id}")
 
     def _create_sub_note(
@@ -9755,10 +10021,6 @@ class Client:
             )
         if entity == "run":
             return self.write("POST", f"/v1/runs/{entity_id}/sub-notes", payload, **kw)
-        if entity == "group":
-            return self.write("POST", f"/v1/groups/{entity_id}/sub-notes", payload, **kw)
-        if entity == "artifact":
-            return self.write("POST", f"/v1/artifacts/{entity_id}/sub-notes", payload, **kw)
         raise errors.RosError(
             f"{entity!r} carries no sub-notes; expected one of {', '.join(self.NOTES_ENTITIES)}"
         )
@@ -9781,10 +10043,6 @@ class Client:
             )
         if entity == "run":
             return self.write("PATCH", f"/v1/runs/{entity_id}/sub-notes", body, **kw)
-        if entity == "group":
-            return self.write("PATCH", f"/v1/groups/{entity_id}/sub-notes", body, **kw)
-        if entity == "artifact":
-            return self.write("PATCH", f"/v1/artifacts/{entity_id}/sub-notes", body, **kw)
         raise errors.RosError(
             f"{entity!r} carries no sub-notes; expected one of {', '.join(self.NOTES_ENTITIES)}"
         )
@@ -9828,10 +10086,6 @@ class Client:
             )
         if entity == "run":
             return self.write("PATCH", f"/v1/runs/{entity_id}/sub-notes", body, **kw)
-        if entity == "group":
-            return self.write("PATCH", f"/v1/groups/{entity_id}/sub-notes", body, **kw)
-        if entity == "artifact":
-            return self.write("PATCH", f"/v1/artifacts/{entity_id}/sub-notes", body, **kw)
         raise ValueError(f"unknown notes carrier: {entity}")
 
     def _replace_sub_note(
@@ -9885,10 +10139,13 @@ class Client:
 
         The DISCOVERY read, and the only one that answers a question no
         per-entity read can: which documents across the tenant are close to their
-        cap. Every row carries `chars` and `limit_chars`, so a sweep is one page
-        of this instead of one fetch per entity -- sizing 52 documents used to
+        cap. Every row carries `tokens` and `limit_tokens` (the cap, in o200k_base
+        tokens; `tokens` is null for a document the server has not counted yet)
+        beside `chars` / `limit_chars` (the character backstop), so a sweep is one
+        page of this instead of one fetch per entity -- sizing 52 documents used to
         cost 52 API calls, which is why nobody did it and why
-        `assignment-modeling` sat refused at 99,992 of 100,000 for a day.
+        `assignment-modeling` sat refused at 99,992 of its then 100,000-character
+        cap for a day.
 
         Rows are bounded by construction: an `excerpt` capped at 280 characters,
         never a body. `query` searches note bodies, titles and project /
@@ -9905,8 +10162,8 @@ class Client:
         This route was on `test_parity`'s permanent NOT_CLIENT_SURFACE list, with
         the reason "agents read and edit a known note through its owning entity".
         That reason held while the row carried no length -- the catalog told a
-        client nothing it could not get from the entity. `chars`/`limit_chars`
-        made it false, so the entry is gone rather than reworded.
+        client nothing it could not get from the entity. The sizes made it
+        false, so the entry is gone rather than reworded.
         """
         params: dict[str, object] = {"limit": limit}
         if query is not None:
@@ -9925,8 +10182,9 @@ class Client:
 
     def get_team_note(self) -> dict:
         """The team's shared document: `{body, version, updated_at, updated_by,
-        remaining_chars}`. Never 404s -- a team that has written nothing has an
-        empty document at version 0.
+        tokens, limit_tokens, remaining_tokens, remaining_chars}` (the cap is in
+        tokens; `remaining_chars` is the character backstop's room). Never 404s --
+        a team that has written nothing has an empty document at version 0.
 
         THE SYNC CLIENT USUALLY DOES NOT CALL THIS. `get_team_note_brief` already
         carries `version` AND `truncated`, so a brief that is not truncated IS
@@ -9953,7 +10211,8 @@ class Client:
         than a refusal -- and two sides that both only ADDED text both land,
         which is the property the old `append` guaranteed.
 
-        Returns `{state, version, remaining_chars, body?, merged}`. `state` is
+        Returns `{state, version, tokens, limit_tokens, remaining_tokens,
+        remaining_chars, body?, merged}`. `state` is
         `applied` or `unchanged`; `unchanged` is what a retried reconcile gets
         and mints no version. When `merged` is true the server combined this
         document with someone else's and `body` is the result, which the caller
@@ -9985,7 +10244,8 @@ class Client:
         wrote is lost and no version is needed. A caller that HAS the file
         edits it and syncs (`sync_team_note`) instead.
 
-        Returns `{state, version, remaining_chars}`. A 422 names the cap or the
+        Returns `{state, version, tokens, limit_tokens, remaining_tokens,
+        remaining_chars}`. A 422 names the cap (in tokens) or the
         conflict-marker lines; a 409 carrying `retryable: true` means another
         write landed at the same moment and nothing was stored.
         """

@@ -39,7 +39,9 @@ def build_app():
     # One task, one browser: a lease nobody renews means the control plane is
     # gone, and this process ends itself after closing Chromium cleanly.
     worker.enable_lease_watchdog()
-    return create_worker_app(worker, stream=SelkiesSupervisor())
+    # Read at the process boundary: the Cloud Computer image sets it to "1".
+    clipboard = os.environ.get("BROWSER_WORKER_STREAM_CLIPBOARD", "0") == "1"
+    return create_worker_app(worker, stream=SelkiesSupervisor(enable_clipboard=clipboard))
 
 
 app = build_app()

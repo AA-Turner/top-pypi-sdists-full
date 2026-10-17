@@ -143,9 +143,7 @@ class TestSandboxClientInit:
             "x-service-key": "svc-jwt",
             "x-test": "v",
         }
-        assert client._ws_default_headers({"X-Service-Key": "override"}) == {
-            "x-service-key": "override"
-        }
+        assert client._ws_default_headers({"X-Service-Key": "override"}) == {"x-service-key": "override"}
         client.close()
 
     def test_ws_default_headers_returns_none_when_unset(self):
@@ -210,9 +208,7 @@ class TestSandboxOperations:
         assert sandbox.id == "550e8400-e29b-41d4-a716-446655440003"
         assert sandbox.dataplane_url == "https://sandbox-router.example.com/sb-123"
 
-    def test_create_sandbox_forwards_proxy_config(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_forwards_proxy_config(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """proxy_config should appear verbatim in the POST body."""
         import json
 
@@ -237,9 +233,7 @@ class TestSandboxOperations:
         body = json.loads(request.content)
         assert body["proxy_config"] == proxy_config
 
-    def test_create_sandbox_forwards_mount_config(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_forwards_mount_config(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """mount_config should appear as a nested public field in the POST body."""
         import json
 
@@ -284,9 +278,7 @@ class TestSandboxOperations:
         assert "mounts" not in body
         assert "proxy_config" not in body
 
-    def test_create_sandbox_forwards_gcs_mount_config(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_forwards_gcs_mount_config(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """GCS mount_config should appear as a nested public field."""
         import json
 
@@ -330,9 +322,7 @@ class TestSandboxOperations:
         assert "mounts" not in body
         assert "proxy_config" not in body
 
-    def test_create_sandbox_omits_proxy_config_when_none(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_omits_proxy_config_when_none(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """proxy_config must not appear in the payload when not provided."""
         import json
 
@@ -349,9 +339,7 @@ class TestSandboxOperations:
         body = json.loads(httpx_mock.get_request().content)
         assert "proxy_config" not in body
 
-    def test_create_sandbox_merges_custom_headers(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_merges_custom_headers(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test per-request headers override default client headers."""
         httpx_mock.add_response(
             method="POST",
@@ -375,9 +363,7 @@ class TestSandboxOperations:
         assert request.headers.get("X-Api-Key") == "override-key"
         assert request.headers.get("X-Test-Header") == "sandbox-client"
 
-    def test_sandbox_context_manager(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_sandbox_context_manager(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test sandbox with context manager."""
         httpx_mock.add_response(
             method="POST",
@@ -459,9 +445,7 @@ class TestSandboxOperations:
         assert sandbox.name == "my-sandbox-renamed"
         assert sandbox.id == "550e8400-e29b-41d4-a716-446655440003"
 
-    def test_update_sandbox_not_found(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_update_sandbox_not_found(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test updating a non-existent sandbox."""
         httpx_mock.add_response(
             method="PATCH",
@@ -473,9 +457,7 @@ class TestSandboxOperations:
         with pytest.raises(ResourceNotFoundError):
             client.update_sandbox("nonexistent", new_name="new-name")
 
-    def test_update_sandbox_name_conflict(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_update_sandbox_name_conflict(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test updating sandbox to a name that already exists."""
         httpx_mock.add_response(
             method="PATCH",
@@ -489,9 +471,7 @@ class TestSandboxOperations:
 
         assert exc_info.value.resource_type == "sandbox"
 
-    def test_update_sandbox_proxy_config(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_update_sandbox_proxy_config(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test replacing a sandbox's proxy config."""
         config = proxy_config(
             rules=[
@@ -523,9 +503,7 @@ class TestSandboxOperations:
         request = httpx_mock.get_requests()[-1]
         assert json.loads(request.content) == {"proxy_config": config}
 
-    def test_update_sandbox_proxy_config_not_ready(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_update_sandbox_proxy_config_not_ready(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """A proxy-config update on a stopped sandbox is a typed not-ready error."""
         httpx_mock.add_response(
             method="PATCH",
@@ -533,10 +511,7 @@ class TestSandboxOperations:
             json={
                 "detail": {
                     "error": "InvalidRequest",
-                    "message": (
-                        'sandbox "my-sandbox" is in "stopped" state, '
-                        'must be "ready" to update proxy config'
-                    ),
+                    "message": ('sandbox "my-sandbox" is in "stopped" state, must be "ready" to update proxy config'),
                 }
             },
             status_code=400,
@@ -545,9 +520,7 @@ class TestSandboxOperations:
         with pytest.raises(SandboxNotReadyError, match="stopped"):
             client.update_sandbox("my-sandbox", proxy_config={"rules": []})
 
-    def test_create_sandbox_async_returns_provisioning(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_async_returns_provisioning(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test async sandbox creation returns provisioning status."""
         httpx_mock.add_response(
             method="POST",
@@ -576,9 +549,7 @@ class TestSandboxOperations:
         assert payload["wait_for_ready"] is False
         assert "timeout" not in payload
 
-    def test_create_sandbox_status_fields_parsed(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_status_fields_parsed(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test that status fields are parsed from create response."""
         httpx_mock.add_response(
             method="POST",
@@ -611,9 +582,7 @@ class TestSandboxOperations:
         assert status.status == "provisioning"
         assert status.status_message is None
 
-    def test_get_sandbox_status_failed(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_get_sandbox_status_failed(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test getting failed sandbox status."""
         httpx_mock.add_response(
             method="GET",
@@ -629,9 +598,7 @@ class TestSandboxOperations:
         assert status.status == "failed"
         assert status.status_message == "No capacity available"
 
-    def test_get_sandbox_status_not_found(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_get_sandbox_status_not_found(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test getting status of non-existent sandbox."""
         httpx_mock.add_response(
             method="GET",
@@ -670,9 +637,7 @@ class TestSandboxOperations:
         assert sandbox.name == "my-sandbox"
         assert sandbox.status == "ready"
 
-    def test_wait_for_sandbox_failed(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_wait_for_sandbox_failed(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test polling detects failure."""
         httpx_mock.add_response(
             method="GET",
@@ -683,16 +648,12 @@ class TestSandboxOperations:
             },
         )
 
-        with pytest.raises(
-            ResourceCreationError, match="No capacity available"
-        ) as exc_info:
+        with pytest.raises(ResourceCreationError, match="No capacity available") as exc_info:
             client.wait_for_sandbox("my-sandbox", poll_interval=0.01)
 
         assert exc_info.value.resource_type == "sandbox"
 
-    def test_wait_for_sandbox_timeout(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_wait_for_sandbox_timeout(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test polling timeout."""
         httpx_mock.add_response(
             method="GET",
@@ -705,9 +666,7 @@ class TestSandboxOperations:
 
         assert exc_info.value.last_status == "provisioning"
 
-    def test_create_sandbox_with_retention(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_with_retention(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test creating a sandbox with idle and delete-after-stop retention."""
         httpx_mock.add_response(
             method="POST",
@@ -739,9 +698,7 @@ class TestSandboxOperations:
         assert payload["idle_ttl_seconds"] == 600
         assert payload["delete_after_stop_seconds"] == 86400
 
-    def test_create_sandbox_retention_omitted_when_none(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_retention_omitted_when_none(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Retention fields are omitted from the payload when not specified."""
         httpx_mock.add_response(
             method="POST",
@@ -769,18 +726,14 @@ class TestSandboxOperations:
         with pytest.raises(ValueError, match="must be >= 0"):
             client.create_sandbox(snapshot_id="snap-1", delete_after_stop_seconds=-1)
 
-    def test_create_sandbox_retention_validation_not_multiple_of_60(
-        self, client: SandboxClient
-    ):
+    def test_create_sandbox_retention_validation_not_multiple_of_60(self, client: SandboxClient):
         """Non-multiple-of-60 retention values raise ValueError."""
         with pytest.raises(ValueError, match="must be a multiple of 60"):
             client.create_sandbox(snapshot_id="snap-1", idle_ttl_seconds=90)
         with pytest.raises(ValueError, match="must be a multiple of 60"):
             client.create_sandbox(snapshot_id="snap-1", delete_after_stop_seconds=90)
 
-    def test_create_sandbox_retention_zero_allowed(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_retention_zero_allowed(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Zero is accepted on both retention fields and disables that stage."""
         httpx_mock.add_response(
             method="POST",
@@ -803,9 +756,7 @@ class TestSandboxOperations:
         assert sandbox.idle_ttl_seconds == 0
         assert sandbox.delete_after_stop_seconds == 0
 
-    def test_update_sandbox_with_retention(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_update_sandbox_with_retention(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Update both retention fields simultaneously."""
         httpx_mock.add_response(
             method="PATCH",
@@ -844,9 +795,7 @@ class TestSandboxOperations:
         with pytest.raises(ValueError, match="must be >= 0"):
             client.update_sandbox("my-sandbox", delete_after_stop_seconds=-60)
 
-    def test_update_sandbox_name_and_retention(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_update_sandbox_name_and_retention(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Renaming and updating retention in one call."""
         httpx_mock.add_response(
             method="PATCH",
@@ -874,9 +823,7 @@ class TestSandboxOperations:
         assert payload["name"] == "my-sandbox-renamed"
         assert payload["delete_after_stop_seconds"] == 3600
 
-    def test_list_sandboxes_includes_status(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_list_sandboxes_includes_status(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test that list_sandboxes parses status fields."""
         httpx_mock.add_response(
             method="GET",
@@ -905,9 +852,7 @@ class TestSandboxOperations:
 class TestConnectionErrors:
     """Tests for connection error handling."""
 
-    def test_connection_error_on_sandbox_create(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_connection_error_on_sandbox_create(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test connection error when creating sandbox."""
         import httpx
 
@@ -920,9 +865,7 @@ class TestConnectionErrors:
 class TestGenerateDownloadURL:
     """Tests for SandboxClient.generate_download_url()."""
 
-    def test_download_url_happy_path(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_download_url_happy_path(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test minting a download link returns DownloadURL with correct fields."""
         httpx_mock.add_response(
             method="POST",
@@ -946,9 +889,7 @@ class TestGenerateDownloadURL:
         body = json.loads(request.content)
         assert body == {"path": "/tmp/report.pdf"}
 
-    def test_download_url_never_expires(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_download_url_never_expires(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test a null expires_at is preserved rather than defaulted."""
         httpx_mock.add_response(
             method="POST",
@@ -964,9 +905,7 @@ class TestGenerateDownloadURL:
 
         assert link.expires_at is None
 
-    def test_download_url_optional_fields(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_download_url_optional_fields(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test expiry and response headers are sent when provided."""
         httpx_mock.add_response(
             method="POST",
@@ -1156,9 +1095,7 @@ class TestSnapshotOperations:
 
         import json
 
-        snapshot = client.create_snapshot(
-            "my-env", "python:3.12-slim", 4294967296, registry_id="reg-1"
-        )
+        snapshot = client.create_snapshot("my-env", "python:3.12-slim", 4294967296, registry_id="reg-1")
 
         assert snapshot.id == "snap-1"
         assert snapshot.status == "ready"
@@ -1202,9 +1139,7 @@ class TestSnapshotOperations:
         assert snapshot.status == "ready"
         assert snapshot.source_sandbox_id == "my-vm"
 
-    def test_capture_snapshot_publishes_the_requested_tag(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_capture_snapshot_publishes_the_requested_tag(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """A tag is a mutable pointer, so the caller picks which one to move."""
         import json
 
@@ -1239,9 +1174,7 @@ class TestSnapshotOperations:
             "tag": "v2",
         }
 
-    def test_create_snapshot_publishes_the_requested_tag(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_snapshot_publishes_the_requested_tag(self, client: SandboxClient, httpx_mock: HTTPXMock):
         import json
 
         for status in ("building", "ready"):
@@ -1265,9 +1198,7 @@ class TestSnapshotOperations:
 
         assert json.loads(httpx_mock.get_requests()[0].content)["tag"] == "v2"
 
-    def test_get_snapshot_by_reference_keeps_the_tag_separator(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_get_snapshot_by_reference_keeps_the_tag_separator(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """A percent-encoded colon would hide the tag from the server."""
         httpx_mock.add_response(
             method="GET",
@@ -1286,9 +1217,7 @@ class TestSnapshotOperations:
         assert snapshot.id == "snap-5"
         assert str(httpx_mock.get_requests()[0].url).endswith("/snapshots/my-env:v2")
 
-    def test_list_snapshot_tags_lists_every_tag(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_list_snapshot_tags_lists_every_tag(self, client: SandboxClient, httpx_mock: HTTPXMock):
         httpx_mock.add_response(
             method="GET",
             url="http://test-server:8080/snapshots-by-name/my-env",
@@ -1308,9 +1237,7 @@ class TestSnapshotOperations:
             ("v1", "snap-4"),
         ]
 
-    def test_list_snapshot_tags_raises_when_nobody_published(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_list_snapshot_tags_raises_when_nobody_published(self, client: SandboxClient, httpx_mock: HTTPXMock):
         httpx_mock.add_response(
             method="GET",
             url="http://test-server:8080/snapshots-by-name/nope",
@@ -1321,9 +1248,7 @@ class TestSnapshotOperations:
         with pytest.raises(ResourceNotFoundError):
             client.list_snapshot_tags("nope")
 
-    def test_capture_snapshot_from_docker_image(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_capture_snapshot_from_docker_image(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test exporting a sandbox-local Docker image into a snapshot."""
         httpx_mock.add_response(
             method="POST",
@@ -1361,21 +1286,14 @@ class TestSnapshotOperations:
             url="http://test-server:8080/boxes/my-vm/snapshot",
         )
         assert req is not None
-        assert req.read() == (
-            b'{"name":"captured","docker_image":"local-image:latest",'
-            b'"fs_capacity_bytes":4294967296}'
-        )
+        assert req.read() == (b'{"name":"captured","docker_image":"local-image:latest","fs_capacity_bytes":4294967296}')
         assert snapshot.id == "snap-2"
         assert snapshot.status == "ready"
         assert snapshot.docker_image == "local-image:latest"
 
-    def test_create_snapshot_from_dockerfile_orchestrates(
-        self, client: SandboxClient, tmp_path
-    ):
+    def test_create_snapshot_from_dockerfile_orchestrates(self, client: SandboxClient, tmp_path):
         """Test Dockerfile snapshot wrapper syncs, builds, and finalizes."""
-        (tmp_path / "Dockerfile").write_text(
-            "FROM scratch\nCOPY hello.txt /hello.txt\n"
-        )
+        (tmp_path / "Dockerfile").write_text("FROM scratch\nCOPY hello.txt /hello.txt\n")
         (tmp_path / "hello.txt").write_text("hello")
 
         class FakeSandbox:
@@ -1447,9 +1365,7 @@ class TestSnapshotOperations:
         assert kwargs["docker_image"].startswith("langsmith-snapshot-build:")
         assert kwargs["fs_capacity_bytes"] is None
 
-    def test_create_snapshot_from_dockerfile_forwards_builder_size(
-        self, client: SandboxClient, tmp_path
-    ):
+    def test_create_snapshot_from_dockerfile_forwards_builder_size(self, client: SandboxClient, tmp_path):
         """vcpus/mem_bytes are forwarded to the builder sandbox."""
         (tmp_path / "Dockerfile").write_text("FROM scratch\n")
 
@@ -1497,9 +1413,7 @@ class TestSnapshotOperations:
         assert sandbox_mock.call_args.kwargs["vcpus"] == 2
         assert sandbox_mock.call_args.kwargs["mem_bytes"] == 8589934592
 
-    def test_capture_snapshot_not_found(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_capture_snapshot_not_found(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test capturing from a non-existent sandbox."""
         httpx_mock.add_response(
             method="POST",
@@ -1574,15 +1488,11 @@ class TestSnapshotOperations:
         request = httpx_mock.get_request()
         assert request.url.query == b""
 
-    def test_list_snapshots_with_filters(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_list_snapshots_with_filters(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test listing snapshots forwards name_contains/limit/offset."""
         httpx_mock.add_response(
             method="GET",
-            url=(
-                "http://test-server:8080/snapshots?name_contains=env&limit=10&offset=5"
-            ),
+            url=("http://test-server:8080/snapshots?name_contains=env&limit=10&offset=5"),
             json={
                 "snapshots": [
                     {
@@ -1614,9 +1524,7 @@ class TestSnapshotOperations:
 
         client.delete_snapshot("snap-1")
 
-    def test_delete_snapshot_not_found(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_delete_snapshot_not_found(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test deleting a non-existent snapshot."""
         httpx_mock.add_response(
             method="DELETE",
@@ -1628,9 +1536,7 @@ class TestSnapshotOperations:
         with pytest.raises(ResourceNotFoundError):
             client.delete_snapshot("nonexistent")
 
-    def test_wait_for_snapshot_immediate_ready(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_wait_for_snapshot_immediate_ready(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test waiting for an already-ready snapshot."""
         httpx_mock.add_response(
             method="GET",
@@ -1646,9 +1552,7 @@ class TestSnapshotOperations:
         snapshot = client.wait_for_snapshot("snap-1")
         assert snapshot.status == "ready"
 
-    def test_wait_for_snapshot_failed(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_wait_for_snapshot_failed(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test waiting for a snapshot that fails."""
         httpx_mock.add_response(
             method="GET",
@@ -1699,9 +1603,7 @@ class TestStartStopOperations:
         assert sandbox.status == "ready"
         assert sandbox.dataplane_url == "https://dp.example.com/my-vm"
 
-    def test_start_sandbox_not_found(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_start_sandbox_not_found(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test starting a non-existent sandbox."""
         httpx_mock.add_response(
             method="POST",
@@ -1735,9 +1637,7 @@ class TestStartStopOperations:
         with pytest.raises(ResourceNotFoundError):
             client.stop_sandbox("nonexistent")
 
-    def test_create_sandbox_with_snapshot_id(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_with_snapshot_id(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test creating a sandbox from a snapshot."""
         httpx_mock.add_response(
             method="POST",
@@ -1768,9 +1668,7 @@ class TestStartStopOperations:
         assert "snapshot_name" not in body
         assert "template_name" not in body
 
-    def test_create_sandbox_with_snapshot_name(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_with_snapshot_name(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test creating a sandbox by snapshot name (server-side resolution)."""
         httpx_mock.add_response(
             method="POST",
@@ -1797,9 +1695,7 @@ class TestStartStopOperations:
         assert "snapshot_id" not in body
         assert "template_name" not in body
 
-    def test_create_sandbox_boots_from_a_tagged_reference(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_boots_from_a_tagged_reference(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """`snapshot` carries all three forms: a UUID, `name:tag`, or a bare name."""
         import json
 
@@ -1821,15 +1717,11 @@ class TestStartStopOperations:
         assert body["snapshot"] == "my-snap:v2"
         assert "snapshot_name" not in body
 
-    def test_create_sandbox_rejects_a_disagreeing_snapshot_alias(
-        self, client: SandboxClient
-    ):
+    def test_create_sandbox_rejects_a_disagreeing_snapshot_alias(self, client: SandboxClient):
         with pytest.raises(ValueError, match="must not disagree"):
             client.create_sandbox(snapshot="a:v1", snapshot_name="b")
 
-    def test_create_sandbox_omits_snapshot_id_when_absent(
-        self, client: SandboxClient, httpx_mock: HTTPXMock
-    ):
+    def test_create_sandbox_omits_snapshot_id_when_absent(self, client: SandboxClient, httpx_mock: HTTPXMock):
         """Test creating a sandbox without a snapshot."""
         httpx_mock.add_response(
             method="POST",
@@ -1853,9 +1745,7 @@ class TestStartStopOperations:
         assert "snapshot_id" not in body
         assert "snapshot_name" not in body
 
-    def test_create_sandbox_rejects_both_snapshot_identifiers(
-        self, client: SandboxClient
-    ):
+    def test_create_sandbox_rejects_both_snapshot_identifiers(self, client: SandboxClient):
         """Test that snapshot_id / snapshot_name are mutually exclusive."""
 
         with pytest.raises(
@@ -1880,10 +1770,7 @@ class TestSandboxClientRepr:
         # Ensure the repr shows the API URL
         assert "https://api.smith.langchain.com/v2/sandboxes" in repr_str
         # Ensure it's properly formatted
-        assert (
-            repr_str
-            == "SandboxClient (API URL: https://api.smith.langchain.com/v2/sandboxes)"
-        )
+        assert repr_str == "SandboxClient (API URL: https://api.smith.langchain.com/v2/sandboxes)"
         client.close()
 
 

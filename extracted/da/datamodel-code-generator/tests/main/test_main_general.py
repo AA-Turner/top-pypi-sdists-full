@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import inspect
 import json
 import platform
+import re
 import shutil
 import sys
 import tokenize
@@ -16,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
 from pathlib import Path
 from threading import Event
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, cast
 
 import black
 import pytest
@@ -175,6 +177,32 @@ def test_failed_untyped_nullable_map_parse_disposes_the_typed_parser(mocker: Moc
         )
 
     assert dispose.call_count == 1
+
+
+class _InterpreterVersion(NamedTuple):
+    major: int
+    minor: int
+    micro: int
+    releaselevel: str
+    serial: int
+
+
+@pytest.mark.abnormal_path("no interpreter newer than every supported target exists to import the package on")
+def test_default_target_python_version_follows_the_interpreter(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default to the interpreter's version, or to the newest target on an interpreter newer than every target."""
+    model_path = Path(datamodel_code_generator.__file__).parent / "model" / "__init__.py"
+    defaults = []
+    for interpreter in (_InterpreterVersion(3, 12, 0, "final", 0), _InterpreterVersion(3, 99, 0, "final", 0)):
+        spec = importlib.util.spec_from_file_location(
+            "datamodel_code_generator.model", model_path, submodule_search_locations=[str(model_path.parent)]
+        )
+        module = importlib.util.module_from_spec(spec)
+        monkeypatch.setattr(sys, "version_info", interpreter)
+        spec.loader.exec_module(module)
+        defaults.append(f"{interpreter.major}.{interpreter.minor} -> {module.DEFAULT_TARGET_PYTHON_VERSION.value}")
+    monkeypatch.undo()
+
+    assert_output("\n".join(defaults) + "\n", EXPECTED_MAIN_PATH / "default_target_python_version.txt")
 
 
 @freeze_time("2019-07-26")
@@ -2883,6 +2911,131 @@ def test_type_overrides_model_level_dict_key(output_file: Path) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("target_python_version", "expected_file"),
+    [
+        pytest.param("3.10", "type_overrides_target_310.py", id="python-3.10"),
+        pytest.param("3.12", "type_overrides_target_312.py", id="python-3.12"),
+    ],
+)
+def test_type_overrides_for_target(output_file: Path, target_python_version: str, expected_file: str) -> None:
+    """Import a typing name newer than the target from its backport, leaving overrides no model uses unchecked."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "type_overrides_target.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--output-model-type",
+            "typing.TypedDict",
+            "--target-python-version",
+            target_python_version,
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+            "--type-overrides",
+            json.dumps({
+                "Model.c": "typing.LiteralString",
+                "D": "collections.abc.Buffer",
+                "Missing": "pathlib.types.PathInfo",
+                "Model.missing": "enum.StrEnum",
+            }),
+        ],
+        force_exec_validation=tuple(map(int, target_python_version.split("."))) <= sys.version_info[:2],
+    )
+
+
+def test_type_overrides_replace_custom_type_path_unavailable_for_target(output_file: Path) -> None:
+    """Leave a customTypePath the target lacks unchecked when overrides replace every type that would import it."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "custom_type_path_overridden.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="type_overrides_custom_type_path_overridden.py",
+        extra_args=[
+            "--output-model-type",
+            "typing.TypedDict",
+            "--target-python-version",
+            "3.10",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+            "--type-overrides",
+            json.dumps({"Model.kind": "decimal.Decimal", "A": "uuid.UUID"}),
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("fixture_name", "target_python_version", "type_overrides", "expected_error"),
+    [
+        pytest.param(
+            "type_overrides_target.json",
+            "3.10",
+            {"Model.c": "enum.StrEnum"},
+            "enum.StrEnum is unavailable for target Python 3.10",
+            id="scoped",
+        ),
+        pytest.param(
+            "type_overrides_target.json",
+            "3.13",
+            {"D": "pathlib.types.PathInfo"},
+            "pathlib.types.PathInfo is unavailable for target Python 3.13",
+            id="model-level",
+        ),
+        pytest.param(
+            "type_overrides_target.json",
+            "3.14",
+            {"Model.c": "builtins.frozendict"},
+            "builtins.frozendict is unavailable for target Python 3.14",
+            id="builtin",
+        ),
+        pytest.param(
+            "type_overrides_target.json",
+            "3.15",
+            {"Model.c": "pathlib.DirEntryInfo"},
+            "pathlib.DirEntryInfo is unavailable for target Python 3.15",
+            id="removed",
+        ),
+        pytest.param(
+            "custom_type_path_overridden.json",
+            "3.10",
+            {"Model.kind": "mylib.Kind"},
+            "enum.StrEnum is unavailable for target Python 3.10",
+            id="custom-type-path-left",
+        ),
+    ],
+)
+def test_type_overrides_reject_types_unavailable_for_target(
+    output_file: Path,
+    capsys: pytest.CaptureFixture[str],
+    fixture_name: str,
+    target_python_version: str,
+    type_overrides: dict[str, str],
+    expected_error: str,
+) -> None:
+    """Reject output that imports a standard-library type introduced after or removed by the target."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / fixture_name,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        expected_exit=Exit.ERROR,
+        output_should_not_exist=True,
+        capsys=capsys,
+        expected_stderr_contains=expected_error,
+        extra_args=[
+            "--target-python-version",
+            target_python_version,
+            "--formatters",
+            "builtin",
+            "--type-overrides",
+            json.dumps(type_overrides),
+        ],
+    )
+
+
 def test_skip_root_model(tmp_path: Path) -> None:
     """Test --skip-root-model flag functionality using generate()."""
     output_file = tmp_path / "output.py"
@@ -4138,6 +4291,39 @@ class Model(BaseModel):
     s: str
 """,
     )
+
+
+@pytest.mark.abnormal_path("whether the installed black formats a target Python version depends on the CI lane's black")
+@pytest.mark.parametrize("entrypoint", ["cli", "api"])
+def test_black_without_target_support_names_black_requirement(
+    output_file: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, entrypoint: str
+) -> None:
+    """Test the CLI and generate() name the black requirement when the installed black cannot format the target."""
+    monkeypatch.setattr("datamodel_code_generator.format._get_black_python_version_map", dict)
+    message = (
+        "Installed black doesn't support Python version 3.15.\n"
+        "You have to install a newer black.\n"
+        f"Installed black version: {black.__version__}"
+    )
+    if entrypoint == "cli":
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "simple_string.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            expected_exit=Exit.ERROR,
+            output_should_not_exist=True,
+            capsys=capsys,
+            expected_stderr=f"{message}\n",
+            extra_args=["--formatters", "black", "--target-python-version", "3.15"],
+        )
+        return
+    with pytest.raises(Error, match=f"^{re.escape(message)}$"):
+        generate(
+            JSON_SCHEMA_DATA_PATH / "simple_string.json",
+            input_file_type=InputFileType.JsonSchema,
+            output=output_file,
+            target_python_version=PythonVersion.PY_315,
+        )
 
 
 def test_ruff_batch_formatting_directory(output_dir: Path) -> None:
@@ -6190,9 +6376,10 @@ def test_all_exports_includes_generate_config() -> None:
 
 
 @pytest.mark.parametrize(
-    ("family", "target", "formatters"),
+    ("date", "family", "target", "formatters"),
     [
         pytest.param(
+            date,
             family,
             target,
             formatters,
@@ -6202,12 +6389,17 @@ def test_all_exports_includes_generate_config() -> None:
                 reason="Installed Black does not support this target",
             ),
         )
+        for date, targets in (
+            ("20260909", ("310", "311", "312", "313", "314")),
+            ("20261015", ("310", "311", "312", "313", "314", "315")),
+        )
         for family in ("standard", "practical")
-        for target in ("310", "311", "312", "313", "314")
+        for target in targets
         for formatters in ([], ["black", "isort"], ["ruff-check", "ruff-format"])
     ],
 )
 def test_builtin_preset_formatter_selection(
+    date: str,
     family: str,
     target: str,
     formatters: list[str],
@@ -6225,7 +6417,7 @@ def test_builtin_preset_formatter_selection(
                 "--output",
                 str(output_file),
                 "--preset",
-                f"{family}-py{target}-20260909",
+                f"{family}-py{target}-{date}",
                 *(["--formatters", *formatters] if formatters else []),
             ],
             use_builtin_default_formatter=False,

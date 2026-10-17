@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ag_ui_strands
-Version: 1.0.1
+Version: 1.0.2
 Summary: Implementation of the AG-UI protocol for AWS Strands Agents.
 Project-URL: Changelog, https://github.com/ag-ui-protocol/ag-ui/releases
 Author: AG-UI Contributors

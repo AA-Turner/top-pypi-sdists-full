@@ -61,6 +61,20 @@ class Assignment:
 
 
 @dataclass
+class LeftOut:
+    """A row the classifier judged not research, with its stated why."""
+
+    path: str
+    why: str = ""
+
+
+#: The internal destination of a left-out row inside `resolve`. Not a slug (a
+#: slug never holds a NUL), so it can never collide with a project; it lets a
+#: left-out directory expand, count and be inherited exactly like a project.
+_LEFT_OUT = "\0left-out"
+
+
+@dataclass
 class Discrepancy:
     """What the walk and the classification disagree about."""
 
@@ -108,6 +122,7 @@ class Plan:
     assignments: list[Assignment]
     unsure: list[str] = field(default_factory=list)
     summary: str = ""
+    left_out: list[LeftOut] = field(default_factory=list)
 
 
 def parse(tail: str) -> Plan | None:
@@ -166,14 +181,33 @@ def _plan_from(data: dict) -> Plan | None:
                 why=str(a.get("why") or ""),
             )
         )
-    if not assignments:
+    left_out = parse_left_out(data.get("left_out"))
+    if not assignments and not left_out:
         return None
     return Plan(
         projects=projects,
         assignments=assignments,
         unsure=[str(u) for u in (data.get("unsure") or []) if u],
         summary=str(data.get("summary") or ""),
+        left_out=left_out,
     )
+
+
+def parse_left_out(rows) -> list[LeftOut]:
+    """`left_out` rows, by `path` or `dir` (the agent echoes the key it was shown).
+
+    A non-list is no answer, not a list of characters, and an empty path is
+    dropped rather than read as "the whole folder".
+    """
+    out: list[LeftOut] = []
+    for row in rows if isinstance(rows, list) else []:
+        if isinstance(row, str) and row.strip():
+            out.append(LeftOut(path=row))
+        elif isinstance(row, dict):
+            raw = row.get("path") or row.get("dir")
+            if raw and str(raw).strip():
+                out.append(LeftOut(path=str(raw), why=str(row.get("why") or "")))
+    return out
 
 
 def relative_paths(evidence: Evidence) -> list[str]:
@@ -229,12 +263,22 @@ def _neighbour_project(path: str, assigned: dict[str, str]) -> str | None:
         parent = nxt
 
 
-def resolve(evidence: Evidence, plan: Plan) -> tuple[dict[str, str], Discrepancy]:
+def resolve(
+    evidence: Evidence, plan: Plan, *, left_out: dict[str, str] | None = None
+) -> tuple[dict[str, str], Discrepancy]:
     """Final path -> project map, with unassigned files placed by inheritance.
 
     Returns the map and the discrepancy that produced it, so a caller can show
     what it had to fill in. Silently completing the map would hide exactly the
     thing worth showing a human before anything uploads.
+
+    `plan.left_out` rows go through the SAME expansion and reconcile as
+    assignments, so a left-out file is never "missing", and a FILE row both
+    placed and left out is `duplicated` (for a folder named in both, the more
+    specific row wins, as it always has). A left-out root row (".") covers the
+    root's own files only. An unassigned file inherits a real project,
+    never "left out". Left-out files never appear in the map; a caller that
+    passes `left_out` gets them there instead, path -> why.
     """
     # A rollup row names a DIRECTORY, so an assignment against one stands for
     # every tail file under it. Expanded BEFORE the reconcile, or the walk would
@@ -254,13 +298,17 @@ def resolve(evidence: Evidence, plan: Plan) -> tuple[dict[str, str], Discrepancy
     # assigning them twice. Twice is not a cosmetic problem: `duplicated` makes
     # the whole plan untrustworthy, which is correct, so the specific row has to
     # win before the general one is applied.
-    ordered = sorted(plan.assignments, key=lambda a: (a.path not in walked, -len(a.path)))
+    rows = plan.assignments + [
+        Assignment(path=row.path, project=_LEFT_OUT, why=row.why) for row in plan.left_out
+    ]
+    ordered = sorted(rows, key=lambda a: (a.path not in walked, -len(a.path)))
     for a in ordered:
         if a.path in walked:
             claimed.add(a.path)
             expanded.append(a)
             continue
-        prefix = "" if a.path in ("", ".") else a.path.rstrip("/") + "/"
+        root_row = a.path in ("", ".")
+        prefix = "" if root_row else a.path.rstrip("/") + "/"
         # RECURSIVE, because the rollup that produced this row is. Keys are
         # capped at ROLLUP_MAX_DEPTH, so a `dir` of "michael/odyssey/ckpt"
         # stands for everything beneath it too -- non-recursive expansion would
@@ -271,6 +319,11 @@ def resolve(evidence: Evidence, plan: Plan) -> tuple[dict[str, str], Discrepancy
         # so an evidence file inside the subtree keeps its own assignment.
         covers = any(w.startswith(prefix) for w in walked)
         members = [w for w in walked if w.startswith(prefix) and w not in claimed]
+        if root_row and a.project == _LEFT_OUT:
+            # The root's rollup row is its OWN loose files (lockfiles, say).
+            # Expanded recursively, longest-row-first, it would claim exactly
+            # the files the model forgot to place anywhere, research included.
+            members = [w for w in members if "/" not in w]
         if members:
             claimed.update(members)
             expanded += [
@@ -293,11 +346,21 @@ def resolve(evidence: Evidence, plan: Plan) -> tuple[dict[str, str], Discrepancy
 
     disc = reconcile_assignments(evidence, plan)
     assigned = {a.path: a.project for a in plan.assignments if a.path not in disc.unknown}
+    reasons = {a.path: a.why for a in plan.assignments if a.project == _LEFT_OUT}
+    # Inheritance never LEAVES a file out. Only a row the model named is left
+    # out: a web app's 2,900 files would otherwise outvote a root README the
+    # model forgot, and drop it without anyone deciding to.
+    placed = {path: project for path, project in assigned.items() if project != _LEFT_OUT}
     for path in disc.missing:
-        inherited = _neighbour_project(path, assigned)
+        inherited = _neighbour_project(path, placed)
         if inherited is not None:
             assigned[path] = inherited
-    return assigned, disc
+    if left_out is not None:
+        left_out.update(
+            (path, reasons.get(path, "")) for path, project in assigned.items()
+            if project == _LEFT_OUT
+        )
+    return {path: project for path, project in assigned.items() if project != _LEFT_OUT}, disc
 
 
 def pack(

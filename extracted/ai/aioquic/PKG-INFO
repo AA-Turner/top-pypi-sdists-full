@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aioquic
-Version: 1.6.1
+Version: 1.7.0
 Summary: An implementation of QUIC and HTTP/3
 Author-email: Jeremy Lainé <jeremy.laine@m4x.org>
 License-Expression: BSD-3-Clause
@@ -27,8 +27,6 @@ Requires-Dist: cryptography>=43.0.0
 Requires-Dist: pylsqpack<2.0.0,>=1.0.0
 Requires-Dist: pyopenssl>=24
 Requires-Dist: service-identity>=24.1.0
-Provides-Extra: dev
-Requires-Dist: coverage[toml]>=7.2.2; extra == "dev"
 Dynamic: license-file
 
 aioquic

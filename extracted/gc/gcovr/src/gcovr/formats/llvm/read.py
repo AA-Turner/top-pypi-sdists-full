@@ -1,9 +1,7 @@
-# -*- coding:utf-8 -*-
-
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.6
+# This file is part of gcovr 8.7, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.7
 #
 # _____________________________________________________________________________
 #
@@ -30,34 +28,34 @@ The behavior of this parser was informed by the following sources:
   <https://releases.llvm.org/18.1.8/docs/CoverageMappingFormat.html>
 """
 
-from dataclasses import dataclass
-from enum import Enum
 import json
-import logging
 import os
 import re
 import shlex
 import subprocess  # nosec
+from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
-
-from ...exclusions import apply_all_exclusions, get_exclusion_options_from_options
-from ...filter import is_file_excluded
 from ...data_model.container import CoverageContainer
 from ...data_model.coverage import FileCoverage
 from ...data_model.merging import (
-    get_merge_mode_from_options,
     FUNCTION_MAX_LINE_MERGE_OPTIONS,
     MergeOptions,
+    get_merge_mode_from_options,
 )
 from ...decision_analysis import DecisionParser
+from ...exclusions import apply_all_exclusions, get_exclusion_options_from_options
+from ...filter import is_file_excluded
+from ...logging import LOGGER
 from ...options import Options
 from ...utils import get_md5_hexdigest, read_source_file, search_file, write_json_output
 
-LOGGER = logging.getLogger("gcovr")
-
 EXPECTED_TYPE = "llvm.coverage.json.export"
-EXPECTED_MAJOR_VERSION = 2
+EXPECTED_MAJOR_VERSIONS = [
+    2,
+    3,  # Decisions added to MC/DC records in version 3.0.0, see <https://github.com/llvm/llvm-project/commit/da5c442550a3823fff05c14300c1664d0fbf68c8>
+]
 
 
 #
@@ -65,16 +63,15 @@ EXPECTED_MAJOR_VERSION = 2
 #
 def read_report(options: Options) -> CoverageContainer:
     """Read trace files into internal data model."""
-    profraw_files = set()
+    profraw_files = list[str]()
 
     # Get data files
-    if not options.search_paths:
-        options.search_paths = [options.root]
-
     for search_path in options.search_paths:
-        profraw_files.update(find_datafiles(search_path, options.exclude_directory))
+        for profraw_file in find_datafiles(search_path, options.exclude_directory):
+            if profraw_file not in profraw_files:
+                profraw_files.append(profraw_file)
 
-    covdata = CoverageContainer()
+    covdata = CoverageContainer(options.root)
 
     merge_options = get_merge_mode_from_options(options)
     for profraw_file in profraw_files:
@@ -89,15 +86,19 @@ def read_report(options: Options) -> CoverageContainer:
         llvm_json_data = _llvm_profraw_to_json(options, profraw_file)
 
         if (current_type := llvm_json_data.get("type")) != EXPECTED_TYPE:
-            raise AssertionError(
-                f"Wrong JSON type, got {current_type} expected {EXPECTED_TYPE}."
-            )
-        if not (current_version := llvm_json_data.get("version", "")).startswith(
-            f"{EXPECTED_MAJOR_VERSION}."
+            msg = f"Wrong JSON type, got {current_type} expected {EXPECTED_TYPE}."
+            raise AssertionError(msg)
+        current_version = llvm_json_data.get("version", "")
+        if not any(
+            current_version.startswith(f"{major_version}.")
+            for major_version in EXPECTED_MAJOR_VERSIONS
         ):
-            raise AssertionError(
-                f"Wrong major version, got {current_version or None} expected {EXPECTED_MAJOR_VERSION}.x.x."
+            msg = (
+                "Wrong major version of clang profdata format detected, "
+                f"got {current_version or None} "
+                f"expected {', '.join((str(v) + '.x.x') for v in EXPECTED_MAJOR_VERSIONS)}."
             )
+            raise AssertionError(msg)
 
         covdata.merge(
             read_json(
@@ -112,11 +113,11 @@ def read_report(options: Options) -> CoverageContainer:
             merge_options,
         )
 
-        if options.delete_input_files:
-            for profraw_file in profraw_files:
-                os.unlink(profraw_file)
+    if options.delete_input_files:
+        for profraw_file in profraw_files:
+            os.unlink(profraw_file)
 
-    for filecov in covdata.values():
+    for filecov in covdata.filecov(recurse=True):
         source_lines = read_source_file(
             options.source_encoding,
             filecov.filename,
@@ -150,7 +151,8 @@ def read_report(options: Options) -> CoverageContainer:
 def find_datafiles(
     search_path: str, exclude_directory: list[re.Pattern[str]]
 ) -> list[str]:
-    """Find .gcda and .gcno files under the given search path.
+    """
+    Find .gcda and .gcno files under the given search path.
 
     The .gcno files will *only* produce uncovered results.
     However, that is useful information when a compilation unit
@@ -187,11 +189,11 @@ def _llvm_profraw_to_json(options: Options, profraw: str) -> dict[str, Any]:
 
     def run_cmd(cmd: list[str]) -> tuple[str, str]:
         """Run the given command."""
-
         tool = cmd[0]
         if activate_trace_logging:
             LOGGER.trace("Running %s: %s", tool, shlex.join(cmd))
-        with subprocess.Popen(  # nosec # We know that we execute llvm-profdata tool
+        # We know that we execute llvm-profdata tool
+        with subprocess.Popen(  # nosec: B603  # noqa: S603
             cmd,
             env=env,
             encoding="utf-8",
@@ -204,11 +206,12 @@ def _llvm_profraw_to_json(options: Options, profraw: str) -> dict[str, Any]:
                     LOGGER.trace("STDERR >>%s<< End of STDERR", err)
                     LOGGER.trace("STDOUT >>%s<< End of STDOUT", out)
             else:
-                raise RuntimeError(
+                msg = (
                     f"{tool} returncode was {process.returncode}{' (exited by signal)' if process.returncode < 0 else ''}.\n"
                     f"STDOUT >>{out}<< End of STDOUT\n"
                     f"STDERR >>{err}<< End of STDERR"
                 )
+                raise RuntimeError(msg)
             return out, err
 
     profdata = os.path.splitext(profraw)[0] + ".profdata"
@@ -253,7 +256,7 @@ def read_json(
     version: tuple[int, ...],
 ) -> CoverageContainer:
     """Read one clang JSON coverage report."""
-    covdata = CoverageContainer()
+    covdata = CoverageContainer(options.root)
     for data in json_data["data"]:
         if any(
             "mcdc_records" in entry
@@ -267,7 +270,7 @@ def read_json(
         read_json_files(data_source, data, options, merge_options, covdata, version)
         read_json_functions(data_source, data, options, merge_options, covdata)
 
-    for filecov in covdata.values():
+    for filecov in covdata.filecov(recurse=True):
         activate_trace_logging = not is_file_excluded(
             "trace",
             filecov.filename,
@@ -338,10 +341,22 @@ def read_json_files(
         for line, branch_regions in branches_by_line.items():
             linecov_collection = filecov.get_line(line)
             if linecov_collection is None:
-                filecov.raise_data_error(
-                    f"Missing line coverage for line {line} required by branch record."
+                linecov = filecov.insert_line_coverage(
+                    data_source,
+                    merge_options,
+                    lineno=line,
+                    count=0,
+                    function_name=None,
+                    block_ids=None,
+                    md5=None,
+                    excluded=False,
                 )
-            linecov = list(linecov_collection.linecov())[0]
+                LOGGER.warning(
+                    "%s: Missing line coverage required by branch record, using 0 hits.",
+                    linecov.location,
+                )
+            else:
+                linecov = next(iter(linecov_collection.linecov()))
             for index, branch_region in enumerate(branch_regions):
                 linecov.insert_branch_coverage(
                     data_source,
@@ -385,15 +400,15 @@ def read_json_functions(
             continue
 
         filecov = FileCoverage(data_source, filename=filenames[0])
-        function_regions = list(
+        function_regions = [
             FunctionRegion(*region) for region in function_data["regions"]
-        )
+        ]
         function_regions_executed = len(
-            list(
+            [
                 function_regions
                 for region in function_regions
                 if region.execution_count != 0
-            )
+            ]
         )
         # Use 100% only if covered == total.
         if function_regions_executed == len(function_regions):

@@ -32,10 +32,7 @@ from test_weight_plane import (  # noqa: E402
     write_checkpoint,
 )
 
-pytestmark = [
-    pytest.mark.skipif(not plane.available(), reason="a TensorFS with the weight plane"),
-    pytest.mark.skipif(not accel.present(torch, "cuda"), reason="a CUDA card"),
-]
+pytestmark = pytest.mark.skipif(not accel.present(torch, "cuda"), reason="a CUDA card")
 MIB = 1 << 20
 ROOM = 600 * MIB
 

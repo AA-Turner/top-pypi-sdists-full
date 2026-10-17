@@ -31,10 +31,11 @@ class DepositsClient:
         *,
         destination: str,
         amount: typing.Optional[float] = OMIT,
+        payment_method_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateDepositsResponse:
         """
-        Returns the deposit methods for an account or user, including crypto addresses, bank transfer instructions, and, for a business, a hosted deposit page. Bitcoin deposits are converted to USDT on Plasma in the destination's wallet. Business destinations require no authentication.
+        Returns the deposit methods for an account or user, including crypto addresses, bank transfer instructions, and, for a business, a hosted deposit page. Bitcoin deposits are converted to USDT on Plasma in the destination's wallet. Business destinations require no authentication. Pass `payment_method_id` to also charge a business's saved payment method for `amount` in USD and add it to the business's balance; that requires authentication with the `payment:charge` scope. The charge has no fees or taxes and does not count as revenue.
 
         Parameters
         ----------
@@ -42,7 +43,10 @@ class DepositsClient:
             Account ID to fund, `biz_` or `user_`. Any business resolves without authentication; a user account resolves only for that same authenticated user.
 
         amount : typing.Optional[float]
-            Amount to prefill on hosted deposit page. Crypto deposits require a $10 minimum.
+            Amount to prefill on hosted deposit page. Crypto deposits require a $10 minimum. With `payment_method_id`, the amount in USD to charge, and required.
+
+        payment_method_id : typing.Optional[str]
+            A saved payment method of the business to charge for `amount`, prefixed `payt_`. Save one with Create setup intent and `owner_id` set to the account. Only for a `biz_` destination, and requires authentication with the `payment:charge` scope. A declined charge fails the request with 400.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -57,7 +61,7 @@ class DepositsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -65,7 +69,9 @@ class DepositsClient:
             destination="biz_xxxxxxxxxxxxxx",
         )
         """
-        _response = self._raw_client.create(destination=destination, amount=amount, request_options=request_options)
+        _response = self._raw_client.create(
+            destination=destination, amount=amount, payment_method_id=payment_method_id, request_options=request_options
+        )
         return _response.data
 
 
@@ -89,10 +95,11 @@ class AsyncDepositsClient:
         *,
         destination: str,
         amount: typing.Optional[float] = OMIT,
+        payment_method_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateDepositsResponse:
         """
-        Returns the deposit methods for an account or user, including crypto addresses, bank transfer instructions, and, for a business, a hosted deposit page. Bitcoin deposits are converted to USDT on Plasma in the destination's wallet. Business destinations require no authentication.
+        Returns the deposit methods for an account or user, including crypto addresses, bank transfer instructions, and, for a business, a hosted deposit page. Bitcoin deposits are converted to USDT on Plasma in the destination's wallet. Business destinations require no authentication. Pass `payment_method_id` to also charge a business's saved payment method for `amount` in USD and add it to the business's balance; that requires authentication with the `payment:charge` scope. The charge has no fees or taxes and does not count as revenue.
 
         Parameters
         ----------
@@ -100,7 +107,10 @@ class AsyncDepositsClient:
             Account ID to fund, `biz_` or `user_`. Any business resolves without authentication; a user account resolves only for that same authenticated user.
 
         amount : typing.Optional[float]
-            Amount to prefill on hosted deposit page. Crypto deposits require a $10 minimum.
+            Amount to prefill on hosted deposit page. Crypto deposits require a $10 minimum. With `payment_method_id`, the amount in USD to charge, and required.
+
+        payment_method_id : typing.Optional[str]
+            A saved payment method of the business to charge for `amount`, prefixed `payt_`. Save one with Create setup intent and `owner_id` set to the account. Only for a `biz_` destination, and requires authentication with the `payment:charge` scope. A declined charge fails the request with 400.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -117,7 +127,7 @@ class AsyncDepositsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-10-13-1",
+            "2026-10-15-1",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -132,6 +142,6 @@ class AsyncDepositsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.create(
-            destination=destination, amount=amount, request_options=request_options
+            destination=destination, amount=amount, payment_method_id=payment_method_id, request_options=request_options
         )
         return _response.data

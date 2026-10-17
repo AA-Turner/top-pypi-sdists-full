@@ -114,6 +114,29 @@ def test_cte_cross_join():
     assert 'CROSS JOIN short_window' in sql
 
 
+def test_cte_materialization():
+    original = table('chosen')
+    source = table('records')
+    for setting, directive in [(None, ''), (True, 'MATERIALIZED '), (False, 'NOT MATERIALIZED ')]:
+        q = original.with_cte('chosen', source, materialized=setting)
+        assert q.validate() == f'WITH chosen AS {directive}(SELECT * FROM records) SELECT * FROM chosen'
+    assert original.to_sql() == 'SELECT * FROM chosen'
+    assert source.to_sql() == 'SELECT * FROM records'
+    assert original.with_cte('chosen', source).validate() == original.with_cte('chosen', source, materialized=None).validate()
+    for invalid in ['true', 1, object()]:
+        try:
+            original.with_cte('chosen', source, materialized=invalid)
+        except TypeError:
+            continue
+        raise AssertionError('materialized must be a bool or None')
+    try:
+        original.with_cte('chosen', source, True)
+    except TypeError:
+        pass
+    else:
+        raise AssertionError('materialized must be keyword-only')
+
+
 def test_recursive_cte():
     recursive = query().select(lit(1).alias('n')).union_all(
         table('numbers').select((col('n') + 1).alias('n')).filter(col('n') < 3)

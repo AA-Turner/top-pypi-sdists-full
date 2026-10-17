@@ -17,7 +17,7 @@
 //! - an open ingest session root (`tmp/ingest/<session>/session.json`) names its candidate
 //!   objects until `tfs ingest reap` abandons it explicitly, so the window between
 //!   `ingest run` and `ingest install` — no live process, a dead writer marker — keeps its
-//!   bytes. Those are the `kept` objects a report names.
+//!   bytes.
 //!
 //! Crash safety: an object is unlinked before its catalog row is dropped, so a crash leaves
 //! at most a row for an absent object, which the next pass prunes. A re-run converges: what
@@ -26,7 +26,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::catalog::{Catalog, WriterGuard};
 use crate::err::{Code, Refusal, Result};
@@ -46,51 +46,9 @@ pub struct Report {
     pub reclaimed_bytes: u64,
     pub reclaimed_blobs: u64,
     pub reclaimed_manifests: u64,
-    /// Unreferenced by every repository, kept because an open ingest session names them.
-    pub kept_bytes: u64,
-    pub kept_objects: u64,
     pub sessions: Vec<String>,
     /// Orphan `put-` temps and dead lease markers removed: scratch nothing live holds.
     pub scratch_reaped: u64,
-}
-
-impl Report {
-    pub fn line(&self) -> String {
-        let verb = if self.dry_run {
-            "would reclaim"
-        } else {
-            "reclaimed"
-        };
-        format!(
-            "{verb} {} B in {} objects, kept {} B in {} objects under retained roots",
-            self.reclaimed_bytes,
-            self.reclaimed_blobs + self.reclaimed_manifests,
-            self.kept_bytes,
-            self.kept_objects,
-        )
-    }
-
-    pub fn json(&self) -> Vec<u8> {
-        use crate::canon::Value;
-        crate::canon::write(&Value::obj(vec![
-            ("dry_run", Value::Bool(self.dry_run)),
-            ("kept_bytes", Value::uint(self.kept_bytes)),
-            ("kept_objects", Value::uint(self.kept_objects)),
-            ("reclaimed_blobs", Value::uint(self.reclaimed_blobs)),
-            ("reclaimed_bytes", Value::uint(self.reclaimed_bytes)),
-            ("reclaimed_manifests", Value::uint(self.reclaimed_manifests)),
-            (
-                "sessions",
-                Value::arr(
-                    self.sessions
-                        .iter()
-                        .map(|s| Value::str(s.as_str()))
-                        .collect(),
-                ),
-            ),
-            ("scratch_reaped", Value::uint(self.scratch_reaped)),
-        ]))
-    }
 }
 
 /// The filesystem's holds: every candidate an open ingest session root names, PLUS every
@@ -104,6 +62,11 @@ impl Report {
 /// and the first pass reclaimed all of it. `catalog.hold()` looks like it prevented that and
 /// never did: `tensorfs.sqlite` is not consulted for liveness (see the head of this file).
 pub fn session_holds(store: &Store) -> Result<(Vec<HeldKey>, Vec<String>)> {
+    holds_except(store, &[])
+}
+
+/// [`session_holds`], with the checkpoints held in part named by `idle` holding nothing.
+fn holds_except(store: &Store, idle: &[ObjectRef]) -> Result<(Vec<HeldKey>, Vec<String>)> {
     let mut lines: BTreeMap<String, Vec<u8>> = BTreeMap::new();
     let mut sessions = Vec::new();
     for session in tx::sessions(store) {
@@ -143,10 +106,10 @@ pub fn session_holds(store: &Store) -> Result<(Vec<HeldKey>, Vec<String>)> {
         .collect::<Result<Vec<_>>>()?;
     holds.extend(crate::derived::retained_objects(store)?);
     holds.extend(crate::source_artifact::held_objects(store)?);
-    holds.extend(crate::checkpoint_root::held_objects(store)?);
-    holds.extend(crate::ensure::held_objects(store)?);
-    holds.extend(crate::keyed_roots::held_objects(store)?);
     holds.extend(crate::object_roots::held_objects(store)?);
+    // A checkpoint held in part is a cache root ([`crate::origin`]).
+    let idle: BTreeSet<&str> = idle.iter().map(|manifest| manifest.sha256.as_str()).collect();
+    holds.extend(crate::origin::held(store)?.into_iter().filter(|hold| !idle.contains(hold.sha256.as_str())));
     // A full snapshot obligation wins over a runtime-only pin of the same manifest.
     holds.sort_by(|left, right| {
         left.key
@@ -192,8 +155,6 @@ pub(crate) fn unretained_manifests(store: &Store, wanted: &[ObjectRef]) -> Resul
     let named_roots = || -> Result<Vec<ObjectRef>> {
         let mut named = crate::derived::rooted_manifests(store)?;
         named.extend(manifests(crate::source_artifact::held_objects(store)?));
-        named.extend(manifests(crate::checkpoint_root::held_objects(store)?));
-        named.extend(manifests(crate::keyed_roots::held_objects(store)?));
         Ok(named)
     };
     let everything =
@@ -268,17 +229,7 @@ pub(crate) fn collect_locked(
     let (mut holds, sessions) = session_holds(store)?;
     holds.extend(pinned(store, owner.as_deref())?);
     report.sessions = sessions;
-    let census = Census::open(root)?;
-    let plan = census.gc_plan(&holds)?;
-    if !holds.is_empty() {
-        let planned: BTreeSet<&str> = plan.iter().map(|row| row.key.as_str()).collect();
-        for row in census.gc_plan(&[])? {
-            if !planned.contains(row.key.as_str()) {
-                report.kept_bytes += row.length;
-                report.kept_objects += 1;
-            }
-        }
-    }
+    let plan = Census::open(root)?.gc_plan(&holds)?;
     for row in &plan {
         report.reclaimed_bytes += row.length;
         match row.kind {
@@ -289,9 +240,17 @@ pub(crate) fn collect_locked(
     if dry_run {
         return Ok(report);
     }
+    delete(store, &plan)?;
+    crate::origin::prune(store)?;
+    Ok(report)
+}
+
+/// Remove `rows` and their catalog rows, then any fanout directory they emptied.
+fn delete<'r>(store: &Store, rows: impl IntoIterator<Item = &'r GcDelete>) -> Result<()> {
+    let root = store.root();
     let catalog = Catalog::open(root).ok();
     let mut parents = BTreeSet::new();
-    for row in &plan {
+    for row in rows {
         remove(root, row)?;
         if row.kind == "blob" {
             if let Some(catalog) = &catalog {
@@ -312,7 +271,64 @@ pub(crate) fn collect_locked(
     if let Some(catalog) = &catalog {
         catalog.prune_verifications(|sha256| store.object_path(sha256).is_file())?;
     }
-    crate::origin::prune(store)?;
+    Ok(())
+}
+
+/// The checkpoints held in part that nothing protects or pins, least recently used first.
+fn idle_origins(store: &Store, protected: &[String], pinned: &[HeldKey]) -> Result<Vec<(SystemTime, ObjectRef)>> {
+    let kept: BTreeSet<&str> = (protected.iter())
+        .map(|digest| digest.strip_prefix("sha256:").unwrap_or(digest))
+        .chain(pinned.iter().filter(|hold| hold.is_manifest()).map(|hold| hold.sha256.as_str()))
+        .collect();
+    let mut idle: Vec<(SystemTime, ObjectRef)> = (crate::origin::manifests(store)?.into_iter())
+        .filter(|manifest| !kept.contains(manifest.sha256.as_str()))
+        .map(|manifest| (crate::origin::used(store, &manifest).unwrap_or(UNIX_EPOCH), manifest))
+        .collect();
+    idle.sort();
+    Ok(idle)
+}
+
+/// At low disk: the present objects of checkpoints held in part that nothing protects,
+/// pins or otherwise holds, least recently used first, until `need` bytes are freed. They
+/// can be fetched again; their structure stays.
+fn evict(store: &Store, protected: &[String], need: u64, _exclusive: &crate::catalog::RebuildGuard) -> Result<Report> {
+    let owner = crate::meta::owner(store.root());
+    let _planning = owner.as_ref().map(|owner| owner.gate.write().unwrap());
+    let pinned = pinned(store, owner.as_deref())?;
+    let idle = idle_origins(store, protected, &pinned)?;
+    let mut report = Report::default();
+    if idle.is_empty() {
+        return Ok(report);
+    }
+    let manifests: Vec<ObjectRef> = idle.iter().map(|(_, manifest)| manifest.clone()).collect();
+    let (mut holds, _) = holds_except(store, &manifests)?;
+    holds.extend(pinned);
+    let plan = Census::open(store.root())?.gc_plan(&holds)?;
+    // An object goes with the checkpoint that used it last; one no checkpoint names, first.
+    let mut age: BTreeMap<String, SystemTime> = BTreeMap::new();
+    let mut structure = BTreeSet::new();
+    for (used, manifest) in &idle {
+        for object in crate::origin::objects(store, manifest)? {
+            let at = age.entry(object.sha256).or_insert(*used);
+            *at = (*at).max(*used);
+        }
+        structure.extend(crate::origin::structure(store, manifest)?.into_iter().map(|o| o.sha256));
+    }
+    let mut rows: Vec<&GcDelete> = plan.iter().filter(|row| !structure.contains(&row.sha256)).collect();
+    rows.sort_by_key(|row| age.get(&row.sha256).copied());
+    let mut chosen = vec![];
+    for row in rows {
+        if report.reclaimed_bytes >= need {
+            break;
+        }
+        report.reclaimed_bytes += row.length;
+        match row.kind {
+            "blob" => report.reclaimed_blobs += 1,
+            _ => report.reclaimed_manifests += 1,
+        }
+        chosen.push(row);
+    }
+    delete(store, chosen)?;
     Ok(report)
 }
 
@@ -426,13 +442,20 @@ pub fn collect_cached_for(
 ) -> Result<Report> {
     let store = Store::open(root)?;
     let exclusive = WriterGuard::lock_rebuild(root)?;
-    let collected = collect_locked(&store, false, &exclusive)?;
+    let mut collected = collect_locked(&store, false, &exclusive)?;
+    if collected.reclaimed_bytes >= need.max(1) {
+        return Ok(collected);
+    }
+    let evicted = evict(&store, protected_manifests, need.max(1) - collected.reclaimed_bytes, &exclusive)?;
+    collected.reclaimed_bytes += evicted.reclaimed_bytes;
+    collected.reclaimed_blobs += evicted.reclaimed_blobs;
+    collected.reclaimed_manifests += evicted.reclaimed_manifests;
     if collected.reclaimed_bytes >= need.max(1) {
         return Ok(collected);
     }
     let need = need.max(1) - collected.reclaimed_bytes;
     let roots = roots(&store, protected_manifests)?;
-    let plan = match crate::reclaim::plan_managed(&store, need, &roots.keep, &roots.holds) {
+    let plan = match crate::reclaim::plan(&store, need, &roots.keep, &roots.holds) {
         Ok(plan) => plan,
         Err(error) if error.code == Code::RECLAIM_INSUFFICIENT => return Ok(collected),
         Err(error) => return Err(error),
@@ -457,9 +480,14 @@ pub fn reclaimable(root: &Path, protected_manifests: &[String]) -> Result<u64> {
     crate::reclaim::droppable_bytes(&store, &roots.keep, &roots.holds)
 }
 
-/// The cache roots naming `manifests` were used now.
+/// The cache roots naming `manifests`, and those checkpoints held in part, were used now.
 pub fn used(root: &Path, manifests: &[String]) -> Result<()> {
     let store = Store::open(root)?;
+    for manifest in crate::origin::manifests(&store)? {
+        if manifests.iter().any(|m| m.strip_prefix("sha256:").unwrap_or(m) == manifest.sha256) {
+            crate::origin::touch(&store, &manifest);
+        }
+    }
     for (repository, _) in storage::read_repositories(root)? {
         if repository.checkpoints.iter().any(|checkpoint| {
             manifests
@@ -491,14 +519,25 @@ pub fn collect_idle(root: &Path, protected_manifests: &[String], idle: Duration)
             .cloned()
             .collect()
     };
+    // A checkpoint held in part, unused for `idle`, is no root any more.
+    let stale = |store: &Store| -> Result<Vec<ObjectRef>> {
+        let pinned = pinned(store, crate::meta::owner(store.root()).as_deref())?;
+        Ok((idle_origins(store, protected_manifests, &pinned)?.into_iter())
+            .filter(|(used, _)| (*used).max(since).elapsed().is_ok_and(|unused| unused > idle))
+            .map(|(_, manifest)| manifest)
+            .collect())
+    };
     let seen = roots(&store, protected_manifests)?;
     for repo in &seen.used {
         crate::cache_roots::touch(&store, repo)?;
     }
-    if expired(&seen).is_empty() {
+    if expired(&seen).is_empty() && stale(&store)?.is_empty() {
         return Ok(Report::default());
     }
     let exclusive = WriterGuard::lock_rebuild(root)?;
+    for manifest in stale(&store)? {
+        crate::origin::retire(&store, &manifest)?;
+    }
     let roots = roots(&store, protected_manifests)?;
     drop_cached(&store, &roots, &expired(&roots), &exclusive, Report::default())
 }

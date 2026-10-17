@@ -7,21 +7,31 @@ import re
 import sys
 from copy import deepcopy
 from fractions import Fraction
+from functools import cache, partial, partialmethod
 from typing import TYPE_CHECKING, Any
 
+from attrs import fields
 from hypothesis import strategies as st
 from hypothesis_jsonschema import from_schema
 from jsonschema import validators
+from pydantic_core import SchemaValidator, core_schema
 
 from .conformance import _iter_schema_nodes, _schema_types
 from .native_numeric import NATIVE_FLOAT_CONTRACT
 from .schema import _schema_for_payload_generation
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Iterator
+
+    from jsonschema.exceptions import ValidationError
     from jsonschema.protocols import Validator
 
     from .models import SchemaCase
 
+
+_REGEX_CLASS_ESCAPE = re.compile(r"(?<!\\)(?:\\\\)*\\([dDsSwWbB])")
+_REGEX_CLASS_BY_ESCAPE = dict.fromkeys("dD", r"\d") | dict.fromkeys("sS", r"\s") | dict.fromkeys("wWbB", r"\w")
+"""The character class each escape depends on; word boundaries depend on word characters."""
 
 _SourceSchemaCacheKey = tuple[str, str, str]
 _source_schema_validator_cache: dict[_SourceSchemaCacheKey, SourceSchemaValidator] = {}
@@ -37,9 +47,11 @@ def _json_number(token: str) -> int | Fraction:
     return value.numerator if value.denominator == 1 else value
 
 
-def _canonical_json_numbers(value: Any) -> Any:
+def _canonical_json_numbers(
+    value: Any, object_pairs_hook: Callable[[list[tuple[str, Any]]], dict[str, Any]] | None = None
+) -> Any:
     """Interpret the canonical JSON representation without binary numeric rounding."""
-    return json.loads(json.dumps(value, allow_nan=False), parse_float=_json_number)
+    return json.loads(json.dumps(value, allow_nan=False), parse_float=_json_number, object_pairs_hook=object_pairs_hook)
 
 
 class SourceSchemaValidator:
@@ -123,6 +135,128 @@ def _bound_float_multiples(schema: dict[str, Any]) -> None:
         node["maximum"] = min(maximum, limit)
 
 
+@cache
+def _rust_regex_class(regex_class: str) -> SchemaValidator:
+    """Match one character of a class with pydantic-core's default Rust regex engine."""
+    return SchemaValidator(core_schema.str_schema(pattern=f"^{regex_class}$"))
+
+
+@cache
+def _regex_engines_agree(regex_class: str, character: str) -> bool:
+    """Return whether Python's re and pydantic-core's Rust regex agree on a character's class membership."""
+    python_member = re.fullmatch(regex_class, character) is not None
+    return python_member is _rust_regex_class(regex_class).isinstance_python(character)
+
+
+@cache
+def _regex_classes(regex: str) -> frozenset[str]:
+    """Return the character classes that a regex's escapes depend on."""
+    return frozenset(_REGEX_CLASS_BY_ESCAPE[escape[1]] for escape in _REGEX_CLASS_ESCAPE.finditer(regex))
+
+
+class _RegexEnginesDisagreeError(Exception):
+    """Abort source validation instead of reporting an error that not, if or oneOf would invert."""
+
+
+def _pattern_strings(
+    validator: Validator, regex: str, instance: Any, _schema: dict[str, Any]
+) -> Iterable[tuple[str, str]]:
+    """Return the string the pattern keyword matches against its regex."""
+    return ((regex, instance),) if validator.is_type(instance, "string") else ()
+
+
+def _property_names(
+    validator: Validator, _value: Any, instance: Any, schema: dict[str, Any]
+) -> Iterable[tuple[str, str]]:
+    """Return the property names a keyword matches against the patternProperties regexes of its schema."""
+    if not validator.is_type(instance, "object"):
+        return ()
+    return ((regex, name) for regex in schema.get("patternProperties", {}) for name in instance)
+
+
+_REGEX_MATCHES = {
+    "pattern": _pattern_strings,
+    **dict.fromkeys(("patternProperties", "additionalProperties", "unevaluatedProperties"), _property_names),
+}
+"""The regex and string pairs each regex-matching keyword matches."""
+
+
+def _agreed(
+    matches: Callable[[Validator, Any, Any, dict[str, Any]], Iterable[tuple[str, str]]],
+    keyword: Callable[[Validator, Any, Any, dict[str, Any]], Iterator[ValidationError]],
+    validator: Validator,
+    value: Any,
+    instance: Any,
+    schema: dict[str, Any],
+) -> Iterator[ValidationError]:
+    """Apply a keyword unless the regex engines classify a character of a string it matches differently."""
+    if not all(
+        _regex_engines_agree(regex_class, character)
+        for regex, string in matches(validator, value, instance, schema)
+        for regex_class in _regex_classes(regex)
+        for character in string
+    ):
+        raise _RegexEnginesDisagreeError
+    yield from keyword(validator, value, instance, schema)
+
+
+def _evolve_within_dialect(
+    validator: Validator, evolve: Callable[..., Validator], dialect: type[Validator], **changes: Any
+) -> Validator:
+    """Evolve into a subschema, such as the root a reference re-enters, without its ``$schema`` dropping the checks.
+
+    A subschema declaring another dialect switches to that dialect's extended class, as jsonschema switches classes.
+    """
+    if isinstance(schema := changes.get("schema", validator.schema), dict) and "$schema" in schema:
+        changes["schema"] = {keyword: value for keyword, value in schema.items() if keyword != "$schema"}
+        if (declared := validators.validator_for(schema, default=dialect)) is not dialect:
+            declared_class = _regex_agreement_class(declared)
+            return declared_class(
+                **{field.alias: getattr(validator, field.name) for field in fields(declared_class) if field.init}
+                | changes
+            )
+    return evolve(validator, **changes)
+
+
+@cache
+def _regex_agreement_class(validator_class: type[Validator]) -> type[Validator]:
+    """Extend a dialect's validator class with the regex agreement check on every keyword that matches a regex."""
+    agreement_class = validators.extend(
+        validator_class,
+        {
+            keyword: partial(_agreed, matches, validator_class.VALIDATORS[keyword])
+            for keyword, matches in _REGEX_MATCHES.items()
+            if keyword in validator_class.VALIDATORS
+        },
+    )
+    agreement_class.evolve = partialmethod(_evolve_within_dialect, agreement_class.evolve, validator_class)
+    return agreement_class
+
+
+def _unevaluated_properties_last(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Order unevaluatedProperties after its adjacent keywords, as JSON Schema evaluates it.
+
+    It reuses the patternProperties regexes of the subschemas those keywords apply, so their checks run first.
+    """
+    return dict(sorted(pairs, key=lambda pair: pair[0] == "unevaluatedProperties"))
+
+
+def _regex_agreement_validator(case: SchemaCase) -> SourceSchemaValidator:
+    """Build the source validator whose regex keywords check exactly the strings they match."""
+    agreement_class = _regex_agreement_class(validators.validator_for(case.source_schema))
+    return SourceSchemaValidator(
+        agreement_class(_canonical_json_numbers(case.source_schema, _unevaluated_properties_last))
+    )
+
+
+def _valid_where_regex_engines_agree(validator: SourceSchemaValidator, payload: Any) -> bool:
+    """Keep source-valid payloads whose matched regexes both regex engines decide alike."""
+    try:
+        return validator.is_valid(payload)
+    except _RegexEnginesDisagreeError:
+        return False
+
+
 def payload_strategy(case: SchemaCase) -> st.SearchStrategy[Any]:
     """Build the deterministic payload strategy for a schema case."""
     cache_key = _source_schema_cache_key(case)
@@ -154,6 +288,6 @@ def payload_strategy(case: SchemaCase) -> st.SearchStrategy[Any]:
         candidates = dict.fromkeys([*literals, "".join(literals), "".join(reversed(literals))])
         if witnesses := [candidate for candidate in candidates if validator.is_valid(candidate)]:
             strategy = st.one_of(st.sampled_from(witnesses), strategy)
-    strategy = strategy.filter(validator.is_valid)
+    strategy = strategy.filter(partial(_valid_where_regex_engines_agree, _regex_agreement_validator(case)))
     _payload_strategy_cache[cache_key] = strategy
     return strategy

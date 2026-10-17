@@ -74,9 +74,7 @@ class TestHybridTracing:
     """Test suite for hybrid OTEL and LangSmith tracing."""
 
     @patch.dict(os.environ, {"OTEL_ENABLED": "true"})
-    def test_hybrid_tracing_enabled_both_exports_succeed(
-        self, client_with_otel, mock_session
-    ):
+    def test_hybrid_tracing_enabled_both_exports_succeed(self, client_with_otel, mock_session):
         """Test that both OTEL and LangSmith exports are called when hybrid
         mode is enabled."""
         client = client_with_otel
@@ -119,9 +117,7 @@ class TestHybridTracing:
         assert call_args[0][0] == "POST"  # Method
 
     @patch.dict(os.environ, {"OTEL_ENABLED": "true"})
-    def test_hybrid_tracing_otel_failure_langsmith_succeeds(
-        self, client_with_otel, mock_session
-    ):
+    def test_hybrid_tracing_otel_failure_langsmith_succeeds(self, client_with_otel, mock_session):
         """Test that LangSmith export still works when OTEL export fails."""
         client = client_with_otel
         client.otel_exporter.should_fail = True
@@ -158,9 +154,7 @@ class TestHybridTracing:
         mock_session.request.assert_called()
 
     @patch.dict(os.environ, {"OTEL_ENABLED": "true"})
-    def test_hybrid_tracing_langsmith_failure_otel_succeeds(
-        self, client_with_otel, mock_session
-    ):
+    def test_hybrid_tracing_langsmith_failure_otel_succeeds(self, client_with_otel, mock_session):
         """Test that OTEL export still works when LangSmith export fails."""
         client = client_with_otel
 
@@ -311,9 +305,7 @@ class TestHybridTracing:
                     break
 
     @patch.dict(os.environ, {"OTEL_ENABLED": "true"})
-    def test_hybrid_tracing_multiple_items_in_batch(
-        self, client_with_otel, mock_session
-    ):
+    def test_hybrid_tracing_multiple_items_in_batch(self, client_with_otel, mock_session):
         """Test hybrid tracing with multiple items in a batch."""
         client = client_with_otel
 
@@ -390,9 +382,7 @@ class TestHybridTracing:
         mock_session.request.assert_called()
 
         # Check that POST calls were made to LangSmith for runs
-        post_calls = [
-            call for call in mock_session.request.call_args_list if call[0][0] == "POST"
-        ]
+        post_calls = [call for call in mock_session.request.call_args_list if call[0][0] == "POST"]
         assert len(post_calls) > 0, "Expected POST calls to LangSmith"
 
 
@@ -461,9 +451,7 @@ class TestHybridTracingIntegration:
 
             mock_session.request.assert_called()
 
-    @patch.dict(
-        os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"}
-    )
+    @patch.dict(os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"})
     def test_otel_context_propagation_with_traceable(self):
         """Test that OpenTelemetry context is properly set using NonRecordingSpan."""
         get_env_var.cache_clear()
@@ -528,9 +516,7 @@ def capture_current_context(label: str, captured_contexts: list[tuple[str, int, 
 class TestOTELContextPropagation:
     """Test suite for OpenTelemetry context propagation with LangSmith tracing."""
 
-    @patch.dict(
-        os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"}
-    )
+    @patch.dict(os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"})
     def test_nested_langsmith_otel_langsmith_otel_tracing(self):
         """Test nested tracing pattern: LangSmith -> OTEL -> LangSmith -> OTEL."""
         get_env_var.cache_clear()
@@ -582,13 +568,9 @@ class TestOTELContextPropagation:
 
         trace_ids = [ctx[1] for ctx in captured_contexts]
         unique_trace_ids = set(trace_ids)
-        assert len(unique_trace_ids) == 1, (
-            f"Expected all contexts to share same trace_id, got: {unique_trace_ids}"
-        )
+        assert len(unique_trace_ids) == 1, f"Expected all contexts to share same trace_id, got: {unique_trace_ids}"
 
-    @patch.dict(
-        os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"}
-    )
+    @patch.dict(os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"})
     def test_otel_context_propagation_async(self):
         """Test OpenTelemetry context propagation with async functions."""
         get_env_var.cache_clear()
@@ -651,19 +633,14 @@ class TestOTELContextPropagation:
         trace_ids = [ctx[1] for ctx in captured_contexts]
         unique_trace_ids = set(trace_ids)
         assert len(unique_trace_ids) == 1, (
-            f"Expected all async contexts to share same trace_id, "
-            f"got: {unique_trace_ids}"
+            f"Expected all async contexts to share same trace_id, got: {unique_trace_ids}"
         )
 
         span_ids = [ctx[2] for ctx in captured_contexts]
         unique_span_ids = set(span_ids)
-        assert len(unique_span_ids) == len(captured_contexts), (
-            "Each async span should have unique span_id"
-        )
+        assert len(unique_span_ids) == len(captured_contexts), "Each async span should have unique span_id"
 
-    @patch.dict(
-        os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"}
-    )
+    @patch.dict(os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"})
     def test_generator_partial_consumption_with_otel_context(self):
         """Test OpenTelemetry context propagation with generator partial consumption."""
         get_env_var.cache_clear()
@@ -694,9 +671,7 @@ class TestOTELContextPropagation:
                     current_span = get_current_span()
                     if current_span:
                         context = current_span.get_span_context()
-                        generator_contexts.append(
-                            (f"yield_{i}", context.trace_id, context.span_id)
-                        )
+                        generator_contexts.append((f"yield_{i}", context.trace_id, context.span_id))
 
                     yield f"value_{i}"
 
@@ -726,44 +701,32 @@ class TestOTELContextPropagation:
         remaining_values = list(gen)
         assert remaining_values == ["value_2", "value_3", "value_4"]
 
-        assert (
-            len(captured_contexts) >= 4
-        )  # generator_start, generator_otel_span, sibling_function, sibling_otel_span
+        assert len(captured_contexts) >= 4  # generator_start, generator_otel_span, sibling_function, sibling_otel_span
         assert len(generator_contexts) == 5
 
         generator_trace_ids = [ctx[1] for ctx in generator_contexts]
-        assert len(set(generator_trace_ids)) == 1, (
-            "Generator should maintain same trace ID"
-        )
+        assert len(set(generator_trace_ids)) == 1, "Generator should maintain same trace ID"
 
         sibling_contexts = [ctx for ctx in captured_contexts if "sibling" in ctx[0]]
         assert len(sibling_contexts) == 2
 
         sibling_trace_ids = [ctx[1] for ctx in sibling_contexts]
-        assert len(set(sibling_trace_ids)) == 1, (
-            "Sibling should have consistent trace ID"
-        )
+        assert len(set(sibling_trace_ids)) == 1, "Sibling should have consistent trace ID"
 
         generator_trace_id = generator_trace_ids[0]
         sibling_trace_id = sibling_trace_ids[0]
-        assert generator_trace_id != sibling_trace_id, (
-            "Generator and sibling should have different trace_ids"
-        )
+        assert generator_trace_id != sibling_trace_id, "Generator and sibling should have different trace_ids"
 
         generator_span_ids = [ctx[2] for ctx in generator_contexts]
         sibling_span_ids = [ctx[2] for ctx in sibling_contexts]
-        assert len(set(generator_span_ids)) >= 1, (
-            "Generator should have at least one span"
-        )
+        assert len(set(generator_span_ids)) >= 1, "Generator should have at least one span"
         assert len(set(sibling_span_ids)) >= 1, "Sibling should have at least one span"
 
         for label, trace_id, span_id in captured_contexts + generator_contexts:
             assert trace_id > 0, f"Invalid trace_id for {label}"
             assert span_id > 0, f"Invalid span_id for {label}"
 
-    @patch.dict(
-        os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"}
-    )
+    @patch.dict(os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"})
     def test_async_generator_with_otel_context(self):
         get_env_var.cache_clear()
 
@@ -799,9 +762,7 @@ class TestOTELContextPropagation:
                 capture_current_context("async_sibling_function", captured_contexts)
 
                 with tracer.start_as_current_span("async_sibling_otel_span"):
-                    capture_current_context(
-                        "async_sibling_otel_span", captured_contexts
-                    )
+                    capture_current_context("async_sibling_otel_span", captured_contexts)
                     await asyncio.sleep(0.01)
                     return "async_sibling_result"
 
@@ -822,15 +783,11 @@ class TestOTELContextPropagation:
         assert len(captured_contexts) >= 6
 
         generator_contexts = [
-            ctx
-            for ctx in captured_contexts
-            if "async_generator" in ctx[0] or "async_yield" in ctx[0]
+            ctx for ctx in captured_contexts if "async_generator" in ctx[0] or "async_yield" in ctx[0]
         ]
         assert len(generator_contexts) >= 4
 
-        sibling_contexts = [
-            ctx for ctx in captured_contexts if "async_sibling" in ctx[0]
-        ]
+        sibling_contexts = [ctx for ctx in captured_contexts if "async_sibling" in ctx[0]]
         assert len(sibling_contexts) == 2
 
         for label, trace_id, span_id in captured_contexts:
@@ -838,33 +795,21 @@ class TestOTELContextPropagation:
             assert span_id > 0, f"Invalid span_id for {label}"
 
         generator_trace_ids = [ctx[1] for ctx in generator_contexts]
-        assert len(set(generator_trace_ids)) == 1, (
-            "Async generator should have consistent trace ID"
-        )
+        assert len(set(generator_trace_ids)) == 1, "Async generator should have consistent trace ID"
 
         sibling_trace_ids = [ctx[1] for ctx in sibling_contexts]
-        assert len(set(sibling_trace_ids)) == 1, (
-            "Async sibling should have consistent trace ID"
-        )
+        assert len(set(sibling_trace_ids)) == 1, "Async sibling should have consistent trace ID"
 
         generator_trace_id = generator_trace_ids[0]
         sibling_trace_id = sibling_trace_ids[0]
-        assert generator_trace_id != sibling_trace_id, (
-            "Async generator and sibling should have different trace_ids"
-        )
+        assert generator_trace_id != sibling_trace_id, "Async generator and sibling should have different trace_ids"
 
         generator_span_ids = [ctx[2] for ctx in generator_contexts]
         sibling_span_ids = [ctx[2] for ctx in sibling_contexts]
-        assert len(set(generator_span_ids)) >= 1, (
-            "Async generator should have at least one span"
-        )
-        assert len(set(sibling_span_ids)) >= 1, (
-            "Async sibling should have at least one span"
-        )
+        assert len(set(generator_span_ids)) >= 1, "Async generator should have at least one span"
+        assert len(set(sibling_span_ids)) >= 1, "Async sibling should have at least one span"
 
-    @patch.dict(
-        os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"}
-    )
+    @patch.dict(os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"})
     def test_complex_nested_context_inheritance(self):
         """Test complex nested context inheritance patterns."""
         get_env_var.cache_clear()
@@ -893,16 +838,12 @@ class TestOTELContextPropagation:
             capture_current_context("langsmith_within_otel", captured_contexts)
 
             with tracer.start_as_current_span("nested_otel_span"):
-                capture_current_context(
-                    "nested_otel_within_langsmith", captured_contexts
-                )
+                capture_current_context("nested_otel_within_langsmith", captured_contexts)
 
                 @traceable
                 def deeply_nested_langsmith():
                     """Deeply nested LangSmith function."""
-                    capture_current_context(
-                        "deeply_nested_langsmith", captured_contexts
-                    )
+                    capture_current_context("deeply_nested_langsmith", captured_contexts)
                     return "deeply_nested_result"
 
                 return deeply_nested_langsmith()
@@ -925,9 +866,7 @@ class TestOTELContextPropagation:
         for label in expected_labels:
             assert label in labels, f"Missing expected label: {label}"
 
-        pre_existing_context = next(
-            ctx for ctx in captured_contexts if ctx[0] == "pre_existing_otel"
-        )
+        pre_existing_context = next(ctx for ctx in captured_contexts if ctx[0] == "pre_existing_otel")
         assert pre_existing_context[1] == test_trace_id
         assert pre_existing_context[2] == test_span_id
 
@@ -938,16 +877,10 @@ class TestOTELContextPropagation:
         trace_ids = [ctx[1] for ctx in captured_contexts]
         unique_trace_ids = set(trace_ids)
 
-        assert test_trace_id in unique_trace_ids, (
-            "Pre-existing OTEL trace_id should be captured"
-        )
+        assert test_trace_id in unique_trace_ids, "Pre-existing OTEL trace_id should be captured"
 
-        pre_existing_traces = [
-            ctx for ctx in captured_contexts if ctx[1] == test_trace_id
-        ]
-        assert len(pre_existing_traces) >= 1, (
-            "Should capture the pre-existing OTEL context"
-        )
+        pre_existing_traces = [ctx for ctx in captured_contexts if ctx[1] == test_trace_id]
+        assert len(pre_existing_traces) >= 1, "Should capture the pre-existing OTEL context"
 
         span_ids = [ctx[2] for ctx in captured_contexts]
         unique_span_ids = set(span_ids)
@@ -955,9 +888,7 @@ class TestOTELContextPropagation:
             "Each span should have unique span_id in nested hierarchy"
         )
 
-    @patch.dict(
-        os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"}
-    )
+    @patch.dict(os.environ, {"LANGSMITH_OTEL_ENABLED": "true", "LANGSMITH_TRACING": "true"})
     def test_generator_otel_partial_consumption_with_sibling_traceable(self):
         """Test the specific scenario: generator with OTEL -> partial consumption ->
         sibling traceable -> finish consuming generator."""
@@ -979,13 +910,9 @@ class TestOTELContextPropagation:
 
                 for i in range(4):
                     with tracer.start_as_current_span(f"otel_gen_item_{i}"):
-                        capture_current_context(
-                            f"otel_gen_before_yield_{i}", captured_contexts
-                        )
+                        capture_current_context(f"otel_gen_before_yield_{i}", captured_contexts)
                         yield f"otel_value_{i}"
-                        capture_current_context(
-                            f"otel_gen_after_yield_{i}", captured_contexts
-                        )
+                        capture_current_context(f"otel_gen_after_yield_{i}", captured_contexts)
 
                 capture_current_context("otel_gen_end", captured_contexts)
 
@@ -1024,8 +951,7 @@ class TestOTELContextPropagation:
         generator_trace_ids = [ctx[1] for ctx in generator_contexts]
         unique_generator_trace_ids = set(generator_trace_ids)
         assert len(unique_generator_trace_ids) == 1, (
-            f"Generator should have consistent trace_id, "
-            f"got: {unique_generator_trace_ids}"
+            f"Generator should have consistent trace_id, got: {unique_generator_trace_ids}"
         )
 
         sibling_trace_ids = [ctx[1] for ctx in sibling_contexts]
@@ -1036,20 +962,10 @@ class TestOTELContextPropagation:
 
         generator_trace_id = generator_trace_ids[0]
         sibling_trace_id = sibling_trace_ids[0]
-        assert generator_trace_id != sibling_trace_id, (
-            "Generator and sibling should have different trace_ids"
-        )
+        assert generator_trace_id != sibling_trace_id, "Generator and sibling should have different trace_ids"
 
-        contexts_before_sibling = [
-            ctx
-            for ctx in generator_contexts
-            if "yield_0" in ctx[0] or "yield_1" in ctx[0]
-        ]
-        contexts_after_sibling = [
-            ctx
-            for ctx in generator_contexts
-            if "yield_2" in ctx[0] or "yield_3" in ctx[0]
-        ]
+        contexts_before_sibling = [ctx for ctx in generator_contexts if "yield_0" in ctx[0] or "yield_1" in ctx[0]]
+        contexts_after_sibling = [ctx for ctx in generator_contexts if "yield_2" in ctx[0] or "yield_3" in ctx[0]]
 
         before_trace_ids = [ctx[1] for ctx in contexts_before_sibling]
         after_trace_ids = [ctx[1] for ctx in contexts_after_sibling]

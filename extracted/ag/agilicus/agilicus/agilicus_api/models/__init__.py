@@ -959,7 +959,9 @@ from agilicus_api.model.upstream_user_identity import UpstreamUserIdentity
 from agilicus_api.model.upstream_user_identity_spec import UpstreamUserIdentitySpec
 from agilicus_api.model.usage_measurement import UsageMeasurement
 from agilicus_api.model.usage_metric import UsageMetric
+from agilicus_api.model.usage_metric_bucket import UsageMetricBucket
 from agilicus_api.model.usage_metrics import UsageMetrics
+from agilicus_api.model.usage_metrics_response import UsageMetricsResponse
 from agilicus_api.model.user import User
 from agilicus_api.model.user_access_info import UserAccessInfo
 from agilicus_api.model.user_application_access_info import UserApplicationAccessInfo

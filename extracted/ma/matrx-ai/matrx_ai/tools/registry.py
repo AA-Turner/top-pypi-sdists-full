@@ -9,6 +9,12 @@ from matrx_connect.context.events import WarningPayload
 from matrx_utils import detached_task, vcprint
 from pydantic import BaseModel
 
+from matrx_ai.tools.catalog_seam import (
+    CATALOG_FUNCTION_PREFIX,
+    CATALOG_SOURCE_KIND,
+    cached_lazy_definition,
+    strip_ui_keywords,
+)
 from matrx_ai.tools.models import ToolDefinition, ToolType
 from matrx_ai.tools.tool_def_db import get_tool_def_manager
 from matrx_ai.tools.vfs_routing import (
@@ -660,15 +666,25 @@ class ToolRegistry:
 
     def get(self, name_or_id: str) -> ToolDefinition | None:
         resolved = self._resolve_tool_name(name_or_id)
-        return self._tools.get(resolved) if resolved else None
+        if not resolved:
+            return None
+        return self._tools.get(resolved) or cached_lazy_definition(resolved)
 
     def _resolve_tool_name(self, name_or_id: str) -> str | None:
-        """Resolve a tool name or UUID to the canonical tool name, or None if not found."""
+        """Resolve a tool name or UUID to the canonical tool name, or None if not found.
+
+        Lazily resolved catalog Tools answer here too (process cache, 60 s),
+        but never appear in ``list_tools`` / ``all_tools`` / ``count``.
+        """
         if name_or_id in self._tools:
             return name_or_id
         if name_or_id in self._tools_by_id:
             return self._tools_by_id[name_or_id]
-        return self._resolve_renamed_tool(name_or_id)
+        renamed = self._resolve_renamed_tool(name_or_id)
+        if renamed is not None:
+            return renamed
+        lazy = cached_lazy_definition(name_or_id) if isinstance(name_or_id, str) else None
+        return lazy.name if lazy is not None else None
 
     def _resolve_renamed_tool(self, name: str) -> str | None:
         """A renamed tool answers to BOTH its names (``@tool(aliases=...)``).
@@ -781,8 +797,9 @@ class ToolRegistry:
             if projected is not None:
                 out.append(projected.get_provider_format(provider))
                 continue
-            if r is not None:
-                out.append(self._tools[r].get_provider_format(provider))
+            known = self.get(r) if r is not None else None
+            if known is not None:
+                out.append(known.get_provider_format(provider))
                 continue
             missing.append(name)
         if missing:
@@ -967,7 +984,11 @@ class ToolRegistry:
     @staticmethod
     async def _fetch_tools_async() -> list[dict[str, Any]] | None:
         try:
-            items = await get_tool_def_manager().filter_items(is_active=True, deleted_at__isnull=True)
+            # Catalog Tools are never preloaded (CONTRACT §4, guard
+            # scripts/check_tool_catalog_readers.py): requests resolve them lazily.
+            items = await get_tool_def_manager().filter_items(
+                is_active=True, deleted_at__isnull=True, source_kind__ne=CATALOG_SOURCE_KIND
+            )
             # ORM serialization recursively walks arbitrary tool JSON schemas.
             # A registry refresh is triggered by an async LISTEN callback, so
             # doing that CPU-bound walk on the request loop freezes the whole
@@ -987,7 +1008,9 @@ class ToolRegistry:
     @staticmethod
     def _fetch_tools_via_orm_sync() -> list[dict[str, Any]] | None:
         try:
-            items = get_tool_def_manager().filter_items_sync(is_active=True, deleted_at__isnull=True)
+            items = get_tool_def_manager().filter_items_sync(
+                is_active=True, deleted_at__isnull=True, source_kind__ne=CATALOG_SOURCE_KIND
+            )
             return [item.to_dict() if hasattr(item, "to_dict") else item for item in items]
         except Exception as exc:
             vcprint(
@@ -1208,7 +1231,12 @@ class ToolRegistry:
         function_path: str = row.get("function_path", "") or ""
         prompt_id: str | None = None
 
-        if source_kind == "mcp_discovered" or managed_by_server_id:
+        if source_kind == CATALOG_SOURCE_KIND:
+            # One executor runs every catalog Tool; the path is synthesised so
+            # logs and traces read ``catalog:<tool id>`` (CONTRACT §4).
+            tool_type = ToolType.CATALOG
+            function_path = f"{CATALOG_FUNCTION_PREFIX}{row.get('id')}"
+        elif source_kind == "mcp_discovered" or managed_by_server_id:
             tool_type = ToolType.EXTERNAL_MCP
         elif function_path.startswith("agent:"):
             tool_type = ToolType.AGENT
@@ -1224,7 +1252,7 @@ class ToolRegistry:
                 vcprint(
                     f"[ToolRegistry] Tool '{tool_name}' has unrecognized source_kind "
                     f"{source_kind!r}; treating as local. "
-                    f"Valid values: 'native' | 'mcp_discovered' | 'admin_authored' | 'agent_authored'.",
+                    f"Valid values: 'native' | 'mcp_discovered' | 'admin_authored' | 'agent_authored' | 'catalog'.",
                     color="yellow",
                 )
 
@@ -1249,6 +1277,10 @@ class ToolRegistry:
                     guardrail_config.update(ann)
 
         raw_params = row.get("parameters") or {}
+        if tool_type == ToolType.CATALOG:
+            # Catalog inputs carry form hints (``ui:*``) for the friendly form;
+            # no provider ever sees them (some reject unknown keywords).
+            raw_params = strip_ui_keywords(raw_params)
         required_params: list[str] = []
         if (
             isinstance(raw_params, dict)

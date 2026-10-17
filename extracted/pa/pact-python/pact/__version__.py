@@ -1,10 +1,5 @@
-"""Version information for pact-python."""
-
-from importlib.metadata import PackageNotFoundError, version
-
-try:
-    __version__ = version("pact-python")
-except PackageNotFoundError:
-    __version__ = "unknown"
-
-__version_tuple__ = tuple(int(x) for x in __version__.split(".") if x.isdigit())
+# Generated at build time from the project version. Do not edit.
+__version__ = version = '4.1.0'
+__version_tuple__ = version_tuple = tuple(
+    int(part) if part.isdigit() else part for part in __version__.split(".")
+)

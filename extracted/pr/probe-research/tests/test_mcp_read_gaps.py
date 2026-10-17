@@ -38,6 +38,7 @@ from probe.mcp.server import create_server
 from probe.mcp.service import ResearchReadService, _supported_views
 from probe.mcp.source import ResearchOSSource
 from probe.sdk import errors
+from tests.conftest import note_tokens
 
 
 def _service(client) -> ResearchReadService:
@@ -1265,9 +1266,28 @@ def test_a_sub_note_card_is_the_whole_document(client, app):
     entity = out["data"]["entity"]
     assert entity["body"] == body
     assert entity["title"] == "Scorer caveat"
-    assert entity["chars"] == len(body) and entity["limit_chars"] == 4000
+    # Fullness in TOKENS, the unit a run's 2,000 cap refuses in; the character
+    # backstop's pair stays off the card.
+    tokens = note_tokens(body)
+    assert tokens == 361  # 10 a sentence, less the 39 spaces that join the next one
+    assert (entity["tokens"], entity["limit_tokens"], entity["remaining_tokens"]) == (
+        tokens,
+        2_000,
+        2_000 - tokens,
+    )
+    assert not {"chars", "limit_chars", "remaining_chars"} & entity.keys()
     assert entity["notes_version"] == 4
     assert out["data"]["available_views"] == [View.CARD]
+
+
+def test_a_sub_note_card_says_nothing_about_a_count_the_server_does_not_have(client, app):
+    """An uncounted sub-note (null `tokens`, before its backfill) shows its cap
+    and no count: a null on a card is a number an agent can read as zero."""
+    app.counts_note_tokens = False
+    sub_id = _seed_sub_note(app, "Relative paths only.")
+    entity = _service(client).get_entity(f"sub_note:{sub_id}", token_budget=8000)["data"]["entity"]
+    assert entity["limit_tokens"] == 2_000
+    assert "tokens" not in entity and "remaining_tokens" not in entity
 
 
 def test_a_sub_note_has_no_separate_record_view(client, app):
@@ -1296,6 +1316,64 @@ def test_the_notes_view_hands_out_each_sub_notes_address(client, app):
     assert item["truncated"] is True and item["read_all"] == "entity(refs=[uuid])"
     whole = _service(client).get_entity(item["uuid"], token_budget=8000)
     assert whole["data"]["entity"]["body"] == long_body
+    # Fullness in tokens against the run's cap; never the character pair.
+    assert (item["tokens"], item["limit_tokens"]) == (note_tokens(long_body), 2_000)
+    assert "chars" not in item and "limit_chars" not in item
+
+
+def test_the_notes_view_says_nothing_about_an_uncounted_sub_note(client, app):
+    app.counts_note_tokens = False
+    rid = _run(client, app)
+    client._create_sub_note("run", rid, "Caveat", "Distrust step 400.")
+    out = _service(client).get_entity(f"run:{rid}", view="notes", token_budget=8000)
+    [item] = out["data"]["sub_notes"]
+    assert item["limit_tokens"] == 2_000 and "tokens" not in item
+
+
+def test_notes_rows_carry_tokens_against_each_cap(client, app):
+    """The catalog row's fullness is TOKENS against its own cap; the character
+    backstop's pair (`chars` / `limit_chars`) is left off the row."""
+    seeded = _seed_notes(client, app)
+    out = _call(_server(client), "browse", {"mode": "notes", "token_budget": 8000})
+    rows = {row["uuid"]: row for row in out["data"]["notes"]}
+
+    run = rows[f"run:{seeded['run']}"]
+    assert (run["tokens"], run["limit_tokens"]) == (
+        note_tokens(app.runs[seeded["run"]]["notes"]),
+        2_000,
+    )
+    assert rows["team-note"]["limit_tokens"] == 30_000
+    assert rows[f"project:{seeded['project']}"]["limit_tokens"] == 30_000
+    assert not any({"chars", "limit_chars"} & row.keys() for row in rows.values())
+
+
+def test_an_uncounted_note_row_has_its_cap_and_no_count(client, app):
+    app.counts_note_tokens = False
+    seeded = _seed_notes(client, app)
+    out = _call(_server(client), "browse", {"mode": "notes", "token_budget": 8000})
+    run = {row["uuid"]: row for row in out["data"]["notes"]}[f"run:{seeded['run']}"]
+    assert run["limit_tokens"] == 2_000 and "tokens" not in run
+
+
+def test_the_team_note_entity_carries_token_fullness_only_when_the_server_has_it(client, app):
+    body = "## Cluster\n\nGPUs are oversubscribed on weekdays.\n"
+    app.team_note["body"] = body
+    source = ResearchOSSource(client)
+
+    _kind, note = source.get("team-note")
+    tokens = note_tokens(body)
+    assert (note["tokens"], note["limit_tokens"], note["remaining_tokens"]) == (
+        tokens,
+        30_000,
+        30_000 - tokens,
+    )
+    assert "remaining_chars" not in note
+
+    # A server before token caps: nothing about fullness, never characters.
+    app.publishes_note_tokens = False
+    _kind, note = source.get("team-note")
+    assert not {"tokens", "limit_tokens", "remaining_tokens", "remaining_chars"} & note.keys()
+    assert note["body"] == body
 
 
 def test_a_long_sub_note_pages_as_text_with_its_title_in_front(client, app):

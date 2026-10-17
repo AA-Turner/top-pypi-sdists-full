@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from contextlib import contextmanager
+from contextvars import ContextVar
+from datetime import UTC, datetime
 import json
 import logging
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, override
 
-from ghome_foyer_api.api_pb2 import (  # pylint: disable=no-name-in-module
-    GetHomeGraphRequest,
-    GetHomeGraphResponse,
-)
+from ghome_foyer_api.api_pb2 import GetHomeGraphRequest, GetHomeGraphResponse  # pylint: disable=no-name-in-module
 from ghome_foyer_api.api_pb2_grpc import StructuresServiceStub
-from gpsoauth import perform_master_login, perform_oauth
+import gpsoauth
+from gpsoauth import exchange_token, perform_master_login, perform_oauth
 import grpc
+import requests
 
 from .const import (
     ACCESS_TOKEN_APP_NAME,
@@ -24,8 +25,11 @@ from .const import (
     ANDROID_ID_LENGTH,
     DEFAULT_DISCOVERY_PORT,
     DISCOVERY_TIMEOUT,
+    EMAIL_ACCESS_TOKEN_SERVICE,
     GOOGLE_HOME_FOYER_API,
     HOMEGRAPH_DURATION,
+    REQUEST_TIMEOUT,
+    USERINFO_URL,
 )
 from .scanner import NetworkDevice, discover_devices
 from .utils import network as net_utils, token as token_utils
@@ -33,12 +37,64 @@ from .utils.logs import censor
 from .utils.network import is_valid_ipv4_address
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator, Mapping
+
+    from requests import PreparedRequest, Response
     from zeroconf import Zeroconf
 
     from .types import DeviceDict
 
-logging.basicConfig(level=logging.ERROR)
 LOGGER = logging.getLogger(__name__)
+
+
+# Timeout for gpsoauth requests made by glocaltokens; see _TimeoutAuthHTTPAdapter.
+_gpsoauth_timeout: ContextVar[float | None] = ContextVar(
+    "_gpsoauth_timeout", default=None
+)
+
+
+class _TimeoutAuthHTTPAdapter(gpsoauth.AuthHTTPAdapter):
+    """gpsoauth's HTTP adapter with a timeout for glocaltokens' own requests.
+
+    gpsoauth sends its requests without a timeout and has no option to set one,
+    so a stalled connection would make it wait forever. The timeout only applies
+    inside _request_timeout(), so other gpsoauth users are not affected.
+    """
+
+    @override
+    def send(
+        self,
+        request: PreparedRequest,
+        stream: bool = False,
+        timeout: float | tuple[float, float] | tuple[float, None] | None = None,
+        verify: bool | str = True,
+        cert: bytes | str | tuple[bytes | str, bytes | str] | None = None,
+        proxies: Mapping[str, str] | None = None,
+    ) -> Response:
+        if timeout is None:
+            timeout = _gpsoauth_timeout.get()
+        return super().send(
+            request,
+            stream=stream,
+            timeout=timeout,
+            verify=verify,
+            cert=cert,
+            proxies=proxies,
+        )
+
+
+# gpsoauth looks the adapter up by this name for every request.
+gpsoauth.AuthHTTPAdapter = _TimeoutAuthHTTPAdapter  # type: ignore[misc]
+
+
+@contextmanager
+def _request_timeout() -> Iterator[None]:
+    """Apply REQUEST_TIMEOUT to gpsoauth requests made in this context."""
+    token = _gpsoauth_timeout.set(REQUEST_TIMEOUT)
+    try:
+        yield
+    finally:
+        _gpsoauth_timeout.reset(token)
 
 
 class Device:
@@ -60,6 +116,8 @@ class Device:
         self.local_auth_token = None
         self.network_device = network_device
         self.hardware = hardware
+        self.ip_address: str | None = None
+        self.port: int | None = None
 
         # Token and name validations
         if not self.device_name:
@@ -78,11 +136,8 @@ class Device:
             LOGGER.debug(
                 "%s network_device is provided, using its IP and PORT", log_prefix
             )
-            self.ip_address: str | None = network_device.ip_address
-            self.port: int | None = network_device.port
-        else:
-            self.ip_address = None
-            self.port = None
+            self.ip_address = network_device.ip_address
+            self.port = network_device.port
 
         # IP and PORT validation
         if (
@@ -110,6 +165,7 @@ class Device:
         )
         self.local_auth_token = local_auth_token
 
+    @override
     def __str__(self) -> str:
         """Return string representation of the device."""
         return str(self.as_dict())
@@ -138,25 +194,35 @@ class GLocalAuthenticationTokens:
         master_token: str | None = None,
         android_id: str | None = None,
         verbose: bool = False,
+        oauth_token: str | None = None,
     ):
         """Initialize a GLocalAuthenticationTokens instance with Google account credentials.
 
         :params
-            username: Google account username;
+            username: Google account username, only required with password;
             password: Google account password (can be an app password);
-            master_token: Google master token (instead of username/password combination);
+            master_token: Google master token, instead of password;
             android_id: The ID of an Android device. Will be randomly generated if not set;
-            verbose: Whether or not to print debug logging information.
+            verbose: Whether or not to print debug logging information;
+            oauth_token: `oauth_token` cookie from a browser sign-in, exchanged for
+              a master token instead of logging in with the password.
         """
-        self.logging_level = logging.DEBUG if verbose else logging.ERROR
-        LOGGER.setLevel(self.logging_level)
+        self.logging_level: int | None = logging.DEBUG if verbose else None
+        if verbose:
+            LOGGER.setLevel(logging.DEBUG)
+            # Show the debug output in scripts; does nothing if the
+            # application has already configured logging.
+            logging.basicConfig()
 
         LOGGER.debug("Initializing new GLocalAuthenticationTokens instance.")
 
         self.username: str | None = username
         self.password: str | None = password
         self.master_token: str | None = master_token
+        self.oauth_token: str | None = oauth_token
         self.android_id: str | None = android_id
+        # Email address Google returns when this client gets a master token
+        self.email: str | None = None
         self.access_token: str | None = None
         self.access_token_date: datetime | None = None
         self.homegraph: GetHomeGraphResponse | None = None
@@ -169,18 +235,20 @@ class GLocalAuthenticationTokens:
         LOGGER.debug(
             "Set GLocalAuthenticationTokens client "
             'username to "%s", password to "%s", '
-            'master_token to "%s" and android_id to %s',
+            'master_token to "%s", oauth_token to "%s" and android_id to %s',
             censor(username, hide_length=True),
             censor(password, hide_length=True, hide_first_letter=True),
             censor(master_token),
+            censor(oauth_token, hide_length=True),
             censor(android_id),
         )
 
         # Validation
-        if (not self.username or not self.password) and not self.master_token:
+        can_log_in = self.oauth_token or (self.username and self.password)
+        if not can_log_in and not self.master_token:
             LOGGER.error(
-                "You must either provide google username/password "
-                "or google master token"
+                "You must either provide google username with password, "
+                "oauth_token, or google master token"
             )
             return
         if self.master_token and not token_utils.is_aas_et(self.master_token):
@@ -207,7 +275,7 @@ class GLocalAuthenticationTokens:
     @staticmethod
     def _has_expired(creation_dt: datetime, duration: int) -> bool:
         """Check if an specified token/object has expired."""
-        return datetime.now().timestamp() - creation_dt.timestamp() > duration
+        return datetime.now(UTC).timestamp() - creation_dt.timestamp() > duration
 
     @staticmethod
     def _escape_username(username: str) -> str:
@@ -215,33 +283,51 @@ class GLocalAuthenticationTokens:
         return username.replace("+", "%2B")
 
     def get_master_token(self) -> str | None:
-        """Get google master token from username and password."""
-        if self.username is None or self.password is None:
-            LOGGER.error("Username and password are not set.")
-            return None
+        """Return the stored master token, or get a new one.
 
+        A new master token comes from exchanging the oauth_token if one is set,
+        otherwise from logging in with the password.
+        """
         if not self.master_token:
-            LOGGER.debug(
-                "There is no stored master_token, "
-                "logging in using username and password"
-            )
             res = {}
-            try:
-                res = perform_master_login(
-                    self._escape_username(self.username),
-                    self.password,
-                    self.get_android_id(),
+            if self.oauth_token:
+                LOGGER.debug(
+                    "There is no stored master_token, exchanging the oauth_token"
                 )
-            except ValueError:
-                LOGGER.exception(
-                    "A ValueError exception has been thrown, this usually is related"
-                    "to a password length that exceeds the boundaries (too long)."
+                # Google doesn't need the email address to exchange the cookie
+                with _request_timeout():
+                    res = exchange_token(
+                        self._escape_username(self.username or ""),
+                        self.oauth_token,
+                        self.get_android_id(),
+                    )
+            elif self.username is not None and self.password is not None:
+                LOGGER.debug(
+                    "There is no stored master_token, "
+                    "logging in using username and password"
                 )
+                try:
+                    with _request_timeout():
+                        res = perform_master_login(
+                            self._escape_username(self.username),
+                            self.password,
+                            self.get_android_id(),
+                        )
+                except ValueError:
+                    LOGGER.exception(
+                        "A ValueError exception has been thrown, this usually is "
+                        "related to a password length that exceeds the boundaries "
+                        "(too long)."
+                    )
+            else:
+                LOGGER.error("Username and password or oauth_token are not set.")
+                return None
             if "Token" not in res:
                 LOGGER.error("[!] Could not get master token.")
                 LOGGER.debug("Request response: %s", res)
                 return None
             self.master_token = res["Token"]
+            self.email = res.get("Email") or None
         LOGGER.debug("Master token: %s", censor(self.master_token))
         return self.master_token
 
@@ -260,29 +346,74 @@ class GLocalAuthenticationTokens:
             if master_token is None:
                 LOGGER.debug("Unable to obtain master token.")
                 return None
-            if self.username is None:
-                LOGGER.error("Username is not set.")
-                return None
-            res = perform_oauth(
-                self._escape_username(self.username),
-                master_token,
-                self.get_android_id(),
-                app=ACCESS_TOKEN_APP_NAME,
-                service=ACCESS_TOKEN_SERVICE,
-                client_sig=ACCESS_TOKEN_CLIENT_SIGNATURE,
-            )
+            # Google doesn't need the email address once there is a master token
+            with _request_timeout():
+                res = perform_oauth(
+                    self._escape_username(self.username or ""),
+                    master_token,
+                    self.get_android_id(),
+                    app=ACCESS_TOKEN_APP_NAME,
+                    service=ACCESS_TOKEN_SERVICE,
+                    client_sig=ACCESS_TOKEN_CLIENT_SIGNATURE,
+                )
             if "Auth" not in res:
                 LOGGER.error("[!] Could not get access token.")
                 LOGGER.debug("Request response: %s", res)
                 return None
             self.access_token = res["Auth"]
-            self.access_token_date = datetime.now()
+            self.access_token_date = datetime.now(UTC)
         LOGGER.debug(
             "Access token: %s, datetime %s",
             censor(self.access_token),
             self.access_token_date,
         )
         return self.access_token
+
+    def get_email(self) -> str | None:
+        """Return the email address of the account, if Google gives it.
+
+        If this client got the master token itself, this is the address Google
+        returned with it. Otherwise, as a master token doesn't say which account
+        it belongs to, this gets an access token that may only read the email
+        address and asks Google's userinfo endpoint, which returns only an
+        address Google has verified.
+        """
+        master_token = self.get_master_token()
+        if self.email is not None:
+            return self.email
+        if master_token is None:
+            LOGGER.debug("Unable to obtain master token.")
+            return None
+        with _request_timeout():
+            res = perform_oauth(
+                self._escape_username(self.username or ""),
+                master_token,
+                self.get_android_id(),
+                app=ACCESS_TOKEN_APP_NAME,
+                service=EMAIL_ACCESS_TOKEN_SERVICE,
+                client_sig=ACCESS_TOKEN_CLIENT_SIGNATURE,
+            )
+        if "Auth" not in res:
+            LOGGER.debug("Could not get an access token for the email address")
+            LOGGER.debug("Request response: %s", res)
+            return None
+        # Send the token in a header: a URL ends up in debug logs and errors
+        response = requests.get(
+            USERINFO_URL,
+            headers={"Authorization": f"Bearer {res['Auth']}"},
+            timeout=REQUEST_TIMEOUT,
+        )
+        if not response.ok:
+            LOGGER.debug(
+                "Could not get the email address: HTTP %s", response.status_code
+            )
+            return None
+        user_info = response.json()
+        if str(user_info.get("email_verified")).lower() != "true":
+            LOGGER.debug("Google gave no verified email address")
+            return None
+        email: str | None = user_info.get("email") or None
+        return email
 
     def get_homegraph(self, auth_attempts: int = 3) -> GetHomeGraphResponse | None:
         """Return the entire Google Home Foyer V2 service."""
@@ -324,10 +455,12 @@ class GLocalAuthenticationTokens:
                     LOGGER.debug("%s Getting HomeGraph request...", log_prefix)
                     request = GetHomeGraphRequest(string1="", num2="")
                     LOGGER.debug("%s Fetching HomeGraph...", log_prefix)
-                    response = rpc_service.GetHomeGraph(request)
+                    response = rpc_service.GetHomeGraph(
+                        request, timeout=REQUEST_TIMEOUT
+                    )
                     LOGGER.debug("%s Storing obtained HomeGraph...", log_prefix)
                     self.homegraph = response
-                self.homegraph_date = datetime.now()
+                self.homegraph_date = datetime.now(UTC)
             except grpc.RpcError as rpc_error:
                 LOGGER.debug("%s Got an RpcError", log_prefix)
                 if (
@@ -364,8 +497,8 @@ class GLocalAuthenticationTokens:
         disable_discovery: Whether or not the device's IP and port should
           be searched for in the network.
         addresses: Dict of network devices from the local network
-          ({"name": "ip_address"}). If set to `None` will try to automatically
-          discover network devices. Disable discovery by setting to `{}`.
+          ({"name": "ip_address"}). Only used when discovery is disabled
+          or finds no devices.
         zeroconf_instance: If you already have an initialized zeroconf instance,
           use it here.
         force_homegraph_reload: If the stored homegraph should be generated again.
@@ -374,7 +507,7 @@ class GLocalAuthenticationTokens:
 
         # Set models_list to empty list if None
         LOGGER.debug("Initializing models list if empty...")
-        models_list = models_list if models_list else []
+        models_list = models_list or []
 
         if force_homegraph_reload:
             LOGGER.debug("Forcing homegraph reload")
@@ -419,7 +552,7 @@ class GLocalAuthenticationTokens:
                     return device
             return None
 
-        address_dict = addresses if addresses else {}
+        address_dict = addresses or {}
 
         LOGGER.debug("Iterating in %d homegraph devices", len(homegraph.home.devices))
         for item in homegraph.home.devices:
@@ -485,6 +618,7 @@ class GLocalAuthenticationTokens:
         addresses: dict[str, str] | None = None,
         zeroconf_instance: Zeroconf | None = None,
         force_homegraph_reload: bool = False,
+        discovery_timeout: int = DISCOVERY_TIMEOUT,
     ) -> str:
         """Return a JSON list of devices with authentication tokens, IPs, and ports if models set.
 
@@ -493,11 +627,12 @@ class GLocalAuthenticationTokens:
         disable_discovery: Whether or not the device's IP and port should
           be searched for in the network.
         addresses: Dict of network devices from the local network
-          ({"name": "ip_address"}). If set to `None` will try to automatically
-          discover network devices. Disable discovery by setting to `{}`.
+          ({"name": "ip_address"}). Only used when discovery is disabled
+          or finds no devices.
         zeroconf_instance: If you already have an initialized zeroconf instance,
           use it here.
         force_homegraph_reload: If the stored homegraph should be generated again.
+        discovery_timeout: Timeout for zeroconf discovery in seconds.
         """
 
         google_devices = self.get_google_devices(
@@ -506,6 +641,7 @@ class GLocalAuthenticationTokens:
             addresses=addresses,
             zeroconf_instance=zeroconf_instance,
             force_homegraph_reload=force_homegraph_reload,
+            discovery_timeout=discovery_timeout,
         )
         return json.dumps([obj.as_dict() for obj in google_devices], indent=indent)
 
@@ -518,6 +654,7 @@ class GLocalAuthenticationTokens:
     def invalidate_master_token(self) -> None:
         """Invalidate the current master token."""
         self.master_token = None
+        self.email = None
         LOGGER.debug("Invalidated master_token")
 
     def invalidate_homegraph(self) -> None:

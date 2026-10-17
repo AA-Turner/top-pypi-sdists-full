@@ -1,6 +1,6 @@
 # ext_lexer_table.py. This file automatically created by PLY (version 3.11). Don't edit!
 _tabversion   = '3.10'
-_lextokens    = set(('BOOL', 'DOUBLEDOT', 'FILTER_OP', 'FLOAT', 'ID', 'NAMED_OPERATOR', 'NUMBER', 'SORT_DIRECTION', 'WHERE', 'WHERENOT'))
+_lextokens    = set(('BOOL', 'DOUBLEDOT', 'FILTER_OP', 'FLOAT', 'ID', 'NAMED_OPERATOR', 'NULL', 'NUMBER', 'SORT_DIRECTION', 'WHERE', 'WHERENOT'))
 _lexreflags   = 64
 _lexliterals  = '*.[]()$,:|&~?@+*/-!'
 _lexstateinfo = {'INITIAL': 'inclusive', 'singlequote': 'exclusive', 'doublequote': 'exclusive', 'backquote': 'exclusive'}

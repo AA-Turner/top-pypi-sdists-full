@@ -73,7 +73,7 @@ async def shared_run(langchain_client: Client):
     async def _run_indexed() -> Optional[Tuple[str, str]]:
         """Return (project_id, trace_id) once the run is retrievable."""
         project_id = str(langchain_client.read_project(project_name=project_name).id)
-        run = await langchain_client.runs.retrieve(
+        run = await langchain_client.runs.retrieve_v2(
             run_id=run_id,
             project_id=project_id,
             start_time=now.isoformat(),
@@ -81,14 +81,10 @@ async def shared_run(langchain_client: Client):
         )
         return project_id, (str(run.trace_id) if run.trace_id else run_id)
 
-    project_id, trace_id = await _wait_for_async(
-        _run_indexed, max_sleep_time=90, sleep_time=2
-    )
+    project_id, trace_id = await _wait_for_async(_run_indexed, max_sleep_time=90, sleep_time=2)
 
     async def _create_share():
-        return await langchain_client.runs.share.create(
-            run_id, session_id=project_id, trace_id=trace_id
-        )
+        return await langchain_client.runs.share.create(run_id, session_id=project_id, trace_id=trace_id)
 
     # share.create resolves the trace root from SmithDB, which may lag indexing.
     resp = await _wait_for_async(_create_share, max_sleep_time=90)

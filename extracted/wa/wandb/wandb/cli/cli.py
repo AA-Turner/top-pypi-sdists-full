@@ -19,27 +19,16 @@ from functools import wraps
 from typing import Any
 
 import click
-import yaml
 from click.exceptions import ClickException
 
 import wandb
 import wandb.errors
-import wandb.sdk.verify.verify as wandb_verify
 from wandb import Error, env, util, wandb_agent
 from wandb.analytics import get_telemetry_recorder
-from wandb.apis.public.sweeps import _set_sweep_state, _sweep_with_runs, _upsert_sweep
-from wandb.cli import beta_sync
 from wandb.errors.links import url_registry
 from wandb.sdk import wandb_setup, wandb_sweep
 from wandb.sdk.artifacts._validators import is_artifact_registry_project
-from wandb.sdk.artifacts.artifact_file_cache import get_artifact_file_cache
-from wandb.sdk.launch import utils as launch_utils
-from wandb.sdk.launch._launch_add import _launch_add
-from wandb.sdk.launch.api import LaunchApi
-from wandb.sdk.launch.errors import ExecutionError, LaunchError
-from wandb.sdk.launch.sweeps import utils as sweep_utils
-from wandb.sdk.launch.sweeps.scheduler import Scheduler
-from wandb.sdk.lib import config_util, filesystem, settings_file, wbauth
+from wandb.sdk.lib import config_util, filesystem, settings_file, urls, wbauth
 from wandb.sdk.lib.filenames import DIFF_FNAME
 from wandb.sdk.lib.hashutil import md5_file_b64
 from wandb.sdk.lib.service.service_connection import WandbApiFailedError
@@ -280,7 +269,7 @@ def projects(entity, display=True):
     "--cloud",
     is_flag=True,
     help="""Log in to the W&B public cloud
-    (https://api.wandb.ai).
+    (https://api.forge.coreweave.com).
     Mutually exclusive with --host.""",
 )
 @click.option(
@@ -372,7 +361,7 @@ def login(key, host, cloud, relogin, anonymously, verify, no_offline=False):
         sys.exit(1)
 
     if cloud:
-        host = "https://api.wandb.ai"
+        host = urls.DEFAULT_BASE_URL
 
     # A change in click or the test harness means key can be none...
     key = key[0] if key is not None and len(key) > 0 else None
@@ -665,6 +654,8 @@ def sync(
 
     for more info.
     """
+    from wandb.cli import beta_sync
+
     if clean is not None or clean_old_hours is not None or clean_force is not None:
         raise ClickException("Use `wandb clean` instead of `wandb sync --clean`")
 
@@ -873,6 +864,13 @@ def sweep(
 
         $ wandb sweep -R abcd1234 -R efgh5678 sweep_config.yaml
     """
+    from wandb.apis.public.sweeps import (
+        _set_sweep_state,
+        _sweep_with_runs,
+        _upsert_sweep,
+    )
+    from wandb.sdk.launch.sweeps import utils as sweep_utils
+
     state_args = "stop", "cancel", "pause", "resume"
     lcls = locals()
     is_state_change_command = sum(lcls[k] for k in state_args)
@@ -1051,6 +1049,11 @@ def sweep(
 
     styled_path = click.style(f"wandb agent {sweep_path}", fg="yellow")
     wandb.termlog(f"Run sweep agent with: {styled_path}")
+    if config is not None and config.get("scheduler") is not None:
+        styled_scheduler = click.style(
+            f"wandb sweep-scheduler {sweep_path}", fg="yellow"
+        )
+        wandb.termlog(f"Run scheduler with: {styled_scheduler}")
     if controller:
         wandb.termlog("Starting wandb controller...")
         from wandb import controller as wandb_controller
@@ -1109,6 +1112,14 @@ def launch_sweep(
     resume_id,
     prior_runs,
 ):
+    import yaml
+
+    from wandb.apis.public.sweeps import _sweep_with_runs, _upsert_sweep
+    from wandb.sdk.launch import utils as launch_utils
+    from wandb.sdk.launch.api import LaunchApi
+    from wandb.sdk.launch.sweeps import utils as sweep_utils
+    from wandb.sdk.launch.sweeps.scheduler import Scheduler
+
     api = LaunchApi()
     env = os.environ
 
@@ -1538,6 +1549,11 @@ def launch(
     Running `wandb launch [URI]` will launch the run directly. To add the
     run to a queue, run `wandb launch [URI] --queue [optional queuename]`.
     """
+    from wandb.sdk.launch import utils as launch_utils
+    from wandb.sdk.launch._launch_add import _launch_add
+    from wandb.sdk.launch.api import LaunchApi
+    from wandb.sdk.launch.errors import ExecutionError, LaunchError
+
     logger.info(
         f"=== Launch called with kwargs {locals()} CLI Version: {wandb.__version__}==="
     )
@@ -1774,6 +1790,8 @@ def launch_agent(
     log_file=None,
     verbose=0,
 ):
+    from wandb.sdk.launch.errors import LaunchError
+
     logger.info(
         f"=== Launch-agent called with kwargs {locals()}  CLI Version: {wandb.__version__} ==="
     )
@@ -1851,9 +1869,24 @@ def launch_agent(
     /SIGTERM) to force-kill child runs which have not finished since receiving
     the initial forwarded signal. Does nothing if --forward-signals is not set.""",
 )
+@click.option(
+    "--max-consecutive-failed-runs",
+    default=None,
+    type=click.IntRange(min=1),
+    help="""Shut the agent down once this many runs have failed back to back.""",
+)
 @click.argument("sweep_id")
 @display_error
-def agent(ctx, project, entity, count, forward_signals, term_timeout, sweep_id):
+def agent(
+    ctx,
+    project,
+    entity,
+    count,
+    forward_signals,
+    term_timeout,
+    max_consecutive_failed_runs,
+    sweep_id,
+):
     """Start a sweep agent.
 
     Poll the W&B server for hyperparameter configurations from
@@ -1884,6 +1917,10 @@ def agent(ctx, project, entity, count, forward_signals, term_timeout, sweep_id):
     To forward signals to child runs for clean shutdown:
 
         $ wandb agent --forward-signals wbyz9876
+
+    To stop the agent after 5 runs fail back to back:
+
+        $ wandb agent --max-consecutive-failed-runs 5 wbyz9876
     """
     wandb.termlog("Starting wandb agent 🕵️")
     try:
@@ -1894,6 +1931,7 @@ def agent(ctx, project, entity, count, forward_signals, term_timeout, sweep_id):
             count=count,
             forward_signals=forward_signals,
             term_timeout=term_timeout,
+            max_consecutive_failed_runs=max_consecutive_failed_runs,
         )
     # TODO: handle other errors with correct exit codes
     except SweepNotFoundError:
@@ -1920,11 +1958,13 @@ def scheduler(
     ctx,
     sweep_id,
 ):
+    from wandb.sdk.launch.api import LaunchApi
+
     api = LaunchApi()
 
     telemetry_recorder = get_telemetry_recorder().with_context(
         high_cardinality_attributes={
-            "process_context": "sweep_scheduler",
+            "process_context": "launch_scheduler",
         }
     )
     wandb.termlog("Starting a Launch Scheduler 🚀")
@@ -1952,6 +1992,102 @@ def scheduler(
     except Exception as e:
         telemetry_recorder.exception(e)
         raise
+
+
+@cli.command(
+    name="sweep-scheduler",
+    context_settings=CONTEXT,
+    help="Run a local scheduler that suggests a sweep's runs (Experimental).",
+)
+@click.option("--entity", "-e", default=None, help="Entity that owns the sweep.")
+@click.option("--project", "-p", default=None, help="Project that owns the sweep.")
+@click.option(
+    "--batch-size",
+    default=10,
+    type=int,
+    help="Number of runs to keep in flight at once.",
+)
+@click.option(
+    "--poll-interval",
+    default=10.0,
+    type=float,
+    help="Seconds to wait between polls of the sweep's runs.",
+)
+@click.argument("sweep_id")
+@display_error
+def sweep_scheduler(
+    entity: str | None,
+    project: str | None,
+    batch_size: int,
+    poll_interval: float,
+    sweep_id: str,
+) -> None:
+    """Drive a scheduler-enabled sweep locally using external search engines.
+
+    A scheduler-enabled sweep must have been previously created with the config
+    `scheduler: {engine: wandb}` (or `optuna`/`ax`). This CLI will then attempt
+    to maintain `batch_size` runs in flight at once, and poll the sweep's runs
+    every `poll_interval` seconds. The CLI may be stopped and restarted at any
+    time, and will resume the sweep from the last known state.
+
+    **Do not** run multiple instances of this CLI for the same sweep. It will
+    cause duplicate runs to be generated as multiple instances will not know
+    the other's runs.
+
+    If the `source` field is used in the scheduler config, this command must be
+    run in a directory containing the Python file referenced by `source`.
+
+    The optional `optimizer` field in the sweep scheduler config must name a
+    function that returns the client for the search engine (Optuna `Study` or
+    Ax `Client`). This client **must not** be persisted to disk, as it will be
+    re-created on each restart. This custom function may be used to configure
+    the engine's sampler and pruner.
+    """
+    from wandb.sdk.launch.sweeps import utils as sweep_utils
+    from wandb.sdk.sweeps.scheduler import client
+    from wandb.sdk.sweeps.scheduler.optimizer import make_optimizer
+
+    if batch_size < 1:
+        wandb.termerror("--batch-size must be at least 1")
+        sys.exit(1)
+
+    telemetry_recorder = get_telemetry_recorder().with_context(
+        high_cardinality_attributes={
+            "process_context": "sweep_scheduler",
+        }
+    )
+
+    # Resolve the sweep the user already created with `wandb sweep`.
+    # `run_scheduler` authenticates the session itself, so the defaults are
+    # all this needs the API for.
+    api = wandb.Api()
+    parts = dict(entity=entity, project=project, name=sweep_id)
+    err = sweep_utils.parse_sweep_id(parts)
+    if err:
+        raise ClickException(err)
+    entity = parts.get("entity") or entity or api.settings["entity"]
+    project = parts.get("project") or project or api.settings["project"]
+    sweep_id = parts.get("name") or sweep_id
+    if not entity or not project:
+        raise ClickException(
+            "Pass the sweep as entity/project/sweep_id or provide "
+            "--entity and --project."
+        )
+
+    wandb.termlog(f"Starting sweep scheduler for {sweep_id} 🧹")
+    try:
+        client.run_scheduler(
+            entity=entity,
+            project=project,
+            sweep_id=sweep_id,
+            make_optimizer=make_optimizer,
+            batch_size=batch_size,
+            poll_interval=poll_interval,
+        )
+    except wandb.Error as e:
+        # run_scheduler already explained the failure.
+        telemetry_recorder.exception(e)
+        sys.exit(1)
 
 
 @cli.group(help="Commands for managing and viewing W&B jobs.")
@@ -2142,6 +2278,7 @@ def create(
     code: A code path, containing a requirements.txt file.
     image: A docker image.
     """
+    from wandb.sdk.launch.api import LaunchApi
     from wandb.sdk.launch.create_job import _create_job
 
     api = LaunchApi()
@@ -2920,6 +3057,8 @@ def cleanup(target_size, remove_temp):
 
         $ wandb artifact cache cleanup --remove-temp 5GB
     """
+    from wandb.sdk.artifacts.artifact_file_cache import get_artifact_file_cache
+
     target_size = util.from_human_size(target_size)
     cache = get_artifact_file_cache()
     reclaimed_bytes = cache.cleanup(target_size, remove_temp)
@@ -3366,7 +3505,7 @@ def verify(host):
 
     Validate that a self-hosted or dedicated cloud W&B deployment is configured
     and operating correctly. Do not run this command against the public W&B
-    cloud at api.wandb.ai.
+    cloud at forge.coreweave.com.
 
     Exits with `code 1` if any critical check fails.
 
@@ -3378,6 +3517,8 @@ def verify(host):
 
         $ wandb verify --host https://my-wandb-server.example.com
     """
+    import wandb.sdk.verify.verify as wandb_verify
+
     # TODO: (kdg) Build this all into a WandbVerify object, and clean this up.
     os.environ["WANDB_SILENT"] = "true"
     os.environ["WANDB_PROJECT"] = "verify"

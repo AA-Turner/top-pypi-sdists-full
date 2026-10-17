@@ -12,6 +12,7 @@ mod id_lists_adapter_trait;
 mod statsig_http_id_lists_adapter;
 
 #[cfg(test)]
+#[path = "__tests__/compact_id_list_tests.rs"]
 mod compact_id_list_tests;
 #[cfg(test)]
 mod id_lists_memory_benchmark;

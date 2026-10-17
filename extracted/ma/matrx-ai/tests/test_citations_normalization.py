@@ -878,7 +878,6 @@ def test_generic_openai_translator_attaches_compatible_citations():
 
 
 def test_machine_run_agents_declare_citations_disabled():
-    from matrx_ai.agent_runners.content_cleaner import PdfCleanerAgent
     from matrx_ai.agent_runners.podcast_generator import (
         _ContentExtractorAgent,
         _EducationalScriptAgent,
@@ -901,7 +900,6 @@ def test_machine_run_agents_declare_citations_disabled():
         _MultihostScriptAgent,
         _ContentExtractorAgent,
         _PostPrepTranslationAgent,
-        PdfCleanerAgent,
         ResearchCondenser1Agent,
         ResearchCondenser2Agent,
     ):

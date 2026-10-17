@@ -6,23 +6,21 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import numpy.typing as npt
 
+from supervision.utils.internal import _to_numpy
+
 if TYPE_CHECKING:
     import torch  # type: ignore[import-not-found, unused-ignore]
 
 
 def _validate_class_ids(class_id: Any, n: int) -> None:
-    """
-    Ensure that class_id is a 1d np.ndarray with (n, ) shape.
-    """
+    """Ensure that class_id is a 1d np.ndarray with (n, ) shape."""
     is_valid = isinstance(class_id, np.ndarray) and class_id.shape == (n,)
     if not is_valid:
         raise ValueError("class_id must be 1d np.ndarray with (n, ) shape")
 
 
 def _validate_confidence(confidence: Any, n: int) -> None:
-    """
-    Ensure that confidence is a 1d np.ndarray with (n, ) shape.
-    """
+    """Ensure that confidence is a 1d np.ndarray with (n, ) shape."""
     if confidence is not None:
         is_valid = isinstance(confidence, np.ndarray) and confidence.shape == (n,)
         if not is_valid:
@@ -35,18 +33,14 @@ class Classifications:
     confidence: npt.NDArray[np.floating] | None = None
 
     def __post_init__(self) -> None:
-        """
-        Validate the classification inputs.
-        """
+        """Validate the classification inputs."""
         n = len(self.class_id)
 
         _validate_class_ids(self.class_id, n)
         _validate_confidence(self.confidence, n)
 
     def __eq__(self, other: object) -> bool:
-        """
-        Compare classifications by value across numpy-backed fields.
-        """
+        """Compare classifications by value across numpy-backed fields."""
         if not isinstance(other, Classifications):
             return NotImplemented
         if not np.array_equal(self.class_id, other.class_id):
@@ -56,9 +50,7 @@ class Classifications:
         return bool(np.array_equal(self.confidence, other.confidence))
 
     def __len__(self) -> int:
-        """
-        Returns the number of classifications.
-        """
+        """Returns the number of classifications."""
         return len(self.class_id)
 
     @classmethod
@@ -81,7 +73,7 @@ class Classifications:
 
             model, preprocess = clip.load('ViT-B/32')
 
-            image = cv2.imread(SOURCE_IMAGE_PATH)
+            image = Image.open(SOURCE_IMAGE_PATH)
             image = preprocess(image).unsqueeze(0)
 
             text = clip.tokenize(["a diagram", "a dog", "a cat"])
@@ -108,7 +100,8 @@ class Classifications:
         [ultralytics](https://github.com/ultralytics/ultralytics) inference result.
 
         Args:
-            ultralytics_results: The inference result from ultralytics model.
+            ultralytics_results: The inference result from ultralytics model,
+                with tensor or NumPy properties (including `Results.numpy()`).
 
         Returns:
             A new Classifications object.
@@ -126,7 +119,7 @@ class Classifications:
             classifications = sv.Classifications.from_ultralytics(output)
             ```
         """
-        confidence = ultralytics_results.probs.data.cpu().numpy()
+        confidence = _to_numpy(ultralytics_results.probs.data)
         return cls(class_id=np.arange(confidence.shape[0]), confidence=confidence)
 
     @classmethod
@@ -182,9 +175,8 @@ class Classifications:
     def get_top_k(
         self, k: int
     ) -> tuple[npt.NDArray[np.int_], npt.NDArray[np.floating]]:
-        """
-        Retrieve the top k class IDs and confidences,
-            ordered in descending order by confidence.
+        """Retrieve the top k class IDs and confidences, ordered in descending order by
+        confidence.
 
         Args:
             k: The number of top class IDs and confidences to retrieve.

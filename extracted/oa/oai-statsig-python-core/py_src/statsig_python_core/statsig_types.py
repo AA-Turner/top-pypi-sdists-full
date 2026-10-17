@@ -1,5 +1,5 @@
 import json
-from typing import Any, Callable, Generic, Optional, TypeVar
+from typing import Any, Callable, Generic, Literal, Optional, TypeVar
 
 _TypedConfigValue = TypeVar("_TypedConfigValue")
 
@@ -182,9 +182,17 @@ class BaseConfigEvaluation(BaseEvaluation):
 class TypedDynamicConfig(BaseEvaluation, Generic[_TypedConfigValue]):
     """A typed value and metadata from one dynamic-config evaluation."""
 
-    def __init__(self, name: str, raw: dict, value: _TypedConfigValue):
+    def __init__(
+        self,
+        name: str,
+        raw: dict,
+        value: _TypedConfigValue,
+        *,
+        value_source: Literal["statsig", "packaged"] = "statsig",
+    ):
         super().__init__(name, raw)
         self.value = value
+        self.value_source = value_source
         self._revision = raw["__typed_revision"]
 
     def get_value(self) -> _TypedConfigValue:
@@ -193,6 +201,7 @@ class TypedDynamicConfig(BaseEvaluation, Generic[_TypedConfigValue]):
     def to_dict(self) -> dict:
         result = super().to_dict()
         result["value"] = self.value
+        result["value_source"] = self.value_source
         return result
 
 
