@@ -173,7 +173,7 @@ impl MD001HeadingIncrement {
     }
 
     /// Check if the document has a front matter title field
-    fn has_front_matter_title(&self, content: &str) -> bool {
+    pub(crate) fn has_front_matter_title(&self, content: &str) -> bool {
         if !self.front_matter_title {
             return false;
         }
@@ -233,6 +233,11 @@ impl MD001HeadingIncrement {
 }
 
 impl Rule for MD001HeadingIncrement {
+    fn native_format_policy(&self) -> Option<crate::format_proof::NativeFormatPolicy> {
+        (self.front_matter_title && self.front_matter_title_pattern.is_none())
+            .then_some(crate::format_proof::NativeFormatPolicy::for_rule::<Self>(1))
+    }
+
     fn name(&self) -> &'static str {
         "MD001"
     }
@@ -250,7 +255,7 @@ impl Rule for MD001HeadingIncrement {
             None
         };
 
-        for valid_heading in ctx.valid_headings() {
+        for valid_heading in ctx.headings() {
             let heading = valid_heading.heading;
             let line_info = valid_heading.line_info;
             let marker_idx = valid_heading.line_num - 1
@@ -284,11 +289,12 @@ impl Rule for MD001HeadingIncrement {
             if fix_info.needs_fix {
                 let line_content = line_info.content(ctx.content);
                 let fix = if heading.style == crate::lint_context::HeadingStyle::ATX {
+                    // Rewriting only the `#` run leaves every container prefix untouched.
                     let marker_start = line_info.byte_offset + heading.marker_column;
-                    Fix::new(
+                    Some(Fix::new(
                         marker_start..marker_start + heading.marker.len(),
                         "#".repeat(fix_info.fixed_level),
-                    )
+                    ))
                 } else {
                     let original_indent = &line_content[..line_info.indent];
                     let replacement = HeadingUtils::convert_heading_style(
@@ -296,10 +302,10 @@ impl Rule for MD001HeadingIncrement {
                         fix_info.fixed_level as u32,
                         fix_info.style,
                     );
-                    Fix::new(
+                    Some(Fix::new(
                         ctx.line_content_byte_range(valid_heading.line_num),
                         format!("{original_indent}{replacement}"),
-                    )
+                    ))
                 };
 
                 let (start_line, start_col, end_line, end_col) =
@@ -316,12 +322,16 @@ impl Rule for MD001HeadingIncrement {
                         fix_info.fixed_level, level
                     ),
                     severity: Severity::Error,
-                    fix: Some(fix),
+                    fix,
                 });
             }
         }
 
         Ok(warnings)
+    }
+
+    fn fixes_from_diagnostics(&self) -> bool {
+        true
     }
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
@@ -346,8 +356,8 @@ impl Rule for MD001HeadingIncrement {
         if ctx.content.is_empty() || !ctx.likely_has_headings() {
             return true;
         }
-        // Verify valid headings actually exist
-        !ctx.has_valid_headings()
+        // Verify headings actually exist
+        ctx.headings().next().is_none()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

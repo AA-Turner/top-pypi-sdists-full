@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pyTelegramBotAPI
-Version: 4.37.0
+Version: 4.37.1
 Summary: Python Telegram bot API.
 Project-URL: Homepage, https://github.com/eternnoir/pyTelegramBotAPI
 Project-URL: Documentation, https://pytba.readthedocs.org
@@ -14,12 +14,12 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11
 Requires-Dist: aiohttp
 Requires-Dist: requests
 Provides-Extra: coloredlogs
@@ -111,7 +111,7 @@ Description-Content-Type: text/markdown
 
 ## Getting started
 
-This API is tested with Python 3.10-3.14 and PyPy 3.
+This API is tested with Python 3.11-3.15 and PyPy 3.
 There are two ways to install the library:
 
 * Installation using pip (a Python package manager):

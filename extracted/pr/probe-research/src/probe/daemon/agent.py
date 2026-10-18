@@ -134,6 +134,20 @@ _NO_ANSWER = re.compile(r"Model token limit \(.*?\) exceeded (before any respons
 ANSWERED_NOTHING = "the model thought until its token limit and answered nothing"
 
 
+#: pydantic-ai's own message when a tool asked for one retry more than its budget.
+_TOOL_RETRIES = re.compile(r"Tool '[^']*' exceeded max retries count of \d+")
+
+
+def tool_retries_spent(exc: BaseException) -> bool:
+    """Did a tool run out of retries (the library's own message, caused by the
+    tool's `ModelRetry`)? Not the model's own answer failing: an output that
+    keeps failing its validation says "Exceeded maximum output retries"."""
+    from pydantic_ai import ModelRetry
+
+    return (isinstance(exc, UnexpectedModelBehavior) and isinstance(exc.__cause__, ModelRetry)
+            and bool(_TOOL_RETRIES.match(exc.message or "")))
+
+
 def answered_nothing(exc: BaseException) -> bool:
     """Did the model spend its whole token limit before answering anything? The
     same request does the same again, so it is never retried as it was. Only the
@@ -262,8 +276,9 @@ def ends_run(ctx: RunContext) -> bool:
 def lost_write_retry(ctx: RunContext[tools.Deps], lost_before: int, output: str) -> None:
     """Raise `ModelRetry` (which suppresses the run's end) when this call lost a
     write (`Deps.lost_writes` grew) in a response that also ends the run. Not on
-    the tool's last attempt: past it pydantic-ai fails the whole run, and the
-    worker's open-failures list still shows the write to the next one."""
+    the tool's last attempt: past it the call answers an error instead
+    (`RetriesSpentAreRefusals`), and the worker's open-failures list still shows
+    the write to the next one."""
     from pydantic_ai import ModelRetry
 
     if ctx.deps.lost_writes > lost_before and not ctx.last_attempt and ends_run(ctx):
@@ -374,6 +389,54 @@ class LoopDetector(AbstractCapability[Any]):
                                 f"{self._failures[k]} times in one run: {first}")
                 break
         return result
+
+
+#: What a tool call answers once its tool has used up its retries in the run.
+#: Its first line is the same whatever the error, so the loop detector counts
+#: a tool that keeps failing in different words as one refusal.
+RETRIES_SPENT = "tool error ({tool}): failed {n} times in a row; not retried.\n{error}"
+#: Model rounds with a spent retry (any tool) in one run: the last fails the run.
+SPENT_RETRIES_TO_FAIL = 2
+
+
+@dataclass
+class RetriesSpentAreRefusals(AbstractCapability[Any]):
+    """A tool call that asks for one retry more than its tool's budget answers
+    the model with that error instead of failing the run -- once. pydantic-ai
+    fails the WHOLE run ("Tool 'entity' exceeded max retries count of 2") on
+    the third retry; the retries come from the Probe MCP, whose errors reach the
+    model as `ModelRetry` (strand-ai 2026-10-17: the writer mis-copied an
+    `entity` cursor three times and the bite was lost). The run's
+    SPENT_RETRIES_TO_FAIL-th model round with a spent retry fails the run as
+    before: its events stay queued and the next try backs off, which an MCP
+    that keeps failing (overloaded, over a quota) needs. Never through the loop
+    detector: a loop stop skips its range after two tries, and an answered call
+    refills the tool's retries, so counting answers would not bound a run.
+    Counted per round: calls the model made together had not seen each other's
+    answer."""
+
+    spent_in: set = field(default_factory=set)
+
+    async def wrap_tool_execute(self, ctx: Any, *, call: Any, tool_def: Any, args: Any, handler: Any) -> Any:
+        from pydantic_ai import ModelRetry
+
+        try:
+            return await handler(args)
+        except UnexpectedModelBehavior as exc:
+            # The library checks the budget inside the call: out of retries, the
+            # tool's `ModelRetry` comes back as this, caused by it.
+            if not isinstance(exc.__cause__, ModelRetry):
+                raise
+            step = getattr(ctx, "run_step", None)
+            self.spent_in.add(step if step is not None else object())
+            # Even beside `final_result`: pydantic-ai drops a final result when
+            # another call in its response asks for a retry, so the run may go on
+            # and the model would read this answer (Codex, review 2026-10-17).
+            if len(self.spent_in) >= SPENT_RETRIES_TO_FAIL:
+                raise
+            log.warning("tool %s ran out of retries; answered: %s", call.tool_name, exc.__cause__.message)
+            return RETRIES_SPENT.format(tool=call.tool_name, error=exc.__cause__.message,
+                                        n=int(getattr(ctx, "retry", 0) or 0) + 1)
 
 
 @dataclass
@@ -593,6 +656,8 @@ def _harness(state: RunState) -> list:
     caps.append(UsageMeter(on_round=state.on_round))
     if state.trace is not None:
         caps.append(TraceRecorder(trace=state.trace))
+    # Last: the innermost wrap, so the trace records the answer the model got.
+    caps.append(RetriesSpentAreRefusals())
     return caps
 
 
@@ -796,6 +861,15 @@ class ReadResult(BaseModel):
         description="what the main agent gets, or empty for nothing. At most 1,200 characters, unless it answers an ask.")
 
 
+class TurnLimit(StrEnum):
+    """The reader guard that ended a turn. SIZE is the planned end of a turn that
+    grew big (the reader never compacts); the others stop a runaway."""
+
+    ROUNDS = "rounds"
+    WALL = "wall"
+    SIZE = "size"
+
+
 @dataclass
 class ReaderState(RunState):
     """A reader turn's shared state: the ask it answers (None: a turn on its own),
@@ -805,6 +879,8 @@ class ReaderState(RunState):
     started: float = 0.0
     rounds: int = 0
     limit_why: str | None = None
+    #: Which guard set `limit_why`, as of the last tool call it stopped.
+    limit_kind: TurnLimit | None = None
     #: The reader never compacts: the lane starts its conversation fresh instead.
     compacts: bool = False
     #: The last round's request: its provider-counted tokens and wire messages.
@@ -841,13 +917,13 @@ class ReaderLimits(AbstractCapability[tools.Deps]):
     async def before_tool_execute(self, ctx: Any, *, call: Any, tool_def: Any, args: Any) -> Any:
         wall = READ_WALL_ASK_S if self.state.ask else READ_WALL_S
         if self.state.rounds >= READ_ROUNDS - 1:
-            self.state.limit_why = f"{READ_ROUNDS} model rounds"
+            self.state.limit_why, self.state.limit_kind = f"{READ_ROUNDS} model rounds", TurnLimit.ROUNDS
         elif self._now() - self.state.started >= wall:
-            self.state.limit_why = f"{wall:.0f} seconds"
+            self.state.limit_why, self.state.limit_kind = f"{wall:.0f} seconds", TurnLimit.WALL
         elif self.state.last_request_tokens >= READ_STOP_TOKENS:
-            self.state.limit_why = f"{READ_STOP_TOKENS:,} tokens"
+            self.state.limit_why, self.state.limit_kind = f"{READ_STOP_TOKENS:,} tokens", TurnLimit.SIZE
         elif self.state.last_request_wire > COMPACT_MESSAGES:
-            self.state.limit_why = f"{COMPACT_MESSAGES:,} messages"
+            self.state.limit_why, self.state.limit_kind = f"{COMPACT_MESSAGES:,} messages", TurnLimit.SIZE
         if self.state.limit_why is not None:
             raise SkipToolExecution(TURN_LIMIT.format(why=self.state.limit_why))
         return args

@@ -154,6 +154,8 @@ class DecoratorTestMixin(SimplifiedTestCaseProtocol):
         wrapper = cachetools.cached(cache)(self.func)
 
         self.assertEqual(wrapper.__wrapped__, self.func)
+        self.assertEqual(wrapper.__name__, "func")
+        self.assertEqual(wrapper.__qualname__, "DecoratorTestMixin.func")
 
         self.assertEqual(len(cache), 0)
         self.assertEqual(wrapper.__wrapped__(0), 0)
@@ -316,6 +318,21 @@ class CacheWrapperTest(unittest.TestCase, DecoratorTestMixin):
         self.assertEqual(wrapper.cache_info(), (0, 0, 2, 0))
         self.assertEqual(lock.count, 13)
 
+    def test_stacked_decorators(self):
+        inner_cache = self.cache(2)
+        outer_cache = self.cache(2)
+        inner_wrapper = cachetools.cached(inner_cache, info=True)(self.func)
+        outer_wrapper = cachetools.cached(outer_cache, info=True)(inner_wrapper)
+        self.assertIs(outer_wrapper.__wrapped__, inner_wrapper)
+        self.assertIs(outer_wrapper.cache, outer_cache)
+        self.assertEqual(outer_wrapper(0), 0)
+        self.assertEqual(outer_wrapper(0), 0)
+        self.assertEqual(outer_wrapper.cache_info(), (1, 1, 2, 1))
+        self.assertEqual(inner_wrapper.cache_info(), (0, 1, 2, 1))
+        outer_wrapper.cache_clear()
+        self.assertEqual(len(outer_cache), 0)
+        self.assertEqual(len(inner_cache), 1)
+
     def test_zero_size_cache_decorator(self):
         cache = self.cache(0)
         wrapper = cachetools.cached(cache)(self.func)
@@ -386,20 +403,40 @@ class CacheWrapperTest(unittest.TestCase, DecoratorTestMixin):
 
         """
 
+        cache = self.cache(2)
+
         class Cached:
+            @cachetools.cached(cache, key=cachetools.keys.methodkey)
+            def get(self, value: int) -> int:
+                return value
+
             @cachetools.cached(self.cache(2), key=cachetools.keys.methodkey, info=True)
-            def get(self, value):
+            def get_info(self, value):
+                return value
+
+            @staticmethod
+            @cachetools.cached(self.cache(2))
+            def get_static(value: int) -> int:
                 return value
 
         cached = Cached()
-        self.assertEqual(cached.get(1), 1)  # type: ignore
-        self.assertEqual(cached.get(1), 1)  # type: ignore
+        self.assertEqual(cached.get(1), 1)
         self.assertEqual(Cached.get(cached, 1), 1)
-        self.assertEqual(cached.get.cache_info(), (2, 1, 2, 1))
-        self.assertEqual(Cached.get.cache_info(), (2, 1, 2, 1))
+        self.assertEqual(len(cache), 1)
         cached.get.cache_clear()
-        self.assertEqual(cached.get.cache_info(), (0, 0, 2, 0))
-        self.assertEqual(Cached.get.cache_info(), (0, 0, 2, 0))
+        self.assertEqual(len(cache), 0)
+
+        self.assertEqual(cached.get_info(1), 1)
+        self.assertEqual(cached.get_info(1), 1)
+        self.assertEqual(Cached.get_info(cached, 1), 1)
+        self.assertEqual(cached.get_info.cache_info(), (2, 1, 2, 1))
+        self.assertEqual(Cached.get_info.cache_info(), (2, 1, 2, 1))
+        cached.get_info.cache_clear()
+        self.assertEqual(cached.get_info.cache_info(), (0, 0, 2, 0))
+        self.assertEqual(Cached.get_info.cache_info(), (0, 0, 2, 0))
+
+        self.assertEqual(cached.get_static(1), 1)
+        self.assertEqual(Cached.get_static(1), 1)
 
 
 class DictWrapperTest(unittest.TestCase, DecoratorTestMixin):

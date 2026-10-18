@@ -19,6 +19,24 @@ else:
     import websockets
 
 CHAT_CAP = 200
+
+
+def mentioned_names(text, names):
+    """Prefer a full account name over its shorter prefix (spaces are legal)."""
+    names = sorted(set(n for n in names if n), key=lambda n: (-len(n), n.lower()))
+    if not names:
+        return []
+    pattern = r"(?<!\w)@(" + "|".join(_re.escape(n) for n in names) + r")(?!\w)"
+    return list(dict.fromkeys(m.group(1).lower() for m in _re.finditer(pattern, text, _re.I)))
+
+
+def clean_remote(s):
+    """Keep remote text from changing terminal direction or emitting controls."""
+    import unicodedata
+    return "".join(c for c in str(s or "")
+                   if unicodedata.category(c) not in ("Cc", "Cf"))
+
+
 ANNOUNCE = "📢"          # the dev's speaker: never a peer, never blockable
 WIRE_READ_MAX = 256 * 1024   # our read cap: a welcome carrying a big stored save
 #                              must not kill the connection (the server's INBOUND
@@ -57,7 +75,7 @@ _RAW_KEYS = ("save",)
 
 def display_safe(s):
     """Strip variation selectors from one remote string (see the law above)."""
-    return _VARSEL.sub("", s) if isinstance(s, str) else s
+    return clean_remote(_VARSEL.sub("", s)) if isinstance(s, str) else s
 
 
 def _normalize(v, key=None):
@@ -160,7 +178,7 @@ class LobbyState:
     def __init__(self):
         self.connected = False
         self.error: str | None = None
-        self.me_id: int | None = None
+        self.me_id: str | None = None
         self.me_name: str | None = None
         self.roster: list[dict] = []          # [{id,name,pet}] — replaced wholesale
         self.chat: list[tuple[str, str]] = []  # [(from_name, text)] — capped
@@ -169,6 +187,7 @@ class LobbyState:
         self.reconnecting = False              # dropped -> the client is retrying with backoff
         self.dms: dict = {}                    # peer_name -> [(from_name, text)] private threads
         self.pm_received = 0                   # arrival edge survives capped/read threads
+        self.mentions_received = 0
         self.unread: set = set()               # peer names with unread DMs
         self.blocked: set = set()              # muted peers (loaded from settings on connect)
         self.room: str | None = None           # current password room (None = main lobby)
@@ -293,14 +312,14 @@ class SyncClient(_WsClient):
                 # void, silently, and the player watched a cloud save "not go
                 # over" with no word from the game (Joel, 2026-07-30).
                 self.not_holder = m.get("holder") or {"label": "another device"}
-        elif t == "pm":
+        elif t in ("pm", "mention"):
             # the sync ghost is the HOME-SCREEN alert channel: the app drains
             # this into the message box (presence 2026-07-05)
             # sync audit 2026-10-14: mute applies to home alerts as well as lobby chat.
             from . import persistence
             if m.get("from_name", "?") in persistence.get_blocked():
                 return
-            self.inbox.append((m.get("from_name", "?"), m.get("text", "")))
+            self.inbox.append((m.get("from_name", "?"), None if t == "mention" else m.get("text", "")))
             del self.inbox[:-20]
         elif t == "announce":
             # a server announcement reaches the home screen the same way a PM
@@ -325,6 +344,10 @@ class LobbyClient(_WsClient):
         self._ws = None
         self._q: asyncio.Queue = asyncio.Queue()
         self._stop = False                    # rejected login (or teardown) -> no retry
+        self._welcomed = asyncio.Event()
+        self._ready = asyncio.Event()
+        self._restore_room = None
+        self._chat_ids = []
         self._had_welcome = False             # a past successful login makes drops RECONNECTS
         self._backoff0 = 2.0                  # first-retry delay (tests shrink it)
         self.ladder = None                    # last ladder message (rankings page)
@@ -344,10 +367,15 @@ class LobbyClient(_WsClient):
     def raid_get(self):
         self._send({"t": "raid_get"})
 
-    def raid_hit(self, damage):
-        # (the old `stage` field was DEAD wire weight: the gate binds the
-        # multiplier to the roster card's num -- raid round 2026-07-19)
-        self._send({"t": "raid_hit", "damage": int(damage)})
+    def raid_hit(self, damage, raid_id=None, request_id=None):
+        import uuid
+        from . import persistence
+        message = {"t": "raid_hit", "damage": int(damage),
+                   "raid": raid_id or ((self.raid or {}).get("boss") or {}).get("id"),
+                   "request": request_id or uuid.uuid4().hex}
+        if (self.raid or {}).get("protocol") == 2 or raid_id is not None:
+            persistence.raid_outbox(self.name, message=message)
+        self._send(message)
 
     def raid_claim(self, raid_id):
         # acks: this build ledgers applied raids and sends raid_ack, so the
@@ -355,18 +383,26 @@ class LobbyClient(_WsClient):
         self._send({"t": "raid_claim", "raid": raid_id, "acks": True})
 
     def raid_ack(self, raid_id):
-        """The reward is APPLIED: the server may drop its held copy."""
-        self._send({"t": "raid_ack", "raid": raid_id})
+        from . import persistence
+        import json
+        try:
+            with open(persistence.SAVE_PATH, encoding="utf-8") as f:
+                checkpoint = json.load(f)
+        except (OSError, ValueError):
+            return
+        # New relays durably sync the reward-bearing save before releasing it.
+        self._send({"t": "raid_ack", "raid": raid_id, "protocol": 2,
+                    "save": checkpoint})
 
     def update_pet(self, pet):
         self.pet = pet
         self._send({"t": "pet", "pet": pet})
 
     def invite(self, to, kind):
-        self._send({"t": "invite", "to": to, "kind": kind})
+        self._send({"t": "invite", "to": str(to), "kind": kind})
 
     def pm(self, to, text, to_name=None):
-        msg = {"t": "pm", "to": to, "text": text}
+        msg = {"t": "pm", "to": str(to), "text": text}
         if to_name:
             msg["to_name"] = to_name       # lets the server queue when the id is stale/offline
         self._send(msg)
@@ -377,13 +413,13 @@ class LobbyClient(_WsClient):
         self.pm(to, "\u2694\ufe0f wants to battle -- come to the Lobby!")
 
     def respond(self, to, kind, accept, busy=False):
-        msg = {"t": "invite_resp", "to": to, "kind": kind, "accept": bool(accept)}
+        msg = {"t": "invite_resp", "to": str(to), "kind": kind, "accept": bool(accept)}
         if busy:
             msg["busy"] = True
         self._send(msg)
 
     def relay(self, to, payload):
-        self._send({"t": "relay", "to": to, "payload": payload})
+        self._send({"t": "relay", "to": str(to), "payload": payload})
 
     def room(self, code):
         """Join the password room for `code` (everyone typing the same phrase
@@ -406,10 +442,15 @@ class LobbyClient(_WsClient):
         #                                       server lets the newest launch evict
         #                                       its own stale room session (message
         #                                       audit 2026-07-06)
+        from . import persistence
         return {"t": "login", "name": self.name, "pw": self.pw, "pet": self.pet,
-                "boot": BOOT}
+                "boot": BOOT, "device": persistence.device_id(),
+                "dlabel": persistence.device_label()}
 
     def _on_connect(self):
+        self._welcomed.clear()
+        self._ready.clear()
+        self._restore_room = self.state.room
         self.state.connected = True
         self.state.reconnecting = False
 
@@ -430,9 +471,15 @@ class LobbyClient(_WsClient):
         self.state.reconnecting = False
 
     async def _send_loop(self):
+        await self._welcomed.wait()
+        if self._restore_room:
+            await self._ws.send(json.dumps({"t": "room", "code": self._restore_room}))
         while True:
+            await self._ready.wait()
             obj = await self._q.get()
             try:
+                if obj.get("t") == "room":
+                    self._ready.clear()
                 await self._ws.send(json.dumps(obj))
             except Exception:
                 # don't lose the frame we already dequeued: requeue it so
@@ -451,20 +498,31 @@ class LobbyClient(_WsClient):
         if t == "welcome":
             self._had_welcome = True
             s.me_id = m.get("id")
-            s.me_name = m.get("name")
+            s.me_name = clean_remote(m.get("name"))
+            self._welcomed.set()
+            if not self._restore_room:
+                self._ready.set()
         elif t == "ladder":
             self.ladder = m               # the rankings page renders from this
         elif t == "roster":
             s.roster = m.get("players") or []
         elif t == "room_ok":
+            self._restore_room = None
+            self._ready.set()
             s.room = m.get("room") or None
             s.chat.append(("", f"— room: {s.room} —" if s.room else "— main lobby —"))
             del s.chat[:-CHAT_CAP]
         elif t == "chat":
+            if self._restore_room:
+                return
             nm = m.get("from_name", "?")
             if nm not in s.blocked and not self._replayed(m, nm):
                 s.chat.append((nm, m.get("text", "")))
                 del s.chat[:-CHAT_CAP]
+                names = [p.get("name", "") for p in s.roster] + [s.me_name]
+                if (nm.lower() != (s.me_name or "").lower() and not m.get("replay")
+                        and (s.me_name or "").lower() in mentioned_names(m.get("text", ""), names)):
+                    s.mentions_received += 1
         elif t == "announce":
             # a server announcement rides the public feed under the 📢 speaker
             # (unblockable -- it's the dev's line, not a peer's)
@@ -484,7 +542,14 @@ class LobbyClient(_WsClient):
             del s.dms[to][:-CHAT_CAP]
         elif t == "raid":
             self.raid = m                 # the raid page renders from this
+            if m.get("protocol") == 2:
+                from . import persistence
+                for message in persistence.raid_outbox(self.name):
+                    self._send(message)
         elif t == "raid_hit":
+            if m.get("request") and not m.get("retryable"):
+                from . import persistence
+                persistence.raid_outbox(self.name, receipt=m["request"])
             self.raid = None              # stale view: the pool moved; refetch
             self.last_hit = m
         elif t == "raid_reward":
@@ -492,6 +557,8 @@ class LobbyClient(_WsClient):
         elif t == "ladder_reward":
             self.ladder_reward = m        # the season-award flow consumes this once
         elif t in ("invite", "invite_resp", "relay"):
+            import time
+            m["_received"] = time.monotonic()
             s.inbox.append(m)
         elif t == "login_failed":
             msg = m.get("msg") or ""
@@ -508,12 +575,22 @@ class LobbyClient(_WsClient):
                 self._stop = True
         elif t == "error":
             s.error = m.get("msg")
+            if s.error in ("You were kicked by an administrator.", "This account is banned."):
+                s.login_failed = s.error
+                self._stop = True
 
     def _replayed(self, m, nm):
         """True for a server-marked backlog `replay` line the pane already
         shows: reconnects and room→main returns re-send the same window, and
         with no client dedup every line printed twice.  Live repeats are
         untagged and always append."""
+        mid = m.get("id")
+        if isinstance(mid, str) and mid:
+            if mid in self._chat_ids:
+                return True
+            self._chat_ids.append(mid)
+            del self._chat_ids[:-200]
+            return False
         return bool(m.get("replay")) and (nm, m.get("text", "")) in self.state.chat[-30:]
 
 

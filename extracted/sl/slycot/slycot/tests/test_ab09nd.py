@@ -38,6 +38,7 @@ def test_slicot_ref():
 
     d = np.zeros((3,2))
 
+    # ruff: disable[RUF059]
     nr, ar, br, cr, dr, ns, hsv = \
             ab09nd(dico, job, equil, n, m, p, a, b, c, d, alpha, nr, tol1, tol2)
 
@@ -85,6 +86,7 @@ def test_gh242_regression():
     c = np.zeros((p, n))
     d = np.array([[42.24]])
 
+    # ruff: disable[RUF059]
     nr, ar, br, cr, dr, ns, hsv = \
         ab09nd(dico='C', job='B', equil='S', n=a.shape[0],
                m=b.shape[1], p=c.shape[0], A=a, B=b, C=c, D=d)

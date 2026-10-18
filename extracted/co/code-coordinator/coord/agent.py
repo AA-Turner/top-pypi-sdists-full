@@ -6425,10 +6425,24 @@ PLAIN_RUNNER_LOG_TAIL_CHARS = 8000
 
 
 def _tail_text(text: str, limit: int = PLAIN_RUNNER_LOG_TAIL_CHARS) -> str:
-    """The last *limit* characters of *text*, with a marker when truncated."""
+    """Keep the first and last portions of *text* when it exceeds *limit*.
+
+    Split 1/4 head + 3/4 tail: biased toward the tail (summary markers,
+    exit status) but enough head to capture the first test failure or
+    compiler error — which is the output that matters most for a fix
+    worker and is otherwise lost when later stages pile on compilation
+    noise (#3715).
+    """
     if len(text) <= limit:
         return text
-    return f"...[truncated, {len(text) - limit} earlier chars omitted]...\n{text[-limit:]}"
+    head_budget = limit // 4
+    tail_budget = limit - head_budget
+    omitted = len(text) - limit
+    return (
+        f"{text[:head_budget]}\n"
+        f"...[truncated, {omitted} chars omitted — first {head_budget} + last {tail_budget} shown]...\n"
+        f"{text[-tail_budget:]}"
+    )
 
 
 @dataclass(frozen=True)
@@ -6460,6 +6474,7 @@ def run_plain_runner_command(
     cwd: str,
     *,
     timeout: float,
+    env: dict[str, str] | None = None,
     run: Callable[..., subprocess.CompletedProcess] = subprocess.run,
 ) -> PlainRunnerVerdict:
     """Execute *command* as a bare subprocess in *cwd* and derive a
@@ -6496,6 +6511,7 @@ def run_plain_runner_command(
         # content a worker or a smoke runner is actually testing.
         result = run(
             command, shell=True, cwd=cwd, capture_output=True, text=True, timeout=timeout,
+            env=env,
         )
     except subprocess.TimeoutExpired as exc:
         combined = (exc.stdout or "") + (exc.stderr or "")
@@ -6522,6 +6538,7 @@ def execute_plain_runner_smoke(
     cwd: str,
     *,
     timeout: float,
+    env: dict[str, str] | None = None,
     run: Callable[..., subprocess.CompletedProcess] = subprocess.run,
     spawn_failure_summary: Callable[[AssignmentSpec, PlainRunnerVerdict], None] | None = None,
 ) -> PlainRunnerVerdict:
@@ -6557,7 +6574,7 @@ def execute_plain_runner_smoke(
             log_tail="#3673 plain-runner: no smoke_command on this assignment spec",
         )
     else:
-        verdict = run_plain_runner_command(spec.smoke_command, cwd, timeout=timeout, run=run)
+        verdict = run_plain_runner_command(spec.smoke_command, cwd, timeout=timeout, env=env, run=run)
 
     if not verdict.passed and not verdict.baseline_red and spawn_failure_summary is not None:
         spawn_failure_summary(spec, verdict)
@@ -10362,9 +10379,10 @@ class AgentServer:
             if spec.smoke_timeout_s and spec.smoke_timeout_s > 0
             else 600.0
         )
+        smoke_env = {**os.environ, **cargo_cache.cargo_env(spec.repo_name, self.state_dir)}
         try:
             verdict = execute_plain_runner_smoke(
-                spec, str(repo_path), timeout=timeout,
+                spec, str(repo_path), timeout=timeout, env=smoke_env,
                 spawn_failure_summary=lambda s, v: self._spawn_plain_runner_failure_summary(
                     assignment, s, v,
                 ),

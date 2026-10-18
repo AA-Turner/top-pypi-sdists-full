@@ -46,7 +46,7 @@ class TiktokExtractor(Extractor):
         self.subtitle_langs = None
 
         if self.subtitles and self.subtitles != "all":
-            if self.subtitles is True or not isinstance(self.subtitles, str):
+            if self.subtitles is True or self.subtitles.__class__ is not str:
                 self.subtitles = "ASR"
 
             known_sources = {"ASR", "MT", "LC"}
@@ -331,7 +331,7 @@ class TiktokExtractor(Extractor):
         # This will include URLs pointing to the best quality videos.
         if "bitrateInfo" in video:
             bitrate_info = video["bitrateInfo"]
-            if not isinstance(bitrate_info, list):
+            if bitrate_info.__class__ is not list:
                 bitrate_info = [bitrate_info]
             bitrate_urls = {}
             for video_info in bitrate_info:

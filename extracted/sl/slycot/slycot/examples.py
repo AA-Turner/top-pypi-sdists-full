@@ -190,10 +190,13 @@ def tb03ad_example():
     print('is the following:' )
     print('index', out[4])
     k_max = max(out[4]) + 1
+    # ruff: disable[PIE808]
     for k in range(0,k_max):
+        # ruff: disable[UP031]
         print('P_%d =' %(k))
         print(out[5][0:m,0:m,k])
     for k in range(0,k_max):
+        # ruff: disable[UP031]
         print('Q_%d =' %(k))
         print(out[6][0:m,0:p,k])
         
@@ -254,6 +257,7 @@ def tb05ad_example():
     p = np.shape(C)[0]
 
     jw_s = [1j*11, 1j*15]
+    # ruff: disable[RUF059]
     at, bt, ct, g_1, hinvb,info = slycot.tb05ad(n, m, p, jw_s[0],
                                                A, B, C, job='NG')
     g_2, hinv2, info = slycot.tb05ad(n, m, p, jw_s[1], at, bt, ct, job='NH')
@@ -261,6 +265,7 @@ def tb05ad_example():
     print('Frequency response for (A, B, C)')
     print('-------------------------')
     print('Frequency  |     Response')
+    # ruff: disable[UP031]
     print('%s        | %s '%(jw_s[0], g_1[0, 0]))
     print('%s        | %s '%(jw_s[1], g_2[0, 0]))
 

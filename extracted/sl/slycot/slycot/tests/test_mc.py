@@ -32,6 +32,7 @@ def test_mc01td_D():
 
 def test_mc01td_warnings():
     """ test_mc01td_warnings: Test warnings """
+    # ruff: disable[ISC004]
     T = [([0, 0], "Entry ``P(x)`` is the zero polynomial."),
          ([0, 1], "The polynomial ``P(x)`` is most probably unstable,\n"
                   "although it may be stable with one or more zeros\n"
@@ -43,4 +44,5 @@ def test_mc01td_warnings():
                   "for ``j = 0, 1,..., k-1`` and ``P(DB+1-k) <> 0.0``.")]
     for P, m in T:
         with pytest.warns(SlycotResultWarning, match=re.escape(m)):
+            # ruff: disable[RUF059]
             (dp, stable, nz) = mc01td('C', len(P)-1, P)

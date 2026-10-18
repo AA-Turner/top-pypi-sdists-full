@@ -101,7 +101,11 @@ fn new_service() -> LspService<Backend> {
             client,
             &tombi_lsp::backend::Options {
                 offline: Some(true),
-                no_cache: Some(false),
+                cache: tombi_cache::Options {
+                    no_cache: Some(false),
+                    ..Default::default()
+                },
+                ..Default::default()
             },
         )
     });

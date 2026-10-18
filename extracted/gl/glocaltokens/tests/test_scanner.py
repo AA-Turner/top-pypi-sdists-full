@@ -115,11 +115,62 @@ class NetworkDeviceTests(TestCase):
         for call in zc.get_service_info.call_args_list:
             assert 0 < call.kwargs["timeout"] <= 1000
 
+    def test_service_info__address_choice(self) -> None:
+        """IPv4 is preferred, and a link-local IPv6 address is never used."""
+        ipv4 = faker.ipv4_private()
+        ipv6 = "2001:db8::1"
+        link_local = "fe80::bbc8:4475:d22a:d8de"
+        service = mock.Mock(name="Service")
+        service.port = faker.port_number(is_user=True)
+        service.properties = {b"fn": b"Home", b"md": b"Google Home", b"cd": b"id"}
+        zc = mock.Mock(name="Zeroconf")
+        zc.get_service_info.return_value = service
+
+        # zeroconf lists IPv4 addresses before IPv6 ones
+        for addresses, expected in (
+            ([ipv4, ipv6], ipv4),
+            ([ipv4, link_local], ipv4),
+            ([link_local, ipv6], ipv6),
+            ([ipv6], ipv6),
+            ([link_local], None),
+            ([], None),
+        ):
+            service.parsed_addresses.return_value = addresses
+            listener = CastListener()
+            listener.add_service(zc, "type", "name")
+            if expected is None:
+                assert listener.count == 0, addresses
+            else:
+                assert listener.devices["name"].ip_address == expected, addresses
+
+    def test_service_info__update_adds_ipv4(self) -> None:
+        """An IPv4 address that arrives after IPv6 replaces it on update.
+
+        zeroconf sends an update when a new address record for the device's
+        host arrives, and the listener then looks the service up again.
+        """
+        ipv4 = faker.ipv4_private()
+        ipv6 = "2001:db8::1"
+        service = mock.Mock(name="Service")
+        service.port = faker.port_number(is_user=True)
+        service.properties = {b"fn": b"Home", b"md": b"Google Home", b"cd": b"id"}
+        zc = mock.Mock(name="Zeroconf")
+        zc.get_service_info.return_value = service
+        listener = CastListener()
+
+        service.parsed_addresses.return_value = [ipv6]
+        listener.add_service(zc, "type", "name")
+        assert listener.devices["name"].ip_address == ipv6
+
+        service.parsed_addresses.return_value = [ipv4, ipv6]
+        listener.update_service(zc, "type", "name")
+        assert listener.devices["name"].ip_address == ipv4
+
     @patch("glocaltokens.scanner.LOGGER.error")
     def test_service_info__invalid(self, m_error: NonCallableMock) -> None:
         """Invalid service_info tests."""
         service = mock.Mock(name="Service")
-        service.parsed_addresses.return_value = None
+        service.parsed_addresses.return_value = [faker.ipv4_private()]
 
         zc = mock.Mock(name="Zeroconf")
         zc.get_service_info.return_value = service
@@ -128,23 +179,15 @@ class NetworkDeviceTests(TestCase):
         type_ = faker.word()
         name = faker.word()
 
-        # With invalid IP
-        service.server = faker.word()
-        service.port = faker.port_number(is_user=True)
+        # With negative port
+        service.port = faker.pyint(min_value=-9999, max_value=-1)
         listener.add_service(zc, type_, name)
         assert m_error.call_count == 1
 
-        # With negative port
-        service.server = faker.ipv4_private()
-        service.port = faker.pyint(min_value=-9999, max_value=-1)
+        # With greater port
+        service.port = faker.pyint(min_value=65536, max_value=999999)
         listener.add_service(zc, type_, name)
         assert m_error.call_count == 2
-
-        # With greater port
-        service.server = faker.ipv4_private()
-        service.port = faker.pyint(min_value=65535, max_value=999999)
-        listener.add_service(zc, type_, name)
-        assert m_error.call_count == 3
 
         # No devices should be added
         assert listener.count == 0
@@ -175,7 +218,7 @@ class DiscoverDevicesTests(TestCase):
     @patch("glocaltokens.scanner.ServiceBrowser", mock.Mock())
     @patch("glocaltokens.scanner.Zeroconf", mock.Mock())
     def test_discovery__keeps_application_log_level(self) -> None:
-        """Without logging_level, discovery leaves the level to the application."""
+        """Discovery leaves the level to the application."""
         package_logger = logging.getLogger("glocaltokens")
         package_logger.setLevel(logging.CRITICAL)
         try:
@@ -184,11 +227,11 @@ class DiscoverDevicesTests(TestCase):
             assert LOGGER.level == logging.NOTSET
             assert LOGGER.getEffectiveLevel() == logging.DEBUG
 
-            discover_devices(timeout=0, logging_level=logging.ERROR)
-            assert LOGGER.level == logging.ERROR
+            with pytest.warns(DeprecationWarning, match="logging_level is deprecated"):
+                discover_devices(timeout=0, logging_level=logging.ERROR)
+            assert LOGGER.level == logging.NOTSET
         finally:
             package_logger.setLevel(logging.NOTSET)
-            LOGGER.setLevel(logging.NOTSET)
 
     @patch("glocaltokens.scanner.ServiceBrowser")
     @patch("glocaltokens.scanner.Zeroconf")
@@ -200,6 +243,33 @@ class DiscoverDevicesTests(TestCase):
         with pytest.raises(OSError, match="No network"):
             discover_devices(timeout=0)
         m_zeroconf.return_value.close.assert_called_once_with()
+
+    @patch("glocaltokens.scanner.Event")
+    @patch("glocaltokens.scanner.ServiceBrowser")
+    @patch("glocaltokens.scanner.Zeroconf", mock.Mock())
+    def test_max_devices__counts_device_added_on_update(
+        self, m_service_browser: NonCallableMock, m_event: NonCallableMock
+    ) -> None:
+        """A device that discovery first adds on an update counts towards max_devices."""
+        discovery_complete = m_event.return_value = Event()
+
+        def browse(_zc: object, _type: str, listener: CastListener) -> mock.Mock:
+            service = mock.Mock(name="Service")
+            service.port = 8009
+            service.properties = {b"fn": b"Home", b"md": b"Google Home", b"cd": b"id"}
+            zc = mock.Mock(name="Zeroconf")
+            zc.get_service_info.return_value = service
+            # Skipped, as a link-local IPv6 address can't be used
+            service.parsed_addresses.return_value = ["fe80::1"]
+            listener.add_service(zc, "type", "name")
+            # zeroconf sends an update when an IPv4 address arrives
+            service.parsed_addresses.return_value = [faker.ipv4_private()]
+            listener.update_service(zc, "type", "name")
+            return mock.Mock()
+
+        m_service_browser.side_effect = browse
+        discover_devices(max_devices=1, timeout=1)
+        assert discovery_complete.is_set()
 
     @patch("glocaltokens.scanner.Event")
     @patch("glocaltokens.scanner.ServiceBrowser")

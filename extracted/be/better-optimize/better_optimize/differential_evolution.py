@@ -10,8 +10,9 @@ from rich.progress import TaskID
 from scipy.optimize import OptimizeResult
 from scipy.optimize import differential_evolution as sp_differential_evolution
 
-from better_optimize.constants import DE_INIT_OPTIONS, DE_STRATEGY_OPTIONS
-from better_optimize.utilities import LRUCache1, check_f_is_fused_minimize
+from better_optimize.configuration import DifferentialEvolutionConfig
+from better_optimize.exceptions import OptimizationInterrupted
+from better_optimize.utilities import LRUCache1, check_f_is_fused_minimize, is_interrupt
 from better_optimize.wrapper import build_progress_bar
 
 _log = logging.getLogger(__name__)
@@ -38,8 +39,31 @@ def _sample_x_from_bounds(bounds_arr: np.ndarray) -> np.ndarray:
     return 0.5 * (bounds_arr[:, 0] + bounds_arr[:, 1])
 
 
-def _default_maxiter(d: int) -> int:
-    return max(1000, 200 * d)
+class _BestTracker:
+    """Record the lowest value the wrapped objective returns, and the point that produced it.
+
+    Recording every evaluation, beyond the per-generation callback, gives an interrupt during the
+    initial population a best point to report. It is a class so that ``workers > 1`` can pickle it.
+    """
+
+    def __init__(self, f: Callable, fallback_x: np.ndarray):
+        self.f = f
+        self.best_x = fallback_x
+        self.best_fun = float("inf")
+
+    def __call__(self, x, *args):
+        values = self.f(x, *args)
+        self.record(x, values)
+        return values
+
+    def record(self, x, values) -> None:
+        energies = np.atleast_1d(np.asarray(values, dtype=np.float64))
+        energies = np.where(np.isfinite(energies), energies, np.inf)
+        best = int(np.argmin(energies))
+        if energies[best] < self.best_fun:
+            self.best_fun = float(energies[best])
+            x = np.asarray(x, dtype=np.float64)
+            self.best_x = np.copy(x[:, best] if x.ndim == 2 else x)
 
 
 def differential_evolution(
@@ -102,15 +126,22 @@ def differential_evolution(
     bounds_arr = _bounds_to_array(bounds)
     d = bounds_arr.shape[0]
 
-    if isinstance(strategy, str) and strategy not in DE_STRATEGY_OPTIONS:
-        raise ValueError(
-            f"strategy must be one of {DE_STRATEGY_OPTIONS} or a callable; got {strategy!r}"
-        )
-    if isinstance(init, str) and init not in DE_INIT_OPTIONS:
-        raise ValueError(f"init must be one of {DE_INIT_OPTIONS} or an array; got {init!r}")
-
-    if maxiter is None:
-        maxiter = _default_maxiter(d)
+    config = DifferentialEvolutionConfig(
+        strategy=strategy,
+        maxiter=maxiter,
+        popsize=popsize,
+        tol=tol,
+        mutation=mutation,
+        recombination=recombination,
+        rng=rng,
+        init=init,
+        atol=atol,
+        updating=updating,
+        workers=workers,
+        integrality=integrality,
+        vectorized=vectorized,
+    )
+    maxiter = config.evaluation_budget(d)
 
     sample_x = (
         np.asarray(x0, dtype=np.float64) if x0 is not None else _sample_x_from_bounds(bounds_arr)
@@ -125,7 +156,6 @@ def differential_evolution(
         dtype=sample_x.dtype.name if sample_x.dtype != object else None,
     )
 
-    owns_progress = not isinstance(progressbar, object.__class__) and isinstance(progressbar, bool)
     if isinstance(progressbar, bool):
         progress = build_progress_bar(
             description="Differential Evolution",
@@ -150,8 +180,10 @@ def differential_evolution(
         de_task = progress_task
         progress.update(de_task, total=maxiter, f_value=float("inf"))
 
+    fallback_x = np.asarray(x0, dtype=np.float64) if x0 is not None else sample_x
+
     iter_counter = [0]
-    best_fun_seen = [float("inf")]
+    tracker = _BestTracker(f_cached.value, fallback_x)
 
     def progress_callback(intermediate_result):
         """Drive progress bar + forward to user's callback.
@@ -168,14 +200,15 @@ def differential_evolution(
 
         try:
             f_val = float(f_cached.value(xk))
-        except Exception:
-            f_val = best_fun_seen[0]
+        except Exception as e:
+            if is_interrupt(e):
+                raise
+            f_val = tracker.best_fun
 
-        if f_val < best_fun_seen[0]:
-            best_fun_seen[0] = f_val
+        tracker.record(xk, f_val)
 
         iter_counter[0] += 1
-        progress.update(de_task, advance=1, f_value=best_fun_seen[0], refresh=True)
+        progress.update(de_task, advance=1, f_value=tracker.best_fun, refresh=True)
 
         if callback is not None:
             res = OptimizeResult(x=xk, fun=f_val, nit=iter_counter[0], convergence=convergence)
@@ -183,39 +216,42 @@ def differential_evolution(
         return False
 
     scipy_kwargs: dict[str, Any] = {
+        **config.optimizer_kwargs(n=d),
         "args": args,
-        "strategy": strategy,
-        "maxiter": maxiter,
-        "popsize": popsize,
-        "tol": tol,
-        "mutation": mutation,
-        "recombination": recombination,
-        "rng": rng,
         "callback": progress_callback,
+        "constraints": constraints,
         "disp": False,
         "polish": False,
-        "init": init,
-        "atol": atol,
-        "updating": updating,
-        "workers": workers,
-        "constraints": constraints,
-        "integrality": integrality,
-        "vectorized": vectorized,
     }
     if x0 is not None:
         scipy_kwargs["x0"] = np.asarray(x0, dtype=np.float64)
 
-    fallback_x = np.asarray(x0, dtype=np.float64) if x0 is not None else sample_x
+    def interrupted() -> OptimizationInterrupted:
+        message = (
+            f"Interrupted by KeyboardInterrupt after {iter_counter[0]} generations and "
+            f"{f_cached.cache_misses} function evaluations."
+        )
+        result = OptimizeResult(
+            x=tracker.best_x,
+            fun=tracker.best_fun,
+            success=False,
+            message=message,
+            nit=iter_counter[0],
+            nfev=f_cached.cache_misses,
+        )
+        return OptimizationInterrupted(result, message)
 
     progress_ctx = progress if owns_progress else _nullcontext()
     with progress_ctx:
         try:
-            res = sp_differential_evolution(f_cached.value, bounds_arr, **scipy_kwargs)
-        except (KeyboardInterrupt, StopIteration) as e:
+            res = sp_differential_evolution(tracker, bounds_arr, **scipy_kwargs)
+        except KeyboardInterrupt as e:
+            raise interrupted() from e
+        except StopIteration as e:
             _log.warning("differential_evolution interrupted: %s", e)
             res = OptimizeResult(
-                x=fallback_x,
-                fun=best_fun_seen[0],
+                x=tracker.best_x,
+                fun=tracker.best_fun,
                 success=False,
                 message=f"interrupted: {type(e).__name__}",
                 nit=iter_counter[0],
@@ -231,6 +267,10 @@ def differential_evolution(
                 nit=iter_counter[0],
                 nfev=f_cached.cache_misses,
             )
+        except Exception as e:
+            if is_interrupt(e):
+                raise interrupted() from e
+            raise
         else:
             progress.update(de_task, completed=maxiter, f_value=float(res.fun), refresh=True)
 

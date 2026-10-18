@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from trajectory._models import BaseModel
 from trajectory.types.training_algorithm import TrainingAlgorithm
 
@@ -34,6 +36,10 @@ class RecordedRunOptions(BaseModel):
   lr_hold_steps: int | None = None
 
   min_lr_ratio: float | None = None
+
+  reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"] | None = (
+    None
+  )
 
   disable_thinking: bool | None = None
 

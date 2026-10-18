@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: opack2
-Version: 0.0.1
+Version: 0.1.0
 Summary: Python library for parsing the opack format
 Author-email: lori <loriwittdev@gmail.com>, doronz <doron88@gmail.com>
 Maintainer-email: lori <loriwittdev@gmail.com>, doronz <doron88@gmail.com>
@@ -695,9 +695,10 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: arrow
-Requires-Dist: construct
+Requires-Dist: bytestruct>=0.1.0
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
+Dynamic: license-file
 
 # opack2
 

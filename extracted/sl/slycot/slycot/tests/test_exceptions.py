@@ -29,7 +29,7 @@ from slycot.exceptions import (SlycotError, SlycotParameterError,
                                SlycotWarning, raise_if_slycot_error)
 
 
-def assert_docstring_parse(docstring, exception_class, erange, checkvars={}):
+def assert_docstring_parse(docstring, exception_class, erange, checkvars):
     """To check that a docstring can be parsed into exceptions
     See also raise_if_slycot_error
 
@@ -69,6 +69,7 @@ def assert_docstring_parse(docstring, exception_class, erange, checkvars={}):
             assert wm[0].message.iwarn == iwarn
             assert wm[0].message.info == info
         else:
+            # ruff: disable[TRY004]
             raise RuntimeError("Invalid test exception")
 
 
@@ -83,6 +84,7 @@ def test_unhandled_info_iwarn():
     with pytest.raises(SlycotError) as ex_info:
         raise_if_slycot_error(100, [], docstring="no valid docstring")
     assert ex_info.value.info == 100
+    # ruff: disable[PT031]
     with pytest.warns(SlycotWarning) as wm:
         raise_if_slycot_error([101, 0], [], docstring="no valid docstring")
         raise_if_slycot_error(0, [], docstring="no valid docstring",
@@ -162,6 +164,7 @@ def test_xerbla_override():
                                        stderr=subprocess.STDOUT,
                                        universal_newlines=True)
     except subprocess.CalledProcessError as cpe:
+        # ruff: disable[UP032]
         raise RuntimeError("Trying to call _wrapper.ab08nd() failed with "
                            "returncode {}.\n"
                            "Captured STDOUT: \n {}\n"

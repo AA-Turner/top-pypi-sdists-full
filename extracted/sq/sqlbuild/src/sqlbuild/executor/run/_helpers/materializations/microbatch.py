@@ -11,58 +11,60 @@ from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from sqlbuild._native import (
+    AlignedInterval,
+    BackfillAction,
+    CursorBounds,
+    CursorGrain,
+    CursorType,
+    DateValue,
+    Duration,
+    IncrementalStrategy,
+    IntegerValue,
+    MicrobatchLimitAction,
+    MicrobatchStrategy,
+    ModelPlanEntry,
+    OnSchemaChange,
+    TableType,
+    TimestampValue,
+    aligned_timestamp_bounds,
+    compute_query_hash,
+    cursor_bound_display,
+    deterministic_microbatch_event_id,
+    empty_cursor_window,
+    fit_auxiliary_relation_name,
+    future_cursor_cap_warning,
+    inclusive_cursor_end,
+    latest_active_replay_requirement,
+    maximum_start_cap_warning,
+    merge_microbatch_intervals,
+    microbatch_limit_warning,
+    project_microbatch_coverage,
+    project_replay_requirement,
+    resolve_effective_microbatch_batch_size,
+)
+from sqlbuild._native import cursor_cap_from_end as cap_from_end
+from sqlbuild._native import cursor_cap_from_start as cap_from_start
+from sqlbuild._native import cursor_compare as compare
+from sqlbuild._native import (
+    cursor_exclusive_end_from_observed_max as exclusive_end_from_observed_max,
+)
+from sqlbuild._native import cursor_floor_to_grain as floor_to_grain
+from sqlbuild._native import cursor_next_boundary as next_boundary
+from sqlbuild._native import cursor_parse as parse
+from sqlbuild._native import cursor_render as render
+from sqlbuild._native import cursor_sentinel_to_token as sentinel_to_token
+from sqlbuild._native import cursor_split_into_batches as split_into_batches
 from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
 from sqlbuild.adapter.contract.classes.statement_recorder import StatementRecorder
 from sqlbuild.adapter.contract.models import ColumnInfo
 from sqlbuild.adapter.relations.main.cached_relation_exists import cached_relation_exists
-from sqlbuild.adapter.relations.main.fit_auxiliary_relation_name import fit_auxiliary_relation_name
 from sqlbuild.adapter.relations.main.resolve_qualified_name_parts import (
     resolve_qualified_name_parts,
 )
 from sqlbuild.adapter.relations.main.resolve_relation_location_qualified_name import (
     resolve_relation_location_qualified_name,
 )
-from sqlbuild.compiler.fingerprints.main.compute_query_hash import compute_query_hash
-from sqlbuild.compiler.planner.main.cursor_window.empty_cursor_window import empty_cursor_window
-from sqlbuild.compiler.planner.main.execution.aligned_timestamp_bounds import (
-    aligned_timestamp_bounds,
-)
-from sqlbuild.compiler.planner.main.execution.cursor_bound_display import cursor_bound_display
-from sqlbuild.compiler.planner.main.execution.effective_microbatch_batch_size import (
-    resolve_effective_microbatch_batch_size,
-)
-from sqlbuild.compiler.planner.main.execution.future_cursor_warning import future_cursor_cap_warning
-from sqlbuild.compiler.planner.main.execution.inclusive_cursor_end import inclusive_cursor_end
-from sqlbuild.compiler.planner.main.execution.maximum_start_warning import maximum_start_cap_warning
-from sqlbuild.compiler.planner.main.execution.microbatch_limit import (
-    microbatch_limit_warning,
-)
-from sqlbuild.compiler.planner.models import (
-    CursorBounds,
-    Duration,
-    ModelPlanEntry,
-)
-from sqlbuild.compiler.planner.types import (
-    BackfillAction,
-    CursorGrain,
-    CursorType,
-    IncrementalStrategy,
-    MicrobatchStrategy,
-    OnSchemaChange,
-)
-from sqlbuild.cursor_algebra.main.cap_from_end import cap_from_end
-from sqlbuild.cursor_algebra.main.cap_from_start import cap_from_start
-from sqlbuild.cursor_algebra.main.compare import compare
-from sqlbuild.cursor_algebra.main.exclusive_end_from_observed_max import (
-    exclusive_end_from_observed_max,
-)
-from sqlbuild.cursor_algebra.main.floor_to_grain import floor_to_grain
-from sqlbuild.cursor_algebra.main.next_boundary import next_boundary
-from sqlbuild.cursor_algebra.main.parse import parse
-from sqlbuild.cursor_algebra.main.render import render
-from sqlbuild.cursor_algebra.main.sentinel_to_token import sentinel_to_token
-from sqlbuild.cursor_algebra.main.split_into_batches import split_into_batches
-from sqlbuild.cursor_algebra.models import AlignedInterval, DateValue, IntegerValue, TimestampValue
 from sqlbuild.cursor_algebra.types import Bound, BoundSentinel, CursorScalar
 from sqlbuild.diagnostics.main.diagnostics_context import diagnostics_context
 from sqlbuild.diagnostics.main.log_debug_event import log_debug_event
@@ -128,15 +130,6 @@ from sqlbuild.microbatches.constants import (
     MICROBATCH_REPLAY_GENERATION_PREFIX,
 )
 from sqlbuild.microbatches.exceptions import MicrobatchStateError
-from sqlbuild.microbatches.main.deterministic_event_id import (
-    deterministic_microbatch_event_id,
-)
-from sqlbuild.microbatches.main.latest_replay_requirement import (
-    latest_active_replay_requirement,
-)
-from sqlbuild.microbatches.main.merge_intervals import merge_intervals
-from sqlbuild.microbatches.main.project_coverage import project_microbatch_coverage
-from sqlbuild.microbatches.main.project_replay import project_replay_requirement
 from sqlbuild.microbatches.models import (
     MicrobatchCoverageProjection,
     MicrobatchEvent,
@@ -166,7 +159,6 @@ from sqlbuild.runtime.observability.main.canonicalize_operation_adapter import (
     canonicalize_operation_adapter,
 )
 from sqlbuild.runtime.observability.models import MicrobatchLifecycleContext
-from sqlbuild.spec.contracts.types import MicrobatchLimitAction, TableType
 
 _DEFAULT_ON_SCHEMA_CHANGE: OnSchemaChange = OnSchemaChange.APPEND_NEW_COLUMNS
 _DEBUG_LOGGER: logging.Logger = logging.getLogger("sqlbuild.execution")
@@ -419,7 +411,7 @@ def execute_microbatch_entry(
     if isinstance(reconciliation, ModelExecutionResult):
         return reconciliation
     state, history_context, reconciled_batches = reconciliation
-    resolved_intervals: tuple[MicrobatchInterval, ...] = merge_intervals(
+    resolved_intervals: tuple[MicrobatchInterval, ...] = merge_microbatch_intervals(
         intervals=tuple(
             MicrobatchInterval(start=render(value=batch.start), end=render(value=batch.end))
             for batch in reconciled_batches
@@ -1238,7 +1230,7 @@ def _microbatch_lifecycle(
 def _microbatch_lifecycle_plan(
     *, batch_plan: _MicrobatchPlan, cursor_type: str
 ) -> _MicrobatchLifecyclePlan:
-    selected_intervals: tuple[MicrobatchInterval, ...] = merge_intervals(
+    selected_intervals: tuple[MicrobatchInterval, ...] = merge_microbatch_intervals(
         intervals=tuple(
             MicrobatchInterval(start=render(value=batch.start), end=render(value=batch.end))
             for batch in batch_plan.batches
@@ -3300,7 +3292,7 @@ def _plan_microbatch_windows(
             batch_size=batch_size,
             effective_grain=effective_grain,
         )
-    work_intervals: tuple[MicrobatchInterval, ...] = merge_intervals(
+    work_intervals: tuple[MicrobatchInterval, ...] = merge_microbatch_intervals(
         intervals=(
             (
                 MicrobatchInterval(

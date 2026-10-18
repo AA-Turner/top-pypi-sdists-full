@@ -52,6 +52,11 @@ pub struct LineInfo {
     /// counting them. A setext heading inside a blockquote is reported through
     /// `headings()` and leaves this unset, as it leaves `heading` unset.
     pub is_setext_heading_text: bool,
+    /// The container a heading sits in, recorded on every line of the heading
+    /// (an ATX line, or the text lines and underline of a setext heading) and
+    /// `None` on every other line. Read it through
+    /// [`LintContext::heading_container`](super::LintContext::heading_container).
+    pub heading_container: Option<HeadingContainer>,
     /// Blockquote information if this line is a blockquote
     /// Boxed to reduce LineInfo size: most lines are not blockquotes
     pub blockquote: Option<Box<BlockquoteInfo>>,
@@ -87,6 +92,12 @@ pub struct LineInfo {
     pub in_content_tab: bool,
     /// Whether this line is inside an HTML block with markdown attribute (MkDocs grid cards, etc.)
     pub in_mkdocs_html_markdown: bool,
+    /// Whether this line is inside an HTML element whose `markdown="span"` attribute
+    /// reads its content as inline Markdown only, so the line is not a table row,
+    /// list item or heading
+    pub in_markdown_span: bool,
+    /// Whether this line is the closing tag that ends an open `markdown` element
+    pub closes_markdown_element: bool,
     /// Whether this line is a definition list item (: definition)
     pub in_definition_list: bool,
     /// Whether this line is inside an Obsidian comment (%%...%% syntax, Obsidian flavor only)
@@ -200,6 +211,27 @@ pub struct ListItemInfo {
     pub marker_column: usize,
     /// Column where content after marker starts
     pub content_column: usize,
+    /// The list items CommonMark opens on this line, outermost first: the item
+    /// itself, then each item written on the same line inside it (`- 1. x`).
+    /// Empty when the container pass did not read the line as opening an item,
+    /// in which case no consumer may guess the item's columns.
+    pub commonmark_items: Vec<CommonMarkItem>,
+}
+
+/// One list item as CommonMark places it, measured in visual columns (a tab
+/// reaches the next multiple of four), which is how a continuation line is
+/// measured against it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CommonMarkItem {
+    /// The column the marker starts on.
+    pub marker_column: usize,
+    /// The column a continuation of the item's content has to reach: the start
+    /// of the text after the marker, or one column past the marker when the item
+    /// starts with a blank line or with five or more columns of whitespace.
+    pub content_column: usize,
+    /// Nothing but whitespace follows the marker on its line, so the item
+    /// starts with a blank line and can hold at most one.
+    pub is_empty: bool,
 }
 
 /// Heading style type
@@ -341,6 +373,46 @@ pub struct CodeSpan {
     pub content: String,
 }
 
+/// Parsed code span information
+#[derive(Debug, Clone)]
+pub(crate) struct SourceCodeSpan {
+    /// Line number where the code span starts (1-indexed)
+    pub line: usize,
+    /// Line number where the code span ends (1-indexed)
+    pub end_line: usize,
+    /// Start column (0-indexed) in the line
+    pub start_col: usize,
+    /// End column (0-indexed) in the line
+    pub end_col: usize,
+    /// Byte offset in document
+    pub byte_offset: usize,
+    /// End byte offset in document
+    pub byte_end: usize,
+    /// Number of backticks used (1, 2, 3, etc.)
+    pub backtick_count: usize,
+    /// Content inside the code span (without backticks)
+    pub(super) content: std::ops::Range<usize>,
+}
+
+impl SourceCodeSpan {
+    pub(crate) fn content<'a>(&self, source: &'a str) -> &'a str {
+        &source[self.content.clone()]
+    }
+
+    pub(super) fn materialize(&self, source: &str) -> CodeSpan {
+        CodeSpan {
+            line: self.line,
+            end_line: self.end_line,
+            start_col: self.start_col,
+            end_col: self.end_col,
+            byte_offset: self.byte_offset,
+            byte_end: self.byte_end,
+            backtick_count: self.backtick_count,
+            content: self.content(source).to_owned(),
+        }
+    }
+}
+
 /// Parsed math span information (inline $...$ or display $$...$$)
 #[derive(Debug, Clone)]
 pub struct MathSpan {
@@ -360,6 +432,23 @@ pub struct MathSpan {
     pub is_display: bool,
     /// Content inside the math delimiters
     pub content: String,
+}
+
+/// The container a heading is written in, as the CommonMark container pass of
+/// heading detection settles it for the heading's whole span.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HeadingContainer {
+    /// No list item holds the heading: it is at the top level of the document.
+    Outside,
+    /// The innermost open list item holds the heading. `content_col` is the
+    /// absolute visual column its content starts at (a tab reaches the next
+    /// multiple of four), which a line has to be indented to for the item to
+    /// keep it.
+    Item { content_col: usize },
+    /// A container the pass does not model (a blockquote, a footnote definition,
+    /// a flavor's indented block) holds the heading, so no column can be
+    /// trusted. Callers that rewrite the heading's indentation must decline.
+    Unknown,
 }
 
 /// Information about a heading
@@ -385,7 +474,11 @@ pub struct HeadingInfo {
     pub slug_text: String,
     /// Custom header ID if present (e.g., from {#custom-id} syntax)
     pub custom_id: Option<String>,
-    /// Original heading text including custom ID syntax. A setext heading's is
+    /// Original heading text including custom ID syntax, exactly as CommonMark
+    /// reads the heading's content: stripped of the spaces and tabs around it
+    /// and of an ATX closing sequence, with any other whitespace (a no-break
+    /// space, an em space) kept. `text` is the display form of the same
+    /// content, without that invisible whitespace. A setext heading's is
     /// the whole paragraph its underline ends, on one line: each soft line break
     /// is the space it renders as, and a hard line break's backslash goes with
     /// its line ending.
@@ -399,6 +492,20 @@ pub struct HeadingInfo {
     pub has_closing_sequence: bool,
     /// The closing sequence if present
     pub closing_sequence: String,
+}
+
+impl HeadingInfo {
+    /// Byte length of everything on the heading's first line that comes before
+    /// the heading's own syntax: indentation, and the list marker when the
+    /// heading opens a list item (`- ## a`, `1. a` over a `---` underline).
+    /// A rewrite of the heading keeps `line[..prefix_len]` so the heading stays
+    /// in the container it was written in.
+    pub fn first_line_prefix_len(&self) -> usize {
+        match self.style {
+            HeadingStyle::ATX => self.marker_column,
+            HeadingStyle::Setext1 | HeadingStyle::Setext2 => self.content_column,
+        }
+    }
 }
 
 /// An ATX-shaped line with no space after its opening `#`s. See
@@ -428,7 +535,9 @@ pub struct ParsedHeading<'a> {
     /// `line_info` alone, unless the heading is a setext heading whose
     /// paragraph spans lines.
     pub text_line_infos: &'a [LineInfo],
-    /// Blockquote nesting depth, or zero for a top-level heading.
+    /// Blockquote nesting depth, or zero for a top-level heading. A heading
+    /// whose line opens a list item holding the blockquote (`- > text`) carries
+    /// no `>` of its own to count, so it reports one.
     pub blockquote_depth: usize,
 }
 
@@ -531,16 +640,20 @@ fn text_byte_range(heading: &HeadingInfo, text_lines: &[LineInfo], source: &str)
 pub struct ParsedHeadingsIter<'a> {
     lines: &'a [LineInfo],
     blockquote_headings: &'a [Option<Box<HeadingInfo>>],
-    current_index: usize,
+    indices: std::slice::Iter<'a, usize>,
 }
 
 impl<'a> ParsedHeadingsIter<'a> {
-    pub(super) fn new(lines: &'a [LineInfo], blockquote_headings: &'a [Option<Box<HeadingInfo>>]) -> Self {
+    pub(super) fn new(
+        lines: &'a [LineInfo],
+        blockquote_headings: &'a [Option<Box<HeadingInfo>>],
+        indices: &'a [usize],
+    ) -> Self {
         debug_assert_eq!(lines.len(), blockquote_headings.len());
         Self {
             lines,
             blockquote_headings,
-            current_index: 0,
+            indices: indices.iter(),
         }
     }
 }
@@ -549,15 +662,12 @@ impl<'a> Iterator for ParsedHeadingsIter<'a> {
     type Item = ParsedHeading<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.current_index < self.lines.len() {
-            let idx = self.current_index;
-            self.current_index += 1;
-
+        for &idx in self.indices.by_ref() {
             let line_info = &self.lines[idx];
             let (heading, blockquote_depth) = if let Some(heading) = line_info.heading.as_deref() {
                 (heading, 0)
             } else if let Some(heading) = self.blockquote_headings[idx].as_deref() {
-                (heading, line_info.blockquote.as_ref().map_or(0, |bq| bq.nesting_level))
+                (heading, line_info.blockquote.as_ref().map_or(1, |bq| bq.nesting_level))
             } else {
                 continue;
             };
@@ -615,14 +725,14 @@ impl<'a> ValidHeading<'a> {
 /// [`LineInfo::atx_missing_space`]).
 pub struct ValidHeadingsIter<'a> {
     lines: &'a [LineInfo],
-    current_index: usize,
+    indices: std::slice::Iter<'a, usize>,
 }
 
 impl<'a> ValidHeadingsIter<'a> {
-    pub(super) fn new(lines: &'a [LineInfo]) -> Self {
+    pub(super) fn new(lines: &'a [LineInfo], indices: &'a [usize]) -> Self {
         Self {
             lines,
-            current_index: 0,
+            indices: indices.iter(),
         }
     }
 }
@@ -631,10 +741,7 @@ impl<'a> Iterator for ValidHeadingsIter<'a> {
     type Item = ValidHeading<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.current_index < self.lines.len() {
-            let idx = self.current_index;
-            self.current_index += 1;
-
+        for &idx in self.indices.by_ref() {
             let line_info = &self.lines[idx];
             if let Some(heading) = line_info.heading.as_deref() {
                 return Some(ValidHeading {
@@ -930,14 +1037,14 @@ impl<'a> Iterator for ParsedListBlockItemsIter<'a> {
 
 pub struct ParsedListItemsIter<'a> {
     lines: &'a [LineInfo],
-    current_index: usize,
+    indices: std::slice::Iter<'a, usize>,
 }
 
 impl<'a> ParsedListItemsIter<'a> {
-    pub(super) fn new(lines: &'a [LineInfo]) -> Self {
+    pub(super) fn new(lines: &'a [LineInfo], indices: &'a [usize]) -> Self {
         Self {
             lines,
-            current_index: 0,
+            indices: indices.iter(),
         }
     }
 }
@@ -946,9 +1053,7 @@ impl<'a> Iterator for ParsedListItemsIter<'a> {
     type Item = ParsedListItem<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.current_index < self.lines.len() {
-            let idx = self.current_index;
-            self.current_index += 1;
+        for &idx in self.indices.by_ref() {
             let line_info = &self.lines[idx];
             if let Some(item) = line_info.list_item.as_deref() {
                 return Some(ParsedListItem::new(idx + 1, item, line_info));
@@ -1169,6 +1274,43 @@ pub struct EmphasisSpan {
     pub content: String,
 }
 
+/// Pre-parsed emphasis span information
+#[derive(Debug, Clone)]
+pub(crate) struct SourceEmphasisSpan {
+    /// Line number (1-indexed)
+    pub line: usize,
+    /// Start column (0-indexed) in the line
+    pub start_col: usize,
+    /// End column (0-indexed) in the line
+    pub end_col: usize,
+    /// Byte offset in document
+    pub byte_offset: usize,
+    /// End byte offset in document
+    pub byte_end: usize,
+    /// Type of emphasis ('*' or '_')
+    pub marker: char,
+    /// Whether this span is strong emphasis (`**`/`__`) rather than ordinary emphasis (`*`/`_`)
+    pub is_strong: bool,
+}
+
+impl SourceEmphasisSpan {
+    pub(super) fn materialize(&self, source: &str) -> EmphasisSpan {
+        let width = if self.is_strong { 2 } else { 1 };
+        let start = self.byte_offset + width;
+        let end = self.byte_end.saturating_sub(width);
+        EmphasisSpan {
+            line: self.line,
+            start_col: self.start_col,
+            end_col: self.end_col,
+            byte_offset: self.byte_offset,
+            byte_end: self.byte_end,
+            marker: self.marker,
+            is_strong: self.is_strong,
+            content: source.get(start..end).unwrap_or("").to_owned(),
+        }
+    }
+}
+
 /// Pre-parsed bare URL information (not in links)
 #[derive(Debug, Clone)]
 pub struct BareUrl {
@@ -1209,13 +1351,16 @@ pub struct LazyContLine {
 /// - May have spaces between characters
 /// - No other characters allowed
 pub fn is_horizontal_rule_line(line: &str) -> bool {
-    // CommonMark: HRs can have 0-3 spaces of leading indentation, not tabs
-    let leading_spaces = line.len() - line.trim_start_matches(' ').len();
-    if leading_spaces > 3 || line.starts_with('\t') {
+    // CommonMark: HRs can have 0-3 spaces of leading indentation. A tab among the
+    // leading whitespace reaches the next multiple of four, so it is four or more.
+    let leading = &line[..line.len() - line.trim_start_matches([' ', '\t']).len()];
+    if leading.len() > 3 || leading.contains('\t') {
         return false;
     }
 
-    is_horizontal_rule_content(line.trim())
+    // Only spaces, tabs and a CR may surround the marker run; other Unicode
+    // whitespace makes the line paragraph text.
+    is_horizontal_rule_content(line.trim_matches([' ', '\t', '\r']))
 }
 
 /// Check if trimmed content matches horizontal rule pattern.
@@ -1242,14 +1387,27 @@ pub fn is_horizontal_rule_content(trimmed: &str) -> bool {
     count >= 3
 }
 
-/// Check if content is a setext underline: a run of `=` or of `-`, leading and
-/// trailing whitespace allowed, no internal spaces and no mixing of the two
-/// markers. `= = =` is paragraph text, not an underline.
+/// Trim the leading spaces and tabs of a setext underline. CommonMark 4.3 allows
+/// only those two characters there; any other whitespace makes the line text.
+pub(crate) fn trim_setext_underline_start(content: &str) -> &str {
+    content.trim_start_matches([' ', '\t'])
+}
+
+/// Trim the trailing spaces and tabs of a setext underline, plus the carriage
+/// return a CRLF line ending leaves on a slice.
+pub(crate) fn trim_setext_underline_end(content: &str) -> &str {
+    content.trim_end_matches([' ', '\t', '\r'])
+}
+
+/// Check if content is a setext underline: a run of `=` or of `-`, with spaces
+/// and tabs allowed around it (CommonMark 4.3: no other whitespace), no internal
+/// spaces and no mixing of the two markers. `= = =` is paragraph text, not an
+/// underline.
 ///
 /// Callers working inside a container pass the content with the container's
 /// prefix already stripped, so a blockquoted underline is recognized too.
 pub fn is_setext_underline_content(content: &str) -> bool {
-    let trimmed = content.trim();
+    let trimmed = trim_setext_underline_end(trim_setext_underline_start(content));
     let mut chars = trimmed.chars();
     let Some(marker @ ('=' | '-')) = chars.next() else {
         return false;

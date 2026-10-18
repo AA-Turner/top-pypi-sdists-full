@@ -20,7 +20,8 @@ pub fn run(args: impl Into<Args>) -> Result<(), crate::Error> {
             env!("CARGO_PKG_VERSION")
         );
 
-        let (service, socket) = tombi_lsp::lsp_service(args.common.offline, args.common.no_cache);
+        let (service, socket) =
+            tombi_lsp::lsp_service(args.common.offline, args.common.cache_options());
         serve(tokio::io::stdin(), tokio::io::stdout(), socket, service).await;
 
         log::info!("stopped Tombi LSP server.");
@@ -67,7 +68,7 @@ mod tests {
     async fn exit_notification_stops_server_while_input_remains_open() {
         let (mut client_input, server_input) = tokio::io::duplex(1024);
         let (server_output, _client_output) = tokio::io::duplex(1024);
-        let (service, socket) = tombi_lsp::lsp_service(true, true);
+        let (service, socket) = tombi_lsp::lsp_service(true, tombi_cache::Options::default());
 
         client_input
             .write_all(b"Content-Length: 33\r\n\r\n{\"jsonrpc\":\"2.0\",\"method\":\"exit\"}")

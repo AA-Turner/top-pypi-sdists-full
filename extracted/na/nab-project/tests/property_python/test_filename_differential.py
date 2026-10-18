@@ -16,7 +16,6 @@ by the corpus in ``nab-project/tests/test_simple_client_filenames.py``.
 from __future__ import annotations
 
 import string
-import sys
 
 import pytest
 from hypothesis import example, given
@@ -24,6 +23,7 @@ from hypothesis import strategies as st
 from packaging.utils import InvalidSdistFilename, parse_sdist_filename
 
 from nab_index.client import _parse_sdist_filename, _parse_wheel_filename
+from nab_markersets._compat import get_int_max_str_digits
 from nab_provider._vendor.packaging.utils import (
     InvalidWheelFilename,
     parse_wheel_filename,
@@ -88,7 +88,7 @@ extensions = st.sampled_from(
     [".whl", ".WHL", ".tar.gz", ".zip", "", ".whl ", ".whl.whl"]
 )
 
-OVERSIZED_VERSION = "1" * (sys.get_int_max_str_digits() + 1)
+OVERSIZED_VERSION = "1" * ((get_int_max_str_digits() or 4300) + 1)
 
 
 @st.composite

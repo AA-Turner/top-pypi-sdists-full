@@ -13,6 +13,23 @@ pub fn run_check(args: &CheckArgs, global_config_path: Option<&str>, isolated: b
     let quiet = args.quiet;
     let silent = args.silent;
 
+    if args.preflight
+        && (args.fix_mode == FixMode::Check
+            || args.diff
+            || args.check
+            || args.stdin
+            || args.stdin_batch
+            || args.watch
+            || args.paths.iter().any(|path| path == "-"))
+    {
+        if !silent {
+            eprintln!(
+                "Error: --preflight requires file-based fmt or check --fix; stdin, previews and watch are unsupported"
+            );
+        }
+        exit::tool_error();
+    }
+
     // `--list-rules` / `-l` was removed: rule listing lives in dedicated commands.
     // Rather than a bare "unexpected argument" error, point users (especially those
     // migrating from other linters who reach for `-l`) at the right commands, and
@@ -36,6 +53,16 @@ pub fn run_check(args: &CheckArgs, global_config_path: Option<&str>, isolated: b
     if args.check && args.fix {
         eprintln!("{}: --check and --fix cannot be used together", "Error".red().bold());
         eprintln!("Use --check to verify formatting without changes, or --fix to apply them");
+        exit::tool_error();
+    }
+
+    // clap's `requires` is skipped when the required flag conflicts with
+    // another argument that was given (a path or `--watch`), so check it here,
+    // before any mode is entered.
+    if args.stdin_batch_targets.is_some() && !args.stdin_batch {
+        if !silent {
+            eprintln!("{}: --stdin-batch-targets requires --stdin-batch", "Error".red().bold());
+        }
         exit::tool_error();
     }
 
@@ -194,7 +221,9 @@ pub fn run_check(args: &CheckArgs, global_config_path: Option<&str>, isolated: b
     // Validation warnings are already printed above, so we use into_validated_unchecked
     // The sourced form is kept alongside it: `.editorconfig` layers into that one,
     // where a setting's provenance still says whether a rumdl config set it.
-    let sourced = sourced.into_validated_unchecked();
+    let mut sourced = sourced.into_validated_unchecked();
+    // Keep the already-reported warnings for nested-config deduplication.
+    sourced.validation_warnings = validation_warnings;
     let mut config: rumdl_config::Config = sourced.clone().into();
     crate::apply_runtime_cli_overrides(&mut config, args);
 

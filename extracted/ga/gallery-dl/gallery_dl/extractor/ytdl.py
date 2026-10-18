@@ -54,7 +54,7 @@ class YoutubeDLExtractor(Extractor):
 
     def _init(self):
         if not self.url.startswith("ytdl:") and (w := self.config("websites")):
-            if isinstance(w, str):
+            if w.__class__ is str:
                 w = w.replace(" ", "").lower().split(",")
             if self.subcategory.lower() not in w:
                 raise self.exc.NoExtractorError()

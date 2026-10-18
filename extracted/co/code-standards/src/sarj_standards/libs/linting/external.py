@@ -1494,7 +1494,7 @@ def _parse_react_doctor_changed_scope(
     projects: Sequence[Path],
 ) -> tuple[Diagnostic, ...]:
     report = _ReactDoctorReport.model_validate_json(payload)
-    allow_empty_projects = allow_empty_projects or _react_doctor_degraded_scope_has_no_source(
+    allow_empty_projects = allow_empty_projects or _react_doctor_empty_changed_scope_has_no_source(
         report,
         projects=projects,
         root=root,
@@ -1527,7 +1527,7 @@ def _react_doctor_scoped_project_set(
     reported_projects = frozenset(_contained_report_directory(item, root) for item in report.projects)
     if not reported_projects or not reported_projects < expected_projects:
         return expected_projects
-    if not staged and (report.diff is None or report.diff.is_current_changes is not False):
+    if not staged and (report.diff is None or report.diff.is_current_changes is None):
         return expected_projects
     requested_base = change_scope_base()
     if not staged and requested_base and report.diff is not None and report.diff.base_branch != requested_base:
@@ -1540,13 +1540,13 @@ def _react_doctor_scoped_project_set(
         scope_root=scope_root,
         reported_base=None if staged or report.diff is None else report.diff.base_branch,
         reported_changed_file_count=None if staged or report.diff is None else report.diff.changed_file_count,
-        include_type_changes=True,
+        known_projects=tuple(expected_projects),
     ):
         return reported_projects
     return expected_projects
 
 
-def _react_doctor_degraded_scope_has_no_source(
+def _react_doctor_empty_changed_scope_has_no_source(
     report: _ReactDoctorReport,
     *,
     projects: Sequence[Path],
@@ -1554,7 +1554,12 @@ def _react_doctor_degraded_scope_has_no_source(
     runner: ProcessRunner,
     scope_root: Path,
 ) -> bool:
-    if not report.baseline_degraded or report.projects or report.diagnostics or report.diff is None:
+    if report.projects or report.diagnostics or report.diff is None:
+        return False
+    if not report.baseline_degraded and report.diff.is_current_changes is None:
+        return False
+    requested_base = change_scope_base()
+    if requested_base and report.diff.base_branch != requested_base:
         return False
     return _react_doctor_scope_has_no_source(
         projects,
@@ -1569,7 +1574,7 @@ def _react_doctor_degraded_scope_has_no_source(
 
 def _react_doctor_staged_paths(root: Path, *, runner: ProcessRunner) -> frozenset[str]:
     output = runner(
-        ("git", "diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z", "--"),
+        ("git", "diff", "--cached", "--name-only", "--diff-filter=ACMRT", "-z", "--"),
         cwd=root,
     )
     if output.returncode != 0:
@@ -1685,21 +1690,14 @@ def _react_doctor_scope_has_no_source(
     scope_root: Path | None = None,
     reported_base: str | None = None,
     reported_changed_file_count: int | None = None,
-    include_type_changes: bool = False,
+    known_projects: Sequence[Path] = (),
 ) -> bool:
-    diff_filter = "--diff-filter=ACMRT" if include_type_changes else "--diff-filter=ACMR"
-    if staged:
-        diff_args = ("git", "diff", "--cached", "--name-only", diff_filter, "-z", "--")
-    else:
-        base = reported_base or change_scope_base()
-        if not base:
-            return False
-        if reported_base is not None:
-            verified_base = _verified_react_changed_base(base, root, runner)
-            if verified_base is None:
-                return False
-            base = verified_base
-        diff_args = ("git", "diff", f"{base}...HEAD", "--name-only", diff_filter, "-z", "--")
+    diff_filter = "--diff-filter=ACMR" if reported_changed_file_count is not None else "--diff-filter=ACMRT"
+    diff_args = _react_doctor_git_diff_args(
+        root, runner=runner, staged=staged, reported_base=reported_base, diff_filter=diff_filter
+    )
+    if diff_args is None:
+        return False
     changed = runner(
         diff_args,
         cwd=root,
@@ -1712,9 +1710,53 @@ def _react_doctor_scope_has_no_source(
         return False
     resolved_projects = tuple(project.resolve() for project in projects)
     changed_paths = tuple(item for item in changed.stdout.split("\0") if item)
-    return _changed_scope_has_no_source(
-        changed_paths, resolved_root, resolved_scope, resolved_projects, reported_changed_file_count
+    resolved_known_projects = tuple(project.resolve() for project in known_projects)
+    if not _changed_scope_has_no_source(
+        changed_paths,
+        resolved_root,
+        resolved_scope,
+        resolved_projects,
+        reported_changed_file_count,
+        known_projects=resolved_known_projects,
+    ):
+        return False
+    if reported_changed_file_count is None:
+        return True
+    # Native changedFileCount uses ACMR, but source coverage must also reject
+    # type-changed source files that its counter deliberately omits.
+    source_diff = runner(
+        tuple("--diff-filter=ACMRT" if arg == "--diff-filter=ACMR" else arg for arg in diff_args), cwd=root
     )
+    return source_diff.returncode == 0 and _changed_scope_has_no_source(
+        tuple(item for item in source_diff.stdout.split("\0") if item),
+        resolved_root,
+        resolved_scope,
+        resolved_projects,
+        None,
+        known_projects=resolved_known_projects,
+    )
+
+
+def _react_doctor_git_diff_args(
+    root: Path,
+    *,
+    runner: ProcessRunner,
+    staged: bool,
+    reported_base: str | None,
+    diff_filter: str,
+) -> tuple[str, ...] | None:
+    if staged:
+        return ("git", "diff", "--cached", "--name-only", diff_filter, "-z", "--")
+    base = reported_base or change_scope_base()
+    if not base:
+        return None
+    if reported_base is not None:
+        verified_base = _verified_react_changed_base(base, root, runner)
+        if verified_base is None:
+            return None
+        base = verified_base
+    # Native compares the verified base with the tracked worktree, not HEAD.
+    return ("git", "diff", base, "--name-only", diff_filter, "-z", "--")
 
 
 def change_scope_base() -> str:
@@ -3650,9 +3692,15 @@ def _verified_react_changed_base(base: str, root: Path, runner: ProcessRunner) -
     if resolved.returncode != 0 or re.fullmatch(r"[0-9a-f]{40}", resolved_base) is None:
         return None
     ancestor = runner(("git", "merge-base", "--is-ancestor", resolved_base, "HEAD"), cwd=root)
-    if ancestor.returncode != 0:
+    if ancestor.returncode == 0:
+        return resolved_base
+    if ancestor.returncode != 1:
         return None
-    return resolved_base
+    common = runner(("git", "merge-base", resolved_base, "HEAD"), cwd=root)
+    common_base = common.stdout.strip()
+    if common.returncode != 0 or re.fullmatch(r"[0-9a-f]{40}", common_base) is None:
+        return None
+    return common_base
 
 
 def _validate_mobsfscan_coverage(report: dict[str, object], root: Path, expected_paths: Sequence[str]) -> None:
@@ -3710,6 +3758,8 @@ def _changed_scope_has_no_source(
     resolved_scope: Path,
     resolved_projects: tuple[Path, ...],
     reported_changed_file_count: int | None,
+    *,
+    known_projects: tuple[Path, ...] = (),
 ) -> bool:
     scoped_changed_file_count = 0
     for relative in changed_paths:
@@ -3721,10 +3771,16 @@ def _changed_scope_has_no_source(
         candidate = resolved_root / relative_path
         if candidate.is_relative_to(resolved_scope):
             scoped_changed_file_count += 1
-        within_project = any(candidate.is_relative_to(project) for project in resolved_projects)
         if candidate.suffix.casefold() not in _REACT_DOCTOR_SOURCE_SUFFIXES:
             continue
-        if within_project:
+        # React Doctor attributes a file only to its nearest enclosing project,
+        # so an enclosing root project neither owns nor reports it.
+        owner = max(
+            (project for project in (*resolved_projects, *known_projects) if candidate.is_relative_to(project)),
+            key=lambda project: len(project.parts),
+            default=None,
+        )
+        if owner in resolved_projects:
             return False
     return reported_changed_file_count is None or scoped_changed_file_count == reported_changed_file_count
 

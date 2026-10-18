@@ -21,6 +21,7 @@ import tomli
 from nab_provider._vendor.packaging.pylock import Pylock, PylockValidationError
 from nab_provider._vendor.packaging.specifiers import SpecifierSet
 from nab_provider._vendor.packaging.utils import canonicalize_name
+from nab_provider.digest import is_hex_digest
 from nab_provider.extra_keys import split_extra
 from nab_provider.iso8601 import parse_iso_datetime
 from nab_provider.metadata import validate_specifier_versions
@@ -68,6 +69,7 @@ __all__ = [
     "read_lockfile_packages",
     "require_artifact_hashes",
     "strip_userinfo",
+    "validate_artifact_hashes",
 ]
 
 _Artifact = TypeVar("_Artifact", "WheelArtifact", "SdistArtifact")
@@ -698,13 +700,7 @@ def _parse_upload_time(raw: str | None) -> datetime | None:
 def _filter_acceptable_hashes(
     hashes: tuple[tuple[str, str], ...],
 ) -> tuple[tuple[str, str], ...]:
-    """Return the subset of ``hashes`` whose algorithm is consumable.
-
-    Pip's hash-checking mode and PEP 751 both accept any of sha256,
-    sha384, or sha512; nab forwards every recorded entry so consumers
-    can pick.  Unacceptable algorithms (e.g. md5) are dropped, so the
-    result may be empty.
-    """
+    """Return recorded sha256, sha384, and sha512 hashes in sorted order."""
     from ..lockfile import ACCEPTED_HASH_ALGORITHMS
 
     return tuple(
@@ -715,13 +711,11 @@ def _filter_acceptable_hashes(
 
 
 def require_artifact_hashes(lock_input: LockInput) -> None:
-    """Raise :class:`MissingHashError` if a pinned artefact has no hash.
+    """Raise :class:`MissingHashError` if a pinned index artefact has no hash.
 
-    PEP 751 and pip's hash-checking mode each need at least one of
-    sha256/sha384/sha512 per artefact.  :func:`write_requirements_without_hashes`
-    emits no ``--hash`` lines and does not call this.
+    PEP 751 requires at least one hash per artefact without restricting the algorithm.
     """
-    from ..lockfile import ACCEPTED_HASH_ALGORITHMS, IndexPin
+    from ..lockfile import IndexPin
 
     for lock in lock_input.targets.values():
         for pin in lock.pins.values():
@@ -730,12 +724,20 @@ def require_artifact_hashes(lock_input: LockInput) -> None:
             artefacts = (*pin.wheels, *((pin.sdist,) if pin.sdist is not None else ()))
             for artefact in artefacts:
                 if not artefact.hashes:
-                    msg = (
-                        f"{pin.name}: artefact {artefact.filename!r} has no "
-                        f"acceptable hash (need one of "
-                        f"{list(ACCEPTED_HASH_ALGORITHMS)!r})"
-                    )
+                    msg = f"{pin.name}: artefact {artefact.filename!r} has no hash"
                     raise MissingHashError(msg)
+
+
+def validate_artifact_hashes(
+    artifact: str, hashes: tuple[tuple[str, str], ...]
+) -> None:
+    """Raise ``LockValidationError`` for empty or non-hexadecimal digests."""
+    from ..lockfile import LockValidationError
+
+    for algorithm, digest in hashes:
+        if not is_hex_digest(digest):
+            msg = f"{artifact}: {algorithm} digest must be non-empty hexadecimal text"
+            raise LockValidationError(msg)
 
 
 def _common_requires_python(files: Iterable[WheelFile | SdistFile]) -> str | None:

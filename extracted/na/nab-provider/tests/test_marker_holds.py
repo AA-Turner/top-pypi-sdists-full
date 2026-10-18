@@ -7,17 +7,21 @@ gated ``extra == "a"`` activates for ``[a, b]``.
 
 from __future__ import annotations
 
-import sys
 from collections.abc import Set as AbstractSet
 
 import pytest
 
+from nab_markersets._compat import get_int_max_str_digits
 from nab_provider._vendor.packaging.markers import MARKERS_ALLOWING_SET, Marker
 from nab_provider.conflict_kind import EMPTY_MEMBERSHIP_SETS
 from nab_provider.marker_holds import (
     IntractableMarkerError,
     UnevaluableMarkerError,
     dependency_marker_holds,
+)
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
 )
 
 _ENV: dict[str, str] = {
@@ -149,18 +153,19 @@ class TestDependencyMarkerHoldsUnevaluableClause:
 class TestDependencyMarkerHoldsIntractableInput:
     """A marker the algebra refuses to decide within its budget.
 
-    The digit runs come off ``sys.get_int_max_str_digits()`` because
+    The digit runs come off ``get_int_max_str_digits()`` because
     ``PYTHONINTMAXSTRDIGITS`` moves the limit.
     """
 
+    @requires_int_limit
     def test_oversized_version_literal_refuses(self) -> None:
         """A literal one digit past the parse limit stops the run."""
-        literal = "1" * (sys.get_int_max_str_digits() + 1)
+        literal = "1" * ((get_int_max_str_digits() or 4300) + 1)
         with pytest.raises(IntractableMarkerError, match="parse limit"):
             dependency_marker_holds(Marker(f'python_full_version < "{literal}"'), _ENV)
 
     def test_literal_at_the_limit_still_evaluates(self) -> None:
         """Evaluation converts the literal once, so the limit itself is fine."""
-        literal = "1" * sys.get_int_max_str_digits()
+        literal = "1" * (get_int_max_str_digits() or 4300)
         marker = Marker(f'python_full_version < "{literal}"')
         assert dependency_marker_holds(marker, _ENV) is True

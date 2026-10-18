@@ -6,8 +6,10 @@ pub mod anchor_styles;
 pub mod atomic_write;
 pub mod blank_lines;
 pub mod blockquote;
+pub mod bom;
 pub mod code_block_utils;
 pub mod emphasis_utils;
+pub mod fence_language;
 pub mod fix_utils;
 pub mod frontmatter_values;
 pub(crate) mod gh_aw;
@@ -42,6 +44,7 @@ pub mod pandoc;
 pub mod parser_options;
 pub mod project_root;
 pub mod pymdown_blocks;
+pub(crate) mod python_markdown_lists;
 pub mod quarto_chunks;
 pub mod range_utils;
 pub mod regex_cache;
@@ -60,7 +63,7 @@ pub use line_ending::{
     LineEnding, NormalizedLineEndingMap, detect_line_ending, detect_line_ending_enum, ensure_consistent_line_endings,
     get_line_ending_str, line_ending_before, normalize_line_ending,
 };
-pub use parser_options::rumdl_parser_options;
+pub use parser_options::{rumdl_parser_options, rumdl_parser_options_for};
 pub use range_utils::LineIndex;
 
 /// Calculate the visual indentation width of a string, expanding tabs to spaces.
@@ -220,6 +223,12 @@ pub fn warning_label(kind: &str) -> String {
     {
         label
     }
+}
+
+/// Search an ASCII delimiter while retaining source byte offsets.
+#[inline]
+pub(crate) fn find_ascii_delimiter(content: &str, delimiter: &str) -> Option<usize> {
+    memchr::memmem::find(content.as_bytes(), delimiter.as_bytes())
 }
 
 #[cfg(test)]

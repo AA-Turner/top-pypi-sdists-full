@@ -44,6 +44,8 @@ SCALE_FLOOR = 1e-30
 DECODE_ROWS = 16
 #: The GEMV's tile: 64 output rows by 32 int32 words (256 weights) of each.
 GEMV_N, GEMV_W = 64, 32
+#: The kernels a leaf serves besides comfy-kitchen's W4A4 (`gemm.selected`).
+DECODE, EAGER = "cozy-nvfp4-decode", "torch-decode"
 
 _MAJOR: dict[int, int] = {}
 
@@ -391,3 +393,12 @@ def matmul(
             return out.reshape(*x.shape[:-1], rows_out)
     decoded = nvfp4_values(torch, weight, linear_scale(), scale_2).to(x.dtype)
     return torch.nn.functional.linear(x, decoded).to(out_dtype)
+
+
+def serving(index: int) -> str:
+    """The kernel this card's nvfp4 leaves serve a product of more than `DECODE_ROWS` rows with
+    now (fewer rows take the GEMV): a run's `gemm.selected`, read once a run."""
+    kitchen = int8_linear._KITCHEN.get(index)
+    if _MAJOR.get(index, 0) >= 10 and kitchen is not None and kitchen.served is not None:
+        return int8_linear.ARTIFACT
+    return DECODE if _LAUNCH.get(index, (0.0, None))[1] is not None else EAGER

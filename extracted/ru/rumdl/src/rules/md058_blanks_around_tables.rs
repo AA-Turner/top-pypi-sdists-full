@@ -97,7 +97,63 @@ impl MD058BlanksAroundTables {
     }
 }
 
+/// Three or more `-`, `*` or `_` of one kind, spaces and tabs allowed between.
+fn is_thematic_break(text: &str) -> bool {
+    let mut chars = text.chars().filter(|c| !matches!(c, ' ' | '\t'));
+    let Some(first) = chars.next().filter(|c| matches!(c, '-' | '*' | '_')) else {
+        return false;
+    };
+    let mut count = 1;
+    for c in chars {
+        if c != first {
+            return false;
+        }
+        count += 1;
+    }
+    count >= 3
+}
+
+/// True when `line` holds only container markers (blockquote `>` and list
+/// markers) and the last one is a list marker, e.g. `-`, `> 1.` or `- -`.
+fn is_bare_list_marker_line(line: &str) -> bool {
+    let mut rest = line;
+    let mut last_is_list = false;
+    let mut markers = 0usize;
+    loop {
+        rest = rest.trim_start_matches([' ', '\t']);
+        let Some(first) = rest.chars().next() else {
+            break;
+        };
+        if is_thematic_break(rest) {
+            return false;
+        }
+        let after_marker = |len: usize| rest[len..].chars().next().is_none_or(|c| c == ' ' || c == '\t');
+        if first == '>' {
+            rest = &rest[1..];
+            last_is_list = false;
+        } else if matches!(first, '-' | '*' | '+') && after_marker(1) {
+            rest = &rest[1..];
+            last_is_list = true;
+        } else {
+            let digits = rest.chars().take_while(char::is_ascii_digit).count();
+            let terminator = rest[digits..].chars().next();
+            if (1..=9).contains(&digits) && matches!(terminator, Some('.' | ')')) && after_marker(digits + 1) {
+                rest = &rest[digits + 1..];
+                last_is_list = true;
+            } else {
+                return false;
+            }
+        }
+        markers += 1;
+    }
+    last_is_list && markers > 0
+}
+
 impl Rule for MD058BlanksAroundTables {
+    fn native_format_policy(&self) -> Option<crate::format_proof::NativeFormatPolicy> {
+        (self.config == Default::default()).then_some(crate::format_proof::NativeFormatPolicy::for_rule::<Self>(58))
+    }
+
     fn name(&self) -> &'static str {
         "MD058"
     }
@@ -129,9 +185,33 @@ impl Rule for MD058BlanksAroundTables {
         // Use pre-computed table blocks from context
         let table_blocks = &ctx.table_blocks;
 
-        for table_block in table_blocks {
+        for table_block in table_blocks.iter().filter(|block| block.parser_confirmed) {
             // Check for sufficient blank lines before table
-            if table_block.start_line > 0 {
+            // A table that is the content of a bare marker's item has no line to put
+            // a blank before. Only a marker the parser reads as an item counts: an
+            // empty item cannot interrupt a paragraph, so under paragraph text the
+            // marker underlines it as a setext heading and the table follows it.
+            let item_content = table_block.list_context.is_some()
+                && table_block.start_line > 0
+                && is_bare_list_marker_line(lines[table_block.start_line - 1])
+                && ctx.list_item_on_line(table_block.start_line).is_some();
+            // The opening tag of a `markdown="1"` element starts the block its content
+            // belongs to, so a table right under it follows no other block.
+            // In MDX `markdown` is an ordinary JSX prop and opens nothing.
+            let opens_container = table_block.start_line > 0
+                && ctx.flavor != crate::config::MarkdownFlavor::MDX
+                && ctx.lines[table_block.start_line - 1].in_mkdocs_html_markdown
+                && crate::utils::mkdocs_html_markdown::opens_markdown_block_alone(lines[table_block.start_line - 1]);
+            // The first line of an admonition body has no blank line to put before it:
+            // the opener line is the container edge, and the table renders inside it.
+            let admonition_first_line = ctx.flavor == crate::config::MarkdownFlavor::MkDocs
+                && table_block.start_line > 0
+                && crate::utils::mkdocs_admonitions::is_admonition_start(lines[table_block.start_line - 1])
+                && crate::utils::mkdocs_admonitions::is_admonition_content(
+                    lines[table_block.start_line],
+                    lines[table_block.start_line - 1].len() - lines[table_block.start_line - 1].trim_start().len(),
+                );
+            if table_block.start_line > 0 && !item_content && !opens_container && !admonition_first_line {
                 let blank_lines_before = self.count_blank_lines_before(lines, table_block.start_line);
                 if blank_lines_before < self.config.minimum_before {
                     let needed = self.config.minimum_before - blank_lines_before;
@@ -143,6 +223,13 @@ impl Rule for MD058BlanksAroundTables {
 
                     let bq_prefix = ctx.blockquote_prefix_for_blank_line(table_block.start_line);
                     let replacement = format!("{bq_prefix}\n").repeat(needed);
+                    let fix = (ctx.flavor == crate::config::MarkdownFlavor::MDG
+                        || !crate::utils::table_utils::TableUtils::header_is_indented_as_code(
+                            lines[table_block.start_line],
+                            lines[table_block.delimiter_line],
+                            table_block,
+                        ))
+                    .then(|| Fix::new(ctx.line_column_byte_range(table_block.start_line + 1, 1), replacement));
                     warnings.push(LintWarning {
                         rule_name: Some(self.name().to_string()),
                         message,
@@ -151,10 +238,7 @@ impl Rule for MD058BlanksAroundTables {
                         end_line: table_block.start_line + 1,
                         end_column: 2,
                         severity: Severity::Warning,
-                        fix: Some(Fix::new(
-                            ctx.line_column_byte_range(table_block.start_line + 1, 1),
-                            replacement,
-                        )),
+                        fix,
                     });
                 }
             }
@@ -164,6 +248,9 @@ impl Rule for MD058BlanksAroundTables {
                 // Check if the next line is a block attribute list attached to the table
                 let next_line_is_attribute = if table_block.end_line + 1 < lines.len() {
                     is_block_attribute_line(lines[table_block.end_line + 1], ctx.flavor)
+                        // The closing tag of a `markdown` element ends the block its table is in.
+                        || (ctx.flavor != crate::config::MarkdownFlavor::MDX
+                            && ctx.lines[table_block.end_line + 1].closes_markdown_element)
                 } else {
                     false
                 };
@@ -211,6 +298,7 @@ impl Rule for MD058BlanksAroundTables {
         let warnings = self.check(ctx)?;
         let mut warnings =
             crate::utils::fix_utils::filter_warnings_by_inline_config(warnings, ctx.inline_config(), self.name());
+        warnings.retain(|warning| warning.fix.is_some());
         if warnings.is_empty() {
             return Ok(content.to_string());
         }
@@ -1517,5 +1605,56 @@ More text.";
             "Fix should not add trailing newline if original didn't have one"
         );
         assert_eq!(fixed, "Intro\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n# After");
+    }
+
+    #[test]
+    fn test_indented_lazy_rows_in_blockquote_are_not_a_table() {
+        let rule = MD058BlanksAroundTables::default();
+        for content in [
+            "> o\n>     |a|b|\n>     |-|-|\n",
+            ">o\n>     |a|b|\n>     |-|-|\n",
+            "> > o\n> >     |a|b|\n> >     |-|-|\n",
+            "> o\n> |a|b|\n>     |-|-|\n",
+        ] {
+            let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+            assert!(rule.check(&ctx).unwrap().is_empty(), "{content:?}");
+            assert_eq!(rule.fix(&ctx).unwrap(), content, "{content:?}");
+        }
+    }
+
+    #[test]
+    fn test_real_table_after_lazy_rows_in_blockquote_is_still_checked() {
+        let rule = MD058BlanksAroundTables::default();
+        let content = "> o\n>     |a|b|\n>     |-|-|\n> |c|d|\n> |-|-|\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        assert_eq!(
+            rule.fix(&ctx).unwrap(),
+            "> o\n>     |a|b|\n>     |-|-|\n>\n> |c|d|\n> |-|-|\n"
+        );
+    }
+
+    #[test]
+    fn test_admonition_first_body_line_table_needs_no_blank_before() {
+        let rule = MD058BlanksAroundTables::default();
+        for opener in ["!!! note", "??? note", "???+ note", "!!! note \"Title\"", "  !!! note"] {
+            let indent = if opener.starts_with("  ") { "      " } else { "    " };
+            let content = format!("{opener}\n{indent}| a | b |\n{indent}|---|---|\n{indent}| 1 | 2 |\n\nafter\n");
+            let ctx = LintContext::new(&content, crate::config::MarkdownFlavor::MkDocs, None);
+            assert!(
+                rule.check(&ctx).unwrap().is_empty(),
+                "table opening an admonition body is not missing a blank line: {content:?}"
+            );
+            assert_eq!(rule.fix(&ctx).unwrap(), content, "fix must not touch {content:?}");
+        }
+    }
+
+    #[test]
+    fn test_admonition_table_after_body_text_still_flagged() {
+        let rule = MD058BlanksAroundTables::default();
+        // Python-Markdown renders this as one paragraph, so the blank line is missing.
+        let content = "!!! note\n\n    text\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::MkDocs, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(result.iter().any(|w| w.message.contains("before table")), "{result:?}");
     }
 }

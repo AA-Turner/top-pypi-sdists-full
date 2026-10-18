@@ -507,17 +507,14 @@ fn withhold_unquotable_text(fragment: &mut SourcedConfigFragment, display_path: 
     // The same construction each cache performs, so a pattern is withheld here
     // only when the cache is the one that would have printed it.
     fragment.per_file_ignores.value.retain(|pattern, _| {
-        let compiles = globset::Glob::new(&crate::discovery::expand_home_prefix(pattern)).is_ok();
+        let compiles = crate::discovery::path_glob(&crate::discovery::prepare_pattern(pattern), false).is_ok();
         if !compiles {
             log::warn!("Invalid glob pattern in per-file-ignores in {display_path}: {WITHHELD}");
         }
         compiles
     });
     fragment.per_file_flavor.value.retain(|pattern, _| {
-        let compiles = globset::GlobBuilder::new(&crate::discovery::expand_home_prefix(pattern))
-            .literal_separator(true)
-            .build()
-            .is_ok();
+        let compiles = crate::discovery::path_glob(&crate::discovery::prepare_pattern(pattern), true).is_ok();
         if !compiles {
             log::warn!("Invalid glob pattern in per-file-flavor in {display_path}: {WITHHELD}");
         }
@@ -1023,13 +1020,19 @@ fn apply_rule_table_toml_edit(
     }
 }
 
-/// Loads and converts a markdownlint config file (.json or .yaml) into a SourcedConfigFragment.
-pub(super) fn load_from_markdownlint(path: &str) -> Result<SourcedConfigFragment, ConfigError> {
+/// Loads and converts markdownlint config files (.json or .yaml) into a SourcedConfigFragment.
+///
+/// `chain` is ordered outermost first and merged as described on
+/// [`crate::markdownlint_config::load_markdownlint_cli2_chain`]; a single file loads as-is.
+/// Each winning rule keeps its originating file.
+pub(super) fn load_from_markdownlint(chain: &[String]) -> Result<SourcedConfigFragment, ConfigError> {
+    let Some(path) = chain.last() else {
+        return Ok(SourcedConfigFragment::default());
+    };
     let display_path = to_relative_display_path(path);
-    // Use the unified loader from markdownlint_config.rs
-    let ml_config = crate::markdownlint_config::load_markdownlint_config(path)
-        .map_err(|e| ConfigError::ParseError(format!("{display_path}: {e}")))?;
-    Ok(ml_config.map_to_sourced_rumdl_config_fragment(Some(path)))
+    let paths: Vec<&str> = chain.iter().map(String::as_str).collect();
+    crate::markdownlint_config::load_sourced_markdownlint_chain(&paths)
+        .map_err(|e| ConfigError::ParseError(format!("{display_path}: {e}")))
 }
 
 #[cfg(test)]

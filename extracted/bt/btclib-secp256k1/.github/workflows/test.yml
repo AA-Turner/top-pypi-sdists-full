@@ -523,11 +523,10 @@ jobs:
 
       # cibuildwheel from the build group of pyproject.toml, pinned by
       # uv.lock, rather than from `pip install -U`, which fetched whatever
-      # the index held that morning: what it decides — the interpreters,
-      # the manylinux images, the identifiers the skip in
-      # [tool.cibuildwheel] names — is this matrix, so a release of it
-      # belongs in a pull request that runs the matrix rather than in a
-      # push that did not touch it. --only-group omits the project, so
+      # the index held that morning: what it decides — the interpreters
+      # and the identifiers the skip in [tool.cibuildwheel] names — is
+      # this matrix, so a release of it belongs in a pull request rather
+      # than in a push that did not touch it. --only-group omits the project, so
       # this installs no extension of its own; the build frontend
       # cibuildwheel then runs per interpreter is uv, which
       # [tool.cibuildwheel]'s `build-frontend` names and this group does
@@ -618,7 +617,7 @@ jobs:
         run: uv run --locked --only-group build cibuildwheel
 
       - name: Upload the wheels
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: static-wheels-${{ matrix.os }}
           path: ./wheelhouse/*
@@ -720,7 +719,7 @@ jobs:
         run: uv run --locked --only-group build delocate-wheel -w wheelhouse dist/*
 
       - name: Upload the wheels
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dynamic-wheels-${{ matrix.os }}
           path: ./wheelhouse/*
@@ -819,7 +818,7 @@ jobs:
 
       - name: Upload the source distribution
         if: ${{ !inputs.use-signed-dist }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sdist
           path: dist/*.tar.gz
@@ -830,7 +829,7 @@ jobs:
       # do the sdist's
       - name: Upload the bill of materials
         if: ${{ !inputs.use-signed-dist }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sbom
           path: sbom/
@@ -907,7 +906,7 @@ jobs:
           architecture: ${{ matrix.architecture }}
 
       - name: Download the source distribution
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: sdist
           path: dist
@@ -940,15 +939,16 @@ jobs:
       # pytest-cov beside pytest for the reason [tool.cibuildwheel]'s
       # test-requires names: addopts carries --cov, and an interpreter
       # without the plugin answers "unrecognized arguments: --cov" and
-      # collects nothing. pathspec for the reason pyproject.toml's
-      # `test` group gives, and named here because this job installs the
-      # sdist into an interpreter of its own: neither that group nor
-      # test-requires reaches it, so this is the third environment the
-      # suite runs in and the third that has to say what it needs
+      # collects nothing. pathspec and typing_extensions for the reasons
+      # pyproject.toml's `test` group gives, and named here because this
+      # job installs the sdist into an interpreter of its own: neither
+      # that group nor test-requires reaches it, so this is the third
+      # environment the suite runs in and the third that has to say what
+      # it needs
       - name: Install from sdist
         shell: bash
         run: |
-          python -m pip install -U pip pytest pytest-cov pathspec
+          python -m pip install -U pip pytest pytest-cov pathspec typing-extensions
           python -m pip install --verbose dist/*.tar.gz
 
       # this job's matrix carries windows-latest and windows-11-arm, the
@@ -1024,7 +1024,7 @@ jobs:
             uv run --locked --only-group build python -m build -w
 
       - name: Upload the wheel
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dynamic-wheels-windows
           path: dist/*
@@ -1055,14 +1055,14 @@ jobs:
           enable-cache: true
 
       - name: Download the wheels
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: "*-wheels-*"
           merge-multiple: true
           path: dist
 
       - name: Download the source distribution
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: sdist
           path: dist

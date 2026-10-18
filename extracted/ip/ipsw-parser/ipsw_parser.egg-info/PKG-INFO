@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ipsw-parser
-Version: 1.8.2
+Version: 1.8.3
 Summary: python3 utility for parsing and extracting data from IPSW
 Author-email: doronz88 <doron88@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>
@@ -695,7 +695,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: construct>=2.9.29
+Requires-Dist: bytestruct>=0.1.0
 Requires-Dist: coloredlogs
 Requires-Dist: pyimg4>=0.8.8
 Requires-Dist: requests

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clawmetry
-Version: 0.12.928
+Version: 0.12.931
 Summary: ClawMetry - Real-time observability for 33 AI agent runtimes (OpenClaw, NVIDIA NemoClaw, Claude Code, Codex & more)
 Home-page: https://github.com/vivekchand/clawmetry
 Author: Vivek Chand
@@ -120,6 +120,11 @@ Building with a humanoid robot? The free, open-source
 [Asimov 1 connector](docs/ASIMOV.md) imports Menlo SDK recordings and provides
 an optional observation collector and application tracing. This support is
 experimental. Physical hardware qualification is pending.
+
+[Jumper observation](docs/JUMPER.md) is also built into the same open-source
+package. Its application telemetry, task decisions and incidents appear in the
+shared Physical AI view. Mizu's separate scene and skills demo imports this
+built-in adapter; it is not another observer plugin to install.
 
 ## What you get
 

@@ -121,9 +121,6 @@ crypto_stream_NONCEBYTES = sodium.crypto_stream_noncebytes()
 crypto_stream_chacha20_NONCEBYTES = sodium.crypto_stream_chacha20_noncebytes()
 crypto_stream_chacha20_KEYBYTES = sodium.crypto_stream_chacha20_keybytes()
 crypto_stream_chacha20_ietf_NONCEBYTES = sodium.crypto_stream_chacha20_ietf_noncebytes()
-crypto_stream_chacha20_ietf_KEYBYTES = sodium.crypto_stream_chacha20_ietf_keybytes()
-crypto_stream_xchacha20_NONCEBYTES = sodium.crypto_stream_xchacha20_noncebytes()
-crypto_stream_xchacha20_KEYBYTES = sodium.crypto_stream_xchacha20_keybytes()
 crypto_generichash_KEYBYTES_MAX = sodium.crypto_generichash_keybytes_max()
 crypto_generichash_BYTES = sodium.crypto_generichash_bytes()
 crypto_generichash_BYTES_MIN = sodium.crypto_generichash_bytes_min()
@@ -152,10 +149,6 @@ crypto_aead_chacha20poly1305_KEYBYTES = sodium.crypto_aead_chacha20poly1305_keyb
 crypto_aead_chacha20poly1305_NPUBBYTES = sodium.crypto_aead_chacha20poly1305_npubbytes()
 crypto_aead_chacha20poly1305_NONCEBYTES = crypto_aead_chacha20poly1305_NPUBBYTES
 crypto_aead_chacha20poly1305_ABYTES = sodium.crypto_aead_chacha20poly1305_abytes()
-crypto_kdf_BYTES_MIN = sodium.crypto_kdf_bytes_min()
-crypto_kdf_BYTES_MAX = sodium.crypto_kdf_bytes_max()
-crypto_kdf_CONTEXTBYTES = sodium.crypto_kdf_contextbytes()
-crypto_kdf_KEYBYTES = sodium.crypto_kdf_keybytes()
 
 if sodium_version_check(1, 0, 9):
     crypto_aead_chacha20poly1305_ietf_KEYBYTES = sodium.crypto_aead_chacha20poly1305_ietf_keybytes()
@@ -197,6 +190,7 @@ if sodium_version_check(1, 0, 12):
     crypto_kx_PUBLICKEYBYTES = sodium.crypto_kx_publickeybytes()
     crypto_kx_SECRETKEYBYTES = sodium.crypto_kx_secretkeybytes()
     crypto_kx_SESSIONKEYBYTES = sodium.crypto_kx_sessionkeybytes()
+    crypto_kx_SEEDBYTES = sodium.crypto_kx_seedbytes()
     crypto_aead_xchacha20poly1305_ietf_KEYBYTES = sodium.crypto_aead_xchacha20poly1305_ietf_keybytes()
     crypto_aead_xchacha20poly1305_ietf_NPUBBYTES = sodium.crypto_aead_xchacha20poly1305_ietf_npubbytes()
     crypto_aead_xchacha20poly1305_ietf_NONCEBYTES = crypto_aead_xchacha20poly1305_ietf_NPUBBYTES
@@ -225,6 +219,13 @@ if sodium_version_check(1, 0, 12):
     crypto_pwhash_scryptsalsa208sha256_OPSLIMIT_MIN = sodium.crypto_pwhash_scryptsalsa208sha256_opslimit_min()
     crypto_pwhash_scryptsalsa208sha256_PASSWD_MAX = sodium.crypto_pwhash_scryptsalsa208sha256_passwd_max()
     crypto_pwhash_scryptsalsa208sha256_PASSWD_MIN = sodium.crypto_pwhash_scryptsalsa208sha256_passwd_min()
+    crypto_stream_chacha20_ietf_KEYBYTES = sodium.crypto_stream_chacha20_ietf_keybytes()
+    crypto_stream_xchacha20_NONCEBYTES = sodium.crypto_stream_xchacha20_noncebytes()
+    crypto_stream_xchacha20_KEYBYTES = sodium.crypto_stream_xchacha20_keybytes()
+    crypto_kdf_BYTES_MIN = sodium.crypto_kdf_bytes_min()
+    crypto_kdf_BYTES_MAX = sodium.crypto_kdf_bytes_max()
+    crypto_kdf_CONTEXTBYTES = sodium.crypto_kdf_contextbytes()
+    crypto_kdf_KEYBYTES = sodium.crypto_kdf_keybytes()
 else:
     crypto_pwhash_scryptsalsa208sha256_BYTES_MIN = 16
     crypto_pwhash_scryptsalsa208sha256_BYTES_MAX = 4294967264
@@ -234,6 +235,13 @@ else:
     crypto_pwhash_scryptsalsa208sha256_OPSLIMIT_MAX =4294967295
     crypto_pwhash_scryptsalsa208sha256_PASSWD_MAX = 4294967295
     crypto_pwhash_scryptsalsa208sha256_PASSWD_MIN = 0
+    crypto_stream_chacha20_ietf_KEYBYTES = 32
+    crypto_stream_xchacha20_NONCEBYTES = 24
+    crypto_stream_xchacha20_KEYBYTES = 32
+    crypto_kdf_BYTES_MIN = 16
+    crypto_kdf_BYTES_MAX = 64
+    crypto_kdf_CONTEXTBYTES = 8 
+    crypto_kdf_KEYBYTES = 32
 
 if sodium_version_check(1, 0, 13):
     crypto_pwhash_ALG_ARGON2ID13 = sodium.crypto_pwhash_alg_argon2id13()
@@ -387,13 +395,13 @@ def crypto_stream_chacha20_ietf_xor(message, nonce, key):
 
     return c.raw
 
-# crypto_stream_chacha20_ietf_xor_ic(unsigned char *c, const unsigned char *m, unsigned long long mlen, const unsigned char *n, uint64_t ic, const unsigned char *k)
+# crypto_stream_chacha20_ietf_xor_ic(unsigned char *c, const unsigned char *m, unsigned long long mlen, const unsigned char *n, uint32_t ic, const unsigned char *k)
 def crypto_stream_chacha20_ietf_xor_ic(message, nonce, initial_counter, key):
     if len(nonce) != crypto_stream_chacha20_ietf_NONCEBYTES: raise ValueError("truncated nonce")
     if len(key) != crypto_stream_chacha20_ietf_KEYBYTES: raise ValueError("truncated key")
 
     mlen = ctypes.c_longlong(len(message))
-    ic = ctypes.c_uint64(initial_counter)
+    ic = ctypes.c_uint32(initial_counter)
 
     c = ctypes.create_string_buffer(len(message))
 
@@ -1663,6 +1671,18 @@ def crypto_kx_server_session_keys(server_pk, server_sk, client_pk):
     tx = ctypes.create_string_buffer(crypto_kx_SESSIONKEYBYTES)
     __check(sodium.crypto_kx_server_session_keys(rx, tx, server_pk, server_sk, client_pk))
     return rx.raw, tx.raw
+
+# int crypto_kx_seed_keypair(unsigned char pk[crypto_kx_PUBLICKEYBYTES],
+#                            unsigned char sk[crypto_kx_SECRETKEYBYTES],
+#                            const unsigned char seed[crypto_kx_SEEDBYTES])
+@sodium_version(1, 0, 12)
+def crypto_kx_seed_keypair(seed):
+    if len(seed) != crypto_kx_SEEDBYTES:
+        raise ValueError("Invalid parameters")
+    pk = ctypes.create_string_buffer(crypto_kx_PUBLICKEYBYTES)
+    sk = ctypes.create_string_buffer(crypto_kx_SECRETKEYBYTES)
+    __check(sodium.crypto_kx_seed_keypair(pk, sk, seed))
+    return pk.raw, sk.raw
 
 # void sodium_increment(unsigned char *n, const size_t nlen)
 @sodium_version(1, 0, 4)

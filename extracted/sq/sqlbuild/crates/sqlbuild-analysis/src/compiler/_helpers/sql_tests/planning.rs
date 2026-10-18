@@ -1,6 +1,7 @@
 //! Coarse project-level planning for SQL-native test artifacts.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::convert::Infallible;
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::Instant;
 
@@ -9,6 +10,8 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use regex::Regex;
 #[cfg(test)]
 use serde::Serialize;
+use sqlbuild_core::graph_walk::main::breadth_first_reach::breadth_first_reach;
+use sqlbuild_core::graph_walk::main::depth_first_postorder::depth_first_postorder;
 
 use crate::compiler::_helpers::sql_tests::cte_rename::defined_cte_keys;
 use crate::compiler::_helpers::sql_tests::cte_slices::{SliceDialect, strip_statement_terminators};
@@ -140,10 +143,10 @@ struct AnalysisResolvedSql {
     reachable_mock_names: HashSet<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AnalysisTemplate {
-    existing_cte_names: HashSet<String>,
-    marker_calls: Vec<(String, String)>,
+    pub(crate) existing_cte_names: HashSet<String>,
+    pub(crate) marker_calls: Arc<[(String, String)]>,
 }
 
 type AnalysisTemplateCell = Arc<OnceLock<Option<AnalysisTemplate>>>;
@@ -256,22 +259,12 @@ impl TextualChain {
     /// Return the generated CTEs needed by `roots`, dependencies first, each exactly once.
     fn closure_ctes(&self, roots: &[String], include_roots: bool) -> Vec<(String, String)> {
         let mut needed: HashSet<String> = HashSet::new();
-        let mut stack: Vec<String> = Vec::new();
-        for root in roots {
-            if include_roots {
-                stack.push(root.clone());
-            } else if let Some(dependencies) = self.dependencies.get(root) {
-                stack.extend(dependencies.iter().cloned());
-            }
+        if include_roots {
+            needed.extend(roots.iter().cloned());
         }
-        while let Some(name) = stack.pop() {
-            if !needed.insert(name.clone()) {
-                continue;
-            }
-            if let Some(dependencies) = self.dependencies.get(&name) {
-                stack.extend(dependencies.iter().cloned());
-            }
-        }
+        let Ok(()) = breadth_first_reach(roots.iter().cloned(), None, &mut needed, |name| {
+            Ok::<_, Infallible>(self.dependencies.get(name).into_iter().flatten().cloned())
+        });
         let mut ctes: Vec<(String, String)> = with_unique_ctes(
             Vec::new(),
             self.order
@@ -1310,60 +1303,27 @@ fn classify_fixtures(
 }
 
 fn topo_sort_model_chain(request: TopoSortRequest<'_>) -> Vec<String> {
-    fn visit(
-        name: &str,
-        models: &HashMap<String, ModelInputOwned>,
-        overrides: &BTreeMap<String, String>,
-        mock_refs: &BTreeMap<String, String>,
-        patterns: &SqlTestPatterns,
-        visited: &mut HashSet<String>,
-        ordered: &mut Vec<String>,
-    ) {
-        if !visited.insert(name.to_string()) {
-            return;
-        }
-        if let Some(model) = models.get(name) {
-            let mut dependencies = if let Some(override_sql) = overrides.get(name) {
-                marker_names(&patterns.reference, &patterns.lexical, override_sql)
-            } else {
-                model.model_dependencies.clone()
-            };
-            dependencies.retain(|dependency| {
-                !mock_refs.contains_key(dependency) && models.contains_key(dependency)
-            });
-            dependencies.sort();
-            dependencies.dedup();
-            for dependency in dependencies {
-                visit(
-                    &dependency,
-                    models,
-                    overrides,
-                    mock_refs,
-                    patterns,
-                    visited,
-                    ordered,
-                );
-            }
-        }
-        ordered.push(name.to_string());
-    }
-
-    let mut roots = request.expected_names.to_vec();
+    let mut roots: Vec<String> = request.expected_names.to_vec();
     roots.sort();
-    let mut visited: HashSet<String> = HashSet::new();
-    let mut ordered: Vec<String> = Vec::new();
-    for root in roots {
-        visit(
-            &root,
-            request.models,
-            request.overrides,
-            request.mock_refs,
-            request.patterns,
-            &mut visited,
-            &mut ordered,
-        );
-    }
-    ordered
+    depth_first_postorder(roots, |name| {
+        let Some(model) = request.models.get(name) else {
+            return Vec::new();
+        };
+        let mut dependencies: Vec<String> = match request.overrides.get(name) {
+            Some(override_sql) => marker_names(
+                &request.patterns.reference,
+                &request.patterns.lexical,
+                override_sql,
+            ),
+            None => model.model_dependencies.clone(),
+        };
+        dependencies.retain(|dependency| {
+            !request.mock_refs.contains_key(dependency) && request.models.contains_key(dependency)
+        });
+        dependencies.sort();
+        dependencies.dedup();
+        dependencies
+    })
 }
 
 fn analyze_and_resolve_sql(
@@ -1381,10 +1341,10 @@ fn analyze_and_resolve_sql(
     for (name, sql) in request.fixture_ctes {
         generated_state.insert_helper(name, sql);
     }
-    let mut replacements: HashMap<(String, String), String> = HashMap::new();
-    for (function_name, referenced_name) in template.marker_calls {
+    let mut replacements: HashMap<(&str, &str), String> = HashMap::new();
+    for (function_name, referenced_name) in template.marker_calls.iter() {
         let target = if function_name == REF_FUNCTION {
-            if let Some(chain_sql) = request.resolved_chain.get(&referenced_name) {
+            if let Some(chain_sql) = request.resolved_chain.get(referenced_name) {
                 for (name, sql) in &chain_sql.generated_ctes {
                     if request.fixtures.scope.is_top_level_helper(name)
                         || name.starts_with(TABLE_FUNCTION_PREFIX)
@@ -1404,7 +1364,7 @@ fn analyze_and_resolve_sql(
             } else {
                 generated_state.mock_target(MockTargetRequest {
                     prefix: REF_PREFIX,
-                    referenced_name: &referenced_name,
+                    referenced_name,
                     mocks: &request.fixtures.mock_refs,
                     fixtures: request.fixtures,
                     file_label: request.file_label,
@@ -1413,7 +1373,7 @@ fn analyze_and_resolve_sql(
         } else if function_name == SOURCE_FUNCTION {
             generated_state.mock_target(MockTargetRequest {
                 prefix: SOURCE_PREFIX,
-                referenced_name: &referenced_name,
+                referenced_name,
                 mocks: &request.fixtures.mock_sources,
                 fixtures: request.fixtures,
                 file_label: request.file_label,
@@ -1421,7 +1381,7 @@ fn analyze_and_resolve_sql(
         } else if function_name == SEED_FUNCTION {
             generated_state.mock_target(MockTargetRequest {
                 prefix: SEED_PREFIX,
-                referenced_name: &referenced_name,
+                referenced_name,
                 mocks: &request.fixtures.mock_seeds,
                 fixtures: request.fixtures,
                 file_label: request.file_label,
@@ -1429,7 +1389,7 @@ fn analyze_and_resolve_sql(
         } else if function_name == DBT_REF_FUNCTION {
             generated_state.mock_target(MockTargetRequest {
                 prefix: DBT_REF_PREFIX,
-                referenced_name: &referenced_name,
+                referenced_name,
                 mocks: &request.fixtures.mock_dbt_refs,
                 fixtures: request.fixtures,
                 file_label: request.file_label,
@@ -1437,13 +1397,13 @@ fn analyze_and_resolve_sql(
         } else if function_name == UDF_FUNCTION || function_name == TABLE_FUNCTION {
             request
                 .functions
-                .get(&referenced_name)
+                .get(referenced_name)
                 .map(|_| referenced_name.clone())
         } else {
             None
         };
         if let Some(target) = target {
-            replacements.insert((function_name, referenced_name), target);
+            replacements.insert((function_name.as_str(), referenced_name.as_str()), target);
         }
     }
     let cte_body_sql = strip_statement_terminators(
@@ -1460,26 +1420,51 @@ fn analyze_and_resolve_sql(
     }))
 }
 
-fn analysis_template(
+#[cfg(test)]
+thread_local! {
+    static TEMPLATE_AST_PARSES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn take_template_ast_parse_count() -> usize {
+    TEMPLATE_AST_PARSES.with(|count| count.replace(0))
+}
+
+pub(crate) fn analysis_template(
     query_sql: &str,
     dialect_name: &str,
     templates: &AnalysisTemplateCache,
 ) -> Result<Option<AnalysisTemplate>, String> {
     cached_analysis_template(query_sql, templates, || {
         Dialect::get_by_name(dialect_name).and_then(|dialect| {
-            let mut statements = match dialect.parse(query_sql) {
-                Ok(statements) => statements,
-                Err(_) => return None,
-            };
-            if statements.len() != 1 {
-                return None;
+            if let Some(template) =
+                super::simple_template::simple_analysis_template(query_sql, dialect_name, &dialect)
+            {
+                return Some(template);
             }
-            let expression = statements.remove(0);
-            Some(AnalysisTemplate {
-                existing_cte_names: top_level_cte_names(&expression),
-                marker_calls: relation_marker_calls(&expression),
-            })
+            parsed_analysis_template(query_sql, &dialect)
         })
+    })
+}
+
+/// The full-parser path also serves as the differential oracle for the bounded recognizer.
+pub(crate) fn parsed_analysis_template(
+    query_sql: &str,
+    dialect: &Dialect,
+) -> Option<AnalysisTemplate> {
+    #[cfg(test)]
+    TEMPLATE_AST_PARSES.with(|count| count.set(count.get() + 1));
+    let mut statements = match dialect.parse(query_sql) {
+        Ok(statements) => statements,
+        Err(_) => return None,
+    };
+    if statements.len() != 1 {
+        return None;
+    }
+    let expression = statements.remove(0);
+    Some(AnalysisTemplate {
+        existing_cte_names: top_level_cte_names(&expression),
+        marker_calls: relation_marker_calls(&expression).into(),
     })
 }
 
@@ -1493,11 +1478,13 @@ where
 {
     let cached = {
         let mut cache = templates.lock().map_err(|error| error.to_string())?;
-        Arc::clone(
-            cache
-                .entry(query_sql.to_string())
-                .or_insert_with(|| Arc::new(OnceLock::new())),
-        )
+        if let Some(cached) = cache.get(query_sql) {
+            Arc::clone(cached)
+        } else {
+            let cached = Arc::new(OnceLock::new());
+            cache.insert(query_sql.to_owned(), Arc::clone(&cached));
+            cached
+        }
     };
     Ok(cached.get_or_init(initialize).clone())
 }
@@ -1572,7 +1559,7 @@ fn resolve_textual_sql(request: TextualResolutionRequest<'_>) -> Result<TextualR
     let table_functions =
         resolve_table_function_fixtures(&result, request.fixtures, request.patterns)?;
     reached.extend(table_functions.reached);
-    result = resolve_function_calls(
+    let mut result = resolve_function_calls(
         &table_functions.sql,
         request.functions,
         false,
@@ -1613,19 +1600,19 @@ fn resolve_textual_sql(request: TextualResolutionRequest<'_>) -> Result<TextualR
 }
 
 /// Model or assertion SQL with table-function fixtures replaced by their top-level CTEs.
-struct TableFunctionFixtures {
-    sql: String,
+struct TableFunctionFixtures<'a> {
+    sql: std::borrow::Cow<'a, str>,
     reached: HashSet<String>,
     ctes: Vec<(String, String)>,
 }
 
-fn resolve_table_function_fixtures(
-    sql: &str,
+fn resolve_table_function_fixtures<'a>(
+    sql: &'a str,
     fixtures: &TestFixtures,
     patterns: &SqlTestPatterns,
-) -> Result<TableFunctionFixtures, String> {
+) -> Result<TableFunctionFixtures<'a>, String> {
     let mut resolved = TableFunctionFixtures {
-        sql: sql.to_string(),
+        sql: std::borrow::Cow::Borrowed(sql),
         reached: HashSet::new(),
         ctes: Vec::new(),
     };
@@ -1643,7 +1630,7 @@ fn resolve_table_function_fixtures(
                 .then(|| (format!("{TABLE_FUNCTION_PREFIX}{name}"), true))
         },
     )?;
-    resolved.sql = replaced;
+    resolved.sql = std::borrow::Cow::Owned(replaced);
     for (name, body) in &fixtures.mock_table_functions {
         if !reached.contains(name) {
             continue;
@@ -1702,33 +1689,39 @@ fn top_level_cte_names(expression: &Expression) -> HashSet<String> {
     with.ctes.iter().map(|cte| cte.alias.name.clone()).collect()
 }
 
-fn replace_relation_markers(
-    sql: &str,
-    replacements: &HashMap<(String, String), String>,
+fn replace_relation_markers<'a>(
+    sql: &'a str,
+    replacements: &HashMap<(&str, &str), String>,
     patterns: &SqlTestPatterns,
-) -> String {
-    let mut result = sql.to_string();
+) -> std::borrow::Cow<'a, str> {
+    let mut result = std::borrow::Cow::Borrowed(sql);
     for (function_name, pattern) in [
         (REF_FUNCTION, &patterns.reference),
         (SOURCE_FUNCTION, &patterns.source),
         (SEED_FUNCTION, &patterns.seed),
     ] {
-        result = replace_named_markers(&result, pattern, &patterns.lexical, |name| {
-            replacements
-                .get(&(function_name.to_string(), name.to_string()))
-                .cloned()
-        });
+        if !replacements.keys().any(|(name, _)| *name == function_name) {
+            continue;
+        }
+        result = std::borrow::Cow::Owned(replace_named_markers(
+            &result,
+            pattern,
+            &patterns.lexical,
+            |name| replacements.get(&(function_name, name)).cloned(),
+        ));
     }
-    replace_dbt_ref_markers(
+    if !replacements
+        .keys()
+        .any(|(name, _)| *name == DBT_REF_FUNCTION)
+    {
+        return result;
+    }
+    std::borrow::Cow::Owned(replace_dbt_ref_markers(
         &result,
         &patterns.dbt_reference,
         &patterns.lexical,
-        |name| {
-            replacements
-                .get(&(DBT_REF_FUNCTION.to_string(), name.to_string()))
-                .cloned()
-        },
-    )
+        |name| replacements.get(&(DBT_REF_FUNCTION, name)).cloned(),
+    ))
 }
 
 struct UnresolvedReferenceRequest<'a> {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: nab-markersets
-Version: 0.0.21
+Version: 0.0.22
 Summary: PEP 508 marker algebra: markers as sets of environments
 Project-URL: Homepage, https://github.com/notatallshaw/nab
 Project-URL: Documentation, https://nab.readthedocs.io/
@@ -17,10 +17,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Provides-Extra: nab-vendored-packaging
-Requires-Dist: nab-provider==0.0.21; extra == 'nab-vendored-packaging'
+Requires-Dist: nab-provider==0.0.22; extra == 'nab-vendored-packaging'
 Provides-Extra: packaging
 Requires-Dist: packaging>=26.3; extra == 'packaging'
 Description-Content-Type: text/markdown
@@ -85,11 +86,15 @@ The supported API is the module paths below. Everything else in the package is i
 renamed or relocated in any release.
 
 ```text
+nab_markersets.conversions  MarkerSetCache, PreparedMarkerSets
 nab_markersets.errors       IntractableMarkerSet, UnserializableMarkerSet
 nab_markersets.markersets   DecisionStore, MarkerSet, variable_names
 ```
 
 The package root binds no names, so importing `nab_markersets` pulls in no submodules.
+
+`MarkerSet.from_marker_with_variables` returns a set and its original variable names from one parse.
+Names include variables removed by normalization.
 
 `pickle.dumps` can write a `MarkerSet`, but `pickle.loads` fails because direct construction is
 refused. `==` compares construction trees; use `equivalent` to compare the environments two sets

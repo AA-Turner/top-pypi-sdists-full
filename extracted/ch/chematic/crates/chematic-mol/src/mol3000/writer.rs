@@ -25,6 +25,15 @@ fn v3000_atom_symbol(mol: &Molecule, idx: AtomIdx, atom: &Atom) -> &'static str 
     match mol.r_group_label(idx).and_then(|label| label.number()) {
         Some(_) => "R#",
         None if mol.r_group_label(idx).is_some() => "R",
+        // RDKit's V3000 reader drops MASS, CHG, and explicit H from `*`.
+        // Its `R` atom preserves those decorated wildcard identities. CTfile
+        // readers may also label that spelling as an unnumbered R group.
+        None if atom.isotope.is_some()
+            || atom.charge != 0
+            || atom.hydrogen_count.is_some_and(|count| count > 0) =>
+        {
+            "R"
+        }
         None => "*",
     }
 }
@@ -53,6 +62,220 @@ fn append_header(out: &mut String, mol: &Molecule, metadata: &MolMetadata, dimen
     .expect("writing to String cannot fail");
 }
 
+fn append_cationic_carbon_valence(
+    line: &mut String,
+    atom: &Atom,
+    drawn: u8,
+    ordinary: bool,
+) -> bool {
+    if atom.element != Element::C || atom.charge != 3 || !ordinary || !(2..=4).contains(&drawn) {
+        return false;
+    }
+    // RDKit's CTfile reader needs both fields to retain explicit H on +3 C.
+    let radical = if drawn.is_multiple_of(2) { 2 } else { 3 };
+    write!(line, " RAD={radical} VAL={drawn}").expect("writing to String cannot fail");
+    true
+}
+
+/// Bracket SMILES atoms have no implicit hydrogens. For neutral atoms and
+/// cationic nitrogen below their ordinary valence, CTfile needs VAL and RAD to
+/// prevent readers from inventing hydrogens. Isolated atoms use VAL=-1 even
+/// when their normal valence is undefined. Opaque source attributes take
+/// precedence when present.
+fn append_inferred_valence_properties(
+    line: &mut String,
+    mol: &Molecule,
+    idx: AtomIdx,
+    atom: &Atom,
+    source_properties: Option<&str>,
+) {
+    let Some(hydrogens) = atom.hydrogen_count else {
+        return;
+    };
+    if atom.wildcard
+        || source_properties.is_some_and(|properties| {
+            properties
+                .split_whitespace()
+                .any(|token| token.starts_with("RAD=") || token.starts_with("VAL="))
+        })
+    {
+        return;
+    }
+    let mut drawn = hydrogens;
+    let mut aromatic_bonds = 0u8;
+    let mut ordinary_bonds = true;
+    for (_, bond_idx) in mol.neighbors(idx) {
+        let bond = mol.bond(bond_idx);
+        let order = match bond.order {
+            BondOrder::Single | BondOrder::Up | BondOrder::Down => 1,
+            BondOrder::Double => 2,
+            BondOrder::Triple => 3,
+            BondOrder::Aromatic => {
+                ordinary_bonds = false;
+                aromatic_bonds += 1;
+                1
+            }
+            BondOrder::Dative if bond.atom1 == idx => {
+                ordinary_bonds = false;
+                0
+            }
+            BondOrder::Dative => {
+                ordinary_bonds = false;
+                1
+            }
+            _ => return,
+        };
+        drawn = drawn.saturating_add(order);
+    }
+    drawn = drawn.saturating_add(aromatic_bonds / 2);
+    if drawn == 0 {
+        line.push_str(" VAL=-1");
+        return;
+    }
+    // RDKit's CTfile reader drops explicit H from a +3 carbon with two to
+    // four drawn valence units unless the radical and valence are both
+    // specified. The parity of the missing valence determines the radical
+    // code used by RDKit's V3000 writer for these bracket atoms.
+    if append_cationic_carbon_valence(line, atom, drawn, ordinary_bonds) {
+        return;
+    }
+    let charged_normal = match (atom.element, atom.charge) {
+        (Element::N, 1) | (Element::B, -1) | (Element::F, 3) => Some(4),
+        (Element::O, 1 | 3) => Some(3),
+        _ => None,
+    };
+    let normal = if ordinary_bonds && charged_normal.is_some() {
+        // Some bracket ions have vacant valence slots even after their
+        // formal charge is written. CTfile readers otherwise add implicit H.
+        charged_normal
+    } else if atom.charge == 0 && ordinary_bonds {
+        atom.element
+            .normal_valences()
+            .iter()
+            .copied()
+            .find(|&valence| valence >= drawn)
+    } else if atom.charge == 0 && matches!(atom.element, Element::C | Element::N | Element::O) {
+        // Aromatic bonds are only an approximate integer valence here. Keep
+        // the previous C/N/O rule instead of searching higher valences: an
+        // aromatic [nH] would otherwise be mislabeled as a radical.
+        atom.element.normal_valences().first().copied()
+    } else {
+        None
+    };
+    if let Some(normal) = normal
+        && drawn < normal
+    {
+        let radical = if (normal - drawn) % 2 == 1 { 2 } else { 3 };
+        write!(line, " RAD={radical} VAL={drawn}").expect("writing to String cannot fail");
+        return;
+    }
+    if atom.charge != 0 {
+        return;
+    }
+    if !matches!(atom.element, Element::C | Element::N | Element::O)
+        && hydrogens > 0
+        && ordinary_bonds
+        && (1..=14).contains(&drawn)
+        && !atom.element.normal_valences().contains(&drawn)
+    {
+        write!(line, " VAL={drawn}").expect("writing to String cannot fail");
+    }
+}
+
+fn append_explicit_hcount(line: &mut String, mol: &Molecule, idx: AtomIdx, atom: &Atom) {
+    if let Some(hydrogens) = atom.hydrogen_count {
+        // HCOUNT is a query property for some V3000 readers. An aliphatic
+        // carbon or phosphorus with an inferred H count, or a pyrrole-like
+        // [nH] with two ring bonds, needs no query property in a concrete
+        // block. In particular, neutral P-H in phosphinic acids is inferred
+        // from valence by both RDKit and COSMolKit.
+        let aliphatic_inferred_h = matches!(atom.element, Element::C | Element::P)
+            && !atom.aromatic
+            && atom.charge == 0
+            && mol.neighbors(idx).all(|(_, bond_idx)| {
+                matches!(
+                    mol.bond(bond_idx).order,
+                    BondOrder::Single
+                        | BondOrder::Double
+                        | BondOrder::Triple
+                        | BondOrder::Up
+                        | BondOrder::Down
+                )
+            })
+            && chematic_core::valence::valence_inferred_hcount(mol, idx) == hydrogens;
+        let aromatic_n_h = atom.element == Element::N
+            && atom.aromatic
+            && hydrogens == 1
+            && mol.neighbors(idx).count() == 2
+            && mol.neighbors(idx).all(|(_, bond_idx)| {
+                matches!(
+                    mol.bond(bond_idx).order,
+                    BondOrder::Aromatic | BondOrder::Single
+                )
+            });
+        // Both charged aromatic carbon ions [cH-] and [cH+] keep their H
+        // when the two ring bonds and CHG are written without HCOUNT. The
+        // redundant query property prevents concrete COSMolKit read-back.
+        let aromatic_charged_carbon_h = atom.element == Element::C
+            && atom.aromatic
+            && matches!(atom.charge, -1 | 1)
+            && hydrogens == 1
+            && mol.neighbors(idx).count() == 2
+            && mol
+                .neighbors(idx)
+                .all(|(_, bond_idx)| mol.bond(bond_idx).order == BondOrder::Aromatic);
+        // A charged atom also needs no query HCOUNT when its element, charge,
+        // and bonds already determine the same hydrogen count. Retain it for
+        // cases such as [CH2-] and [SH2+], where inference would add an H.
+        let charged_inferred_h = atom.charge != 0
+            && atom.element.is_organic_subset()
+            && chematic_core::valence::valence_inferred_hcount(mol, idx) == hydrogens;
+        if atom.wildcard
+            || !(aliphatic_inferred_h
+                || aromatic_n_h
+                || aromatic_charged_carbon_h
+                || charged_inferred_h)
+        {
+            write!(line, " HCOUNT={hydrogens}").expect("writing to String cannot fail");
+        }
+    }
+}
+
+fn append_wildcard_valence(
+    line: &mut String,
+    mol: &Molecule,
+    idx: AtomIdx,
+    atom: &Atom,
+    source_properties: Option<&str>,
+) {
+    if !atom.wildcard
+        || mol.r_group_label(idx).is_some()
+        || !atom.hydrogen_count.is_some_and(|count| count > 0)
+        || source_properties.is_some_and(|properties| {
+            properties
+                .split_whitespace()
+                .any(|token| token.starts_with("VAL=") || token.starts_with("RAD="))
+        })
+    {
+        return;
+    }
+    let bonds = mol.neighbors(idx).try_fold(0u8, |sum, (_, bond_idx)| {
+        let order = match mol.bond(bond_idx).order {
+            BondOrder::Single | BondOrder::Up | BondOrder::Down => 1,
+            BondOrder::Double => 2,
+            BondOrder::Triple => 3,
+            _ => return None,
+        };
+        sum.checked_add(order)
+    });
+    if let Some(valence) = bonds
+        .and_then(|bonds| bonds.checked_add(atom.hydrogen_count.unwrap_or(0)))
+        .filter(|&valence| (1..=14).contains(&valence))
+    {
+        write!(line, " VAL={valence}").expect("writing to String cannot fail");
+    }
+}
+
 fn append_atom_properties(
     line: &mut String,
     mol: &Molecule,
@@ -66,15 +289,16 @@ fn append_atom_properties(
     if let Some(isotope) = atom.isotope {
         write!(line, " MASS={isotope}").expect("writing to String cannot fail");
     }
-    if let Some(hydrogens) = atom.hydrogen_count {
-        write!(line, " HCOUNT={hydrogens}").expect("writing to String cannot fail");
-    }
+    append_explicit_hcount(line, mol, idx, atom);
     append_v3000_rgroup_property(line, mol, idx);
-    if let Some((_, properties)) = metadata
+    let source_properties = metadata
         .v3000_atom_properties
         .iter()
         .find(|(atom_id, _)| *atom_id == idx.0 + 1)
-    {
+        .map(|(_, properties)| properties.as_str());
+    append_wildcard_valence(line, mol, idx, atom, source_properties);
+    append_inferred_valence_properties(line, mol, idx, atom, source_properties);
+    if let Some(properties) = source_properties {
         line.push(' ');
         line.push_str(properties);
     }
@@ -117,17 +341,18 @@ fn append_atoms_3d(out: &mut String, mol: &Molecule, metadata: &MolMetadata, con
             .get(idx.0 as usize)
             .copied()
             .unwrap_or(Point3::zero());
-        write!(
-            out,
-            "M  V30 {} {} {:.4} {:.4} {:.4} {}",
-            idx.0 + 1,
-            v3000_atom_symbol(mol, idx, atom),
-            point.x,
-            point.y,
-            point.z,
-            atom.atom_map.unwrap_or(0)
-        )
-        .expect("writing to String cannot fail");
+        out.push_str("M  V30 ");
+        crate::mol2000::push_right_aligned_u32(out, idx.0 + 1, 0);
+        out.push(' ');
+        out.push_str(v3000_atom_symbol(mol, idx, atom));
+        for coordinate in [point.x, point.y, point.z] {
+            out.push(' ');
+            // Reuse the same exact fallback for ties, large and nonfinite
+            // coordinates as the V2000 and 2D V3000 writers.
+            crate::mol2000::push_fixed4(out, coordinate, 0);
+        }
+        out.push(' ');
+        crate::mol2000::push_right_aligned_u32(out, atom.atom_map.unwrap_or(0).into(), 0);
         append_atom_properties(out, mol, metadata, idx, atom);
         out.push('\n');
     }
@@ -678,3 +903,7 @@ mod speed_tests;
 #[cfg(test)]
 #[path = "loss_collection_tests.rs"]
 mod loss_collection_tests;
+
+#[cfg(test)]
+#[path = "coordinate_format_tests.rs"]
+mod coordinate_format_tests;

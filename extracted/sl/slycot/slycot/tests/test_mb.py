@@ -206,6 +206,7 @@ def test_mb03rd():
     A, X = schur(test1_A)
     Ah, Xh = np.copy(A), np.copy(X)
     # on this basis, get the transform
+    # ruff: disable[RUF059]
     Ar, Xr, blsize, W = mb03rd(
             test1_n, A, X, 'U', 'S', test1_pmax, test1_tol)
     # ensure X and A are unchanged
@@ -235,6 +236,7 @@ def test_mb03rd_default():
 
     X = Tschur.copy()
 
+    # ruff: disable[RUF059]
     Ar, Xr, blsize, W = mb03rd(Aschur.shape[0], Aschur, X, 'U', 'N', pmax=1.0, tol=0.0)
 
     Ar2, Xr2, blsize2, W2 = mb03rd(Aschur.shape[0], Aschur)
@@ -428,6 +430,7 @@ def test_mb05md_warning():
                         match="\n"
                             "Matrix A is defective, possibly "
                             "due to rounding errors.") as record:
+        # ruff: disable[RUF059]
         (Ar, Vr, Yr, VAL) = mb05md(A, delta)
     assert record[0].message.info == 6
 

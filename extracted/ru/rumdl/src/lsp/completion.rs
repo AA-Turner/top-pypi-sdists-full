@@ -79,7 +79,17 @@ impl RumdlLanguageServer {
         use pulldown_cmark::{CodeBlockKind, Event, Parser, Tag};
 
         let line_num = position.line as usize;
-        let utf16_cursor = position.character as usize;
+        // Blocks are parsed after a leading byte order mark. The editor's first
+        // line starts with it (one UTF-16 unit), so the cursor and the returned
+        // column are shifted by that unit on line 0.
+        let carrier = text;
+        let text = crate::utils::bom::strip_bom(carrier);
+        let mark_units = if line_num == 0 {
+            crate::utils::bom::utf16_len(carrier) as usize
+        } else {
+            0
+        };
+        let utf16_cursor = (position.character as usize).checked_sub(mark_units)?;
 
         let line_start: usize = text.split_inclusive('\n').take(line_num).map(str::len).sum();
         let line = text.lines().nth(line_num)?;
@@ -87,7 +97,7 @@ impl RumdlLanguageServer {
 
         // Events arrive in document order: stop at the first one past this
         // line, so only a block starting on it counts.
-        let opens_block = Parser::new_ext(text, crate::utils::parser_options::rumdl_parser_options())
+        let opens_block = Parser::new_ext(text, crate::utils::parser_options::rumdl_parser_options_for(text))
             .into_offset_iter()
             .take_while(|(_, range)| range.start <= line_end)
             .any(|(event, range)| {
@@ -121,7 +131,7 @@ impl RumdlLanguageServer {
             return None;
         }
 
-        Some((fence_end as u32, current_text.to_string()))
+        Some(((fence_end + mark_units) as u32, current_text.to_string()))
     }
 
     /// Get language completion items for fenced code blocks

@@ -2,6 +2,24 @@ use crate::lint_context::LintContext;
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::utils::skip_context::is_table_line;
 
+/// The blank-line style required between consecutive list items.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum ListItemSpacingStyle {
+    #[default]
+    Consistent,
+    Loose,
+    Tight,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub(super) struct MD076Config {
+    pub style: ListItemSpacingStyle,
+    /// When true, blank lines around continuation paragraphs within a list item
+    /// are permitted even in tight mode. This allows tight inter-item spacing
+    /// while using blank lines to visually separate continuation content.
+    pub allow_loose_continuation: bool,
+}
+
 /// Rule MD076: Enforce consistent blank lines between list items
 ///
 /// See [docs/md076.md](../../docs/md076.md) for full documentation and examples.
@@ -19,24 +37,6 @@ use crate::utils::skip_context::is_table_line;
 /// - `"consistent"` — within each list, all gaps must use the same style (majority wins)
 /// - `"loose"` — blank line required between every pair of items
 /// - `"tight"` — no blank lines allowed between any items
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub enum ListItemSpacingStyle {
-    #[default]
-    Consistent,
-    Loose,
-    Tight,
-}
-
-#[derive(Debug, Clone, Default)]
-pub(super) struct MD076Config {
-    pub style: ListItemSpacingStyle,
-    /// When true, blank lines around continuation paragraphs within a list item
-    /// are permitted even in tight mode. This allows tight inter-item spacing
-    /// while using blank lines to visually separate continuation content.
-    pub allow_loose_continuation: bool,
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct MD076ListItemSpacing {
     config: MD076Config,
@@ -87,17 +87,20 @@ impl MD076ListItemSpacing {
 
     /// Check whether a line is effectively blank, accounting for blockquote markers.
     ///
+    /// Only spaces and tabs are blank: U+00A0 and the other Unicode spaces are paragraph
+    /// text, so a line holding one neither separates items nor ends a list item.
+    ///
     /// A line like `>` or `> ` is considered blank in blockquote context even though
     /// its raw content is non-empty.
     fn is_effectively_blank(ctx: &LintContext, line_num: usize) -> bool {
         if let Some(info) = ctx.line_info(line_num) {
             let content = info.content(ctx.content);
-            if content.trim().is_empty() {
+            if content.trim_matches([' ', '\t', '\r']).is_empty() {
                 return true;
             }
             // In a blockquote, a line containing only markers (e.g., ">", "> ") is blank
             if let Some(ref bq) = info.blockquote {
-                return bq.content.trim().is_empty();
+                return bq.content.trim_matches([' ', '\t', '\r']).is_empty();
             }
             false
         } else {
@@ -186,7 +189,7 @@ impl MD076ListItemSpacing {
             return false;
         }
         let content = info.content(ctx.content);
-        if content.trim().is_empty() {
+        if content.trim_matches([' ', '\t', '\r']).is_empty() {
             return false;
         }
         // Continuation must be indented to at least the parent item's content column
@@ -330,6 +333,10 @@ impl MD076ListItemSpacing {
 }
 
 impl Rule for MD076ListItemSpacing {
+    fn native_format_policy(&self) -> Option<crate::format_proof::NativeFormatPolicy> {
+        (self.config == Default::default()).then_some(crate::format_proof::NativeFormatPolicy::for_rule::<Self>(76))
+    }
+
     fn name(&self) -> &'static str {
         "MD076"
     }
@@ -2287,6 +2294,26 @@ mod tests {
             assert!(map.contains_key("allow-loose-continuation"));
         } else {
             panic!("Expected Table value from default_config_section");
+        }
+    }
+
+    #[test]
+    fn unicode_space_line_is_text_not_a_blank_line() {
+        // Each NBSP line is a paragraph line (a lazy continuation of the item above),
+        // so the fix must not read it as the blank line before the next list.
+        let rule = MD076ListItemSpacing::new(ListItemSpacingStyle::Consistent);
+        for source in [
+            "- a\n\u{a0}\n- b\n- c\n",
+            "- a\n\u{a0}\ntext\n\u{a0}\n- b\n  c\n- d\n\n- e\n",
+            "- a\n\n- b\n\u{a0}\n- c\n- d\n",
+        ] {
+            let ctx = LintContext::new(source, crate::config::MarkdownFlavor::Standard, None);
+            let fixed = rule.fix(&ctx).unwrap();
+            assert_eq!(
+                fixed.matches('\u{a0}').count(),
+                source.matches('\u{a0}').count(),
+                "{source:?} -> {fixed:?}"
+            );
         }
     }
 }

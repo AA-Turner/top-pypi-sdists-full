@@ -1,32 +1,28 @@
-//! What the lint tools a configuration names currently resolve to.
+//! Executable identity under the configured project/system preferences.
 //!
-//! A code-block tool's verdict depends on which binary runs, so a cached lint
-//! result is only valid for the binaries that produced it. The fingerprint
-//! records, for every binary a lint run could call, where it resolves on `PATH`
-//! and the identity of the file there (its target through any symlinks, its size
-//! and its modification time), or that it is missing. Installing, removing,
-//! upgrading or re-ordering a tool on `PATH` changes the fingerprint.
-//!
-//! It is a proxy, not a version: a wrapper that picks the real binary at run
-//! time (a mise or asdf shim, `npx`, `uvx`) keeps its identity when the version
-//! behind it changes.
+//! This records resolved paths, symlink targets, sizes and modification times,
+//! or missing executables. It is shared with execution's lookup algorithm.
+//! Binary identity does not validate tool configuration, environment or wrapper
+//! dependencies; files with external lint work bypass the combined result cache.
 
 use std::collections::BTreeSet;
-use std::ffi::OsStr;
 use std::fmt::Write as _;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
 use super::config::CodeBlockToolsConfig;
-use super::lookup;
 use super::registry::{ToolRegistry, ToolSlot};
 
 /// The fingerprint of every binary the `lint` slots of `config` could run.
 ///
-/// Empty when code-block tools are disabled. Costs one `PATH` lookup and one
-/// `stat` per distinct binary, so it is computed once per configuration rather
-/// than once per file.
+/// Empty when code-block tools are disabled. Each distinct binary costs a
+/// lookup and a metadata read, so shared cache identity computes it once per
+/// configuration. External verdicts still require fresh execution.
 pub fn lint_tools_fingerprint(config: &CodeBlockToolsConfig) -> String {
+    lint_tools_fingerprint_for_path(config, &std::env::current_dir().unwrap_or_default())
+}
+
+pub fn lint_tools_fingerprint_for_path(config: &CodeBlockToolsConfig, path: &Path) -> String {
     if !config.enabled {
         return String::new();
     }
@@ -39,15 +35,16 @@ pub fn lint_tools_fingerprint(config: &CodeBlockToolsConfig) -> String {
         .flat_map(|language| &language.lint)
         // A `rumdl` id is rumdl itself only in a markdown block and a user tool
         // anywhere else, so it is fingerprinted like any other id: an extra
-        // lookup costs a `stat`, a missing one replays stale results.
+        // lookup costs a metadata read and reflects executable availability.
         .filter_map(|tool_id| registry.resolve(tool_id, ToolSlot::Lint))
         .filter_map(|tool_def| tool_def.command.first().map(String::as_str))
         .collect();
 
+    let root = super::binary::project_root(path);
     let search_path = std::env::var_os("PATH");
     let mut fingerprint = String::new();
     for binary in binaries {
-        let identity = lookup::resolve_program(OsStr::new(binary), search_path.as_deref())
+        let identity = super::binary::resolve(binary, &config.binary_preferences, &root, search_path.as_deref())
             .map_or_else(|| "missing".to_string(), |path| file_identity(&path));
         let _ = writeln!(fingerprint, "{binary}\0{identity}");
     }

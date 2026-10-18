@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastsafetensors
-Version: 0.4.0
+Version: 0.5.0
 Summary: High-performance safetensors model loader
 Author-email: Takeshi Yoshimura <tyos@jp.ibm.com>
 Maintainer-email: Takeshi Yoshimura <tyos@jp.ibm.com>
@@ -12,14 +12,22 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <3.15,>=3.10
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: <3.16,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typer>=0.9.0
+Provides-Extra: benchmark
+Requires-Dist: torch>=2.13.0; python_version < "3.15" and extra == "benchmark"
+Requires-Dist: torch>=2.14.1; python_version >= "3.15" and extra == "benchmark"
+Requires-Dist: safetensors>=0.9.0rc1; extra == "benchmark"
+Provides-Extra: instanttensor
+Requires-Dist: instanttensor>=0.2.2; extra == "instanttensor"
 Provides-Extra: progress
 Requires-Dist: tqdm>=4.66.3; extra == "progress"
 Provides-Extra: test
-Requires-Dist: torch>=2.10.0; extra == "test"
+Requires-Dist: torch>=2.10.0; python_version < "3.15" and extra == "test"
+Requires-Dist: torch>=2.14.1; python_version >= "3.15" and extra == "test"
 Requires-Dist: pytest>=9.0.3; extra == "test"
 Requires-Dist: pytest-cov>=5.0.0; extra == "test"
 Requires-Dist: transformers>=5.0.0; extra == "test"
@@ -39,7 +47,7 @@ fastsafetensors
 
 fastsafetensors is an efficient safetensors loader. If you develop your own code that loads large safetensors files, you can try fastsafetensors APIs (see [docs](./docs/overview.md)). For example, vLLM and SGLang have `--load-format fastsafetensors` command-line argument to speed up their initialization.
 
-This library supports Linux/CUDA, ROCm, Windows, [3FS](https://github.com/deepseek-ai/3fs), unified-memory systems such as DGX Spark, and so on. We welcome more platform/storage-specific optimizations like them by adding new [copier backends](fastsafetensors/copier/). Our CI tests Python 3.10-3.14 with PyTorch 2.11.0.
+This library supports Linux/CUDA, ROCm, Windows, [3FS](https://github.com/deepseek-ai/3fs), unified-memory systems such as DGX Spark, and so on. We welcome more platform/storage-specific optimizations like them by adding new [copier backends](fastsafetensors/copier/). Our CI tests Python 3.10-3.14 with PyTorch 2.11.0 and Python 3.15 with PyTorch 2.14.1.
 
 # Performance Highlights
 

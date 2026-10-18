@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omninode-memory"
-version = "0.18.5"
+version = "0.18.6"
 description = "OmniNode memory primitives — models, protocols, and storage adapters for Qdrant, Memgraph, and PostgreSQL backends."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
@@ -25,7 +25,7 @@ dependencies = [
     "pydantic>=2.13.4,<3.0.0",
 
     # FastAPI web framework for production API
-    "fastapi>=0.136.3,<0.143.0",
+    "fastapi>=0.136.3,<0.144.0",
     "uvicorn[standard]>=0.49.0,<1.0.0",
 
     # Memory and storage components
@@ -438,7 +438,6 @@ override-dependencies = [
     # transitive dependency on omninode-memory to the workspace copy, which is
     # what the OMN-13837 omnimarket-chain note actually needed.
     "omnimarket>=0.4.0,<0.5.0",
-    "onex-change-control @ git+https://github.com/OmniNode-ai/onex_change_control.git@bd30807469c2b570d99ffefb25fb23e6a9d7cfb1",
 ]
 
 [tool.uv.sources]

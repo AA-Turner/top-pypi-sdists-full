@@ -93,7 +93,11 @@ mod hover_keys_value {
             UseTestCacheHome,
             tombi_lsp::backend::Options {
                 offline: Some(true),
-                no_cache: Some(false),
+                cache: tombi_cache::Options {
+                    no_cache: Some(false),
+                    ..Default::default()
+                },
+                ..Default::default()
             },
             SchemaItemArg(tombi_config::SchemaItem::Root(tombi_config::RootSchema {
                 toml_version: None,
@@ -591,7 +595,11 @@ mod hover_keys_value {
                 UseTestCacheHome,
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(false),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(false),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
                 SchemaPath(cargo_schema_path()),
                     CachedRemoteJson {
@@ -631,7 +639,11 @@ mod hover_keys_value {
                 UseTestCacheHome,
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(false),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(false),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
                 SchemaPath(cargo_schema_path()),
                 CachedRemoteJson {
@@ -671,7 +683,11 @@ mod hover_keys_value {
                 UseTestCacheHome,
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(false),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(false),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
                 SchemaPath(cargo_schema_path()),
                 CachedRemoteJson {
@@ -820,7 +836,11 @@ mod hover_keys_value {
                 SourcePath(tombi_test_lib::project_root_path().join("Cargo.toml")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: None,
+                    cache: tombi_cache::Options {
+                        no_cache: None,
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
                 SchemaPath(cargo_schema_path()),
             ) -> Ok({
@@ -840,7 +860,11 @@ mod hover_keys_value {
                 UseTestCacheHome,
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(false),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(false),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
                 SchemaPath(cargo_schema_path()),
                 CachedRemoteJson {
@@ -874,7 +898,11 @@ mod hover_keys_value {
                 UseTestCacheHome,
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(false),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(false),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
                 SchemaPath(cargo_schema_path()),
                 CachedRemoteJson {
@@ -1757,7 +1785,11 @@ mod hover_keys_value {
                 SourcePath(tombi_test_lib::project_root_path().join("pyproject.toml")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: None,
+                    cache: tombi_cache::Options {
+                        no_cache: None,
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
                 SchemaPath(pyproject_schema_path()),
             ) -> Ok({
@@ -1844,7 +1876,11 @@ mod hover_keys_value {
                     client,
                     &Options {
                         offline: Some(true),
-                        no_cache: Some(false),
+                        cache: tombi_cache::Options {
+                            no_cache: Some(false),
+                            ..Default::default()
+                        },
+                        ..Default::default()
                     },
                 )
             });
@@ -2480,7 +2516,11 @@ mod hover_keys_value {
                 SchemaPath(fixture_path().join("schema.json")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(true),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(true),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
             ) -> Ok({
                 "Keys": "tool.tombi.strict",

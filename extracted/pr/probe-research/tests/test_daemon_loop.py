@@ -1144,6 +1144,37 @@ def test_working_folders_keep_the_session_folder_and_the_most_recent(tmp_path):
     assert (home / "d0").resolve() not in found
 
 
+def test_working_folders_survive_a_name_the_file_system_refuses(tmp_path):
+    # strand-ai 2026-10-17: a heredoc's dict held a value the secret scan had
+    # replaced, so its `>` read as a redirect and the 300-character dict after it
+    # as the file written. Before Python 3.14 `Path.is_dir()` raises ENAMETOOLONG
+    # on that name; the worker crashed on every restart for 13 hours.
+    home = tmp_path / "home"
+    work = home / "work"
+    work.mkdir(parents=True)
+    ledgers = ",".join(f"'{k}_sha256':'{'a' * 64}'" for k in ("crop_settled", "whole_slide_settled", "prior_debit"))
+    command = ("python3 - <<'PY'\nx={'dummy_secret_persisted':<redacted:anchored-secret>,'ledgers':{"
+               + ledgers + "},'ledger':'/Volumes/T7/ledger.json'}\nPY")
+    assert len(ledgers) > 255
+    st = store_mod.Store(tmp_path / "s.sqlite")
+    st.add([Event(kind=Kind.TOOL_CALL, stream="main", offset=1, tool="Bash", tool_input={"command": command})])
+    assert any(len(w) > 255 for w in folders.written_paths(command)), "the shape that crashed"
+    assert folders.working_folders(st, work, home) == [work.resolve()]
+
+
+def test_a_command_the_folder_check_cannot_read_is_skipped_not_the_workers_crash(tmp_path):
+    home = tmp_path / "home"
+    work = home / "work"
+    work.mkdir(parents=True)
+    (home / "proj").mkdir()
+    st = store_mod.Store(tmp_path / "s.sqlite")
+    st.add([Event(kind=Kind.TOOL_CALL, stream="main", offset=1, tool="Bash",
+                  tool_input={"command": f"cd {home / 'proj'} && ls"}),
+            Event(kind=Kind.TOOL_CALL, stream="main", offset=2, tool="Bash",
+                  tool_input={"command": "echo hi > ~x\x00y/out.txt"})])  # expanduser: embedded null byte
+    assert folders.working_folders(st, work, home) == [work.resolve(), (home / "proj").resolve()]
+
+
 def test_the_check_caps_files_and_stored_text(tmp_path, monkeypatch):
     home = tmp_path / "home"
     work = home / "work"

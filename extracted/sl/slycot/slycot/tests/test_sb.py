@@ -38,6 +38,7 @@ def test_sb10ad():
     nmeas = 1
     gamma = 10
 
+    # ruff: disable[RUF059]
     gamma_est, Ak, Bk, Ck, Dk, Ac, Bc, Cc, Dc, rcond = synthesis.sb10ad(
         n, m, np, ncon, nmeas, gamma, a, b, c, d)
     # from Octave, which also uses SB10AD:

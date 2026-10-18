@@ -1,5 +1,6 @@
 import logging
 import sys
+import warnings
 
 from functools import partial
 from typing import get_args
@@ -9,8 +10,16 @@ import pytest
 
 from numpy.testing import assert_allclose
 from scipy.optimize import OptimizeResult
+from scipy.optimize import root as sp_root
 
 from better_optimize import StopOptimization
+from better_optimize.configuration import (
+    AndersonJacOptions,
+    BasinHoppingConfig,
+    BFGSConfig,
+    BroydenJacOptions,
+    HybrConfig,
+)
 from better_optimize.constants import root_method
 from better_optimize.root import root
 from better_optimize.utilities import LRUCache1
@@ -62,11 +71,21 @@ def test_root(method: root_method):
         pytest.skip("mixing methods fail even on this, just skipping")
 
     x0 = np.array([0.1])
-    kwargs = {}
 
-    res = root(partial(func, a=1, b=2), x0, method=method, **kwargs)
+    res = root(partial(func, a=1, b=2), x0, method=method, tol=1e-8)
     assert_allclose(res.x, [-1.029866529322393])
     assert_allclose(res.fun, [0.0], atol=1e-8, rtol=1e-8)
+
+
+@pytest.mark.parametrize("method", ["anderson", "krylov"], ids=["anderson", "krylov"])
+def test_a_caller_who_passes_no_tolerance_gets_scipys_own(method: root_method):
+    """These two converge to a visibly different point under a tolerance of 1e-8, which is
+    what ``root`` used to supply when the caller named none."""
+    x0 = np.array([0.1])
+
+    ours = root(partial(func, a=1, b=2), x0, method=method, progressbar=False)
+
+    assert_allclose(ours.x, sp_root(partial(func, a=1, b=2), x0, method=method).x, rtol=0, atol=0)
 
 
 @pytest.mark.parametrize("method", all_methods, ids=all_methods)
@@ -75,9 +94,8 @@ def test_root_with_args(method: root_method):
         pytest.skip("mixing methods fail even on this, just skipping")
 
     x0 = np.array([0.1])
-    kwargs = {}
 
-    res = root(func, args=(1, 2), x0=x0, method=method, **kwargs)
+    res = root(func, args=(1, 2), x0=x0, method=method, tol=1e-8)
     assert_allclose(res.x, [-1.029866529322393])
     assert_allclose(res.fun, [0.0], atol=1e-8, rtol=1e-8)
 
@@ -188,12 +206,14 @@ def test_root_callback_early_stop_with_stopoptimization():
     "method, options",
     [
         ("krylov", {"disp": False}),
-        ("broyden2", {"disp": False, "max_rank": 50}),
-        ("anderson", {"disp": False, "M": 10}),
+        ("broyden2", {"disp": False, "jac_options": BroydenJacOptions(max_rank=50)}),
+        ("anderson", {"disp": False, "jac_options": AndersonJacOptions(M=10)}),
     ],
     ids=["krylov", "broyden2", "anderson"],
 )
 def test_large_root(method: root_method, options: dict):
+    """`max_rank` and `M` configure the jacobian, not the solver, so they travel in the
+    nested field rather than at the top level where scipy would drop them."""
     n = [75, 75]
     y = [1.0 / (n[0] - 1), 1.0 / (n[1] - 1)]
     bounds = [0, 0, 1, 0]
@@ -203,3 +223,79 @@ def test_large_root(method: root_method, options: dict):
     res = root(func3, x0, args=(y, bounds), method=method, maxiter=10000, **options)
 
     assert_allclose(res.fun, 0.0, atol=1e-5, rtol=1e-5)
+
+
+def test_a_jacobian_option_at_the_top_level_is_refused():
+    """scipy warns and drops it, and the old dispatch table listed it as a solver option,
+    so it never reached the jacobian at all."""
+    with pytest.raises(TypeError, match="max_rank"):
+        root(
+            partial(func, a=1, b=2),
+            np.array([0.1]),
+            method="broyden2",
+            max_rank=50,
+            progressbar=False,
+        )
+
+
+def test_a_root_configuration_runs_the_method_it_names():
+    from_config = root(
+        partial(func, a=1, b=2), np.array([0.1]), method=HybrConfig(xtol=1e-10), progressbar=False
+    )
+    from_name = root(
+        partial(func, a=1, b=2), np.array([0.1]), method="hybr", xtol=1e-10, progressbar=False
+    )
+
+    assert_allclose(from_config.x, from_name.x, rtol=0, atol=0)
+
+
+def test_a_configuration_cannot_be_combined_with_options():
+    with pytest.raises(TypeError, match="Got both a HybrConfig"):
+        root(
+            partial(func, a=1, b=2),
+            np.array([0.1]),
+            method=HybrConfig(),
+            xtol=1e-10,
+            progressbar=False,
+        )
+
+
+@pytest.mark.parametrize(
+    "config, driver",
+    [(BFGSConfig(), "minimize"), (BasinHoppingConfig(), "the driver that runs it")],
+    ids=["minimize-config", "global-optimizer-config"],
+)
+def test_a_configuration_for_another_driver_names_that_driver(config, driver):
+    with pytest.raises(TypeError, match=f"which root does not run. Pass it to {driver}"):
+        root(partial(func, a=1, b=2), np.array([0.1]), method=config, progressbar=False)
+
+
+@pytest.mark.parametrize("method", ["broyden1", "krylov", "df-sane"])
+def test_a_jacobian_the_method_cannot_use_is_withheld_from_scipy(method, caplog):
+    """scipy warns about a jacobian it was handed and will not use, repeating what this
+    package already said in plainer terms. It is still evaluated, for the readout."""
+    evaluated = {"count": 0}
+
+    def counted_jac(x):
+        evaluated["count"] += 1
+        return np.diag(np.full_like(x, 2.0))
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with caplog.at_level(logging.WARNING, logger="better_optimize.utilities"):
+            res = root(
+                partial(func, a=1, b=2),
+                np.array([0.1]),
+                method=method,
+                jac=counted_jac,
+                progressbar=False,
+                verbose=True,
+            )
+
+    without_it = root(partial(func, a=1, b=2), np.array([0.1]), method=method, progressbar=False)
+
+    assert [str(w.message) for w in caught if "does not use" in str(w.message)] == []
+    assert any("not used by method" in record.message for record in caplog.records)
+    assert evaluated["count"] > 0
+    # Withholding it changes what is reported, never what is solved.
+    assert_allclose(res.x, without_it.x, atol=0, rtol=0)

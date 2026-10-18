@@ -10,6 +10,7 @@ from slycot.exceptions import SlycotArithmeticError, SlycotResultWarning
 from .test_exceptions import assert_docstring_parse
 
 
+#ruff: disable[PT014]
 @pytest.mark.parametrize(
     'fun,              exception_class,       erange,         checkvars',
     ((analysis.ab05nd, SlycotArithmeticError, 1,              {'p1': 1}),

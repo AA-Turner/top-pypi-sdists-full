@@ -1,4 +1,7 @@
+pub(crate) mod authored_sql;
 pub(crate) mod declaration_expansion;
+pub(crate) mod declaration_indexes;
+pub(crate) mod declaration_values;
 pub(crate) mod macro_arguments;
 pub(crate) mod macro_call_classes;
 pub(crate) mod macro_call_memo;
@@ -7,5 +10,7 @@ pub(crate) mod macro_calls;
 pub(crate) mod macro_evaluation;
 pub(crate) mod macro_expansion;
 pub(crate) mod macro_expansion_facts;
+pub(crate) mod macro_expansion_result;
 pub(crate) mod macro_generated_references;
+pub(crate) mod macro_modules;
 pub(crate) mod registration;

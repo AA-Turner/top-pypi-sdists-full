@@ -4,12 +4,12 @@
 //! and result collection for processing code blocks in markdown files.
 
 use super::config::{CodeBlockToolsConfig, FormatMode, LanguageToolConfig, NormalizeLanguage, OnError, OnMissing};
-use super::executor::{ExecutorError, ToolExecutor, ToolOutput};
+use super::executor::{ExecutorError, FormatCheckOutput, ToolExecutor, ToolOutput};
 use super::linguist::LinguistResolver;
 use super::registry::{BuiltinLintMode, ToolRegistry, ToolSlot};
 use crate::config::MarkdownFlavor;
 use crate::rule::{LintWarning, Severity};
-use crate::utils::rumdl_parser_options;
+use crate::utils::parser_options::rumdl_parser_options_for;
 use pulldown_cmark::{CodeBlockKind, Event, Parser, Tag, TagEnd};
 
 /// Special built-in tool name for rumdl's own markdown linting.
@@ -108,11 +108,14 @@ fn ensure_trailing_newline(content: &str) -> std::borrow::Cow<'_, str> {
 pub struct FencedCodeBlockInfo {
     /// 0-indexed line number where opening fence starts.
     pub start_line: usize,
-    /// 0-indexed line number where closing fence ends.
+    /// 0-indexed line number of the block's last line: its closing fence, or its
+    /// last code line when the block is unterminated.
     pub end_line: usize,
-    /// Byte offset where code content starts (after opening fence line).
+    /// Byte offset where the source of the code starts (the first content line,
+    /// container prefix included).
     pub content_start: usize,
-    /// Byte offset where code content ends (before closing fence line).
+    /// Byte offset where the source of the code ends: after the line ending of
+    /// its last line, or at the end of the document for an unterminated last line.
     pub content_end: usize,
     /// Language tag extracted from info string (first token).
     pub language: String,
@@ -122,10 +125,31 @@ pub struct FencedCodeBlockInfo {
     pub fence_char: char,
     /// Length of the fence (3 or more).
     pub fence_length: usize,
-    /// Leading whitespace on the fence line.
-    pub indent: usize,
-    /// Exact leading whitespace prefix from the fence line.
-    pub indent_prefix: String,
+    /// What precedes every content line for the containers the block sits in:
+    /// blockquote markers, list continuation indent and the fence's own indent.
+    /// Formatted code is written back behind it.
+    pub content_prefix: String,
+    /// The code as CommonMark reads it, with every container prefix removed.
+    /// This is what a tool receives.
+    pub code: String,
+    /// Width in characters of the source prefix removed from each line of `code`,
+    /// so a tool's column can be placed in the document.
+    pub line_prefix_widths: Vec<usize>,
+}
+
+impl FencedCodeBlockInfo {
+    /// The source that replaces `content_start..content_end` so the block's code
+    /// becomes `code`, every line inside the block's containers.
+    pub fn source_for(&self, code: &str) -> String {
+        apply_content_prefix(code, &self.content_prefix)
+    }
+
+    /// The document column of a 1-indexed `column` on 1-indexed `line` of the
+    /// code. `None` for a line the code does not have.
+    pub fn document_column(&self, line: usize, column: usize) -> Option<usize> {
+        let width = self.line_prefix_widths.get(line.checked_sub(1)?)?;
+        Some(column + width)
+    }
 }
 
 /// A diagnostic message from an external tool.
@@ -155,6 +179,21 @@ pub enum DiagnosticSeverity {
 
 impl CodeBlockDiagnostic {
     /// Convert to a LintWarning for integration with rumdl's warning system.
+    /// The report for a block whose formatted code was not written back
+    /// because it would change the document's structure.
+    pub fn refused_write_back(line: usize) -> Self {
+        Self {
+            file_line: line,
+            column: None,
+            message:
+                "Formatted code cannot be written back without changing the document's structure; block left unchanged"
+                    .to_string(),
+            severity: DiagnosticSeverity::Error,
+            tool: CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME.to_string(),
+            code_block_start: line,
+        }
+    }
+
     pub fn to_lint_warning(&self) -> LintWarning {
         let severity = match self.severity {
             DiagnosticSeverity::Error => Severity::Error,
@@ -194,6 +233,8 @@ pub enum ProcessorError {
         language: String,
         line: usize,
     },
+    /// A coverage or configuration policy stopped processing.
+    Policy { message: String, line: usize },
     /// Processing was aborted due to on_error = fail.
     Aborted { message: String },
 }
@@ -209,8 +250,12 @@ impl std::fmt::Display for ProcessorError {
                 write!(f, "line {line} ({language}): no tools configured")
             }
             Self::ToolBinaryNotFound { tool, language, line } => {
-                write!(f, "line {line} ({language}): tool '{tool}' not found in PATH")
+                write!(
+                    f,
+                    "line {line} ({language}): tool '{tool}' not found in allowed lookup locations"
+                )
             }
+            Self::Policy { message, line } => write!(f, "line {line}: {message}"),
             Self::Aborted { message } => write!(f, "Processing aborted: {message}"),
         }
     }
@@ -222,7 +267,8 @@ impl ProcessorError {
         match self {
             Self::ToolErrorAt { line, .. }
             | Self::NoToolsConfigured { line, .. }
-            | Self::ToolBinaryNotFound { line, .. } => Some(*line),
+            | Self::ToolBinaryNotFound { line, .. }
+            | Self::Policy { line, .. } => Some(*line),
             Self::ToolError(_) | Self::Aborted { .. } => None,
         }
     }
@@ -232,7 +278,10 @@ impl ProcessorError {
         match self {
             Self::ToolErrorAt { error, .. } => error.to_string(),
             Self::NoToolsConfigured { language, .. } => format!("No tools configured for language '{language}'"),
-            Self::ToolBinaryNotFound { tool, .. } => format!("Tool binary '{tool}' not found in PATH"),
+            Self::ToolBinaryNotFound { tool, .. } => {
+                format!("Tool binary '{tool}' not found in allowed lookup locations")
+            }
+            Self::Policy { message, .. } => message.clone(),
             Self::ToolError(_) | Self::Aborted { .. } => self.to_string(),
         }
     }
@@ -333,9 +382,12 @@ pub struct CodeBlockToolProcessor<'a> {
     linguist: LinguistResolver,
     registry: ToolRegistry,
     executor: ToolExecutor,
+    run_state: std::sync::Arc<super::run_state::RunState>,
+    builtin_checks: bool,
     user_aliases: std::collections::HashMap<String, String>,
     /// `config.languages`, keyed by lowercased language name.
     languages: std::collections::HashMap<String, &'a LanguageToolConfig>,
+    custom_languages: Vec<String>,
 }
 
 impl<'a> CodeBlockToolProcessor<'a> {
@@ -350,15 +402,205 @@ impl<'a> CodeBlockToolProcessor<'a> {
         // to be lowercased to be reachable at all. `BTreeMap` iteration is sorted and
         // uppercase sorts first, so an exact-lowercase key wins over a mixed-case one.
         let languages = config.languages.iter().map(|(k, v)| (k.to_lowercase(), v)).collect();
+        let run_state = config.run_state.clone().unwrap_or_default();
         Self {
+            builtin_checks: true,
+            custom_languages: Vec::new(),
+            run_state: std::sync::Arc::clone(&run_state),
             config,
             flavor,
             linguist: LinguistResolver::new(),
             registry: ToolRegistry::new(config.tools.clone()),
-            executor: ToolExecutor::new(config.timeout),
+            executor: ToolExecutor::new(config.timeout)
+                .with_binary_resolution(
+                    config.binary_preferences.clone(),
+                    super::binary::project_root(&std::env::current_dir().unwrap_or_default()),
+                )
+                .with_run_state(run_state),
             user_aliases,
             languages,
         }
+    }
+
+    /// Invocation accounting and once-per-run policy warnings.
+    pub fn run_state(&self) -> &super::run_state::RunState {
+        &self.run_state
+    }
+
+    fn needs_coverage_scan(&self) -> bool {
+        self.config.on_missing_language_tag != OnMissing::Ignore
+            || self.config.unknown_language_policy() != OnMissing::Ignore
+            || self.config.on_missing_mode_definition != OnMissing::Ignore
+            || self.config.on_missing_language_definition == OnMissing::Warn
+    }
+
+    fn block_policy(&self, block: &FencedCodeBlockInfo, lint: bool) -> Option<(OnMissing, String, String)> {
+        use crate::utils::fence_language::{FenceLanguage, classify};
+        match classify(&block.info_string, self.flavor) {
+            FenceLanguage::Exempt => return Some((OnMissing::Ignore, String::new(), String::new())),
+            FenceLanguage::Language | FenceLanguage::CodeSyntax => {}
+            FenceLanguage::Missing => {
+                return Some((
+                    self.config.on_missing_language_tag,
+                    "missing-tag".into(),
+                    "Fenced code block has no language tag".into(),
+                ));
+            }
+        }
+        let canonical = self.resolve_language(&block.language);
+        let known = self.linguist.is_known(&block.language)
+            || self
+                .custom_languages
+                .iter()
+                .any(|label| label.eq_ignore_ascii_case(&block.language))
+            || self.user_aliases.contains_key(&block.language.to_lowercase())
+            || self.languages.contains_key(&block.language.to_lowercase())
+            || self.languages.contains_key(&canonical);
+        if !known {
+            return Some((
+                self.config.unknown_language_policy(),
+                format!("unknown-tag:{}", block.language.to_lowercase()),
+                format!("Unrecognized code block language tag '{}'", block.language),
+            ));
+        }
+        if let Some(language) = self.language_config(&canonical) {
+            if !language.enabled {
+                return None;
+            }
+            let (current, opposite, mode) = if lint {
+                (&language.lint, &language.format, "lint")
+            } else {
+                (&language.format, &language.lint, "format")
+            };
+            if current.is_empty() && !opposite.is_empty() {
+                return Some((
+                    self.config.on_missing_mode_definition,
+                    format!("missing-mode:{canonical}:{mode}"),
+                    format!("No {mode} tools configured for language '{canonical}'"),
+                ));
+            }
+        }
+        None
+    }
+
+    fn policy_diagnostic(
+        &self,
+        policy: OnMissing,
+        key: String,
+        message: String,
+        line: usize,
+    ) -> Result<Option<CodeBlockDiagnostic>, ProcessorError> {
+        match policy {
+            OnMissing::Ignore => Ok(None),
+            OnMissing::Warn => {
+                self.run_state.warn(key, message);
+                Ok(None)
+            }
+            OnMissing::Fail => Ok(Some(CodeBlockDiagnostic {
+                file_line: line,
+                column: None,
+                message,
+                severity: DiagnosticSeverity::Error,
+                tool: CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME.into(),
+                code_block_start: line,
+            })),
+            OnMissing::FailFast => {
+                self.run_state.abort();
+                Err(ProcessorError::Policy { message, line })
+            }
+        }
+    }
+
+    /// Replay coverage warnings without re-executing tools on a cache hit.
+    pub fn replay_cached_warnings(&self, content: &str) {
+        for block in self.extract_code_blocks(content) {
+            if let Some((policy, key, message)) = self.block_policy(&block, true) {
+                if policy == OnMissing::Warn {
+                    self.run_state.warn(key, message);
+                }
+            } else if !block.language.is_empty() && self.config.on_missing_language_definition == OnMissing::Warn {
+                let canonical = self.resolve_language(&block.language);
+                if self
+                    .language_config(&canonical)
+                    .is_none_or(|lc| lc.enabled && lc.lint.is_empty() && lc.format.is_empty())
+                {
+                    self.run_state.warn(
+                        format!("missing-definition:{canonical}"),
+                        format!("No tools configured for language '{canonical}'"),
+                    );
+                }
+            }
+        }
+    }
+
+    /// Whether a valid cached lint result represents at least one usable tool.
+    pub fn has_lint_work(&self, content: &str) -> bool {
+        self.has_work(content, true)
+    }
+
+    pub fn has_work(&self, content: &str, lint: bool) -> bool {
+        let slot = if lint { ToolSlot::Lint } else { ToolSlot::Format };
+        self.extract_code_blocks(content).iter().any(|block| {
+            if self.block_policy(block, lint).is_some() || block.content_start == block.content_end {
+                return false;
+            }
+            let canonical = self.resolve_language(&block.language);
+            self.language_config(&canonical).is_some_and(|language| {
+                language.enabled
+                    && (if lint { &language.lint } else { &language.format }).iter().any(|id| {
+                        if self.registry.definition_problem(id, slot).is_some() {
+                            return false;
+                        }
+                        if is_rumdl_builtin(id) && is_markdown_language(&canonical) {
+                            return self.builtin_checks;
+                        }
+                        self.registry
+                            .resolve(id, slot)
+                            .and_then(|tool| tool.command.first())
+                            .is_some_and(|binary| self.executor.is_tool_available(binary))
+                    })
+            })
+        })
+    }
+
+    /// Share project-declared MD040 language labels with tools-only validation.
+    pub fn with_document_config(mut self, config: &crate::config::Config) -> Self {
+        let md040: crate::rules::md040_fenced_code_language::md040_config::MD040Config =
+            crate::rule_config_serde::load_rule_config(config);
+        self.custom_languages = md040.custom_languages;
+        self
+    }
+
+    /// External commands may read configuration, environment or wrappers that
+    /// rumdl cannot validate. A combined file cache must not reuse their verdicts.
+    pub fn has_external_lint_work(&self, content: &str) -> bool {
+        self.extract_code_blocks(content).iter().any(|block| {
+            if self.block_policy(block, true).is_some() || block.content_start == block.content_end {
+                return false;
+            }
+            let canonical = self.resolve_language(&block.language);
+            self.language_config(&canonical).is_some_and(|language| {
+                language.enabled
+                    && language.lint.iter().any(|id| {
+                        !(is_rumdl_builtin(id) && is_markdown_language(&canonical))
+                            && self.registry.definition_problem(id, ToolSlot::Lint).is_none()
+                    })
+            })
+        })
+    }
+
+    pub fn with_builtin_checks(mut self, enabled: bool) -> Self {
+        self.builtin_checks = enabled;
+        self
+    }
+
+    /// Resolve project-local executables relative to this document's project.
+    pub fn for_path(mut self, path: &std::path::Path) -> Self {
+        self.executor = self.executor.with_binary_resolution(
+            self.config.binary_preferences.clone(),
+            super::binary::project_root(path),
+        );
+        self
     }
 
     /// Configuration for a canonical (lowercase) language name.
@@ -381,144 +623,27 @@ impl<'a> CodeBlockToolProcessor<'a> {
         }
     }
 
-    /// Quick check whether any configured language might appear in fenced code blocks.
-    /// Scans for `` ```lang `` or `` ~~~lang `` patterns without full parsing.
+    /// Conservatively skip parsing documents without any possible fence.
+    /// Fence length and container prefixes must not hide applicable tool work.
     fn has_potential_matching_blocks(&self, content: &str, lint_mode: bool) -> bool {
-        // Collect languages that have tools configured for the requested mode
-        let configured_langs: Vec<&str> = self
-            .languages
-            .iter()
-            .filter(|(_, lc)| {
-                lc.enabled
-                    && if lint_mode {
-                        !lc.lint.is_empty()
-                    } else {
-                        !lc.format.is_empty()
-                    }
-            })
-            .map(|(lang, _)| lang.as_str())
-            .collect();
-
-        if configured_langs.is_empty() {
-            return false;
-        }
-
-        // Scan content line-by-line for fence openers matching configured languages
-        for line in content.lines() {
-            let trimmed = line.trim_start();
-            let after_fence = if let Some(rest) = trimmed.strip_prefix("```") {
-                rest
-            } else if let Some(rest) = trimmed.strip_prefix("~~~") {
-                rest
-            } else {
-                continue;
-            };
-
-            let lang = after_fence.split_whitespace().next().unwrap_or("");
-            if lang.is_empty() {
-                continue;
-            }
-            // Check both the raw language and the canonical (normalized) form
-            let canonical = self.resolve_language(lang);
-            if configured_langs.contains(&canonical.as_str()) {
-                return true;
-            }
-        }
-
-        false
+        self.languages.values().any(|language| {
+            language.enabled
+                && if lint_mode {
+                    !language.lint.is_empty()
+                } else {
+                    !language.format.is_empty()
+                }
+        }) && (content.contains("```") || content.contains("~~~"))
     }
 
-    /// Extract all fenced code blocks from content.
+    /// Extract all fenced code blocks from content, including those the flavor
+    /// adds (MkDocs admonitions and tabs).
     pub fn extract_code_blocks(&self, content: &str) -> Vec<FencedCodeBlockInfo> {
-        let mut blocks = Vec::new();
-        let mut current_block: Option<FencedCodeBlockBuilder> = None;
-
-        let options = rumdl_parser_options();
-        let parser = Parser::new_ext(content, options).into_offset_iter();
-
-        let lines: Vec<&str> = content.lines().collect();
-
-        // Byte offset at which each line starts, so a fence's line number is a binary
-        // search rather than a newline count over everything before it.
-        let line_starts: Vec<usize> = std::iter::once(0)
-            .chain(content.match_indices('\n').map(|(i, _)| i + 1))
-            .collect();
-        let line_of = |offset: usize| line_starts.partition_point(|&start| start <= offset) - 1;
-
-        for (event, range) in parser {
-            match event {
-                Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) => {
-                    let info_string = info.to_string();
-                    let language = info_string.split_whitespace().next().unwrap_or("").to_string();
-
-                    // Find start line
-                    let start_line = line_of(range.start);
-
-                    // Find content start (after opening fence line)
-                    let content_start = content[range.start..]
-                        .find('\n')
-                        .map_or(content.len(), |i| range.start + i + 1);
-
-                    // Detect fence character and length from the line
-                    let fence_line = lines.get(start_line).unwrap_or(&"");
-                    let trimmed = fence_line.trim_start();
-                    let indent = fence_line.len() - trimmed.len();
-                    let indent_prefix = fence_line.get(..indent).unwrap_or("").to_string();
-                    let (fence_char, fence_length) = if trimmed.starts_with('~') {
-                        ('~', trimmed.chars().take_while(|&c| c == '~').count())
-                    } else {
-                        ('`', trimmed.chars().take_while(|&c| c == '`').count())
-                    };
-
-                    current_block = Some(FencedCodeBlockBuilder {
-                        start_line,
-                        content_start,
-                        language,
-                        info_string,
-                        fence_char,
-                        fence_length,
-                        indent,
-                        indent_prefix,
-                    });
-                }
-                Event::End(TagEnd::CodeBlock) => {
-                    if let Some(builder) = current_block.take() {
-                        // Find end line
-                        let end_line = line_of(range.end);
-
-                        // Find content end (before closing fence line)
-                        let search_start = builder.content_start.min(range.end);
-                        let content_end = if search_start < range.end {
-                            content[search_start..range.end]
-                                .rfind('\n')
-                                .map_or(search_start, |i| search_start + i)
-                        } else {
-                            search_start
-                        };
-
-                        if content_end >= builder.content_start {
-                            blocks.push(FencedCodeBlockInfo {
-                                start_line: builder.start_line,
-                                end_line,
-                                content_start: builder.content_start,
-                                content_end,
-                                language: builder.language,
-                                info_string: builder.info_string,
-                                fence_char: builder.fence_char,
-                                fence_length: builder.fence_length,
-                                indent: builder.indent,
-                                indent_prefix: builder.indent_prefix,
-                            });
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
+        let mut blocks = extract_fenced_code_blocks(content);
 
         // For MkDocs flavor, also extract code blocks inside admonitions and tabs
         if self.flavor == MarkdownFlavor::MkDocs {
-            let mkdocs_blocks = self.extract_mkdocs_code_blocks(content);
+            let mkdocs_blocks = self.extract_mkdocs_code_blocks(content, &blocks);
             for mb in mkdocs_blocks {
                 // Deduplicate: only add if no existing block starts at the same line
                 if !blocks.iter().any(|b| b.start_line == mb.start_line) {
@@ -535,13 +660,22 @@ impl<'a> CodeBlockToolProcessor<'a> {
     ///
     /// pulldown_cmark doesn't parse MkDocs-specific constructs, so indented
     /// code blocks inside `!!!`/`???` admonitions or `===` tabs are missed.
-    /// This method manually scans for them.
-    fn extract_mkdocs_code_blocks(&self, content: &str) -> Vec<FencedCodeBlockInfo> {
+    /// This method manually scans for them, skipping the lines of the
+    /// `fenced` blocks the CommonMark parser found: what looks like an
+    /// admonition there is code, such as an example in a `markdown` block.
+    fn extract_mkdocs_code_blocks(&self, content: &str, fenced: &[FencedCodeBlockInfo]) -> Vec<FencedCodeBlockInfo> {
         use crate::utils::mkdocs_admonitions;
         use crate::utils::mkdocs_tabs;
 
         let mut blocks = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
+        let mut in_fenced_block = vec![false; lines.len()];
+        for block in fenced {
+            let end = block.end_line.min(lines.len().saturating_sub(1));
+            if let Some(span) = in_fenced_block.get_mut(block.start_line..=end) {
+                span.fill(true);
+            }
+        }
 
         // Track current MkDocs context indent level
         // We only need to know if we're inside any MkDocs block, so a simple stack suffices.
@@ -553,7 +687,6 @@ impl<'a> CodeBlockToolProcessor<'a> {
         let mut fence_content_start: usize = 0;
         let mut fence_char: char = '`';
         let mut fence_length: usize = 0;
-        let mut fence_indent: usize = 0;
         let mut fence_indent_prefix = String::new();
         let mut fence_language = String::new();
         let mut fence_info_string = String::new();
@@ -587,6 +720,12 @@ impl<'a> CodeBlockToolProcessor<'a> {
                         break;
                     }
                 }
+            }
+
+            // A line of a fenced block can end a context, but never opens one
+            // or a fence: it is code.
+            if in_fenced_block[i] {
+                continue;
             }
 
             // Check for admonition start — push new context
@@ -624,7 +763,6 @@ impl<'a> CodeBlockToolProcessor<'a> {
                     fence_start_line = i;
                     fence_char = fc;
                     fence_length = fl;
-                    fence_indent = leading_spaces;
                     fence_indent_prefix = line.get(..leading_spaces).unwrap_or("").to_string();
 
                     let after_fence = &trimmed[fl..];
@@ -650,6 +788,8 @@ impl<'a> CodeBlockToolProcessor<'a> {
                     let content_end = line_offsets.get(i).copied().unwrap_or(content.len());
 
                     if content_end >= fence_content_start {
+                        let (code, line_prefix_widths) =
+                            strip_indent_from_block(&content[fence_content_start..content_end], &fence_indent_prefix);
                         blocks.push(FencedCodeBlockInfo {
                             start_line: fence_start_line,
                             end_line: i,
@@ -659,8 +799,9 @@ impl<'a> CodeBlockToolProcessor<'a> {
                             info_string: fence_info_string.clone(),
                             fence_char,
                             fence_length,
-                            indent: fence_indent,
-                            indent_prefix: fence_indent_prefix.clone(),
+                            content_prefix: fence_indent_prefix.clone(),
+                            code,
+                            line_prefix_widths,
                         });
                     }
 
@@ -691,44 +832,6 @@ impl<'a> CodeBlockToolProcessor<'a> {
             .unwrap_or(self.config.on_error)
     }
 
-    /// Strip the fence indentation prefix from each line of a code block.
-    fn strip_indent_from_block(&self, content: &str, indent_prefix: &str) -> String {
-        if indent_prefix.is_empty() {
-            return content.to_string();
-        }
-
-        let mut out = String::with_capacity(content.len());
-        for line in content.split_inclusive('\n') {
-            if let Some(stripped) = line.strip_prefix(indent_prefix) {
-                out.push_str(stripped);
-            } else {
-                out.push_str(line);
-            }
-        }
-        out
-    }
-
-    /// Re-apply the fence indentation prefix to each line of a code block.
-    fn apply_indent_to_block(&self, content: &str, indent_prefix: &str) -> String {
-        if indent_prefix.is_empty() {
-            return content.to_string();
-        }
-        if content.is_empty() {
-            return String::new();
-        }
-
-        let mut out = String::with_capacity(content.len() + indent_prefix.len());
-        for line in content.split_inclusive('\n') {
-            if line == "\n" {
-                out.push_str(line);
-            } else {
-                out.push_str(indent_prefix);
-                out.push_str(line);
-            }
-        }
-        out
-    }
-
     /// Lint all code blocks in the content.
     ///
     /// Returns diagnostics from all configured linters. Tools that could not run
@@ -746,7 +849,8 @@ impl<'a> CodeBlockToolProcessor<'a> {
         // Skip the expensive parse when no tools could possibly produce output.
         // With on_missing=Ignore (default) and no languages with lint tools configured,
         // every block would be skipped, so the parse is wasted work.
-        if self.config.on_missing_language_definition.skips_the_block()
+        if !self.needs_coverage_scan()
+            && self.config.on_missing_language_definition.skips_the_block()
             && !self
                 .config
                 .languages
@@ -758,20 +862,27 @@ impl<'a> CodeBlockToolProcessor<'a> {
 
         // Quick content check: skip parsing if no configured language appears in the content.
         // This avoids the expensive pulldown-cmark parse when there are no matching code blocks.
-        if self.config.on_missing_language_definition.skips_the_block()
+        if !self.needs_coverage_scan()
+            && self.config.on_missing_language_definition.skips_the_block()
             && !self.has_potential_matching_blocks(content, true)
         {
             return Ok(LintOutput::default());
         }
 
+        let mut incomplete = false;
         let mut all_diagnostics = Vec::new();
         let mut warnings = Vec::new();
-        let mut incomplete = false;
         let blocks = self.extract_code_blocks(content);
 
         for block in blocks {
+            if let Some((policy, key, message)) = self.block_policy(&block, true) {
+                if let Some(diagnostic) = self.policy_diagnostic(policy, key, message, block.start_line + 1)? {
+                    all_diagnostics.push(diagnostic);
+                }
+                continue;
+            }
             if block.language.is_empty() {
-                continue; // Skip blocks without language tag
+                continue;
             }
 
             let canonical_lang = self.resolve_language(&block.language);
@@ -800,7 +911,14 @@ impl<'a> CodeBlockToolProcessor<'a> {
                         // and `warn` has nothing to add over `ignore`. Config
                         // validation tells the user that, rather than leaving a
                         // setting quietly doing nothing.
-                        OnMissing::Ignore | OnMissing::Warn => continue,
+                        OnMissing::Ignore => continue,
+                        OnMissing::Warn => {
+                            self.run_state.warn(
+                                format!("missing-definition:{canonical_lang}"),
+                                format!("No tools configured for language '{canonical_lang}'"),
+                            );
+                            continue;
+                        }
                         OnMissing::Fail => {
                             all_diagnostics.push(CodeBlockDiagnostic {
                                 file_line: block.start_line + 1,
@@ -813,6 +931,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
                             continue;
                         }
                         OnMissing::FailFast => {
+                            self.run_state.abort();
                             return Err(ProcessorError::NoToolsConfigured {
                                 language: canonical_lang,
                                 line: block.start_line + 1,
@@ -823,20 +942,24 @@ impl<'a> CodeBlockToolProcessor<'a> {
             };
 
             // Extract code block content
-            let code_content_raw = if block.content_start < block.content_end && block.content_end <= content.len() {
-                &content[block.content_start..block.content_end]
-            } else {
+            if block.content_start >= block.content_end || block.content_end > content.len() {
                 continue;
-            };
-            let code_content = self.strip_indent_from_block(code_content_raw, &block.indent_prefix);
+            }
+            let code_content = &block.code;
 
             // Run each lint tool
             for tool_id in lint_tools {
                 // Skip built-in "rumdl" tool for markdown - handled separately by embedded markdown linting
                 if is_rumdl_builtin(tool_id) && is_markdown_language(&canonical_lang) {
+                    if self.builtin_checks {
+                        self.run_state.record_execution();
+                    }
                     continue;
                 }
 
+                if self.registry.definition_problem(tool_id, ToolSlot::Lint).is_some() {
+                    continue;
+                }
                 let Some(resolved_id) = self.registry.resolve_id(tool_id, ToolSlot::Lint) else {
                     self.warn_unknown_tool(tool_id, &canonical_lang);
                     continue;
@@ -861,7 +984,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
                             all_diagnostics.push(CodeBlockDiagnostic {
                                 file_line: block.start_line + 1,
                                 column: None,
-                                message: format!("Tool binary '{tool_name}' not found in PATH"),
+                                message: format!("Tool binary '{tool_name}' not found in allowed lookup locations"),
                                 severity: DiagnosticSeverity::Error,
                                 tool: CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME.to_string(),
                                 code_block_start: block.start_line + 1,
@@ -869,6 +992,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
                             continue;
                         }
                         OnMissing::FailFast => {
+                            self.run_state.abort();
                             return Err(ProcessorError::ToolBinaryNotFound {
                                 tool: tool_name.to_string(),
                                 language: canonical_lang.clone(),
@@ -878,15 +1002,26 @@ impl<'a> CodeBlockToolProcessor<'a> {
                     }
                 }
 
-                let tool_input = ensure_trailing_newline(&code_content);
+                let tool_input = ensure_trailing_newline(code_content);
                 let run = match self.registry.lint_mode(&resolved_id) {
-                    // A formatter answers "is this block ok?" by formatting it and
-                    // comparing, so `check` reports exactly the blocks `fmt` rewrites.
+                    // Explicit djLint and Shuck modes prefer verified native checks;
+                    // all other formatters and unsupported versions compare output.
                     Some(BuiltinLintMode::FormatCheck) => self
                         .executor
-                        .format(tool_def, &tool_input, Some(self.config.timeout))
-                        .map(|output| {
-                            self.format_check_diagnostics(&output, &code_content, tool_id, block.start_line + 1)
+                        .format_check(
+                            tool_def,
+                            self.registry.native_format_check(&resolved_id).as_ref(),
+                            &tool_input,
+                            Some(self.config.timeout),
+                        )
+                        .map(|output| match output {
+                            FormatCheckOutput::Formatted(output) => {
+                                self.format_check_diagnostics(&output, code_content, tool_id, block.start_line + 1)
+                            }
+                            FormatCheckOutput::Native { changed: false } => Vec::new(),
+                            FormatCheckOutput::Native { changed: true } => {
+                                self.unformatted_diagnostic(tool_id, block.start_line + 1)
+                            }
                         }),
                     _ => self
                         .executor
@@ -900,7 +1035,17 @@ impl<'a> CodeBlockToolProcessor<'a> {
                         }),
                 };
                 match run {
-                    Ok(diagnostics) => {
+                    Ok(mut diagnostics) => {
+                        // A tool counts columns in the code it was given, which
+                        // starts after the line's container prefix in the document.
+                        for diagnostic in &mut diagnostics {
+                            let code_line = diagnostic.file_line.checked_sub(block.start_line + 1);
+                            if let (Some(column), Some(line)) = (diagnostic.column.as_mut(), code_line)
+                                && let Some(document_column) = block.document_column(line, *column)
+                            {
+                                *column = document_column;
+                            }
+                        }
                         all_diagnostics.extend(diagnostics);
                     }
                     Err(error) => match self.get_on_error(&canonical_lang) {
@@ -944,7 +1089,8 @@ impl<'a> CodeBlockToolProcessor<'a> {
         })
     }
 
-    /// Format all code blocks in the content.
+    /// Format all code blocks in analysis text (the document's encoding BOM
+    /// already removed by the caller, as for `format_with_config`).
     ///
     /// Returns the modified content with formatted code blocks and any errors that occurred.
     /// With `on-missing-*` = `fail`, errors are collected but formatting continues.
@@ -957,6 +1103,10 @@ impl<'a> CodeBlockToolProcessor<'a> {
     ///
     /// The conflict guard reads the configuration alone. A caller that resolved a
     /// rule selection of its own passes it to `format_for_rules` instead.
+    ///
+    /// `content` is analysis text: a caller holding a file with a leading byte
+    /// order mark removes it first (`utils::bom::strip_bom`) and puts it back on
+    /// the result, so a second U+FEFF stays ordinary content.
     pub fn format_with_config(
         &self,
         content: &str,
@@ -996,15 +1146,16 @@ impl<'a> CodeBlockToolProcessor<'a> {
         };
 
         let conflicted = match rules {
-            Some(rules) => crate::merge_conflict::detect_for_rules(content, rules, config, path).is_some(),
-            None => crate::merge_conflict::detect_configured(content, config, path).is_some(),
+            Some(rules) => crate::merge_conflict::detect_for_analysis(content, rules, config, path).is_some(),
+            None => crate::merge_conflict::detect_configured_for_analysis(content, config, path).is_some(),
         };
         if conflicted {
             return Ok(no_output);
         }
 
         // Skip the expensive parse when no tools could produce output
-        if self.config.on_missing_language_definition.skips_the_block()
+        if !self.needs_coverage_scan()
+            && self.config.on_missing_language_definition.skips_the_block()
             && !self
                 .config
                 .languages
@@ -1015,7 +1166,8 @@ impl<'a> CodeBlockToolProcessor<'a> {
         }
 
         // Quick content check: skip parsing if no configured language appears in the content
-        if self.config.on_missing_language_definition.skips_the_block()
+        if !self.needs_coverage_scan()
+            && self.config.on_missing_language_definition.skips_the_block()
             && !self.has_potential_matching_blocks(content, false)
         {
             return Ok(no_output);
@@ -1024,20 +1176,77 @@ impl<'a> CodeBlockToolProcessor<'a> {
         let blocks = self.extract_code_blocks(content);
 
         if blocks.is_empty() {
-            return Ok(FormatOutput {
-                content: content.to_string(),
-                had_errors: false,
-                error_messages: Vec::new(),
-                failures: Vec::new(),
-            });
+            return Ok(no_output);
         }
 
-        // Process blocks in reverse order to maintain byte offsets
-        let mut result = content.to_string();
-        let mut error_messages: Vec<String> = Vec::new();
-        let mut failures: Vec<CodeBlockDiagnostic> = Vec::new();
-
-        for block in blocks.into_iter().rev() {
+        let mut error_messages = Vec::new();
+        let mut failures = Vec::new();
+        for block in &blocks {
+            if let Some((policy, key, message)) = self.block_policy(block, false)
+                && let Some(diagnostic) = self.policy_diagnostic(policy, key, message, block.start_line + 1)?
+            {
+                error_messages.push(diagnostic.message.clone());
+                failures.push(diagnostic);
+            }
+        }
+        // Check fail-fast gaps in source order before reverse-offset execution.
+        for block in &blocks {
+            if self.block_policy(block, false).is_some() {
+                continue;
+            }
+            let canonical = self.resolve_language(&block.language);
+            let language = self.language_config(&canonical);
+            if language.is_some_and(|lc| !lc.enabled || lc.format.is_empty() && !lc.lint.is_empty()) {
+                continue;
+            }
+            let Some(language) = language.filter(|lc| !lc.format.is_empty()) else {
+                if self.config.on_missing_language_definition == OnMissing::FailFast {
+                    self.run_state.abort();
+                    return Err(ProcessorError::NoToolsConfigured {
+                        language: canonical,
+                        line: block.start_line + 1,
+                    });
+                }
+                continue;
+            };
+            if self.config.on_missing_tool_binary != OnMissing::FailFast {
+                continue;
+            }
+            for id in &language.format {
+                if is_rumdl_builtin(id) && is_markdown_language(&canonical) {
+                    continue;
+                }
+                if self.registry.definition_problem(id, ToolSlot::Format).is_some() {
+                    continue;
+                }
+                let Some(tool) = self.registry.resolve(id, ToolSlot::Format) else {
+                    continue;
+                };
+                let Some(binary) = tool.command.first() else {
+                    continue;
+                };
+                if !self.executor.is_tool_available(binary) {
+                    self.run_state.abort();
+                    return Err(ProcessorError::ToolBinaryNotFound {
+                        tool: binary.clone(),
+                        language: canonical.clone(),
+                        line: block.start_line + 1,
+                    });
+                }
+                // Fallback stages after an available formatter are only known
+                // to be needed if it fails; runtime retains that check.
+                if language.format_mode == FormatMode::Fallback {
+                    break;
+                }
+            }
+        }
+        // Execution uses original offsets; coverage policies are checked above
+        // in source order, so fail-fast never starts later blocks speculatively.
+        let mut planned = Vec::new();
+        for (index, block) in blocks.iter().enumerate().rev() {
+            if self.block_policy(block, false).is_some() {
+                continue;
+            }
             if block.language.is_empty() {
                 continue;
             }
@@ -1062,7 +1271,14 @@ impl<'a> CodeBlockToolProcessor<'a> {
                     // The language has no tools in either mode
                     match self.config.on_missing_language_definition {
                         // See the matching arm in `lint`.
-                        OnMissing::Ignore | OnMissing::Warn => continue,
+                        OnMissing::Ignore => continue,
+                        OnMissing::Warn => {
+                            self.run_state.warn(
+                                format!("missing-definition:{canonical_lang}"),
+                                format!("No tools configured for language '{canonical_lang}'"),
+                            );
+                            continue;
+                        }
                         OnMissing::Fail => {
                             error_messages.push(format!(
                                 "No format tools configured for language '{canonical_lang}' at line {}",
@@ -1079,6 +1295,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
                             continue;
                         }
                         OnMissing::FailFast => {
+                            self.run_state.abort();
                             return Err(ProcessorError::NoToolsConfigured {
                                 language: canonical_lang,
                                 line: block.start_line + 1,
@@ -1089,11 +1306,11 @@ impl<'a> CodeBlockToolProcessor<'a> {
             };
 
             // Extract code block content
-            if block.content_start >= block.content_end || block.content_end > result.len() {
+            if block.content_start >= block.content_end || block.content_end > content.len() {
                 continue;
             }
-            let code_content_raw = result[block.content_start..block.content_end].to_string();
-            let code_content = self.strip_indent_from_block(&code_content_raw, &block.indent_prefix);
+            let code_content_raw = &content[block.content_start..block.content_end];
+            let code_content = block.code.clone();
 
             // In fallback mode the first formatter that succeeds supplies the
             // block. In pipeline mode every formatter runs, each on the output of
@@ -1104,9 +1321,15 @@ impl<'a> CodeBlockToolProcessor<'a> {
             for tool_id in format_tools {
                 // Skip built-in "rumdl" tool for markdown - handled separately by embedded markdown formatting
                 if is_rumdl_builtin(tool_id) && is_markdown_language(&canonical_lang) {
+                    if self.builtin_checks {
+                        self.run_state.record_execution();
+                    }
                     continue;
                 }
 
+                if self.registry.definition_problem(tool_id, ToolSlot::Format).is_some() {
+                    continue;
+                }
                 let Some(tool_def) = self.registry.resolve(tool_id, ToolSlot::Format) else {
                     self.warn_unknown_tool(tool_id, &canonical_lang);
                     continue;
@@ -1137,13 +1360,13 @@ impl<'a> CodeBlockToolProcessor<'a> {
                         }
                         OnMissing::Fail => {
                             error_messages.push(format!(
-                                "Tool binary '{tool_name}' not found in PATH for language '{canonical_lang}' at line {}",
+                                "Tool binary '{tool_name}' not found in allowed lookup locations for language '{canonical_lang}' at line {}",
                                 block.start_line + 1
                             ));
                             failures.push(CodeBlockDiagnostic {
                                 file_line: block.start_line + 1,
                                 column: None,
-                                message: format!("Tool binary '{tool_name}' not found in PATH"),
+                                message: format!("Tool binary '{tool_name}' not found in allowed lookup locations"),
                                 severity: DiagnosticSeverity::Error,
                                 tool: CODE_BLOCK_TOOLS_DIAGNOSTIC_NAME.to_string(),
                                 code_block_start: block.start_line + 1,
@@ -1151,6 +1374,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
                             continue;
                         }
                         OnMissing::FailFast => {
+                            self.run_state.abort();
                             return Err(ProcessorError::ToolBinaryNotFound {
                                 tool: tool_name.to_string(),
                                 language: canonical_lang.clone(),
@@ -1195,12 +1419,24 @@ impl<'a> CodeBlockToolProcessor<'a> {
             }
 
             // Replace content if changed and a tool actually ran
-            if tool_ran && formatted != code_content {
-                let reindented = self.apply_indent_to_block(&formatted, &block.indent_prefix);
-                if reindented != code_content_raw {
-                    result.replace_range(block.content_start..block.content_end, &reindented);
-                }
+            if tool_ran && formatted != code_content && block.source_for(&formatted) != code_content_raw {
+                planned.push(WriteBack { index, code: formatted });
             }
+        }
+
+        let (result, refused) = write_back_verified(content, &blocks, &planned, |document| {
+            self.extract_code_blocks(document)
+        });
+        for index in refused {
+            let block = &blocks[index];
+            let diagnostic = CodeBlockDiagnostic::refused_write_back(block.start_line + 1);
+            error_messages.push(format!(
+                "line {} ({}): {}",
+                diagnostic.file_line,
+                self.resolve_language(&block.language),
+                diagnostic.message
+            ));
+            failures.push(diagnostic);
         }
 
         Ok(FormatOutput {
@@ -1214,9 +1450,8 @@ impl<'a> CodeBlockToolProcessor<'a> {
     /// Diagnostics for a built-in formatter used in a `lint` slot.
     ///
     /// The formatter's own output is the answer: a block that comes back changed is not
-    /// formatted. This deliberately does not use per-tool check flags, which disagree on
-    /// every axis that matters (exit code, whether the diff goes to stdout, whether the
-    /// flag survives alongside the stdin argument the tool also needs).
+    /// formatted. This comparison handles ordinary formatter IDs and the fallback
+    /// for native-check IDs whose installed version does not support reliable stdin checks.
     ///
     /// The comparison mirrors the one [`Self::format`] makes before rewriting a
     /// block, so `check` reports exactly the blocks `fmt` would change. A
@@ -1240,6 +1475,10 @@ impl<'a> CodeBlockToolProcessor<'a> {
             return Vec::new();
         }
 
+        self.unformatted_diagnostic(tool_id, code_block_start_line)
+    }
+
+    fn unformatted_diagnostic(&self, tool_id: &str, code_block_start_line: usize) -> Vec<CodeBlockDiagnostic> {
         vec![CodeBlockDiagnostic {
             file_line: code_block_start_line,
             column: None,
@@ -1722,6 +1961,204 @@ impl<'a> CodeBlockToolProcessor<'a> {
     }
 }
 
+/// Every fenced code block CommonMark sees in `content`, in document order,
+/// inside containers included.
+pub fn extract_fenced_code_blocks(content: &str) -> Vec<FencedCodeBlockInfo> {
+    let mut blocks = Vec::new();
+    let mut current_block: Option<FencedCodeBlockBuilder> = None;
+
+    let options = rumdl_parser_options_for(content);
+    let parser = Parser::new_ext(content, options).into_offset_iter();
+
+    // Byte offset at which each line starts, so a fence's line number is a binary
+    // search rather than a newline count over everything before it.
+    let line_starts: Vec<usize> = std::iter::once(0)
+        .chain(content.match_indices('\n').map(|(i, _)| i + 1))
+        .collect();
+    let line_of = |offset: usize| line_starts.partition_point(|&start| start <= offset) - 1;
+
+    // Where each footnote definition enclosing the current event starts.
+    let mut open_footnotes: Vec<usize> = Vec::new();
+
+    for (event, range) in parser {
+        match event {
+            Event::Start(Tag::FootnoteDefinition(_)) => open_footnotes.push(range.start),
+            Event::End(TagEnd::FootnoteDefinition) => {
+                open_footnotes.pop();
+            }
+            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) => {
+                let info_string = info.to_string();
+                let language = info_string.split_whitespace().next().unwrap_or("").to_string();
+
+                let start_line = line_of(range.start);
+
+                // The code starts on the line after the opening fence
+                let content_start = content[range.start..]
+                    .find('\n')
+                    .map_or(content.len(), |i| range.start + i + 1);
+
+                // The event starts at the fence itself, so everything before it
+                // on its line belongs to the containers and the fence's indent.
+                let fence_line_prefix = continuation_of_footnote_labels(
+                    &content[line_starts[start_line]..range.start],
+                    open_footnotes
+                        .iter()
+                        .filter(|&&start| start >= line_starts[start_line])
+                        .map(|&start| start - line_starts[start_line]),
+                );
+                let fence = &content[range.start..];
+                let fence_char = if fence.starts_with('~') { '~' } else { '`' };
+                let fence_length = fence.chars().take_while(|&c| c == fence_char).count();
+
+                current_block = Some(FencedCodeBlockBuilder {
+                    start_line,
+                    content_start,
+                    language,
+                    info_string,
+                    fence_char,
+                    fence_length,
+                    content_prefix: content_prefix_of(&fence_line_prefix),
+                    pieces: Vec::new(),
+                });
+            }
+            Event::Text(text) => {
+                if let Some(builder) = current_block.as_mut() {
+                    builder.pieces.push((range, text.into_string()));
+                }
+            }
+            Event::End(TagEnd::CodeBlock) => {
+                if let Some(builder) = current_block.take() {
+                    // The block's range can run through the line ending of its
+                    // last line, so its last byte is what places it.
+                    let end_line = line_of(range.end.saturating_sub(1).max(range.start));
+
+                    // The source of the code runs to the end of its last line,
+                    // line ending included. An empty block has no source at all.
+                    let content_end = builder
+                        .pieces
+                        .last()
+                        .map_or(builder.content_start, |(last, _)| last.end);
+                    let (code, line_prefix_widths) =
+                        block_code_from_pieces(content, &builder.pieces, |offset| line_starts[line_of(offset)]);
+
+                    blocks.push(FencedCodeBlockInfo {
+                        start_line: builder.start_line,
+                        end_line,
+                        content_start: builder.content_start,
+                        content_end: content_end.max(builder.content_start),
+                        language: builder.language,
+                        info_string: builder.info_string,
+                        fence_char: builder.fence_char,
+                        fence_length: builder.fence_length,
+                        content_prefix: builder.content_prefix,
+                        code,
+                        line_prefix_widths,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    blocks
+}
+
+/// Formatted code waiting to replace the code of a block.
+#[derive(Debug, Clone)]
+pub struct WriteBack {
+    /// The block's position among the blocks extracted from the document.
+    pub index: usize,
+    pub code: String,
+}
+
+/// `content` with each write-back's code in place of its block's code, keeping
+/// only the write-backs after which `extract` still reads the document as the
+/// same blocks with exactly the new code; and the indices of the blocks whose
+/// write-back was refused.
+///
+/// Whether new code can sit where the old code did depends on more than the
+/// block's containers: code with a line that closes the fence ends the block
+/// early, and everything after that line becomes document. A refused block
+/// keeps its original code. `extract` must be the function `blocks` came from,
+/// so an unchanged document reads back as exactly `blocks`, in document order.
+///
+/// Blocks are expected not to overlap. Write-backs to blocks that do are
+/// refused, since replacing one would leave the other's range pointing at
+/// different text.
+pub fn write_back_verified(
+    content: &str,
+    blocks: &[FencedCodeBlockInfo],
+    write_backs: &[WriteBack],
+    extract: impl Fn(&str) -> Vec<FencedCodeBlockInfo>,
+) -> (String, Vec<usize>) {
+    if write_backs.is_empty() {
+        return (content.to_string(), Vec::new());
+    }
+    let overlaps = |a: &WriteBack, b: &WriteBack| {
+        let (a, b) = (&blocks[a.index], &blocks[b.index]);
+        a.content_start < b.content_end && b.content_start < a.content_end
+    };
+    let (mut ordered, mut refused): (Vec<&WriteBack>, Vec<&WriteBack>) = write_backs.iter().partition(|write_back| {
+        !write_backs
+            .iter()
+            .any(|other| other.index != write_back.index && overlaps(write_back, other))
+    });
+    // Last block first, so each replacement leaves the offsets of the blocks
+    // before it valid.
+    ordered.sort_by_key(|write_back| std::cmp::Reverse(write_back.index));
+
+    let replace = |document: &mut String, write_back: &WriteBack| {
+        let block = &blocks[write_back.index];
+        document.replace_range(
+            block.content_start..block.content_end,
+            &block.source_for(&write_back.code),
+        );
+    };
+    // Extractors differ in whether code keeps CRLF line endings: the CommonMark
+    // parser reads them as LF, the MkDocs extractor keeps them. Code a formatter
+    // wrote with either line ending is the same code.
+    let reads_back = |document: &str, codes: &[&str]| {
+        extract(document)
+            .iter()
+            .map(|block| block.code.replace("\r\n", "\n"))
+            .eq(codes.iter().map(|code| code.replace("\r\n", "\n")))
+    };
+    let original_codes: Vec<&str> = blocks.iter().map(|block| block.code.as_str()).collect();
+
+    let refused_indices = |refused: Vec<&WriteBack>| {
+        let mut indices: Vec<usize> = refused.iter().map(|write_back| write_back.index).collect();
+        indices.sort_unstable();
+        indices
+    };
+
+    let mut codes = original_codes.clone();
+    let mut result = content.to_string();
+    for write_back in &ordered {
+        replace(&mut result, write_back);
+        codes[write_back.index] = &write_back.code;
+    }
+    if reads_back(&result, &codes) {
+        return (result, refused_indices(refused));
+    }
+
+    // At least one write-back changes the document's structure: apply them one
+    // at a time and keep each only if the document still reads back.
+    let mut codes = original_codes;
+    let mut result = content.to_string();
+    for write_back in ordered {
+        let mut candidate = result.clone();
+        replace(&mut candidate, write_back);
+        let original = std::mem::replace(&mut codes[write_back.index], &write_back.code);
+        if reads_back(&candidate, &codes) {
+            result = candidate;
+        } else {
+            codes[write_back.index] = original;
+            refused.push(write_back);
+        }
+    }
+    (result, refused_indices(refused))
+}
+
 /// Builder for FencedCodeBlockInfo during parsing.
 struct FencedCodeBlockBuilder {
     start_line: usize,
@@ -1730,8 +2167,172 @@ struct FencedCodeBlockBuilder {
     info_string: String,
     fence_char: char,
     fence_length: usize,
-    indent: usize,
-    indent_prefix: String,
+    content_prefix: String,
+    /// The parser's text events for the code, each with its source range.
+    pieces: Vec<(std::ops::Range<usize>, String)>,
+}
+
+/// The fence line prefix with each footnote label on it (`[^note]:` and the
+/// whitespace after it, at the given byte offsets) replaced by the four spaces a
+/// footnote definition's continuation lines are indented by.
+///
+/// A label is as wide as its name, but a footnote definition always continues
+/// at four columns, so its width on the fence line says nothing about the
+/// lines after it.
+fn continuation_of_footnote_labels(fence_line_prefix: &str, label_starts: impl Iterator<Item = usize>) -> String {
+    let mut prefix = fence_line_prefix.to_string();
+    let mut label_starts: Vec<usize> = label_starts.collect();
+    label_starts.sort_unstable();
+    // Later labels first, so earlier offsets stay valid.
+    for start in label_starts.into_iter().rev() {
+        let Some(label_end) = footnote_label_end(&prefix[start..]) else {
+            continue;
+        };
+        let rest = &prefix[start + label_end..];
+        let end = start + label_end + rest.len() - rest.trim_start_matches([' ', '\t']).len();
+        prefix.replace_range(start..end, "    ");
+    }
+    prefix
+}
+
+/// The length of the `[^label]:` that `text` starts with.
+fn footnote_label_end(text: &str) -> Option<usize> {
+    let mut escaped = false;
+    for (i, c) in text.char_indices().skip(2) {
+        match c {
+            _ if escaped => escaped = false,
+            '\\' => escaped = true,
+            ']' => return text[i + 1..].starts_with(':').then_some(i + 2),
+            _ => {}
+        }
+    }
+    None
+}
+
+/// The prefix a content line repeats for the containers around a fence, from
+/// what precedes the opening fence on its own line.
+///
+/// Only blockquote markers, whitespace and list markers can precede a fence, so
+/// keeping `>` and turning everything else into spaces gives the continuation of
+/// every container. Tabs become the spaces they span on the fence line, so a
+/// container that consumes part of a tab still gets exactly its columns.
+///
+/// A `>` written without its optional space (`>code`, `>- item`) gets one: on a
+/// continuation line the parser takes the first space after `>` as that
+/// optional space, so without it the line would lose a column to the quote.
+fn content_prefix_of(fence_line_prefix: &str) -> String {
+    let mut prefix = String::with_capacity(fence_line_prefix.len() + 1);
+    let mut column = 0;
+    let mut chars = fence_line_prefix.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '>' => {
+                prefix.push('>');
+                if !matches!(chars.peek(), Some(' ' | '\t')) {
+                    prefix.push(' ');
+                }
+                column += 1;
+            }
+            '\t' => {
+                let width = 4 - column % 4;
+                prefix.extend(std::iter::repeat_n(' ', width));
+                column += width;
+            }
+            _ => {
+                prefix.push(' ');
+                column += 1;
+            }
+        }
+    }
+    prefix
+}
+
+/// The code of a fenced block and the source prefix width of each of its lines,
+/// from the parser's text events.
+///
+/// The parser has already removed what CommonMark does not count as code
+/// (blockquote markers, list indentation, the fence's indentation). A line can
+/// arrive in several events (a CRLF line ending splits one), and one event can
+/// span several lines when a line carries no prefix at all (a blank line in a
+/// list item). A line's prefix is whatever precedes its first event on its
+/// source line. An event the parser rewrote (spaces standing in for a tab a
+/// container split) is placed at the start of its source range.
+fn block_code_from_pieces(
+    content: &str,
+    pieces: &[(std::ops::Range<usize>, String)],
+    line_start_of: impl Fn(usize) -> usize,
+) -> (String, Vec<usize>) {
+    let mut code = String::new();
+    let mut widths = Vec::new();
+    // A carriage return before a line's first event is its line ending (the
+    // parser reports a CRLF blank line as just its `\n`), never prefix.
+    let prefix_width = |offset: usize| {
+        let before = &content[line_start_of(offset)..offset];
+        before.strip_suffix('\r').unwrap_or(before).chars().count()
+    };
+
+    for (range, text) in pieces {
+        if content.get(range.clone()) == Some(text.as_str()) {
+            let mut offset = range.start;
+            for segment in text.split_inclusive('\n') {
+                if code.is_empty() || code.ends_with('\n') {
+                    widths.push(prefix_width(offset));
+                }
+                code.push_str(segment);
+                offset += segment.len();
+            }
+        } else {
+            // The parser writes out as spaces the columns of a tab a container
+            // only partly consumed. Those columns are code, so they are not prefix.
+            if code.is_empty() || code.ends_with('\n') {
+                widths.push(prefix_width(range.start).saturating_sub(text.chars().count()));
+            }
+            code.push_str(text);
+        }
+    }
+    (code, widths)
+}
+
+/// Strip a fence's indentation from each line of a code block's source, and
+/// report how much was stripped from each line.
+fn strip_indent_from_block(content: &str, indent_prefix: &str) -> (String, Vec<usize>) {
+    let mut code = String::with_capacity(content.len());
+    let mut widths = Vec::new();
+    for line in content.split_inclusive('\n') {
+        match line.strip_prefix(indent_prefix) {
+            Some(stripped) => {
+                code.push_str(stripped);
+                widths.push(indent_prefix.chars().count());
+            }
+            None => {
+                code.push_str(line);
+                widths.push(0);
+            }
+        }
+    }
+    (code, widths)
+}
+
+/// Put the containers' prefix back in front of each line of formatted code.
+///
+/// A blank line takes the prefix without its trailing whitespace: `>` inside a
+/// blockquote, nothing at all inside a list item.
+fn apply_content_prefix(content: &str, prefix: &str) -> String {
+    if prefix.is_empty() {
+        return content.to_string();
+    }
+
+    let blank_prefix = prefix.trim_end();
+    let mut out = String::with_capacity(content.len() + prefix.len());
+    for line in content.split_inclusive('\n') {
+        if line == "\n" {
+            out.push_str(blank_prefix);
+        } else {
+            out.push_str(prefix);
+        }
+        out.push_str(line);
+    }
+    out
 }
 
 #[cfg(test)]
@@ -1769,8 +2370,8 @@ fn main() {}
         assert_eq!(blocks[0].fence_char, '`');
         assert_eq!(blocks[0].fence_length, 3);
         assert_eq!(blocks[0].start_line, 2);
-        assert_eq!(blocks[0].indent, 0);
-        assert_eq!(blocks[0].indent_prefix, "");
+        assert_eq!(blocks[0].content_prefix, "");
+        assert_eq!(blocks[0].code, "def hello():\n    print(\"Hello\")\n");
 
         assert_eq!(blocks[1].language, "rust");
         assert_eq!(blocks[1].fence_char, '`');
@@ -1802,7 +2403,8 @@ fn main() {}
         assert_eq!(blocks[0].language, "bash");
         assert_eq!(blocks[0].fence_char, '~');
         assert_eq!(blocks[0].fence_length, 3);
-        assert_eq!(blocks[0].indent_prefix, "");
+        assert_eq!(blocks[0].content_prefix, "");
+        assert_eq!(blocks[0].code, "echo hello\n");
     }
 
     #[test]
@@ -1814,7 +2416,9 @@ fn main() {}
         let blocks = processor.extract_code_blocks(content);
 
         assert_eq!(blocks.len(), 1);
-        assert_eq!(blocks[0].indent_prefix, "    ");
+        assert_eq!(blocks[0].content_prefix, "    ");
+        assert_eq!(blocks[0].code, "print('hi')\n");
+        assert_eq!(blocks[0].line_prefix_widths, vec![4]);
     }
 
     /// Fence line numbers across content where byte offsets, character counts and line
@@ -1830,6 +2434,28 @@ fn main() {}
 
         let lines: Vec<(usize, usize)> = blocks.iter().map(|b| (b.start_line, b.end_line)).collect();
         assert_eq!(lines, vec![(2, 4), (6, 8), (10, 12)]);
+    }
+
+    /// An unterminated block ends on its own last line, not on the line that
+    /// follows it, however it is ended.
+    #[test]
+    fn test_extract_unterminated_code_block_line_numbers() {
+        let config = default_config();
+        let processor = CodeBlockToolProcessor::new(&config, MarkdownFlavor::default());
+
+        let cases = [
+            ("> ```sh\n> a\nb\n", (0, 1)),
+            ("- ```sh\n  a\n\nb\n", (0, 2)),
+            ("```sh\na\n", (0, 1)),
+            ("```sh\na", (0, 1)),
+            ("```sh\r\na\r\n", (0, 1)),
+            ("```sh\n", (0, 0)),
+        ];
+        for (content, expected) in cases {
+            let blocks = processor.extract_code_blocks(content);
+            let lines: Vec<(usize, usize)> = blocks.iter().map(|b| (b.start_line, b.end_line)).collect();
+            assert_eq!(lines, vec![expected], "{content:?}");
+        }
     }
 
     #[test]
@@ -1877,15 +2503,447 @@ fn main() {}
 
     #[test]
     fn test_indent_strip_and_reapply_roundtrip() {
+        let raw = "    def hello():\n        print('hi')";
+        let (stripped, widths) = strip_indent_from_block(raw, "    ");
+        assert_eq!(stripped, "def hello():\n    print('hi')");
+        assert_eq!(widths, vec![4, 4]);
+
+        assert_eq!(apply_content_prefix(&stripped, "    "), raw);
+    }
+
+    /// The code a tool receives from a fence inside containers is the code
+    /// CommonMark gives that block: no blockquote markers, no list indentation.
+    /// Each expectation is cmark's code block text for the same document.
+    #[test]
+    fn test_extract_code_blocks_strips_container_prefixes() {
         let config = default_config();
         let processor = CodeBlockToolProcessor::new(&config, MarkdownFlavor::default());
 
-        let raw = "    def hello():\n        print('hi')";
-        let stripped = processor.strip_indent_from_block(raw, "    ");
-        assert_eq!(stripped, "def hello():\n    print('hi')");
+        // (document, code, content prefix, prefix width of each code line)
+        let cases: &[(&str, &str, &str, &[usize])] = &[
+            ("> ```m\n> a\n>   b\n> ```\n", "a\n  b\n", "> ", &[2, 2]),
+            ("> ```m\n> a\n>\n> b\n> ```\n", "a\n\nb\n", "> ", &[2, 1, 2]),
+            // The optional space after `>` is not code, so it is part of the prefix.
+            (">```m\n>a\n>  b\n>```\n", "a\n b\n", "> ", &[1, 2]),
+            ("> > ```m\n> > a\n> > ```\n", "a\n", "> > ", &[4]),
+            ("  > ```m\n  > a\n  > ```\n", "a\n", "  > ", &[4]),
+            ("- ```m\n  a\n    b\n  ```\n", "a\n  b\n", "  ", &[2, 2]),
+            ("1. ```m\n   a\n\n   b\n   ```\n", "a\n\nb\n", "   ", &[3, 0, 3]),
+            ("> - ```m\n>   a\n>\n>   b\n>   ```\n", "a\n\nb\n", ">   ", &[4, 1, 4]),
+            ("- > ```m\n  > a\n  > b\n  > ```\n", "a\nb\n", "  > ", &[4, 4]),
+            (">- ```m\n>   a\n>   ```\n", "a\n", ">   ", &[4]),
+            // Blank lines are code too, at the end of a block or as all of it.
+            ("> ```m\n> a\n>\n> ```\n", "a\n\n", "> ", &[2, 1]),
+            ("> ```m\n>\n> ```\n", "\n", "> ", &[1]),
+            // Unclosed: the block runs to the end of its container, last line included.
+            ("- ```m\n  a\n  b", "a\nb", "  ", &[2, 2]),
+            ("> ```m\n> a\n", "a\n", "> ", &[2]),
+            // A tab the quote marker only partly consumes leaves code columns.
+            ("> ```m\n>\ta\n> ```\n", "  a\n", "> ", &[0]),
+            // The parser ends code lines with LF, and a carriage return is never
+            // part of a prefix.
+            ("> ```m\r\n> a\r\n>\r\n> b\r\n> ```\r\n", "a\n\nb\n", "> ", &[2, 1, 2]),
+            ("```m\r\na\r\n\r\nb\r\n```\r\n", "a\n\nb\n", "", &[0, 0, 0]),
+            // A footnote definition continues at four columns, however long the
+            // label that opens it on the fence's line.
+            ("[^a]: ```m\n    a\n    ```\n", "a\n", "    ", &[4]),
+            ("[^long-label]: ```m\n    a\n    ```\n", "a\n", "    ", &[4]),
+            ("[^a]:\t```m\n    a\n    ```\n", "a\n", "    ", &[4]),
+            ("[^a]:  \t ```m\n    a\n    ```\n", "a\n", "    ", &[4]),
+            ("[^a\\]b]: ```m\n    a\n    ```\n", "a\n", "    ", &[4]),
+            ("[^a]: Note.\n\n    ```m\n    a\n    ```\n", "a\n", "    ", &[4]),
+            ("> [^a]: ```m\n>     a\n>     ```\n", "a\n", ">     ", &[6]),
+            ("- [^a]: ```m\n      a\n      ```\n", "a\n", "      ", &[6]),
+            ("[^a]: > ```m\n    > a\n    > ```\n", "a\n", "    > ", &[6]),
+            ("[^a]: - ```m\n      a\n      ```\n", "a\n", "      ", &[6]),
+        ];
 
-        let reapplied = processor.apply_indent_to_block(&stripped, "    ");
-        assert_eq!(reapplied, raw);
+        for &(document, code, prefix, widths) in cases {
+            let blocks = processor.extract_code_blocks(document);
+            assert_eq!(blocks.len(), 1, "{document:?}");
+            let block = &blocks[0];
+            assert_eq!(block.code, code, "code of {document:?}");
+            assert_eq!(block.content_prefix, prefix, "prefix of {document:?}");
+            assert_eq!(block.line_prefix_widths, widths, "widths of {document:?}");
+            assert_eq!(
+                (block.fence_char, block.fence_length),
+                ('`', 3),
+                "fence of {document:?}"
+            );
+        }
+    }
+
+    /// The source region of a block's code covers its lines exactly, prefixes
+    /// and line endings included, in LF and CRLF documents.
+    #[test]
+    fn test_extract_code_blocks_container_region() {
+        let config = default_config();
+        let processor = CodeBlockToolProcessor::new(&config, MarkdownFlavor::default());
+
+        let cases = [
+            ("> ```m\n> a\n>\n> b\n> ```\n", "> a\n>\n> b\n"),
+            ("- ```m\n  a\n  ```\n", "  a\n"),
+            ("- ```m\n  a\n  b", "  a\n  b"),
+            ("> ```m\r\n> a\r\n> b\r\n> ```\r\n", "> a\r\n> b\r\n"),
+        ];
+        for (document, region) in cases {
+            let blocks = processor.extract_code_blocks(document);
+            assert_eq!(blocks.len(), 1, "{document:?}");
+            assert_eq!(
+                &document[blocks[0].content_start..blocks[0].content_end],
+                region,
+                "{document:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_apply_content_prefix_blank_lines() {
+        assert_eq!(apply_content_prefix("a\n\nb", "> "), "> a\n>\n> b");
+        assert_eq!(apply_content_prefix("a\n\nb", "  "), "  a\n\n  b");
+        assert_eq!(apply_content_prefix("a\n\nb", ">   "), ">   a\n>\n>   b");
+        assert_eq!(apply_content_prefix("a\n\nb", ""), "a\n\nb");
+    }
+
+    /// A formatter that indents, adds a blank line and changes text, so every
+    /// part of the write-back is exercised.
+    fn container_formatter_config() -> CodeBlockToolsConfig {
+        use super::super::config::{LanguageToolConfig, ToolDefinition};
+
+        let mut config = default_config();
+        config.normalize_language = NormalizeLanguage::Exact;
+        config.languages.insert(
+            "m".to_string(),
+            LanguageToolConfig {
+                format: vec!["reshape".to_string()],
+                ..Default::default()
+            },
+        );
+        config.tools.insert(
+            "reshape".to_string(),
+            ToolDefinition {
+                command: vec![
+                    "awk".to_string(),
+                    "NR == 1 { print toupper($0); print \"\"; next } { print \"  \" toupper($0) }".to_string(),
+                ],
+                ..Default::default()
+            },
+        );
+        config
+    }
+
+    /// Formatted code that would end its block early is not written back: the
+    /// block stays as it was and the refusal is reported, while every other
+    /// block is still formatted.
+    #[cfg(unix)]
+    #[test]
+    fn test_format_refuses_write_back_that_changes_structure() {
+        use super::super::config::{LanguageToolConfig, ToolDefinition};
+
+        let mut config = container_formatter_config();
+        config.languages.insert(
+            "f".to_string(),
+            LanguageToolConfig {
+                format: vec!["fence".to_string()],
+                ..Default::default()
+            },
+        );
+        config.tools.insert(
+            "fence".to_string(),
+            ToolDefinition {
+                command: vec!["awk".to_string(), "{ print \"```\"; print toupper($0) }".to_string()],
+                ..Default::default()
+            },
+        );
+        for (language, program) in [
+            ("c", "{ sub(/\\r$/, \"\"); printf \"%s\\r\\n\", toupper($0) }"),
+            ("cf", "{ sub(/\\r$/, \"\"); printf \"```\\r\\n%s\\r\\n\", toupper($0) }"),
+        ] {
+            config.languages.insert(
+                language.to_string(),
+                LanguageToolConfig {
+                    format: vec![language.to_string()],
+                    ..Default::default()
+                },
+            );
+            config.tools.insert(
+                language.to_string(),
+                ToolDefinition {
+                    command: vec!["awk".to_string(), program.to_string()],
+                    ..Default::default()
+                },
+            );
+        }
+        // (document, document after formatting, lines of the refused blocks)
+        let standard_cases: &[(&str, &str, &[usize])] = &[
+            ("```f\na\n```\n", "```f\na\n```\n", &[1]),
+            ("> ```f\n> a\n> ```\n", "> ```f\n> a\n> ```\n", &[1]),
+            (
+                "```m\na\n```\n\n```f\na\n```\n\n- ```m\n  b\n  ```\n",
+                "```m\nA\n\n```\n\n```f\na\n```\n\n- ```m\n  B\n\n  ```\n",
+                &[5],
+            ),
+            // A longer fence holds the same output.
+            ("````f\na\n````\n", "````f\n```\nA\n````\n", &[]),
+            // Code written with CRLF line endings reads back as the same code.
+            ("```c\na\n```\n", "```c\nA\r\n```\n", &[]),
+            ("```c\r\na\r\n```\r\n", "```c\r\nA\r\n```\r\n", &[]),
+            ("> ```c\r\n> a\r\n> ```\r\n", "> ```c\r\n> A\r\n> ```\r\n", &[]),
+            ("```cf\r\na\r\n```\r\n", "```cf\r\na\r\n```\r\n", &[1]),
+        ];
+        // The MkDocs extractor keeps CRLF line endings in the code it reads.
+        let mkdocs_cases: &[(&str, &str, &[usize])] = &[
+            (
+                "!!! note\n\n    ```c\n    a\n    ```\n",
+                "!!! note\n\n    ```c\n    A\r\n    ```\n",
+                &[],
+            ),
+            (
+                "!!! note\r\n\r\n    ```c\r\n    a\r\n    ```\r\n",
+                "!!! note\r\n\r\n    ```c\r\n    A\r\n    ```\r\n",
+                &[],
+            ),
+            (
+                "!!! note\r\n\r\n    ```cf\r\n    a\r\n    ```\r\n",
+                "!!! note\r\n\r\n    ```cf\r\n    a\r\n    ```\r\n",
+                &[3],
+            ),
+        ];
+
+        for (flavor, cases) in [
+            (MarkdownFlavor::Standard, standard_cases),
+            (MarkdownFlavor::MkDocs, mkdocs_cases),
+        ] {
+            let processor = CodeBlockToolProcessor::new(&config, flavor);
+            for &(document, expected, refused) in cases {
+                let output = processor.format(document).expect("format should succeed");
+                assert_eq!(output.content, expected, "{document:?}");
+                let lines: Vec<usize> = output.failures.iter().map(|failure| failure.file_line).collect();
+                assert_eq!(lines, refused, "{document:?}");
+                assert_eq!(output.error_messages.len(), refused.len(), "{document:?}");
+                assert_eq!(output.had_errors, !refused.is_empty(), "{document:?}");
+                assert!(
+                    output
+                        .failures
+                        .iter()
+                        .all(|failure| failure.message.contains("block left unchanged")),
+                    "{:?}",
+                    output.failures
+                );
+            }
+        }
+    }
+
+    /// With MkDocs, an admonition example inside a `markdown` block is part of
+    /// that block's code, so only the `markdown` block is formatted.
+    #[cfg(unix)]
+    #[test]
+    fn test_format_mkdocs_admonition_example_inside_a_block() {
+        use super::super::config::{LanguageToolConfig, ToolDefinition};
+
+        let mut config = default_config();
+        config.normalize_language = NormalizeLanguage::Exact;
+        for language in ["markdown", "json"] {
+            config.languages.insert(
+                language.to_string(),
+                LanguageToolConfig {
+                    format: vec!["replace".to_string()],
+                    ..Default::default()
+                },
+            );
+        }
+        config.tools.insert(
+            "replace".to_string(),
+            ToolDefinition {
+                command: vec!["awk".to_string(), "END { print \"x\" }".to_string()],
+                ..Default::default()
+            },
+        );
+        let processor = CodeBlockToolProcessor::new(&config, MarkdownFlavor::MkDocs);
+
+        let long = "a".repeat(200);
+        let document =
+            format!("# T\n\n```markdown\n!!! note\n\n    ```json\n    {{\"k\": \"{long}\"}}\n    ```\n```\n");
+        let output = processor.format(&document).expect("format should succeed");
+        assert_eq!(output.content, "# T\n\n```markdown\nx\n```\n");
+        assert!(output.failures.is_empty(), "{:?}", output.failures);
+    }
+
+    /// Replacing one of two overlapping blocks would leave the other's range
+    /// pointing at different text, so neither is written back.
+    #[test]
+    fn test_write_back_refuses_overlapping_blocks() {
+        // The last block, and a block inside it starting two bytes in.
+        let with_inner = |mut blocks: Vec<FencedCodeBlockInfo>| {
+            let mut inner = blocks[1].clone();
+            inner.content_start += 2;
+            inner.code = inner.code[2..].to_string();
+            blocks.push(inner);
+            blocks
+        };
+        let content = format!("```m\nz\n```\n\n```m\n{}\n```\n", "a".repeat(100));
+        let blocks = with_inner(extract_fenced_code_blocks(&content));
+        let write_backs = [
+            WriteBack {
+                index: 0,
+                code: "Z\n".to_string(),
+            },
+            WriteBack {
+                index: 1,
+                code: "A\n".to_string(),
+            },
+            WriteBack {
+                index: 2,
+                code: "B\n".to_string(),
+            },
+        ];
+
+        let (result, refused) = write_back_verified(&content, &blocks, &write_backs, |document| {
+            with_inner(extract_fenced_code_blocks(document))
+        });
+        assert_eq!(result, content.replacen("```m\nz\n", "```m\nZ\n", 1));
+        assert_eq!(refused, [1, 2]);
+    }
+
+    /// Formatted code goes back inside the same containers, so the document
+    /// still parses as the same block with the formatted code in it.
+    #[cfg(unix)]
+    #[test]
+    fn test_format_writes_back_inside_containers() {
+        let config = container_formatter_config();
+        let processor = CodeBlockToolProcessor::new(&config, MarkdownFlavor::default());
+
+        // (document, document after formatting, the formatted block's code)
+        let cases = [
+            (
+                "- ```m\n  a\n  b\n  ```\n- next\n",
+                "- ```m\n  A\n\n    B\n  ```\n- next\n",
+                "A\n\n  B\n",
+            ),
+            (
+                "1. ```m\n   a\n   b\n   ```\n",
+                "1. ```m\n   A\n\n     B\n   ```\n",
+                "A\n\n  B\n",
+            ),
+            (
+                "> ```m\n> a\n> b\n> ```\n",
+                "> ```m\n> A\n>\n>   B\n> ```\n",
+                "A\n\n  B\n",
+            ),
+            (
+                "> > ```m\n> > a\n> > b\n> > ```\n",
+                "> > ```m\n> > A\n> >\n> >   B\n> > ```\n",
+                "A\n\n  B\n",
+            ),
+            (
+                "> - ```m\n>   a\n>   b\n>   ```\n",
+                "> - ```m\n>   A\n>\n>     B\n>   ```\n",
+                "A\n\n  B\n",
+            ),
+            (
+                "- > ```m\n  > a\n  > b\n  > ```\n",
+                "- > ```m\n  > A\n  >\n  >   B\n  > ```\n",
+                "A\n\n  B\n",
+            ),
+            // The added blank line after a one-line block stays inside the quote.
+            ("> ```m\n> a\n> ```\n", "> ```m\n> A\n>\n> ```\n", "A\n\n"),
+            // Code indented past `>` without a space keeps every column.
+            (
+                ">```m\n>a\n>  b\n>```\n",
+                ">```m\n> A\n>\n>    B\n>```\n",
+                "A\n\n   B\n",
+            ),
+            // The same for a list item that starts right after `>`.
+            (
+                ">2) ```m\n>    a\n>    b\n>    ```\n",
+                ">2) ```m\n>    A\n>\n>      B\n>    ```\n",
+                "A\n\n  B\n",
+            ),
+            // A tab after the marker reaches column 4, so the item's content
+            // does too; one space per character would leave the code outside it.
+            (
+                "1.\t```m\n    a\n    b\n    ```\n",
+                "1.\t```m\n    A\n\n      B\n    ```\n",
+                "A\n\n  B\n",
+            ),
+            // A footnote definition continues at four columns, not at the
+            // width of the label on the fence's line.
+            (
+                "[^long-label]: ```m\n    a\n    b\n    ```\n",
+                "[^long-label]: ```m\n    A\n\n      B\n    ```\n",
+                "A\n\n  B\n",
+            ),
+            (
+                "> [^a]: ```m\n>     a\n>     b\n>     ```\n",
+                "> [^a]: ```m\n>     A\n>\n>       B\n>     ```\n",
+                "A\n\n  B\n",
+            ),
+            (
+                "- [^a]: ```m\n      a\n      b\n      ```\n",
+                "- [^a]: ```m\n      A\n\n        B\n      ```\n",
+                "A\n\n  B\n",
+            ),
+            ("```m\na\nb\n```\n", "```m\nA\n\n  B\n```\n", "A\n\n  B\n"),
+        ];
+
+        for (document, expected, code) in cases {
+            let output = processor.format(document).expect("format should succeed");
+            assert!(
+                output.error_messages.is_empty(),
+                "{document:?}: {:?}",
+                output.error_messages
+            );
+            assert_eq!(output.content, expected, "{document:?}");
+
+            let blocks = processor.extract_code_blocks(&output.content);
+            assert_eq!(blocks.len(), 1, "{expected:?}");
+            assert_eq!(blocks[0].code, code, "{expected:?}");
+        }
+    }
+
+    /// A tool's column counts from the start of the code it was given; the
+    /// document column adds the line's container prefix.
+    #[cfg(unix)]
+    #[test]
+    fn test_lint_columns_include_container_prefix() {
+        use super::super::config::{LanguageToolConfig, ToolDefinition};
+
+        let mut config = default_config();
+        config.normalize_language = NormalizeLanguage::Exact;
+        config.languages.insert(
+            "m".to_string(),
+            LanguageToolConfig {
+                lint: vec!["pos".to_string()],
+                ..Default::default()
+            },
+        );
+        config.tools.insert(
+            "pos".to_string(),
+            ToolDefinition {
+                command: vec![
+                    "sh".to_string(),
+                    "-c".to_string(),
+                    "cat >/dev/null; echo '-:1:1: one'; echo '-:2:3: two'".to_string(),
+                ],
+                ..Default::default()
+            },
+        );
+        let processor = CodeBlockToolProcessor::new(&config, MarkdownFlavor::default());
+
+        let cases = [
+            ("```m\nx\nyyy\n```\n", [(2, 1), (3, 3)]),
+            ("- ```m\n  x\n  yyy\n  ```\n", [(2, 3), (3, 5)]),
+            ("> ```m\n> x\n>\n> ```\n", [(2, 3), (3, 4)]),
+            ("text\n\n> - ```m\n>   x\n>   yyy\n>   ```\n", [(4, 5), (5, 7)]),
+        ];
+        for (document, expected) in cases {
+            let diagnostics = processor.lint(document).expect("lint should succeed");
+            let positions: Vec<(usize, usize)> = diagnostics
+                .iter()
+                .map(|d| (d.file_line, d.column.expect("positioned diagnostic")))
+                .collect();
+            assert_eq!(positions, expected, "{document:?}");
+        }
     }
 
     #[test]
@@ -2097,7 +3155,7 @@ fn main() {}
         assert!(result.is_ok());
         let diagnostics = result.unwrap();
         assert_eq!(diagnostics.len(), 1);
-        assert!(diagnostics[0].message.contains("not found in PATH"));
+        assert!(diagnostics[0].message.contains("not found in allowed lookup locations"));
     }
 
     #[test]
@@ -2162,7 +3220,7 @@ fn main() {}
         assert_eq!(output.content, content); // Content unchanged
         assert!(output.had_errors);
         assert!(!output.error_messages.is_empty());
-        assert!(output.error_messages[0].contains("not found in PATH"));
+        assert!(output.error_messages[0].contains("not found in allowed lookup locations"));
     }
 
     #[test]
@@ -2363,6 +3421,47 @@ fn main() {}
         let blocks = processor.extract_code_blocks(content);
         assert_eq!(blocks.len(), 1, "Should detect code block in second admonition only");
         assert_eq!(blocks[0].language, "python");
+    }
+
+    /// An admonition inside a fenced block is code, not an admonition, and a
+    /// fenced block still ends the admonition it is not indented into.
+    #[test]
+    fn test_mkdocs_fenced_block_lines_are_code() {
+        let config = default_config();
+        let processor = CodeBlockToolProcessor::new(&config, MarkdownFlavor::MkDocs);
+
+        // (language, first line, last line) of an extracted block
+        type Span<'a> = (&'a str, usize, usize);
+        let cases: &[(&str, &[Span<'_>])] = &[
+            (
+                "```markdown\n!!! note\n\n    ```json\n    {}\n    ```\n```\n",
+                &[("markdown", 0, 6)],
+            ),
+            (
+                "> ```md\n> === \"Tab\"\n>\n>     ```py\n>     x\n>     ```\n> ```\n",
+                &[("md", 0, 6)],
+            ),
+            (
+                "!!! note\n\n    text\n\n```text\nx\n```\n\n    ```json\n    {}\n    ```\n",
+                &[("text", 4, 6)],
+            ),
+            (
+                "```markdown\n!!! note\n```\n\n!!! tip\n\n    ```json\n    {}\n    ```\n",
+                &[("markdown", 0, 2), ("json", 6, 8)],
+            ),
+            (
+                "> ```up\n> a\n!!! note\n\n    ```up\n    b\n    ```\n",
+                &[("up", 0, 1), ("up", 4, 6)],
+            ),
+        ];
+        for &(content, expected) in cases {
+            let extracted = processor.extract_code_blocks(content);
+            let blocks: Vec<Span<'_>> = extracted
+                .iter()
+                .map(|block| (block.language.as_str(), block.start_line, block.end_line))
+                .collect();
+            assert_eq!(blocks, expected, "{content:?}");
+        }
     }
 
     #[test]

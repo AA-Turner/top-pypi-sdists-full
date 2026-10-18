@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: python-liquid
-Version: 2.3.4
+Version: 2.3.5
 Summary: A Python engine for the Liquid template language.
 Project-URL: Change Log, https://github.com/jg-rp/liquid/blob/main/CHANGES.md
 Project-URL: Documentation, https://jg-rp.github.io/liquid/
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.9

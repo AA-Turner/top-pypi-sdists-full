@@ -11,6 +11,7 @@ import importlib.util
 import itertools
 import json
 import sys
+from collections import Counter
 from functools import reduce
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -24,11 +25,14 @@ else:
 
 from nab_markersets import _markersets as engine
 from nab_markersets import markersets
+from nab_markersets.conversions import PreparedMarkerSets
 from nab_markersets.errors import IntractableMarkerSet
 from nab_markersets.markersets import DecisionStore, MarkerSet
 from nab_project._lockfile import disjointness, pylock
 from nab_project._lockfile.coverage import CoverageError
-from nab_project._lockfile.disjointness import validate_marker_disjointness
+from nab_project._lockfile.disjointness import (
+    validate_marker_disjointness,
+)
 from nab_project._lockfile.pylock import (
     UnsoundSimplificationError,
     _collapsed_env_marker,
@@ -614,9 +618,10 @@ class TestWideMatrixFailClosed:
             _finalize_marker(_wide_linux_marker(), _union(_wide_rows()), "foo")
 
 
-class TestFreeMembershipPassthrough:
-    def test_large_membership_sets_ship_raw(self) -> None:
-        rows = [_row(_target(v)) for v in ("3.11", "3.12")]
+class TestFreeMembershipFinalization:
+    def test_independent_membership_sets_simplify(self) -> None:
+        targets = [_target(v) for v in ("3.11", "3.12")]
+        rows = [_row(target) for target in targets]
         within = _union(rows)
         set_a = ("cpu", "cu118", "cu121", "rocm")
         set_b = ("mkl", "openblas", "accelerate", "blis")
@@ -625,14 +630,35 @@ class TestFreeMembershipPassthrough:
         co_members = sorted(
             {*set_a, *set_b, *set_c}.difference(reached),
         )
-        gate = " or ".join(f'"{m}" in extras' for m in reached)
+        membership = " or ".join(f'"{m}" in extras' for m in reached)
         negations = " and ".join(f'"{m}" not in extras' for m in co_members)
         raw = Marker(
             " or ".join(
-                f"({r} and ({gate}) and {negations})"
+                f"({r} and ({membership}) and {negations})"
                 for r in (_row(_target("3.11")), _row(_target("3.12")))
             )
         )
+        result = _finalize_marker(raw, within, "torch")
+        assert result is not None
+        assert len(str(result)) < len(str(raw))
+        assert str(_finalize_marker(result, within, "torch")) == str(result)
+
+        source = MarkerSet.from_marker(str(raw))
+        emitted = MarkerSet.from_marker(str(result))
+        names = sorted({*set_a, *set_b, *set_c})
+        for flags in itertools.product((False, True), repeat=len(names)):
+            extras = {name for name, flag in zip(names, flags, strict=True) if flag}
+            expected = bool(extras.intersection(reached)) and not extras.intersection(
+                co_members
+            )
+            for target in targets:
+                env = {**target.marker_env, "extras": extras}
+                assert source.evaluate(env) == expected
+                assert emitted.evaluate(env) == expected
+
+    def test_intractable_membership_sets_ship_raw(self) -> None:
+        within = _union([_row(_target("3.11")), _row(_target("3.12"))])
+        raw = Marker(" and ".join(f'"n{index}" in extras' for index in range(16)))
         with pytest.raises(IntractableMarkerSet):
             MarkerSet.from_marker(str(raw)).simplify(within=within)
         result = _finalize_marker(raw, within, "torch")
@@ -695,9 +721,11 @@ class TestFinalizeMemo:
             within: MarkerSet,
             name: str = "",
             store: DecisionStore | None = None,
+            *,
+            prepared_sets: PreparedMarkerSets | None = None,
         ) -> Marker | None:
             calls.append(name)
-            return real(raw, within, name, store)
+            return real(raw, within, name, store, prepared_sets=prepared_sets)
 
         monkeypatch.setattr(pylock, "_finalize_marker", counting)
         targets: dict[str, TargetLock] = {}
@@ -723,6 +751,78 @@ class TestFinalizeMemo:
         assert memo == {}
 
 
+def test_single_entry_names_skip_handoff_preparation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prepared: list[Marker] = []
+
+    class ObservedOwner(PreparedMarkerSets):
+        __slots__ = ()
+
+        def prepare(self, marker: Marker) -> MarkerSet:
+            prepared.append(marker)
+            return super().prepare(marker)
+
+    monkeypatch.setattr(pylock, "PreparedMarkerSets", ObservedOwner)
+    emitted = build_pylock(_span_lock())
+    assert any(package.marker is not None for package in emitted.packages)
+    assert prepared == []
+
+
+def test_finalized_sets_reach_sorted_validation_only_within_their_build(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    owners: list[PreparedMarkerSets] = []
+    validations: list[tuple[PreparedMarkerSets, int]] = []
+    calls: list[str | Marker] = []
+    original = MarkerSet.from_marker
+
+    class ObservedOwner(PreparedMarkerSets):
+        __slots__ = ()
+
+        def __init__(self) -> None:
+            super().__init__()
+            owners.append(self)
+
+        def convert(self, marker: Marker | None) -> MarkerSet:
+            before = len(calls)
+            result = super().convert(marker)
+            validations.append((self, len(calls) - before))
+            return result
+
+    def observed(_cls: type[MarkerSet], marker: str | Marker) -> MarkerSet:
+        calls.append(marker)
+        return original(marker)
+
+    monkeypatch.setattr(pylock, "PreparedMarkerSets", ObservedOwner)
+    monkeypatch.setattr(MarkerSet, "from_marker", classmethod(observed))
+    linux, windows = _target("3.11"), _target("3.11", "windows_amd64")
+    targets = {
+        windows.label: TargetLock(
+            target=windows, pins={"foo": _index_pin("foo", "1.0")}
+        ),
+        linux.label: TargetLock(target=linux, pins={"foo": _index_pin("foo", "2.0")}),
+    }
+    lock_input = LockInput(targets=targets, environments=[_row(windows), _row(linux)])
+    for _ in range(2):
+        emitted = build_pylock(lock_input)
+        assert [str(package.version) for package in emitted.packages] == ["1.0", "2.0"]
+        for package, target in zip(emitted.packages, (windows, linux), strict=True):
+            assert package.marker is not None
+            assert MarkerSet.from_marker(package.marker).evaluate(target.marker_env)
+
+    assert len(owners) == 2
+    assert owners[0] is not owners[1]
+    assert len(validations) == 4
+    assert [owner for owner, _ in validations] == [
+        owners[0],
+        owners[0],
+        owners[1],
+        owners[1],
+    ]
+    assert all(additional == 0 for _, additional in validations)
+
+
 _LOCK_MARKERS = json.loads(
     (Path(__file__).parent / "data" / "ci_lock_markers.json").read_text()
 )
@@ -746,6 +846,23 @@ def _row_env(row: str) -> dict[str, str]:
     return {k: v for k, v in witness.items() if isinstance(v, str)}
 
 
+@pytest.fixture
+def simplification_calls(monkeypatch: pytest.MonkeyPatch) -> Counter[str]:
+    """Count successful real simplifications made by finalization."""
+    calls: Counter[str] = Counter()
+    original = MarkerSet.simplify
+
+    def simplify(
+        source: MarkerSet, *, within: MarkerSet, store: DecisionStore | None = None
+    ) -> MarkerSet:
+        result = original(source, within=within, store=store)
+        calls["simplify"] += 1
+        return result
+
+    monkeypatch.setattr(MarkerSet, "simplify", simplify)
+    return calls
+
+
 class TestEightLockRegression:
     """The captured markers of the eight committed CI locks.
 
@@ -753,7 +870,9 @@ class TestEightLockRegression:
     emission checks still pass on the simplified output.
     """
 
-    def test_wide_locks_become_tractable_and_byte_exact(self) -> None:
+    def test_wide_locks_become_tractable_and_byte_exact(
+        self, simplification_calls: Counter[str]
+    ) -> None:
         raw_total = gold_total = count = 0
         for name, lock in _LOCK_MARKERS["locks"].items():
             if name == "docs":
@@ -761,8 +880,6 @@ class TestEightLockRegression:
             within = _fixture_universe(lock["environments"])
             for pkg in lock["packages"]:
                 raw = Marker(pkg["raw"])
-                simplified = MarkerSet.from_marker(str(raw)).simplify(within=within)
-                assert simplified is not None
                 finalized = _finalize_marker(raw, within, pkg["name"])
                 shown = str(finalized) if finalized is not None else ""
                 assert shown == pkg["golden"]
@@ -770,21 +887,23 @@ class TestEightLockRegression:
                 gold_total += len(pkg["golden"])
                 count += 1
         assert count == _WIDE_MARKER_COUNT
+        assert simplification_calls["simplify"] == count
         assert raw_total == _SUBSET_RAW_BYTES
         assert gold_total == _SUBSET_GOLD_BYTES
 
-    def test_docs_lock_stays_byte_identical(self) -> None:
+    def test_docs_lock_stays_byte_identical(
+        self, simplification_calls: Counter[str]
+    ) -> None:
         lock = _LOCK_MARKERS["locks"]["docs"]
         within = _fixture_universe(lock["environments"])
         count = 0
         for pkg in lock["packages"]:
             raw = Marker(pkg["raw"])
-            simplified = MarkerSet.from_marker(str(raw)).simplify(within=within)
-            assert simplified is not None
             finalized = _finalize_marker(raw, within, pkg["name"])
             assert str(finalized) == pkg["raw"] == pkg["golden"]
             count += 1
         assert count == _DOCS_MARKER_COUNT
+        assert simplification_calls["simplify"] == count
 
     def test_named_landmarks(self) -> None:
         golden = {
@@ -950,6 +1069,7 @@ class TestEmissionStore:
             environments: Sequence[Marker],
             store: DecisionStore | None = None,
             environment_sets: Sequence[MarkerSet] | None = None,
+            uses_implementation_version: bool | None = None,
         ) -> None:
             seen.append(store)
             real_coverage(
@@ -957,6 +1077,7 @@ class TestEmissionStore:
                 environments=environments,
                 store=store,
                 environment_sets=environment_sets,
+                uses_implementation_version=uses_implementation_version,
             )
 
         monkeypatch.setattr(MarkerSet, "simplify", recording_simplify)
@@ -1156,10 +1277,12 @@ class TestFactoringReachesEmission:
             within: MarkerSet,
             name: str = "",
             store: DecisionStore | None = None,
+            *,
+            prepared_sets: PreparedMarkerSets | None = None,
         ) -> Marker | None:
             if raw is not None:
                 handed[name] = str(raw)
-            return real(raw, within, name, store)
+            return real(raw, within, name, store, prepared_sets=prepared_sets)
 
         monkeypatch.setattr(pylock, "_finalize_marker", capture)
         assert _marker_of(_span_lock(), "foo") == 'sys_platform == "linux"'

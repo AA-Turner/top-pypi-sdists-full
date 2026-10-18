@@ -300,7 +300,11 @@ mod diagnostic {
                 ConfigPath(fixture_path().join("tombi.toml")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(true),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(true),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
             ) -> Ok([
                 Diagnostic {
@@ -322,7 +326,11 @@ mod diagnostic {
                 SourcePath(fixture_path().join("input.toml")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(true),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(true),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
             ) -> Ok([
                 Diagnostic {
@@ -343,7 +351,11 @@ mod diagnostic {
                 SourcePath(fixture_path().join("input.toml")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(true),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(true),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
             ) -> Ok([
                 Diagnostic {
@@ -365,7 +377,11 @@ mod diagnostic {
                 SourcePath(fixture_path().join("input.toml")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(true),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(true),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
             ) -> Ok([
                 Diagnostic {
@@ -386,7 +402,11 @@ mod diagnostic {
                 SourcePath(fixture_path().join("input.toml")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(true),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(true),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
             ) -> Ok([]);
         );
@@ -402,7 +422,11 @@ mod diagnostic {
                 SourcePath(fixture_path().join("input.toml")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(true),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(true),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
             ) -> Ok([
                 Diagnostic {
@@ -423,7 +447,11 @@ mod diagnostic {
                 SourcePath(fixture_path().join("input.toml")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(true),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(true),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
             ) -> Ok([
                 Diagnostic {
@@ -447,7 +475,11 @@ mod diagnostic {
                 SourcePath(fixture_path().join("input.toml")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(true),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(true),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
             ) -> Ok([]);
         );
@@ -464,7 +496,11 @@ mod diagnostic {
                 SourcePath(fixture_path().join("input.toml")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(true),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(true),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
             ) -> Ok([
                 Diagnostic {
@@ -485,7 +521,11 @@ mod diagnostic {
                 SourcePath(fixture_path().join("input.toml")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(true),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(true),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
             ) -> Ok([]);
         );

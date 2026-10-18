@@ -5,10 +5,20 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Any
 
+from sqlbuild._native import (
+    CursorBounds,
+    IncrementalStrategy,
+    ModelPlanEntry,
+    OnSchemaChange,
+    TableType,
+    fit_auxiliary_relation_name,
+    future_cursor_cap_warning,
+    maximum_start_cap_warning,
+)
+from sqlbuild._native import cursor_sentinel_to_token as sentinel_to_token
 from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
 from sqlbuild.adapter.contract.classes.statement_recorder import StatementRecorder
 from sqlbuild.adapter.contract.models import ColumnInfo
-from sqlbuild.adapter.relations.main.fit_auxiliary_relation_name import fit_auxiliary_relation_name
 from sqlbuild.adapter.relations.main.resolve_qualified_name_parts import (
     resolve_qualified_name_parts,
 )
@@ -16,11 +26,6 @@ from sqlbuild.adapter.relations.main.resolve_relation_location_qualified_name im
     resolve_relation_location_qualified_name,
 )
 from sqlbuild.adapter.type_system.main.types_equal import types_equal
-from sqlbuild.compiler.planner.main.execution.future_cursor_warning import future_cursor_cap_warning
-from sqlbuild.compiler.planner.main.execution.maximum_start_warning import maximum_start_cap_warning
-from sqlbuild.compiler.planner.models import CursorBounds, ModelPlanEntry
-from sqlbuild.compiler.planner.types import IncrementalStrategy, OnSchemaChange
-from sqlbuild.cursor_algebra.main.sentinel_to_token import sentinel_to_token
 from sqlbuild.diagnostics.main.diagnostics_context import diagnostics_context
 from sqlbuild.errors.contracts.exceptions import ExecutorInputError
 from sqlbuild.executor.auditing.models import AuditExecutionResult
@@ -67,7 +72,6 @@ from sqlbuild.runtime.observability.classes.operation_lifecycle import (
 from sqlbuild.runtime.observability.main.canonicalize_operation_adapter import (
     canonicalize_operation_adapter,
 )
-from sqlbuild.spec.contracts.types import TableType
 
 _DEFAULT_ON_SCHEMA_CHANGE: OnSchemaChange = OnSchemaChange.APPEND_NEW_COLUMNS
 

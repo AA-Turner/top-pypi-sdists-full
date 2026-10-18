@@ -1,7 +1,6 @@
 use crate::rule::{LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::utils::mdg;
 use crate::utils::range_utils::calculate_line_range;
-use crate::utils::regex_cache::BLOCKQUOTE_PREFIX_RE;
 use crate::utils::table_utils::TableUtils;
 use unicode_width::UnicodeWidthStr;
 
@@ -184,7 +183,7 @@ struct RowFormatOptions {
 /// - Preserves cell content exactly (only spacing is modified)
 /// - Respects alignment indicators in delimiter rows (`:---`, `:---:`, `---:`)
 /// - Automatically switches to compact mode for tables exceeding max_width
-/// - Skips tables with ZWJ emoji to prevent corruption
+/// - Skips tables with ZWJ, ZWS, ZWNJ, or WJ characters in pipe-delimited rows to prevent corruption
 #[derive(Debug, Clone, Default)]
 pub struct MD060TableFormat {
     config: MD060Config,
@@ -321,11 +320,7 @@ impl MD060TableFormat {
     /// Extract blockquote prefix from a line (e.g., "> " or ">> ").
     /// Returns (prefix, content_without_prefix).
     fn extract_blockquote_prefix(line: &str) -> (&str, &str) {
-        if let Some(m) = BLOCKQUOTE_PREFIX_RE.find(line) {
-            (&line[..m.end()], &line[m.end()..])
-        } else {
-            ("", line)
-        }
+        TableUtils::extract_blockquote_prefix(line)
     }
 
     /// The indentation every row of an MDG Data Table or Examples table is
@@ -341,7 +336,12 @@ impl MD060TableFormat {
         list_content_indent: Option<usize>,
         flavor: crate::config::MarkdownFlavor,
     ) -> Option<String> {
-        if flavor != crate::config::MarkdownFlavor::MDG || !table_lines.iter().all(|line| mdg::is_table_row(line)) {
+        if flavor != crate::config::MarkdownFlavor::MDG
+            || !table_lines
+                .iter()
+                .filter(|line| line.contains('|'))
+                .all(|line| mdg::is_table_row(line))
+        {
             return None;
         }
 
@@ -869,7 +869,11 @@ impl MD060TableFormat {
             .chain(table_block.content_lines.iter().map(|&idx| lines[idx]))
             .collect();
 
-        if table_lines.iter().any(|line| Self::contains_problematic_chars(line)) {
+        // The other rows are not at the header's indentation, and moving them there
+        // would leave indented code. Gherkin tables are not subject to that rule.
+        if flavor != crate::config::MarkdownFlavor::MDG
+            && TableUtils::header_is_indented_as_code(table_lines[0], table_lines[1], table_block)
+        {
             return TableFormatResult {
                 lines: table_lines.iter().map(std::string::ToString::to_string).collect(),
                 auto_compacted: false,
@@ -879,10 +883,30 @@ impl MD060TableFormat {
 
         // Extract blockquote prefix from the header line (first line of table)
         // All lines in the same table should have the same blockquote level
-        let (blockquote_prefix, _) = Self::extract_blockquote_prefix(table_lines[0]);
+        let (mut blockquote_prefix, _) = Self::extract_blockquote_prefix(table_lines[0]);
 
         // Extract list prefix if present (for tables inside list items)
         let list_context = &table_block.list_context;
+        if list_context.is_some() {
+            // The item's indentation is added back below, so the prefix keeps only
+            // the quote markers and the single space after the last one.
+            let markers = blockquote_prefix.trim_end_matches([' ', '\t']);
+            blockquote_prefix = if blockquote_prefix.len() > markers.len() {
+                &blockquote_prefix[..=markers.len()]
+            } else {
+                markers
+            };
+        }
+        // A header written after list markers and then a quote (`- > |a|b|`) is in a
+        // different container than a plain quote's rows, which carry only the
+        // quote markers; each keeps the prefix it was written with.
+        let header_prefix = if list_context.is_none() {
+            let after_quote = Self::extract_blockquote_prefix(table_lines[0]).1;
+            (!TableUtils::extract_list_prefix(after_quote).0.is_empty())
+                .then(|| TableUtils::row_prefix(table_lines[0], table_lines[0], table_block, 0))
+        } else {
+            None
+        };
         let (list_prefix, continuation_indent) = if let Some(ctx) = list_context {
             (ctx.list_prefix.as_str(), " ".repeat(ctx.content_indent))
         } else {
@@ -893,6 +917,8 @@ impl MD060TableFormat {
             list_context.as_ref().map(|ctx| ctx.content_indent),
             flavor,
         );
+
+        let container_indented = mdg_indent.is_none() && TableUtils::is_container_indented(table_lines[0], table_block);
 
         // Strip blockquote prefix and list prefix from all lines for processing
         let stripped_lines: Vec<&str> = table_lines
@@ -914,11 +940,34 @@ impl MD060TableFormat {
                             .strip_prefix(&continuation_indent)
                             .unwrap_or(after_blockquote.trim_start())
                     }
+                } else if i == 0 && header_prefix.is_some() {
+                    crate::utils::table_utils::TableUtils::extract_table_row_content(line, table_block, 0)
                 } else {
                     after_blockquote
                 }
             })
             .collect();
+
+        // Detection includes pipe-less body lines under GFM, but other parsers
+        // and flavors may read them as prose, attributes, or captions. Keep
+        // these lines verbatim and exclude them from style/width calculations.
+        let formatted_indices: Vec<usize> = stripped_lines
+            .iter()
+            .enumerate()
+            .filter_map(|(i, line)| (i < 2 || line.contains('|')).then_some(i))
+            .collect();
+        // Width ambiguities in lines being passed through cannot affect alignment.
+        if formatted_indices
+            .iter()
+            .any(|&i| Self::contains_problematic_chars(table_lines[i]))
+        {
+            return TableFormatResult {
+                lines: table_lines.iter().map(std::string::ToString::to_string).collect(),
+                auto_compacted: false,
+                aligned_width: None,
+            };
+        }
+        let stripped_lines: Vec<&str> = formatted_indices.iter().map(|&i| stripped_lines[i]).collect();
 
         let style = self.config.style.as_str();
 
@@ -1087,6 +1136,29 @@ impl MD060TableFormat {
             }
         }
 
+        // Formatting must round-trip every content cell. For example, adding
+        // a pipe immediately after a trailing backslash in tight style would
+        // turn the new pipe into cell content. Leave the table unchanged when
+        // its content cannot be represented safely in the requested style.
+        for (row_idx, (original, formatted)) in stripped_lines.iter().zip(&result).enumerate() {
+            if row_idx == 1 {
+                continue; // Delimiter dashes and spacing intentionally change.
+            }
+            let original_cells = Self::parse_table_row_with_flavor(original, flavor);
+            let formatted_cells = Self::parse_table_row_with_flavor(formatted, flavor);
+            if !original_cells
+                .iter()
+                .map(|cell| cell.trim())
+                .eq(formatted_cells.iter().map(|cell| cell.trim()))
+            {
+                return TableFormatResult {
+                    lines: table_lines.iter().map(std::string::ToString::to_string).collect(),
+                    auto_compacted: false,
+                    aligned_width: None,
+                };
+            }
+        }
+
         // Re-add blockquote prefix and list prefix to all formatted lines
         let prefixed_result: Vec<String> = result
             .into_iter()
@@ -1102,14 +1174,29 @@ impl MD060TableFormat {
                         // Continuation lines: add indentation
                         format!("{blockquote_prefix}{continuation_indent}{line}")
                     }
+                } else if let Some(header_prefix) = header_prefix.filter(|_| i == 0) {
+                    format!("{header_prefix}{line}")
+                } else if header_prefix.is_some() {
+                    let own = Self::extract_blockquote_prefix(table_lines[i]).0;
+                    format!("{own}{line}")
+                } else if container_indented && blockquote_prefix.is_empty() {
+                    // The row's own indentation keeps it inside its admonition or tab
+                    let own = table_lines[formatted_indices[i]];
+                    let indent = &own[..own.len() - own.trim_start_matches([' ', '\t']).len()];
+                    format!("{indent}{line}")
                 } else {
                     format!("{blockquote_prefix}{line}")
                 }
             })
             .collect();
 
+        let mut output: Vec<String> = table_lines.iter().map(std::string::ToString::to_string).collect();
+        for (index, formatted) in formatted_indices.into_iter().zip(prefixed_result) {
+            output[index] = formatted;
+        }
+
         TableFormatResult {
-            lines: prefixed_result,
+            lines: output,
             auto_compacted,
             aligned_width,
         }
@@ -1139,7 +1226,7 @@ impl Rule for MD060TableFormat {
         let lines = ctx.raw_lines();
         let table_blocks = &ctx.table_blocks;
 
-        for table_block in table_blocks {
+        for table_block in table_blocks.iter().filter(|block| block.parser_confirmed) {
             let format_result = self.fix_table_block(lines, table_block, ctx.flavor);
 
             let table_line_indices: Vec<usize> = std::iter::once(table_block.header_line)
@@ -1213,13 +1300,13 @@ impl Rule for MD060TableFormat {
 
         // Nothing to format when there are no tables; return the content verbatim
         // so non-table documents are never altered.
-        if table_blocks.is_empty() {
+        if !table_blocks.iter().any(|block| block.parser_confirmed) {
             return Ok(content.to_string());
         }
 
         let mut result_lines: Vec<String> = lines.iter().map(|&s| s.to_string()).collect();
 
-        for table_block in table_blocks {
+        for table_block in table_blocks.iter().filter(|block| block.parser_confirmed) {
             let format_result = self.fix_table_block(lines, table_block, ctx.flavor);
 
             let table_line_indices: Vec<usize> = std::iter::once(table_block.header_line)
@@ -3001,9 +3088,9 @@ Cell 1     Cell 2
         let standard = rule
             .fix(&LintContext::new(input, crate::config::MarkdownFlavor::Standard, None))
             .unwrap();
-        assert!(
-            standard.lines().any(|line| line.starts_with("| a")),
-            "tab handling is Gherkin-only, got: {standard:?}"
+        assert_eq!(
+            standard, input,
+            "tab-indented rows are indented code outside MDG and stay untouched"
         );
     }
 

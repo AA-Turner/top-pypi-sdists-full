@@ -9,7 +9,6 @@ import io
 import itertools
 import json
 import ssl
-import sys
 import tarfile
 import threading
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -60,7 +59,14 @@ from nab_index.urllib3_async_transport import (
     _SSLContext,
     _Urllib3Response,
 )
+from nab_markersets._compat import get_int_max_str_digits
 from nab_project.fetch import FetchCoordinator
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
+
+_SERVER_POLL_INTERVAL = 0.01
 
 LISTING_JSON = {
     "meta": {"api-version": "1.0"},
@@ -84,7 +90,7 @@ TRUNCATED_GZIP_BODY = GZIP_BODY[: len(GZIP_BODY) // 2]
 UNPARSEABLE_RETRY_AFTERS = [
     pytest.param("soon", id="not-a-date"),
     pytest.param("Wed, 31 Dec 10000 23:59:59 GMT", id="year-past-datetime"),
-    pytest.param("9" * 4301, id="digits-past-int-limit"),
+    pytest.param("9" * 4301, id="digits-past-int-limit", marks=requires_int_limit),
     pytest.param(f"Wed, {'9' * 400} Dec 2020 00:00:00 GMT", id="day-past-float"),
 ]
 
@@ -133,7 +139,11 @@ def _stub_index(
     server.statuses = list(statuses)
     server.seen = []
     server.retry_after = retry_after
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(
+        target=server.serve_forever,
+        kwargs={"poll_interval": _SERVER_POLL_INTERVAL},
+        daemon=True,
+    )
     thread.start()
     try:
         yield server
@@ -175,7 +185,11 @@ def _gzip_stub_index(
     server.bodies = list(bodies)
     server.encoding = encoding
     server.seen = []
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(
+        target=server.serve_forever,
+        kwargs={"poll_interval": _SERVER_POLL_INTERVAL},
+        daemon=True,
+    )
     thread.start()
     try:
         yield server
@@ -219,7 +233,11 @@ def _artifact_stub_index(body: bytes) -> Iterator[_ArtifactStubIndex]:
     server = _ArtifactStubIndex(("127.0.0.1", 0), _ArtifactStubIndexHandler)
     server.body = body
     server.accept_encoding = []
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(
+        target=server.serve_forever,
+        kwargs={"poll_interval": _SERVER_POLL_INTERVAL},
+        daemon=True,
+    )
     thread.start()
     try:
         yield server
@@ -254,7 +272,11 @@ class _UserAgentStubIndexHandler(BaseHTTPRequestHandler):
 def _user_agent_stub_index() -> Iterator[_UserAgentStubIndex]:
     server = _UserAgentStubIndex(("127.0.0.1", 0), _UserAgentStubIndexHandler)
     server.user_agents = []
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(
+        target=server.serve_forever,
+        kwargs={"poll_interval": _SERVER_POLL_INTERVAL},
+        daemon=True,
+    )
     thread.start()
     try:
         yield server
@@ -306,7 +328,11 @@ class _EarlyHintsIndexHandler(BaseHTTPRequestHandler):
 def _early_hints_index(informational: list[int]) -> Iterator[_EarlyHintsIndex]:
     server = _EarlyHintsIndex(("127.0.0.1", 0), _EarlyHintsIndexHandler)
     server.informational = list(informational)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(
+        target=server.serve_forever,
+        kwargs={"poll_interval": _SERVER_POLL_INTERVAL},
+        daemon=True,
+    )
     thread.start()
     try:
         yield server
@@ -367,7 +393,11 @@ def _moved_index(
     server.body = body
     server.seen = []
     server.transient = list(transient)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(
+        target=server.serve_forever,
+        kwargs={"poll_interval": _SERVER_POLL_INTERVAL},
+        daemon=True,
+    )
     thread.start()
     try:
         yield server
@@ -1845,9 +1875,10 @@ class TestAsyncSimpleClient:
             "https://pypi.org/simple/pkg/pkg-1.0-py3-none-any.whl"
         ]
 
+    @requires_int_limit
     def test_get_files_oversized_int_raises_clean(self) -> None:
         """A ``size`` too long to convert must not escape as a raw ValueError."""
-        oversized = "9" * (sys.get_int_max_str_digits() + 1)
+        oversized = "9" * ((get_int_max_str_digits() or 4300) + 1)
         listing = {
             "meta": {"api-version": "1.1"},
             "name": "pkg",
@@ -1931,7 +1962,7 @@ def _build_tarball(members: list[tuple[str, bytes | None]]) -> bytes:
 
 
 # A digit run just past CPython's int-from-string limit.
-_OVERSIZED_DIGITS = "1" * sys.get_int_max_str_digits() + "1"
+_OVERSIZED_DIGITS = "1" * (get_int_max_str_digits() or 4300) + "1"
 
 
 def _build_pax_sparse_map_tarball(sparse_map: str) -> bytes:
@@ -2430,7 +2461,13 @@ class TestExtractSdistFiles:
 
     @pytest.mark.parametrize(
         "sparse_map",
-        [_OVERSIZED_DIGITS + ",1", "nope,1"],
+        [
+            pytest.param(
+                _OVERSIZED_DIGITS + ",1",
+                marks=requires_int_limit,
+            ),
+            "nope,1",
+        ],
         ids=["digits-past-int-limit", "non-numeric"],
     )
     def test_returns_none_when_gnu_sparse_map_will_not_convert(

@@ -13,10 +13,13 @@ module never imports torch or paddle directly.
 """
 
 import os
-from typing import Dict, List, Optional, Set, Tuple
+import threading
+from bisect import bisect_right
+from operator import itemgetter
+from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple
 
 from .. import cpp as fstcpp
-from ..common import SafeTensorsMetadata, get_fs_type, init_logger
+from ..common import SafeTensorsMetadata, is_odirect_enabled
 from ..frameworks import FrameworkOpBase, TensorBase
 from ..st_types import Device, DeviceType, DType
 from .base import (
@@ -26,46 +29,34 @@ from .base import (
 )
 from .registry import CopierConstructFunc, register_copier_constructor
 
-logger = init_logger(__name__)
+if TYPE_CHECKING:
+    from ..allocation import SharedDeviceAllocation
 
-# O_DIRECT bypasses the page cache, which wins on local block devices but
-# forfeits kernel readahead / client caching on network filesystems, where the
-# buffered mmap + pin path performs better. Gate the fast path by fs type;
-# FASTSAFETENSORS_ODIRECT=1/0 forces it on/off regardless.
-_NETWORK_FS = {
-    "nfs",
-    "nfs4",
-    "cifs",
-    "smb3",
-    "smbfs",
-    "sshfs",
-    "fuse.sshfs",
-    "lustre",
-    "gpfs",
-    "beegfs",
-    "glusterfs",
-    "ceph",
-    "9p",
-    "virtiofs",
-}
-_warned_fs: set = set()
+_DMA_THREADS_ENV = "FASTSAFETENSORS_DMA_THREADS"
+_DMA_THREADS_DEFAULT = 8
+# Keep in sync with PIN_CHUNK in cpp/ext.cpp.
+_DMA_PIN_CHUNK = 16 << 20
+_range_end = itemgetter(1)
 
 
-def _odirect_ok(path: str) -> bool:
-    override = os.environ.get("FASTSAFETENSORS_ODIRECT")
-    if override is not None:
-        return override == "1"
-    fstype = get_fs_type(path)
-    if fstype in _NETWORK_FS:
-        if fstype not in _warned_fs:
-            _warned_fs.add(fstype)
-            logger.info(
-                "checkpoint on network filesystem (%s): using buffered reads "
-                "instead of O_DIRECT (set FASTSAFETENSORS_ODIRECT=1 to force)",
-                fstype,
-            )
-        return False
-    return True
+def _dma_threads_from_env() -> int:
+    return int(os.environ.get(_DMA_THREADS_ENV, str(_DMA_THREADS_DEFAULT)))
+
+
+def _odirect_reader_usable(path: str) -> bool:
+    """Whether ``submit_io`` can use the O_DIRECT reader for this path."""
+    return (
+        getattr(fstcpp, "dma_load_runs", None) is not None
+        and _dma_threads_from_env() > 0
+        and is_odirect_enabled(path)
+    )
+
+
+def _dma_worker_count(nthreads: int) -> int:
+    """Worker count after the clamp in ``dma_load_runs``."""
+    if nthreads < 1:
+        return 4
+    return min(nthreads, 32)
 
 
 class UnifiedMemCopier(CopierInterface):
@@ -82,6 +73,7 @@ class UnifiedMemCopier(CopierInterface):
         metadata: SafeTensorsMetadata,
         device: Device,
         framework: FrameworkOpBase,
+        dma_gate: Optional[threading.Lock] = None,
     ):
         self.metadata = metadata
         self.device = device
@@ -95,7 +87,77 @@ class UnifiedMemCopier(CopierInterface):
         # -thread pin_memory is page-cache-bound (~2.5 GB/s); O_DIRECT threads
         # bypass the cache and drive NVMe queue depth. Falls back to pin_memory
         # if the reader is unavailable.
-        self._dma_threads = int(os.environ.get("FASTSAFETENSORS_DMA_THREADS", "8"))
+        self._dma_threads = _dma_threads_from_env()
+        self._dma_gate = dma_gate if dma_gate is not None else threading.Lock()
+        self._readiness = False
+        self._completion: Optional[fstcpp.dma_completion] = None
+        self._dma_thread: Optional[threading.Thread] = None
+        self._dma_error: Optional[BaseException] = None
+        self._dma_rc = 0
+        self._ready_blocks = bytearray()
+        self._read_ranges: List[Tuple[int, int]] = []
+
+    def enable_tensor_readiness(self) -> bool:
+        self._readiness = (
+            self.device.type != DeviceType.CPU
+            and self._dma_threads > 0
+            and is_odirect_enabled(self.metadata.src)
+            and hasattr(fstcpp, "dma_load_runs_progress")
+        )
+        return self._readiness
+
+    def prepare_tensors(
+        self,
+        gbuf: fstcpp.gds_device_buffer,
+        owner: Optional["SharedDeviceAllocation"] = None,
+    ) -> Dict[str, TensorBase]:
+        return self.metadata._get_tensors(
+            gbuf, self.device, self._base_off, names=self._chunk_names, owner=owner
+        )
+
+    def wait_tensor(self, name: str) -> None:
+        if self._completion is None:
+            return
+        frame = self.metadata.tensors[name]
+        start = self.metadata.header_length + frame.data_offsets[0]
+        end = self.metadata.header_length + frame.data_offsets[1]
+        if start == end:
+            return
+        covered = start
+        index = bisect_right(self._read_ranges, start, key=_range_end)
+        while covered < end and index < len(self._read_ranges):
+            lo, hi = self._read_ranges[index]
+            if lo > covered:
+                break
+            covered = min(end, hi)
+            index += 1
+        if covered != end:
+            raise ValueError(f"tensor {name} includes unread bytes")
+        first = (start - self._base_off) // _DMA_PIN_CHUNK
+        last = (end - 1 - self._base_off) // _DMA_PIN_CHUNK
+        if self._ready_blocks.find(b"\x00", first, last + 1) == -1:
+            return
+        rc = self._completion.wait_range(start, end)
+        if rc:
+            raise RuntimeError(f"dma_load_runs failed with rc={rc}")
+        self._ready_blocks[first : last + 1] = b"\x01" * (last - first + 1)
+
+    def finish_io(self) -> None:
+        if self._dma_thread is not None:
+            self._dma_thread.join()
+            self._dma_thread = None
+        elif self._pinned:
+            self.framework.synchronize(self.device)
+        self._pinned = []
+        self._completion = None
+        self._ready_blocks.clear()
+        self._read_ranges.clear()
+        error, rc = self._dma_error, self._dma_rc
+        self._dma_error, self._dma_rc = None, 0
+        if error is not None:
+            raise error
+        if rc:
+            raise RuntimeError(f"dma_load_runs failed with rc={rc}")
 
     def set_byte_ranges(self, byte_ranges: Optional[List[Tuple[int, int]]]) -> None:
         """Restrict reads to these ``[start, end)`` absolute file-offset runs.
@@ -131,20 +193,29 @@ class UnifiedMemCopier(CopierInterface):
         """Per in-flight-chunk transient cost, as a multiple of chunk span.
 
         The O_DIRECT reader (dma_load_runs) reads runs straight into the device
-        buffer: each live chunk costs ~1x its span plus a small fixed thread
-        pool (measured +~150 MB on GB10 regardless of chunk size; not charged
-        here). The mmap+pin_memory fallback additionally pins the chunk's file
-        pages for the copy's lifetime; on unified-memory systems both draws
-        come from one physical pool, so each live chunk costs ~2x its span.
+        buffer: each live chunk costs ~1x its span; its pinned pool is charged
+        separately by ``fixed_device_overhead``. The mmap+pin_memory fallback
+        additionally pins the chunk's file pages for the copy's lifetime;
+        on unified-memory systems both draws come from one physical pool,
+        so each live chunk costs ~2x its span.
         Mirrors submit_io's own path selection.
         """
-        if getattr(fstcpp, "dma_load_runs", None) is None:
-            return 2
-        if int(os.environ.get("FASTSAFETENSORS_DMA_THREADS", "8")) <= 0:
-            return 2
-        if any(not _odirect_ok(p) for p in paths):
+        if any(not _odirect_reader_usable(p) for p in paths):
             return 2
         return 1
+
+    @classmethod
+    def fixed_device_overhead(cls, paths: List[str]) -> int:
+        """Pinned O_DIRECT bounce pool charged on unified-memory systems.
+
+        The C++ reader retains one 16 MiB pinned buffer per worker in a
+        process-wide pool. Mixed files may use both reader paths: any usable
+        O_DIRECT path can grow that persistent pool, even though the transient
+        multiplier is 2 when any file falls back to mmap plus pinning.
+        """
+        if not any(_odirect_reader_usable(p) for p in paths):
+            return 0
+        return _dma_worker_count(_dma_threads_from_env()) * _DMA_PIN_CHUNK
 
     def submit_io(
         self, use_buf_register: bool, max_copy_block_size: int
@@ -160,8 +231,8 @@ class UnifiedMemCopier(CopierInterface):
         if self._chunk_names is not None:
             # Compact chunk: allocate only the runs' span and map gbuf[0] to the
             # first run's start, so peak memory tracks the chunk, not the shard.
-            base_off = min(s for s, _ in runs)
-            chunk_span = max(e for _, e in runs) - base_off
+            base_off = min((s for s, _ in runs), default=header_length)
+            chunk_span = max((e for _, e in runs), default=base_off) - base_off
             alloc_length = self._chunk_allocation_size or chunk_span
         else:
             base_off = header_length
@@ -170,17 +241,19 @@ class UnifiedMemCopier(CopierInterface):
 
         # Allocate CUDA buffer via framework's allocator (proper lifecycle)
         gbuf = self.framework.alloc_tensor_memory(alloc_length, self.device)
+        if not runs:
+            return gbuf
 
         # Fast path: multithreaded O_DIRECT reader copies only the runs straight
         # into gbuf (byte F -> gbuf[F - base_off]), bypassing the page cache and
         # single-thread pin. Works for both full and compact-chunk buffers.
         # FASTSAFETENSORS_DMA_THREADS=0 disables it (falls back to mmap + pin);
-        # network filesystems fall back automatically (see _odirect_ok).
+        # Network filesystems use the shared buffered-I/O policy.
         dma_load_runs = getattr(fstcpp, "dma_load_runs", None)
         if (
             dma_load_runs is not None
             and self._dma_threads > 0
-            and _odirect_ok(self.metadata.src)
+            and is_odirect_enabled(self.metadata.src)
         ):
             starts = [s for s, _ in runs]
             ends = [e for _, e in runs]
@@ -191,6 +264,45 @@ class UnifiedMemCopier(CopierInterface):
                 device_id = -1
             else:
                 device_id = self.device.index if self.device.index is not None else 0
+            if self._readiness:
+                completion = fstcpp.dma_completion(base_off, starts, ends)
+                self._completion = completion
+                self._read_ranges = list(runs)
+                last = max(ends, default=base_off)
+                self._ready_blocks = bytearray(
+                    (last - base_off + _DMA_PIN_CHUNK - 1) // _DMA_PIN_CHUNK
+                )
+
+                def read():
+                    try:
+                        # One active DMA job per loader keeps the reusable pinned
+                        # pool at the planner's fixed worker-count allowance.
+                        with self._dma_gate:
+                            self.framework.set_device(self.device)
+                            self.framework.synchronize(self.device)
+                            self._dma_rc = fstcpp.dma_load_runs_progress(
+                                gbuf.get_base_address(),
+                                self.metadata.src,
+                                base_off,
+                                starts,
+                                ends,
+                                self._dma_threads,
+                                device_id,
+                                completion,
+                            )
+                    except BaseException as error:
+                        self._dma_error = error
+                        completion.finish(-6)
+
+                self._dma_thread = threading.Thread(target=read, name="fst-unified-dma")
+                try:
+                    self._dma_thread.start()
+                except BaseException:
+                    self._dma_thread = None
+                    self._completion = None
+                    self.framework.free_tensor_memory(gbuf, self.device)
+                    raise
+                return gbuf
             rc = dma_load_runs(
                 gbuf.get_base_address(),
                 self.metadata.src,
@@ -233,7 +345,9 @@ class UnifiedMemCopier(CopierInterface):
         gbuf: fstcpp.gds_device_buffer,
         dtype: DType = DType.AUTO,
         noalign: bool = False,
+        owner: Optional["SharedDeviceAllocation"] = None,
     ) -> Dict[str, TensorBase]:
+        self.finish_io()
         self.framework.synchronize(self.device)
 
         # Alignment note: unlike the GDS copier, we only copy the data section
@@ -241,7 +355,12 @@ class UnifiedMemCopier(CopierInterface):
         # address. The copy_start_offset=header_length cancels out in get_tensors'
         # pointer arithmetic, giving correct offsets. No memmove fixup needed.
         tensors = self.metadata._get_tensors(
-            gbuf, self.device, self._base_off, dtype=dtype, names=self._chunk_names
+            gbuf,
+            self.device,
+            self._base_off,
+            dtype=dtype,
+            names=self._chunk_names,
+            owner=owner,
         )
 
         # Release the pinned mmap pages
@@ -279,12 +398,13 @@ def new_unified_copier(device: Device, **kwargs) -> CopierConstructFunc:
     from .nogds import load_library_func
 
     load_library_func(kwargs.get("framework"))
+    dma_gate = threading.Lock()
 
     def construct_unified_copier(
         metadata: SafeTensorsMetadata,
         device: Device,
         framework: FrameworkOpBase,
     ) -> CopierInterface:
-        return UnifiedMemCopier(metadata, device, framework)
+        return UnifiedMemCopier(metadata, device, framework, dma_gate)
 
     return construct_unified_copier

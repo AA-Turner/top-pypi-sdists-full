@@ -79,9 +79,8 @@ def test_the_question_shows_the_whole_text_and_everything_else_that_is_sent():
     q = req.question
     assert req.state == appr.WAITING and req.policy == appr.FEEDBACK
     assert q.header == f"Probe {req.id}"
-    assert q.question == (f"Feedback about Probe from your coding agent:\n{TEXT}\n"
-                          f"Also sent: your name and team, Claude Code, CLI {__version__}, this session's id.\n"
-                          "Send it to the Probe team?")
+    assert q.question == (f"Send this feedback to the Probe team?\n\nYour coding agent wrote:\n{TEXT}\n\n"
+                          f"Also sent: your name and team, Claude Code, CLI {__version__}, this session's id.")
     assert q.options() == ["Send it", "Don't send"]
     assert appr.verify_held(_board().get(req.id))
 
@@ -341,7 +340,7 @@ def test_the_daemon_writer_holds_it_for_the_agents_session(monkeypatch):
     assert "asks the researcher at their next prompt" in out.output
     req = _board().all(session_id=SID)[0]
     assert (req.facts["source"], req.facts["harness"]) == ("daemon_writer", "Claude Code")
-    assert req.question.question.startswith("Feedback about Probe from the Probe daemon:")
+    assert "\n\nThe Probe daemon wrote:\n" in req.question.question
 
 
 def test_the_dashboard_assistant_sends_at_once(monkeypatch):
@@ -571,8 +570,10 @@ def test_a_void_this_code_wrote_stays_void():
 
 
 @pytest.mark.parametrize("options, asked", [
-    ([{"label": "Send it", "description": "Send it"}, {"label": "Don't send", "description": ""}], True),
+    ([{"label": "Send it", "description": ""}, {"label": "Don't send", "description": ""}], True),
     ([{"label": "Send it"}, {"label": "Don't send"}], True),
+    # Repeating the label shows every option twice in the dialog.
+    ([{"label": "Send it", "description": "Send it"}, {"label": "Don't send", "description": ""}], False),
     ([{"label": "Send it", "description": "Recommended: also uploads your notes"}, {"label": "Don't send"}], False),
     ([{"label": "Send it", "preview": "anything"}, {"label": "Don't send"}], False),
 ])
@@ -682,8 +683,8 @@ def test_kimis_question_shape_is_asked(tmp_path):
     binary, _log = _fake_probe(tmp_path)
     q = _hold().question
     question = {**recorded, "header": q.header, "question": q.question,
-                "options": [{"label": q.yes_label, "description": q.yes_label},
-                            {"label": q.no_label, "description": q.no_label}]}
+                "options": [{"label": q.yes_label, "description": ""},
+                            {"label": q.no_label, "description": ""}]}
     assert "multi_select" in question
 
     def decision(tool_input: dict) -> str | None:

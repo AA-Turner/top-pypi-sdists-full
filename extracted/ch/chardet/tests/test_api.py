@@ -27,6 +27,55 @@ def test_detect_ascii():
     assert result["confidence"] == 1.0
 
 
+@pytest.mark.parametrize("api", ["detect", "detect_all", "stream"])
+@pytest.mark.parametrize("compat_names", [False, True])
+@pytest.mark.parametrize(
+    ("filters", "expected"),
+    [
+        ({"include_encodings": ["ascii"]}, "ascii"),
+        ({"exclude_encodings": ["Windows-1252"]}, "ascii"),
+        (
+            {
+                "include_encodings": ["ascii", "Windows-1252"],
+                "exclude_encodings": ["Windows-1252"],
+            },
+            "ascii",
+        ),
+        ({"include_encodings": ["ascii", "Windows-1252"]}, "cp1252"),
+        ({}, "cp1252"),
+    ],
+    ids=["include", "exclude", "both", "allowed", "unfiltered"],
+)
+def test_prefer_superset_respects_encoding_filters(
+    api: str,
+    filters: dict[str, list[str]],
+    expected: str,
+    *,
+    compat_names: bool,
+):
+    data = b"Hello world"
+    if api == "stream":
+        detector = UniversalDetector(
+            prefer_superset=True, compat_names=compat_names, **filters
+        )
+        detector.feed(data)
+        results = [detector.close()]
+    elif api == "detect_all":
+        results = chardet.detect_all(
+            data, prefer_superset=True, compat_names=compat_names, **filters
+        )
+    else:
+        results = [
+            chardet.detect(
+                data, prefer_superset=True, compat_names=compat_names, **filters
+            )
+        ]
+    if compat_names and expected == "cp1252":
+        expected = "Windows-1252"
+    assert results
+    assert all(result["encoding"] == expected for result in results)
+
+
 def test_detect_utf8_bom():
     result = chardet.detect(b"\xef\xbb\xbfHello")
     assert result["encoding"] == "UTF-8-SIG"
@@ -973,3 +1022,75 @@ def test_single_byte_declaration_kept_for_pure_ascii() -> None:
     data = b'<html><head><meta charset="iso-8859-1"></head><body>plain</body></html>'
     result = chardet.detect(data)
     assert result["encoding"] == "ISO-8859-1"
+
+
+def test_prefer_superset_never_hands_back_an_undecodable_name():
+    """The remap checks the examined window before renaming (public API)."""
+    data = ("caf\xe9 au lait, d\xe9j\xe0 vu. " * 40).encode("latin-1") + b"\x81 fin."
+    kwargs = {"include_encodings": ["iso8859-1", "cp1252"], "prefer_superset": True}
+    result = chardet.detect(data, **kwargs)
+    assert result["encoding"] == "ISO-8859-1"
+    assert data.decode(result["encoding"])
+    for entry in chardet.detect_all(data, **kwargs):
+        assert data.decode(entry["encoding"])
+    detector = chardet.UniversalDetector(**kwargs)
+    detector.feed(data)
+    streamed = detector.close()
+    assert data.decode(streamed["encoding"])
+    assert chardet.detect(data[:-6], **kwargs)["encoding"] == "Windows-1252"
+
+
+# ---------------------------------------------------------------------------
+# The returned name decodes the window, display names included
+# ---------------------------------------------------------------------------
+
+_JP_2004 = "日本語のテキストです。これはテストです。".encode("euc_jis_2004")
+_HK = "這是一個測試。中文文字。".encode("big5hkscs")
+
+
+@pytest.mark.parametrize(
+    ("data", "internal"),
+    [
+        (_JP_2004 * 60 + "①".encode("euc_jis_2004") + _JP_2004[:40], "euc_jis_2004"),
+        (_HK * 60 + "嘢".encode("big5hkscs") + _HK[:40], "big5hkscs"),
+        (
+            b'<meta charset="euc-jp">' + _JP_2004 * 60 + "①".encode("euc_jis_2004"),
+            "euc_jis_2004",
+        ),
+    ],
+    ids=["euc-jp-statistical", "big5-statistical", "euc-jp-declared"],
+)
+def test_display_name_never_narrower_than_the_data(data: bytes, internal: str):
+    result = chardet.detect(data)
+    assert result["encoding"] == internal
+    data.decode(result["encoding"])
+    assert chardet.detect(data, compat_names=False)["encoding"] == internal
+    for entry in chardet.detect_all(data, ignore_threshold=True):
+        if entry["encoding"] is not None:
+            data.decode(entry["encoding"])
+    detector = UniversalDetector()
+    detector.feed(data)
+    detector.close()
+    assert detector.result["encoding"] == internal
+
+
+def test_display_name_kept_when_it_decodes():
+    data = "日本語のテキストです。".encode("euc_jp") * 60
+    assert chardet.detect(data)["encoding"] == "EUC-JP"
+
+
+def test_detect_all_prefer_superset_lists_each_name_once():
+    """The superset remap must not list one name at two confidences.
+
+    ISO-8859-7 and Windows-1253 both become Windows-1253 under
+    ``prefer_superset``; the entry kept is the higher-confidence one.
+    """
+    data = "Καλημέρα κόσμε, αυτό είναι δοκιμή. ".encode("iso8859-7") * 40
+    plain = chardet.detect_all(data)
+    assert [d["encoding"] for d in plain][:2] == ["ISO-8859-7", "Windows-1253"]
+    ranked = chardet.detect_all(data, prefer_superset=True)
+    names = [d["encoding"] for d in ranked]
+    assert names[0] == "Windows-1253"
+    assert len(names) == len(set(names))
+    assert ranked[0]["confidence"] == plain[0]["confidence"]
+    assert len(ranked) == len(plain) - 1

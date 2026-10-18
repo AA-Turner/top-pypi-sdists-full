@@ -54,6 +54,7 @@ from nab_project.resolve import (
     build_resolver_inputs,
     inputs_for_build_requirements,
     resolve_for_targets,
+    resolve_with_coordinator,
 )
 from nab_provider._provider import listing_diagnosis
 from nab_provider._vendor.packaging.markers import Marker, default_environment
@@ -254,6 +255,28 @@ def _malformed_group_pyproject(tmp_path: Path) -> Path:
         'conflicts = [[{ extra = "cpu" }, { extra = "gpu" }]]\n'
     )
     return pyproject
+
+
+@pytest.fixture
+def python_marker_fetch_port() -> FakeFetchPort:
+    """Serve leaf dependencies on both sides of the Python 3.12 boundary."""
+    return graph_port(
+        (
+            (
+                "foo",
+                "1.0",
+                False,
+                (
+                    'old-leaf; python_full_version < "3.12"',
+                    'new-leaf; python_full_version >= "3.12"',
+                ),
+            ),
+            ("legacy", "1.0", False, ()),
+            ("newer", "1.0", False, ()),
+            ("old-leaf", "1.0", False, ()),
+            ("new-leaf", "1.0", False, ()),
+        )
+    )
 
 
 @pytest.fixture
@@ -974,40 +997,49 @@ class TestResolvePyproject:
         routes = mock_coord_cls.call_args.kwargs["index_routes"]
         assert [(r.name, r.index) for r in routes] == [("baz", "private")]
 
-    def test_arbitrary_equality_dep_passed_through(self, tmp_path: Path) -> None:
-        """``===`` deps reach the resolver as literal-only ranges.
-
-        Unlike PEP 440 specifiers, ``===`` cannot match any
-        ``Version``, so a real resolve would fail to find candidates.
-        The mocked ``Resolver.resolve`` here returns a canned answer,
-        so we just check that the requirement is forwarded rather than
-        silently dropped.
-        """
+    def test_arbitrary_equality_dep_rejects_nonmatching_version(
+        self, tmp_path: Path
+    ) -> None:
+        """A nonmatching ``===`` root reaches the solver and rejects resolution."""
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(
             '[project]\ndependencies = ["foo===custom", "bar>=1.0"]\n',
         )
 
+        coordinator = graph_port(
+            (
+                ("foo", "1.0", False, ()),
+                ("bar", "1.0", False, ()),
+            )
+        )
         with (
-            patch("nab_project._resolve.engine.Resolver") as mock_resolver_cls,
-            patch("nab_project.resolve.FetchCoordinator") as mock_coord_cls,
-            patch("nab_project._resolve.engine.Provider"),
-            patch("nab_project._resolve.engine.build_target_lock"),
+            patch(
+                "nab_project.resolve.FetchCoordinator",
+                return_value=nullcontext(coordinator),
+            ),
+            patch.object(
+                Resolver, "resolve", autospec=True, side_effect=Resolver.resolve
+            ) as solver_resolve,
         ):
-            mock_coord_cls.return_value.__enter__ = lambda s: s
-            mock_coord_cls.return_value.__exit__ = MagicMock(return_value=False)
-            mock_resolver = mock_resolver_cls.return_value
-            mock_resolver.resolve.return_value = {
-                "foo": V("1.0"),
-                "bar": V("1.0"),
-            }
-            _resolved(pyproject, _FAKE_TRANSPORT, python_version="3.12.0")
+            result = resolve_for_targets(
+                pyproject,
+                _FAKE_TRANSPORT,
+                targets=(ResolveTarget.for_host_python("3.12.0"),),
+            )
 
-        forwarded = _root_ranges(mock_resolver)
+        forwarded = {
+            root.package: root.constraint for root in solver_resolve.call_args.args[1]
+        }
         assert "foo" in forwarded
         assert "bar" in forwarded
         assert "custom" in forwarded["foo"]
         assert V("1.0") not in forwarded["foo"]
+
+        assert not result.success
+        assert _pins(result) == {}
+        assert result.target_results[0].lock is None
+        with pytest.raises(ResolutionError):
+            result.raise_for_failure()
 
     def test_empty_dependencies(self, tmp_path: Path) -> None:
         """Project with no dependencies resolves to empty dict."""
@@ -1174,25 +1206,12 @@ class TestResolvePyproject:
         assert "foo" in requirements
         assert "windows-only" not in requirements
 
-    @patch("nab_project._resolve.engine.build_target_lock")
-    @patch("nab_project._resolve.engine.Resolver")
-    @patch("nab_project._resolve.engine.Provider")
-    @patch("nab_project.resolve.FetchCoordinator")
     def test_python_version_overlay_keeps_full_version_gated_dep(
         self,
-        mock_coord_cls: MagicMock,
-        mock_provider_cls: MagicMock,
-        mock_resolver_cls: MagicMock,
-        mock_build_lock: MagicMock,
         tmp_path: Path,
+        python_marker_fetch_port: FakeFetchPort,
     ) -> None:
-        """A python_full_version-gated dep follows the declared Python.
-
-        Declaring only ``python = "3.8"`` on a 3.12 host must keep
-        ``legacy; python_full_version < '3.10'``: the resolve targets Python
-        3.8, so the marker holds. The host patch level must not leak in
-        through ``python_full_version``.
-        """
+        """Root and transitive full-version markers follow the target Python."""
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(
             "[project]\n"
@@ -1202,23 +1221,39 @@ class TestResolvePyproject:
             "[tool.nab.environment]\n"
             'python = "3.8"\n',
         )
-        mock_coord_cls.return_value.__enter__ = lambda s: s
-        mock_coord_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_resolver_cls.return_value.resolve.return_value = {
-            "foo": V("1.0"),
-            "legacy": V("1.0"),
-        }
+        with (
+            patch(
+                "nab_project.resolve.FetchCoordinator",
+                return_value=nullcontext(python_marker_fetch_port),
+            ),
+            patch.object(
+                Resolver, "resolve", autospec=True, side_effect=Resolver.resolve
+            ) as solver_resolve,
+        ):
+            result = _resolved(
+                pyproject,
+                _FAKE_TRANSPORT,
+                inputs=ResolveInputs(build_policy=BuildPolicy.NEVER),
+                python_version="3.8",
+            )
 
-        _resolved(
-            pyproject,
-            _FAKE_TRANSPORT,
-            inputs=ResolveInputs(build_policy=BuildPolicy.NEVER),
-            python_version="3.8",
-        )
-
-        requirements = _root_ranges(mock_resolver_cls.return_value)
+        requirements = {root.package for root in solver_resolve.call_args.args[1]}
         assert "foo" in requirements
         assert "legacy" in requirements
+
+        assert _pins(result) == {
+            "foo": V("1.0"),
+            "legacy": V("1.0"),
+            "old-leaf": V("1.0"),
+        }
+
+        lock = result.target_results[0].lock
+        assert lock is not None
+        assert {name: pin.version for name, pin in lock.pins.items()} == {
+            "foo": "1.0",
+            "legacy": "1.0",
+            "old-leaf": "1.0",
+        }
 
     @patch("nab_project._resolve.engine.build_target_lock")
     @patch("nab_project._resolve.engine.Resolver")
@@ -1264,31 +1299,38 @@ class TestResolvePyproject:
         requirements = _root_ranges(mock_resolver_cls.return_value)
         assert "linux-only" in requirements
 
-    @patch("nab_project._resolve.engine.build_target_lock")
-    @patch("nab_project._resolve.engine.Resolver")
-    @patch("nab_project._resolve.engine.Provider")
-    @patch("nab_project.resolve.FetchCoordinator")
     def test_root_marker_uses_effective_python(
         self,
-        mock_coord_cls: MagicMock,
-        mock_provider_cls: MagicMock,
-        mock_resolver_cls: MagicMock,
-        mock_build_lock: MagicMock,
         tmp_path: Path,
+        python_marker_fetch_port: FakeFetchPort,
     ) -> None:
-        """``python_version`` in markers reflects the resolve target Python."""
+        """Root and transitive markers use the requested Python version."""
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(
             '[project]\ndependencies = ["foo", "newer; python_version >= \'3.12\'"]\n',
         )
-        mock_coord_cls.return_value.__enter__ = lambda s: s
-        mock_coord_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_resolver_cls.return_value.resolve.return_value = {"foo": V("1.0")}
+        with (
+            patch(
+                "nab_project.resolve.FetchCoordinator",
+                return_value=nullcontext(python_marker_fetch_port),
+            ),
+            patch.object(
+                Resolver, "resolve", autospec=True, side_effect=Resolver.resolve
+            ) as solver_resolve,
+        ):
+            result = _resolved(pyproject, _FAKE_TRANSPORT, python_version="3.10.0")
 
-        _resolved(pyproject, _FAKE_TRANSPORT, python_version="3.10.0")
-
-        requirements = _root_ranges(mock_resolver_cls.return_value)
+        requirements = {root.package for root in solver_resolve.call_args.args[1]}
         assert "newer" not in requirements
+
+        assert _pins(result) == {"foo": V("1.0"), "old-leaf": V("1.0")}
+
+        lock = result.target_results[0].lock
+        assert lock is not None
+        assert {name: pin.version for name, pin in lock.pins.items()} == {
+            "foo": "1.0",
+            "old-leaf": "1.0",
+        }
 
     @patch("nab_project._resolve.engine.build_target_lock")
     @patch("nab_project._resolve.engine.Resolver")
@@ -2402,15 +2444,10 @@ class TestResolveUniversalPyproject:
             )
         mock_universal.assert_not_called()
 
-    @patch("nab_project.resolve.resolve_with_coordinator")
     def test_umbrella_extra_disjoint_micro_markers_resolve(
-        self, mock_engine: MagicMock, tmp_path: Path
+        self, tmp_path: Path
     ) -> None:
-        """Self-refs split at the same micro reach one member per slice.
-
-        cpu below 3.10.4 and gpu from 3.10.4 up never meet on one
-        interpreter, so splitting the minor must not turn into a refusal.
-        """
+        """Disjoint self-references select one conflicting extra per micro slice."""
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(
             '[project]\nname = "x"\ndependencies = ["base"]\n'
@@ -2428,18 +2465,53 @@ class TestResolveUniversalPyproject:
             'python = "==3.10"\n'
             'platforms = ["linux_x86_64"]\n'
         )
-        _resolved(
-            pyproject,
-            extras=["all"],
-            inputs=ResolveInputs(
-                build_policy=BuildPolicy.NEVER,
-                conflicts=(_extras_conflict("cpu", "gpu"),),
-            ),
-            targets=Matrix(
-                python="==3.10", platforms=(PlatformSpec("linux_x86_64"),)
-            ).expand(),
+        coordinator = make_coordinator(
+            listings={
+                "base": _index_wheels("base", "1.0"),
+                "foo": _index_wheels("foo", "1.0", "2.0"),
+            },
+            auto_metadata=True,
         )
-        mock_engine.assert_called_once()
+        with (
+            patch(
+                "nab_project.resolve.FetchCoordinator",
+                return_value=nullcontext(coordinator),
+            ),
+            patch(
+                "nab_project.resolve.resolve_with_coordinator",
+                wraps=resolve_with_coordinator,
+            ) as engine_spy,
+        ):
+            result = _resolved(
+                pyproject,
+                extras=["all"],
+                inputs=ResolveInputs(
+                    build_policy=BuildPolicy.NEVER,
+                    conflicts=(_extras_conflict("cpu", "gpu"),),
+                ),
+                targets=Matrix(
+                    python="==3.10", platforms=(PlatformSpec("linux_x86_64"),)
+                ).expand(),
+            )
+        engine_spy.assert_called_once()
+
+        expected_pins = {
+            "3.10.0": {"base": V("1.0"), "foo": V("1.0")},
+            "3.10.4": {"base": V("1.0"), "foo": V("2.0")},
+        }
+        assert len(result.target_results) == 2
+        assert {
+            tr.target.marker_env["python_full_version"]: tr.pins
+            for tr in result.target_results
+        } == expected_pins
+
+        for tr in result.target_results:
+            lock = tr.lock
+            assert lock is not None
+            expected = expected_pins[tr.target.marker_env["python_full_version"]]
+            assert {name: pin.version for name, pin in lock.pins.items()} == {
+                name: str(version) for name, version in expected.items()
+            }
 
     @patch("nab_project.resolve.resolve_with_coordinator")
     def test_untileable_self_ref_marker_off_the_matrix_resolves(
@@ -6493,6 +6565,69 @@ class TestProgressReporting:
         observer = _ResolveObserver(None)
         observer.on_decision("foo", V("1.0"), 3)
         observer.on_backjump(3, 1)
+
+
+class TestResolveTransportCleanup:
+    """Setup refusals release the transport before coordinator ownership."""
+
+    @pytest.mark.parametrize("failure", ["build-selection", "duplicate-indexes"])
+    def test_setup_failure_closes_client_inside_running_loop(
+        self, tmp_path: Path, failure: str
+    ) -> None:
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text('[project]\nname = "root"\ndependencies = []\n')
+        build_requirements = failure == "build-selection"
+        inputs = (
+            ResolveInputs()
+            if build_requirements
+            else ResolveInputs(
+                indexes=(
+                    IndexConfig("same", "https://one.invalid/simple/"),
+                    IndexConfig("same", "https://two.invalid/simple/"),
+                )
+            )
+        )
+        expected = (
+            "a build-requirements resolve has no groups or extras"
+            if build_requirements
+            else "duplicate index names"
+        )
+
+        transport = HttpxAsyncTransport(http2=False)
+        original_close = transport.aclose
+        close_loops: list[asyncio.AbstractEventLoop] = []
+
+        async def close_client() -> None:
+            close_loops.append(asyncio.get_running_loop())
+            await original_close()
+
+        async def attempt() -> None:
+            host_loop = asyncio.get_running_loop()
+            with pytest.raises(ValueError, match=expected):
+                resolve_for_targets(
+                    pyproject,
+                    transport,
+                    targets=(ResolveTarget.for_host(),),
+                    inputs=inputs,
+                    groups=("dev",) if build_requirements else (),
+                    build_requirements=build_requirements,
+                )
+
+            assert len(close_loops) == 1
+            assert close_loops[0] is not host_loop
+            assert close_loops[0].is_closed()
+
+        try:
+            with (
+                patch.object(transport, "get") as get,
+                patch.object(transport, "aclose", side_effect=close_client) as close,
+            ):
+                asyncio.run(attempt())
+                get.assert_not_awaited()
+                close.assert_awaited_once_with()
+                assert transport._client.is_closed
+        finally:
+            asyncio.run(original_close())
 
 
 class TestBuildRequirementsResolve:

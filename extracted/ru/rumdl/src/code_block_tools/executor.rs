@@ -4,15 +4,14 @@
 //! with timeout support and lazy tool availability checking.
 
 use super::config::ToolDefinition;
-use super::lookup;
 use super::wait;
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::io::{Read, Write};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 /// Ignores `SIGPIPE` process-wide for as long as any instance is alive.
 ///
@@ -68,6 +67,51 @@ impl Drop for SigpipeIgnored {
     }
 }
 
+/// `bun fmt` prefers a package.json script over the built-in formatter.
+/// Reject that ambiguity before spawning a code-block formatter: script output
+/// is not formatted code, and the script may write unrelated project files.
+fn check_bun_fmt_scripts(start: &std::path::Path) -> Result<(), String> {
+    for directory in start.ancestors() {
+        // Bun also dispatches local entry points and package-installed binaries.
+        // Check the ancestor locations conservatively so invoking from a docs
+        // subdirectory cannot bypass a collision at the package root.
+        let mut entries = vec![directory.join("fmt"), directory.join("fmt/package.json")];
+        for extension in ["tsx", "ts", "jsx", "cts", "cjs", "js", "mjs", "mts"] {
+            entries.push(directory.join(format!("fmt.{extension}")));
+            entries.push(directory.join(format!("fmt/index.{extension}")));
+        }
+        for suffix in ["", ".bunx", ".exe", ".cmd"] {
+            entries.push(directory.join(format!("node_modules/.bin/fmt{suffix}")));
+        }
+        if let Some(entry) = entries.into_iter().find(|entry| entry.is_file()) {
+            return Err(format!(
+                "bun fmt would run a project entry point at {} instead of the built-in formatter; rename that entry point before using bun-fmt",
+                entry.display()
+            ));
+        }
+        let manifest = directory.join("package.json");
+        let source = match std::fs::read_to_string(&manifest) {
+            Ok(source) => source,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => {
+                return Err(format!(
+                    "Cannot inspect {} before running bun fmt: {error}",
+                    manifest.display()
+                ));
+            }
+        };
+        let package: serde_json::Value = serde_json::from_str(&source)
+            .map_err(|error| format!("Cannot inspect {} before running bun fmt: {error}", manifest.display()))?;
+        if package.get("scripts").and_then(|scripts| scripts.get("fmt")).is_some() {
+            return Err(format!(
+                "bun fmt would run the package.json fmt script in {} instead of the built-in formatter; rename that script before using bun-fmt",
+                manifest.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Timeouts of one tool that end further attempts at it.
 ///
 /// A tool that hangs does so for every block it is handed, and each attempt costs the
@@ -83,6 +127,19 @@ const TIMEOUT_LIMIT: u32 = 3;
 /// so a single slow block never disables anything.
 static TIMEOUT_COUNTS: LazyLock<Arc<Mutex<HashMap<String, u32>>>> =
     LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
+
+// Version probes are shared across files, which each construct an executor.
+// Resolve the binary and include its identity so PATH changes and replacements
+// do not inherit an answer for a different installation.
+type CheckCapabilityKey = (String, PathBuf, Option<SystemTime>, u64);
+static CHECK_CAPABILITIES: LazyLock<Mutex<HashMap<CheckCapabilityKey, bool>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// A native check verdict or formatted content for exact comparison.
+pub(crate) enum FormatCheckOutput {
+    Native { changed: bool },
+    Formatted(String),
+}
 
 /// Result of executing a tool.
 #[derive(Debug, Clone)]
@@ -100,7 +157,7 @@ pub struct ToolOutput {
 /// Error during tool execution.
 #[derive(Debug, Clone)]
 pub enum ExecutorError {
-    /// Tool binary not found in PATH.
+    /// Tool binary not found in allowed lookup locations.
     ToolNotFound { tool: String },
     /// Tool execution failed.
     ExecutionFailed { tool: String, message: String },
@@ -120,7 +177,7 @@ impl std::fmt::Display for ExecutorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ToolNotFound { tool } => {
-                write!(f, "Tool '{tool}' not found in PATH")
+                write!(f, "Tool '{tool}' not found in allowed lookup locations")
             }
             Self::ExecutionFailed { tool, message } => {
                 write!(f, "Tool '{tool}' failed: {message}")
@@ -157,6 +214,9 @@ pub struct ToolExecutor {
     timeout_counts: Arc<Mutex<HashMap<String, u32>>>,
     /// Default timeout in milliseconds.
     default_timeout_ms: u64,
+    binary_preferences: std::collections::BTreeMap<String, super::config::BinaryPreference>,
+    project_root: std::path::PathBuf,
+    run_state: Option<Arc<super::run_state::RunState>>,
 }
 
 impl ToolExecutor {
@@ -169,6 +229,9 @@ impl ToolExecutor {
             tool_cache: Arc::new(Mutex::new(HashMap::new())),
             timeout_counts: Arc::clone(&TIMEOUT_COUNTS),
             default_timeout_ms,
+            binary_preferences: std::collections::BTreeMap::new(),
+            project_root: std::env::current_dir().unwrap_or_default(),
+            run_state: None,
         }
     }
 
@@ -182,12 +245,58 @@ impl ToolExecutor {
             tool_cache: Arc::new(Mutex::new(HashMap::new())),
             timeout_counts: Arc::new(Mutex::new(HashMap::new())),
             default_timeout_ms,
+            binary_preferences: std::collections::BTreeMap::new(),
+            project_root: std::env::current_dir().unwrap_or_default(),
+            run_state: None,
         }
     }
 
+    /// Use the document's project for installed-binary discovery.
+    pub fn with_binary_resolution(
+        mut self,
+        preferences: std::collections::BTreeMap<String, super::config::BinaryPreference>,
+        root: std::path::PathBuf,
+    ) -> Self {
+        self.binary_preferences = preferences;
+        self.project_root = root;
+        self.tool_cache.lock().unwrap().clear();
+        self
+    }
+
+    pub fn with_run_state(mut self, state: Arc<super::run_state::RunState>) -> Self {
+        self.run_state = Some(state);
+        self
+    }
+
+    pub fn resolve_binary(&self, binary: &str) -> Option<std::path::PathBuf> {
+        super::binary::resolve(
+            binary,
+            &self.binary_preferences,
+            &self.project_root,
+            std::env::var_os("PATH").as_deref(),
+        )
+    }
+
     /// Timeouts recorded for a tool since it last exited on its own.
+    fn timeout_key(&self, tool_name: &str) -> String {
+        self.resolve_binary(tool_name).map_or_else(
+            || tool_name.into(),
+            |path| {
+                std::fs::canonicalize(&path)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .into_owned()
+            },
+        )
+    }
+
     fn timeout_count(&self, tool_name: &str) -> u32 {
-        self.timeout_counts.lock().unwrap().get(tool_name).copied().unwrap_or(0)
+        self.timeout_counts
+            .lock()
+            .unwrap()
+            .get(&self.timeout_key(tool_name))
+            .copied()
+            .unwrap_or(0)
     }
 
     /// Record that a tool had to be killed at its timeout.
@@ -196,13 +305,13 @@ impl ToolExecutor {
             .timeout_counts
             .lock()
             .unwrap()
-            .entry(tool_name.to_string())
+            .entry(self.timeout_key(tool_name))
             .or_insert(0) += 1;
     }
 
     /// Forget a tool's timeouts, after it exited without needing to be killed.
     fn clear_timeouts(&self, tool_name: &str) {
-        self.timeout_counts.lock().unwrap().remove(tool_name);
+        self.timeout_counts.lock().unwrap().remove(&self.timeout_key(tool_name));
     }
 
     /// Check if a tool is available (lazy, cached).
@@ -230,7 +339,7 @@ impl ToolExecutor {
 
     /// Check if a tool binary exists where `Command::new` would look for it.
     fn check_tool_exists(&self, tool_name: &str) -> bool {
-        lookup::resolve_program(OsStr::new(tool_name), std::env::var_os("PATH").as_deref()).is_some()
+        self.resolve_binary(tool_name).is_some()
     }
 
     /// Execute a tool with the given input.
@@ -259,6 +368,16 @@ impl ToolExecutor {
 
         let tool_name = &tool_def.command[0];
 
+        if tool_name == "bun" && tool_def.command.get(1).is_some_and(|arg| arg == "fmt") {
+            let cwd = std::env::current_dir().map_err(|error| ExecutorError::IoError {
+                message: error.to_string(),
+            })?;
+            check_bun_fmt_scripts(&cwd).map_err(|message| ExecutorError::ExecutionFailed {
+                tool: tool_name.clone(),
+                message,
+            })?;
+        }
+
         // Check tool availability (lazy, cached)
         if !self.is_tool_available(tool_name) {
             return Err(ExecutorError::ToolNotFound {
@@ -282,7 +401,12 @@ impl ToolExecutor {
         }
 
         // Build command
-        let mut cmd = Command::new(tool_name);
+        let resolved_binary = self
+            .resolve_binary(tool_name)
+            .ok_or_else(|| ExecutorError::ToolNotFound {
+                tool: tool_name.clone(),
+            })?;
+        let mut cmd = Command::new(resolved_binary);
 
         // Add base arguments
         if tool_def.command.len() > 1 {
@@ -311,14 +435,18 @@ impl ToolExecutor {
             message: format!("Failed to spawn '{tool_name}': {e}"),
         })?;
 
+        if let Some(state) = &self.run_state {
+            state.record_execution();
+        }
+
         let mut stdout_handle = child
             .stdout
             .take()
-            .map(|stdout| thread::spawn(move || read_pipe_to_string(stdout)));
+            .map(|stdout| thread::spawn(move || read_pipe_to_string(stdout, true)));
         let mut stderr_handle = child
             .stderr
             .take()
-            .map(|stderr| thread::spawn(move || read_pipe_to_string(stderr)));
+            .map(|stderr| thread::spawn(move || read_pipe_to_string(stderr, false)));
 
         // Write stdin if required.
         // BrokenPipe is ignored: the tool may exit before consuming all input
@@ -386,6 +514,95 @@ impl ToolExecutor {
         })
     }
 
+    /// Prefer reliable stdin checks for the explicit djLint and Shuck modes.
+    /// Unknown and older versions retain the formatter-comparison path.
+    pub(crate) fn format_check(
+        &self,
+        tool_def: &ToolDefinition,
+        native_check: Option<&ToolDefinition>,
+        input: &str,
+        timeout_ms: Option<u64>,
+    ) -> Result<FormatCheckOutput, ExecutorError> {
+        let Some(check) = native_check.filter(|check| self.native_check_available(check, timeout_ms)) else {
+            return self
+                .format(tool_def, input, timeout_ms)
+                .map(FormatCheckOutput::Formatted);
+        };
+        let output = self.execute(check, input, false, timeout_ms)?;
+        if output.success {
+            // djLint prints formatted stdin even for clean checks. Compare it
+            // when available, which also protects a long-lived process whose
+            // version-manager shim switched back to an older implementation.
+            return Ok(if check.command[0] == "djlint" && !output.stdout.trim().is_empty() {
+                FormatCheckOutput::Formatted(output.stdout)
+            } else {
+                FormatCheckOutput::Native { changed: false }
+            });
+        }
+        // djLint returns the formatted stdin on stdout even with --check. Its
+        // crashes also exit 1, so require changed content and no error on stderr.
+        // Shuck's formatting-needed exit is silent; parse failures exit 2.
+        let dirty = output.exit_code == 1
+            && output.stderr.trim().is_empty()
+            && if check.command[0] == "shuck" {
+                output.stdout.trim().is_empty()
+            } else {
+                !output.stdout.trim().is_empty() && output.stdout != input
+            };
+        if dirty {
+            Ok(if check.command[0] == "djlint" {
+                FormatCheckOutput::Formatted(output.stdout)
+            } else {
+                FormatCheckOutput::Native { changed: true }
+            })
+        } else {
+            Err(ExecutorError::ExecutionFailed {
+                tool: check.command[0].clone(),
+                message: format!(
+                    "Exit code {}: {}",
+                    output.exit_code,
+                    if output.stderr.trim().is_empty() {
+                        &output.stdout
+                    } else {
+                        &output.stderr
+                    }
+                ),
+            })
+        }
+    }
+
+    fn native_check_available(&self, tool_def: &ToolDefinition, timeout_ms: Option<u64>) -> bool {
+        let Some(tool) = tool_def.command.first() else {
+            return false;
+        };
+        if !matches!(tool.as_str(), "djlint" | "shuck") {
+            return false;
+        }
+        let Some(path) = self.resolve_binary(tool).and_then(|path| path.canonicalize().ok()) else {
+            return false;
+        };
+        let Ok(metadata) = path.metadata() else {
+            return false;
+        };
+        let key = (tool.clone(), path, metadata.modified().ok(), metadata.len());
+        let mut capabilities = CHECK_CAPABILITIES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(available) = capabilities.get(&key) {
+            return *available;
+        }
+        let mut probe = tool_def.clone();
+        probe.command = vec![tool.clone(), "--version".to_string()];
+        probe.stdin = false;
+        probe.lint_args.clear();
+        probe.format_args.clear();
+        let available = self
+            .execute(&probe, "", false, timeout_ms)
+            .is_ok_and(|output| output.success && supports_native_check_version(tool, &output.stdout));
+        capabilities.insert(key, available);
+        available
+    }
+
     /// Execute a tool for formatting (returns formatted content).
     ///
     /// A formatter that succeeds but prints nothing for a non-empty block has
@@ -435,10 +652,45 @@ impl ToolExecutor {
     }
 }
 
-fn read_pipe_to_string<R: Read>(mut pipe: R) -> std::io::Result<String> {
+/// These stable releases have verified stdin check semantics. Unknown output,
+/// prereleases, and earlier releases keep comparison rather than guessing.
+fn supports_native_check_version(tool: &str, output: &str) -> bool {
+    let prefix = match tool {
+        "djlint" => "djlint, version ",
+        "shuck" => "shuck ",
+        _ => return false,
+    };
+    let Some(version) = output.trim().strip_prefix(prefix) else {
+        return false;
+    };
+    let parts: Vec<_> = version.split('.').collect();
+    if parts.len() != 3 {
+        return false;
+    }
+    let Ok(parts) = parts
+        .iter()
+        .map(|part| part.parse::<u64>())
+        .collect::<Result<Vec<_>, _>>()
+    else {
+        return false;
+    };
+    let minimum = if tool == "djlint" { [1, 39, 5] } else { [0, 2, 2] };
+    parts.as_slice() >= minimum.as_slice()
+}
+
+fn read_pipe_to_string<R: Read>(mut pipe: R, strict_utf8: bool) -> std::io::Result<String> {
     let mut buf = Vec::new();
     pipe.read_to_end(&mut buf)?;
-    Ok(String::from_utf8_lossy(&buf).to_string())
+    if strict_utf8 {
+        String::from_utf8(buf).map_err(|error| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Tool stdout is not valid UTF-8: {error}"),
+            )
+        })
+    } else {
+        Ok(String::from_utf8_lossy(&buf).to_string())
+    }
 }
 
 fn join_reader(handle: Option<thread::JoinHandle<std::io::Result<String>>>) -> Result<String, String> {
@@ -461,6 +713,33 @@ impl Default for ToolExecutor {
 mod tests {
     use super::*;
     use std::time::Instant;
+
+    #[test]
+    fn bun_fmt_rejects_local_entry_points_and_package_binaries() {
+        for entry in ["fmt", "fmt.ts", "fmt/index.js", "node_modules/.bin/fmt"] {
+            let directory = tempfile::tempdir().unwrap();
+            let path = directory.path().join(entry);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "console.log('not formatted code')").unwrap();
+            let error = check_bun_fmt_scripts(directory.path()).unwrap_err();
+            assert!(error.contains("instead of the built-in formatter"), "{entry}: {error}");
+        }
+    }
+
+    #[test]
+    fn bun_fmt_rejects_scripts_in_the_project_or_an_ancestor() {
+        let directory = tempfile::tempdir().unwrap();
+        let nested = directory.path().join("docs");
+        std::fs::create_dir(&nested).unwrap();
+        let manifest = directory.path().join("package.json");
+        std::fs::write(&manifest, r#"{"scripts":{"fmt":"echo not a formatter"}}"#).unwrap();
+        let error = check_bun_fmt_scripts(&nested).unwrap_err();
+        assert!(error.contains("instead of the built-in formatter"));
+        std::fs::write(&manifest, r#"{"scripts":{"format":"prettier ."}}"#).unwrap();
+        assert!(check_bun_fmt_scripts(&nested).is_ok());
+        std::fs::write(&manifest, "invalid json").unwrap();
+        assert!(check_bun_fmt_scripts(&nested).is_err());
+    }
 
     #[test]
     fn test_executor_creation() {
@@ -712,5 +991,33 @@ mod tests {
 
         first.clear_timeouts(key);
         assert_eq!(second.timeout_count(key), 0);
+    }
+}
+
+#[cfg(test)]
+mod native_check_version_tests {
+    use super::supports_native_check_version;
+
+    #[test]
+    fn only_recognized_stable_versions_with_verified_stdin_support_are_admitted() {
+        for (tool, version, expected) in [
+            ("djlint", "djlint, version 1.39.4", false),
+            ("djlint", "djlint, version 1.39.5", true),
+            ("djlint", "djlint, version 1.100.0", true),
+            ("shuck", "shuck 0.2.1", false),
+            ("shuck", "shuck 0.2.2", true),
+            ("shuck", "shuck 0.10.0", true),
+            ("djlint", "djlint, version 1.46.4rc1", false),
+            ("djlint", "djlint, version 1.39.5.post1", false),
+            ("shuck", "shuck 0.2.3-beta.1", false),
+            ("shuck", "shuck v0.2.2", false),
+            ("shuck", "shuck 0.2.2+build", false),
+            ("shuck", "shuck 0.2", false),
+            ("shuck", "shuck 0.2.2.1", false),
+            ("djlint", "shuck 1.46.4", false),
+            ("djlint", "", false),
+        ] {
+            assert_eq!(supports_native_check_version(tool, version), expected, "{version}");
+        }
     }
 }

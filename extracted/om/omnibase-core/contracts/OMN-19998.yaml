@@ -48,6 +48,44 @@ requirements:
           baseline. -- falsifier: uv run pytest tests/unit/handlers/test_handler_version_drift_cli.py
           tests/unit/validators/test_canonical_file_shape.py -q -k 'version_drift or merge_queue_parity
           or floor_cli or parity_cli'"
+  - id: req-omn19998-ci-summary-ghost-row
+    statement: CI Summary must judge a job or check-run row that GitHub leaves at in_progress while its
+      conclusion and completed_at are set as completed, under the unchanged verdict rules.
+    acceptance:
+      - id: AC7
+        statement: "AC7: A ghost row with conclusion success and completed_at passes, one with conclusion
+          failure fails, and a running row missing either field still holds PENDING. -- falsifier: uv
+          run pytest tests/unit/scripts/ci/test_ci_summary_gate.py -q -k Ghost"
+  - id: req-omn19998-public-runner-placement
+    statement: CI runners are for private repositories only; a public repository must not add a job that
+      runs on a self-hosted runner.
+    acceptance:
+      - id: AC8
+        statement: "AC8: A public repository's pull request that adds a job whose runs-on is a self-hosted
+          label or can resolve to one fails, a baselined job that is new or newly self-hosted against
+          the base fails, the shipped baseline may only shrink against the base, and a private repository
+          passes. -- falsifier: uv run pytest tests/unit/handlers/test_handler_public_runner_placement.py
+          tests/unit/validators/test_canonical_file_shape.py -q -k 'public_runner or runs_on or negative_control
+          or cli_ or shipped_baseline or omnibase_core_passes'"
+  - id: req-omn19998-dependency-direction-wired
+    statement: The dependency-direction check must be run by a required CI job and a pre-commit hook through
+      its handler module, the name a workflow and hook audit reads.
+    acceptance:
+      - id: AC9
+        statement: "AC9: The lint-imports job step and the check-dependency-direction hook both run the
+          handler module omnibase_core.handlers.handler_dependency_direction_cli, and a step that runs
+          only the console script alias fails the check. -- falsifier: uv run pytest tests/ci/test_dependency_direction_wiring_omn19998.py
+          -q"
+  - id: req-omn19998-core-hosted-fallbacks
+    statement: omnibase_core is public, so no workflow falls back to the self-hosted omnibase-ci fleet
+      for a public caller, and the jobs that read the route decision run on a GitHub-hosted runner.
+    acceptance:
+      - id: AC10
+        statement: "AC10: No workflow's OMNI_TRUSTED_CI_RUNS_ON_JSON fallback names the self-hosted fleet
+          except a reusable workflow's private-caller branch, lint and wheel-content-parity run on ubuntu-latest
+          and are out of the shipped baseline, and the placement check is a lint-imports step under quality-gate
+          and a pre-commit hook. -- falsifier: uv run pytest tests/ci/test_public_runner_placement_omn19998.py
+          -q"
 evidence_requirements:
   - kind: tests
     description: "Every channel fails upward and same-layer references; negative controls pass."
@@ -67,6 +105,15 @@ evidence_requirements:
   - kind: tests
     description: "Both CLIs over real git clones and the shrink-only parity baseline."
     command: "uv run pytest tests/unit/handlers/test_handler_version_drift_cli.py -q"
+  - kind: tests
+    description: "A public repository adding a self-hosted job fails; the baseline only shrinks."
+    command: "uv run pytest tests/unit/handlers/test_handler_public_runner_placement.py -q"
+  - kind: tests
+    description: "The dependency-direction step and hook run the handler module."
+    command: "uv run pytest tests/ci/test_dependency_direction_wiring_omn19998.py -q"
+  - kind: tests
+    description: "Public workflows fall back to hosted runners; the placement hook and job are wired."
+    command: "uv run pytest tests/ci/test_public_runner_placement_omn19998.py -q"
 emergency_bypass:
   enabled: false
   justification: ''
@@ -165,3 +212,71 @@ dod_evidence:
         cwd: ${OMNI_HOME}/omnibase_core
     binds_ac:
       - AC5
+  - id: dod-omn-19998-ci-summary-ghost-row
+    description: "CI Summary reads a ghost in_progress row carrying a conclusion and completed_at as completed;
+      a row missing either field still holds PENDING."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: "uv run pytest tests/unit/scripts/ci/test_ci_summary_gate.py -q -k Ghost"
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC7
+  - id: dod-omn-19998-public-runner-placement
+    description: "A public repository adding a self-hosted or computed runs-on job fails, a private one
+      passes, and the shipped baseline only shrinks."
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: "uv run pytest tests/unit/handlers/test_handler_public_runner_placement.py -q"
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC8
+  - id: dod-omn-19998-deploy-public-runner-placement
+    description: Hosted deploy probe for the public runner placement check. Run omnibase_core's own workflows
+      through check-public-runner-placement against the shipped shrink-only baseline. A new self-hosted
+      job, or a missing console script, fails the probe.
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: command
+        check_value: uv run check-public-runner-placement --repo omnibase_core
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC8
+  - id: dod-omn-19998-dep-direction-wiring
+    description: "The lint-imports step and the pre-commit hook run the dependency-direction handler module,
+      and a console-script-only step fails."
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: "uv run pytest tests/ci/test_dependency_direction_wiring_omn19998.py -q"
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC9
+  - id: dod-omn-19998-runner-placement-module-call
+    description: The placement workflow exposes its handler module to mechanism audits and forwards its
+      arguments. Its module invocation passes hosted public and self-hosted private jobs and refuses an
+      unbaselined public self-hosted job. These tests fail on the console-script workflow at the merge
+      base.
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_runner_placement_module_call_omn19854.py -q -o addopts=
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC8
+  - id: dod-omn-19998-core-hosted-fallbacks
+    description: "No workflow falls back to the self-hosted fleet for a public caller, the route consumers
+      run on ubuntu-latest and leave the baseline, and the placement check is wired as a job step and
+      a hook."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: "uv run pytest tests/ci/test_public_runner_placement_omn19998.py -q"
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC10

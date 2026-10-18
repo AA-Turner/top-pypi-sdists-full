@@ -237,6 +237,10 @@ impl MD011NoReversedLinks {
 }
 
 impl Rule for MD011NoReversedLinks {
+    fn native_format_policy(&self) -> Option<crate::format_proof::NativeFormatPolicy> {
+        Some(crate::format_proof::NativeFormatPolicy::for_rule::<Self>(11))
+    }
+
     fn name(&self) -> &'static str {
         "MD011"
     }
@@ -251,6 +255,9 @@ impl Rule for MD011NoReversedLinks {
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let mut warnings = Vec::new();
+        if !ctx.content.contains(")[") {
+            return Ok(warnings);
+        }
 
         // Use filtered_lines() to automatically skip front-matter and Obsidian comments
         for filtered_line in ctx
@@ -272,6 +279,9 @@ impl Rule for MD011NoReversedLinks {
             }
             let line_num = filtered_line.line_num;
             let line = filtered_line.content;
+            if !line.contains(")[") {
+                continue;
+            }
 
             let byte_pos = ctx.line_start_byte(line_num).unwrap_or(0);
 
@@ -434,7 +444,7 @@ impl Rule for MD011NoReversedLinks {
     }
 
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        ctx.content.is_empty() || !ctx.likely_has_links_or_images()
+        !ctx.likely_has_links_or_images() || !ctx.content.contains(")[")
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

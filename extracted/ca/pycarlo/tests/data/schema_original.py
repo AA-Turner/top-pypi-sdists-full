@@ -9501,6 +9501,18 @@ class TasksPerformanceSummarySort(sgqlc.types.Enum):
     )
 
 
+class TeammateChannelAction(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `DISABLE`None
+    * `PAUSE`None
+    * `RESUME`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DISABLE", "PAUSE", "RESUME")
+
+
 class TeradataLogMechEnum(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -34682,6 +34694,16 @@ class CreateTableauAssetWarning(sgqlc.types.Type):
     """ID of the created warning in Tableau ID space."""
 
 
+class CreateTeammateChannel(sgqlc.types.Type):
+    """Make a Slack channel a domain's teammate channel."""
+
+    __schema__ = schema
+    __field_names__ = ("teammate_channel",)
+    teammate_channel = sgqlc.types.Field(
+        sgqlc.types.non_null("TeammateChannel"), graphql_name="teammateChannel"
+    )
+
+
 class CreateUnifiedUserAssignment(sgqlc.types.Type):
     """Associate a UnifiedUser with a CatalogObject"""
 
@@ -50516,6 +50538,8 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_agent_evaluation_monitor",
         "create_or_update_json_schema_monitor",
         "validate_cron",
+        "create_teammate_channel",
+        "update_teammate_channel",
         "configure_agentic_platform",
         "trigger_agentic_platform_pipeline",
         "run_monitoring_for_domain",
@@ -68663,6 +68687,91 @@ class Mutation(sgqlc.types.Type):
 
     * `allow_multiple` (`Boolean`): Allow multiple CRON expressions
     * `cron` (`String!`): CRON expression
+    """
+
+    create_teammate_channel = sgqlc.types.Field(
+        CreateTeammateChannel,
+        graphql_name="createTeammateChannel",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "allow_shared_channel",
+                    sgqlc.types.Arg(Boolean, graphql_name="allowSharedChannel", default=False),
+                ),
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+                (
+                    "slack_channel_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="slackChannelId", default=None
+                    ),
+                ),
+                (
+                    "slack_team_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="slackTeamId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Make a Slack channel a domain's teammate channel,
+    where Monte Carlo's AI agents post the domain's updates. One
+    channel per domain, and one domain per channel. A domain whose
+    channel is disabled gets it re-enabled, or moved to the new
+    channel. Requires AI agent settings edit access to the domain.
+
+    Arguments:
+
+    * `allow_shared_channel` (`Boolean`): When true, allow a channel
+      shared with another Slack workspace (Slack Connect). When false
+      or null, such a channel is refused. (default: `false`)
+    * `domain_uuid` (`UUID!`): A metadata domain.
+    * `slack_channel_id` (`String!`): Slack channel id, not its name.
+      The app joins a public channel. For a private channel, invite
+      the app first.
+    * `slack_team_id` (`String!`): Slack workspace (team) id where the
+      Monte Carlo AI app is installed.
+    """
+
+    update_teammate_channel = sgqlc.types.Field(
+        "UpdateTeammateChannel",
+        graphql_name="updateTeammateChannel",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "action",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(TeammateChannelAction),
+                        graphql_name="action",
+                        default=None,
+                    ),
+                ),
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+                ("reason", sgqlc.types.Arg(String, graphql_name="reason", default=None)),
+            )
+        ),
+    )
+    """(experimental) Disable, pause or resume a domain's teammate
+    channel. Requires AI agent settings edit access to the domain.
+
+    Arguments:
+
+    * `action` (`TeammateChannelAction!`): DISABLE stops using the
+      channel for the domain. PAUSE stops posts for now and needs a
+      reason. RESUME undoes a pause.
+    * `domain_uuid` (`UUID!`): The channel's domain.
+    * `reason` (`String`): Why the channel is paused. Required for
+      PAUSE.
     """
 
     configure_agentic_platform = sgqlc.types.Field(
@@ -114359,6 +114468,41 @@ class TaskPerformanceSummaryEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class TeammateChannel(sgqlc.types.Type):
+    """A domain's teammate channel: the Slack channel Monte Carlo's AI
+    agents post the domain's updates to.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "domain_uuid",
+        "slack_team_id",
+        "slack_channel_id",
+        "enabled",
+        "paused_reason",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+    """Teammate channel id."""
+
+    domain_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainUuid")
+    """The domain the channel is for."""
+
+    slack_team_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="slackTeamId")
+    """Slack workspace (team) id."""
+
+    slack_channel_id = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="slackChannelId"
+    )
+    """Slack channel id."""
+
+    enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enabled")
+    """False once the channel is disabled."""
+
+    paused_reason = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="pausedReason")
+    """Why the channel is paused. Empty when it is not paused."""
+
+
 class Terminology(sgqlc.types.Type):
     """Display-noun overrides for the ETL tiers.  ETL connection types
     may rename the generic ``group`` / ``job`` / ``task`` nouns to
@@ -118695,6 +118839,16 @@ class UpdateTableauCredentialsV2Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("result",)
     result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
+
+
+class UpdateTeammateChannel(sgqlc.types.Type):
+    """Disable, pause or resume a domain's teammate channel."""
+
+    __schema__ = schema
+    __field_names__ = ("teammate_channel",)
+    teammate_channel = sgqlc.types.Field(
+        sgqlc.types.non_null(TeammateChannel), graphql_name="teammateChannel"
+    )
 
 
 class UpdateTransactionalDbCredentialsV2Mutation(sgqlc.types.Type):

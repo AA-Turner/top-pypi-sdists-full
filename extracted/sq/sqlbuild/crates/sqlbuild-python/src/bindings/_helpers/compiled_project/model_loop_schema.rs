@@ -1,10 +1,15 @@
 //! A model's `model_schema`: resolved, checked for visibility, and merged into its header columns.
 
+use pyo3::IntoPyObjectExt;
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python};
-use pyo3::types::{PyDict, PyDictMethods, PyString, PyTuple, PyTupleMethods};
+use pyo3::types::{PyDict, PyDictMethods, PyString, PyTuple};
+use sqlbuild_analysis::compiled_project::models::SchemaColumnFact;
 
 use crate::bindings::_helpers::compiled_project::model_loop::{LoopContext, compile_error};
 use crate::bindings::_helpers::compiled_project::model_loop_inputs::present;
+use crate::bindings::_helpers::compiled_project::schema_facts::python_column_fact;
+use crate::bindings::_helpers::model_config::header_metadata::HeaderColumn;
+use crate::bindings::_helpers::records::fields::field as native_field;
 
 const MODEL_SCHEMA_KEY: &str = "model_schema";
 const NAME_FIELD: &str = "name";
@@ -12,22 +17,11 @@ const TYPE_FIELD: &str = "type";
 const NULLABLE_FIELD: &str = "nullable";
 const DESCRIPTION_FIELD: &str = "description";
 const AUDITS_FIELD: &str = "audits";
-const MIGRATE_FROM_FIELD: &str = "migrate_from";
 const LOCATION_FIELD: &str = "location";
 const PATH_FIELD: &str = "path";
 const LINE_FIELD: &str = "line";
 const COLUMNS_FIELD: &str = "columns";
-const LOWER_METHOD: &str = "lower";
 const STRIP_METHOD: &str = "strip";
-/// `SchemaColumn` fields a named-schema column keeps when a header column augments it.
-const KEPT_NAMED_FIELDS: [&str; 6] = [
-    "name",
-    "type",
-    "nullable",
-    "description",
-    "meta",
-    "location",
-];
 
 /// The reusable schema a model names: its columns, name, description and enum column types.
 pub(crate) struct ModelSchema<'py> {
@@ -73,11 +67,9 @@ pub(crate) fn model_schema<'py>(
 
 /// The schema's column names, which validation reads as the declared columns.
 pub(crate) fn schema_column_names(schema: &ModelSchema<'_>) -> PyResult<Vec<String>> {
-    schema
-        .declaration
-        .getattr(COLUMNS_FIELD)?
+    native_field(&schema.declaration, COLUMNS_FIELD)?
         .try_iter()?
-        .map(|column| column?.getattr(NAME_FIELD)?.extract())
+        .map(|column| native_field(&column?, NAME_FIELD)?.extract())
         .collect()
 }
 
@@ -88,8 +80,8 @@ pub(crate) fn schema_enums<'py>(
 ) -> PyResult<Bound<'py, PyDict>> {
     let py: Python<'py> = schema.declaration.py();
     let enums: Bound<'py, PyDict> = PyDict::new(py);
-    for column in schema.declaration.getattr(COLUMNS_FIELD)?.try_iter()? {
-        let column_type: Bound<'py, PyAny> = column?.getattr(TYPE_FIELD)?;
+    for column in native_field(&schema.declaration, COLUMNS_FIELD)?.try_iter()? {
+        let column_type: Bound<'py, PyAny> = native_field(&column?, TYPE_FIELD)?;
         if column_type.is_none() {
             continue;
         }
@@ -100,54 +92,82 @@ pub(crate) fn schema_enums<'py>(
     Ok(enums)
 }
 
+/// Schema columns as Python specs paired with their native facts, in declaration order.
+pub(crate) struct DeclaredColumns {
+    pub(crate) specs: Vec<HeaderColumn>,
+    pub(crate) facts: Vec<SchemaColumnFact>,
+}
+
 /// `_merge_model_schema_columns`: named columns first, augmented by header audits, then the rest.
 pub(crate) fn merged_columns<'py>(
     context: &LoopContext<'_, 'py>,
     schema: &ModelSchema<'py>,
-    local: &Bound<'py, PyTuple>,
-    model: (&str, &str),
-) -> PyResult<Bound<'py, PyTuple>> {
-    let py: Python<'py> = local.py();
-    let mut merged: Vec<Bound<'py, PyAny>> = schema
-        .declaration
-        .getattr(COLUMNS_FIELD)?
-        .try_iter()?
-        .collect::<PyResult<_>>()?;
-    let mut keys: Vec<Bound<'py, PyAny>> = Vec::with_capacity(merged.len());
-    for column in &merged {
-        keys.push(column.getattr(NAME_FIELD)?.call_method0(LOWER_METHOD)?);
+    local: DeclaredColumns,
+    model: (&str, &str, &Bound<'py, PyAny>),
+) -> PyResult<DeclaredColumns> {
+    let (model_name, relative_path, model_path) = model;
+    let mut merged: DeclaredColumns = DeclaredColumns {
+        specs: Vec::new(),
+        facts: Vec::new(),
+    };
+    for column in native_field(&schema.declaration, COLUMNS_FIELD)?.try_iter()? {
+        let column: Bound<'py, PyAny> = column?;
+        merged
+            .facts
+            .push(python_column_fact(&column, Some(model_path))?);
+        merged.specs.push(HeaderColumn::from_python(column)?);
     }
-    let mut additional: Vec<Bound<'py, PyAny>> = Vec::new();
-    for column in local.iter() {
-        let key: Bound<'py, PyAny> = column.getattr(NAME_FIELD)?.call_method0(LOWER_METHOD)?;
-        let mut named_index: Option<usize> = None;
-        for (index, candidate) in keys.iter().enumerate() {
-            if candidate.eq(&key)? {
-                named_index = Some(index);
-            }
-        }
-        let Some(index) = named_index else {
-            additional.push(column);
+    let keys: Vec<String> = merged
+        .facts
+        .iter()
+        .map(|fact| fact.name.to_lowercase())
+        .collect();
+    let mut additional: DeclaredColumns = DeclaredColumns {
+        specs: Vec::new(),
+        facts: Vec::new(),
+    };
+    for (column, fact) in local.specs.into_iter().zip(local.facts) {
+        let key: String = fact.name.to_lowercase();
+        let Some(index) = keys.iter().rposition(|candidate| *candidate == key) else {
+            additional.specs.push(column);
+            additional.facts.push(fact);
             continue;
         };
-        check_augmentation(context, &column, &merged[index], model)?;
-        merged[index] = augmented(context, &merged[index], &column)?;
+        check_augmentation(
+            context,
+            &fact,
+            &merged.specs[index],
+            (model_name, relative_path),
+        )?;
+        let (spec, augmented_fact) = augmented(
+            context,
+            (&merged.specs[index], &merged.facts[index]),
+            (&column, fact),
+        )?;
+        merged.specs[index] = spec;
+        merged.facts[index] = augmented_fact;
     }
-    merged.extend(additional);
-    PyTuple::new(py, merged)
+    merged.specs.extend(additional.specs);
+    merged.facts.extend(additional.facts);
+    Ok(merged)
 }
 
 fn augmented<'py>(
     context: &LoopContext<'_, 'py>,
-    named: &Bound<'py, PyAny>,
-    local: &Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyAny>> {
-    let py: Python<'py> = named.py();
+    (named, named_fact): (&HeaderColumn, &SchemaColumnFact),
+    (local, local_fact): (&HeaderColumn, SchemaColumnFact),
+) -> PyResult<(HeaderColumn, SchemaColumnFact)> {
+    let py: Python<'py> = context.contracts.schema_column.py();
     let mut audits: Vec<Bound<'py, PyAny>> = named
-        .getattr(AUDITS_FIELD)?
+        .field(py, AUDITS_FIELD)?
         .try_iter()?
         .collect::<PyResult<_>>()?;
-    for audit in local.getattr(AUDITS_FIELD)?.try_iter()? {
+    let mut fact: SchemaColumnFact = named_fact.clone();
+    for (audit, definition) in local
+        .field(py, AUDITS_FIELD)?
+        .try_iter()?
+        .zip(local_fact.audit_definitions)
+    {
         let audit: Bound<'py, PyAny> = audit?;
         let mut present: bool = false;
         for existing in &audits {
@@ -158,59 +178,81 @@ fn augmented<'py>(
         }
         if !present {
             audits.push(audit);
+            fact.audit_definitions.push(definition);
         }
     }
-    let fields: Bound<'py, PyDict> = PyDict::new(py);
-    for field in KEPT_NAMED_FIELDS {
-        fields.set_item(field, named.getattr(field)?)?;
-    }
-    fields.set_item(AUDITS_FIELD, PyTuple::new(py, audits)?)?;
-    fields.set_item(MIGRATE_FROM_FIELD, local.getattr(MIGRATE_FROM_FIELD)?)?;
-    context.contracts.schema_column.call((), Some(&fields))
+    let migrate_from = local_fact.migrate_from.clone().into_bound_py_any(py)?;
+    fact.migrate_from = local_fact.migrate_from;
+    Ok((
+        HeaderColumn::replaced(
+            &context.contracts.schema_column,
+            [
+                named.field(py, NAME_FIELD)?,
+                named.field(py, TYPE_FIELD)?,
+                named.field(py, NULLABLE_FIELD)?,
+                named.field(py, DESCRIPTION_FIELD)?,
+                named.field(py, "meta")?,
+                PyTuple::new(py, audits)?.into_any(),
+                named.field(py, LOCATION_FIELD)?,
+                migrate_from,
+            ],
+            [0, 1, 2, 3, 4, 6, 5, 7],
+        )?,
+        fact,
+    ))
 }
 
 /// `_validate_model_schema_audit_augmentation`.
 fn check_augmentation(
     context: &LoopContext<'_, '_>,
-    local: &Bound<'_, PyAny>,
-    named: &Bound<'_, PyAny>,
+    local: &SchemaColumnFact,
+    named: &HeaderColumn,
     model: (&str, &str),
 ) -> PyResult<()> {
     let (model_name, relative_path) = model;
-    let name: String = local.getattr(NAME_FIELD)?.str()?.to_string();
-    let location: Bound<'_, PyAny> = named.getattr(LOCATION_FIELD)?;
-    let origin: String = if location.is_none() {
-        "the named schema".to_owned()
-    } else {
-        format!(
-            "{}:{}",
-            location.getattr(PATH_FIELD)?.str()?,
-            location.getattr(LINE_FIELD)?.str()?
-        )
-    };
+    let name: &str = &local.name;
     let mut overridden: Vec<&str> = Vec::new();
-    for field in [TYPE_FIELD, NULLABLE_FIELD, DESCRIPTION_FIELD] {
-        if !local.getattr(field)?.is_none() {
-            overridden.push(field);
-        }
+    if local.data_type.is_some() {
+        overridden.push(TYPE_FIELD);
+    }
+    if local.nullable.is_some() {
+        overridden.push(NULLABLE_FIELD);
+    }
+    if local.described {
+        overridden.push(DESCRIPTION_FIELD);
     }
     if !overridden.is_empty() {
         let message: String = format!(
             "model '{model_name}' in {relative_path} cannot override {} for named-schema column \
-             '{name}' from {origin}; only audit augmentation is supported",
-            overridden.join(", ")
+             '{name}' from {}; only audit augmentation is supported",
+            overridden.join(", "),
+            origin(&named.project(context.contracts.schema_column.py())?)?
         );
         return Err(compile_error(context.classes, &message, None));
     }
-    if !local.getattr(AUDITS_FIELD)?.is_truthy()? && local.getattr(MIGRATE_FROM_FIELD)?.is_none() {
+    if local.audit_definitions.is_empty() && local.migrate_from.is_none() {
         let message: String = format!(
             "model '{model_name}' in {relative_path} redeclares named-schema column '{name}' from \
-             {origin} without audits or migrate_from; only audit augmentation and column \
-             migrations are supported"
+             {} without audits or migrate_from; only audit augmentation and column \
+             migrations are supported",
+            origin(&named.project(context.contracts.schema_column.py())?)?
         );
         return Err(compile_error(context.classes, &message, None));
     }
     Ok(())
+}
+
+/// Where a named-schema column is declared, as its `path:line` or the named schema.
+fn origin(named: &Bound<'_, PyAny>) -> PyResult<String> {
+    let location: Bound<'_, PyAny> = native_field(named, LOCATION_FIELD)?;
+    if location.is_none() {
+        return Ok("the named schema".to_owned());
+    }
+    Ok(format!(
+        "{}:{}",
+        native_field(&location, PATH_FIELD)?.str()?,
+        native_field(&location, LINE_FIELD)?.str()?
+    ))
 }
 
 fn invalid_name(context: &LoopContext<'_, '_>, model_name: &str) -> pyo3::PyErr {

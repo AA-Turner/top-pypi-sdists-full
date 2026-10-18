@@ -28,8 +28,11 @@ import pymysql
 from pymysql.err import OperationalError
 import pytest
 
+from mycli import config as config_module
 from mycli import main
 import mycli.cli_runner
+import mycli.client as client_module
+from mycli.client import MyCli
 import mycli.client_connection
 from mycli.constants import (
     DEFAULT_DATABASE,
@@ -43,7 +46,6 @@ from mycli.constants import (
 from mycli.main import (
     INT_OR_STRING_CLICK_TYPE,
     CliArgs,
-    MyCli,
     click_entrypoint,
     get_password_from_file,
     preprocess_cli_args,
@@ -803,7 +805,7 @@ def test_click_entrypoint_parses_kubectl_tunnel_options(monkeypatch: pytest.Monk
     assert calls[0][0].kubectl_resource == 'service/mysql'
     assert calls[0][0].kubectl_options == '--context prod'
     assert calls[0][0].port == 3307
-    assert calls[0][1] is MyCli
+    assert calls[0][1] is None
 
 
 def test_command_descriptions_end_with_periods():
@@ -890,7 +892,7 @@ def test_reserved_space_is_integer(monkeypatch):
 
 
 def test_list_dsn(monkeypatch):
-    monkeypatch.setattr(MyCli, "system_config_files", [])
+    monkeypatch.setattr(config_module, 'SYSTEM_CONFIG_FILES', [])
     runner = CliRunner()
     # keep Windows from locking the file with delete=False
     with NamedTemporaryFile(prefix=TEMPFILE_PREFIX, mode="w", delete=False) as myclirc:
@@ -916,7 +918,7 @@ def test_list_dsn(monkeypatch):
 
 
 def test_list_dsn_includes_shared_aliases(monkeypatch, tmp_path):
-    monkeypatch.setattr(MyCli, 'system_config_files', [])
+    monkeypatch.setattr(config_module, 'SYSTEM_CONFIG_FILES', [])
     shared_file = tmp_path / 'shared-myclirc'
     shared_file.write_text(
         '[alias_dsn]\nshared = mysql://shared/db\noverridden = mysql://shared/override\n',
@@ -959,7 +961,7 @@ def test_completions_prints_packaged_script_without_initializing_client(
     def fail(*args: Any, **kwargs: Any) -> None:
         pytest.fail('Completion output must not initialize the client or preprocess connection arguments.')
 
-    monkeypatch.setattr(main, 'MyCli', fail)
+    monkeypatch.setattr(client_module, 'MyCli', fail)
     monkeypatch.setattr(main, 'preprocess_cli_args', fail)
     completion_path = Path(project_root_dir, 'mycli', 'resources', 'completions', *relative_path)
 
@@ -1015,7 +1017,7 @@ def test_boundary_option_reaches_connect(monkeypatch):
 
     import mycli.main
 
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
+    monkeypatch.setattr(client_module, 'MyCli', MockMyCli)
     runner = CliRunner()
 
     result = runner.invoke(mycli.main.click_entrypoint, args=['--boundary-id', 'ttcp_123', '--execute', 'select 1'])
@@ -1025,7 +1027,7 @@ def test_boundary_option_reaches_connect(monkeypatch):
 
 
 def test_dsn(monkeypatch):
-    # Setup classes to mock mycli.main.MyCli
+    # Setup classes to mock mycli.client.MyCli
     class Formatter:
         format_name = None
 
@@ -1064,7 +1066,7 @@ def test_dsn(monkeypatch):
 
     import mycli.main
 
-    monkeypatch.setattr(mycli.main, "MyCli", MockMyCli)
+    monkeypatch.setattr(client_module, 'MyCli', MockMyCli)
     runner = CliRunner()
 
     # When a user supplies a DSN as database argument to mycli,
@@ -1326,7 +1328,7 @@ def test_mysql_dsn_envvar(monkeypatch):
 
     import mycli.main
 
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
+    monkeypatch.setattr(client_module, 'MyCli', MockMyCli)
     monkeypatch.setenv('MYSQL_DSN', 'mysql://dsn_user:dsn_passwd@dsn_host:7/dsn_database')
     runner = CliRunner()
 
@@ -1381,7 +1383,7 @@ def test_password_option_uses_cleartext_value(monkeypatch):
 
     import mycli.main
 
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
+    monkeypatch.setattr(client_module, 'MyCli', MockMyCli)
     runner = CliRunner()
 
     result = runner.invoke(
@@ -1442,7 +1444,7 @@ def test_password_option_overrides_password_file_and_mysql_pwd(monkeypatch):
 
     import mycli.main
 
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
+    monkeypatch.setattr(client_module, 'MyCli', MockMyCli)
     monkeypatch.setenv('MYSQL_PWD', 'env_password')
     runner = CliRunner()
 
@@ -1513,7 +1515,7 @@ def test_password_file_option_reads_password(monkeypatch):
 
     import mycli.main
 
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
+    monkeypatch.setattr(client_module, 'MyCli', MockMyCli)
     runner = CliRunner()
 
     with NamedTemporaryFile(prefix=TEMPFILE_PREFIX, mode='w', delete=False) as password_file:
@@ -1597,7 +1599,7 @@ def test_username_option_and_mysql_user_envvar(monkeypatch):
 
     import mycli.main
 
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
+    monkeypatch.setattr(client_module, 'MyCli', MockMyCli)
     runner = CliRunner()
 
     result = runner.invoke(
@@ -1672,7 +1674,7 @@ def test_host_option_and_mysql_host_envvar(monkeypatch):
 
     import mycli.main
 
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
+    monkeypatch.setattr(client_module, 'MyCli', MockMyCli)
     runner = CliRunner()
 
     result = runner.invoke(
@@ -1743,7 +1745,7 @@ def test_hostname_option_alias(monkeypatch):
 
     import mycli.main
 
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
+    monkeypatch.setattr(client_module, 'MyCli', MockMyCli)
     runner = CliRunner()
 
     result = runner.invoke(
@@ -1800,7 +1802,7 @@ def test_port_option_and_mysql_tcp_port_envvar(monkeypatch):
 
     import mycli.main
 
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
+    monkeypatch.setattr(client_module, 'MyCli', MockMyCli)
     runner = CliRunner()
 
     result = runner.invoke(
@@ -1871,7 +1873,7 @@ def test_socket_option_and_mysql_unix_socket_envvar(monkeypatch):
 
     import mycli.main
 
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
+    monkeypatch.setattr(client_module, 'MyCli', MockMyCli)
     runner = CliRunner()
 
     result = runner.invoke(
@@ -1940,7 +1942,7 @@ def test_mysql_user_envvar_overrides_dsn_resolution(monkeypatch):
 
     import mycli.main
 
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
+    monkeypatch.setattr(client_module, 'MyCli', MockMyCli)
     monkeypatch.setenv('MYSQL_USER', 'env_user')
     runner = CliRunner()
 
@@ -2089,7 +2091,7 @@ def noninteractive_mock_mycli(monkeypatch):
 
     import mycli.main
 
-    monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
+    monkeypatch.setattr(client_module, 'MyCli', MockMyCli)
     return mycli.main, mycli.main_modes.batch, MockMyCli
 
 
@@ -2123,7 +2125,7 @@ def test_quiet_sets_negative_cli_verbosity(monkeypatch: pytest.MonkeyPatch) -> N
             'alias_dsn': {},
         }
     )
-    monkeypatch.setattr(main, 'MyCli', dummy_class)
+    monkeypatch.setattr(client_module, 'MyCli', dummy_class)
     monkeypatch.setattr(sys, 'stdin', SimpleNamespace(isatty=lambda: True))
 
     cli_args = main.CliArgs()
@@ -2205,13 +2207,13 @@ def test_change_prompt_format_without_argument_shows_current_format() -> None:
     cli = make_bare_mycli()
     cli.prompt_format = '\\u> '
 
-    assert main.MyCli.change_prompt_format(cli, '')[0].status == 'Prompt format: "\\u> "'
+    assert client_module.MyCli.change_prompt_format(cli, '')[0].status == 'Prompt format: "\\u> "'
     assert cli.prompt_format == '\\u> '
 
 
 def test_change_prompt_format_updates_prompt() -> None:
     cli = make_bare_mycli()
-    assert main.MyCli.change_prompt_format(cli, '\\u@\\h> ')[0].status == 'Changed prompt format to: "\\u@\\h> "'
+    assert client_module.MyCli.change_prompt_format(cli, '\\u@\\h> ')[0].status == 'Changed prompt format to: "\\u@\\h> "'
 
 
 def test_output_timing_logs_and_prints_with_warning_style(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2220,7 +2222,7 @@ def test_output_timing_logs_and_prints_with_warning_style(monkeypatch: pytest.Mo
     cli.log_output = lambda text: timings_logged.append(text)  # type: ignore[assignment]
     printed: list[tuple[Any, Any]] = []
     monkeypatch.setattr(prompt_toolkit, 'print_formatted_text', lambda text, style=None: printed.append((text, style)))
-    main.MyCli.output_timing(cli, 'Time: 1.000s', is_warnings_style=True)
+    client_module.MyCli.output_timing(cli, 'Time: 1.000s', is_warnings_style=True)
     assert timings_logged == ['Time: 1.000s']
     assert printed[-1][1] == cli.prompt_toolkit_style
 
@@ -2241,7 +2243,7 @@ def test_get_output_margin_uses_prompt_session_render_counter(monkeypatch: pytes
 
     monkeypatch.setattr(repl_mode, 'render_prompt_string', fake_render_prompt_string)
     monkeypatch.setattr(mycli.packages.special_commands, 'is_timing_enabled', lambda: False)
-    assert main.MyCli.get_output_margin(cli, 'ok') == 5
+    assert client_module.MyCli.get_output_margin(cli, 'ok') == 5
     assert render_counters == [7]
 
 
@@ -2261,7 +2263,7 @@ def test_on_completions_refreshed_updates_completer_and_invalidates_prompt() -> 
             copy_other_schemas_from=lambda source, exclude: copy_calls.append((source, exclude)),
         ),
     )
-    main.MyCli._on_completions_refreshed(cli, new_completer)
+    client_module.MyCli._on_completions_refreshed(cli, new_completer)
     assert cli.completer is new_completer
     assert invalidated == [True]
     assert entered_lock['count'] == 1
@@ -2277,7 +2279,7 @@ def test_click_entrypoint_callback_covers_dsn_list_init_commands(monkeypatch: py
             'alias_dsn.init-commands': {'prod': ['set a=1', 'set b=2']},
         }
     )
-    monkeypatch.setattr(main, 'MyCli', dummy_class)
+    monkeypatch.setattr(client_module, 'MyCli', dummy_class)
     monkeypatch.setattr(sys, 'stdin', SimpleNamespace(isatty=lambda: True))
     monkeypatch.setattr(sys.stderr, 'isatty', lambda: True)
 
@@ -2299,7 +2301,7 @@ def test_click_entrypoint_callback_uses_batch_with_progress_path(monkeypatch: py
             'alias_dsn': {},
         }
     )
-    monkeypatch.setattr(main, 'MyCli', dummy_class)
+    monkeypatch.setattr(client_module, 'MyCli', dummy_class)
     monkeypatch.setattr(sys, 'stdin', SimpleNamespace(isatty=lambda: True))
     monkeypatch.setattr(sys.stderr, 'isatty', lambda: True)
     monkeypatch.setattr(mycli.cli_runner, 'main_batch_with_progress_bar', lambda mycli, cli_args: 12)
@@ -2320,7 +2322,7 @@ def test_click_entrypoint_callback_uses_batch_without_progress_path(monkeypatch:
             'alias_dsn': {},
         }
     )
-    monkeypatch.setattr(main, 'MyCli', dummy_class)
+    monkeypatch.setattr(client_module, 'MyCli', dummy_class)
     monkeypatch.setattr(sys, 'stdin', SimpleNamespace(isatty=lambda: True))
     monkeypatch.setattr(sys.stderr, 'isatty', lambda: True)
     monkeypatch.setattr(mycli.cli_runner, 'main_batch_without_progress_bar', lambda mycli, cli_args: 13)
@@ -2339,7 +2341,7 @@ def test_format_sqlresult_uses_redirect_formatter_when_redirected() -> None:
     cli.redirect_formatter = DummyFormatter()
 
     result = SQLResult(header=['id'], rows=[(1,)], status='ok')
-    assert list(main.MyCli.format_sqlresult(cli, result, is_redirected=True)) == ['plain output']
+    assert list(client_module.MyCli.format_sqlresult(cli, result, is_redirected=True)) == ['plain output']
 
     assert cli.main_formatter.calls == []
     assert len(cli.redirect_formatter.calls) == 1
@@ -2352,7 +2354,7 @@ def test_format_sqlresult_materializes_cursor_rows_when_width_is_limited(monkeyp
     monkeypatch.setattr(output_module, 'Cursor', FakeCursorBase)
 
     result = SQLResult(header=['id'], rows=cast(Any, rows), status='ok')
-    list(main.MyCli.format_sqlresult(cli, result, max_width=100))
+    list(client_module.MyCli.format_sqlresult(cli, result, max_width=100))
 
     formatted_rows = cli.main_formatter.calls[-1][0][0]
     assert formatted_rows == [(1,)]
@@ -2362,14 +2364,14 @@ def test_format_sqlresult_appends_postamble() -> None:
     cli = make_bare_mycli()
     result = SQLResult(header=['id'], rows=[(1,)], status='ok', postamble='done')
 
-    assert list(main.MyCli.format_sqlresult(cli, result))[-1] == 'done'
+    assert list(client_module.MyCli.format_sqlresult(cli, result))[-1] == 'done'
 
 
 def test_get_last_query_returns_latest_query() -> None:
     cli = make_bare_mycli()
     cli.query_history = [Query('select 1', True, False)]
 
-    assert main.MyCli.get_last_query(cli) == 'select 1'
+    assert client_module.MyCli.get_last_query(cli) == 'select 1'
 
 
 def test_connect_reports_expired_password_login_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2389,7 +2391,7 @@ def test_connect_reports_expired_password_login_error(monkeypatch: pytest.Monkey
     monkeypatch.setattr(mycli.client_connection, 'SQLExecute', ExpiredPasswordSQLExecute)
 
     with pytest.raises(SystemExit):
-        main.MyCli.connect(cli, host='db', port=3307)
+        client_module.MyCli.connect(cli, host='db', port=3307)
 
     assert any('password has expired' in message for message in echo_calls)
 
@@ -2414,7 +2416,7 @@ def test_connect_sets_cli_sandbox_mode_when_sql_execute_enters_sandbox(monkeypat
 
     monkeypatch.setattr(mycli.client_connection, 'SQLExecute', SandboxSQLExecute)
 
-    main.MyCli.connect(cli, host='db', port=3307)
+    client_module.MyCli.connect(cli, host='db', port=3307)
 
     assert cli.sandbox_mode is True
     assert any('password has expired' in message for message in echo_calls)

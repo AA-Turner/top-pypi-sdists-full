@@ -104,6 +104,7 @@ def _index_pin(
 class _FakeResponse:
     content: bytes
     status_code: int = 200
+    url: str = "https://example.com/"
 
     @property
     def headers(self) -> Mapping[str, str]:
@@ -128,6 +129,7 @@ class _FakeTransport:
         self._status_code = status_code
         self.requested: list[str] = []
         self.closed = False
+        self.close_calls = 0
 
     async def get(
         self, url: str, *, headers: dict[str, str] | None = None
@@ -135,10 +137,11 @@ class _FakeTransport:
         del headers
         self.requested.append(url)
         return _FakeResponse(
-            content=self._responses[url], status_code=self._status_code
+            content=self._responses[url], status_code=self._status_code, url=url
         )
 
     async def aclose(self) -> None:
+        self.close_calls += 1
         self.closed = True
 
 
@@ -264,7 +267,57 @@ class TestDownloadLock:
             "foo-1.0.tar.gz",
         ]
         assert (tmp_path / "foo-1.0.tar.gz").read_bytes() == sdist_bytes
+
         assert transport.closed
+        assert transport.close_calls == 1
+
+    @pytest.mark.parametrize("child", ["", "wheels"], ids=["output", "parent"])
+    def test_output_directory_failure_closes_transport(
+        self, tmp_path: Path, child: str
+    ) -> None:
+        obstruction = tmp_path / "existing-file"
+        obstruction.write_bytes(b"preserve me")
+        output = obstruction / child
+        transport = _FakeTransport({})
+
+        with pytest.raises(OSError, match="existing-file") as excinfo:
+            download_lock(LockInput(targets=_one({})), transport, output)
+
+        assert excinfo.value.filename in (str(obstruction), str(output))
+        assert obstruction.read_bytes() == b"preserve me"
+
+        assert transport.requested == []
+        assert transport.closed
+        assert transport.close_calls == 1
+
+    @pytest.mark.parametrize(
+        "second_filename",
+        ["foo-1.0-py3-none-any.whl", "FOO-1.0-py3-none-any.whl"],
+        ids=["exact", "casefold"],
+    )
+    def test_filename_collision_closes_transport(
+        self, tmp_path: Path, second_filename: str
+    ) -> None:
+        first = _wheel("foo", "1.0", sha256="a" * 64)
+        second = WheelArtifact(
+            filename=second_filename,
+            url="https://other.example.com/foo-1.0.whl",
+            hashes=(("sha256", "b" * 64),),
+        )
+        pin = IndexPin(name="foo", version="1.0", index="pypi", wheels=(first, second))
+        existing = tmp_path / first.filename
+        existing.write_bytes(b"preserve me")
+        transport = _FakeTransport({})
+
+        with pytest.raises(DownloadError, match="different hash identities"):
+            download_lock(LockInput(targets=_one({"foo": pin})), transport, tmp_path)
+
+        assert existing.read_bytes() == b"preserve me"
+        assert list(tmp_path.iterdir()) == [existing]
+
+        assert transport.requested == []
+        assert transport.closed
+        assert transport.close_calls == 1
 
     def test_idempotent_skip_when_sha_matches(self, tmp_path: Path) -> None:
         wheel_bytes = b"BYTES"
@@ -358,6 +411,8 @@ class TestDownloadLock:
                 transport,  # type: ignore[arg-type]
                 tmp_path,
             )
+        assert transport.closed
+        assert transport.close_calls == 1
 
     def test_http_error_becomes_download_error(self, tmp_path: Path) -> None:
         pin = _index_pin(wheel_sha="a" * 64)
@@ -381,6 +436,7 @@ class TestDownloadLock:
         class _MixedTransport:
             def __init__(self) -> None:
                 self.closed = False
+                self.close_calls = 0
                 self.requested: list[str] = []
 
             async def get(
@@ -401,6 +457,7 @@ class TestDownloadLock:
                 return _FakeResponse(content=b"slow")  # pragma: no cover
 
             async def aclose(self) -> None:
+                self.close_calls += 1
                 self.closed = True
 
         transport = _MixedTransport()
@@ -412,7 +469,9 @@ class TestDownloadLock:
                 max_concurrency=2,
             )
         assert cancelled.is_set()
+
         assert transport.closed
+        assert transport.close_calls == 1
 
     def test_creates_output_dir(self, tmp_path: Path) -> None:
         target = tmp_path / "nested" / "vendor"

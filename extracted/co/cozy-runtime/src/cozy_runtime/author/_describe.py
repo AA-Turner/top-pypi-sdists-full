@@ -17,14 +17,14 @@ import inspect
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from cozy_runtime.author._assets import asset_kinds
-from cozy_runtime.author._decode import DEFAULT_DECODE_LIMITS, require_decoder_dependency
+from cozy_runtime.author._assets import asset_kinds, field_preparation
+from cozy_runtime.author._decode import require_decoder_dependency
 from cozy_runtime.author._demand import FeatureSpec, feature_specs
 from cozy_runtime.author._errors import CapabilityError, ConformanceError
 from cozy_runtime.author._markers import AssetBound
 from cozy_runtime.author._model import EXCLUDED_KEYWORDS, Model
 from cozy_runtime.author._services import UNGRANTABLE
-from cozy_runtime.author._signature import ModelBinding, Surface
+from cozy_runtime.author._signature import ModelBinding, Surface, media_kinds
 from cozy_runtime.author._walker import walk
 from cozy_runtime.author._weights import MAX_WEIGHTS_OUTPUTS
 
@@ -32,8 +32,11 @@ if TYPE_CHECKING:
     from cozy_runtime.author._app import App
 
 
-def assert_declaration_shape(declaration: object) -> None:
-    """Refuse a declaration whose SHAPE cannot be honoured, anywhere in its tree."""
+def assert_declaration_shape(declaration: object, *, result: bool = False) -> None:
+    """Refuse a declaration whose SHAPE cannot be honoured, anywhere in its tree.
+
+    A preparation is input policy: on a `result` declaration nothing would apply it.
+    """
     for node in walk(declaration):
         owner = getattr(node.owner, "__name__", node.owner)
         bound = node.marker(AssetBound)
@@ -52,6 +55,14 @@ def assert_declaration_shape(declaration: object) -> None:
                 )
             for kind in kinds:
                 bound.check_kind(kind)
+        preparation = field_preparation(node.annotation, node.markers)
+        if result and preparation is not None:
+            raise ConformanceError(
+                f"{owner}.{node.path} declares {type(preparation).__name__} on a result: "
+                "preparations annotate inputs, and a returned asset is never prepared",
+                code="preparation_target",
+                fields=[node.path],
+            )
 
 
 def _grantable(surface: Surface) -> None:
@@ -116,7 +127,7 @@ def _writes(surface: Surface) -> None:
 def check(surface: Surface) -> Surface:
     """Every build-time refusal that needs the WHOLE surface, not just one signature."""
     assert_declaration_shape(surface.payload_type)
-    assert_declaration_shape(surface.result_type)
+    assert_declaration_shape(surface.result_type, result=True)
     if surface.memoize and surface.capabilities & {"egress", "secrets"}:
         raise ConformanceError(
             "a memoized invocable cannot depend on external egress or unrecorded secrets",
@@ -159,51 +170,18 @@ def check(surface: Surface) -> Surface:
 
 
 def _media_decode_bounds(surface: Surface) -> None:
-    """A decoder capability is useful only over explicitly expansion-bounded media.
-
-    Compressed bytes are already deployment- and field-bounded. Decode has a different
-    amplification factor, so requesting the service without binding every decodable media
-    field would make the most dangerous input the one field a package forgot to annotate.
-    Refuse that package at describe instead of offering a request-time unbounded overload.
-    """
+    """A video or audio input needs PyAV in the release's closure. A media input needs no
+    declared decoded bound: Runtime decodes what the call reads, within what the machine holds."""
     if "media_decode" not in surface.capabilities:
         return
-    fields = (
-        [
-            (node.path, asset_kinds(node.annotation), node.marker(AssetBound))
-            for node in walk(surface.payload_type)
-        ]
-        if any(p.role == "service" and p.capability == "media_decode" for p in surface.params)
-        else []
-    )
-    if binding := surface.assets_binding:
-        fields.extend(
-            (binding.parameter, frozenset({cls.kind}), bound) for cls, bound in binding.kinds
-        )
-    for path, kinds, bound in fields:
-        if not kinds & {"image", "video", "audio"}:
-            continue
-        if not isinstance(bound, AssetBound) or bound.max_decoded_bytes is None:
-            raise ConformanceError(
-                f"{surface.name}.{path} is decoded by MediaDecoder but declares no "
-                "AssetBound(max_decoded_bytes=...): compressed and decoded size are separate "
-                "limits, and the decoder has no unbounded overload",
-                code="asset_decode_unbounded",
-                fields=[path],
-            )
-        if bound.max_decoded_bytes > DEFAULT_DECODE_LIMITS.max_decoded_bytes:
-            raise ConformanceError(
-                f"{surface.name}.{path} declares {bound.max_decoded_bytes} decoded bytes, "
-                f"above Runtime's {DEFAULT_DECODE_LIMITS.max_decoded_bytes}-byte hard ceiling",
-                code="asset_decode_limit",
-                fields=[path],
-            )
+    if not media_kinds(surface.payload_type, surface.assets_binding) & {"video", "audio"}:
+        return
     try:
         require_decoder_dependency()
     except CapabilityError as exc:
         raise ConformanceError(
-            f"{surface.name} declares MediaDecoder but its release cannot import PyAV; "
-            "install cozy-runtime[media] in the package closure",
+            f"{surface.name} names a video or audio input but its release cannot import "
+            "PyAV; install cozy-runtime[media] in the package closure",
             code="media_decoder_dependency",
         ) from exc
 

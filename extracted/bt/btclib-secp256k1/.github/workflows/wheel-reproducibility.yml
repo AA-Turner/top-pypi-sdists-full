@@ -114,8 +114,11 @@ name: wheel-reproducibility
 # every other pull request from paying for a double build on every image:
 # it reads the pull request's own files, and the build jobs run only where
 # one of them is something the builds depend on -- the build scripts, the
-# version and the build backend's own configuration, the vendored library
-# this compiles, the script the steps run, and this workflow's own matrix.
+# version and the build backend's own configuration, the lock and the
+# build requirements exported from it, the vendored library this
+# compiles, the script the steps run, the script the build backend
+# loads to write the wheel's bill of materials, and this workflow's own
+# matrix.
 #
 # That is a job and not a paths filter on the trigger so that
 # wheel-reproducibility: every job passed, the aggregate at the end, can be
@@ -232,17 +235,21 @@ jobs:
           # what the builds read, one alternative per entry the header
           # names: scripts/ for the build backend and the extension's
           # own sources; pyproject.toml for the version and
-          # cibuildwheel's configuration; build-constraints.txt for the
-          # build requirements, which a lock bump moves without
-          # touching pyproject.toml; secp256k1 for the vendored
-          # library, whose gitlink the file list names like any other
-          # path; the script the steps run, so a change to it is
-          # measured on its own pull request; and this file, for the
-          # matrix and the steps. A literal block scalar, for the reason
-          # test.yml's prose-pattern gives: yamllint reads a pattern with
-          # no space in it as one unbreakable word
+          # cibuildwheel's configuration; uv.lock, which pins the
+          # cibuildwheel, auditwheel and delocate the jobs that run the
+          # `build` group use, and which a Dependabot bump moves alone;
+          # build-constraints.txt for the build requirements, which a
+          # lock bump moves without touching pyproject.toml; secp256k1
+          # for the vendored library, whose gitlink the file list names
+          # like any other path; the script the steps run, and
+          # generate_sbom.py, which the build backend loads to write the
+          # wheel's SBOM, so a change to either is measured on its own
+          # pull request; and this file, for the matrix and the steps.
+          # A literal block scalar, for the reason test.yml's
+          # prose-pattern gives: yamllint reads a pattern with no space
+          # in it as one unbreakable word
           BUILD_PATHS: |-
-            ^(scripts/.*|pyproject\.toml|build-constraints\.txt|secp256k1|\.github/scripts/check_wheel_reproducibility\.py|\.github/workflows/wheel-reproducibility\.yml)$
+            ^(scripts/.*|pyproject\.toml|uv\.lock|build-constraints\.txt|secp256k1|\.github/scripts/check_wheel_reproducibility\.py|\.github/scripts/generate_sbom\.py|\.github/workflows/wheel-reproducibility\.yml)$
         run: |
           # only a pull request has a base to be a diff against, so the
           # schedule and a dispatch build everything
@@ -407,7 +414,7 @@ jobs:
       # platform it could not compare rather than as one that agreed
       - name: Keep this image's wheel for the across-images comparison
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheel-${{ matrix.platform }}-${{ matrix.os }}
           path: ${{ runner.temp }}/wheel/
@@ -504,7 +511,7 @@ jobs:
 
       # --only-group build, so the environment is cibuildwheel and the
       # tools it needs and no extension of this project's own; --locked,
-      # so the cibuildwheel deciding the images and the identifiers is
+      # so the cibuildwheel deciding the interpreters and the identifiers is
       # the one uv.lock pins rather than whatever the index holds. The
       # script finds cibuildwheel on the PATH this sets, which is why it
       # runs under uv run rather than under --no-project as rebuild's
@@ -545,7 +552,7 @@ jobs:
       # to read on this path
       - name: Keep this image's repaired wheels for the across-images comparison
         if: ${{ !cancelled() && startsWith(matrix.platform, 'linux') }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: repaired-wheel-${{ matrix.platform }}-${{ matrix.os }}
           path: ${{ runner.temp }}/wheel-repaired/
@@ -721,7 +728,7 @@ jobs:
       # its own platform and image directories already, and the pair of
       # them under one platform is what the comparison is
       - name: Download every image's wheel
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: wheel-*
           merge-multiple: true
@@ -746,7 +753,7 @@ jobs:
       # does not skip the container one
       - name: Download every Linux image's repaired wheels
         if: ${{ !cancelled() }}
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: repaired-wheel-*
           merge-multiple: true

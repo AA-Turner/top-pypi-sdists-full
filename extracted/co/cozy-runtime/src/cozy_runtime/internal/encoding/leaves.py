@@ -19,6 +19,7 @@ resolves to the decode floor at PLAN time with the reason in the plan, instead o
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import ModuleType
@@ -41,6 +42,21 @@ from cozy_runtime.internal.encoding.formats import (
     Tensor,
     _rank2,
 )
+
+NVFP4 = "cozy.nvfp4.native-leaf/1"
+#: Each leaf provider's lane format, as a run's `gemm.selected` names it.
+FORMATS = {INT8_CONVROT: "int8", ROWWISE_FP8: "fp8", NVFP4: "nvfp4"}
+_MODULES = {INT8_CONVROT: int8_linear, ROWWISE_FP8: fp8_linear, NVFP4: nvfp4_linear}
+
+
+def serving(provider: str, index: int) -> str:
+    """The kernel `provider`'s leaves on this card serve now: read once a run, never per call."""
+    return str(_MODULES[provider].serving(index))
+
+
+def sites(leaves: Mapping[str, tuple[Any, ...]]) -> Counter[tuple[str, str]]:
+    """`(component, provider)` -> how many installed leaves: counted once, when they install."""
+    return Counter((key.partition(".")[0], entry[0].provider) for key, entry in leaves.items())
 
 
 def _blocked_shape(rows: int, cols: int) -> tuple[int, int]:
@@ -438,7 +454,7 @@ class Nvfp4NativeLeaf:
 
     @property
     def name(self) -> str:
-        return "cozy.nvfp4.native-leaf/1"
+        return NVFP4
 
     @property
     def route(self) -> str:

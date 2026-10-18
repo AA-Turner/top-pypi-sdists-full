@@ -53,6 +53,7 @@ class Test_ab08nX:
         assert_allclose(Af[:nu, :nu], np.array([[-4.]]))
         # Compute the structural invariants of the given system.
         out = ab08fun(n, m, p, A, B, C, D)
+        # ruff: disable[RUF059]
         nu, rank, dinfz, nkror, nkrol, infz, kronr, kronl, Af, Bf = out[:10]
         assert_equal(nu, 2)
         # Compute the invariant zeros of the given system.

@@ -7,14 +7,16 @@ from typing import TYPE_CHECKING
 
 from aiohttp import ClientSession
 from aiohttp import ClientTimeout
+from aiohttp import CookieJar
 from aiohttp import ServerConnectionError
 from aiohttp import TCPConnector
 from websockets.asyncio.client import ClientConnection
 from websockets.asyncio.client import connect
 from websockets.exceptions import ConnectionClosed
 from websockets.protocol import State
+from yarl import URL
 
-import pysignalr.exceptions as exceptions
+from pysignalr import exceptions
 from pysignalr.messages import CompletionMessage
 from pysignalr.messages import Message
 from pysignalr.messages import PingMessage
@@ -101,6 +103,8 @@ class WebsocketTransport(Transport):
         self._protocol = protocol
         self._callback = callback
         self._headers = headers or {}
+        self._static_cookie = self._headers.get('Cookie')
+        self._cookie_jar: CookieJar | None = None
         self._skip_negotiation = skip_negotiation
         self._ping_interval = ping_interval
         self._signalr_ping_interval = signalr_ping_interval
@@ -152,11 +156,11 @@ class WebsocketTransport(Transport):
         while True:
             try:
                 await self._loop()
-            except exceptions.NegotiationFailure as e:
+            except exceptions.NegotiationFailure:
                 await self._set_state(ConnectionState.disconnected)
                 self._retry_count -= 1
                 if self._retry_count <= 0:
-                    raise e
+                    raise
                 self._retry_sleep *= self._retry_multiplier
                 await asyncio.sleep(self._retry_sleep)
             else:
@@ -330,19 +334,23 @@ class WebsocketTransport(Transport):
         negotiate_url = get_negotiate_url(self._url)
         _logger.info('Performing negotiation, URL: `%s`', negotiate_url)
 
+        if self._cookie_jar is None:
+            self._cookie_jar = CookieJar()
+
         connector = TCPConnector(ssl=self._ssl) if self._ssl is not None else None
         session = ClientSession(
             timeout=ClientTimeout(connect=self._connection_timeout),
             connector=connector,
         )
-        async with session:
-            async with session.post(negotiate_url, headers=self._headers) as response:
-                if response.status == HTTPStatus.OK:
-                    data = await response.json()
-                elif response.status == HTTPStatus.UNAUTHORIZED:
-                    raise exceptions.AuthorizationError
-                else:
-                    raise exceptions.ConnectionError(response.status)
+        async with session, session.post(negotiate_url, headers=self._headers) as response:
+            if response.status == HTTPStatus.OK:
+                data = await response.json()
+                for hop in (*response.history, response):
+                    self._cookie_jar.update_cookies(hop.cookies, hop.url)
+            elif response.status == HTTPStatus.UNAUTHORIZED:
+                raise exceptions.AuthorizationError
+            else:
+                raise exceptions.ConnectionError(response.status)
 
         connection_id = data.get('connectionId')
         url = data.get('url')
@@ -357,6 +365,14 @@ class WebsocketTransport(Transport):
             self._headers['Authorization'] = f'Bearer {access_token}'
         else:
             raise exceptions.ServerError(str(data))
+
+        cookies = [f'{c.key}={c.coded_value}' for c in self._cookie_jar.filter_cookies(URL(self._url)).values()]
+        if self._static_cookie:
+            cookies.insert(0, self._static_cookie)
+        if cookies:
+            self._headers['Cookie'] = '; '.join(cookies)
+        elif 'Cookie' in self._headers:
+            del self._headers['Cookie']
 
     async def _on_raw_message(self, raw_message: str | bytes) -> None:
         """

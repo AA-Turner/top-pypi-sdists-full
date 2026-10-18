@@ -1,0 +1,187 @@
+//! SQL test macro-mock model queries and compiled SQL scenarios of an assembled project.
+
+use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python};
+use pyo3::types::{PyBool, PyDict, PyDictMethods, PyTuple};
+
+use crate::bindings::_helpers::attachments::cursor_intrinsics::validated_model_cursor_sql;
+use crate::bindings::_helpers::compile_driver::python_calls::keywords;
+use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_adapter_name;
+use crate::bindings::_helpers::records::construct::{
+    enum_member, new_record, new_record_with, record_class,
+};
+use crate::bindings::_helpers::records::fields::field as native_field;
+use crate::bindings::_helpers::records::fields::replaced;
+use crate::bindings::_helpers::records::ids::RecordId;
+use crate::bindings::_helpers::render::declaration_values::declaration_scope_resolver;
+use crate::bindings::_helpers::render::macro_expansion_result::{
+    ExpansionRequest, expansion_result,
+};
+use pyo3::IntoPyObjectExt;
+
+/// The `CompiledSqlScenario` fields copied from its input, in Python's keyword order.
+const SCENARIO_FIELDS: [&str; 12] = [
+    "sql_body",
+    "authored_ctes",
+    "expected_ctes",
+    "assertion_ctes",
+    "source_fixture_names",
+    "ref_fixture_names",
+    "seed_fixture_names",
+    "dbt_ref_fixture_names",
+    "expected_model_names",
+    "assertion_names",
+    "assertion_target_model_names",
+    "target_model_names",
+];
+
+/// Re-expand each model from its pre-macro SQL with the test's macro mocks applied.
+pub(crate) fn test_model_query_overrides<'py>(
+    test_input: &Bound<'py, PyAny>,
+    inputs: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let py: Python<'py> = inputs.py();
+    let overrides: Bound<'py, PyDict> = PyDict::new(py);
+    let payload: Bound<'py, PyAny> = native_field(test_input, "payload")?;
+    if !payload.is_instance(&record_class(
+        py,
+        RecordId::CompileModelSqlTestInputPayload,
+    )?)? {
+        return Ok(overrides);
+    }
+    let macro_mocks: Bound<'py, PyAny> = native_field(&payload, "macro_mocks")?;
+    if !macro_mocks.is_truthy()? {
+        return Ok(overrides);
+    }
+    let macro_context: Bound<'py, PyAny> = replaced(
+        &model_macro_context(inputs)?,
+        &[(
+            "_enforce_explicit_references",
+            PyBool::new(py, false).to_owned().into_any(),
+        )],
+    )?;
+    let declaration_scope: Bound<'py, PyAny> = native_field(inputs, "declaration_scope")?;
+    let lookup: Bound<'py, PyAny> = if declaration_scope.is_none() {
+        py.None().into_bound(py)
+    } else {
+        native_field(&declaration_scope, "resolver")?.getattr("lookup")?
+    };
+    let loaded_macros: Bound<'py, PyAny> = native_field(inputs, "loaded_macros")?;
+    let declaration_resolver: Bound<'py, PyAny> = declaration_scope_resolver(
+        &native_field(inputs, "discovered_inputs")?,
+        &native_field(inputs, "scope_index")?,
+        (&loaded_macros, &lookup),
+    )?;
+    for model_input in native_field(inputs, "model_inputs")?.try_iter()? {
+        let model_input: Bound<'py, PyAny> = model_input?;
+        let file_path: Bound<'py, PyAny> =
+            native_field(&model_input, "model_file")?.getattr("file_path")?;
+        let model_name: Bound<'py, PyAny> = native_field(&file_path, "stem")?;
+        let macro_source_sql: Bound<'py, PyAny> = native_field(&model_input, "macro_source_sql")?;
+        let macro_source_sql: Bound<'py, PyAny> = if macro_source_sql.is_truthy()? {
+            macro_source_sql
+        } else {
+            native_field(&model_input, "query_sql")?
+        };
+        let expanded: Bound<'py, PyAny> = expansion_result(ExpansionRequest {
+            sql: macro_source_sql.downcast_into()?,
+            file_path,
+            loaded_macros: loaded_macros.downcast()?.clone(),
+            macro_overrides: Some(macro_mocks.downcast()?.clone()),
+            macro_context: macro_context.clone(),
+            declaration_resolver: (!declaration_resolver.is_none())
+                .then(|| declaration_resolver.clone()),
+            declarations: None,
+            consumer: None,
+        })?
+        .getattr("sql")?;
+        let query: String = validated_model_cursor_sql(
+            py,
+            &expanded.extract::<String>()?,
+            (
+                &model_name.extract::<String>()?,
+                &native_field(&model_input, "config")?.getattr("values")?,
+            ),
+        )?;
+        overrides.set_item(model_name, query)?;
+    }
+    Ok(overrides)
+}
+
+/// The compile's macro context, or one built from the effective adapter, settings and target.
+fn model_macro_context<'py>(inputs: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    let py: Python<'py> = inputs.py();
+    let macro_context: Bound<'py, PyAny> = native_field(inputs, "macro_context")?;
+    if macro_context.is_truthy()? {
+        return Ok(macro_context);
+    }
+    let adapter_name: Bound<'py, PyAny> = resolve_effective_adapter_name(
+        &native_field(inputs, "project_config")?,
+        &native_field(inputs, "local_config")?,
+    )
+    .and_then(|value| value.into_bound_py_any(py))?;
+    new_record_with(
+        py,
+        RecordId::MacroContext,
+        &[
+            ("adapter_name", adapter_name),
+            (
+                "sql_analysis_enabled",
+                native_field(inputs, "effective_settings")?.getattr("sql_analysis")?,
+            ),
+            (
+                "target_name",
+                native_field(inputs, "effective_target_name")?,
+            ),
+            ("vars", native_field(inputs, "effective_vars")?),
+        ],
+    )
+}
+
+/// Each scenario input as a `CompiledSqlScenario`.
+pub(crate) fn compiled_sql_scenarios<'py>(
+    inputs: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyTuple>> {
+    let py: Python<'py> = inputs.py();
+    let resource_type: Bound<'py, PyAny> =
+        enum_member(py, RecordId::CompiledResourceType, "SQL_SCENARIO")?;
+    let mut scenarios: Vec<Bound<'py, PyAny>> = Vec::new();
+    for scenario_input in native_field(inputs, "scenario_inputs")?.try_iter()? {
+        let scenario_input: Bound<'py, PyAny> = scenario_input?;
+        let scenario_file: Bound<'py, PyAny> = native_field(&scenario_input, "scenario_file")?;
+        let name: Bound<'py, PyAny> = native_field(&scenario_file, "name")?;
+        let key: Bound<'py, PyAny> = new_record_with(
+            py,
+            RecordId::CompiledObjectKey,
+            &[
+                ("resource_type", resource_type.clone()),
+                ("name", name.clone()),
+            ],
+        )?;
+        let fields: Bound<'py, PyDict> = keywords(
+            py,
+            &[
+                ("key", key),
+                ("name", name),
+                ("scenario_file", scenario_file.clone()),
+            ],
+        )?;
+        for field in SCENARIO_FIELDS {
+            fields.set_item(field, native_field(&scenario_input, field)?)?;
+        }
+        fields.set_item(
+            "source_path",
+            native_field(&scenario_file, "relative_path")?,
+        )?;
+        fields.set_item(
+            "ownership_root",
+            native_field(&scenario_file, "ownership_root")?,
+        )?;
+        scenarios.push(new_record(
+            py,
+            RecordId::CompiledSqlScenario,
+            (),
+            Some(&fields),
+        )?);
+    }
+    PyTuple::new(py, scenarios)
+}

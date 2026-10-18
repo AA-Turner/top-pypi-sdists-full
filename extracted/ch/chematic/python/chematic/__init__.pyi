@@ -13,8 +13,28 @@ Quick start::
 """
 
 from __future__ import annotations
+from typing import Protocol, SupportsIndex
 
-from typing import overload, Any, Iterable, Iterator, Literal, Optional, Sequence, TypedDict, Union
+from ._pdb_models import (
+    PdbModelFile as PdbModelFile,
+    PdbModelSplit as PdbModelSplit,
+    PdbSplitLoss as PdbSplitLoss,
+    split_pdb_models as split_pdb_models,
+)
+
+from ._sdf_split import (
+    SdfSplitPart as SdfSplitPart,
+    SdfSplitPlan as SdfSplitPlan,
+    plan_sdf_split as plan_sdf_split,
+)
+
+from ._xbs import XbsBondRule as XbsBondRule, XbsSpecies as XbsSpecies, write_xbs as write_xbs
+
+from ._xyz_atom_data import XyzAtomDataFrame as XyzAtomDataFrame, parse_xyz_atom_data as parse_xyz_atom_data
+
+from ._xsf import write_xsf_checked as write_xsf_checked
+
+from typing import overload, Callable, Any, Iterable, Iterator, Literal, Optional, Sequence, TypedDict, Union
 
 from os import PathLike
 
@@ -24,6 +44,29 @@ from numpy import ndarray
 _FileSystemPath = str | bytes | PathLike[str] | PathLike[bytes]
 
 __version__: str
+
+def rdkit_pick_tautomer(candidates: Iterable[Mol], *, max_candidates: int = 1000) -> Mol:
+    """Copy the highest-scoring supplied Mol; do not enumerate or clean stereo.
+
+    Uses the existing RDKit-port score, then smallest canonical SMILES and
+    first occurrence. Preserves source metadata. Empty inputs, limits outside
+    1..4096, more than max_candidates items, unsupported chemistry and inputs
+    above 1024 atoms/4096 bonds raise ValueError. Non-Mol items raise TypeError;
+    iterator exceptions propagate. Consumes at most max_candidates + 1 items.
+    Integers outside signed 64-bit range raise OverflowError. No custom
+    scorer or tautomer-family validation is provided.
+    """
+
+def write_cml_named_checked(mol: Mol, atom_ids: Iterable[str], coordinates: Optional[Iterable[Sequence[float]]] = None) -> str:
+    """Export graph fields with unique caller-supplied CML atom IDs.
+
+    IDs follow atom order, use [A-Za-z][A-Za-z0-9_-]* and at most 128 bytes.
+    Optional finite 3D coordinates use Angstrom. Counts must match. Supports
+    1..4096 atoms/8192 bonds; rejects stereo, maps, tags, wildcards and unsupported
+    bonds. ValueError reports invalid data; wrong types raise TypeError.
+    Each iterable consumes at most atom_count + 1 items; exceptions propagate.
+    Source-only types, partial charges and metadata are outside this graph API.
+    """
 
 class SmartsParityOk(TypedDict):
     status: Literal["ok"]
@@ -500,6 +543,10 @@ class Mol:
         from the same SMILES. Raises ``ValueError`` for unsupported inputs."""
         ...
 
+    def _rdkit_tautomers_controlled(
+        self, max_tautomers: int, max_transforms: int,
+        callback: Callable[[int, tuple[str, ...]], bool],
+    ) -> tuple[list[str], list[str], str]: ...
     def rdkit_tautomers(self) -> list[str]:
         """``sorted(Chem.MolToSmiles(t) for t in
         rdMolStandardize.TautomerEnumerator().Enumerate(m))`` (RDKit
@@ -628,6 +675,14 @@ class Mol:
             assert mol.are_atoms_equivalent(0, 1)  # in benzene all C are equivalent
         """
         ...
+
+    def _fragment_single_bonds_checked(
+        self, bonds: list[int], labels: Optional[list[tuple[int, int]]],
+    ) -> tuple[Mol, list[int], list[tuple[int, int, int, int]]]: ...
+
+    def _replace_core_checked(
+        self, core: Mol, matching: list[int],
+    ) -> tuple[Mol, list[Optional[int]], list[tuple[int, int, int, int, int, int]]]: ...
 
     @property
     def recap_breakable_bond_count(self) -> int:
@@ -1410,6 +1465,127 @@ class Mol:
         """Standardize the molecule; optionally retain only the largest fragment."""
         ...
 
+    def fragment_parent(self) -> Mol:
+        """Select one fragment using chematic's native fragment policy.
+
+        Returns:
+            New Mol selected by salt/water/ion classification, then heavy-atom
+            count, carbon preference and canonical-SMILES tie breaking. A
+            size-ranked fallback is used when every fragment is classified
+            for removal. Python properties are not copied.
+        """
+        ...
+
+    def charge_parent(self) -> Mol:
+        """Select a fragment, then apply native local charge neutralization.
+
+        Returns:
+            New Mol. Neutralizes supported carbon-bound O- and protonated N+/O+
+            motifs; it does not promise a neutral total charge or model pH.
+            Isotope/stereo parent steps are not performed. Python properties
+            are not copied.
+        """
+        ...
+
+    def isotope_parent(self) -> Mol:
+        """Clear isotope labels across the whole input graph.
+
+        Returns:
+            New Mol, retaining all fragments and explicit graph atoms. An
+            explicit deuterium atom becomes ordinary H, not an implicit H.
+            No stereo-parent step runs. Python properties are not copied.
+        """
+        ...
+
+    def stereo_parent(self) -> Mol:
+        """Remove stored stereochemical annotations across the whole graph.
+
+        Returns:
+            New Mol with atom chirality cleared, directional single bonds
+            made ordinary single bonds, and stereo metadata omitted. All
+            fragments and isotope labels remain. Python properties are not
+            copied.
+        """
+        ...
+
+    def tautomer_parent(
+        self, max_transforms: int = 16, max_tautomers: int = 32,
+        timeout_ms: Optional[int] = None,
+    ) -> tuple[Mol, str]:
+        """Choose the native bounded tautomer parent, with completion status.
+
+        Args:
+            max_transforms: Nonnegative native transformation budget, default 16.
+            max_tautomers: Native candidate-comparison budget, default 32. Zero
+                skips direct-aromatic-shift comparison, not all tautomer work.
+            timeout_ms: Optional nonnegative wall-clock budget in milliseconds.
+                None disables wall-clock checks. Timing may depend on load.
+
+        Returns:
+            (new Mol, status string). Completed means this native search
+            completed. Limits/timeouts return a partial result, with
+            MaxTransformsReached, MaxTautomersReached or TimedOut. Empty input
+            returns InvalidInput(EmptyMolecule). Inspect status before accepting
+            a grouping key. Python properties are not copied. This is distinct
+            from the RDKit-profile rdkit_canonical_tautomer method.
+
+        Raises:
+            TypeError: Non-integer budget argument.
+            OverflowError: Negative or out-of-range unsigned integer budget.
+        """
+        ...
+
+    def super_parent(
+        self, max_transforms: int = 16, max_tautomers: int = 32,
+        timeout_ms: Optional[int] = None,
+    ) -> tuple[Mol, str]:
+        """Compose fragment, charge, isotope, stereo, then tautomer parents.
+
+        Args:
+            max_transforms: Nonnegative native tautomer budget, default 16.
+            max_tautomers: Native candidate-comparison budget, default 32.
+                Zero skips direct-aromatic-shift comparison.
+            timeout_ms: Optional nonnegative native tautomer timeout in ms.
+                It does not cover the preceding four transformations.
+
+        Returns:
+            (new Mol, status string) from the final tautomer-parent stage.
+            Each preceding stage feeds the next. Python properties are not
+            copied. Empty input returns InvalidInput(EmptyMolecule). The same
+            completion/limit rules as tautomer_parent apply.
+
+        Raises:
+            TypeError: Non-integer budget argument.
+            OverflowError: Negative or out-of-range unsigned integer budget.
+        """
+        ...
+
+    def super_parent_report(
+        self, max_transforms: int = 16, max_tautomers: int = 32,
+        timeout_ms: Optional[int] = None,
+    ) -> SuperParentReport:
+        """Return a typed dictionary of final SMILES, status and five stages.
+
+        Args:
+            max_transforms: Nonnegative native tautomer budget, default 16.
+            max_tautomers: Native candidate-comparison budget, default 32.
+                Zero skips direct-aromatic-shift comparison.
+            timeout_ms: Optional nonnegative final-stage timeout in ms.
+
+        Returns:
+            SuperParentReport with smiles, status, and stages. Every stage
+            contains name and smiles; order is fragment, charge, isotope,
+            stereo, tautomer. These strings expose intermediate structures,
+            not the full Rust audit with fragment-selection reasons or applied
+            rule records. For an empty graph, strings may be empty and status
+            is InvalidInput(EmptyMolecule).
+
+        Raises:
+            TypeError: Non-integer budget argument.
+            OverflowError: Negative or out-of-range unsigned integer budget.
+        """
+        ...
+
     def scaffold(self) -> Mol:
         """Return the Bemis–Murcko scaffold as a new Mol."""
         ...
@@ -1715,6 +1891,20 @@ class Mol:
         """
         ...
 
+    def sasa_with_radii_checked(self, coordinates: Iterable[Sequence[float]], radii: Iterable[float], *, probe_radius: float = 1.4, sphere_points: int = 960) -> dict[str, Any]:
+        """Native Shrake-Rupley total/per_atom SASA with explicit coordinates/radii.
+
+        Uses Angstrom and square Angstrom; one positive radius per atom,
+        including explicit H. No defaults or coordinate generation. Accepts
+        empty molecules, <=2048 atoms, 32..65536 sphere points, and <=50 million
+        potential point-neighbor checks. Invalid/nonfinite data, ambiguous
+        coincident equal spheres and numeric/work limits raise ValueError.
+        Wrong types raise TypeError; shape errors may raise ValueError.
+        Iterables consume at most atom_count + 1 items; source errors propagate.
+        Integers outside signed 64-bit range raise OverflowError. Sampling
+        error remains; this is not a FreeSASA/RDKit compatibility API.
+        """
+
     def sasa_per_atom_3d(self, coords: list[list[float]]) -> list[float]:
         """Per-atom Solvent-Accessible Surface Area (Å²) from explicit 3D coordinates.
 
@@ -1738,8 +1928,18 @@ class Mol:
         variant: str = "MMFF94",
         non_bonded_thresh: float = 100.0,
         ignore_interfrag_interactions: bool = True,
+        *,
+        partial_charges: Iterable[float] | None = None,
     ) -> MolecularForceField:
-        """Build a reusable RDKit-compatible MMFF94 force field."""
+        """Build MMFF94/MMFF94s with optional atom-ordered partial charges.
+
+        Charges use elementary-charge units and require one finite value per
+        atom, including explicit H. No normalization or charge-sum check is
+        applied. Only electrostatics change; rebuild to change charges.
+        Iterables consume at most atom_count + 1 items; source errors propagate.
+        Invalid counts, values or included-pair coefficients raise ValueError.
+        This opt-in hybrid charge model is not standard MMFF parametrization.
+        """
         ...
 
     def uff_force_field(
@@ -2901,6 +3101,53 @@ def atom_color_rgb(atomic_num: int) -> tuple[int, int, int]:
     """
     ...
 
+def euclidean_distance_matrix_checked(descriptor_matrix: Iterable[Iterable[float]]) -> list[float]:
+    """Condensed Euclidean distances: (1,0), (2,0), (2,1), ...
+
+    Requires rectangular finite numeric vectors; no scaling or normalization.
+    Accepts nested iterables and numeric NumPy rows. Limits are 1024 rows,
+    256 features and 50 million pair-feature operations. Iterators consume at
+    most one excess item per dimension; source exceptions propagate. Empty
+    or singleton inputs return []; zero-feature vectors have zero distances.
+    Invalid values/shapes/limits or unrepresentable distances raise ValueError,
+    wrong types raise TypeError and allocation failure raises MemoryError.
+    Stable scaled norms retain tiny/huge representable distances; finite
+    precision remains. This returns a Python list, not RDKit's NumPy array.
+    """
+    ...
+
+class _OnBitPositions(Protocol):
+    def GetOnBits(self) -> Iterable[SupportsIndex]: ...
+
+def sparse_tanimoto_matrix_checked(fingerprints: Iterable[Iterable[SupportsIndex] | _OnBitPositions], *, metric: Literal["distance", "similarity"] = "distance") -> list[float]:
+    """Condensed binary Tanimoto from unsigned 32-bit on-bit positions.
+
+    Returns (1,0), (2,0), (2,1), ...; metric is distance or similarity.
+    Rows are index iterables or sources providing GetOnBits(). Source rows
+    stay alive while their returned iterators are consumed.
+    Duplicates/order are ignored. Empty/empty similarity is 1; distance is
+    1-similarity. No declared bit length or dense allocation. This is binary
+    set similarity, not count-weighted similarity or fingerprint generation.
+    Limits: 1024 rows, 65536 raw IDs per row, one million raw IDs total and
+    50 million pair-bit work units. Iteration consumes at most one excess
+    item to detect limits and preserves source exceptions. Invalid metrics
+    or limits raise ValueError, wrong types (including Python bool IDs) TypeError,
+    out-of-u32 IDs OverflowError and allocation failure MemoryError.
+    """
+    ...
+def write_reaction_cdxml_checked(reaction_smiles: str, coords: Iterable[Iterable[Sequence[float]]], arrow: Sequence[Sequence[float]]) -> str:
+    """Single-step CDXML roles and caller layout (reactants, agents, products).
+
+    Arrow is tail then head in CDXML Y-down units. Refuses aromatic, mapped,
+    query/stereo atoms and nonterminal double bonds. Bracket H must match native
+    normal-valence inference; isolated/bridging H is refused. No automatic depiction.
+    Limits: 16 KiB SMILES, 32 components, 256 atoms/component, 1024 atoms total,
+    4096 bonds total; exact finite coordinate pairs within +/-1e6.
+    Invalid input/profile raises ValueError, wrong types TypeError.
+    Source iterator errors propagate; at most one excess item is consumed
+    per row or outer iterable to detect coordinate shape errors.
+    """
+    ...
 def from_smiles(smiles: str | bytes) -> Mol:
     """Parse a SMILES string and return a :class:`Mol`.
 
@@ -3396,6 +3643,11 @@ def protein_from_pdb_json(pdb_str: str) -> str:
     ligands, ions, nucleic acids, and unrecognized residues are excluded.
     """
     ...
+
+def write_xyz_checked(elements: Iterable[str], positions_angstrom: Iterable[Iterable[float]], *, comment: str = "", notation: Literal["fixed", "scientific"] = "fixed", decimal_places: int = 12, min_width: int = 20, max_output_bytes: int = 67108864) -> str:
+    """Checked plain XYZ geometry; caller-selected decimal precision and width."""
+    ...
+
 
 def from_xyz(xyz_str: str) -> tuple[Mol, list[list[float]]]:
     """Parse an XYZ string and return ``(Mol, coords)``.
@@ -4263,8 +4515,8 @@ def find_mcs(
     timeout_ms: Optional[int] = None,
     ring_matches_ring_only: bool = False,
     complete_rings_only: bool = False,
-    atom_compare: str = "elements",
-    bond_compare: str = "order_or_aromatic",
+    atom_compare: McsAtomComparison = "elements",
+    bond_compare: McsBondComparison = "order_or_aromatic",
     match_chiral_tag: bool = False,
     match_charge: bool = False,
     match_isotope: bool = False,
@@ -4279,6 +4531,8 @@ def find_mcs(
 
     ``atom_compare`` is one of ``"elements"`` (default), ``"any_heavy_atom"``, or ``"any"``.
     ``bond_compare`` is one of ``"order_or_aromatic"`` (default) or ``"any"``.
+    Typed choices are :class:`McsAtomCompare` and :class:`McsBondCompare`.
+    The result is a first-input-side concrete projection, not generalized SMARTS.
 
     Example::
 
@@ -4298,8 +4552,8 @@ def find_mcs_checked(
     timeout_ms: Optional[int] = None,
     ring_matches_ring_only: bool = False,
     complete_rings_only: bool = False,
-    atom_compare: str = "elements",
-    bond_compare: str = "order_or_aromatic",
+    atom_compare: McsAtomComparison = "elements",
+    bond_compare: McsBondComparison = "order_or_aromatic",
     match_chiral_tag: bool = False,
     match_charge: bool = False,
     match_isotope: bool = False,
@@ -4307,6 +4561,9 @@ def find_mcs_checked(
 ) -> tuple[Optional[Mol], bool]:
     """Like :func:`find_mcs`, but also reports whether ``timeout_ms`` was reached
     before the search finished exhaustively.
+
+    Accepts :class:`McsAtomCompare` and :class:`McsBondCompare`, or valid legacy
+    literal strings. Comparator callbacks are outside the native API modes.
 
     Returns ``(mcs, was_timed_out)``: ``mcs`` is the MCS as a :class:`Mol` (or ``None``
     if there is no common substructure), and ``was_timed_out`` is ``True`` if the search
@@ -4701,6 +4958,7 @@ def iter_sdf(path: _FileSystemPath) -> SdfIter:
 def iter_sdf_checked(
     path: _FileSystemPath,
     *,
+    compression: Literal["plain", "gzip", "auto"] = "plain",
     max_input_bytes: Optional[int] = None,
     max_record_bytes: Optional[int] = None,
     max_line_bytes: Optional[int] = None,
@@ -4713,6 +4971,9 @@ def iter_sdf_checked(
     Indices are zero-based source record positions.
     Positive limit overrides can be set for larger inputs; defaults are
     1 GiB total, 16 MiB per record and line, and 100,000 records.
+    Limits count decoded bytes. Auto detects gzip magic independently per input;
+    filenames are ignored. Concatenated members are supported. Probe failures
+    raise IOError at construction; decompression failures are yielded in place.
     """
     ...
 
@@ -4751,12 +5012,21 @@ def iter_extxyz_batched(path: _FileSystemPath, batch_size: int = 1000) -> XyzBat
 class CifSymmetryStatus:
     """How a CIF's declared symmetry relates to a PeriodicStructure's sites.
 
-    ``is_p1=False`` means the source CIF declared symmetry beyond P1 that
-    chematic's CIF adapter did not expand — the structure's ``sites`` are
-    only the asymmetric unit, not a full unit cell.
+    ``is_complete_cell`` is true for P1 or expansion of the source's explicit
+    operations. Non-P1 structures with ``is_expanded=False`` contain only the
+    asymmetric unit. Expansion does not verify the operation list against a
+    space-group database.
     """
 
     is_p1: bool
+    @property
+    def is_expanded(self) -> bool: ...
+    @property
+    def is_complete_cell(self) -> bool: ...
+    @property
+    def asymmetric_site_count(self) -> Optional[int]: ...
+    @property
+    def expanded_site_count(self) -> Optional[int]: ...
     space_group_name: Optional[str]
     operation_count: int
 
@@ -4848,7 +5118,7 @@ class PeriodicStructure:
 
     def __new__(cls, lattice: Lattice, sites: list[Site]) -> PeriodicStructure: ...
     @staticmethod
-    def from_cif(text: str) -> PeriodicStructure: ...
+    def from_cif(text: str, expand_symmetry: bool = True) -> PeriodicStructure: ...
     @staticmethod
     def from_poscar(text: str) -> PeriodicStructure: ...
     @property
@@ -5214,6 +5484,17 @@ def parse_gro(text: str, *, elements: Optional[Sequence[str]] = None, max_input_
     """Read one GRO frame, with unresolved or caller-supplied elements and explicit nm units."""
     ...
 
+def gro_to_lammps_atomic(text: str, atom_types: Sequence[int], masses: Sequence[float], *, units: Literal["real", "metal"]) -> dict[str, Any]:
+    """Convert GRO nm geometry to LAMMPS atomic data, retaining source identity.
+
+    Types are 1-based indices into caller masses in grams/mole. Units are
+    mandatory; velocity factors are 0.01 (real) or 10 (metal). Orthogonal and
+    restricted triclinic cells only. No topology, charges or image inference.
+    Returns data_text, units, atom_style, scaling factors, atom_identity and
+    exact source_text. Invalid profiles or values raise ValueError.
+    """
+    ...
+
 def parse_turbomole(text: str, *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None) -> dict[str, Any]:
     """Read standalone nonperiodic/3D TURBOMOLE geometry in Cartesian angstroms."""
     ...
@@ -5294,10 +5575,35 @@ def from_ccd(text: str, *, allow_stereo_loss: bool = False) -> Mol:
     """Explicit CCD graph; unassigned R/S and E/Z require loss consent."""
     ...
 
+class FeaturePatternSet:
+    """Owned SMARTS feature definitions; maximum 32 patterns.
+
+    Pattern i sets bit i on every atom in any match. Empty sets use no default
+    definitions. Fingerprints use native FNV hashing, not RDKit Morgan bits.
+    Targets are limited to 256 atoms/512 bonds; matching budget failures raise
+    ValueError without partial masks. Native SSSR SMARTS semantics apply.
+    """
+    def __init__(self, patterns: Iterable[str]) -> None: ...
+    @property
+    def patterns(self) -> list[str]: ...
+    def invariants(self, mol: Mol, *, max_visits: int = 100_000) -> list[int]: ...
+    def fingerprint(self, mol: Mol, *, radius: int = 2, nbits: int = 2048, max_visits: int = 100_000) -> bytes: ...
+
 # Native filesystem APIs accept the same path protocol as os.fspath/fsdecode.
 class SDMolSupplier(Iterator[Mol | None]):
     def __init__(self, path: _FileSystemPath, sanitize: bool = True, removeHs: bool = True, strictParsing: bool = True) -> None: ...
     def __iter__(self) -> SDMolSupplier: ...
+    def __next__(self) -> Mol | None: ...
+
+class ForwardSDMolSupplier(Iterator[Mol | None]):
+    """Forward SDF reader over a binary file object with callable read(size).
+
+    Raises ValueError if read is missing/non-callable; TypeError on non-bytes
+    results. Original read exceptions propagate. The source is never closed.
+    sanitize/removeHs are accepted no-ops; strictParsing controls graph errors.
+    """
+    def __init__(self, fileobj: object, sanitize: bool = True, removeHs: bool = True, strictParsing: bool = True) -> None: ...
+    def __iter__(self) -> ForwardSDMolSupplier: ...
     def __next__(self) -> Mol | None: ...
 
 class SmilesMolSupplier(Iterator[Mol | None]):
@@ -5360,3 +5666,83 @@ def write_pdbqt_checked(mol: Mol, coords: Sequence[Sequence[float]], charges: Se
     the existing heuristic; no charge calculation or ligand preparation.
     """
     ...
+
+
+class RWMol:
+    """Independent editable graph; Clear also resets title and properties."""
+    def __init__(self, mol: Mol | None = None) -> None: ...
+    def Clear(self) -> None:
+        """Reset all graph state, title and properties; keep existing snapshots unchanged."""
+        ...
+    def AddAtom(self, atomic_num: int) -> int: ...
+    def AddBond(self, begin_idx: int, end_idx: int, order: str) -> int: ...
+    def RemoveAtom(self, idx: int) -> None: ...
+    def RemoveBond(self, begin_idx: int, end_idx: int) -> None: ...
+    def GetNumAtoms(self) -> int: ...
+    def GetNumBonds(self) -> int: ...
+    def GetName(self) -> str: ...
+    def SetName(self, name: str) -> None: ...
+    def GetMol(self) -> Mol: ...
+
+def parse_mopac_archive(text: str, *, max_input_bytes: Optional[int] = None, max_atoms: Optional[int] = None, max_line_len: Optional[int] = None) -> dict[str, Any]:
+    """Read one MOPAC archive restart deck, preserving coordinate references and raw sections."""
+    ...
+from ._conformer_alignment import align_conformers_checked as align_conformers_checked
+def write_gamess_zmat(elements: Sequence[str], positions_angstrom: Sequence[Sequence[float]], references: Sequence[Sequence[int]], *, charge: int, multiplicity: int, significant_digits: int = 17, title: str = "chematic GAMESS internal coordinates") -> str:
+    """Write GAMESS-US Cartesian $DATA plus explicit $ZMAT internal definitions; no basis or method."""
+    ...
+
+def xyz_to_gamess_zmat(text: str, references: Sequence[Sequence[int]], *, charge: int, multiplicity: int, significant_digits: int = 17, title: str = "chematic GAMESS internal coordinates") -> str:
+    """Convert exactly one bounded plain XYZ frame, retaining all atoms, to a GAMESS geometry template."""
+    ...
+from ._pymatgen_json import (
+    PymatgenStructureRecord as PymatgenStructureRecord,
+    parse_pymatgen_structures as parse_pymatgen_structures,
+)
+from ._nucleic_linear_svg import nucleic_acid_linear_svg as nucleic_acid_linear_svg
+from ._cml_collection import (
+    CmlMoleculeRecord as CmlMoleculeRecord,
+    read_cml_collection as read_cml_collection,
+    write_cml_collection as write_cml_collection,
+)
+from ._tautomer_control import (
+    TautomerEnumeration as TautomerEnumeration,
+    TautomerProgress as TautomerProgress,
+    enumerate_tautomers_checked as enumerate_tautomers_checked,
+)
+from ._crystal_obj import (
+    ObjMeshExport as ObjMeshExport,
+    write_crystal_obj_checked as write_crystal_obj_checked,
+)
+from ._parent_types import (
+    ParentStage as ParentStage,
+    SuperParentReport as SuperParentReport,
+)
+from ._bond_fragment import (
+    BondFragmentation as BondFragmentation,
+    FragmentAttachment as FragmentAttachment,
+    fragment_on_bonds_checked as fragment_on_bonds_checked,
+)
+
+from ._core_replacement import (
+    CoreAttachment as CoreAttachment,
+    CoreReplacement as CoreReplacement,
+    replace_core_checked as replace_core_checked,
+)
+from ._mcs_comparators import (
+    McsAtomCompare as McsAtomCompare,
+    McsAtomComparison as McsAtomComparison,
+    McsBondCompare as McsBondCompare,
+    McsBondComparison as McsBondComparison,
+)
+
+from ._crystal_stl import (
+    StlMeshExport as StlMeshExport,
+    write_crystal_stl_checked as write_crystal_stl_checked,
+)
+
+from ._pdb_hydrogen_names import (
+    PdbHydrogenName as PdbHydrogenName,
+    PdbHydrogenNaming as PdbHydrogenNaming,
+    name_pdb_hydrogens_checked as name_pdb_hydrogens_checked,
+)

@@ -21,11 +21,17 @@ from chardet._utils import (
     decodes_completely,
     decodes_without_error,
 )
-from chardet.models import RARE_LANGUAGES, get_enc_index
+from chardet.models import ART_LANGUAGE, RARE_LANGUAGES, get_enc_index
 from chardet.output_names import _COMPAT_NAMES
 from chardet.pipeline import DetectionResult
 from chardet.pipeline.confusion import (
+    CONFUSION_BAND,
+    CONFUSION_FLOOR_RATIO,
+    STRICT_TIER_MAX_CONF,
+    _comparable_languages,
+    arbitrate_distinguishing_bytes,
     confusion_pair_winner,
+    differing_high_bytes,
     resolve_confusion_groups,
 )
 from chardet.registry import REGISTRY
@@ -212,50 +218,120 @@ _DEMOTION_DELETE: dict[str, bytes] = {
 _KOI8_T_DELETE: bytes = bytes(_KOI8_T_DISTINGUISHING)
 
 
-def _should_demote(encoding: str, data: bytes) -> bool:
-    """Return True if encoding is a demotion candidate with no distinguishing bytes.
+def _should_demote(data: bytes, top: DetectionResult, target: DetectionResult) -> bool:
+    """Return True if *top*, a demotion candidate, has no byte evidence over *target*.
 
-    Checks whether any byte in *data* falls in the set of byte values that
-    decode differently under the given encoding vs iso-8859-1.  If none do,
-    the data is equally valid under both encodings and there is no
-    byte-level evidence for preferring the candidate encoding.
+    Callers guarantee ``top.encoding`` is in :data:`_DEMOTION_CANDIDATES`.
+    Two questions, cheapest first.  Does *data* contain any byte the
+    candidate decodes differently from ISO-8859-1?  If not, the data is
+    equally valid under both encodings, nothing at the byte level favors
+    the candidate, and it is demoted.
+
+    If such bytes are present, do they favor the candidate?  Presence
+    alone is symmetric evidence: a Windows-1252 file whose only non-ASCII
+    letter is an ``Ö`` carries 0xD6, which HP-Roman8 reads as ``ø``, so
+    both candidates "contain" the byte and the question is which reading
+    holds up.  That is a confusion-style arbitration between the candidate
+    and its swap target on the distinguishing bytes alone (see
+    :func:`~chardet.pipeline.confusion.arbitrate_distinguishing_bytes`),
+    each side scored under the variant that actually won its slot.  The
+    models decide when they can: one Welsh ``ŵ`` keeps ISO-8859-14 because
+    the Welsh model knows that bigram and the Windows-1252 reading is a
+    ``ð`` no Welsh model has seen.  When the models are silent, word shape
+    decides: a Kven ``đ`` keeps a Finnish file on ISO-8859-10 because a
+    letter between letters beats the superscript ``¹`` Windows-1252 reads
+    there.  A lone ``Ö`` mid-word decides nothing either way, and the more
+    prevalent encoding takes the evidence-free tie.
+
+    The arbitration is only asked when the candidate's lead over the swap
+    target is within :data:`~chardet.pipeline.confusion.CONFUSION_BAND`.
+    A win by more than the band was decided on the full statistics, and
+    re-litigating it on a handful of bytes is neither sound nor free: the
+    scan is Python level, and mainstream Turkish text tops as windows-1254
+    with hundreds of distinguishing bytes and a lead of 0.2.
     """
-    delete = _DEMOTION_DELETE.get(encoding)
-    if delete is None:
+    encoding = top.encoding or ""
+    if len(data.translate(None, _DEMOTION_DELETE[encoding])) == len(data):
+        return True
+    if top.confidence - target.confidence > CONFUSION_BAND:
         return False
-    return len(data.translate(None, delete)) == len(data)
+    winner = arbitrate_distinguishing_bytes(
+        data,
+        encoding,
+        target.encoding or "",
+        _DEMOTION_CANDIDATES[encoding],
+        languages_a=None if top.language is None else frozenset((top.language,)),
+        languages_b=None if target.language is None else frozenset((target.language,)),
+    )
+    return winner != encoding
+
+
+def _swap_target(candidates: list[DetectionResult]) -> DetectionResult:
+    """Pick the common Latin candidate that replaces a demoted top.
+
+    Among the candidates within :data:`_DEAD_HEAT_EPSILON` of the
+    highest-scoring one, era prevalence chooses (windows-1252 over
+    iso-8859-1): inside that band the confidence order is noise, the very
+    premise of the demotion.  A candidate trailing the best common Latin
+    by more than the epsilon lost to it on real evidence and stays put.
+    Equal era ranks (iso-8859-1 against iso-8859-15, both legacy ISO) keep
+    confidence order, since ``min`` returns the first of equals and the
+    candidates arrive ranked.
+    """
+    lead_conf = max(r.confidence for r in candidates)
+    in_band = [r for r in candidates if lead_conf - r.confidence <= _DEAD_HEAT_EPSILON]
+    return min(in_band, key=lambda r: _era_rank(r.encoding or ""))
 
 
 def _demote_niche_latin(
     data: bytes,
     results: list[DetectionResult],
 ) -> list[DetectionResult]:
-    """Demote niche Latin encodings when no distinguishing bytes are present.
+    """Demote a niche Latin top that its distinguishing bytes do not support.
 
-    Some bigram models (e.g. iso-8859-10, iso-8859-14, windows-1254) can win
-    on data that contains only bytes shared with common Western Latin
-    encodings.  When there is no byte-level evidence for the winning
-    encoding, promote the first common Western Latin candidate to the top and
-    push the demoted encoding to last.
+    Some bigram models (iso-8859-10, iso-8859-14, windows-1254, hp-roman8)
+    can win on data that contains only bytes shared with the common Western
+    Latin encodings, or on a lone shared byte the models cannot arbitrate.
+    When :func:`_should_demote` finds no byte-level evidence for the
+    winning encoding, promote the swap target :func:`_swap_target` picks
+    among the common Latin candidates and push the demoted encoding to
+    last.
+
+    The demoted entries take the confidence of the candidate they now sit
+    behind.  Rank position alone does not survive the trip out to callers:
+    ``detect_all`` re-sorts by confidence, and a stable sort hands an entry
+    that kept the top score its old place back.
+
+    :param data: The raw byte data the results were produced from.
+    :param results: A list of :class:`DetectionResult` ranked by confidence.
+    :returns: A new list (or the same list) with the demotion applied.
     """
-    if (
-        len(results) > 1
-        and results[0].encoding is not None
-        and _should_demote(results[0].encoding, data)
-    ):
-        demoted_encoding = results[0].encoding
-        top_conf = results[0].confidence
-        for r in results[1:]:
-            if r.encoding in _COMMON_LATIN_ENCODINGS:
-                promoted = DetectionResult(
-                    r.encoding, top_conf, r.language, r.mime_type
-                )
-                others = [
-                    x for x in results if x.encoding != demoted_encoding and x is not r
-                ]
-                demoted_entries = [x for x in results if x.encoding == demoted_encoding]
-                return [promoted, *others, *demoted_entries]
-    return results
+    if len(results) < 2 or results[0].encoding not in _DEMOTION_CANDIDATES:
+        return results
+    candidates = [r for r in results[1:] if r.encoding in _COMMON_LATIN_ENCODINGS]
+    if not candidates:
+        return results
+    target = _swap_target(candidates)
+    if not _should_demote(data, results[0], target):
+        return results
+    demoted_encoding = results[0].encoding
+    top_conf = results[0].confidence
+    promoted = DetectionResult(
+        target.encoding, top_conf, target.language, target.mime_type
+    )
+    others = [x for x in results if x.encoding != demoted_encoding and x is not target]
+    tail_conf = others[-1].confidence if others else top_conf
+    demoted_entries = [
+        DetectionResult(
+            x.encoding,
+            min(x.confidence, tail_conf),
+            x.language,
+            x.mime_type,
+        )
+        for x in results
+        if x.encoding == demoted_encoding
+    ]
+    return [promoted, *others, *demoted_entries]
 
 
 def _promote_koi8t(
@@ -278,16 +354,7 @@ def _promote_koi8t(
         return results
     # Check for Tajik-specific bytes
     if len(data.translate(None, _KOI8_T_DELETE)) != len(data):
-        koi8t_result = results[koi8t_idx]
-        top_conf = results[0].confidence
-        promoted = DetectionResult(
-            koi8t_result.encoding,
-            top_conf,
-            koi8t_result.language,
-            koi8t_result.mime_type,
-        )
-        others = [r for i, r in enumerate(results) if i != koi8t_idx]
-        return [promoted, *others]
+        return _promote_to_top(results, koi8t_idx)
     return results
 
 
@@ -309,8 +376,10 @@ _DEAD_HEAT_SUPERSETS: dict[str, str] = {
 
 # Confidence band for the classic-Mac line-ending promotion.  Wider than the
 # dead-heat epsilon because bare-\r line endings are decisive platform
-# evidence, not just a prior.  Matches ``confusion._CONFUSION_BAND``.
-_CR_MAC_BAND = 0.005
+# evidence, not just a prior.  Structurally the confusion band: retuning
+# ``CONFUSION_BAND`` carries this promotion's reach with it, keeping the
+# band inside ``_CORRECTION_REACH`` so pruning always scores what it scans.
+_CR_MAC_BAND = CONFUSION_BAND
 
 # Minimum number of \r line endings before the classic-Mac promotion fires.
 _CR_MAC_MIN_LINES = 3
@@ -372,21 +441,34 @@ def _prefer_prevalent_on_dead_heat(
     data: bytes,
     results: list[DetectionResult],
 ) -> list[DetectionResult]:
-    """Break statistical dead heats in favour of the more prevalent era.
+    """Break statistical dead heats in favor of the more prevalent era.
 
     When several encodings score within :data:`_DEAD_HEAT_EPSILON` of the
-    top result and the top result's models carry no weight for any high-byte
-    bigram in the data, the ranking is an artifact of ASCII-bigram noise.
-    Promote the candidate from the most prevalent era (modern web > legacy
-    ISO > Mac > regional > DOS > mainframe) so evidence-free dead heats
-    resolve to the likeliest real-world answer.  A top result whose models
-    do weight observed high-byte bigrams won on real evidence and is kept,
-    however small its margin.
+    top result, the ranking among them is mostly an artifact of
+    ASCII-bigram noise.  Promote the candidate from the most prevalent era
+    (modern web > legacy ISO > Mac > regional > DOS > mainframe) so
+    evidence-free dead heats resolve to the likeliest real-world answer.
+
+    A top result whose models carry no weight for any high-byte bigram in
+    the data has no evidence at all and yields outright.  One whose models
+    do weight an observed bigram is not thereby safe: an English file with
+    one capital ``É`` ranks MacRoman first because the MacRoman model
+    reads 0xC9 as the ellipsis English text is full of, a lead worth
+    2e-5.  Such a top is arbitrated against the prevalent candidate on the
+    bytes the two read differently, under the languages the two can be
+    compared in (see :func:`~chardet.pipeline.confusion.arbitrate_distinguishing_bytes`
+    and confusion's ``_comparable_languages``): the Windows-1252 French
+    model knows ``École`` even when the English one does not, while its
+    Icelandic model may not read a Welsh ``dŵr`` as ``dðr`` against an
+    encoding that models no Icelandic.  The prevalent candidate is
+    promoted only when it wins outright; a tie keeps the top, so an
+    ISO-8859-1 result tied with Windows-1252 on data without C1 bytes
+    stays where the statistics put it.  Genuine MacRoman text never
+    reaches the arbitration, since its hundreds of distinguishing bytes
+    put Windows-1252 far outside the band.
     """
     top = results[0] if results else None
     if top is None or top.encoding is None or len(results) < 2:
-        return results
-    if _has_high_byte_evidence(data, top.encoding, top.language):
         return results
     best_idx = 0
     best_rank = _era_rank(top.encoding)
@@ -402,12 +484,29 @@ def _prefer_prevalent_on_dead_heat(
             best_idx = i
     if best_idx == 0:
         return results
-    chosen = results[best_idx]
-    promoted = DetectionResult(
-        chosen.encoding, top.confidence, chosen.language, chosen.mime_type
+    if not _has_high_byte_evidence(data, top.encoding, top.language):
+        return _promote_to_top(results, best_idx)
+    rival = results[best_idx].encoding or ""
+    comparable = _comparable_languages(
+        top.encoding,
+        rival,
+        frozenset(
+            lang
+            for lang in (top.language, results[best_idx].language)
+            if lang is not None
+        ),
     )
-    rest = [r for j, r in enumerate(results) if j != best_idx]
-    return [promoted, *rest]
+    winner = arbitrate_distinguishing_bytes(
+        data,
+        top.encoding,
+        rival,
+        differing_high_bytes(top.encoding, rival),
+        languages_a=comparable,
+        languages_b=comparable,
+    )
+    if winner == rival:
+        return _promote_to_top(results, best_idx)
+    return results
 
 
 def _promote_to_top(results: list[DetectionResult], i: int) -> list[DetectionResult]:
@@ -520,7 +619,7 @@ def _promote_mac_on_cr_line_endings(
     # veto below reasons about word shapes and prose bigrams, which
     # box-drawing data is not, and old ANSI art legitimately carries
     # bare-CR line endings.
-    if top.language == "zxx":
+    if top.language == ART_LANGUAGE:
         return results
     if data.find(b"\n") >= 0 or data.count(b"\r") < _CR_MAC_MIN_LINES:
         return results
@@ -555,9 +654,8 @@ def _decodes_under_public_names(data: bytes, encoding: str) -> bool:
     default) can remap to a strictly narrower codec (``euc_jis_2004`` is
     reported as ``EUC-JP``), so a rival must decode under both names to be
     promoted.  ``prefer_superset=True`` can also narrow (cp125x leaves
-    codepoints undefined that iso-8859-x maps), but that is an opt-in
-    output transform applied to every detection, not only promoted ones,
-    and is out of this step's hands.
+    codepoints undefined that iso-8859-x maps), but that output transform
+    checks the data itself before remapping.
     """
     if not decodes_completely(data, encoding):
         return False
@@ -580,10 +678,8 @@ def _prefer_decodable_on_tie(
     caller's very next ``data.decode()`` will reject --- a four-byte
     ``iso-8859-1`` word ending in ``0xE1`` detected as utf-8 (issue #380).
 
-    Fires only when the input was not truncated by chardet itself (the
-    orchestrator's ``max_bytes`` slice or ``UniversalDetector``'s buffer
-    cap --- either way these bytes are not the whole story and the caller
-    was told so by *input_truncated*), the tail can actually hold a
+    Fires only when *data* is the whole of what the caller handed over ---
+    *input_truncated* is False --- the tail can actually hold a
     dangling sequence (a high byte in the final four, multi-byte winner),
     and the winner's tolerant decode is **non-empty pure ASCII** --- its
     only multi-byte evidence is the dangling tail itself.  An empty
@@ -616,7 +712,7 @@ def _prefer_decodable_on_tie(
         or len(results) < 2
         # A dangling multi-byte tail needs a high byte among the final
         # bytes (empty data trivially has none).  No cheaper winner gate
-        # exists: the registry's is_multibyte means CJK-style structural
+        # exists: the registry's is_multibyte_cjk means CJK-style structural
         # multibyte and is False for utf-8, the main deferring codec.  The
         # helper below is a single tolerant decode; validity already ran
         # the same decode once per candidate, so this adds at most one
@@ -631,6 +727,62 @@ def _prefer_decodable_on_tie(
             continue
         return _promote_to_top(results, i)
     return results
+
+
+# ---------------------------------------------------------------------------
+# The pruning contract: what statistical pruning must score exactly
+# ---------------------------------------------------------------------------
+
+#: How far below the running second-best score a candidate can sit and still
+#: be examined by a rank correction: rare-language arbitration reads margins
+#: up to ``_RARE_ARBITRATION_MARGIN`` from the top, and confusion resolution
+#: examines the band, kept with a 2x cushion for float noise.
+_CORRECTION_REACH = _RARE_ARBITRATION_MARGIN + 2 * CONFUSION_BAND
+
+
+def scoring_floor(top1: float, top2: float) -> float:
+    """Return the score below which the rank corrections cannot examine a candidate.
+
+    One half of the pruning contract statistical scoring consumes: given
+    the running top two encoding scores, every candidate at or above this
+    floor must carry its exact full-ranking score, or a correction could
+    fire on an understated (or missing) entry and ``detect()`` would
+    diverge from the unpruned full ranking.  The floor trails the
+    second-best score by the corrections' reach; while the top is low
+    enough for confusion resolution's strict tier to open, it extends down
+    to that tier's floor, because a strict-tier promotion may raise any
+    candidate above the tier floor into position 0 before the other
+    corrections evaluate their triggers.
+
+    One correction sits deliberately outside this floor: the decode-safety
+    flip (:func:`_prefer_decodable_on_tie`) scans the ranking *as given*,
+    including pruned-path tails whose entries may be understated or absent
+    — a measured trade-off documented in its own docstring, not a floor
+    violation to fix by widening the reach.
+    """
+    floor = top2 - _CORRECTION_REACH
+    if top1 < STRICT_TIER_MAX_CONF:
+        floor = min(floor, top1 * CONFUSION_FLOOR_RATIO)
+    return floor
+
+
+def forced_encodings(near_top: list[str]) -> list[str]:
+    """Return the encodings the corrections look up by name, given the near-top set.
+
+    The other half of the pruning contract: :func:`postprocess_results`
+    inspects some encodings wherever they rank (the common Western Latin
+    trio for niche Latin demotion, KOI8-T for the KOI8-R promotion), so
+    pruning must score every variant of these whenever a trigger encoding
+    sits at or above the :func:`scoring_floor` — confusion resolution may
+    promote any such candidate to the top before those triggers are
+    evaluated.
+    """
+    forced: list[str] = []
+    if any(e in _DEMOTION_CANDIDATES for e in near_top):
+        forced.extend(_COMMON_LATIN_ENCODINGS)
+    if "koi8-r" in near_top:
+        forced.append("koi8-t")
+    return forced
 
 
 def postprocess_results(
@@ -652,9 +804,12 @@ def postprocess_results(
 
     :param data: The raw byte data the results were produced from.
     :param results: A list of :class:`DetectionResult` ranked by confidence.
-    :param input_truncated: True when the caller's input was longer than
-        ``max_bytes``, i.e. *data* is a chardet-made slice rather than the
-        caller's whole input.
+    :param input_truncated: True when *data* is a chardet-made slice rather
+        than the caller's whole input --- the ``max_bytes`` slice, the
+        evidence-cap slice, or ``UniversalDetector``'s buffer cap.  Any of
+        them means the bytes here are not the whole story, so the
+        decode-safety tiebreak, which reasons about what the caller will
+        decode, stands down.
     :returns: A new list (or the same list) with rank corrections applied.
     """
     results = _promote_superset_on_dead_heat(data, results)

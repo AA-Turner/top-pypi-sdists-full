@@ -409,6 +409,50 @@ fn generate_issue_148_document(num_entries: usize) -> String {
 }
 
 // =============================================================================
+// MD026 Tests
+// =============================================================================
+
+/// The setext structure guard must look at the heading's own block, not at the
+/// whole document, so the cost of a check grows with the number of headings.
+#[test]
+fn test_md026_setext_structure_guard_linear_complexity() {
+    let rule = MD026NoTrailingPunctuation::default();
+    // The last two put every heading in one list item or one nested container
+    for (head, unit) in [
+        ("", "- .\n  ===\n\n"),
+        ("", "> <span>a</span>.\n> ===\n>\n"),
+        ("", "<span>a</span>.\n===\n\n"),
+        ("- item\n\n", "  #hashtag.\n  ==========\n\n"),
+        ("> - item\n>\n", ">   <span>a</span>.\n>   ===\n>\n"),
+        ("", "-\t<span>a</span>.\n\t===\n\n"),
+    ] {
+        let durations: Vec<_> = [250, 500, 1000]
+            .iter()
+            .map(|&size| measure_rule_time(&rule, &format!("{head}{}", unit.repeat(size)), 3))
+            .collect();
+        assert_linear_complexity(&format!("MD026 {head:?} {unit:?}"), &durations, 3.0);
+    }
+}
+
+/// MD027 asks per quoted line whether the quote above it held a list; the answer
+/// must come from the running state of the quote, not a scan back through it.
+#[test]
+fn test_md027_list_continuation_lookup_linear_complexity() {
+    let rule = MD027MultipleSpacesBlockquote::default();
+    for unit in [
+        "> quote line text\n",
+        "> - item\n>   continued\n",
+        ">  spaced quote line\n",
+    ] {
+        let durations: Vec<_> = [1000, 2000, 4000]
+            .iter()
+            .map(|&size| measure_rule_time(&rule, &unit.repeat(size), 3))
+            .collect();
+        assert_linear_complexity(&format!("MD027 {unit:?}"), &durations, 3.0);
+    }
+}
+
+// =============================================================================
 // LintContext Construction Tests
 // =============================================================================
 
@@ -492,6 +536,125 @@ fn test_md013_table_body_linear_complexity() {
         .collect();
 
     assert_linear_complexity("MD013 table body", &durations, 3.0);
+}
+
+#[test]
+fn test_inline_config_multi_line_directives_linear_complexity() {
+    use rumdl_lib::inline_config::InlineConfig;
+    let durations: Vec<_> = [1024, 2048, 4096]
+        .into_iter()
+        .map(|size| {
+            let content = "<!--\nrumdl-disable-next-line\nMD013\n-->\ntext\n\n".repeat(size);
+            let _ = InlineConfig::from_content(&content);
+            let mut times: Vec<Duration> = (0..3)
+                .map(|_| {
+                    let start = MeasurementClock::now();
+                    let _ = std::hint::black_box(InlineConfig::from_content(std::hint::black_box(&content)));
+                    start.elapsed()
+                })
+                .collect();
+            times.sort();
+            times[1]
+        })
+        .collect();
+    assert_linear_complexity("InlineConfig::from_content (multi-line directives)", &durations, 3.0);
+}
+
+#[test]
+fn test_inline_config_code_examples_with_one_closer_linear_complexity() {
+    use rumdl_lib::inline_config::InlineConfig;
+    // A fenced example of many unterminated openers followed by a single closer:
+    // each opener is rejected as code without parsing the text up to the closer.
+    let durations: Vec<_> = [1024, 2048, 4096]
+        .into_iter()
+        .map(|size| {
+            let content = format!("```\n{}-->\n```\n", "<!-- rumdl-disable MD013\n".repeat(size));
+            let _ = InlineConfig::from_content(&content);
+            let mut times: Vec<Duration> = (0..3)
+                .map(|_| {
+                    let start = MeasurementClock::now();
+                    let _ = std::hint::black_box(InlineConfig::from_content(std::hint::black_box(&content)));
+                    start.elapsed()
+                })
+                .collect();
+            times.sort();
+            times[1]
+        })
+        .collect();
+    assert_linear_complexity("InlineConfig::from_content (code openers, one closer)", &durations, 3.0);
+}
+
+#[test]
+fn test_inline_config_markers_many_comments_on_one_line_linear_complexity() {
+    use rumdl_lib::inline_config::has_inline_config_markers;
+    // Ordinary comments crowded on a single line: the candidate check must not
+    // look back over the growing line for each one.
+    let durations: Vec<_> = [8192, 16384, 32768]
+        .into_iter()
+        .map(|size| {
+            let content = "<!-- plain --> ".repeat(size);
+            let _ = has_inline_config_markers(&content);
+            let mut times: Vec<Duration> = (0..3)
+                .map(|_| {
+                    let start = MeasurementClock::now();
+                    let _ = std::hint::black_box(has_inline_config_markers(std::hint::black_box(&content)));
+                    start.elapsed()
+                })
+                .collect();
+            times.sort();
+            times[1]
+        })
+        .collect();
+    assert_linear_complexity("has_inline_config_markers (one line)", &durations, 3.0);
+}
+
+#[test]
+fn test_inline_config_many_comments_on_one_line_after_a_directive_linear_complexity() {
+    use rumdl_lib::inline_config::InlineConfig;
+    // One directive, then ordinary comments crowded on a single line with no
+    // newline after them: deciding whether each spans lines must not search the
+    // rest of the document again.
+    let durations: Vec<_> = [8192, 16384, 32768]
+        .into_iter()
+        .map(|size| {
+            let content = format!("<!-- rumdl-disable MD013 -->\n{}", "<!-- plain --> ".repeat(size));
+            let _ = InlineConfig::from_content(&content);
+            let mut times: Vec<Duration> = (0..3)
+                .map(|_| {
+                    let start = MeasurementClock::now();
+                    let _ = std::hint::black_box(InlineConfig::from_content(std::hint::black_box(&content)));
+                    start.elapsed()
+                })
+                .collect();
+            times.sort();
+            times[1]
+        })
+        .collect();
+    assert_linear_complexity("InlineConfig::from_content (one line of comments)", &durations, 3.0);
+}
+
+#[test]
+fn test_inline_config_crowded_openers_before_a_later_closer_linear_complexity() {
+    use rumdl_lib::inline_config::InlineConfig;
+    // One directive, then many openers on one line whose closer is on a later
+    // line: each opener is checked for code without rescanning its line.
+    let durations: Vec<_> = [8192, 16384, 32768]
+        .into_iter()
+        .map(|size| {
+            let content = format!("<!-- rumdl-disable MD013 -->\n{}\n-->\n", "<!-- plain ".repeat(size));
+            let _ = InlineConfig::from_content(&content);
+            let mut times: Vec<Duration> = (0..3)
+                .map(|_| {
+                    let start = MeasurementClock::now();
+                    let _ = std::hint::black_box(InlineConfig::from_content(std::hint::black_box(&content)));
+                    start.elapsed()
+                })
+                .collect();
+            times.sort();
+            times[1]
+        })
+        .collect();
+    assert_linear_complexity("InlineConfig::from_content (crowded openers)", &durations, 3.0);
 }
 
 #[test]
@@ -1107,6 +1270,29 @@ fn test_md034_linear_complexity() {
 }
 
 #[test]
+fn test_md034_interleaved_code_links_and_bare_urls_linear_complexity() {
+    let rule = MD034NoBareUrls;
+    let durations: Vec<_> = [2000, 4000, 8000]
+        .into_iter()
+        .map(|size| {
+            let mut content = String::from("# URLs\n\n");
+            for i in 0..size {
+                content.push_str(&format!(
+                    "`sample_{i}` [linked](https://example.com/linked/{i}) https://example.com/bare/{i}\n\n"
+                ));
+            }
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            assert_eq!(rule.check(&ctx).unwrap().len(), size);
+            measure_rule_time(&rule, &content, 5)
+        })
+        .collect();
+
+    // Each bare URL must query the code spans and links without scanning the
+    // whole document's records. A repeated full scan approaches 4x per doubling.
+    assert_linear_complexity("MD034 interleaved code and links", &durations, 3.0);
+}
+
+#[test]
 fn test_md039_linear_complexity() {
     let sizes = [500, 1000, 2000];
     let iterations = 5;
@@ -1544,4 +1730,134 @@ fn test_md033_unclosed_tags_linear_complexity() {
 
         assert_linear_complexity("MD033 unclosed tags", &durations, 3.0);
     }
+}
+
+#[test]
+fn table_confirmation_linear_complexity() {
+    // Lists interleaved with tables: confirming each table must not walk every
+    // earlier list item.
+    let build = |count: usize| "- x\n\n|a|b|\n|-|-|\n\n".repeat(count);
+    let measure = |count: usize| {
+        let content = build(count);
+        let start = std::time::Instant::now();
+        let ctx =
+            rumdl_lib::lint_context::LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        assert_eq!(ctx.table_blocks.len(), count);
+        start.elapsed().as_secs_f64()
+    };
+    let small = measure(1000);
+    let large = measure(8000);
+    // Linear growth is 8x; quadratic is 64x.
+    assert!(
+        large / small < 24.0,
+        "confirming 8000 tables took {:.1}x the time of 1000",
+        large / small
+    );
+}
+
+#[test]
+fn carved_table_confirmation_linear_complexity() {
+    // Many tables inside one admonition: confirming each must not rescan the
+    // container from its opener.
+    let measure = |count: usize| {
+        let content = format!("!!! note\n\n{}", "    |a|b|\n    |-|-|\n\n".repeat(count));
+        let start = std::time::Instant::now();
+        let ctx = rumdl_lib::lint_context::LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::MkDocs, None);
+        assert_eq!(ctx.table_blocks.len(), count);
+        start.elapsed().as_secs_f64()
+    };
+    let small = measure(1000);
+    let large = measure(8000);
+    assert!(
+        large / small < 24.0,
+        "confirming 8000 tables took {:.1}x the time of 1000",
+        large / small
+    );
+}
+
+#[test]
+fn flavor_masked_header_confirmation_linear_complexity() {
+    // A MkDocs header holding a code span full of pipes: the pipes the flavor
+    // masks must be looked up without scanning all the others.
+    let measure = |pipes: usize| {
+        let content = format!("a | `{}`\n-|-\n", "x|".repeat(pipes));
+        let start = std::time::Instant::now();
+        let ctx = rumdl_lib::lint_context::LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::MkDocs, None);
+        assert_eq!(ctx.table_blocks.len(), 1);
+        start.elapsed().as_secs_f64()
+    };
+    let small = measure(4000);
+    let large = measure(32000);
+    assert!(
+        large / small < 24.0,
+        "confirming 32000 masked pipes took {:.1}x the time of 4000",
+        large / small
+    );
+}
+
+#[test]
+fn rejected_definition_table_confirmation_linear_complexity() {
+    // Many rejected colon definitions beside many tables: each lookup must not
+    // scan every definition.
+    let measure = |count: usize| {
+        let content = "term\n:warning:\n\n|a|b|\n|-|-|\n\n".repeat(count);
+        let start = std::time::Instant::now();
+        let ctx =
+            rumdl_lib::lint_context::LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        assert_eq!(ctx.table_blocks.len(), count);
+        start.elapsed().as_secs_f64()
+    };
+    let small = measure(4000);
+    let large = measure(32000);
+    assert!(
+        large / small < 16.0,
+        "confirming 32000 tables took {:.1}x the time of 4000",
+        large / small
+    );
+}
+
+#[test]
+fn rejected_definition_run_confirmation_linear_complexity() {
+    // One rejected definition, then many tables in a single unbroken run of
+    // non-blank lines: each table must not rescan the run above it.
+    let measure = |count: usize| {
+        let content = format!("term\n:warning:\n\n{}", "# s\n|a|b|\n|-|-|\n".repeat(count));
+        let start = std::time::Instant::now();
+        let ctx =
+            rumdl_lib::lint_context::LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        assert_eq!(ctx.table_blocks.len(), count);
+        start.elapsed().as_secs_f64()
+    };
+    let small = measure(1000);
+    let large = measure(8000);
+    assert!(
+        large / small < 16.0,
+        "confirming 8000 tables took {:.1}x the time of 1000",
+        large / small
+    );
+}
+
+#[test]
+fn nested_list_table_confirmation_linear_complexity() {
+    // An outer item with many closed child items, then many tables at its own
+    // indentation: finding the outer item must not walk the closed children.
+    let measure = |count: usize| {
+        let content = format!(
+            "- outer\n{}{}",
+            "  - c\n".repeat(count),
+            "\n  |a|b|\n  |-|-|\n".repeat(count)
+        );
+        let start = std::time::Instant::now();
+        let ctx =
+            rumdl_lib::lint_context::LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        assert!(!ctx.table_blocks.is_empty());
+        start.elapsed().as_secs_f64()
+    };
+    let small = measure(2000);
+    let large = measure(16000);
+    assert!(
+        large / small < 16.0,
+        "confirming 16000 tables took {:.1}x the time of 2000",
+        large / small
+    );
 }

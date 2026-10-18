@@ -314,6 +314,7 @@ from omnimarket.routing.delegation_backend_resolution import (
     resolve_delegation_backend as _resolve_delegation_backend_uncustomized,
 )
 from omnimarket.routing.local_byok_route import (
+    next_registered_byok_route,
     resolve_pinned_byok_route,
     substitute_any_registered_byok_route,
     substitute_local_byok_route,
@@ -1921,6 +1922,20 @@ class LocalDelegationDispatchPort:
                         quota_state=self._quota_snapshot(quota_observations),
                     )
 
+                # OMN-20844: the ladder offers no new responder, and the
+                # customer holds another key. That key answers next; it is a
+                # sideways hop like a sibling, never a house fallback.
+                next_customer_key: ModelResolvedDelegationBackend | None = None
+                if (
+                    customer_route
+                    and may_move_on
+                    and transport_sibling is None
+                    and escalated_backend is None
+                ):
+                    next_customer_key = next_registered_byok_route(
+                        backend, tried_backend_ids=frozenset(excluded_backend_refs)
+                    )
+
                 # A transport failure never runs the quality gate, so bank its
                 # (typically zero) metered cost directly — mirrors the
                 # post-success banking below without requiring a gate verdict.
@@ -1939,6 +1954,8 @@ class LocalDelegationDispatchPort:
                         "quality_gate_passed": False,
                         "quality_score": None,
                         "cost_usd": float(transport_result.actual_cost_usd),
+                        # OMN-20717: whether this rung's cost was measured.
+                        "usage_source": transport_result.usage_source.value,
                         "failure_class": (
                             transport_failure_class.value
                             if transport_failure_class is not None
@@ -2022,6 +2039,21 @@ class LocalDelegationDispatchPort:
                     )
                     escalation_count += 1
                     backend = _with_model_choice(escalated_backend)
+                    continue
+
+                if next_customer_key is not None:
+                    logger.info(
+                        "LocalDelegationDispatch: customer key fall-through "
+                        "task_type=%s backend=%s -> backend=%s on transport "
+                        "failure_class=%s correlation=%s reason=%s",
+                        task_type,
+                        backend.backend_id,
+                        next_customer_key.backend_id,
+                        transport_failure_class,
+                        correlation_id,
+                        transport_failure_message,
+                    )
+                    backend = _with_model_choice(next_customer_key)
                     continue
 
                 # Cannot escalate (non-retryable failure_class, budget exhausted,
@@ -2259,6 +2291,8 @@ class LocalDelegationDispatchPort:
                     "quality_score": gate_result.quality_score,
                     "error_message": "; ".join(gate_result.failure_reasons),
                     "cost_usd": float(result.actual_cost_usd),
+                    # OMN-20717: whether this rung's cost was measured.
+                    "usage_source": result.usage_source.value,
                     # OMN-20154: the provider answered; a rung the gate did not
                     # accept is a quality-gate failure, typed as one.
                     "provider_id": _attempt_provider_id(backend.endpoint_ref),
@@ -2580,6 +2614,19 @@ class LocalDelegationDispatchPort:
                     spread_key=str(correlation_id),
                     quota_state=self._quota_snapshot(quota_observations),
                     stop_reasons=ladder_stop_reasons,
+                )
+            # OMN-20844: no tier offers a new responder for a customer whose
+            # answer failed the gate; their next registered key is the next
+            # responder, charged to the escalation budget like a tier.
+            if (
+                next_backend is None
+                and not ladder_stopped_by_veto
+                and pinned_backend_id is None
+                and escalation_count < max_escalations
+                and _is_customer_byok_route(backend)
+            ):
+                next_backend = next_registered_byok_route(
+                    backend, tried_backend_ids=frozenset(excluded_backend_refs)
                 )
 
             if next_backend is None:
@@ -4223,11 +4270,18 @@ class LocalDelegationDispatchPort:
         measured zero. Counting escalated-from attempts' tokens belongs in the
         metering summary, so the CLI and the page move together.
 
+        Every call carries the run's tier, read from the delegation row the
+        terminal has just written (OMN-20755's rule), so the tier joins the
+        usage row key and one run never splits across tiers (OMN-21015 AC4,
+        per the 2026-10-14 ruling). A row with no tier, or a failed read,
+        books the calls under not_tier_routed, never under a guessed tier.
+
         Dated by the terminal's own emitted_at, so its UTC day is the
         delegation row's. Each call has its own guard: a failed usage write
         must neither break the response nor take the call-metrics row, or
         another attempt's usage, down with it.
         """
+        run_cost_tier_name = self._recorded_run_tier(correlation_id)
         deciding = len(attempt_usage) - 1
         calls = [
             (index == deciding, usage)
@@ -4249,6 +4303,7 @@ class LocalDelegationDispatchPort:
                     completion_tokens=usage.tokens_out if is_deciding else 0,
                     estimated_cost_usd=float(usage.cost_usd),
                     usage_source=usage.usage_source,
+                    cost_tier_name=run_cost_tier_name,
                     timestamp=emitted_at,
                 )
                 apply_usage_call(
@@ -4263,6 +4318,22 @@ class LocalDelegationDispatchPort:
                     call_id,
                     exc_info=True,
                 )
+
+    def _recorded_run_tier(self, correlation_id: UUID) -> str:
+        """The routing tier the run's delegation row records, "" when it has none."""
+        try:
+            rows = self._evidence_db.query(
+                _DELEGATION_EVENTS_TABLE, {"correlation_id": str(correlation_id)}
+            )
+        except Exception:
+            logger.warning(
+                "Failed to read the routing tier for correlation_id=%s",
+                correlation_id,
+                exc_info=True,
+            )
+            return ""
+        tier = rows[0].get("cost_tier_name") if rows else None
+        return tier if isinstance(tier, str) else ""
 
     def _refresh_metering_summary(
         self, *, correlation_id: UUID, tenant_id: str, terminal_at: datetime

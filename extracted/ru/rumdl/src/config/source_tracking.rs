@@ -344,6 +344,8 @@ pub struct ConfigValidationWarning {
 #[derive(Debug, Clone)]
 pub struct SourcedConfig<State = ConfigLoaded> {
     pub global: SourcedGlobalConfig,
+    /// CLI2 file-selection options, separate from native rumdl exclusions.
+    pub cli2_ignores: Vec<super::Cli2Ignore>,
     pub per_file_ignores: SourcedValue<BTreeMap<String, Vec<String>>>,
     pub per_file_flavor: SourcedValue<IndexMap<String, MarkdownFlavor>>,
     pub code_block_tools: SourcedValue<crate::code_block_tools::CodeBlockToolsConfig>,
@@ -369,6 +371,9 @@ pub struct SourcedConfig<State = ConfigLoaded> {
     /// auto-discovery only, so an explicit `--config` path and
     /// `--no-config`/`--isolated` see only the other kinds.
     pub discovery_warnings: Vec<String>,
+    /// How discovery reached this configuration: what it searched, in what
+    /// order, and why it stopped. Rendered by `rumdl config file --explain`.
+    pub discovery_trace: super::discovery_trace::DiscoveryTrace,
     /// Validation warnings (populated after validate() is called)
     pub validation_warnings: Vec<ConfigValidationWarning>,
     /// Phantom data for the state type parameter
@@ -379,6 +384,7 @@ impl Default for SourcedConfig<ConfigLoaded> {
     fn default() -> Self {
         Self {
             global: SourcedGlobalConfig::default(),
+            cli2_ignores: Vec::new(),
             per_file_ignores: SourcedValue::new(BTreeMap::new(), ConfigSource::Default),
             per_file_flavor: SourcedValue::new(IndexMap::new(), ConfigSource::Default),
             code_block_tools: SourcedValue::new(
@@ -390,6 +396,7 @@ impl Default for SourcedConfig<ConfigLoaded> {
             unknown_keys: Vec::new(),
             project_root: None,
             discovery_warnings: Vec::new(),
+            discovery_trace: super::discovery_trace::DiscoveryTrace::default(),
             validation_warnings: Vec::new(),
             _state: PhantomData,
         }

@@ -9,6 +9,12 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Literal, Self
 from uuid import UUID
 
+from omnibase_core.enums.enum_delegation_content_verdict import (
+    EnumDelegationContentVerdict,
+)
+from omnibase_core.enums.enum_delegation_operational_outcome import (
+    EnumDelegationOperationalOutcome,
+)
 from omnibase_core.models.delegation.wire import (
     EnumDelegationTerminalFailureCause,
     EnumQualityScoreComparison,
@@ -18,6 +24,9 @@ from omnibase_core.models.delegation.wire import (
     ModelDelegationOutputRefusal,
     ModelDelegationProvenance,
     ModelPremiumCounterfactual,
+)
+from omnibase_core.models.delegation.wire.model_quality_gate import (
+    ModelQualityRuleEvaluation,
 )
 from pydantic import (
     BaseModel,
@@ -41,6 +50,7 @@ from omnimarket.enums.enum_delegation_attempt_kind import EnumDelegationAttemptK
 from omnimarket.enums.enum_delegation_failure_class import EnumDelegationFailureClass
 from omnimarket.enums.enum_provider_finish_reason import EnumProviderFinishReason
 from omnimarket.enums.enum_secret_source import EnumSecretSource
+from omnimarket.enums.enum_usage_source import EnumUsageSource
 from omnimarket.models.delegation.credential_withheld_rung import (
     ModelCredentialWithheldRung,
 )
@@ -91,17 +101,9 @@ from omnimarket.models.model_delegation_split_recombine import EnumDelegationSiz
 # as a weighted spread draw. The producer and the declared field land in the
 # change after the release that carries this consumer.
 #
-# OMN-20717 adds ``usage_source``: the measurement provenance the transport
-# reported for the attempt's cost, so an unpriced call can be stored as a null
-# cost rather than 0. Its producer and declared field land after the release
-# that carries this consumer.
-_FORTHCOMING_ATTEMPT_KEYS: frozenset[str] = frozenset(
-    {"backend_pinned", "usage_source"}
-)
-# OMN-20717: ``cost_measured`` on the metrics says whether any attempt's cost
-# was measured, so a zero ``cost_usd`` can be told apart from an unpriced one.
-# Same consumer-first order as the attempt key above.
-_FORTHCOMING_METRICS_KEYS: frozenset[str] = frozenset({"cost_measured"})
+# OMN-20717 declared ``usage_source`` on the attempt and ``cost_measured`` on
+# the metrics below, after the release that carried their consumer-first keys.
+_FORTHCOMING_ATTEMPT_KEYS: frozenset[str] = frozenset({"backend_pinned"})
 # OMN-20274: the savings baseline keys omnimarket#3172 (OMN-19969) declares.
 _FORTHCOMING_BASELINE_RESPONSE_KEYS: frozenset[str] = frozenset(
     {"baseline_source", "baseline_state"}
@@ -110,12 +112,11 @@ _FORTHCOMING_BASELINE_RESPONSE_KEYS: frozenset[str] = frozenset(
 # longer listed here: the set holds only terminal keys still awaiting their own
 # declared field.
 #
-# OMN-19437 AC1, consumer half: the terminal will carry the trace and span ids of
-# the command that produced it. This release decodes and drops them; the field
-# declarations and the handler's copy follow once a release carrying this is out.
+# OMN-19437 AC1 declared ``trace_id`` and ``span_id`` as real terminal fields
+# below, so they are no longer listed here either.
 #
 # Response-source provenance is declared after its consumer-first release.
-_FORTHCOMING_TERMINAL_KEYS: frozenset[str] = frozenset({"trace_id", "span_id"})
+_FORTHCOMING_TERMINAL_KEYS: frozenset[str] = frozenset()
 # Accept the next receiver's keys without declaring producer fields. Keep the
 # construction-failure distinction privately: its failed topic can preserve a
 # true gate flag, and its absent score must not become a measured zero.
@@ -169,6 +170,10 @@ class ModelDelegateSkillAttemptRecord(BaseModel):
     quality_gate_passed: bool = Field(...)
     quality_score: float | None = Field(default=None)
     cost_usd: float = Field(default=0.0, ge=0.0)
+    # OMN-20717: whether this rung's cost was measured, estimated or unknown,
+    # as the transport reported it. None when no source reached this record
+    # (a skipped rung, or a producer that does not report one).
+    usage_source: EnumUsageSource | None = Field(default=None)
     # OMN-19436: retain the provider's stop reason on each rung.
     finish_reason: EnumProviderFinishReason | None = Field(
         default=None,
@@ -393,6 +398,16 @@ class ModelDelegateSkillResponseMetrics(BaseModel):
     tokens_to_compliance: int = Field(default=0, ge=0)
     compliance_attempts: int = Field(default=0, ge=0)
     cost_usd: float = Field(default=0.0, ge=0.0)
+    cost_measured: bool | None = Field(
+        default=None,
+        description=(
+            "OMN-20717: whether cost_usd was measured. True when at least one "
+            "attempt's cost was measured, False when attempts reported a usage "
+            "source and none was measured (the call was not priced, so a zero "
+            "cost_usd means unknown, not free). None when no attempt reported a "
+            "source; cost_usd is then taken as given."
+        ),
+    )
     cost_savings_usd: float | None = Field(default=None, ge=0.0)
     frontier_costs_usd: dict[str, float] = Field(default_factory=dict)
     premium_counterfactual: ModelPremiumCounterfactual | None = Field(
@@ -403,12 +418,6 @@ class ModelDelegateSkillResponseMetrics(BaseModel):
         ),
     )
     latency_ms: int = Field(default=0, ge=0)
-
-    @model_validator(mode="before")
-    @classmethod
-    def accept_forthcoming_keys(cls, data: Any) -> Any:
-        """Decode metrics from a producer one release ahead (OMN-20717)."""
-        return _without_forthcoming_keys(data, _FORTHCOMING_METRICS_KEYS)
 
 
 class ModelDelegateSkillResponse(BaseModel):
@@ -428,6 +437,11 @@ class ModelDelegateSkillResponse(BaseModel):
         return self
 
     status: Literal["completed", "failed", "timeout"] = Field(...)
+    # OMN-19013: the typed pair Core reserves for a terminal whose carrier failed
+    # validation. Declared together or not at all; see the validator below.
+    operational_outcome: EnumDelegationOperationalOutcome | None = Field(default=None)
+    content_verdict: EnumDelegationContentVerdict | None = Field(default=None)
+    terminal_failure_reason: str | None = Field(default=None)
     correlation_id: UUID = Field(...)
     task_type: str = Field(...)
     # string-id-ok: tenant_id is a named tenant identifier (slug), not a UUID.
@@ -527,7 +541,10 @@ class ModelDelegateSkillResponse(BaseModel):
         ).retain_response_reasoning(reasoning)
 
     quality_gate_passed: bool = Field(default=False)
-    quality_score: float | None = Field(default=0.0, ge=0.0, le=1.0)
+    # None means the terminal was never scored. A terminal whose construction
+    # failed carries None on purpose: a graded zero would read as a measured
+    # failing score (OMN-19013).
+    quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
     required_quality_bar: float | None = Field(
         default=None,
         exclude_if=lambda value: value is None,
@@ -544,6 +561,11 @@ class ModelDelegateSkillResponse(BaseModel):
         default=(),
         exclude_if=lambda value: not value,
         description="Authoritative quality-gate criteria that rejected this result.",
+    )
+    rule_evaluations: tuple[ModelQualityRuleEvaluation, ...] = Field(
+        default=(),
+        exclude_if=lambda value: not value,
+        description="Authoritative per-rule quality-gate evaluations.",
     )
     terminal_failure_cause: EnumDelegationTerminalFailureCause | None = Field(
         default=None,
@@ -760,6 +782,26 @@ class ModelDelegateSkillResponse(BaseModel):
         ),
     )
 
+    # OMN-19437 AC1: the trace and span ids of the command that produced the
+    # terminal, copied by the handler from the command. Absent means the command
+    # carried none; an id is never minted here.
+    trace_id: UUID | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description=(
+            "Trace id of the command the terminal answers. Absent means the "
+            "command carried none."
+        ),
+    )
+    span_id: UUID | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description=(
+            "Span id of the command the terminal answers. Absent means the "
+            "command carried none."
+        ),
+    )
+
     @field_validator("session_id", mode="before")
     @classmethod
     def _canonical_session_id(cls, value: object) -> str | None:
@@ -954,6 +996,53 @@ class ModelDelegateSkillResponse(BaseModel):
             raise ValueError(msg)
         return self
 
+    def _validate_construction_failure_pair(self) -> None:
+        """Hold the OMN-19013 construction-failure invariants.
+
+        A terminal whose carrier failed validation is the one pair
+        ``TERMINAL_CONSTRUCTION_FAILED`` / ``UNDETERMINED``, with the stable
+        reason, and carries no quality evidence: the content was never graded by
+        a terminal that survived construction. ``quality_gate_passed`` is the one
+        quality fact it keeps, because that is the gate's own earlier decision
+        and the failed topic must not rewrite it.
+        """
+        if (self.operational_outcome is None) != (self.content_verdict is None):
+            msg = "operational_outcome and content_verdict must be provided together"
+            raise ValueError(msg)
+        construction_failed = (
+            self.operational_outcome
+            is EnumDelegationOperationalOutcome.TERMINAL_CONSTRUCTION_FAILED
+        )
+        undetermined = self.content_verdict is EnumDelegationContentVerdict.UNDETERMINED
+        if undetermined and not construction_failed:
+            msg = "undetermined content verdict requires construction failure outcome"
+            raise ValueError(msg)
+        if not construction_failed:
+            return
+        if not undetermined:
+            msg = "construction failure requires undetermined content verdict"
+            raise ValueError(msg)
+        if self.status == "completed":
+            msg = "construction failure must not use completed status"
+            raise ValueError(msg)
+        if self.terminal_failure_reason != "terminal_construction_failed":
+            msg = "construction failure requires stable terminal_failure_reason"
+            raise ValueError(msg)
+        if self.quality_score is not None or self.required_quality_bar is not None:
+            msg = "construction failure cannot carry quality score evidence"
+            raise ValueError(msg)
+        if (
+            self.score_vs_required_bar is not None
+            or self.failed_acceptance_criteria
+            or self.rule_evaluations
+            or self.quality_gates_failed
+        ):
+            msg = "construction failure cannot carry quality evidence"
+            raise ValueError(msg)
+        if self.terminal_failure_cause is not None:
+            msg = "construction failure cannot claim provider failure cause"
+            raise ValueError(msg)
+
     @model_validator(mode="after")
     def validate_structured_terminal_evidence(self) -> Self:
         """Preserve the canonical Core terminal-evidence invariants.
@@ -976,6 +1065,8 @@ class ModelDelegateSkillResponse(BaseModel):
             msg = "budget_evidence and budget_refusal are mutually exclusive"
             raise ValueError(msg)
 
+        self._validate_construction_failure_pair()
+
         required_bar = self.required_quality_bar
         comparison = self.score_vs_required_bar
         if (required_bar is None) != (comparison is None):
@@ -987,7 +1078,8 @@ class ModelDelegateSkillResponse(BaseModel):
 
         if required_bar is not None and comparison is not None:
             if self.quality_score is None:
-                raise ValueError("quality-bar evidence requires quality_score")
+                msg = "quality-bar evidence requires quality_score"
+                raise ValueError(msg)
             expected = (
                 EnumQualityScoreComparison.BELOW_BAR
                 if self.quality_score < required_bar
@@ -1124,9 +1216,13 @@ class ModelDelegateSkillResponse(BaseModel):
                 "operational_outcome and content_verdict must be provided together"
             )
         construction_failed = outcome == _CONSTRUCTION_FAILED
-        if (verdict == "undetermined") != construction_failed:
+        if verdict == "undetermined" and not construction_failed:
             raise ValueError(
-                "construction failure requires undetermined content verdict and conversely"
+                "undetermined content verdict requires construction failure outcome"
+            )
+        if construction_failed and verdict != "undetermined":
+            raise ValueError(
+                "construction failure requires undetermined content verdict"
             )
         if construction_failed:
             if data.get("status") == "completed":
@@ -1388,7 +1484,9 @@ def _authoritative_attempt_ladder_verdict(
 def _evidence_indicates_success(response: ModelDelegateSkillResponse) -> bool:
     """Status-independent success evidence for validating failed terminals."""
     if (
-        response.terminal_construction_failed
+        response.operational_outcome
+        is EnumDelegationOperationalOutcome.TERMINAL_CONSTRUCTION_FAILED
+        or response.terminal_construction_failed
         or response.terminal_failure_cause is not None
     ):
         return False
@@ -1424,6 +1522,11 @@ def delegate_skill_succeeded(response: ModelDelegateSkillResponse) -> bool:
     terminal are OMN-15464's seam, not this one.
     """
     if response.status != "completed":
+        return False
+    if (
+        response.operational_outcome
+        is EnumDelegationOperationalOutcome.TERMINAL_CONSTRUCTION_FAILED
+    ):
         return False
     if response.terminal_failure_cause is not None:
         return False

@@ -320,6 +320,7 @@ def tb03ad(n,m,p,A,B,C,D,leri,equil='N',tol=0.0,ldwork=None):
             "R": _wrapper.tb03ad_r}
     mp_ = {"L": p, "R": m}
     mp = mp_[leri]
+    # ruff: disable[SIM118]
     if leri not in wfun.keys():
         raise SlycotParameterError('leri must be either L or R', -1)
     if ldwork is None:
@@ -570,11 +571,13 @@ def tb05ad(n, m, p, jomega, A, B, C, job='NG'):
                                    "".format(*(A.shape + (n,))),
                                    -7)
     if B.shape != (n, m):
+        # ruff: disable[UP030]
         raise SlycotParameterError("The shape of B is ({0:}, {1:}), "
                                    "but expected ({2:}, {3:})"
                                    "".format(*(B.shape + (n, m))),
                                    -9)
     if C.shape != (p, n):
+        # ruff: disable[UP030]
         raise SlycotParameterError("The shape of C is ({0:}, {1:}), "
                                    "but expected ({2:}, {3:})"
                                    "".format(*(C.shape + (p, n))),
@@ -604,6 +607,7 @@ def tb05ad(n, m, p, jomega, A, B, C, job='NG'):
         raise_if_slycot_error(info, arg_list, tb05ad.__doc__, locals())
         return g_i, hinvb, info
     else:
+        # ruff: disable[UP032]
         raise SlycotParameterError("Unrecognized job. Expected job = 'AG' or "
                                    "job='NG' or job = 'NH' but received job={}"
                                    "".format(job),
@@ -813,6 +817,7 @@ def tc04ad(m,p,index,pcoeff,qcoeff,leri,ldwork=None):
         ldwork = max(m, p)*(max(m, p)+4)
     n = sum(index)
     wfun = {"L": _wrapper.tc04ad_l, "R": _wrapper.tc04ad_r}
+    # ruff: disable[SIM118]
     if leri not in wfun.keys():
         raise SlycotParameterError('leri must be either L or R', -1)
     out = wfun[leri](m, p, index, pcoeff, qcoeff, n)

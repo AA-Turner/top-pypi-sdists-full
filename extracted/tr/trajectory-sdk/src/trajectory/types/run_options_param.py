@@ -54,6 +54,10 @@ class RunOptionsParam(TypedDict, total=False):
   """
   Cosine decay floor as a fraction of the base learning rate.
   """
+  reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"] | None
+  """
+  Reasoning effort for models that support it; null preserves the model default.
+  """
   disable_thinking: bool | None
   """
   Disable model thinking during training or evaluation.

@@ -4,6 +4,7 @@ from scipy import signal
 from slycot import synthesis
 
 
+# ruff: disable[UP039]
 class Test_sb10yd():
 
     # TODO: There might be better systems/filters to do these tests.
@@ -75,6 +76,8 @@ class Test_sb10yd():
         n = 2
         dico = 0  # 0 for continuous time
         flag = 0  # 0 for no constraints on the poles
+
+        # ruff: disable[RUF059]
         n_id, A_id, B_id, C_id, D_id = synthesis.sb10yd(
             dico, flag, len(omega),
             real_H_resp, imag_H_resp, omega, n, tol=0)
@@ -161,6 +164,7 @@ class Test_sb10yd():
         n = 2
         dico = 1  # 0 for discrete time
         flag = 0  # 0 for no constraints on the poles
+        # ruff: disable[RUF059]
         n_id, A_id, B_id, C_id, D_id = synthesis.sb10yd(
             dico, flag, len(omega),
             real_H_resp, imag_H_resp, omega, n, tol=0)

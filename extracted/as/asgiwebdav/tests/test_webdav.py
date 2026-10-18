@@ -1,6 +1,6 @@
 import pytest
 
-from .testkit_asgi import ASGITestClient, get_webdav_app
+from .kits.asgi import ASGITestClient, get_webdav_app
 
 USERNAME = "username"
 PASSWORD = "password"
@@ -23,7 +23,7 @@ CONFIG_DATA = {
 
 
 @pytest.mark.asyncio
-async def test_basic():
+async def test_basic() -> None:
     client = ASGITestClient(get_webdav_app(config_object=CONFIG_DATA))
 
     response = await client.get(

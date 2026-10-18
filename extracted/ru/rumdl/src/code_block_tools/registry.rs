@@ -53,6 +53,27 @@ impl ToolRegistry {
         builtin_lint_mode(tool_id)
     }
 
+    /// Exact native argv for the verified built-in check modes. User overrides
+    /// retain their own commands; the formatter definition remains the fallback.
+    pub(crate) fn native_format_check(&self, tool_id: &str) -> Option<ToolDefinition> {
+        if self.user_tools.contains_key(tool_id) {
+            return None;
+        }
+        let command = match tool_id {
+            "shuck:format-check" => vec!["shuck", "format", "-", "--check"],
+            "djlint:html:format-check" => vec!["djlint", "-", "--check", "--profile=html"],
+            "djlint:jinja:format-check" => vec!["djlint", "-", "--check", "--profile=jinja"],
+            _ => return None,
+        };
+        Some(ToolDefinition {
+            command: command.into_iter().map(str::to_string).collect(),
+            stdin: true,
+            stdout: true,
+            lint_args: Vec::new(),
+            format_args: Vec::new(),
+        })
+    }
+
     /// The registry id a configured tool id runs as in `slot`, if any.
     ///
     /// User definitions win over built-ins, with a slot-specific user variant
@@ -103,6 +124,53 @@ impl ToolRegistry {
             }
         }
 
+        None
+    }
+
+    /// Invalid custom commands, including definitions not referenced by a language.
+    pub fn invalid_custom_commands(&self) -> Vec<(String, String)> {
+        self.user_tools
+            .iter()
+            .filter_map(|(id, definition)| Self::command_problem(definition).map(|problem| (id.clone(), problem)))
+            .collect()
+    }
+
+    fn command_problem(definition: &ToolDefinition) -> Option<String> {
+        if definition.command.first().is_none_or(|binary| binary.trim().is_empty()) {
+            Some("has an empty or unusable command".into())
+        } else if definition
+            .command
+            .iter()
+            .chain(&definition.lint_args)
+            .chain(&definition.format_args)
+            .any(|arg| arg.contains('\0'))
+        {
+            Some("has a command argument containing a NUL byte".into())
+        } else {
+            None
+        }
+    }
+
+    /// Validate a reference before any external command can be executed.
+    pub fn definition_problem(&self, tool_id: &str, slot: ToolSlot) -> Option<String> {
+        if super::processor::is_rumdl_builtin(tool_id) {
+            return (slot == ToolSlot::Format && tool_id == "rumdl:lint")
+                .then(|| "is a linter (move it to lint)".into());
+        }
+        let Some(definition) = self.resolve(tool_id, slot) else {
+            return Some("is an unknown tool".into());
+        };
+        if let Some(problem) = Self::command_problem(definition) {
+            return Some(problem);
+        }
+        if slot == ToolSlot::Format {
+            if self.fills_format_slot(tool_id) == Some(false) {
+                return Some("is a linter (move it to lint)".into());
+            }
+            if !definition.stdout {
+                return Some("cannot provide formatted output (stdout = false)".into());
+            }
+        }
         None
     }
 
@@ -721,6 +789,44 @@ static BUILTIN_TOOLS: LazyLock<HashMap<&'static str, ToolDefinition>> = LazyLock
         },
     );
 
+    // Bun's formatter reads stdin and selects its parser from the filename.
+    // Keep this opt-in: Bun versions predating `bun fmt` cannot run it.
+    for (id, ext) in [
+        ("bun-fmt", "js"),
+        ("bun-fmt:js", "js"),
+        ("bun-fmt:ts", "ts"),
+        ("bun-fmt:jsx", "jsx"),
+        ("bun-fmt:tsx", "tsx"),
+        ("bun-fmt:json", "json"),
+        ("bun-fmt:jsonc", "jsonc"),
+        ("bun-fmt:json5", "json5"),
+        ("bun-fmt:css", "css"),
+        ("bun-fmt:scss", "scss"),
+        ("bun-fmt:less", "less"),
+        ("bun-fmt:html", "html"),
+        ("bun-fmt:vue", "vue"),
+        ("bun-fmt:yaml", "yaml"),
+        ("bun-fmt:toml", "toml"),
+        ("bun-fmt:graphql", "graphql"),
+        ("bun-fmt:markdown", "md"),
+        ("bun-fmt:mdx", "mdx"),
+    ] {
+        m.insert(
+            id,
+            ToolDefinition {
+                command: vec![
+                    "bun".to_string(),
+                    "fmt".to_string(),
+                    format!("--stdin-filepath=_.{ext}"),
+                ],
+                stdin: true,
+                stdout: true,
+                lint_args: vec![],
+                format_args: vec![],
+            },
+        );
+    }
+
     // Multi-language - deno fmt. stdin needs --ext to pick the parser, so one entry
     // per supported extension. Bare "deno-fmt" defaults to TypeScript.
     let deno_fmt = |ext: &str| ToolDefinition {
@@ -743,7 +849,7 @@ static BUILTIN_TOOLS: LazyLock<HashMap<&'static str, ToolDefinition>> = LazyLock
     m.insert("deno-fmt:md", deno_fmt("md"));
 
     // Explicit mode aliases keep the established stdin commands. Format checks
-    // compare formatted output instead of relying on incompatible --check flags.
+    // keep a comparison fallback when native stdin checks are unavailable.
     for (id, existing) in [
         ("oxfmt:lint", "oxfmt"),
         ("oxfmt:format", "oxfmt"),
@@ -812,12 +918,9 @@ pub enum BuiltinLintMode {
     /// The tool is a formatter: run it and compare its output with the block. A
     /// difference is the finding.
     ///
-    /// Formatters are not asked for a check flag. Their check modes disagree on every
-    /// axis that matters here: some exit non-zero, some exit zero and print a diff,
-    /// some ignore the flag entirely when it follows the stdin argument, and some
-    /// reject it alongside the stdin-filename argument they also require. Comparing
-    /// the formatted result with the input is exact, needs no per-tool flag, and gives
-    /// the same answer `rumdl fmt` would act on.
+    /// Most tools compare formatted output because native flags vary in stdin
+    /// support and exit semantics. Explicit djLint and Shuck check modes use
+    /// verified native checks on supported versions, with comparison as fallback.
     FormatCheck,
 }
 
@@ -1226,6 +1329,150 @@ const BUILTIN_TOOLS_DOCS: &[ToolDocMeta] = &[
         runtime: true,
     },
     ToolDocMeta {
+        id: "bun-fmt",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:js",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:ts",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:jsx",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:tsx",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:json",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:jsonc",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:json5",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:css",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:scss",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:less",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:html",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:vue",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:yaml",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:toml",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:graphql",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:markdown",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
+        id: "bun-fmt:mdx",
+        language: "Multi",
+        kind: ToolKind::Format,
+        doc_group: "bun-fmt",
+        display_command: Some("bun fmt --stdin-filepath=_.EXT"),
+        runtime: true,
+    },
+    ToolDocMeta {
         id: "deno-fmt",
         language: "Multi",
         kind: ToolKind::Format,
@@ -1294,7 +1541,7 @@ const BUILTIN_TOOLS_DOCS: &[ToolDocMeta] = &[
         language: "Shell",
         kind: ToolKind::FormatCheck,
         doc_group: "shuck:format-check",
-        display_command: None,
+        display_command: Some("shuck format - --check"),
         runtime: true,
     },
     ToolDocMeta {
@@ -1326,7 +1573,7 @@ const BUILTIN_TOOLS_DOCS: &[ToolDocMeta] = &[
         language: "HTML",
         kind: ToolKind::FormatCheck,
         doc_group: "djlint:html:format-check",
-        display_command: Some("djlint - --reformat --profile=html"),
+        display_command: Some("djlint - --check --profile=html"),
         runtime: true,
     },
     ToolDocMeta {
@@ -1350,7 +1597,7 @@ const BUILTIN_TOOLS_DOCS: &[ToolDocMeta] = &[
         language: "Jinja",
         kind: ToolKind::FormatCheck,
         doc_group: "djlint:jinja:format-check",
-        display_command: Some("djlint - --reformat --profile=jinja"),
+        display_command: Some("djlint - --check --profile=jinja"),
         runtime: true,
     },
     ToolDocMeta {
@@ -1659,6 +1906,25 @@ mod tests {
         let tool = registry.get("ruff:check").expect("Should find ruff:check");
         assert_eq!(tool.command, vec!["custom-ruff"]);
         assert!(!tool.stdin); // User override
+    }
+
+    #[test]
+    fn bun_formatter_variants_select_the_stdin_parser_and_check_by_comparison() {
+        let registry = ToolRegistry::default();
+        for (id, ext) in [
+            ("bun-fmt", "js"),
+            ("bun-fmt:ts", "ts"),
+            ("bun-fmt:json", "json"),
+            ("bun-fmt:mdx", "mdx"),
+        ] {
+            let tool = registry.get(id).unwrap();
+            assert_eq!(tool.command, vec!["bun", "fmt", &format!("--stdin-filepath=_.{ext}")]);
+            assert!(tool.stdin && tool.stdout);
+            assert_eq!(registry.lint_mode(id), Some(BuiltinLintMode::FormatCheck));
+            assert_eq!(builtin_tool_formats(id), Some(true));
+            assert_eq!(registry.resolve_id(id, ToolSlot::Format).as_deref(), Some(id));
+            assert_eq!(registry.resolve_id(id, ToolSlot::Lint).as_deref(), Some(id));
+        }
     }
 
     #[test]
@@ -2263,5 +2529,41 @@ mod tests {
         let once = splice_builtin_tools_docs(&doc).expect("first");
         let twice = splice_builtin_tools_docs(&once).expect("second");
         assert_eq!(once, twice, "splice must be idempotent");
+    }
+}
+
+#[cfg(test)]
+mod native_format_check_tests {
+    use super::*;
+
+    #[test]
+    fn native_checks_use_exact_argv_only_for_the_explicit_builtin_ids() {
+        let registry = ToolRegistry::new(BTreeMap::new());
+        for (id, argv) in [
+            ("shuck:format-check", vec!["shuck", "format", "-", "--check"]),
+            (
+                "djlint:html:format-check",
+                vec!["djlint", "-", "--check", "--profile=html"],
+            ),
+            (
+                "djlint:jinja:format-check",
+                vec!["djlint", "-", "--check", "--profile=jinja"],
+            ),
+        ] {
+            assert_eq!(registry.native_format_check(id).unwrap().command, argv);
+        }
+        for id in [
+            "oxfmt:lint",
+            "oxfmt:format",
+            "shuck:format",
+            "shuck:lint",
+            "shuck:lint-fix",
+            "djlint:html:format",
+            "djlint:jinja:format",
+            "djlint:html:lint",
+            "djlint:reformat",
+        ] {
+            assert!(registry.native_format_check(id).is_none(), "{id}");
+        }
     }
 }

@@ -15,10 +15,9 @@ from functools import partial
 from typing import Any, cast
 from uuid import uuid4
 
+from sqlbuild._native import AuditPlanEntry, CostContext, PlanOutput, audit_resource_id
 from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
 from sqlbuild.compiler.auditing.types import AuditOutcome, AuditRunScope
-from sqlbuild.compiler.planner.models import AuditPlanEntry, PlanOutput
-from sqlbuild.cost.classes.cost_context import CostContext
 from sqlbuild.diagnostics.classes.diagnostic_record_redactor import DiagnosticRecordRedactor
 from sqlbuild.diagnostics.main.diagnostics_context import diagnostics_context
 from sqlbuild.executor.auditing.main._execute import execute_audit
@@ -29,7 +28,6 @@ from sqlbuild.executor.auditing.main.audit_result_publication_scope import (
 from sqlbuild.executor.auditing.main.publish_completed_audit_results import (
     publish_completed_audit_results,
 )
-from sqlbuild.executor.auditing.main.resource_id import audit_resource_id
 from sqlbuild.executor.auditing.models import AuditExecutionResult
 from sqlbuild.executor.pipeline._helpers.connections import (
     close_connections,

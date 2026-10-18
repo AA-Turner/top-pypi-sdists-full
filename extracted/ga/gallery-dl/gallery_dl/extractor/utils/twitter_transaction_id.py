@@ -212,7 +212,7 @@ def interpolate_list(x, a, b):
 
 
 def interpolate_value(x, a, b):
-    if isinstance(a, bool):
+    if a.__class__ is bool:
         return a if x <= 0.5 else b
     return a * (1.0 - x) + b * x
 

@@ -1,8 +1,10 @@
 //! The Python host the loop hands finished models and user-code steps to.
 
+use std::sync::Arc;
+
 use pyo3::FromPyObject;
 use pyo3::prelude::{Bound, Py, PyAny, PyAnyMethods, PyResult, Python};
-use pyo3::types::{PyDict, PyDictMethods, PyString, PyStringMethods, PyTuple};
+use pyo3::types::{PyDict, PyDictMethods, PyTuple};
 use sqlbuild_analysis::compiled_project::main::plain_model_facts::plain_model_facts;
 use sqlbuild_analysis::compiled_project::models::{
     CompiledModelFacts, ModelConfigFacts, PlainModel,
@@ -21,11 +23,14 @@ use crate::bindings::_helpers::compiled_project::project::{
 use crate::bindings::_helpers::compiled_project::project::{
     DeclarationPy, config_values, declarations,
 };
+use crate::bindings::_helpers::discovery::model_file_record::{ModelFileTexts, NativeModelFile};
+use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::render::declaration_expansion::{
     ExpandedDeclarations, ScannedReference, span_rows,
 };
 use crate::bindings::_helpers::render::macro_call_rows::{SpanRow, span_row};
 use crate::bindings::_helpers::render::macro_expansion::ExpansionOutput;
+use sqlbuild_discovery::model_files::models::HeaderFacts;
 
 const HEADER_KEYS_ATTRIBUTE: &str = "model_header_keys";
 const LAYER_SCHEMA_ATTRIBUTE: &str = "layer_schema";
@@ -36,20 +41,42 @@ const LOCAL_ENUMS_ATTRIBUTE: &str = "local_enums";
 const LOCAL_CONSTANTS_ATTRIBUTE: &str = "local_constants";
 const NAME_ATTRIBUTE: &str = "name";
 
-/// `((name, POSIX path, relative path, file path), column locations, query, contents, scan)`.
-#[derive(FromPyObject)]
-pub(crate) struct ModelLoopRow(
-    pub(crate) (String, String, String, String),
-    /// Header column locations, header values, and the model's own enums and constants.
-    pub(crate) (Py<PyDict>, Py<PyDict>, Py<PyAny>, Py<PyAny>),
-    pub(crate) String,
-    pub(crate) String,
-    pub(crate) Option<(Vec<ScannedReference>, Option<u8>)>,
+/// A model's scanned declaration references and the scan's stop marker.
+pub(crate) type DeclarationScan = (Vec<ScannedReference>, Option<u8>);
+
+/// One model the loop builds: its discovered file and what the host prepared for it.
+pub(crate) struct ModelLoopRow {
+    pub(crate) paths: ModelFileTexts,
+    pub(crate) authored_query: Arc<str>,
+    pub(crate) contents: Arc<str>,
+    pub(crate) scan: Option<DeclarationScan>,
     /// The `@@`-interpolated query, its template reads, its error, and its substitution spans.
-    pub(crate) InterpolationRow,
+    pub(crate) interpolation: InterpolationRow,
     /// The discovered model file, owned by the discovery inputs.
-    pub(crate) Py<PyAny>,
-);
+    pub(crate) model_file: Py<NativeModelFile>,
+    /// What the pre-pass read from the model's native header, when it has one.
+    pub(crate) header: Option<HeaderFacts>,
+}
+
+impl ModelLoopRow {
+    pub(crate) fn new(
+        file: (Py<NativeModelFile>, ModelFileTexts),
+        scan: Option<DeclarationScan>,
+        interpolation: InterpolationRow,
+    ) -> Self {
+        let (model_file, paths) = file;
+        let record: &NativeModelFile = model_file.get();
+        Self {
+            paths,
+            authored_query: record.query_text().clone(),
+            contents: record.contents_text().clone(),
+            scan,
+            interpolation,
+            model_file,
+            header: None,
+        }
+    }
+}
 /// `(interpolated query, template reads, error, substitution spans)`.
 pub(crate) type InterpolationRow = (String, Vec<(String, String)>, Option<String>, Vec<SpanRow>);
 /// `(kind, name, package, call argument count)`.
@@ -96,15 +123,19 @@ pub(crate) fn finished_record<'py>(
     finished: FinishedModel<'py>,
 ) -> PyResult<(ModelInputRecord, CompiledModelFacts)> {
     let py: Python<'py> = inputs.visible.py();
-    let ModelLoopRow(
-        (name, relative_path, _, _),
-        _,
-        authored_query_sql,
-        authored_sql,
-        _,
-        (interpolated_sql, _, _, interpolation_spans),
+    let ModelLoopRow {
+        paths:
+            ModelFileTexts {
+                name,
+                posix_path: relative_path,
+                ..
+            },
+        authored_query: authored_query_sql,
+        contents: authored_sql,
+        interpolation: (interpolated_sql, _, _, interpolation_spans),
         model_file,
-    ) = row;
+        ..
+    } = row;
     let stripped: Bound<'py, PyDict> = stripped_values(py, &finished.values)?;
     let mut usages: Vec<Bound<'py, PyAny>> = finished.declarations.usages;
     if let Some(schema) = &finished.header.schema {
@@ -115,9 +146,9 @@ pub(crate) fn finished_record<'py>(
         None => Vec::new(),
     };
     let local_enums: Bound<'py, PyTuple> =
-        dict_values(&inputs.visible.getattr(LOCAL_ENUMS_ATTRIBUTE)?)?;
+        dict_values(&native_field(inputs.visible, LOCAL_ENUMS_ATTRIBUTE)?)?;
     let local_constants: Bound<'py, PyTuple> =
-        dict_values(&inputs.visible.getattr(LOCAL_CONSTANTS_ATTRIBUTE)?)?;
+        dict_values(&native_field(inputs.visible, LOCAL_CONSTANTS_ATTRIBUTE)?)?;
     let rows_arguments: Bound<'py, PyDict> = PyDict::new(py);
     rows_arguments.set_item(ENUMS_ARGUMENT, &local_enums)?;
     rows_arguments.set_item(CONSTANTS_ARGUMENT, &local_constants)?;
@@ -145,7 +176,7 @@ pub(crate) fn finished_record<'py>(
                     .map(|item| item.into_bound(py))
                     .collect(),
             )? {
-                names.push(dependency.getattr(NAME_ATTRIBUTE)?.extract()?);
+                names.push(native_field(&dependency, NAME_ATTRIBUTE)?.extract()?);
             }
             (
                 macros.sql,
@@ -174,30 +205,21 @@ pub(crate) fn finished_record<'py>(
     };
     let schema: Option<SchemaRecord> = finished.header.schema.as_ref().map(|schema| SchemaRecord {
         description: finished.header.description.clone(),
-        columns: schema.columns.clone().unbind(),
+        columns: schema.columns.clone(),
         audits: schema.audits.clone().unbind(),
         dynamic_columns: schema.dynamic_columns.clone().unbind(),
         type_enforcement: schema.type_enforcement,
         model_schema: schema.model_schema.clone(),
     });
-    let discovered_query: Py<PyString> = model_file
-        .bind(py)
-        .getattr("query_sql")?
-        .downcast_into::<PyString>()?
-        .unbind();
-    let authored: Py<PyString> = shared_sql(py, &authored_query_sql, &[&discovered_query])?;
-    let macro_source: Py<PyString> =
-        shared_sql(py, &finished.declarations.spliced.sql, &[&authored])?;
-    let expanded: Py<PyString> = shared_sql(py, &macro_sql, &[&authored, &macro_source])?;
-    let query: Py<PyString> = shared_sql(
-        py,
-        &finished.query_sql,
-        &[&authored, &macro_source, &expanded],
-    )?;
+    let authored: Arc<str> = authored_query_sql.clone();
+    let macro_source: Arc<str> = shared_sql(&finished.declarations.spliced.sql, &[&authored]);
+    let expanded: Arc<str> = shared_sql(&macro_sql, &[&authored, &macro_source]);
+    let query: Arc<str> = shared_sql(&finished.query_sql, &[&authored, &macro_source, &expanded]);
     let record: ModelInputRecord = ModelInputRecord {
-        model_file: model_file.clone_ref(py),
+        name: name.clone(),
+        model_file,
         config: config.unbind(),
-        query_sql: query,
+        query_sql: Arc::clone(&query),
         macro_source_sql: macro_source,
         references: finished.references.clone(),
         schema,
@@ -215,7 +237,7 @@ pub(crate) fn finished_record<'py>(
         macro_usages: PyTuple::new(py, macro_usages)?.unbind(),
         declaration_usages: PyTuple::new(py, unique(py, declaration_usages)?)?.unbind(),
         expansion: ExpansionRecord {
-            authored: interpolated_sql == authored_query_sql,
+            authored: *interpolated_sql == *authored_query_sql,
             authored_sql: authored,
             expanded_sql: expanded,
             interpolation_spans,
@@ -229,14 +251,14 @@ pub(crate) fn finished_record<'py>(
     let facts: CompiledModelFacts = plain_model_facts(PlainModel {
         name,
         relative_path,
-        query_sql: finished.query_sql,
+        query_sql: query,
         authored_query_sql,
         authored_sql,
         config: ModelConfigFacts {
             values,
             encoding_error,
-            header_keys: finished.config.getattr(HEADER_KEYS_ATTRIBUTE)?.extract()?,
-            layer_schema: finished.config.getattr(LAYER_SCHEMA_ATTRIBUTE)?.extract()?,
+            header_keys: native_field(&finished.config, HEADER_KEYS_ATTRIBUTE)?.extract()?,
+            layer_schema: native_field(&finished.config, LAYER_SCHEMA_ATTRIBUTE)?.extract()?,
             contract: text_value(&stripped, CONTRACT_KEY)?,
             materialized: materialization(&stripped)?,
             incremental_mode: text_value(&stripped, INCREMENTAL_MODE_KEY)?,
@@ -255,13 +277,13 @@ pub(crate) fn finished_record<'py>(
 }
 
 /// Reuse an identical immutable spelling already owned by this model.
-fn shared_sql(py: Python<'_>, sql: &str, candidates: &[&Py<PyString>]) -> PyResult<Py<PyString>> {
+fn shared_sql(sql: &str, candidates: &[&Arc<str>]) -> Arc<str> {
     for candidate in candidates {
-        if candidate.bind(py).to_str()? == sql {
-            return Ok(candidate.clone_ref(py));
+        if ***candidate == *sql {
+            return Arc::clone(candidate);
         }
     }
-    Ok(PyString::new(py, sql).unbind())
+    Arc::from(sql)
 }
 
 /// A dict's values in insertion order.

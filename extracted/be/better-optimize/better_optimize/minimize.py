@@ -8,13 +8,17 @@ from scipy.optimize import OptimizeResult
 from scipy.optimize import minimize as sp_minimize
 from scipy.sparse.linalg import LinearOperator
 
+from better_optimize.configuration import (
+    MinimizeConfig,
+    OptimizerConfig,
+    RootConfig,
+    SolverProblem,
+    config_from_kwargs,
+)
 from better_optimize.constants import minimize_method
 from better_optimize.utilities import (
     LRUCache1,
     check_f_is_fused_minimize,
-    determine_maxiter,
-    determine_tolerance,
-    kwargs_to_options,
     validate_provided_functions_minimize,
 )
 from better_optimize.wrapper import (
@@ -27,7 +31,7 @@ from better_optimize.wrapper import (
 def minimize(
     f: Callable[..., float | tuple[float, np.ndarray]],
     x0: np.ndarray,
-    method: minimize_method,
+    method: minimize_method | OptimizerConfig,
     jac: Callable[..., np.ndarray] | None = None,
     hess: Callable[..., np.ndarray | LinearOperator] | None = None,
     hessp: Callable[..., np.ndarray] | None = None,
@@ -57,8 +61,9 @@ def minimize(
         The Hessian of the objective function
     hessp: Callable, optional
         The Hessian-vector product of the objective function
-    method: str
-        The optimization method to use
+    method: str or OptimizerConfig
+        The optimization method to use, either by name or as a configuration carrying its
+        options. A configuration cannot be combined with options passed as keywords.
     progressbar: bool
         Whether to display a progress bar
     progressbar_update_interval: int
@@ -72,7 +77,9 @@ def minimize(
         ``res.jac`` when a gradient is available). The return value is ignored; raise
         ``StopOptimization`` to stop early. Default None.
     optimizer_kwargs
-        Additional keyword arguments to pass to the optimizer
+        Options for the chosen method, plus ``bounds`` and ``constraints``, which describe
+        the problem and reach scipy directly. An option the method does not accept raises
+        ``TypeError``.
 
     Returns
     -------
@@ -80,10 +87,43 @@ def minimize(
         Optimization result
 
     """
+    n_vars = len(x0)
+    config, solver_kwargs = config_from_kwargs(method, optimizer_kwargs)
+
+    solver = config.solver_function()
+    if solver is not None:
+        return solver(
+            **config.build_solver_kwargs(
+                SolverProblem(
+                    f=f,
+                    x0=x0,
+                    jac=jac,
+                    hess=hess,
+                    hessp=hessp,
+                    args=() if args is None else args,
+                    callback=callback,
+                    progressbar=progressbar,
+                    progress_task=progress_task,
+                    progressbar_update_interval=progressbar_update_interval,
+                    verbose=verbose,
+                    solver_kwargs=solver_kwargs,
+                )
+            )
+        )
+
+    # Anything still here runs through scipy's minimize, so it has to describe a method
+    # that one has, including the derivatives the validator reconciles against.
+    if not isinstance(config, MinimizeConfig):
+        driver = "root" if isinstance(config, RootConfig) else "the driver that runs it"
+        raise TypeError(
+            f"{type(config).__name__} configures {config.method_name}, which minimize does "
+            f"not run. Pass it to {driver}."
+        )
+
     has_fused_f_and_grad, has_fused_f_grad_hess = check_f_is_fused_minimize(f, x0, args)
 
     use_grad, use_hess, use_hessp = validate_provided_functions_minimize(
-        method, jac, hess, hessp, has_fused_f_and_grad, has_fused_f_grad_hess, verbose=verbose
+        config, jac, hess, hessp, has_fused_f_and_grad, has_fused_f_grad_hess, verbose=verbose
     )
 
     f_returns_list = has_fused_f_and_grad or has_fused_f_grad_hess
@@ -92,19 +132,22 @@ def minimize(
     if has_fused_f_grad_hess:
         hess = f_cached.hess
 
-    options = optimizer_kwargs.pop("options", {})
-    optimizer_kwargs["options"] = options
-
-    optimizer_kwargs = kwargs_to_options(optimizer_kwargs, method)
-    maxiter, optimizer_kwargs = determine_maxiter(optimizer_kwargs, method, len(x0))
-    optimizer_kwargs = determine_tolerance(optimizer_kwargs, method)
-
     # Test hessian function -- if it returns a LinearOperator, it can't be used inside the wrapper
     args = () if args is None else args
     use_hess = use_hess and not isinstance(hess(x0, *args), LinearOperator)
 
+    solver_uses_grad = use_grad and config.uses_grad
+    solver_uses_hess = use_hess and config.uses_hess
+    solver_uses_hessp = use_hessp and config.uses_hessp
+
+    evaluation_budget = config.evaluation_budget(n_vars)
+    if config.uses_grad and not solver_uses_grad:
+        # scipy estimates the gradient with n + 1 objective calls, which the wrapper counts and
+        # scipy's own evaluation caps do not.
+        evaluation_budget *= n_vars + 1
+
     objective = ObjectiveWrapper(
-        maxeval=maxiter,
+        maxeval=evaluation_budget,
         f=f_cached.value_and_grad if has_fused_f_and_grad else f_cached.value,
         jac=jac,
         hess=hess if use_hess else None,
@@ -115,18 +158,21 @@ def minimize(
         has_fused_f_and_grad=has_fused_f_and_grad,
         root=False,
         task=progress_task,
+        solver_uses_grad=solver_uses_grad,
+        solver_uses_hess=solver_uses_hess,
     )
 
     f_optim = partial(
         sp_minimize,
         fun=objective,
         x0=x0,
-        method=method,
-        jac=True if has_fused_f_and_grad or jac is not None else None,
-        hess=None if not use_hess else lambda x: hess(x, *args),
-        hessp=None if not use_hessp else lambda x, p: hessp(x, p, *args),
+        method=config.method_name,
+        jac=True if solver_uses_grad else None,
+        hess=None if not solver_uses_hess else lambda x: hess(x, *args),
+        hessp=None if not solver_uses_hessp else lambda x, p: hessp(x, p, *args),
         callback=_compose_callback(objective.callback, objective.callback_result, callback),
-        **optimizer_kwargs,
+        options=config.optimizer_kwargs(n=n_vars),
+        **solver_kwargs,
     )
 
     optimizer_result = optimizer_early_stopping_wrapper(f_optim)

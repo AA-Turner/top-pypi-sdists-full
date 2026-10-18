@@ -10,8 +10,6 @@ Neither parser raises: a filename it cannot read comes back as ``None``.
 
 from __future__ import annotations
 
-import sys
-
 import pytest
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
@@ -22,13 +20,18 @@ from nab_index.client import (
     _parse_sdist_filename,
     _parse_wheel_filename,
 )
+from nab_markersets._compat import get_int_max_str_digits
 from nab_provider._vendor.packaging.utils import (
     InvalidWheelFilename,
     parse_wheel_filename,
 )
 
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
+
 # Version digit runs at and just past CPython's int-from-string limit.
-AT_LIMIT = "1" * sys.get_int_max_str_digits()
+AT_LIMIT = "1" * (get_int_max_str_digits() or 4300)
 OVERSIZED = AT_LIMIT + "1"
 
 CORPUS = [
@@ -142,6 +145,7 @@ def test_rejects_newline_terminated_project_name() -> None:
         parse_wheel_filename(filename)
 
 
+@requires_int_limit
 def test_admits_build_tag_packaging_cannot_convert() -> None:
     """``parse_wheel_filename`` calls ``int()`` on the build number.
 
@@ -154,20 +158,37 @@ def test_admits_build_tag_packaging_cannot_convert() -> None:
         parse_wheel_filename(filename)
 
 
+@requires_int_limit
 @pytest.mark.parametrize(
     "filename",
     [
-        pytest.param(f"foo-{OVERSIZED}-py3-none-any.whl", id="release"),
-        pytest.param(f"foo-{OVERSIZED}!1.0-py3-none-any.whl", id="epoch"),
-        pytest.param(f"foo-1.0.dev{OVERSIZED}-py3-none-any.whl", id="dev"),
-        pytest.param(f"foo-1.0.post{OVERSIZED}-py3-none-any.whl", id="post"),
-        pytest.param(f"foo-{OVERSIZED}-1-py3-none-any.whl", id="build-tag"),
+        pytest.param(
+            f"foo-{OVERSIZED}-py3-none-any.whl",
+            id="release",
+        ),
+        pytest.param(
+            f"foo-{OVERSIZED}!1.0-py3-none-any.whl",
+            id="epoch",
+        ),
+        pytest.param(
+            f"foo-1.0.dev{OVERSIZED}-py3-none-any.whl",
+            id="dev",
+        ),
+        pytest.param(
+            f"foo-1.0.post{OVERSIZED}-py3-none-any.whl",
+            id="post",
+        ),
+        pytest.param(
+            f"foo-{OVERSIZED}-1-py3-none-any.whl",
+            id="build-tag",
+        ),
     ],
 )
 def test_rejects_oversized_wheel_version(filename: str) -> None:
     assert _parse_wheel_filename(filename) is None
 
 
+@requires_int_limit
 def test_rejects_oversized_sdist_version() -> None:
     assert _parse_sdist_filename(f"foo-{OVERSIZED}.tar.gz") is None
 

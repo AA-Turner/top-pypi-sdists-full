@@ -18,26 +18,20 @@ use sqlbuild_model_config::sql_values::models::RawSqlValue;
 use crate::bindings::_helpers::contracts::sql_values::{
     SqlValueClasses, raw_value, sql_value, sql_value_error,
 };
-
-const MODELS_MODULE: &str = "sqlbuild.compiler.discovery.models";
-const DISCOVERY_ERRORS_MODULE: &str = "sqlbuild.compiler.discovery.exceptions";
-const IDENTITY_ERRORS_MODULE: &str = "sqlbuild.compiler.resource_names.exceptions";
-const RENDERING_MODULE: &str = "sqlbuild.sql_values.types";
+use crate::bindings::_helpers::records::construct::error_class;
+use crate::bindings::_helpers::records::construct::{enum_from_value, new_record};
+use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
 
 fn declaration_error(py: Python<'_>, failure: DeclarationFailure) -> PyResult<PyErr> {
     Ok(match failure {
-        DeclarationFailure::Parse(message) => PyErr::from_value(
-            py.import(DISCOVERY_ERRORS_MODULE)?
-                .getattr("DeclarationParseError")?
-                .call1((message,))?,
-        ),
+        DeclarationFailure::Parse(message) => {
+            PyErr::from_value(error_class(py, ErrorId::DeclarationParse)?.call1((message,))?)
+        }
         DeclarationFailure::Identity(message, help) => {
             let keywords = PyDict::new(py);
             keywords.set_item("help", help)?;
             PyErr::from_value(
-                py.import(IDENTITY_ERRORS_MODULE)?
-                    .getattr("ResourceIdentityError")?
-                    .call((message,), Some(&keywords))?,
+                error_class(py, ErrorId::ResourceIdentity)?.call((message,), Some(&keywords))?,
             )
         }
         DeclarationFailure::DecimalOverflow => {
@@ -57,8 +51,6 @@ fn enum_record<'py>(
     facts: EnumFacts,
     owner: &Owner<'py>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let models = py.import(MODELS_MODULE)?;
-    let member_class = models.getattr("EnumMember")?;
     let int_class = py.import("builtins")?.getattr("int")?;
     let members = facts
         .members
@@ -68,16 +60,21 @@ fn enum_record<'py>(
                 EnumValue::Text(text) => text.into_bound_py_any(py)?,
                 EnumValue::Integer(digits) => int_class.call1((digits,))?,
             };
-            member_class.call1((name, value))
+            new_record(py, RecordId::EnumMember, (name, value), None)
         })
         .collect::<PyResult<Vec<_>>>()?;
-    models.getattr("EnumDeclaration")?.call1((
-        facts.name,
-        PyTuple::new(py, members)?,
-        facts.scalar_type,
-        &owner.relative_path,
-        owner.model_name.as_deref(),
-    ))
+    new_record(
+        py,
+        RecordId::EnumDeclaration,
+        (
+            facts.name,
+            PyTuple::new(py, members)?,
+            facts.scalar_type,
+            &owner.relative_path,
+            owner.model_name.as_deref(),
+        ),
+        None,
+    )
 }
 
 fn constant_record<'py>(
@@ -87,21 +84,21 @@ fn constant_record<'py>(
     classes: &SqlValueClasses<'py>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let render_as = match facts.render_as {
-        Some(rendering) => py
-            .import(RENDERING_MODULE)?
-            .getattr("CollectionRendering")?
-            .call1((rendering,))?,
+        Some(rendering) => enum_from_value(py, RecordId::CollectionRendering, rendering)?,
         None => py.None().into_bound(py),
     };
-    py.import(MODELS_MODULE)?
-        .getattr("ConstantDeclaration")?
-        .call1((
+    new_record(
+        py,
+        RecordId::ConstantDeclaration,
+        (
             facts.name,
             sql_value(&facts.value, classes)?,
             &owner.relative_path,
             owner.model_name.as_deref(),
             render_as,
-        ))
+        ),
+        None,
+    )
 }
 
 fn optional_raw(
@@ -114,11 +111,11 @@ fn optional_raw(
         .transpose()
 }
 
-type HeaderDeclarations<'py> = (Bound<'py, PyTuple>, Bound<'py, PyTuple>);
+pub(crate) type HeaderDeclarations<'py> = (Bound<'py, PyTuple>, Bound<'py, PyTuple>);
 
 /// `parse_model_enum_declarations` then `parse_model_constant_declarations` for one model.
 #[pyfunction]
-fn model_header_declarations<'py>(
+pub(crate) fn model_header_declarations<'py>(
     py: Python<'py>,
     header: (Option<Bound<'py, PyAny>>, Option<Bound<'py, PyAny>>),
     model_name: String,
@@ -160,8 +157,7 @@ fn model_header_declarations<'py>(
 }
 
 /// `typed_constant_declaration` for a public constant file entry.
-#[pyfunction]
-fn typed_constant_record<'py>(
+pub(crate) fn typed_constant_record<'py>(
     py: Python<'py>,
     constant: (String, Bound<'py, PyAny>),
     options: (Option<String>, Option<String>),
@@ -193,6 +189,5 @@ fn typed_constant_record<'py>(
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_function(wrap_pyfunction!(model_header_declarations, module)?)?;
-    module.add_function(wrap_pyfunction!(typed_constant_record, module)?)
+    module.add_function(wrap_pyfunction!(model_header_declarations, module)?)
 }

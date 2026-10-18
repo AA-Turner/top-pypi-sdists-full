@@ -72,6 +72,8 @@ pub mod rule_config;
 #[macro_use]
 pub mod rule_config_serde;
 pub mod rules;
+#[doc(hidden)]
+pub mod source_paths;
 pub mod types;
 pub mod utils;
 
@@ -128,11 +130,20 @@ impl ContentCharacteristics {
             // Headings: ATX (#) or Setext (underlines). A blockquoted ATX
             // heading (`> ## Title`) still emits a fragment anchor, so rules
             // like MD051/MD080 must run for blockquote-only documents too.
-            // Stripping `>`/space/tab is a coarse, deliberately
-            // over-inclusive prefilter check (it must never skip a rule that
-            // has work; `parse_blockquote_prefix` also accepts a tab marker).
+            // An ATX heading may also follow the marker of a list item the line
+            // opens (`- ## Title`, `1. # Title`), so list marker characters are
+            // stripped as well.
+            // Stripping `>`/space/tab and marker characters is a coarse,
+            // deliberately over-inclusive prefilter check (it must never skip a
+            // rule that has work; `parse_blockquote_prefix` also accepts a tab
+            // marker).
             if !has_atx_heading
-                && (trimmed.starts_with('#') || trimmed.trim_start_matches(['>', ' ', '\t']).starts_with('#'))
+                && (trimmed.starts_with('#')
+                    || trimmed
+                        .trim_start_matches([
+                            '>', ' ', '\t', '-', '+', '*', '.', ')', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                        ])
+                        .starts_with('#'))
             {
                 has_atx_heading = true;
             }
@@ -248,6 +259,9 @@ fn compute_content_hash(content: &str) -> String {
 /// Lint a file against the given rules with intelligent rule filtering
 /// Assumes the provided `rules` vector contains the final,
 /// configured, and filtered set of rules to be executed.
+///
+/// A leading UTF-8 BOM is ignored for parsing and diagnostic columns. Returned
+/// fix byte ranges address `content` exactly as supplied, including that BOM.
 pub fn lint(
     content: &str,
     rules: &[Box<dyn Rule>],
@@ -327,6 +341,9 @@ fn build_index(
     if conflicted {
         return file_index;
     }
+
+    // The hash covers the supplied text; parsing reads the text after the mark.
+    let content = crate::utils::bom::strip_bom(content);
 
     // Early return for empty content
     if content.is_empty() {
@@ -473,6 +490,9 @@ pub(crate) fn retain_reportable_warnings(
 /// needed for cross-file validation. The FileIndex is populated during linting,
 /// avoiding duplicate parsing.
 ///
+/// Fix byte ranges in the warnings address `content`, including a leading BOM;
+/// diagnostic columns describe the Markdown after that encoding marker.
+///
 /// Returns: (warnings, FileIndex) - the FileIndex contains headings/links for cross-file rules
 #[cfg_attr(test, allow(unused_variables))]
 #[allow(clippy::needless_pass_by_value)] // Public compatibility: callers already pass an owned path.
@@ -534,31 +554,166 @@ pub fn lint_and_index_with_paths(
     paths: DocumentPaths<'_>,
     config: Option<&crate::config::Config>,
 ) -> (LintResult, crate::workspace_index::FileIndex) {
-    let mut warnings = Vec::new();
+    let result = analyze_document(content, rules, verbose, flavor, paths, config, None);
+    (result.warnings, result.file_index)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn analyze_document(
+    content: &str,
+    rules: &[Box<dyn Rule>],
+    verbose: bool,
+    flavor: crate::config::MarkdownFlavor,
+    paths: DocumentPaths<'_>,
+    config: Option<&crate::config::Config>,
+    prepare_fixes: Option<usize>,
+) -> document_run::DocumentFormatResult {
+    analyze_scanned_document(
+        &crate::merge_conflict::ConflictScan::new(content),
+        rules,
+        verbose,
+        flavor,
+        paths,
+        config,
+        prepare_fixes,
+    )
+}
+
+pub(crate) fn analyze_scanned_document(
+    scan: &crate::merge_conflict::ConflictScan<'_>,
+    rules: &[Box<dyn Rule>],
+    verbose: bool,
+    flavor: crate::config::MarkdownFlavor,
+    paths: DocumentPaths<'_>,
+    config: Option<&crate::config::Config>,
+    prepare_fixes: Option<usize>,
+) -> document_run::DocumentFormatResult {
+    use document_run::DocumentFormatResult;
+    let content = scan.content();
     // Compute content hash for change detection
     let content_hash = compute_content_hash(content);
-    let mut file_index = crate::workspace_index::FileIndex::with_hash(content_hash);
+    let file_index = crate::workspace_index::FileIndex::with_hash(content_hash);
 
     let conflict = config.map_or_else(
-        || {
-            crate::merge_conflict::detect_for_rules(
-                content,
-                rules,
-                &crate::config::Config::default(),
-                paths.config_path,
-            )
-        },
-        |config| crate::merge_conflict::detect_for_rules(content, rules, config, paths.config_path),
+        || scan.detect_for_rules(rules, &crate::config::Config::default(), paths.config_path),
+        |config| scan.detect_for_rules(rules, config, paths.config_path),
     );
     if let Some(conflict) = conflict {
-        return (Ok(vec![conflict]), file_index);
+        return DocumentFormatResult::without_fixes(Ok(vec![conflict]), file_index);
     }
+
+    // The supplied text keeps its mark; everything below reads the analysis text.
+    let carrier = content;
+    let content = crate::utils::bom::strip_bom(carrier);
 
     // Early return for empty content
     if content.is_empty() {
-        return (Ok(warnings), file_index);
+        return DocumentFormatResult::without_fixes(Ok(Vec::new()), file_index);
     }
 
+    // Parse LintContext once (includes inline config parsing)
+    let lint_ctx = time_function!(
+        "lint: parse lint context",
+        crate::lint_context::LintContext::new(content, flavor, paths.source_file.map(std::path::Path::to_path_buf))
+            .with_merge_conflicts(scan.markers())
+    );
+    let lint_ctx = match paths.link_target_policy {
+        Some(policy) => lint_ctx.with_link_target_policy(policy.clone()),
+        None => lint_ctx,
+    };
+    let lint_ctx = match paths.invalid_utf8 {
+        Some(invalid) => lint_ctx.with_invalid_utf8(invalid),
+        None => lint_ctx,
+    };
+    let (warnings, file_index, checked_rules) = check_document_context(
+        &lint_ctx,
+        rules,
+        verbose,
+        paths,
+        config,
+        file_index,
+        prepare_fixes.is_some(),
+        Default::default(),
+    );
+    let mut remaining_warnings = None;
+    let fixes = if warnings.as_ref().is_ok_and(|warnings| !warnings.is_empty())
+        && paths.invalid_utf8.is_none()
+        && let (Some(max_iterations), Some(config), Some(checks)) = (prepare_fixes, config, checked_rules)
+    {
+        let mut fixed = content.to_string();
+        let mut on_stable = |ctx: &crate::lint_context::LintContext<'_>,
+                             checks: &mut fix_coordinator::RawRuleChecks| {
+            if ctx.content != content {
+                let index = crate::workspace_index::FileIndex::with_hash(compute_content_hash(ctx.content));
+                remaining_warnings = Some(
+                    check_document_context(
+                        ctx,
+                        rules,
+                        false,
+                        paths,
+                        Some(config),
+                        index,
+                        false,
+                        std::mem::take(checks),
+                    )
+                    .0,
+                );
+            }
+        };
+        let result = fix_coordinator::FixCoordinator::new().apply_fixes_with_analysis(
+            rules,
+            &mut fixed,
+            config,
+            max_iterations,
+            paths,
+            Some((&lint_ctx, &checks)),
+            Some(&mut on_stable),
+        );
+        if crate::utils::bom::has_bom(carrier) {
+            fixed.insert(0, crate::utils::bom::BOM);
+        }
+        Some(Ok((fixed, result)))
+    } else {
+        None
+    };
+    // Raw rule checks stay in analysis coordinates throughout the fix loop.
+    // Only findings leaving this boundary address the caller's supplied bytes.
+    let shift = crate::utils::bom::bom_len(carrier);
+    let mut warnings = warnings;
+    if let Ok(warnings) = &mut warnings {
+        crate::utils::bom::restore_fix_offsets(warnings, shift);
+    }
+    if let Some(Ok(warnings)) = &mut remaining_warnings {
+        crate::utils::bom::restore_fix_offsets(warnings, shift);
+    }
+    DocumentFormatResult {
+        warnings,
+        file_index,
+        fixes,
+        remaining_warnings,
+    }
+}
+
+/// Report findings from the current source, consuming raw checks made by the
+/// fix loop on this exact context. All report filtering and index contributions
+/// go through the same path as a standalone lint.
+#[allow(clippy::too_many_arguments)]
+fn check_document_context(
+    lint_ctx: &crate::lint_context::LintContext<'_>,
+    rules: &[Box<dyn Rule>],
+    verbose: bool,
+    paths: DocumentPaths<'_>,
+    config: Option<&crate::config::Config>,
+    mut file_index: crate::workspace_index::FileIndex,
+    collect_fix_checks: bool,
+    mut cached_checks: fix_coordinator::RawRuleChecks,
+) -> (
+    LintResult,
+    crate::workspace_index::FileIndex,
+    Option<fix_coordinator::FixCheckResults>,
+) {
+    let content = lint_ctx.content;
+    let mut warnings = Vec::new();
     // The rules `per-file-ignores` takes away for this file. It decides what this
     // file REPORTS, and nothing else: the index contribution at the end of this
     // function deliberately keeps running every cross-file rule, because a file's
@@ -568,20 +723,6 @@ pub fn lint_and_index_with_paths(
     let ignored_for_file = match (config, paths.config_path) {
         (Some(cfg), Some(path)) => cfg.get_ignored_rules_for_file(path),
         _ => std::collections::HashSet::new(),
-    };
-
-    // Parse LintContext once (includes inline config parsing)
-    let lint_ctx = time_function!(
-        "lint: parse lint context",
-        crate::lint_context::LintContext::new(content, flavor, paths.source_file.map(std::path::Path::to_path_buf))
-    );
-    let lint_ctx = match paths.link_target_policy {
-        Some(policy) => lint_ctx.with_link_target_policy(policy.clone()),
-        None => lint_ctx,
-    };
-    let lint_ctx = match paths.invalid_utf8 {
-        Some(invalid) => lint_ctx.with_invalid_utf8(invalid),
-        None => lint_ctx,
     };
     let inline_config = lint_ctx.inline_config();
 
@@ -641,18 +782,21 @@ pub fn lint_and_index_with_paths(
     // such a rule is going to read it.
     let suppression_observers: Vec<_> = applicable_rules
         .iter()
-        .filter(|rule| rule.observes_suppressions() && !rule.should_skip(&lint_ctx))
+        .filter(|rule| rule.observes_suppressions() && !rule.should_skip(lint_ctx))
         .collect();
     let mut suppressed = Vec::new();
+    // Raw checks precede severity, suppression and report-limit filtering.
+    // Reusing the report instead could hide a fixable finding from the engine.
+    let mut checked_rules = collect_fix_checks.then(std::collections::HashMap::new);
 
     {
         let _timer = profiling::ScopedTimer::new("lint: run single-file rules");
         for rule in &applicable_rules {
             #[cfg(not(target_arch = "wasm32"))]
-            let rule_start = Instant::now();
+            let rule_start = (profile_rules || verbose).then(Instant::now);
 
             // Skip rules that indicate they should be skipped (opt-in rules, content-based skipping)
-            if rule.should_skip(&lint_ctx) {
+            if rule.should_skip(lint_ctx) {
                 continue;
             }
 
@@ -662,35 +806,45 @@ pub fn lint_and_index_with_paths(
                 .map_or(rule.as_ref(), std::convert::AsRef::as_ref);
 
             // Run single-file check with the effective rule (possibly with inline config applied)
-            let result = effective_rule.check(&lint_ctx);
+            let result = cached_checks
+                .remove(&fix_coordinator::rule_check_key(rule.as_ref()))
+                .map_or_else(|| effective_rule.check(lint_ctx), Ok);
 
             match result {
                 Ok(rule_warnings) => {
+                    if let Some(checks) = &mut checked_rules {
+                        checks.insert(
+                            fix_coordinator::rule_check_key(rule.as_ref()),
+                            fix_coordinator::FixPlan::capture(effective_rule, lint_ctx, &rule_warnings),
+                        );
+                    }
                     let record = if suppression_observers.is_empty() {
                         None
                     } else {
                         Some(&mut suppressed)
                     };
                     let filtered_warnings =
-                        retain_reportable_warnings(&lint_ctx, config, rule.name(), rule_warnings, record);
+                        retain_reportable_warnings(lint_ctx, config, rule.name(), rule_warnings, record);
                     warnings.extend(filtered_warnings);
                 }
                 Err(e) => {
                     log::error!("Error checking rule {}: {}", rule.name(), e);
-                    return (Err(e), file_index);
+                    return (Err(e), file_index, checked_rules);
                 }
             }
 
             #[cfg(not(target_arch = "wasm32"))]
             {
-                let rule_duration = rule_start.elapsed();
-                if profile_rules {
-                    eprintln!("[RULE] {:6} {:?}", rule.name(), rule_duration);
-                }
+                if let Some(rule_start) = rule_start {
+                    let rule_duration = rule_start.elapsed();
+                    if profile_rules {
+                        eprintln!("[RULE] {:6} {:?}", rule.name(), rule_duration);
+                    }
 
-                #[cfg(not(test))]
-                if verbose && rule_duration.as_millis() > 500 {
-                    log::debug!("Rule {} took {:?}", rule.name(), rule_duration);
+                    #[cfg(not(test))]
+                    if verbose && rule_duration.as_millis() > 500 {
+                        log::debug!("Rule {} took {:?}", rule.name(), rule_duration);
+                    }
                 }
             }
         }
@@ -716,15 +870,15 @@ pub fn lint_and_index_with_paths(
         };
 
         for rule in &suppression_observers {
-            match rule.check_suppressions(&lint_ctx, &report) {
+            match rule.check_suppressions(lint_ctx, &report) {
                 Ok(rule_warnings) => {
                     let filtered_warnings =
-                        retain_reportable_warnings(&lint_ctx, config, rule.name(), rule_warnings, None);
+                        retain_reportable_warnings(lint_ctx, config, rule.name(), rule_warnings, None);
                     warnings.extend(filtered_warnings);
                 }
                 Err(e) => {
                     log::error!("Error checking rule {}: {}", rule.name(), e);
-                    return (Err(e), file_index);
+                    return (Err(e), file_index, checked_rules);
                 }
             }
         }
@@ -740,7 +894,7 @@ pub fn lint_and_index_with_paths(
     time_section!("lint: contribute cross-file data", {
         for rule in rules {
             if rule.cross_file_scope() == crate::rule::CrossFileScope::Workspace {
-                rule.contribute_to_index(&lint_ctx, &mut file_index);
+                rule.contribute_to_index(lint_ctx, &mut file_index);
             }
         }
     });
@@ -759,7 +913,7 @@ pub fn lint_and_index_with_paths(
 
     conform_fix_line_endings(content, &mut warnings);
 
-    (Ok(warnings), file_index)
+    (Ok(warnings), file_index, checked_rules)
 }
 
 /// Run cross-file checks for rules that need workspace-wide validation
@@ -1142,6 +1296,10 @@ mod tests {
         ] {
             assert!(ContentCharacteristics::analyze(content).has_headings, "{content:?}");
         }
+        // An ATX heading after a list marker counts as well.
+        for content in ["- ## Title", "1. # Title", "- - # Title", "> - ## Title", "10) # Title"] {
+            assert!(ContentCharacteristics::analyze(content).has_headings, "{content:?}");
+        }
         for content in ["> Prose\n>", "Prose\n> text", "Prose\n"] {
             assert!(!ContentCharacteristics::analyze(content).has_headings, "{content:?}");
         }
@@ -1304,3 +1462,6 @@ mod tests {
         assert_eq!(seen, [true, true], "fixture should insert lines after both endings");
     }
 }
+
+#[doc(hidden)]
+pub mod format_proof;

@@ -3,31 +3,26 @@
 from dataclasses import replace
 from pathlib import Path
 
-from sqlbuild.compiler.discovery._helpers.filesystem.command_output_sinks import (
-    bind_command_output_sink_declarations,
-    discover_command_output_sink_declarations,
-)
-from sqlbuild.compiler.discovery._helpers.filesystem.core import (
-    bind_event_exporter_declarations,
-    discover_event_exporter_declarations,
-    discover_provider_classes,
-)
-from sqlbuild.compiler.discovery._helpers.yml.project import load_project_config
-from sqlbuild.compiler.discovery.exceptions import ProjectConfigError
-from sqlbuild.compiler.discovery.models import (
+import sqlbuild._native as _native
+from sqlbuild._native import (
     DiscoveredCommandOutputSink,
     DiscoveredCommandOutputSinkDeclaration,
     DiscoveredEventExporter,
     DiscoveredEventExporterDeclaration,
     DiscoveredProvider,
     DiscoveredRuntimeExtensions,
-)
-from sqlbuild.runtime.event_exporting.main.stricter_severity import stricter_severity
-from sqlbuild.spec.contracts.models import (
+    EventExportSeverity,
     LifecycleEventSinkFilterConfig,
     LifecycleEventSinksConfig,
+    ProjectConfigError,
+    bind_event_exporter_declarations,
+    discover_event_exporter_declarations,
+    discover_provider_classes,
 )
-from sqlbuild.spec.contracts.types import EventExportSeverity
+from sqlbuild.compiler.discovery._helpers.filesystem.command_output_sinks import (
+    bind_command_output_sink_declarations,
+    discover_command_output_sink_declarations,
+)
 
 
 def discover_runtime_extensions(*, project_dir: Path) -> DiscoveredRuntimeExtensions:
@@ -45,7 +40,9 @@ def discover_runtime_extensions(*, project_dir: Path) -> DiscoveredRuntimeExtens
         and not (project_dir / "sqlbuild_project.toml").exists()
     ):
         return DiscoveredRuntimeExtensions()
-    config: LifecycleEventSinksConfig = load_project_config(project_dir=project_dir).sinks.lifecycle
+    config: LifecycleEventSinksConfig = _native.load_project_config_file(
+        project_dir
+    ).sinks.lifecycle
     declaration_names: frozenset[str] = frozenset(item.name for item in declarations)
     unknown_names: frozenset[str] = frozenset(config.named) - declaration_names
     if unknown_names:
@@ -87,5 +84,7 @@ def _apply_runtime_filter(
     for runtime_filter in filters:
         if runtime_filter.event_kinds is not None:
             kinds = kinds & runtime_filter.event_kinds
-        severity = stricter_severity(first=severity, second=runtime_filter.min_severity)
+        severity = _native.stricter_event_export_severity(
+            first=severity, second=runtime_filter.min_severity
+        )
     return replace(exporter, event_kinds=kinds, min_severity=severity)

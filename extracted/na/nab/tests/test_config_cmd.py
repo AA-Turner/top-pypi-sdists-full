@@ -861,11 +861,16 @@ class TestConfigErrors:
         assert type_name in err
 
     def test_version_digit_run_past_int_limit_exits(
-        self, hermetic_roots: Path, capsys: pytest.CaptureFixture[str]
+        self,
+        hermetic_roots: Path,
+        capsys: pytest.CaptureFixture[str],
+        oversized_integer: str,
     ) -> None:
         # The read-only inspector hits the same validators as the resolve, so
         # a digit run past CPython's int limit exits with the one-line error.
-        _project(hermetic_roots, 'environment = { python = "3.' + "9" * 5000 + '" }\n')
+        _project(
+            hermetic_roots, 'environment = { python = "3.' + oversized_integer + '" }\n'
+        )
         with pytest.raises(SystemExit) as exc:
             config_command("list", path=hermetic_roots / "pyproject.toml")
         assert exc.value.code == 1

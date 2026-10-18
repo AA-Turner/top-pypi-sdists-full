@@ -5,22 +5,21 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
-from sqlbuild.compiler.migrations.constants import MIGRATION_WRITE_ATTEMPTS
-from sqlbuild.compiler.migrations.main.deterministic_old_name_view_event_id import (
+from sqlbuild._native import (
+    MIGRATION_WRITE_ATTEMPTS,
+    MigrationRelation,
+    OldNameViewEvent,
+    OldNameViewEventType,
+    OldNameViewPlanEntry,
     deterministic_old_name_view_event_id,
-)
-from sqlbuild.compiler.migrations.main.read_old_name_view_events import (
-    read_old_name_view_events,
-)
-from sqlbuild.compiler.migrations.main.relation_for_location import migration_relation_for_location
-from sqlbuild.compiler.migrations.main.stored_old_name_view_columns import (
+    read_migration_state_events,
     stored_old_name_view_columns,
+    write_migration_state_event,
 )
-from sqlbuild.compiler.migrations.main.write_old_name_view_event import write_old_name_view_event
-from sqlbuild.compiler.migrations.models import MigrationRelation, OldNameViewEvent
-from sqlbuild.compiler.migrations.types import OldNameViewEventType
-from sqlbuild.compiler.planner.models import OldNameViewPlanEntry
+from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
+from sqlbuild.executor.migrations._helpers.relation_for_location import (
+    migration_relation_for_location,
+)
 
 
 def old_name_fact(
@@ -69,7 +68,8 @@ def record_old_name_fact(
 ) -> None:
     """Append one old-name fact through the adapter's state-table rendering."""
 
-    write_old_name_view_event(
+    write_migration_state_event(
+        kind="old_name",
         connection=connection,
         execute=adapter.execute,
         event=event,
@@ -100,7 +100,8 @@ def recorded_old_name_facts(
     )
     facts: dict[OldNameViewEventType, OldNameViewEvent] = {}
     event: OldNameViewEvent
-    for event in read_old_name_view_events(
+    for event in read_migration_state_events(
+        kind="old_name",
         connection=connection,
         execute=adapter.execute,
         database=relation.database,

@@ -1,8 +1,10 @@
+use super::document_parser::{LineEvent, PendingLineEvents};
+use super::scratch::LineFlags;
 use crate::config::MarkdownFlavor;
 use crate::utils::blockquote::parse_blockquote_prefix;
 use crate::utils::calculate_indentation_width_default;
 use crate::utils::code_block_utils::CodeBlockUtils;
-use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{Options, Parser};
 
 use super::types::*;
 use super::{ListItemMap, SkipByteRanges};
@@ -17,7 +19,7 @@ pub(super) fn spanned_lines(lines: &[LineInfo], start: usize, end: usize) -> std
 }
 
 /// Pre-compute basic line information (without headings/blockquotes)
-/// Also returns emphasis spans detected during the pulldown-cmark parse
+/// Also returns emphasis spans from the shared analysis or a separate dialect reading.
 pub(super) fn compute_basic_line_info(
     content: &str,
     content_lines: &[&str],
@@ -25,8 +27,9 @@ pub(super) fn compute_basic_line_info(
     code_blocks: &[(usize, usize)],
     flavor: MarkdownFlavor,
     skip_ranges: &SkipByteRanges<'_>,
-    front_matter_end: usize,
-) -> (Vec<LineInfo>, Vec<EmphasisSpan>) {
+    pending_lines: PendingLineEvents,
+) -> (Vec<LineInfo>, Vec<SourceEmphasisSpan>) {
+    let front_matter_end = skip_ranges.front_matter_end;
     let mut lines = Vec::with_capacity(content_lines.len());
 
     let extension_line_map = if flavor.supports_kramdown_syntax() {
@@ -53,7 +56,11 @@ pub(super) fn compute_basic_line_info(
     let code_block_map = compute_code_block_line_map(content, line_offsets, code_blocks_for_map);
 
     // Pre-compute which lines are in math blocks ($$ ... $$)
-    let math_block_map = compute_math_block_line_map(content_lines, &code_block_map);
+    let math_block_map = if content.contains("$$") {
+        compute_math_block_line_map(content_lines, &code_block_map)
+    } else {
+        LineFlags::new(0)
+    };
 
     // Run pulldown on a masked view of kramdown extension-block lines so parser state
     // from non-Markdown regions (like unclosed fences) can't leak into real Markdown.
@@ -69,13 +76,14 @@ pub(super) fn compute_basic_line_info(
         _ => content,
     };
 
-    // Use pulldown-cmark to detect list items AND emphasis spans in a single pass
-    let (list_item_map, emphasis_spans) = detect_list_items_and_emphasis_with_pulldown(
+    // Consume shared list/emphasis facts when the input has the same reading.
+    let (list_item_map, emphasis_spans) = pending_lines.finish(
         pulldown_input,
         line_offsets,
-        flavor,
         front_matter_end,
         code_blocks_for_map,
+        flavor,
+        std::ptr::eq(pulldown_input.as_ptr(), content.as_ptr()),
     );
 
     for (i, line) in content_lines.iter().enumerate() {
@@ -88,11 +96,13 @@ pub(super) fn compute_basic_line_info(
         // Parse blockquote prefix once and reuse it (avoid redundant parsing)
         let blockquote_parse = parse_blockquote_prefix(line);
 
-        // For blank detection, consider blockquote context
+        // For blank detection, consider blockquote context. CommonMark's blank line holds
+        // only spaces and tabs; U+00A0 and the other Unicode spaces are paragraph text.
+        let is_blank_text = |text: &str| text.trim_matches([' ', '\t', '\r']).is_empty();
         let is_blank = if let Some(parsed) = blockquote_parse {
-            parsed.content.trim().is_empty()
+            is_blank_text(parsed.content)
         } else {
-            line.trim().is_empty()
+            is_blank_text(line)
         };
 
         // Use pre-computed map for O(1) lookup instead of O(m) iteration
@@ -130,6 +140,7 @@ pub(super) fn compute_basic_line_info(
                         number: *number,
                         marker_column: *marker_column,
                         content_column: *content_column,
+                        commonmark_items: Vec::new(),
                     })
                 })
         };
@@ -167,6 +178,7 @@ pub(super) fn compute_basic_line_info(
             heading: None,
             atx_missing_space: None,
             is_setext_heading_text: false,
+            heading_container: None,
             blockquote: None,
             in_mkdocstrings,
             in_esm_block: false,
@@ -181,6 +193,8 @@ pub(super) fn compute_basic_line_info(
             in_admonition: false,
             in_content_tab: false,
             in_mkdocs_html_markdown: false,
+            in_markdown_span: false,
+            closes_markdown_element: false,
             in_definition_list: false,
             in_obsidian_comment: false,
             in_pymdown_block,
@@ -299,9 +313,9 @@ pub(super) fn compute_code_block_line_map(
     content: &str,
     line_offsets: &[usize],
     code_blocks: &[(usize, usize)],
-) -> Vec<bool> {
+) -> LineFlags {
     let num_lines = line_offsets.len();
-    let mut in_code_block = vec![false; num_lines];
+    let mut in_code_block = LineFlags::new(num_lines);
 
     for &(start, end) in code_blocks {
         let safe_start = if start > 0 && !content.is_char_boundary(start) {
@@ -352,9 +366,9 @@ pub(super) fn compute_code_block_line_map(
 /// mirrors the byte-level `math_block_ranges` model - only a line-start `$$`
 /// opens a span, and an unmatched opener is a literal - so line- and
 /// byte-level rules agree.
-pub(super) fn compute_math_block_line_map(content_lines: &[&str], code_block_map: &[bool]) -> Vec<bool> {
+pub(super) fn compute_math_block_line_map(content_lines: &[&str], code_block_map: &[bool]) -> LineFlags {
     let num_lines = content_lines.len();
-    let mut in_math_block = vec![false; num_lines];
+    let mut in_math_block = LineFlags::new(num_lines);
 
     // Precompute the highest-index non-code line that carries a `$$` marker
     // (after blockquote stripping). An opener with no inline closer opens a
@@ -450,12 +464,7 @@ pub(super) fn detect_list_items_and_emphasis_with_pulldown(
     flavor: MarkdownFlavor,
     front_matter_end: usize,
     code_blocks: &[(usize, usize)],
-) -> (ListItemMap, Vec<EmphasisSpan>) {
-    use std::collections::HashMap;
-
-    let mut list_items = HashMap::new();
-    let mut emphasis_spans = Vec::with_capacity(content.matches('*').count() + content.matches('_').count() / 4);
-
+) -> (ListItemMap, Vec<SourceEmphasisSpan>) {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
     options.insert(Options::ENABLE_FOOTNOTES);
@@ -467,36 +476,40 @@ pub(super) fn detect_list_items_and_emphasis_with_pulldown(
     let _ = flavor;
 
     let parser = Parser::new_ext(content, options).into_offset_iter();
+    collect_list_items_and_emphasis(
+        content,
+        line_offsets,
+        front_matter_end,
+        code_blocks,
+        parser.filter_map(|(event, range)| LineEvent::from_event(&event, &range)),
+    )
+}
+
+pub(super) fn collect_list_items_and_emphasis(
+    content: &str,
+    line_offsets: &[usize],
+    front_matter_end: usize,
+    code_blocks: &[(usize, usize)],
+    events: impl Iterator<Item = LineEvent>,
+) -> (ListItemMap, Vec<SourceEmphasisSpan>) {
+    let mut list_items = ListItemMap::new();
+    let mut emphasis_spans = Vec::new();
     let mut list_depth: usize = 0;
     let mut list_stack: Vec<bool> = Vec::new();
 
-    for (event, range) in parser {
+    for event in events {
         match event {
             // Capture emphasis spans (for MD030's emphasis detection)
-            Event::Start(Tag::Emphasis) | Event::Start(Tag::Strong) => {
-                let marker_count = if matches!(event, Event::Start(Tag::Strong)) {
-                    2
-                } else {
-                    1
-                };
-                let match_start = range.start;
-                let match_end = range.end;
+            LineEvent::Emphasis {
+                start: match_start,
+                end: match_end,
+                strong,
+            } => {
+                let marker_count = if strong { 2 } else { 1 };
 
                 if !CodeBlockUtils::is_in_code_block_or_span(code_blocks, match_start) {
                     let marker = content[match_start..].chars().next().unwrap_or('*');
                     if marker == '*' || marker == '_' {
-                        let content_start = match_start + marker_count;
-                        let content_end = if match_end >= marker_count {
-                            match_end - marker_count
-                        } else {
-                            match_end
-                        };
-                        let content_part = if content_start < content_end && content_end <= content.len() {
-                            &content[content_start..content_end]
-                        } else {
-                            ""
-                        };
-
                         let line_idx = match line_offsets.binary_search(&match_start) {
                             Ok(idx) => idx,
                             Err(idx) => idx.saturating_sub(1),
@@ -506,7 +519,7 @@ pub(super) fn detect_list_items_and_emphasis_with_pulldown(
                         let col_start = match_start - line_start;
                         let col_end = match_end - line_start;
 
-                        emphasis_spans.push(EmphasisSpan {
+                        emphasis_spans.push(SourceEmphasisSpan {
                             line: line_num,
                             start_col: col_start,
                             end_col: col_end,
@@ -514,22 +527,20 @@ pub(super) fn detect_list_items_and_emphasis_with_pulldown(
                             byte_end: match_end,
                             marker,
                             is_strong: marker_count == 2,
-                            content: content_part.to_string(),
                         });
                     }
                 }
             }
-            Event::Start(Tag::List(start_number)) => {
+            LineEvent::ListStart(is_ordered) => {
                 list_depth += 1;
-                list_stack.push(start_number.is_some());
+                list_stack.push(is_ordered);
             }
-            Event::End(TagEnd::List(_)) => {
+            LineEvent::ListEnd => {
                 list_depth = list_depth.saturating_sub(1);
                 list_stack.pop();
             }
-            Event::Start(Tag::Item) if list_depth > 0 => {
+            LineEvent::ItemStart(item_start) if list_depth > 0 => {
                 let current_list_is_ordered = list_stack.last().copied().unwrap_or(false);
-                let item_start = range.start;
 
                 let mut line_idx = match line_offsets.binary_search(&item_start) {
                     Ok(idx) => idx,
@@ -594,36 +605,83 @@ pub(super) fn detect_list_items_and_emphasis_with_pulldown(
                     }
                 }
             }
-            _ => {}
+            LineEvent::ItemStart(_) => {}
         }
     }
 
     (list_items, emphasis_spans)
 }
 
-/// Compute character frequency for fast content analysis
-pub(super) fn compute_char_frequency(content: &str) -> CharFrequency {
-    let mut frequency = CharFrequency::default();
+/// Source locations and ASCII marker counts from one reading of the bytes.
+/// Line slices follow `str::lines`, while offsets also include the empty line
+/// after a final newline, as position conversions require.
+pub(super) struct SourceLayout<'a> {
+    pub(super) offsets: Vec<usize>,
+    pub(super) lines: Vec<&'a str>,
+    pub(super) frequency: CharFrequency,
+    pub(super) candidates: super::candidates::LineCandidates,
+}
 
-    for ch in content.chars() {
-        match ch {
-            '#' => frequency.hash_count += 1,
-            '*' => frequency.asterisk_count += 1,
-            '_' => frequency.underscore_count += 1,
-            '-' => frequency.hyphen_count += 1,
-            '+' => frequency.plus_count += 1,
-            '>' => frequency.gt_count += 1,
-            '|' => frequency.pipe_count += 1,
-            '[' => frequency.bracket_count += 1,
-            '`' => frequency.backtick_count += 1,
-            '<' => frequency.lt_count += 1,
-            '!' => frequency.exclamation_count += 1,
-            '\n' => frequency.newline_count += 1,
+pub(super) fn source_layout(content: &str) -> SourceLayout<'_> {
+    let mut layout = SourceLayout {
+        offsets: vec![0],
+        lines: Vec::new(),
+        frequency: CharFrequency::default(),
+        candidates: super::candidates::LineCandidates::default(),
+    };
+    let bytes = content.as_bytes();
+    let mut start = 0;
+    let mut signals = 0;
+    // All counted markers are ASCII, so UTF-8 continuation bytes cannot match.
+    // A newline is also a character boundary for the borrowed line slices.
+    for (index, &byte) in bytes.iter().enumerate() {
+        match byte {
+            b'#' => {
+                layout.frequency.hash_count += 1;
+
+                signals |= super::candidates::HASH;
+            }
+            b'*' => {
+                layout.frequency.asterisk_count += 1;
+                signals |= super::candidates::EMPHASIS;
+            }
+            b'_' => {
+                layout.frequency.underscore_count += 1;
+                signals |= super::candidates::EMPHASIS;
+            }
+            b'-' => layout.frequency.hyphen_count += 1,
+            b'+' => layout.frequency.plus_count += 1,
+            b'>' => layout.frequency.gt_count += 1,
+            b'|' => layout.frequency.pipe_count += 1,
+            b'[' => layout.frequency.bracket_count += 1,
+            b'`' => layout.frequency.backtick_count += 1,
+            b'<' => layout.frequency.lt_count += 1,
+            b'!' => layout.frequency.exclamation_count += 1,
+            b'$' => signals |= super::candidates::DOLLAR,
+            b'=' => signals |= super::candidates::EQUALS,
+            b':' | b'@' => signals |= super::candidates::URL,
+            b'w' if bytes[index..].starts_with(b"www.") => signals |= super::candidates::URL,
+            b'\n' => {
+                layout.frequency.newline_count += 1;
+                let end = if index > start && bytes[index - 1] == b'\r' {
+                    index - 1
+                } else {
+                    index
+                };
+                layout.candidates.record(layout.lines.len(), signals);
+                signals = 0;
+                layout.lines.push(&content[start..end]);
+                start = index + 1;
+                layout.offsets.push(start);
+            }
             _ => {}
         }
     }
-
-    frequency
+    if start < content.len() {
+        layout.candidates.record(layout.lines.len(), signals);
+        layout.lines.push(&content[start..]);
+    }
+    layout
 }
 
 /// Fast unordered list parser - replaces regex for 5-10x speedup
@@ -698,4 +756,48 @@ pub(super) fn parse_ordered_list(line: &str) -> Option<(&str, &str, char, &str, 
         &line[spacing_start..i],
         &line[i..],
     ))
+}
+
+#[cfg(test)]
+mod source_layout_tests {
+    use super::*;
+
+    #[test]
+    fn shared_layout_matches_unicode_lines_and_character_counts() {
+        let fragments = ["", "a", "\n", "\r", "\r\n", "é🦀#*_-+>|[`<!", "\u{0085}\u{2028}"];
+        for first in fragments {
+            for second in fragments {
+                for third in fragments {
+                    let content = format!("{first}{second}{third}");
+                    let layout = source_layout(&content);
+                    assert_eq!(layout.lines, content.lines().collect::<Vec<_>>(), "{content:?}");
+                    let offsets: Vec<_> = std::iter::once(0)
+                        .chain(
+                            content
+                                .char_indices()
+                                .filter_map(|(offset, ch)| (ch == '\n').then_some(offset + 1)),
+                        )
+                        .collect();
+                    assert_eq!(layout.offsets, offsets, "{content:?}");
+                    let frequency = layout.frequency;
+                    for (marker, count) in [
+                        ('#', frequency.hash_count),
+                        ('*', frequency.asterisk_count),
+                        ('_', frequency.underscore_count),
+                        ('-', frequency.hyphen_count),
+                        ('+', frequency.plus_count),
+                        ('>', frequency.gt_count),
+                        ('|', frequency.pipe_count),
+                        ('[', frequency.bracket_count),
+                        ('`', frequency.backtick_count),
+                        ('<', frequency.lt_count),
+                        ('!', frequency.exclamation_count),
+                        ('\n', frequency.newline_count),
+                    ] {
+                        assert_eq!(count, content.chars().filter(|&ch| ch == marker).count(), "{content:?}");
+                    }
+                }
+            }
+        }
+    }
 }

@@ -42,6 +42,14 @@ _MISMATCH = (
     "Invalid continuation or changed request/scope: send the same arguments as the "
     "call that returned this cursor, or repeat that read without cursor."
 )
+#: A cursor that does not decode was not copied exactly: 23 of 24 refused cursors
+#: in a week of daemon traces (2026-10-17) were a model's mis-copy -- a character
+#: changed or added in ~370 -- and `_MISMATCH` sent it looking at its arguments,
+#: which were right, so it sent the same broken cursor again until the run failed.
+_DAMAGED = (
+    "Invalid continuation: this cursor was not copied exactly. Repeat that read "
+    "without cursor, or copy `next_cursor` character for character."
+)
 
 
 def binding(tool: str, arguments: dict, scope: str) -> str:
@@ -155,6 +163,9 @@ def decode(cursor: str | None, request: str | Request) -> dict:
     request_id = request.id if isinstance(request, Request) else request
     try:
         value = _unpack(cursor)
+    except (ValueError, KeyError, TypeError, zlib.error):
+        raise ContinuationError(_DAMAGED) from None
+    try:
         if value["b"] != request_id:
             raise ValueError
         state = value["s"]

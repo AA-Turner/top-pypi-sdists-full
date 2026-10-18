@@ -288,7 +288,15 @@ impl RumdlLanguageServer {
             Ok(sourced_config) => {
                 let loaded_files = sourced_config.loaded_files.clone();
                 let discovery_warnings = sourced_config.discovery_warnings.clone();
-                // Use into_validated_unchecked since LSP doesn't need validation warnings
+                for warning in
+                    crate::config::validate_config_sourced(&sourced_config, crate::config::default_registry())
+                {
+                    log::warn!("{}", warning.message);
+                    if notify_client {
+                        self.client.log_message(MessageType::WARNING, warning.message).await;
+                    }
+                }
+                // Configuration warnings stay in the server log, not document diagnostics.
                 let validated = sourced_config.into_validated_unchecked();
                 let config: crate::config::Config = validated.clone().into();
                 *self.rumdl_sourced.write().await = sourced_for_editorconfig(&config, validated);
@@ -514,10 +522,9 @@ impl ConfigResolver {
         // Resolve the home-directory boundary so a user-level `~/.rumdl.toml` is not
         // mistaken for a project config; it stays a user-config fallback instead,
         // preserving the platform user-config directory's precedence over the dotfile.
-        let home_dir = home_dir_override.map(std::path::Path::to_path_buf).or_else(|| {
-            use etcetera::{BaseStrategy, choose_base_strategy};
-            choose_base_strategy().ok().map(|s| s.home_dir().to_path_buf())
-        });
+        let home_dir = home_dir_override
+            .map(std::path::Path::to_path_buf)
+            .or_else(crate::config::user_paths::process_home_path);
 
         // Walk upward from the file's directory, bounded by the workspace root and the
         // home directory. Candidates are nearest-first; load the first that parses so a
@@ -534,9 +541,17 @@ impl ConfigResolver {
         // explicit-config loader is standalone and belongs to the `--config` path above.
         let mut resolution = ResolvedProjectConfig::NotFound;
         for config_path in candidates {
-            match crate::config::SourcedConfig::load_discovered(&config_path, user_config_dir, home_dir.as_deref()) {
+            match crate::config::SourcedConfig::load_discovered_within(
+                &config_path,
+                user_config_dir,
+                home_dir.as_deref(),
+                workspace_root.as_deref(),
+            ) {
                 Ok(sourced) => {
                     log::debug!("Found config file: {}", config_path.display());
+                    for warning in crate::config::validate_config_sourced(&sourced, crate::config::default_registry()) {
+                        log::warn!("{}", warning.message);
+                    }
                     let validated = sourced.into_validated_unchecked();
                     let config: Config = validated.clone().into();
                     resolution = ResolvedProjectConfig::Loaded(Box::new(LoadedProjectConfig {
@@ -635,6 +650,9 @@ impl ConfigResolver {
                         "No project config found; using the scope of workspace root {}",
                         root.display()
                     );
+                    for warning in crate::config::validate_config_sourced(&sourced, crate::config::default_registry()) {
+                        log::warn!("{}", warning.message);
+                    }
                     let validated = sourced.into_validated_unchecked();
                     let config: Config = validated.clone().into();
                     let sourced = sourced_for_editorconfig(&config, validated);

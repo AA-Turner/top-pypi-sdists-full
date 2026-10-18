@@ -16,32 +16,21 @@ use sqlbuild_config::project::main::resolve_config_file::resolve_config_file;
 use sqlbuild_config::project::models::{Built, ConfigFile, ConfigPaths};
 
 use crate::bindings::_helpers::boundary::config_values::config_value_to_python;
+use crate::bindings::_helpers::records::construct::error_class;
+use crate::bindings::_helpers::records::construct::{new_record, record_class};
+use crate::bindings::_helpers::records::ids::ErrorId;
+use crate::bindings::_helpers::records::registry;
+use sqlbuild_core::constants::PROJECT_CONFIG_FILENAME;
 
-const MODELS_MODULE: &str = "sqlbuild.spec.contracts.models";
-const ERRORS_MODULE: &str = "sqlbuild.compiler.discovery.exceptions";
-const PROJECT_CONFIG_ERROR: &str = "ProjectConfigError";
 const FILE_NAMES: [&str; 4] = [
-    "sqlbuild_project.toml",
+    PROJECT_CONFIG_FILENAME,
     "sqlbuild_project.yml",
     "sqlbuild_local.toml",
     "sqlbuild_local.yml",
 ];
-/// The module of each `StrEnum` a loaded config holds.
-const ENUM_MODULES: [(&str, &str); 10] = [
-    ("ColumnContractMode", "sqlbuild.spec.contracts.types"),
-    ("FutureCursorAction", "sqlbuild.spec.contracts.types"),
-    ("MicrobatchLimitAction", "sqlbuild.spec.contracts.types"),
-    ("TableType", "sqlbuild.spec.contracts.types"),
-    ("TableTypeDowngradePolicy", "sqlbuild.spec.contracts.types"),
-    ("RetentionDecreasePolicy", "sqlbuild.spec.contracts.types"),
-    (
-        "MissingMigrationOriginPolicy",
-        "sqlbuild.spec.contracts.types",
-    ),
-    ("EventExportSeverity", "sqlbuild.spec.contracts.types"),
-    ("AuditSeverity", "sqlbuild.compiler.auditing.types"),
-    ("CollectionRendering", "sqlbuild.sql_values.types"),
-];
+/// The Python module of each `StrEnum` a loaded config holds that is not native.
+const PYTHON_ENUM_MODULES: [(&str, &str); 1] =
+    [("AuditSeverity", "sqlbuild.compiler.auditing.types")];
 
 /// The four configuration file paths of a project directory, as Python and native paths.
 struct Files<'py> {
@@ -97,10 +86,7 @@ fn config_error(py: Python<'_>, failure: &ConfigFailure, files: &Files<'_>) -> P
     }
     let keywords = PyDict::new(py);
     keywords.set_item("help", failure.help.as_deref())?;
-    let error = py
-        .import(ERRORS_MODULE)?
-        .getattr(PROJECT_CONFIG_ERROR)?
-        .call((message,), Some(&keywords))?;
+    let error = error_class(py, ErrorId::ProjectConfig)?.call((message,), Some(&keywords))?;
     Ok(PyErr::from_value(error))
 }
 
@@ -128,11 +114,12 @@ fn load_error(py: Python<'_>, failure: &LoadFailure, files: &Files<'_>) -> PyRes
 }
 
 fn enum_member<'py>(py: Python<'py>, class: &str, value: &str) -> PyResult<Bound<'py, PyAny>> {
-    let module = ENUM_MODULES
-        .iter()
-        .find(|(name, _)| *name == class)
-        .map_or("sqlbuild.spec.contracts.types", |(_, module)| *module);
-    py.import(module)?.getattr(class)?.call1((value,))
+    let class_object: Bound<'py, PyAny> =
+        match PYTHON_ENUM_MODULES.iter().find(|(name, _)| *name == class) {
+            Some((_, module)) => py.import(*module)?.getattr(class)?,
+            None => record_class(py, registry::record_named(class)?)?,
+        };
+    class_object.call1((value,))
 }
 
 fn object<'py>(
@@ -144,9 +131,7 @@ fn object<'py>(
     for (name, value) in fields {
         keywords.set_item(name, built(py, value)?)?;
     }
-    py.import(MODELS_MODULE)?
-        .getattr(class)?
-        .call((), Some(&keywords))
+    new_record(py, registry::record_named(class)?, (), Some(&keywords))
 }
 
 fn built(py: Python<'_>, value: Built) -> PyResult<Py<PyAny>> {
@@ -177,7 +162,10 @@ fn built(py: Python<'_>, value: Built) -> PyResult<Py<PyAny>> {
 
 /// `load_project_config`: the validated `ProjectConfig` of `project_dir`.
 #[pyfunction]
-fn load_project_config_file(py: Python<'_>, project_dir: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+pub(crate) fn load_project_config_file(
+    py: Python<'_>,
+    project_dir: &Bound<'_, PyAny>,
+) -> PyResult<Py<PyAny>> {
     let files = files(project_dir)?;
     match load_project_config(&files.native) {
         Ok(config) => built(py, config),
@@ -187,7 +175,10 @@ fn load_project_config_file(py: Python<'_>, project_dir: &Bound<'_, PyAny>) -> P
 
 /// `load_local_config`: the validated `LocalConfig` of `project_dir`, or the default.
 #[pyfunction]
-fn load_local_config_file(py: Python<'_>, project_dir: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+pub(crate) fn load_local_config_file(
+    py: Python<'_>,
+    project_dir: &Bound<'_, PyAny>,
+) -> PyResult<Py<PyAny>> {
     let files = files(project_dir)?;
     match load_local_config(&files.native) {
         Ok(config) => built(py, config),
@@ -197,7 +188,7 @@ fn load_local_config_file(py: Python<'_>, project_dir: &Bound<'_, PyAny>) -> PyR
 
 /// The project or local configuration file path, rejecting an unconverted legacy file.
 #[pyfunction]
-fn resolve_config_file_path<'py>(
+pub(crate) fn resolve_config_file_path<'py>(
     py: Python<'py>,
     project_dir: &Bound<'py, PyAny>,
     local: bool,
@@ -211,7 +202,7 @@ fn resolve_config_file_path<'py>(
 
 /// `validate_local_sql_analysis_policy` from the project requirement and the local setting.
 #[pyfunction]
-fn validate_local_sql_analysis(
+pub(crate) fn validate_local_sql_analysis(
     py: Python<'_>,
     project_dir: &Bound<'_, PyAny>,
     flags: (bool, bool, bool),

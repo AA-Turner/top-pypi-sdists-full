@@ -44,6 +44,23 @@ impl<'t> crate::Root<'t> {
             .filter_map(crate::TomlNode::cast)
     }
 
+    /// TOML nodes and comments in source order, each visited once.
+    pub fn elements(&self) -> impl Iterator<Item = crate::TomlElement<'t>> {
+        use crate::{AstToken, NodeOrToken, TomlElement, WalkEvent};
+
+        self.syntax()
+            .preorder_with_tokens()
+            .filter_map(|event| match event {
+                WalkEvent::Enter(NodeOrToken::Node(node)) => {
+                    crate::TomlNode::cast(node).map(TomlElement::Node)
+                }
+                WalkEvent::Enter(NodeOrToken::Token(token)) => {
+                    crate::Comment::cast(token).map(TomlElement::Comment)
+                }
+                WalkEvent::Leave(_) => None,
+            })
+    }
+
     /// TOML nodes containing `offset`, ordered from the innermost node to
     /// the root. Parser-only grouping nodes are intentionally omitted.
     pub fn nodes_at_offset(

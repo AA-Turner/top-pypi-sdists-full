@@ -80,6 +80,9 @@ class BaseSafeTensorsFileLoader:
         self.pg = self.framework.get_process_group(pg)
         self.device = device
         self.meta: Dict[str, Tuple[SafeTensorsMetadata, int]] = {}
+        # Seeded by PipelineParallel's chunk planner and reused across batch
+        # resets. Standalone loaders continue to read headers on registration.
+        self._metadata_cache: Dict[str, SafeTensorsMetadata] = {}
         self.frames = OrderedDict[str, TensorFrame]()
         self.disable_cache = disable_cache
         self._tensor_filter: Optional[Callable[[str], bool]] = None
@@ -89,7 +92,9 @@ class BaseSafeTensorsFileLoader:
         self._chunk_plan: Dict[
             str, Tuple[Set[str], List[Tuple[int, int]], Optional[int]]
         ] = {}
-        self.init_numa(set_numa)
+        kwargs["set_numa"] = set_numa
+        if copier_type != "nogds":
+            self.init_numa(set_numa)
         self.copier_constructor: CopierConstructFunc = create_copier_constructor(
             copier_type=copier_type,
             device=device,
@@ -121,14 +126,26 @@ class BaseSafeTensorsFileLoader:
         copy_files_to_device, with an optional allocation size."""
         self._chunk_plan = chunk_plan
 
+    def _set_metadata_cache(self, metadata: Dict[str, SafeTensorsMetadata]) -> None:
+        """Reuse headers parsed for the current pipeline's chunk plan."""
+        self._metadata_cache = dict(metadata)
+
     def reset(self):
         self.frames = {}
         self.meta = {}
         self._chunk_plan = {}
 
     def close(self):
+        """Release the file registrations and copier. Safe to call more than once.
+
+        The loader cannot be reused afterwards. Device buffers belong to the
+        ``FilesBufferOnDevice`` returned by ``copy_files_to_device()``; close
+        that to release them.
+        """
         self.reset()
-        del self.copier_constructor
+        self._metadata_cache.clear()
+        if hasattr(self, "copier_constructor"):
+            del self.copier_constructor
 
     def get_keys(self) -> List[str]:
         if self._tensor_filter is None:
@@ -168,7 +185,11 @@ class BaseSafeTensorsFileLoader:
                 next_idx = rank_next_idx[rank]
                 if next_idx < len(filenames[rank]):
                     realpath = filenames[rank][next_idx]  # os.path.realpath(filename)
-                    metadata = SafeTensorsMetadata.from_file(realpath, self.framework)
+                    metadata = self._metadata_cache.get(realpath)
+                    if metadata is None:
+                        metadata = SafeTensorsMetadata.from_file(
+                            realpath, self.framework
+                        )
                     self.meta[realpath] = (metadata, rank)
                     self.frames.update(metadata.tensors)
                     if rank == self.pg.rank():
@@ -184,16 +205,34 @@ class BaseSafeTensorsFileLoader:
         dtype: DType = DType.AUTO,
         use_buf_register: bool = True,
         max_copy_block_size: int = 16 * 1024 * 1024 * 1024,
+        allow_inflight: bool = False,
+        borrowed_tensors: bool = False,
     ) -> FilesBufferOnDevice:
         """
+        With allow_inflight=True, supporting copiers prepare AUTO dtype views
+        during IO and wait for the necessary DMA range at tensor access. Closing
+        the returned buffer drains all outstanding IO. Other copiers and online
+        dtype conversion retain the blocking behavior.
+
         trigger copying all the files to device buffers.
         At this moment, we do not instantiate tensors but just creating copies at device buffers with or without GDS.
         Users can instantiate and/or partition tensors with FilesBufferOnDevice returned by this function.
-        The returned FilesBufferOnDevice owns the backing storage for tensors
-        created from it. Clone/copy those tensors before FilesBufferOnDevice.close()
-        if the tensor data must outlive the buffer.
+        Tensors created from the returned FilesBufferOnDevice take shared
+        ownership of the backing storage, so they stay valid after
+        FilesBufferOnDevice.close(); no clone is required to outlive the buffer.
+        With borrowed_tensors=True, local tensors and their derived views do
+        not retain the allocation. Complete all use, including asynchronous
+        device work, before closing the buffer. Requires a single-process group.
         """
+        if borrowed_tensors and self.pg.size() != 1:
+            raise ValueError("borrowed_tensors requires a single-process loader group")
         self.framework.set_device(self.device)
+
+        if dtype != DType.AUTO:
+            # Online conversion updates TensorFrame.dtype in the metadata.
+            # Those objects no longer describe the on-disk dtype, so a later
+            # registration must parse fresh headers instead of reusing them.
+            self._metadata_cache.clear()
 
         need_wait: List[LazyTensorFactory] = []
         factories: Dict[int, List[LazyTensorFactory]] = {}
@@ -202,43 +241,63 @@ class BaseSafeTensorsFileLoader:
 
         factory_idx_bits = math.ceil(math.log2(len(self.meta) + 1))
         lidx = 1
-        for realpath, (meta, rank) in sorted(self.meta.items(), key=lambda x: x[0]):
-            self_rank = self.pg.rank() == rank
-            if self_rank:
-                copier = self.copier_constructor(meta, self.device, self.framework)
-                chunk = self._chunk_plan.get(realpath)
-                if chunk is not None:
-                    # Copiers without partial-read support refuse the chunk
-                    # plan here (CopierInterface.set_chunk raises).
-                    # Legacy two-argument overrides work only without an
-                    # allocation size; budget-sized allocation needs all three.
-                    names, ranges, allocation_size = chunk
-                    if allocation_size is None:
-                        copier.set_chunk(ranges, names)
-                    else:
-                        copier.set_chunk(ranges, names, allocation_size)
-                elif self._tensor_filter is not None:
-                    copier.set_byte_ranges(meta.select_byte_ranges(self._tensor_filter))
-            else:
-                copier = None
-            factory = LazyTensorFactory(
-                meta,
-                self.device,
-                rank,
-                self_rank,
-                factory_idx_bits,
-                lidx,
-                copier,
-                self.framework,
-                disable_cache=self.disable_cache,
-            )
-            factory.submit_io(use_buf_register, max_copy_block_size)
-            factories[rank].append(factory)
-            if self_rank:
-                need_wait.append(factory)
-            lidx += 1
-        for factory in need_wait:
-            factory.wait_io(dtype=dtype, noalign=False)
+        try:
+            for realpath, (meta, rank) in sorted(self.meta.items(), key=lambda x: x[0]):
+                self_rank = self.pg.rank() == rank
+                if self_rank:
+                    copier = self.copier_constructor(meta, self.device, self.framework)
+                else:
+                    copier = None
+                factory = LazyTensorFactory(
+                    meta,
+                    self.device,
+                    rank,
+                    self_rank,
+                    factory_idx_bits,
+                    lidx,
+                    copier,
+                    self.framework,
+                    disable_cache=self.disable_cache,
+                )
+                # Register ownership before configuring the copier: set_chunk
+                # and set_byte_ranges can fail after it has opened a file.
+                factories[rank].append(factory)
+                if copier is not None:
+                    chunk = self._chunk_plan.get(realpath)
+                    if chunk is not None:
+                        # Copiers without partial-read support refuse the chunk
+                        # plan here (CopierInterface.set_chunk raises).
+                        # Legacy two-argument overrides work only without an
+                        # allocation size; budget-sized allocation needs all three.
+                        names, ranges, allocation_size = chunk
+                        if allocation_size is None:
+                            copier.set_chunk(ranges, names)
+                        else:
+                            copier.set_chunk(ranges, names, allocation_size)
+                    elif self._tensor_filter is not None:
+                        copier.set_byte_ranges(
+                            meta.select_byte_ranges(self._tensor_filter)
+                        )
+                factory.submit_io(
+                    use_buf_register,
+                    max_copy_block_size,
+                    allow_inflight=allow_inflight and dtype == DType.AUTO,
+                )
+                if self_rank:
+                    need_wait.append(factory)
+                lidx += 1
+            for factory in need_wait:
+                factory.wait_io(
+                    dtype=dtype, noalign=False, borrowed_tensors=borrowed_tensors
+                )
+        except BaseException:
+            for loaders in factories.values():
+                for factory in loaders:
+                    try:
+                        factory.free_dev_ptrs()
+                    except Exception:
+                        pass  # Preserve the original submission/materialization error.
+            raise
         if self._chunk_plan:
             # Only this sub-batch's chunk tensors should be registered/visible.
             chunk_keys = set().union(
@@ -252,6 +311,7 @@ class BaseSafeTensorsFileLoader:
             pg=self.pg,
             framework=self.framework,
             keep_tensor=keep_tensor,
+            borrowed_tensors=borrowed_tensors,
         )
 
 
@@ -280,10 +340,15 @@ class SafeTensorsFileLoader(BaseSafeTensorsFileLoader):
     def process_extension_config(
         cls, ext_config: Mapping[str, Any], **kwargs: Any
     ) -> Dict[str, Any]:
-        """Map ``copier_type`` to ``nogds`` flag; pass rest through."""
+        """Map ``copier_type`` to ``nogds``/``use_fgds`` flags; pass rest through."""
         out = dict(ext_config)
         copier_type = out.pop("copier_type", "gds")
-        out["nogds"] = copier_type != "gds"
+        if copier_type == "fgds":
+            out["nogds"] = False
+            out["use_fgds"] = True
+        else:
+            out["nogds"] = copier_type != "gds"
+            out.setdefault("use_fgds", False)
         return out
 
     def __init__(
@@ -297,6 +362,7 @@ class SafeTensorsFileLoader(BaseSafeTensorsFileLoader):
         disable_cache: bool = True,
         debug_log: bool = False,
         framework="pytorch",
+        use_fgds: bool = False,
         **kwargs,
     ):
         self.framework = get_framework_op(framework)
@@ -304,21 +370,22 @@ class SafeTensorsFileLoader(BaseSafeTensorsFileLoader):
         self.device = self.framework.get_device(device, self.pg)
 
         fstcpp.set_debug_log(debug_log)
-
-        if not nogds:
-            if platform.system() == "Windows":
-                copier_type = "dstorage"
+        if nogds:
+            if self.device.type != DeviceType.CPU and is_unified_memory_system(
+                self.framework
+            ):
+                # When GDS is unavailable, prefer the unified copier on systems
+                # with shared CPU/GPU memory (e.g., DGX Spark) over the
+                # bounce-buffer nogds path.
+                copier_type = "unified"
             else:
-                copier_type = "gds"
-        elif self.device.type != DeviceType.CPU and is_unified_memory_system(
-            self.framework
-        ):
-            # When GDS is unavailable, prefer the unified copier on systems
-            # with shared CPU/GPU memory (e.g., DGX Spark) over the
-            # bounce-buffer nogds path.
-            copier_type = "unified"
+                copier_type = "nogds"
+        elif use_fgds:
+            copier_type = "fgds"
+        elif platform.system() == "Windows":
+            copier_type = "dstorage"
         else:
-            copier_type = "nogds"
+            copier_type = "gds"
         super().__init__(
             pg,
             self.device,
@@ -336,9 +403,9 @@ class fastsafe_open:
     """
     Opens a safetensors lazily and returns tensors as asked
     This is an enhanced version of safe_open in the original safetensors library to consume file list
-    Tensors returned from this context are valid only while the context stays
-    open. Clone/copy returned tensors before leaving the with block if the
-    tensor data must be reused after __exit__ closes the backing buffer.
+    Tensors returned from this context take shared ownership of their backing
+    buffer, so they remain valid after the with block exits; no clone is
+    required to reuse the data afterwards.
 
     Args:
         filenames (:obj:`str`|`list[str]`|`dict[int, str]`): The filename(s) or rank-file map to open
@@ -355,9 +422,15 @@ class fastsafe_open:
         nogds: bool = False,
         debug_log: bool = False,
         max_copy_block_size: int = 16 * 1024 * 1024 * 1024,
+        use_fgds: bool = False,
     ):
         self.loader = SafeTensorsFileLoader(
-            pg, device, nogds=nogds, debug_log=debug_log, framework=framework
+            pg,
+            device,
+            nogds=nogds,
+            debug_log=debug_log,
+            framework=framework,
+            use_fgds=use_fgds,
         )
         file_dict: Dict[int, List[str]] = {}
         if isinstance(filenames, str):
@@ -383,16 +456,16 @@ class fastsafe_open:
     def get_tensor_wrapped(self, name: str) -> TensorBase:
         """Return a wrapped tensor by name.
 
-        Clone/copy the returned tensor before leaving the context manager if
-        the tensor data must be used after the context closes.
+        The returned tensor keeps its backing buffer alive, so it stays valid
+        after the context closes.
         """
         return self.fb.get_tensor_wrapped(name)
 
     def get_tensor(self, name: str) -> Any:
         """Return a tensor by name.
 
-        Clone/copy the returned tensor before leaving the context manager if
-        the tensor data must be used after the context closes.
+        The returned tensor keeps its backing buffer alive, so it stays valid
+        after the context closes.
         """
         return self.get_tensor_wrapped(name).get_raw()
 

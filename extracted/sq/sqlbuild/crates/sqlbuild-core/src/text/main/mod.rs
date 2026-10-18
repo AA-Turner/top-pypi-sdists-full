@@ -1,3 +1,5 @@
+pub mod cell_len;
+pub mod char_cells;
 pub mod close_matches;
 pub mod decimal_digit_value;
 pub mod decode_text;
@@ -7,5 +9,12 @@ pub mod ignorecase_key;
 pub mod is_decimal_digit;
 pub mod is_letter;
 pub mod is_word_char;
+pub mod python_casefold;
 pub mod python_cleandoc;
+pub mod python_isalnum;
+pub mod python_isdigit;
+pub mod python_isspace;
+pub mod python_splitlines;
 pub mod python_str_repr;
+pub mod python_strip;
+pub mod text_wrap;

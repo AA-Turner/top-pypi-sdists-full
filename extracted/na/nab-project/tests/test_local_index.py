@@ -32,7 +32,12 @@ from nab_index.local_index import (
     read_wheel_metadata,
 )
 from nab_index.transport import HttpError
+from nab_markersets._compat import get_int_max_str_digits
 from nab_provider.errors import IndexAccessError
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
 
 if TYPE_CHECKING:
     from collections.abc import Coroutine, Iterator
@@ -583,13 +588,14 @@ class TestFlatWheelhouse:
         assert run(client.get_files("foo")) == []
         assert not client.served_unreadable_only("foo")
 
+    @requires_int_limit
     def test_zip_sdist_version_rejects_an_oversized_version(self) -> None:
         """An oversized version answers None instead of raising.
 
         Called directly because the filename is longer than any filesystem
         allows, so it cannot arrive from a directory scan.
         """
-        oversized = "1" * (sys.get_int_max_str_digits() + 1)
+        oversized = "1" * ((get_int_max_str_digits() or 4300) + 1)
         assert zip_sdist_version(f"foo-{oversized}.zip", "foo") is None
 
     def test_zip_beside_readable_wheel_is_not_unreadable_only(

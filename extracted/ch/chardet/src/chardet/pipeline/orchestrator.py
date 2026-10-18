@@ -7,7 +7,7 @@ annotations.
 
 import warnings
 
-from chardet._utils import DEFAULT_MAX_BYTES
+from chardet._utils import DEFAULT_MAX_BYTES, EVIDENCE_CAP_BYTES, decodes_without_error
 from chardet.enums import EncodingEra
 from chardet.pipeline import (
     _NONE_RESULT,
@@ -30,7 +30,7 @@ from chardet.pipeline.structural import (
     compute_multibyte_byte_coverage,
     compute_structural_score,
 )
-from chardet.pipeline.utf8 import detect_utf8
+from chardet.pipeline.utf8 import scan_utf8
 from chardet.pipeline.utf1632 import detect_utf1632_patterns
 from chardet.pipeline.validity import filter_by_validity
 from chardet.registry import EncodingInfo, get_candidates
@@ -72,6 +72,43 @@ def _make_fallback_or_none(
         )
         return [_NONE_RESULT]
     return [DetectionResult(encoding=encoding, confidence=0.10, language=None)]
+
+
+def _hold_validity_past_cap(
+    data: bytes,
+    evidence: bytes,
+    results: list[DetectionResult],
+    allowed: frozenset[str],
+    no_match_encoding: str,
+) -> list[DetectionResult]:
+    """Keep the validity contract for the part of the window past the evidence cap.
+
+    Byte-validity filtering converges on the first ``EVIDENCE_CAP_BYTES``
+    of the window (ADR-0006), so on a longer window a candidate that
+    cannot decode the rest can still reach the top.  What callers rely on
+    is that the answer decodes the window chardet examined: they pass
+    ``max_bytes`` precisely to say how much of the input the verdict is
+    about.  So walk the corrected ranking and drop every entry ahead of
+    the first one that decodes the whole window, under the same tolerant
+    judgment the validity filter passes on the evidence slice.  Those
+    entries are what validity would have removed had it seen the bytes;
+    the survivors keep their own ranks and confidences, since nothing
+    about the evidence they were scored on has changed.
+
+    The walk is bounded by the ranking's length, each step is one C-speed
+    decode that stops at the first bad byte, and it costs nothing at all
+    when the window fits inside the cap, which every default call does.
+    Entries below the first decodable one are not re-examined, so a
+    ``detect_all`` ranking on a long window is exact down to its winner
+    and unverified past it.  When no listed entry decodes, the answer is
+    the no-match fallback, as it is when validity leaves nothing.
+    """
+    if len(data) <= len(evidence):
+        return results
+    for i, r in enumerate(results):
+        if r.encoding is not None and decodes_without_error(data, r.encoding):
+            return results if i == 0 else results[i:]
+    return _make_fallback_or_none(no_match_encoding, allowed, "no_match_encoding")
 
 
 # Minimum structural score (valid multi-byte sequences / lead bytes) required
@@ -135,7 +172,7 @@ def _gate_cjk_candidates(
     """
     gated: list[EncodingInfo] = []
     for enc in valid_candidates:
-        if enc.is_multibyte:
+        if enc.is_multibyte_cjk:
             mb_score = compute_structural_score(data, enc, ctx)
             ctx.mb_scores[enc.name] = mb_score
             if mb_score < _CJK_MIN_MB_RATIO:
@@ -184,12 +221,12 @@ def _score_structural_candidates(
     confidence values to [0.0, 1.0] before returning to callers.
     """
     enc_lookup: dict[str, EncodingInfo] = {
-        e.name: e for e in valid_candidates if e.is_multibyte
+        e.name: e for e in valid_candidates if e.is_multibyte_cjk
     }
     valid_mb = tuple(
         enc_lookup[name] for name, _sc in structural_scores if name in enc_lookup
     )
-    single_byte = tuple(e for e in valid_candidates if not e.is_multibyte)
+    single_byte = tuple(e for e in valid_candidates if not e.is_multibyte_cjk)
     results = list(
         score_candidates(
             data[:_STAT_SCORE_MAX_BYTES],
@@ -252,7 +289,7 @@ def _run_pipeline_core(  # noqa: PLR0913
 
     # Stage 1a: BOM detection (runs first — BOMs are definitive and
     # UTF-16/32 data looks binary due to null bytes)
-    bom_result = detect_bom(data)
+    bom_result = detect_bom(data, input_truncated=input_truncated)
     if bom_result is not None and bom_result.encoding in allowed:
         return [bom_result]
 
@@ -260,7 +297,15 @@ def _run_pipeline_core(  # noqa: PLR0913
     # BOMs — must run before binary detection since these encodings contain
     # many null bytes that would trigger the binary check)
     utf1632_result = detect_utf1632_patterns(data)
-    if utf1632_result is not None and utf1632_result.encoding in allowed:
+    # The stage samples and decodes the first few KB only.  The answer has
+    # to decode the whole window, so a lone surrogate or out-of-range unit
+    # past the sample sends the input on to the other stages instead.
+    if (
+        utf1632_result is not None
+        and utf1632_result.encoding is not None
+        and utf1632_result.encoding in allowed
+        and decodes_without_error(data, utf1632_result.encoding)
+    ):
         return [utf1632_result]
 
     # Escape-sequence encodings (ISO-2022, HZ-GB-2312, UTF-7): must run
@@ -285,7 +330,7 @@ def _run_pipeline_core(  # noqa: PLR0913
     # codes) that would otherwise exceed the binary threshold.  We compute
     # the result now but return it at the normal pipeline position (after
     # markup) so that explicit charset declarations still take precedence.
-    utf8_precheck = detect_utf8(data)
+    utf8_valid, utf8_precheck = scan_utf8(data)
 
     # Pre-check ASCII to prevent false binary classification.  ASCII text
     # with null byte separators (e.g. find -print0 output) would exceed the
@@ -327,6 +372,8 @@ def _run_pipeline_core(  # noqa: PLR0913
                     markup_result.mime_type,
                 )
             ]
+        # The stage already holds every declaration it returns, and the
+        # promotion it may apply, to the whole window.
         markup_result = promote_markup_superset(data, markup_result, allowed)
         return [markup_result]
 
@@ -338,15 +385,37 @@ def _run_pipeline_core(  # noqa: PLR0913
     if utf8_precheck is not None and utf8_precheck.encoding in allowed:
         return [utf8_precheck]
 
+    # The filtering, gating, and probing stages below converge on bounded
+    # evidence (ADR-0006).  One slice, taken here, feeds them all: the
+    # structural analysis cache is keyed by encoding name only, so every
+    # consumer must see the same view of the data.  For the decode-safety
+    # flip in postprocess, a window that outruns the cap counts as
+    # truncation — the slice's tail is a chardet-made cut, not the end of
+    # what the caller will decode.
+    evidence = data[:EVIDENCE_CAP_BYTES]
+    evidence_truncated = input_truncated or len(data) > len(evidence)
+
     # Stage 2a: Byte validity filtering
-    valid_candidates = filter_by_validity(data, candidates)
+    valid_candidates = filter_by_validity(evidence, candidates)
+
+    # The exhaustive UTF-8 check saw the whole window; when it *rejected*
+    # the data but the window extends past the evidence cap, the slice
+    # alone may still look like valid UTF-8 to the statistical path.  Honor
+    # the proof: chardet never calls data UTF-8 that is not valid UTF-8
+    # throughout the window.  A missing precheck result is not a rejection
+    # — valid UTF-8 with no multi-byte evidence (pure ASCII, ASCII plus
+    # control bytes, ASCII plus a truncated tail) also returns None, and
+    # ruling utf-8 out for those would be wrong.  (Within the cap the slice
+    # is the window, so validity already agrees and this never fires.)
+    if not utf8_valid and len(data) > len(evidence):
+        valid_candidates = tuple(e for e in valid_candidates if e.name != "utf-8")
 
     if not valid_candidates:
         return _make_fallback_or_none(no_match_encoding, allowed, "no_match_encoding")
 
     # Gate: eliminate CJK multi-byte candidates that lack genuine
     # multi-byte structure.  Cache structural scores for Stage 2b.
-    valid_candidates = _gate_cjk_candidates(data, valid_candidates, ctx)
+    valid_candidates = _gate_cjk_candidates(evidence, valid_candidates, ctx)
 
     if not valid_candidates:
         return _make_fallback_or_none(no_match_encoding, allowed, "no_match_encoding")
@@ -355,10 +424,10 @@ def _run_pipeline_core(  # noqa: PLR0913
     # Reuse scores already computed during the CJK gate above.
     structural_scores: list[tuple[str, float]] = []
     for enc in valid_candidates:
-        if enc.is_multibyte:
+        if enc.is_multibyte_cjk:
             score = ctx.mb_scores.get(enc.name)
             if score is None:  # pragma: no cover - gate always populates cache
-                score = compute_structural_score(data, enc, ctx)
+                score = compute_structural_score(evidence, enc, ctx)
             if score > 0.0:
                 structural_scores.append((enc.name, score))
 
@@ -369,28 +438,34 @@ def _run_pipeline_core(  # noqa: PLR0913
         _, best_score = structural_scores[0]
         if best_score >= _STRUCTURAL_CONFIDENCE_THRESHOLD:
             results = _score_structural_candidates(
-                data,
+                evidence,
                 structural_scores,
                 valid_candidates,
                 ctx,
                 full_ranking=full_ranking,
             )
             if results:
-                return postprocess_results(
-                    data, results, input_truncated=input_truncated
+                results = postprocess_results(
+                    evidence, results, input_truncated=evidence_truncated
+                )
+                return _hold_validity_past_cap(
+                    data, evidence, results, allowed, no_match_encoding
                 )
 
     # Stage 3: Statistical scoring for all remaining candidates.
     # Bigram models converge quickly and don't benefit from scanning
     # beyond 16 KB — cap the data to avoid unnecessary work on large files.
-    stat_data = data[:_STAT_SCORE_MAX_BYTES]
+    stat_data = evidence[:_STAT_SCORE_MAX_BYTES]
     results = list(
         score_candidates(stat_data, tuple(valid_candidates), full_ranking=full_ranking)
     )
     if not results:
         return _make_fallback_or_none(no_match_encoding, allowed, "no_match_encoding")
 
-    return postprocess_results(data, results, input_truncated=input_truncated)
+    # Rank corrections reason about the same evidence window the ranking
+    # came from, which also bounds their byte-presence scans.
+    results = postprocess_results(evidence, results, input_truncated=evidence_truncated)
+    return _hold_validity_past_cap(data, evidence, results, allowed, no_match_encoding)
 
 
 def run_pipeline(  # noqa: PLR0913
@@ -436,7 +511,10 @@ def run_pipeline(  # noqa: PLR0913
         empty_input_encoding=empty_input_encoding,
         full_ranking=full_ranking,
     )
-    results = fill_languages(data, results)
+    # Same slice the core ran on: ``max_bytes`` is the caller's cap on what
+    # chardet may look at, and language fill is not exempt from it just
+    # because it applies a smaller cap of its own.
+    results = fill_languages(data[:max_bytes], results)
     # The ANSI-art model is keyed under the "zxx" pseudo-language (ISO 639
     # for "no linguistic content").  Kept internal so language fill does not
     # overwrite it; callers see language=None.

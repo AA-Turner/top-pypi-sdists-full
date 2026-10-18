@@ -1087,6 +1087,7 @@ def sb04qd(n,m,A,B,C,ldwork=None):
             for the ({info}-{m})-th column of matrix X.
     """
     hidden = ' (hidden by the wrapper)'
+    # ruff: disable[PLW0127, PLW0128]
     arg_list =     arg_list = ['n', 'm', 'A', 'LDA' + hidden,  'B', 'LDB' + hidden,
                 'C', 'LDC' + hidden,  'Z', 'LDZ' + hidden,
                 'IWORK' + hidden, 'DWORK' + hidden, 'ldwork', 'INFO' + hidden]
@@ -2378,6 +2379,7 @@ def sg02ad(dico,jobb,fact,uplo,jobl,scal,sort,acc,N,M,P,A,E,B,Q,R,L,ldwork=None,
     elif (jobb == 'B'):
         if (fact == 'N'):
             out = _wrapper.sg02ad_bn(dico,uplo,jobl,scal,sort,acc,N,M,A,E,B,Q,R,L,tol,ldwork)
+        #ruff: disable[SIM114]
         elif (fact == 'C'):
             out = _wrapper.sg02ad_bc(dico,jobl,scal,sort,acc,N,M,P,A,E,B,Q,R,L,tol,ldwork)
         elif (fact == 'D'):

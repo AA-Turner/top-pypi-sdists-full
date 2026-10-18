@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import codecs
 import difflib
+import logging
 import os
 import re
 import shlex
@@ -56,6 +57,9 @@ _SYSTEM_TREES = tuple(Path(p) for p in (
 ))
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache",
              ".tox", "dist", "build", ".cache", "wandb", ".ipynb_checkpoints", "site-packages"}
+log = logging.getLogger("probe.daemon.folders")
+#: The errors `working_folders` has warned about, in this process.
+_SKIPPED: set[tuple[str, str]] = set()
 _CD_RE = re.compile(r"(?:^|&&|\|\||;|\(|\n)\s*cd\s+(\"[^\"]+\"|'[^']+'|[^\s;&|)]+)")
 _WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit", "write", "edit", "apply_patch"}
 
@@ -94,6 +98,16 @@ def _system_tree(path: Path) -> bool:
     return any(path == tree or tree in path.parents for tree in _SYSTEM_TREES)
 
 
+def _is_dir(path: Path) -> bool:
+    """`path.is_dir()` that never raises. A path here is pulled out of the
+    agent's commands, and before Python 3.14 `Path.is_dir()` raises on a name
+    the file system refuses (ENAMETOOLONG: a 300-character JSON blob read as a
+    redirect target) -- which crashed the worker on every restart and left a
+    session unrecorded for 13 hours (strand-ai, 2026-10-17). `os.path.isdir`
+    answers False instead, on every version."""
+    return os.path.isdir(path)
+
+
 def _ok_folder(path: Path, home: Path, cwd: Path | None = None) -> bool:
     """A folder the daemon may treat as the session's: not hidden, never `$HOME`
     itself, a folder above it or a shared root. Under `$HOME` or the session's
@@ -103,9 +117,9 @@ def _ok_folder(path: Path, home: Path, cwd: Path | None = None) -> bool:
         resolved = path.resolve()
         home_r = home.resolve()
         cwd_r = cwd.resolve() if cwd is not None else None
-    except OSError:
+    except (OSError, ValueError, RuntimeError):
         return False
-    if not resolved.is_dir() or _broad(resolved, home_r):
+    if not _is_dir(resolved) or _broad(resolved, home_r):
         return False
     roots = [home_r]
     if cwd_r is not None and not _broad(cwd_r, home_r):
@@ -180,35 +194,47 @@ def working_folders(store: Store, cwd: Path, home: Path) -> list[Path]:
     rows = store.db.execute("SELECT command, tool, tool_input, cwd FROM events WHERE kind = 'tool_call' "
                             f"AND (bite IS NULL OR bite != {UNRECORDED_BITE}) ORDER BY seq DESC LIMIT 2000")
     for row in rows:
-        base = Path(row["cwd"]) if row["cwd"] else cwd
-        for match in _CD_RE.findall(row["command"] or ""):
-            target = Path(os.path.expanduser(match.strip("'\"")))
-            target = target if target.is_absolute() else base / target
-            if _ok_folder(target, home, cwd) and target.resolve() not in found:
-                found.append(target.resolve())
-            base = target if target.is_dir() else base
-        for written in written_paths(row["command"] or ""):
-            folder = Path(os.path.expanduser(written)).parent
-            folder = folder if folder.is_absolute() else base / folder
-            if _ok_folder(folder, home, cwd) and folder.resolve() not in found:
-                found.append(folder.resolve())
-        if row["tool"] in _WRITE_TOOLS and row["tool_input"]:
-            try:
-                import json
-
-                data = json.loads(row["tool_input"])
-            except ValueError:
-                data = {}
-            path = data.get("file_path") or data.get("path")
-            if isinstance(path, str):
-                folder = Path(os.path.expanduser(path)).parent
-                folder = folder if folder.is_absolute() else base / folder
-                if _ok_folder(folder, home, cwd) and folder.resolve() not in found:
-                    found.append(folder.resolve())
+        try:
+            _row_folders(row, cwd, home, found)
+        except Exception as exc:  # noqa: BLE001 -- one odd command is skipped, never a crashed worker
+            # Re-read every poll while the row is in the window: warned once.
+            key = (type(exc).__name__, str(exc)[:200])
+            if key not in _SKIPPED and len(_SKIPPED) < 256:
+                _SKIPPED.add(key)
+                log.warning("working folders: skipped a command: %s: %s", *key)
     # A folder inside another adds nothing to the check.
     kept = [f for f in found if not any(f != g and g in f.parents for g in found)][:MAX_WORKING_FOLDERS]
     store.set_fact("working_folders", [str(f) for f in kept])
-    return kept or ([cwd.resolve()] if cwd.is_dir() else [])
+    return kept or ([cwd.resolve()] if _is_dir(cwd) else [])
+
+
+def _row_folders(row, cwd: Path, home: Path, found: list[Path]) -> None:
+    """The folders one stored tool call names, added to `found`."""
+    base = Path(row["cwd"]) if row["cwd"] else cwd
+    for match in _CD_RE.findall(row["command"] or ""):
+        target = Path(os.path.expanduser(match.strip("'\"")))
+        target = target if target.is_absolute() else base / target
+        if _ok_folder(target, home, cwd) and target.resolve() not in found:
+            found.append(target.resolve())
+        base = target if _is_dir(target) else base
+    for written in written_paths(row["command"] or ""):
+        folder = Path(os.path.expanduser(written)).parent
+        folder = folder if folder.is_absolute() else base / folder
+        if _ok_folder(folder, home, cwd) and folder.resolve() not in found:
+            found.append(folder.resolve())
+    if row["tool"] in _WRITE_TOOLS and row["tool_input"]:
+        try:
+            import json
+
+            data = json.loads(row["tool_input"])
+        except ValueError:
+            data = {}
+        path = data.get("file_path") or data.get("path")
+        if isinstance(path, str):
+            folder = Path(os.path.expanduser(path)).parent
+            folder = folder if folder.is_absolute() else base / folder
+            if _ok_folder(folder, home, cwd) and folder.resolve() not in found:
+                found.append(folder.resolve())
 
 
 def _walk(folder: Path):

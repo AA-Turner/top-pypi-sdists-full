@@ -17,13 +17,19 @@ pub use source_tracking::*;
 #[cfg(feature = "ec4rs")]
 pub mod editorconfig;
 
+pub mod discovery_trace;
 pub(crate) mod file_source;
+pub(crate) mod user_paths;
 
+mod cli2_ignores;
 mod loading;
+pub use cli2_ignores::Cli2Ignore;
 // Re-exported for the native LSP (`lsp::configuration`), the only cross-module
 // consumer; gated so non-native builds (e.g. wasm/WASI) don't warn on it.
 #[cfg(feature = "native")]
 pub(crate) use loading::collect_project_config_candidates;
+#[cfg(test)]
+pub(crate) use loading::collect_project_config_candidates_bounded;
 
 pub mod registry;
 pub use registry::*;

@@ -4,12 +4,17 @@ import logging
 import os
 import shutil
 import sys
-from stat import S_IWUSR
-from typing import TYPE_CHECKING
+from pathlib import Path
+from stat import S_ISDIR, S_ISLNK, S_IXGRP, S_IXOTH, S_IXUSR
+from typing import TYPE_CHECKING, Final
+
+if os.name == "nt":
+    from stat import IO_REPARSE_TAG_MOUNT_POINT
+
+    from ._win import clear_readonly
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
     from types import TracebackType
 
     _ExcInfo = BaseException | tuple[type[BaseException], BaseException, TracebackType]
@@ -21,6 +26,45 @@ def ensure_dir(path: Path) -> None:
     if not path.exists():
         LOGGER.debug("create folder %s", path)
         os.makedirs(str(path))
+
+
+def ensure_within(root: Path, path: Path) -> None:
+    parts: Final = path.relative_to(root).parts
+    if ".." in parts:
+        msg: Final = f"environment directory {path} must remain inside {root}"
+        raise ValueError(msg)
+    ensure_dir(root)
+    folder = root
+    for part in parts:
+        folder /= part
+        try:
+            metadata: Final = folder.lstat()
+        except FileNotFoundError:
+            pass
+        else:
+            if S_ISLNK(metadata.st_mode):
+                LOGGER.warning("replace environment directory link %s", folder)
+                folder.unlink()
+            elif os.name == "nt" and metadata.st_reparse_tag == IO_REPARSE_TAG_MOUNT_POINT:
+                LOGGER.warning("replace environment directory junction %s", folder)
+                folder.rmdir()
+        try:
+            folder.mkdir()
+        except FileExistsError:
+            created: Final = folder.lstat()
+            if not S_ISDIR(created.st_mode) or (
+                os.name == "nt" and created.st_reparse_tag == IO_REPARSE_TAG_MOUNT_POINT
+            ):
+                msg: Final = f"environment directory is not a real directory: {folder}"
+                raise NotADirectoryError(msg) from None
+
+
+def write_file(path: Path, data: bytes) -> None:
+    if path.is_symlink() or path.exists():
+        path.unlink()
+    # Exclusive creation rejects links introduced after the old entry was removed.
+    with path.open("xb") as stream:
+        stream.write(data)
 
 
 def ensure_safe_to_do(src: Path, dest: Path) -> None:
@@ -44,22 +88,29 @@ def symlink(src: Path, dest: Path) -> None:
 
 
 def copy(src: Path, dest: Path) -> None:
-    ensure_safe_to_do(src, dest)
-    is_dir = src.is_dir()
-    method = copytree if is_dir else shutil.copy
     LOGGER.debug("copy %s", _Debug(src, dest))
-    method(str(src), str(dest))
+    if src.is_dir():
+        ensure_safe_to_do(src, dest)
+        copytree(str(src), str(dest))
+    else:
+        _copy_file(src, dest)
 
 
 def copytree(src: str, dest: str) -> None:
     for root, _, files in os.walk(src):
-        dest_dir = os.path.join(dest, os.path.relpath(root, src))
-        if not os.path.isdir(dest_dir):
-            os.makedirs(dest_dir)
+        dest_dir: Final = Path(dest) / os.path.relpath(root, src)
+        dest_dir.mkdir(parents=True, exist_ok=True)
         for name in files:
-            src_f = os.path.join(root, name)
-            dest_f = os.path.join(dest_dir, name)
-            shutil.copy(src_f, dest_f)
+            _copy_file(Path(root) / name, dest_dir / name)
+
+
+def _copy_file(src: Path, dest: Path) -> None:
+    ensure_safe_to_do(src, dest)
+    mode: Final = 0o755 if src.stat().st_mode & (S_IXUSR | S_IXGRP | S_IXOTH) else 0o644
+    flags: Final = os.O_WRONLY | os.O_CREAT | os.O_EXCL | (os.O_BINARY if os.name == "nt" else 0)
+    # Creation applies the current umask without changing the process-wide setting.
+    with src.open("rb") as source, os.fdopen(os.open(str(dest), flags, mode), "wb") as target:
+        shutil.copyfileobj(source, target, length=1024 * 1024)
 
 
 def safe_delete(dest: Path) -> None:
@@ -67,11 +118,10 @@ def safe_delete(dest: Path) -> None:
         exc = exc_info[1] if isinstance(exc_info, tuple) else exc_info
         if isinstance(exc, FileNotFoundError):
             return
-        # rmtree also reports os.open/os.close/os.scandir/os.lstat; retrying one of those with a lone path raises
-        # TypeError over the real error, or deletes nothing while telling rmtree we handled the failure
-        if func not in {os.unlink, os.rmdir} or os.access(path, os.W_OK):
-            raise  # ruff:ignore[misplaced-bare-raise]
-        os.chmod(path, os.lstat(path).st_mode | S_IWUSR)
+        # POSIX deletion depends on the parent directory, so changing the entry's mode cannot help.
+        if os.name != "nt" or func not in {os.unlink, os.rmdir} or os.path.islink(path) or os.access(path, os.W_OK):
+            raise exc
+        clear_readonly(path)
         func(path)
 
     if sys.version_info >= (3, 12):
@@ -93,6 +143,8 @@ __all__ = [
     "copy",
     "copytree",
     "ensure_dir",
+    "ensure_within",
     "safe_delete",
     "symlink",
+    "write_file",
 ]

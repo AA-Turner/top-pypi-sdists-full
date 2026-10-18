@@ -1,4 +1,4 @@
-use crate::lint_context::is_horizontal_rule_content;
+use crate::lint_context::{column_at, is_horizontal_rule_content};
 /// Rule MD022: Headings should be surrounded by blank lines
 ///
 /// See [docs/md022.md](../../docs/md022.md) for full documentation, configuration, and examples.
@@ -74,6 +74,197 @@ fn first_text_idx(heading_idx: usize, heading: &crate::lint_context::HeadingInfo
     heading_idx + 1 - heading.text_lines
 }
 
+/// The text of line `idx` as the heading it neighbours reads it. A quoted
+/// heading's neighbours are read without their quote markers, so a fence or a
+/// list item inside the quote is recognised as one.
+fn neighbour_text<'a>(ctx: &'a crate::lint_context::LintContext, idx: usize, quoted: bool) -> &'a str {
+    let line = ctx.lines[idx].content(ctx.content);
+    if quoted { strip_quote_markers(line) } else { line }
+}
+
+/// `line` without its leading quote markers; the line itself when it has none.
+fn strip_quote_markers(line: &str) -> &str {
+    crate::utils::blockquote::parse_blockquote_prefix(line).map_or(line, |parsed| parsed.content)
+}
+
+/// Number of blockquotes a line is written inside of: the `>` markers before
+/// its text, with list markers and indentation passed over.
+fn quote_depth(line: &str) -> usize {
+    scan_container_prefix(line, usize::MAX).1
+}
+
+/// The part of a line that precedes its text, as a prefix for a blank line in
+/// the same container: indentation and the first `depth` quote markers, with
+/// each list marker replaced by the spaces that stand under it. Blank lines
+/// written this way stay inside the list items and quotes around the heading.
+fn blank_line_prefix(line: &str, depth: usize) -> String {
+    if depth == 0 {
+        return String::new();
+    }
+    scan_container_prefix(line, depth).0.trim_end().to_string()
+}
+
+/// Walks the container markers opening a line, up to `limit` quote markers.
+/// Returns the prefix with list markers blanked and the quote markers found.
+fn scan_container_prefix(line: &str, limit: usize) -> (String, usize) {
+    let mut prefix = String::new();
+    let mut depth = 0;
+    let mut rest = line;
+    while depth < limit {
+        let trimmed = rest.trim_start_matches([' ', '\t']);
+        prefix.push_str(&rest[..rest.len() - trimmed.len()]);
+        rest = trimmed;
+        if let Some(after) = rest.strip_prefix('>') {
+            prefix.push('>');
+            depth += 1;
+            rest = after;
+            continue;
+        }
+        let token = rest.split([' ', '\t']).next().unwrap_or("");
+        if is_list_marker_token(token) {
+            prefix.push_str(&" ".repeat(token.len()));
+            rest = &rest[token.len()..];
+            continue;
+        }
+        break;
+    }
+    (prefix, depth)
+}
+
+/// The prefix of the blank line a fix adds next to the heading on `heading_line`
+/// beside `adjacent_line`: the container both lines share, so the blank line
+/// splits neither the quote nor the list item the heading is in.
+fn blank_line_between(heading_line: &str, adjacent_line: &str) -> String {
+    let shared = quote_depth(heading_line).min(quote_depth(adjacent_line));
+    blank_line_prefix(heading_line, shared)
+}
+
+/// The prefix of the blank line a fix adds above the heading on `heading_line`,
+/// `above` being the lines over it, nearest first.
+///
+/// A line over the heading without a quote marker is still in the heading's
+/// quote when it continues the quoted paragraph above it lazily, and a blank
+/// line written without markers there would split the quote in two. Where the
+/// nearest line with a marker or a blank line is quoted text, the blank line
+/// carries the heading's own quote markers; at worst that leaves a blank line
+/// inside the quote where none was needed.
+fn blank_line_above<'a>(heading_line: &str, mut above: impl Iterator<Item = &'a str>) -> String {
+    let depth = quote_depth(heading_line);
+    let Some(adjacent) = above.next() else {
+        return blank_line_prefix(heading_line, 0);
+    };
+    let mut shared = depth.min(quote_depth(adjacent));
+    let adjacent_depth = quote_depth(adjacent);
+    if adjacent_depth < depth && !adjacent.trim().is_empty() {
+        // Without any marker the quoted text above may be at any depth; with
+        // some, it has to reach the heading's own depth to be the paragraph this
+        // line continues.
+        let needed = if adjacent_depth == 0 { 1 } else { depth };
+        let anchor = std::iter::once(adjacent)
+            .chain(above)
+            .find(|line| quote_depth(line) >= needed || line.trim_start_matches(['>', ' ', '\t']).is_empty());
+        if anchor
+            .is_some_and(|line| quote_depth(line) >= needed && !line.trim_start_matches(['>', ' ', '\t']).is_empty())
+        {
+            shared = depth;
+        }
+    }
+    blank_line_prefix(heading_line, shared)
+}
+
+/// Whether `token` is a list marker: a bullet, or one to nine digits and a
+/// `.` or `)`.
+fn is_list_marker_token(token: &str) -> bool {
+    match token {
+        "-" | "+" | "*" => true,
+        _ => {
+            let digits = token.trim_end_matches(['.', ')']);
+            token.len() == digits.len() + 1
+                && (1..=9).contains(&digits.len())
+                && digits.bytes().all(|b| b.is_ascii_digit())
+        }
+    }
+}
+
+/// The column where the content of the `quotes`-th quote on `line` starts: just
+/// past its marker and the one optional space or tab after it.
+fn quote_margin_end(line: &str, quotes: usize) -> usize {
+    if quotes == 0 {
+        return 0;
+    }
+    let (prefix, _) = scan_container_prefix(line, quotes);
+    let optional = usize::from(line[prefix.len()..].starts_with([' ', '\t']));
+    column_at(line, prefix.len()) + optional
+}
+
+/// Whether the heading whose text starts on `first_idx` is the first thing in a
+/// list item whose marker stands alone at the end of the line above it.
+///
+/// The marker is the innermost one on that line: `- -` leaves the second item
+/// empty inside the first. The item's content starts on the next line, so the
+/// heading already begins it: a blank line inserted between the two is the one
+/// blank line an item may open with, which leaves the item empty and the
+/// heading outside it. A heading indented less than the item's content column
+/// is outside it already, and gets its blank line like any other.
+fn starts_item_under_bare_marker(ctx: &crate::lint_context::LintContext, first_idx: usize) -> bool {
+    let Some(marker_idx) = first_idx.checked_sub(1) else {
+        return false;
+    };
+    let text = ctx.lines[marker_idx].content(ctx.content).trim_end();
+    // Only list markers and quote markers may stand before the last marker.
+    if text.is_empty()
+        || !text
+            .split_whitespace()
+            .all(|token| token == ">" || is_list_marker_token(token))
+        || !text.split_whitespace().next_back().is_some_and(is_list_marker_token)
+    {
+        return false;
+    }
+    let marker_end = column_at(text, text.len());
+    let line = ctx.lines[first_idx].content(ctx.content);
+    let quotes = quote_depth(line);
+    if quotes > 0 {
+        // A heading inside a quote has no recorded container: it is in the item
+        // when it sits in the marker's quotes, or in quotes opened inside the
+        // item, at or past the content column. The text after the marker's own
+        // quote markers is what the column of the item is measured on.
+        let marker_quotes = quote_depth(text);
+        if quotes < marker_quotes {
+            return false;
+        }
+        let (prefix, _) = scan_container_prefix(line, marker_quotes);
+        let rest = &line[prefix.len()..];
+        let text_start = prefix.len() + rest.len() - rest.trim_start_matches([' ', '\t']).len();
+        // Columns are counted from the end of each line's own quote margin, so
+        // `> > -` over `>>   ## H` compares the same two columns.
+        let item_end = marker_end.saturating_sub(quote_margin_end(text, marker_quotes));
+        return column_at(line, text_start).saturating_sub(quote_margin_end(line, marker_quotes)) > item_end;
+    }
+    ctx.heading_container(first_idx + 1)
+        == crate::lint_context::HeadingContainer::Item {
+            content_col: marker_end + 1,
+        }
+}
+
+/// Whether the heading's text starts on the line that opens its list item
+/// (`- ## a`, or `- a` over a `---` underline).
+///
+/// Nothing in the heading's own container sits above it: the line above is
+/// either the previous item or the block before the list, and the list marker
+/// on the heading's line is what separates them. A blank line there would
+/// belong to the list, not to the heading, and would make a tight list loose.
+/// Indentation and quote markers are not list markers: a heading that only
+/// opens a quote is separated from the line above by nothing.
+fn opens_item_on_marker_line(
+    ctx: &crate::lint_context::LintContext,
+    first_idx: usize,
+    heading: &crate::lint_context::HeadingInfo,
+) -> bool {
+    let line = ctx.lines[first_idx].content(ctx.content);
+    let margin = line.len() - line.trim_start_matches([' ', '\t', '>']).len();
+    heading.first_line_prefix_len() > margin
+}
+
 /// Protect headings whose structural marker belongs to template code, while
 /// retaining visible headings built from multiline template expressions.
 fn heading_is_in_template_code(
@@ -102,28 +293,26 @@ fn heading_is_in_template_code(
 /// heading with content above it. So are the earlier text lines of a setext
 /// heading, which are the heading itself rather than content above it.
 fn heading_at_start_idx(ctx: &crate::lint_context::LintContext, is_pandoc: bool) -> Option<usize> {
-    let mut found_non_transparent = false;
-    ctx.lines.iter().enumerate().find_map(|(i, line)| {
-        match line.heading.as_deref() {
-            Some(heading) if !found_non_transparent => Some(first_text_idx(i, heading)),
-            _ => {
-                if !line.is_blank && !line.in_html_comment && !line.in_mdx_comment && !line.is_setext_heading_text {
-                    let trimmed = line.content(ctx.content).trim();
-                    // Check for single-line HTML comments too
-                    if is_blank_or_comment_only(trimmed) {
-                        // Transparent - HTML comment
-                    } else if line.in_kramdown_extension_block || line.is_kramdown_block_ial {
-                        // Transparent - Kramdown preamble line
-                    } else if is_pandoc && (pandoc::is_div_open(trimmed) || pandoc::is_div_close(trimmed)) {
-                        // Transparent - Pandoc/Quarto div marker in Pandoc-compatible flavor
-                    } else {
-                        found_non_transparent = true;
-                    }
-                }
-                None
-            }
+    for (index, line) in ctx.lines.iter().enumerate() {
+        if let Some(heading) = line.heading.as_deref() {
+            return Some(first_text_idx(index, heading));
         }
-    })
+        if line.is_blank || line.in_html_comment || line.in_mdx_comment || line.is_setext_heading_text {
+            continue;
+        }
+        let trimmed = line.content(ctx.content).trim();
+        if is_blank_or_comment_only(trimmed)
+            || line.in_kramdown_extension_block
+            || line.is_kramdown_block_ial
+            || (is_pandoc && (pandoc::is_div_open(trimmed) || pandoc::is_div_close(trimmed)))
+        {
+            continue;
+        }
+        // Once real content precedes the first heading, no later line can
+        // make that heading begin the document.
+        return None;
+    }
+    None
 }
 
 ///
@@ -202,6 +391,22 @@ pub struct MD022BlanksAroundHeadings {
     config: MD022Config,
 }
 
+/// A heading with too few blank lines on one side.
+struct Violation {
+    /// Index of the line the heading is recorded on (the last text line of a setext heading).
+    heading_line: usize,
+    /// Index of the line the heading text starts on.
+    first_line: usize,
+    /// `"above"` or `"below"`.
+    position: &'static str,
+    needed_blanks: usize,
+    heading_level: usize,
+    is_setext: bool,
+    /// The text of each blank line the fix adds: empty at the top level, the
+    /// shared quote and list container prefix inside one.
+    blank_line: String,
+}
+
 impl MD022BlanksAroundHeadings {
     /// Create a new instance of the rule with default values:
     /// lines_above = 1, lines_below = 1
@@ -240,6 +445,14 @@ impl MD022BlanksAroundHeadings {
 
         let heading_at_start_idx = heading_at_start_idx(ctx, is_pandoc);
 
+        // Headings inside a blockquote by the line their text starts on; the
+        // per-line `heading` field holds none of them.
+        let quoted_headings: std::collections::HashMap<usize, crate::lint_context::ParsedHeading<'_>> = ctx
+            .headings()
+            .filter(crate::lint_context::ParsedHeading::is_blockquote)
+            .map(|parsed| (parsed.first_line_num() - 1, parsed))
+            .collect();
+
         for (i, line_info) in ctx.lines.iter().enumerate() {
             if skip_count > 0 {
                 skip_count -= 1;
@@ -255,7 +468,11 @@ impl MD022BlanksAroundHeadings {
             // Check if it's a heading. A setext heading is recorded on the last
             // line of its text, so a span reached at its first line looks ahead
             // for the line carrying it.
-            let heading_idx = if line_info.heading.is_some() {
+            let quoted_heading = quoted_headings.get(&i);
+            let quoted = quoted_heading.is_some();
+            let heading_idx = if let Some(parsed) = quoted_heading {
+                Some(parsed.line_num - 1)
+            } else if line_info.heading.is_some() {
                 Some(i)
             } else if line_info.is_setext_heading_text {
                 ctx.lines[i..]
@@ -267,7 +484,10 @@ impl MD022BlanksAroundHeadings {
             };
 
             if let Some(heading_idx) = heading_idx {
-                let heading = ctx.lines[heading_idx].heading.as_deref().unwrap();
+                let heading = match quoted_heading {
+                    Some(parsed) => parsed.heading,
+                    None => ctx.lines[heading_idx].heading.as_deref().unwrap(),
+                };
 
                 // The lines the heading occupies: the text it spans, and the
                 // underline below a setext heading
@@ -303,7 +523,11 @@ impl MD022BlanksAroundHeadings {
                 let mut check_idx = result.len();
                 while check_idx > 0 {
                     let prev_line = &result[check_idx - 1];
-                    let trimmed = prev_line.trim();
+                    let trimmed = if quoted {
+                        strip_quote_markers(prev_line).trim()
+                    } else {
+                        prev_line.trim()
+                    };
                     if is_blank_or_comment_only(prev_line) {
                         // A line contributing nothing but comments counts as blank (#866)
                         blank_lines_above += 1;
@@ -322,16 +546,24 @@ impl MD022BlanksAroundHeadings {
                 // Determine how many blank lines we need above
                 let requirement_above = self.config.lines_above.get_for_level(heading_level);
                 let follows_mdg_tags = is_mdg && follows_mdg_tag_line(ctx, i, heading);
-                let needed_blanks_above = if follows_mdg_tags || (is_first_heading && self.config.allowed_at_start) {
+                let needed_blanks_above = if follows_mdg_tags
+                    || (is_first_heading && self.config.allowed_at_start)
+                    || starts_item_under_bare_marker(ctx, i)
+                    || opens_item_on_marker_line(ctx, i, heading)
+                    || (quoted && i == 0)
+                {
                     0
                 } else {
                     requirement_above.required_count().unwrap_or(0)
                 };
 
                 // Add missing blank lines above if needed
-                while blank_lines_above < needed_blanks_above {
-                    result.push(String::new());
-                    blank_lines_above += 1;
+                if blank_lines_above < needed_blanks_above {
+                    let blank = blank_line_above(line, result.iter().rev().map(String::as_str));
+                    while blank_lines_above < needed_blanks_above {
+                        result.push(blank.clone());
+                        blank_lines_above += 1;
+                    }
                 }
 
                 // Add the heading's own lines, underline included, so nothing
@@ -349,9 +581,14 @@ impl MD022BlanksAroundHeadings {
                 let mut ial_count = 0;
                 while effective_end_idx + 1 < ctx.lines.len() {
                     let next_line = &ctx.lines[effective_end_idx + 1];
-                    let next_trimmed = next_line.content(ctx.content).trim();
+                    let next_trimmed = neighbour_text(ctx, effective_end_idx + 1, quoted).trim();
                     if is_block_attribute_line(next_trimmed, ctx.flavor) {
-                        result.push(next_trimmed.to_string());
+                        // A quoted attribute line keeps its quote markers
+                        result.push(if quoted {
+                            next_line.content(ctx.content).to_string()
+                        } else {
+                            next_trimmed.to_string()
+                        });
                         effective_end_idx += 1;
                         ial_count += 1;
                     } else {
@@ -374,7 +611,7 @@ impl MD022BlanksAroundHeadings {
                 // Check if the next non-blank line is special (code fence or list item)
                 let next_is_special = if let Some(idx) = next_content_line_idx {
                     let next_line = &ctx.lines[idx];
-                    let trimmed = next_line.content(ctx.content).trim();
+                    let trimmed = neighbour_text(ctx, idx, quoted).trim();
                     next_line.list_item.is_some()
                         || starts_with_list_marker(trimmed)
                         || ((trimmed.starts_with("```") || trimmed.starts_with("~~~"))
@@ -398,8 +635,9 @@ impl MD022BlanksAroundHeadings {
                     requirement_below.required_count().unwrap_or(0)
                 };
                 if blank_lines_below < needed_blanks_below {
+                    let blank = blank_line_between(line, ctx.lines[effective_end_idx + 1].content(ctx.content));
                     for _ in 0..(needed_blanks_below - blank_lines_below) {
-                        result.push(String::new());
+                        result.push(blank.clone());
                     }
                 }
 
@@ -423,6 +661,10 @@ impl MD022BlanksAroundHeadings {
 }
 
 impl Rule for MD022BlanksAroundHeadings {
+    fn native_format_policy(&self) -> Option<crate::format_proof::NativeFormatPolicy> {
+        (self.config == Default::default()).then_some(crate::format_proof::NativeFormatPolicy::for_rule::<Self>(22))
+    }
+
     fn name(&self) -> &'static str {
         "MD022"
     }
@@ -449,35 +691,28 @@ impl Rule for MD022BlanksAroundHeadings {
 
         // Collect all headings first to batch process
         let mut heading_violations = Vec::new();
-        let mut processed_headings = std::collections::HashSet::new();
 
-        for (line_num, line_info) in ctx.lines.iter().enumerate() {
-            // Skip if already processed or not a heading
-            if processed_headings.contains(&line_num) || line_info.heading.is_none() {
-                continue;
-            }
+        for parsed in ctx.headings() {
+            let line_num = parsed.line_num - 1;
+            let line_info = parsed.line_info;
 
             // Skip headings inside PyMdown blocks (/// ... ///) - MkDocs flavor only
             if line_info.in_pymdown_block {
                 continue;
             }
 
-            let heading = line_info.heading.as_ref().unwrap();
+            let heading = parsed.heading;
             if heading_is_in_template_code(ctx, line_num, heading) {
                 continue;
             }
 
             let heading_level = heading.level as usize;
-
-            // Note: Setext underline lines have heading=None, so they're already
-            // skipped by the check at line 351. No additional check needed here.
-
-            processed_headings.insert(line_num);
+            let quoted = parsed.is_blockquote();
 
             // What sits above the heading sits above the line its text starts
             // on, which for a setext heading is the first line of the paragraph
             // its underline ends
-            let first_idx = first_text_idx(line_num, heading);
+            let first_idx = parsed.first_line_num() - 1;
 
             // Check if this heading is at document start
             let is_first_heading = Some(first_idx) == heading_at_start_idx;
@@ -491,12 +726,17 @@ impl Rule for MD022BlanksAroundHeadings {
                 && first_idx > 0
                 && (!is_first_heading || !self.config.allowed_at_start)
                 && !(is_mdg && follows_mdg_tag_line(ctx, first_idx, heading));
+            // A blank line between a bare marker and the heading that begins its item
+            // would empty the item and push the heading out of it.
+            let should_check_above = should_check_above
+                && !starts_item_under_bare_marker(ctx, first_idx)
+                && !opens_item_on_marker_line(ctx, first_idx, heading);
             if should_check_above {
                 let mut blank_lines_above = 0;
                 let mut hit_frontmatter_end = false;
                 for j in (0..first_idx).rev() {
                     let line_content = ctx.lines[j].content(ctx.content);
-                    let trimmed = line_content.trim();
+                    let trimmed = neighbour_text(ctx, j, quoted).trim();
                     if ctx.lines[j].is_blank || is_blank_or_comment_only(line_content) {
                         // A line contributing nothing but comments separates the blocks
                         // around it the way an empty one does (#866)
@@ -524,7 +764,21 @@ impl Rule for MD022BlanksAroundHeadings {
                 let required = required_above_count.unwrap();
                 if !hit_frontmatter_end && blank_lines_above < required {
                     let needed_blanks = required - blank_lines_above;
-                    heading_violations.push((line_num, first_idx, "above", needed_blanks, heading_level));
+                    heading_violations.push(Violation {
+                        heading_line: line_num,
+                        first_line: first_idx,
+                        position: "above",
+                        needed_blanks,
+                        heading_level,
+                        is_setext: parsed.is_setext(),
+                        blank_line: blank_line_above(
+                            ctx.lines[first_idx].content(ctx.content),
+                            ctx.lines[..first_idx]
+                                .iter()
+                                .rev()
+                                .map(|line| line.content(ctx.content)),
+                        ),
+                    });
                 }
             }
 
@@ -541,8 +795,7 @@ impl Rule for MD022BlanksAroundHeadings {
             // Extend effective_last_line to include any kramdown IAL lines immediately following
             // IAL lines like `{: .class #id}` are part of the heading element
             while effective_last_line + 1 < ctx.lines.len() {
-                let next_line = &ctx.lines[effective_last_line + 1];
-                let next_trimmed = next_line.content(ctx.content).trim();
+                let next_trimmed = neighbour_text(ctx, effective_last_line + 1, quoted).trim();
                 if is_block_attribute_line(next_trimmed, ctx.flavor) {
                     effective_last_line += 1;
                 } else {
@@ -556,7 +809,7 @@ impl Rule for MD022BlanksAroundHeadings {
                 let mut next_non_blank_idx = effective_last_line + 1;
                 while next_non_blank_idx < ctx.lines.len() {
                     let check_line = &ctx.lines[next_non_blank_idx];
-                    let check_trimmed = check_line.content(ctx.content).trim();
+                    let check_trimmed = neighbour_text(ctx, next_non_blank_idx, quoted).trim();
                     if check_line.is_blank {
                         next_non_blank_idx += 1;
                     } else if check_line.in_html_comment
@@ -582,7 +835,7 @@ impl Rule for MD022BlanksAroundHeadings {
                 // Check if next line is a code fence or list item
                 let next_line_is_special = {
                     let next_line = &ctx.lines[next_non_blank_idx];
-                    let next_trimmed = next_line.content(ctx.content).trim();
+                    let next_trimmed = neighbour_text(ctx, next_non_blank_idx, quoted).trim();
 
                     // Check for code fence
                     let is_code_fence = (next_trimmed.starts_with("```") || next_trimmed.starts_with("~~~"))
@@ -617,14 +870,34 @@ impl Rule for MD022BlanksAroundHeadings {
 
                     if blank_lines_below < required {
                         let needed_blanks = required - blank_lines_below;
-                        heading_violations.push((line_num, first_idx, "below", needed_blanks, heading_level));
+                        heading_violations.push(Violation {
+                            heading_line: line_num,
+                            first_line: first_idx,
+                            position: "below",
+                            needed_blanks,
+                            heading_level,
+                            is_setext: parsed.is_setext(),
+                            blank_line: blank_line_between(
+                                ctx.lines[first_idx].content(ctx.content),
+                                ctx.lines[effective_last_line + 1].content(ctx.content),
+                            ),
+                        });
                     }
                 }
             }
         }
 
         // Generate warnings for all violations
-        for (heading_line, first_line, position, needed_blanks, heading_level) in heading_violations {
+        for Violation {
+            heading_line,
+            first_line,
+            position,
+            needed_blanks,
+            heading_level,
+            is_setext,
+            blank_line,
+        } in heading_violations
+        {
             let line_info = &ctx.lines[heading_line];
 
             // Calculate precise character range for the heading
@@ -660,16 +933,7 @@ impl Rule for MD022BlanksAroundHeadings {
                         continue;
                     };
                     // For Setext headings, insert after the underline
-                    let insert_after = if line_info.heading.as_ref().is_some_and(|h| {
-                        matches!(
-                            h.style,
-                            crate::lint_context::HeadingStyle::Setext1 | crate::lint_context::HeadingStyle::Setext2
-                        )
-                    }) {
-                        heading_line + 2
-                    } else {
-                        heading_line + 1
-                    };
+                    let insert_after = if is_setext { heading_line + 2 } else { heading_line + 1 };
 
                     (
                         format!(
@@ -713,7 +977,10 @@ impl Rule for MD022BlanksAroundHeadings {
                 end_line,
                 end_column: end_col,
                 severity: Severity::Warning,
-                fix: Some(Fix::new(byte_range, line_ending.repeat(needed_blanks))),
+                fix: Some(Fix::new(
+                    byte_range,
+                    format!("{blank_line}{line_ending}").repeat(needed_blanks),
+                )),
             });
         }
 
@@ -743,7 +1010,7 @@ impl Rule for MD022BlanksAroundHeadings {
             return true;
         }
         // Verify headings actually exist
-        ctx.lines.iter().all(|line| line.heading.is_none())
+        ctx.headings().next().is_none()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -2279,5 +2546,75 @@ More content."#;
             rule.fix(&ctx).unwrap(),
             "Intro paragraph.\n\n# Heading one\n\nText after.\nTitle\nsecond <!-- rumdl-disable-line MD022 -->\n===\nMore text.\n"
         );
+    }
+}
+
+/// A heading written directly under a list marker that has nothing else on its
+/// line is the first thing in the item. A blank line between the two would leave
+/// the item empty and put the heading outside it.
+#[cfg(test)]
+mod list_item_tests {
+    use super::*;
+    use crate::config::MarkdownFlavor;
+    use crate::lint_context::LintContext;
+
+    /// The document after the rule's fix, and after applying the fixes of its
+    /// warnings: the two paths must agree.
+    fn fixed(content: &str) -> String {
+        let rule = MD022BlanksAroundHeadings::default();
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let by_fix = rule.fix(&ctx).unwrap();
+        let warnings = rule.check(&ctx).unwrap();
+        let by_warnings = crate::utils::fix_utils::apply_warning_fixes(content, &warnings).unwrap();
+        assert_eq!(by_fix, by_warnings, "{content:?}: fix and warnings disagree");
+        by_fix
+    }
+
+    #[test]
+    fn a_heading_under_a_bare_marker_gets_no_blank_line_above() {
+        for (content, expected) in [
+            ("-\n  ## a\n  text\n", "-\n  ## a\n\n  text\n"),
+            ("1.\n   ## a\n   text\n", "1.\n   ## a\n\n   text\n"),
+            ("-   \n  ## a\n  text\n", "-   \n  ## a\n\n  text\n"),
+            ("-\n  ##  a\n  text\n", "-\n  ##  a\n\n  text\n"),
+            ("-\n  -\n    ## a\n    text\n", "-\n  -\n    ## a\n\n    text\n"),
+            ("-\n  a\n  ---\n  text\n", "-\n  a\n  ---\n\n  text\n"),
+            ("-\n  a\n  b\n  ===\n  text\n", "-\n  a\n  b\n  ===\n\n  text\n"),
+            ("1.\n   ## a\n", "1.\n   ## a\n"),
+            // The innermost marker on the line is the bare one.
+            ("- -\n    ## a\n    text\n", "- -\n    ## a\n\n    text\n"),
+            ("- -\n    a\n    ---\n    text\n", "- -\n    a\n    ---\n\n    text\n"),
+            ("1. -\n     ## a\n", "1. -\n     ## a\n"),
+            ("- 1.\n     ## a\n", "- 1.\n     ## a\n"),
+        ] {
+            assert_eq!(fixed(content), expected, "{content:?}");
+            assert_eq!(fixed(expected), expected, "{expected:?} is not stable");
+        }
+    }
+
+    #[test]
+    fn a_blank_line_is_still_added_where_it_changes_no_container() {
+        for (content, expected) in [
+            // Under item text the heading is already inside the item.
+            ("- x\n  ## a\n  text\n", "- x\n\n  ## a\n\n  text\n"),
+            // Indented one column, the heading is outside the empty item.
+            ("-\n ## a\n", "-\n\n ## a\n"),
+            ("Text\n## a\n", "Text\n\n## a\n"),
+            ("1. x\n   -\n\n   ## a\n", "1. x\n   -\n\n   ## a\n"),
+        ] {
+            assert_eq!(fixed(content), expected, "{content:?}");
+        }
+    }
+
+    #[test]
+    fn check_does_not_ask_for_a_blank_line_under_a_bare_marker() {
+        let rule = MD022BlanksAroundHeadings::default();
+        for content in ["-\n  ## a\n", "1.\n   ## a\n", "-\n  -\n    ## a\n", "-\n  a\n  ---\n"] {
+            let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+            let warnings = rule.check(&ctx).unwrap();
+            assert!(warnings.is_empty(), "{content:?}: {warnings:?}");
+        }
+        let ctx = LintContext::new("-\n ## a\n", MarkdownFlavor::Standard, None);
+        assert_eq!(rule.check(&ctx).unwrap().len(), 1);
     }
 }

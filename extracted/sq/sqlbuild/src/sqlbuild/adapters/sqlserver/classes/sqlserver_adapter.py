@@ -10,6 +10,14 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, ClassVar
 
+from sqlbuild._native import (
+    SeedCsvSettings,
+    SourceFreshnessRecord,
+    SqlLexicalSyntax,
+    SqlValue,
+    SqlValueKind,
+    render_insert_source_freshness_records_sql,
+)
 from sqlbuild.adapter.contract.classes.base_adapter import (
     BaseAdapter,
     _build_names_filter,
@@ -89,9 +97,6 @@ from sqlbuild.adapter.contract.types import (
 from sqlbuild.adapter.relations.main.get_columns_for_relations import (
     get_columns_for_relations_bulk,
 )
-from sqlbuild.adapter.state_sql.main.render_insert_source_freshness_records_sql import (
-    render_insert_source_freshness_records_sql,
-)
 from sqlbuild.adapters.sqlserver._helpers.grants import (
     render_sqlserver_view_grants,
     render_sqlserver_view_revokes,
@@ -109,13 +114,8 @@ from sqlbuild.adapters.sqlserver.constants import (
     USER_TABLE_OBJECT_TYPE,
 )
 from sqlbuild.compiler.compile.types import FunctionLanguage
-from sqlbuild.compiler.source_freshness.models import SourceFreshnessRecord
-from sqlbuild.compiler.sql_analysis.models import SqlLexicalSyntax
 from sqlbuild.diagnostics.main.log_sql import log_sql
 from sqlbuild.spec.contracts.constants import DEFAULT_SEED_CSV_SETTINGS
-from sqlbuild.spec.contracts.models import SeedCsvSettings
-from sqlbuild.sql_values.models import SqlValue
-from sqlbuild.sql_values.types import SqlValueKind
 
 
 def _render_tsql_distinct_condition(*, left: str, right: str) -> str:
@@ -314,7 +314,7 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         database: str | None,
         schema: str,
     ) -> str:
-        from sqlbuild.compiler.fingerprints.constants import (
+        from sqlbuild._native import (
             COLUMN_DEFINITION_B64,
             COLUMN_DEFINITION_HASH,
             COLUMN_METADATA_JSON_B64,
@@ -361,10 +361,10 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         )
 
     def render_create_microbatch_state_table_sql(self, *, database: str | None, schema: str) -> str:
+        from sqlbuild._native import build_microbatch_create_table_sql
         from sqlbuild.microbatches.constants import MICROBATCH_TABLE_NAME
-        from sqlbuild.microbatches.main.create_table_sql import build_create_table_sql
 
-        create_sql: str = build_create_table_sql(
+        create_sql: str = build_microbatch_create_table_sql(
             database=database,
             schema=schema,
             render_qualified_name=self.render_qualified_name,
@@ -383,7 +383,7 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         database: str | None,
         schema: str,
     ) -> tuple[str, ...]:
-        from sqlbuild.compiler.fingerprints.constants import FINGERPRINT_TABLE_NAME
+        from sqlbuild._native import FINGERPRINT_TABLE_NAME
 
         table_name: str | None = self.render_qualified_name(
             database=database,
@@ -411,7 +411,7 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         database: str | None,
         schema: str,
     ) -> str:
-        from sqlbuild.compiler.fingerprints.main.read_latest_sql import (
+        from sqlbuild._native import (
             build_read_latest_sql,
         )
 
@@ -428,7 +428,7 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         schema: str,
         retain_versions: int,
     ) -> str:
-        from sqlbuild.compiler.fingerprints.constants import FINGERPRINT_TABLE_NAME
+        from sqlbuild._native import FINGERPRINT_TABLE_NAME
 
         table_name: str | None = self.render_qualified_name(
             database=database,
@@ -448,9 +448,7 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         )
 
     def render_create_source_freshness_table_sql(self, *, database: str | None, schema: str) -> str:
-        from sqlbuild.compiler.source_freshness.main.create_table_sql import (
-            build_create_table_sql as build_source_freshness_create_table_sql,
-        )
+        from sqlbuild._native import build_source_freshness_create_table_sql
 
         return build_source_freshness_create_table_sql(
             database=database,
@@ -465,7 +463,7 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         database: str | None,
         schema: str,
     ) -> tuple[str, ...]:
-        from sqlbuild.compiler.source_freshness.constants import SOURCE_FRESHNESS_TABLE_NAME
+        from sqlbuild._native import SOURCE_FRESHNESS_TABLE_NAME
 
         table_name: str | None = self.render_qualified_name(
             database=database,
@@ -657,12 +655,10 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         )
 
     def render_create_migration_state_table_sql(self, *, database: str | None, schema: str) -> str:
-        from sqlbuild.compiler.migrations.constants import MIGRATION_TABLE_NAME
-        from sqlbuild.compiler.migrations.main.create_table_sql import (
-            build_migration_state_create_table_sql,
-        )
+        from sqlbuild._native import MIGRATION_TABLE_NAME, render_migration_state_create_sql
 
-        create_sql: str = build_migration_state_create_table_sql(
+        create_sql: str = render_migration_state_create_sql(
+            kind="model",
             database=database,
             schema=schema,
             render_qualified_name=self.render_qualified_name,
@@ -678,12 +674,10 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
     def render_create_old_name_view_state_table_sql(
         self, *, database: str | None, schema: str
     ) -> str:
-        from sqlbuild.compiler.migrations.constants import OLD_NAME_VIEW_TABLE_NAME
-        from sqlbuild.compiler.migrations.main.old_name_view_create_table_sql import (
-            build_old_name_view_state_create_table_sql,
-        )
+        from sqlbuild._native import OLD_NAME_VIEW_TABLE_NAME, render_migration_state_create_sql
 
-        create_sql: str = build_old_name_view_state_create_table_sql(
+        create_sql: str = render_migration_state_create_sql(
+            kind="old_name",
             database=database,
             schema=schema,
             render_qualified_name=self.render_qualified_name,
@@ -699,12 +693,10 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
     def render_create_column_migration_state_table_sql(
         self, *, database: str | None, schema: str
     ) -> str:
-        from sqlbuild.compiler.migrations.constants import COLUMN_MIGRATION_TABLE_NAME
-        from sqlbuild.compiler.migrations.main.column_create_table_sql import (
-            build_column_migration_state_create_table_sql,
-        )
+        from sqlbuild._native import COLUMN_MIGRATION_TABLE_NAME, render_migration_state_create_sql
 
-        create_sql: str = build_column_migration_state_create_table_sql(
+        create_sql: str = render_migration_state_create_sql(
+            kind="column",
             database=database,
             schema=schema,
             render_qualified_name=self.render_qualified_name,
@@ -723,11 +715,9 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         database: str | None,
         schema: str,
     ) -> str:
-        from sqlbuild.compiler.source_freshness.main.read_latest_sql import (
-            build_read_latest_sql,
-        )
+        from sqlbuild._native import build_source_freshness_read_latest_sql
 
-        return build_read_latest_sql(
+        return build_source_freshness_read_latest_sql(
             database=database,
             schema=schema,
             render_qualified_name=self.render_qualified_name,
@@ -740,7 +730,7 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         schema: str,
         retain_versions: int,
     ) -> str:
-        from sqlbuild.compiler.source_freshness.constants import SOURCE_FRESHNESS_TABLE_NAME
+        from sqlbuild._native import SOURCE_FRESHNESS_TABLE_NAME
 
         table_name: str | None = self.render_qualified_name(
             database=database,

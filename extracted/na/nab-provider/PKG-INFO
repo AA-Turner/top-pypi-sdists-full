@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: nab-provider
-Version: 0.0.21
+Version: 0.0.22
 Summary: IO-free resolution core for nab
 Project-URL: Homepage, https://github.com/notatallshaw/nab
 Project-URL: Documentation, https://nab.readthedocs.io/
@@ -17,10 +17,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: nab-markersets==0.0.21
-Requires-Dist: nab-resolver==0.0.21
+Requires-Dist: nab-markersets==0.0.22
+Requires-Dist: nab-resolver==0.0.22
 Requires-Dist: typing-extensions>=4.6
 Description-Content-Type: text/markdown
 

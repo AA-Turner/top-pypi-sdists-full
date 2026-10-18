@@ -9,7 +9,6 @@ import hashlib
 import io
 import json
 import logging
-import sys
 import tarfile
 import threading
 import weakref
@@ -39,6 +38,7 @@ from nab_index.local_index import LocalIndexClient, UnreadableLocalIndexError
 from nab_index.multi_index import IndexConfig
 from nab_index.transport import HttpError
 from nab_index.urllib3_async_transport import Urllib3AsyncTransport
+from nab_markersets._compat import get_int_max_str_digits
 from nab_project import _build_remote
 from nab_project._resolve.engine import _raise_for_source_python
 from nab_project._testing.coordinator_fake import FakeFetchPort, make_coordinator
@@ -106,6 +106,10 @@ from nab_resolver.types import (
     IncompatibilityCause,
     RangeProtocol,
     Term,
+)
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
 )
 
 V = Version
@@ -907,6 +911,7 @@ class TestFetchVersions:
         provider = Provider(coordinator, target=_PY312)
         assert len(provider.fetch_versions("foo")) == 1
 
+    @requires_int_limit
     @pytest.mark.parametrize(
         "target",
         [
@@ -923,7 +928,7 @@ class TestFetchVersions:
         SpecifierSet accepts it; the ValueError only lands when the target
         compares against it, where the listing catches it and keeps the wheel.
         """
-        oversized = ">=" + "1" * (sys.get_int_max_str_digits() + 1)
+        oversized = ">=" + "1" * ((get_int_max_str_digits() or 4300) + 1)
         data = {
             "files": [
                 {
@@ -13031,6 +13036,7 @@ class TestSiblingMetadataDivergence:
         deps = provider.get_dependencies("pkg", self._V)
         assert "alpha" in deps
 
+    @requires_int_limit
     @pytest.mark.parametrize(
         "sibling_fields",
         [
@@ -13056,7 +13062,7 @@ class TestSiblingMetadataDivergence:
         dropped like any other invalid candidate instead of aborting the
         resolve.
         """
-        oversized = "9" * (sys.get_int_max_str_digits() + 1)
+        oversized = "9" * ((get_int_max_str_digits() or 4300) + 1)
         wheel_a = _sib_wheel("py2.py3-none-any")
         wheel_b = _sib_wheel("py3-none-any")
         coordinator = make_coordinator([wheel_a, wheel_b], package="pkg")
@@ -13075,6 +13081,23 @@ class TestSiblingMetadataDivergence:
 
         provider = Provider(coordinator, target=_LINUX311)
         assert sorted(provider.get_dependencies("pkg", self._V)) == ["alpha"]
+
+    def test_sibling_signature_conversion_failure_skips_sibling(self) -> None:
+        wheel = _sib_wheel("py3-none-any")
+        coordinator = make_coordinator([wheel], package="pkg")
+        coordinator.index.store_metadata(
+            "pkg", "1.0", _sib_meta("beta>=1"), metadata_url=wheel.metadata_url
+        )
+        provider = Provider(coordinator, target=_LINUX311)
+
+        with patch.object(
+            metadata_resolver, "target_dep_signature", side_effect=ValueError
+        ):
+            signature = metadata_resolver._tie_sibling_signature(
+                provider, coordinator.index, ("pkg", self._V), wheel
+            )
+
+        assert signature is None
 
     def test_unevaluable_sibling_marker_stops_the_run(self) -> None:
         """A tie sibling with an undecidable marker stops the run.

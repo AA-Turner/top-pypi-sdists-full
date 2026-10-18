@@ -10,9 +10,33 @@ use crate::utils::{LineEnding, NormalizedLineEndingMap, normalize_line_ending};
 use crate::workspace_index::FileIndex;
 
 /// The deterministic lint and index result for one document.
+/// Fix byte ranges address the supplied text, including any leading BOM.
 pub struct DocumentAnalysis {
     pub warnings: Vec<LintWarning>,
     pub file_index: FileIndex,
+}
+
+/// Diagnostics and index for the original source, with its prepared rewrite.
+/// Keeping the rewrite separate lets adapters finish validation before writing.
+pub struct DocumentFormatResult {
+    pub warnings: crate::LintResult,
+    pub file_index: FileIndex,
+    pub fixes: Option<Result<(String, FixResult), String>>,
+    /// Findings on the fixed source, when the fix loop reached a stable changed
+    /// document and could share its last context. Adapters must discard these
+    /// after any further edit and lint that text again.
+    pub remaining_warnings: Option<crate::LintResult>,
+}
+
+impl DocumentFormatResult {
+    pub(crate) fn without_fixes(warnings: crate::LintResult, file_index: FileIndex) -> Self {
+        Self {
+            warnings,
+            file_index,
+            fixes: None,
+            remaining_warnings: None,
+        }
+    }
 }
 
 /// A document run with path roles made explicit.
@@ -23,6 +47,7 @@ pub struct DocumentAnalysis {
 /// `config_path`.
 pub struct DocumentRun<'a> {
     content: &'a str,
+    conflict_scan: Option<&'a crate::merge_conflict::ConflictScan<'a>>,
     rules: &'a [Box<dyn Rule>],
     config: &'a Config,
     config_path: Option<&'a Path>,
@@ -36,6 +61,7 @@ impl<'a> DocumentRun<'a> {
     pub fn new(content: &'a str, rules: &'a [Box<dyn Rule>], config: &'a Config) -> Self {
         Self {
             content,
+            conflict_scan: None,
             rules,
             config,
             config_path: None,
@@ -43,6 +69,20 @@ impl<'a> DocumentRun<'a> {
             link_target_policy: None,
             invalid_utf8: None,
             verbose: false,
+        }
+    }
+
+    /// Reuse detection performed before normalization or external tool work.
+    /// The scan supplies its own immutable content, so facts cannot be attached
+    /// to a different document or retained after an edit.
+    pub fn from_scanned(
+        scan: &'a crate::merge_conflict::ConflictScan<'a>,
+        rules: &'a [Box<dyn Rule>],
+        config: &'a Config,
+    ) -> Self {
+        Self {
+            conflict_scan: Some(scan),
+            ..Self::new(scan.content(), rules, config)
         }
     }
 
@@ -96,6 +136,18 @@ impl<'a> DocumentRun<'a> {
     }
 
     pub fn analyze_raw(&self) -> (Result<Vec<LintWarning>, LintError>, FileIndex) {
+        if let Some(scan) = self.conflict_scan {
+            let result = crate::analyze_scanned_document(
+                scan,
+                self.rules,
+                self.verbose,
+                self.flavor(),
+                self.paths(),
+                Some(self.config),
+                None,
+            );
+            return (result.warnings, result.file_index);
+        }
         crate::lint_and_index_with_paths(
             self.content,
             self.rules,
@@ -103,6 +155,44 @@ impl<'a> DocumentRun<'a> {
             self.flavor(),
             self.paths(),
             Some(self.config),
+        )
+    }
+
+    /// Analyze and prepare a fix while the first context and rule checks are
+    /// still available. Every rewrite invalidates that analysis; subsequent
+    /// iterations build a fresh context as they do in `fix`.
+    pub fn analyze_and_fix(&self, max_iterations: usize) -> DocumentFormatResult {
+        // The fix engine works on LF input. Preserve the separate operations'
+        // diagnostic offsets and line-ending restoration for other input.
+        // Virtual link policies also belong to analysis, while `fix` uses the
+        // filesystem context; keep that existing distinction for these runs.
+        if self.content.contains('\r') || self.link_target_policy.is_some() {
+            let (warnings, file_index) = self.analyze_raw();
+            let fixes = self.invalid_utf8.is_none() && warnings.as_ref().is_ok_and(|warnings| !warnings.is_empty());
+            let fixes = fixes.then(|| self.fix(max_iterations));
+            return DocumentFormatResult {
+                warnings,
+                file_index,
+                fixes,
+                remaining_warnings: None,
+            };
+        }
+        let scan;
+        let scan = match self.conflict_scan {
+            Some(scan) => scan,
+            None => {
+                scan = crate::merge_conflict::ConflictScan::new(self.content);
+                &scan
+            }
+        };
+        crate::analyze_scanned_document(
+            scan,
+            self.rules,
+            self.verbose,
+            self.flavor(),
+            self.paths(),
+            Some(self.config),
+            Some(max_iterations),
         )
     }
 
@@ -117,9 +207,24 @@ impl<'a> DocumentRun<'a> {
     /// `NormalizedLineEndingMap::restore_fixed`). A document nothing changed
     /// comes back byte-identical.
     pub fn fix(&self, max_iterations: usize) -> Result<(String, FixResult), String> {
+        self.fix_with_coordinator(max_iterations, &FixCoordinator::new())
+    }
+
+    /// Formatter-only execution with the same bytes, iterations, cycle report
+    /// and fixed rule names as `fix`. Only `context_creations` may differ.
+    /// Analysis consumers retain `fix`.
+    pub fn fix_for_formatter(&self, max_iterations: usize) -> Result<(String, FixResult), String> {
+        self.fix_with_coordinator(max_iterations, &FixCoordinator::for_formatter())
+    }
+
+    fn fix_with_coordinator(
+        &self,
+        max_iterations: usize,
+        coordinator: &FixCoordinator,
+    ) -> Result<(String, FixResult), String> {
         let normalized = normalize_line_ending(self.content, LineEnding::Lf);
         let mut content = normalized.to_string();
-        let result = FixCoordinator::new().apply_fixes_iterative_with_paths(
+        let result = coordinator.apply_fixes_iterative_with_paths(
             self.rules,
             &[],
             &mut content,
@@ -160,6 +265,303 @@ mod tests {
     use super::*;
     use crate::lint_context::LintContext;
     use crate::rule::{LintResult, Severity};
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[derive(Clone)]
+    struct CountingRewrite {
+        name: &'static str,
+        from: &'static str,
+        to: &'static str,
+        checks: Arc<AtomicUsize>,
+        category: crate::rule::RuleCategory,
+    }
+
+    impl Rule for CountingRewrite {
+        fn name(&self) -> &'static str {
+            self.name
+        }
+        fn description(&self) -> &'static str {
+            "Count source-dependent checks"
+        }
+        fn check(&self, ctx: &LintContext) -> LintResult {
+            self.checks.fetch_add(1, Ordering::Relaxed);
+            Ok(ctx
+                .content
+                .find(self.from)
+                .map(|offset| {
+                    let (line, column) = ctx.offset_to_line_col(offset);
+                    LintWarning {
+                        rule_name: Some(self.name.to_string()),
+                        message: self.description().to_string(),
+                        line,
+                        column,
+                        end_line: line,
+                        end_column: column + self.from.len(),
+                        severity: Severity::Warning,
+                        fix: None,
+                    }
+                })
+                .into_iter()
+                .collect())
+        }
+        fn fix(&self, ctx: &LintContext) -> Result<String, LintError> {
+            Ok(ctx.content.replace(self.from, self.to))
+        }
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+        fn category(&self) -> crate::rule::RuleCategory {
+            self.category
+        }
+    }
+
+    fn counting_rule(name: &'static str, from: &'static str, to: &'static str) -> (Box<dyn Rule>, Arc<AtomicUsize>) {
+        let checks = Arc::new(AtomicUsize::new(0));
+        (
+            Box::new(CountingRewrite {
+                name,
+                from,
+                to,
+                checks: checks.clone(),
+                category: crate::rule::RuleCategory::Other,
+            }),
+            checks,
+        )
+    }
+
+    #[test]
+    fn combined_run_reuses_the_initial_context_and_checks() {
+        let config = Config::default();
+        let (rule, checks) = counting_rule("MD009", "text", "text");
+        let rules = vec![rule];
+        let result = DocumentRun::new("text\n", &rules, &config).analyze_and_fix(100);
+        assert_eq!(result.warnings.unwrap().len(), 1);
+        let (text, fixed) = result.fixes.unwrap().unwrap();
+        assert_eq!(text, "text\n");
+        assert_eq!(checks.load(Ordering::Relaxed), 1);
+        assert_eq!(fixed.context_creations, 0);
+        assert!(fixed.converged);
+    }
+
+    #[test]
+    fn combined_run_invalidates_all_checks_after_a_rewrite() {
+        let config = Config::default();
+        let (first, first_checks) = counting_rule("MD009", "bad", "middle");
+        let (second, second_checks) = counting_rule("MD011", "middle", "good");
+        let rules = vec![first, second];
+        let result = DocumentRun::new("bad\n", &rules, &config).analyze_and_fix(100);
+        let (text, fixed) = result.fixes.unwrap().unwrap();
+        assert_eq!(text, "good\n");
+        assert_eq!(first_checks.load(Ordering::Relaxed), 2);
+        assert_eq!(second_checks.load(Ordering::Relaxed), 3);
+        assert_eq!(fixed.context_creations, 2);
+        assert_eq!(fixed.rules_fixed, 2);
+        assert!(fixed.converged);
+    }
+
+    #[test]
+    fn stable_analysis_reuses_checks_and_still_runs_unfixable_rules() {
+        let mut config = Config::default();
+        config.global.unfixable.push("MD041".into());
+        let (rewrite, rewrite_checks) = counting_rule("MD009", "bad", "good");
+        let (unchanged, unchanged_checks) = counting_rule("MD011", "stable", "stable");
+        let (unfixable, unfixable_checks) = counting_rule("MD041", "other", "other");
+        let rules = vec![rewrite, unchanged, unfixable];
+        let result = DocumentRun::new("bad stable other\n", &rules, &config).analyze_and_fix(100);
+        let (text, fixed) = result.fixes.unwrap().unwrap();
+        assert_eq!(text, "good stable other\n");
+        assert!(fixed.converged);
+        // Both the fix loop and reporting need the final checks, but each
+        // source version is checked only once. Warning-only rules still run.
+        assert_eq!(rewrite_checks.load(Ordering::Relaxed), 2);
+        assert_eq!(unchanged_checks.load(Ordering::Relaxed), 2);
+        assert_eq!(unfixable_checks.load(Ordering::Relaxed), 2);
+        let remaining = result.remaining_warnings.unwrap().unwrap();
+        assert_eq!(remaining.len(), 2);
+        assert_eq!(
+            format!("{remaining:?}"),
+            format!(
+                "{:?}",
+                DocumentRun::new(&text, &rules, &config).analyze().unwrap().warnings
+            ),
+        );
+    }
+
+    #[test]
+    fn remaining_bom_warnings_match_a_fresh_public_analysis() {
+        let mut config = Config::default();
+        config.global.unfixable.push("MD018".into());
+        let rules: Vec<_> = crate::rules::all_rules(&config)
+            .into_iter()
+            .filter(|r| r.name() == "MD009" || r.name() == "MD018")
+            .collect();
+        let result = DocumentRun::new("\u{feff}#Title\n\ntext   \n", &rules, &config).analyze_and_fix(100);
+        let (text, _) = result.fixes.expect("prepared fix").unwrap();
+        assert_eq!(text, "\u{feff}#Title\n\ntext\n");
+        let remaining = result.remaining_warnings.expect("final analysis was reused").unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert!(remaining[0].fix.is_some());
+        assert_eq!(remaining[0].fix.as_ref().unwrap().range, 3..9);
+        let fresh = DocumentRun::new(&text, &rules, &config).analyze().unwrap().warnings;
+        assert_eq!(remaining, fresh);
+    }
+
+    #[test]
+    fn stable_analysis_preserves_suppression_observers_and_severity() {
+        let mut config = Config::default();
+        config.rules.insert(
+            "MD087".into(),
+            crate::config::RuleConfig {
+                severity: Some(Severity::Error),
+                ..Default::default()
+            },
+        );
+        let (rewrite, _) = counting_rule("MD009", "bad", "good");
+        let (suppressed, _) = counting_rule("MD011", "stable", "stable");
+        let rules: Vec<Box<dyn Rule>> = vec![rewrite, suppressed, Box::new(crate::rules::MD087UnusedDisableComment)];
+        let source =
+            "<!-- rumdl-disable-next-line MD011 -->\nstable\n<!-- rumdl-disable-next-line MD009 -->\nquiet\nbad\n";
+        let result = DocumentRun::new(source, &rules, &config).analyze_and_fix(100);
+        let (text, _) = result.fixes.unwrap().unwrap();
+        let remaining = result.remaining_warnings.unwrap().unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].rule_name.as_deref(), Some("MD087"));
+        assert_eq!(remaining[0].line, 3);
+        assert_eq!(remaining[0].severity, Severity::Error);
+        assert_eq!(
+            format!("{remaining:?}"),
+            format!(
+                "{:?}",
+                DocumentRun::new(&text, &rules, &config).analyze().unwrap().warnings
+            ),
+        );
+    }
+
+    #[test]
+    fn stable_analysis_distinguishes_zero_sized_rule_instances() {
+        let config = Config::default();
+        let rules: Vec<Box<dyn Rule>> = vec![
+            Box::new(ContextProbe),
+            crate::rules::create_rule_by_name("MD018", &config).unwrap(),
+        ];
+        let result = DocumentRun::new("#Title\n", &rules, &config).analyze_and_fix(100);
+        let (text, _) = result.fixes.unwrap().unwrap();
+        assert_eq!(text, "# Title\n");
+        let remaining = result.remaining_warnings.unwrap().unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].rule_name.as_deref(), Some("TEST001"));
+        assert_eq!(
+            format!("{remaining:?}"),
+            format!(
+                "{:?}",
+                DocumentRun::new(&text, &rules, &config).analyze().unwrap().warnings
+            ),
+        );
+    }
+
+    #[test]
+    fn unfinished_fix_runs_leave_final_analysis_to_the_caller() {
+        let config = Config::default();
+        let (first, _) = counting_rule("MD009", "bad", "middle");
+        let (second, _) = counting_rule("MD011", "middle", "good");
+        let rules = vec![first, second];
+        let result = DocumentRun::new("bad\n", &rules, &config).analyze_and_fix(1);
+        let (text, fixed) = result.fixes.unwrap().unwrap();
+        assert_eq!(text, "middle\n");
+        assert!(!fixed.converged);
+        assert!(result.remaining_warnings.is_none());
+    }
+
+    #[test]
+    fn combined_run_keeps_inline_disabled_findings_out_of_fixes() {
+        let config = Config::default();
+        let (disabled, checks) = counting_rule("MD009", "bad", "good");
+        let (warning_only, _) = counting_rule("MD011", "other", "other");
+        let rules = vec![disabled, warning_only];
+        let source = "<!-- rumdl-disable MD009 -->\nbad other\n";
+        let result = DocumentRun::new(source, &rules, &config).analyze_and_fix(100);
+        assert_eq!(result.warnings.unwrap().len(), 1);
+        let (text, fixed) = result.fixes.unwrap().unwrap();
+        assert_eq!(text, source);
+        assert_eq!(checks.load(Ordering::Relaxed), 1);
+        assert_eq!(fixed.rules_fixed, 0);
+    }
+
+    #[test]
+    fn combined_run_checks_rules_that_the_lint_prefilter_did_not_run() {
+        let config = Config::default();
+        let checks = Arc::new(AtomicUsize::new(0));
+        let skipped: Box<dyn Rule> = Box::new(CountingRewrite {
+            name: "MD001",
+            from: "plain",
+            to: "changed",
+            checks: checks.clone(),
+            category: crate::rule::RuleCategory::Heading,
+        });
+        let (reported, _) = counting_rule("MD009", "warning", "warning");
+        let rules = vec![skipped, reported];
+        let result = DocumentRun::new("plain warning\n", &rules, &config).analyze_and_fix(100);
+        assert_eq!(result.warnings.unwrap().len(), 1);
+        let (text, fixed) = result.fixes.unwrap().unwrap();
+        assert_eq!(text, "changed warning\n");
+        assert_eq!(checks.load(Ordering::Relaxed), 2);
+        assert!(fixed.converged);
+    }
+
+    #[test]
+    fn combined_run_never_prepares_fixes_for_lossy_input() {
+        let config = Config::default();
+        let (rule, checks) = counting_rule("MD009", "bad", "good");
+        let rules = vec![rule];
+        let result = DocumentRun::new("bad\n", &rules, &config)
+            .invalid_utf8(Some(&[]))
+            .analyze_and_fix(100);
+        assert!(!result.warnings.unwrap().is_empty());
+        assert!(result.fixes.is_none());
+        assert_eq!(checks.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn combined_run_matches_separate_analysis_and_fixing() {
+        for flavor in crate::format_proof::ALL_FLAVORS {
+            let mut config = Config::default();
+            config.global.flavor = flavor;
+            let rules = crate::rules::all_rules(&config);
+            for source in [
+                "#Title\n\ntext  \n",
+                "\u{feff}#Title\n\ntext  \n",
+                "# Title\r\n\r\ntext  \r\n",
+                "<!-- rumdl-disable MD018 -->\n#Title\n",
+                "<!-- rumdl-configure-file {\"MD013\":{\"line-length\":12}} -->\n\nA rather long line that can be wrapped.\n",
+                "- item\n\n```\ncode\n```\n",
+            ] {
+                let run = DocumentRun::new(source, &rules, &config);
+                let original = run.analyze().unwrap();
+                let combined = run.analyze_and_fix(100);
+                assert_eq!(
+                    format!("{:?}", combined.warnings.unwrap()),
+                    format!("{:?}", original.warnings)
+                );
+                if let Some(fixes) = combined.fixes {
+                    let text = fixes.unwrap().0;
+                    assert_eq!(text, run.fix(100).unwrap().0, "{flavor}: {source:?}");
+                    if let Some(remaining) = combined.remaining_warnings {
+                        assert_eq!(
+                            format!("{:?}", remaining.unwrap()),
+                            format!(
+                                "{:?}",
+                                DocumentRun::new(&text, &rules, &config).analyze().unwrap().warnings
+                            ),
+                            "{flavor}: {source:?}",
+                        );
+                    }
+                } else {
+                    assert_eq!(run.fix(100).unwrap().0, source, "{flavor}: {source:?}");
+                }
+            }
+        }
+    }
 
     #[derive(Clone)]
     struct ContextProbe;

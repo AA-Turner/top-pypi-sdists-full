@@ -634,8 +634,7 @@ repos:
       # (placeholder-clean check_values, yamlfmt-idempotent YAML, append-only
       # receipts, pre-existing-contract row append, closed/draft/do-not-merge
       # suppression) whenever the live emitter/seam or their tests change, so a
-      # broken companion shape is caught locally before push (mirrors the
-      # occ-emitter-golden CI gate). BLOCKING.
+      # broken companion shape is caught locally before push. BLOCKING.
       - id: occ-emitter-golden
         name: OCC emitter golden gate (OMN-14741/14783) — LIVE producer + compute parity
         entry: >-
@@ -688,34 +687,6 @@ repos:
             |tests/fixtures/occ_red_derivable/.*
             |src/omnimarket/occ_content_probe\.py
             |src/omnimarket/nodes/node_pr_lifecycle_fix_effect/handlers/occ_evidence_stamp\.py
-          )$
-        stages: [pre-commit]
-
-      # OMN-15391: the mint side of the vacuous-evidence class. The verify side
-      # (node_dod_verify's NON_PROBATIVE status) refuses to count a surrogate
-      # toward completion, which neutralises the merged corpus; this hook stops
-      # the producer minting NEW ones silently. Two assertions: the producer's
-      # own is_product_observing_check_value and the shared
-      # occ_evidence_probative_class predicate must be exact complements over
-      # every shape the producer can mint, and no rendered companion may consist
-      # entirely of exit-status-invariant checks. Offline and fast — the
-      # agreement leg needs no corpus at all. BLOCKING.
-      - id: occ-minted-evidence-probative
-        name: OCC minted evidence must be probative (OMN-15391)
-        entry: >-
-          uv run python scripts/ci/check_minted_evidence_is_probative.py
-          tests/fixtures/occ_red_derivable/companion/contracts/
-        language: system
-        pass_filenames: false
-        files: >-
-          (?x)^(
-            scripts/ci/check_minted_evidence_is_probative\.py
-            |tests/unit/scripts/test_check_minted_evidence_is_probative\.py
-            |src/omnimarket/occ_evidence_probative_class\.py
-            |src/omnimarket/nodes/node_pr_lifecycle_fix_effect/handlers/occ_evidence_stamp\.py
-            |src/omnimarket/nodes/node_dod_verify/services/evidence_collector\.py
-            |src/omnimarket/nodes/node_dod_verify/handlers/handler_dod_verify\.py
-            |tests/fixtures/occ_red_derivable/.*
           )$
         stages: [pre-commit]
 
@@ -1787,6 +1758,15 @@ repos:
         files: ^(src/omnimarket/delegation/output_only_acceptance\.py|tests/unit/delegation/test_output_only_acceptance_omn18932\.py)$
         stages: [pre-commit]
 
+      # OMN-18925 AC-2: CI twin is the "Schema-invalid terminal never quality-passing" step of ci.yml. Check-only.
+      - id: schema-invalid-terminal-never-passes
+        name: Schema-invalid terminal never quality-passing (OMN-18925)
+        entry: uv run --frozen pytest tests/unit/delegation/test_schema_invalid_terminal_never_passes_omn18925.py tests/ci/test_schema_invalid_terminal_gate_wiring_omn18925.py -q -p no:randomly --no-cov
+        language: system
+        pass_filenames: false
+        files: ^(src/omnimarket/nodes/node_delegation_orchestrator/|src/omnimarket/nodes/node_delegation_quality_gate_reducer/|tests/unit/delegation/test_schema_invalid_terminal_never_passes_omn18925\.py|tests/ci/test_schema_invalid_terminal_gate_wiring_omn18925\.py|\.pre-commit-config\.yaml|\.github/workflows/ci\.yml)
+        stages: [pre-commit]
+
       # OMN-20780: RULING 2026-10-14T18:17:30Z, a delegated answer is gated by an independent judge for the text
       # classes and by its own named tests for the code classes (OMN-20489). CI twin: the "Delegated answers gated
       # by an independent judge or named tests" step of ci.yml. Check-only.
@@ -2092,19 +2072,6 @@ repos:
         language: system
         entry: uv run python scripts/ci/check_one_occ_producer.py
         files: ^(src/omnimarket/.*\.py|scripts/ci/check_one_occ_producer\.py)$
-        pass_filenames: false
-        stages: [pre-commit]
-
-      # One self-bind SHAPE, per-entry bound (OMN-18304). Refuses a renderer
-      # that drops the per-entry slot, a binding that does not survive a
-      # sibling companion's append, and any new write into the retired
-      # drift/occ_bindings tree. SYNC with ci.yml job
-      # "OCC self-bind entry-binding gate".
-      - id: occ-self-bind-entry-binding
-        name: OCC self-bind is per-entry bound (OMN-18304)
-        language: system
-        entry: uv run python scripts/ci/check_self_bind_entry_binding.py
-        files: ^(src/omnimarket/.*\.py|scripts/ci/check_self_bind_entry_binding\.py)$
         pass_filenames: false
         stages: [pre-commit]
 

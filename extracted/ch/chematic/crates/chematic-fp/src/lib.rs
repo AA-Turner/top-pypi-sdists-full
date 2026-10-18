@@ -27,6 +27,7 @@ pub mod ecfp;
 mod ecfp_diagnostics;
 pub mod erg;
 pub mod fcfp;
+pub mod feature_patterns;
 pub mod fold_density;
 pub mod fps;
 pub mod hdf;
@@ -51,6 +52,7 @@ pub mod rdkit_rdk;
 pub mod rdkit_torsion;
 pub mod reaction_fp;
 pub mod search;
+pub mod sparse_matrix;
 pub mod topo_path;
 
 pub use atom_pair::{atom_pair_fp, torsion_fp};
@@ -170,3 +172,5 @@ pub(crate) fn rdkit_atomic_num(mol: &chematic_core::Molecule, idx: chematic_core
 }
 #[cfg(test)]
 mod avalon_boundary_contract_tests;
+
+pub use sparse_matrix::{SparseMatrixError, SparseTanimotoMetric, sparse_tanimoto_matrix_checked};

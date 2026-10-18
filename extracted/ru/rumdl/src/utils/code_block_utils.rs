@@ -10,7 +10,7 @@
 
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 
-use super::parser_options::rumdl_parser_options;
+use super::parser_options::rumdl_parser_options_for;
 
 /// Detailed information about a code block captured during parsing
 #[derive(Debug, Clone)]
@@ -23,6 +23,54 @@ pub struct CodeBlockDetail {
     pub is_fenced: bool,
     /// The info string from fenced blocks (e.g., "rust" from ```rust), empty for indented
     pub info_string: String,
+    /// For an indented block, the visual column (tabs expanded to multiples of
+    /// four) where its enclosing container's content begins: the document
+    /// margin, a list item's content column, or a blockquote's content. The
+    /// code itself starts four columns past it. `None` for fenced blocks.
+    pub content_column: Option<usize>,
+    /// For a fenced block, whether a closing fence line ends it. A block the
+    /// document or its container ends first is not closed, even when its last
+    /// line looks like a fence (a shorter run, another character, or code
+    /// indented four columns). `false` for indented blocks.
+    pub closed: bool,
+}
+
+/// Whether the fenced block spanning `start..end` of `content` ends with a
+/// closing fence line, given how many lines its literal text has.
+///
+/// A closing fence is the one line of a block that is not in its literal text,
+/// so a closed block spans two lines more than its literal holds (opener and
+/// closer) and an unclosed one a single line more. A final line holding only
+/// whitespace is inside the parser's range without a text event of its own, so
+/// the last line must also start with a fence character once quote markers and
+/// whitespace are set aside.
+fn fenced_block_is_closed(content: &str, start: usize, end: usize, literal_lines: usize) -> bool {
+    let bytes = content.as_bytes();
+    let end = end.min(bytes.len());
+    // The range of an unclosed block ends after the newline of its last line.
+    let body_end = if end > start && bytes[end - 1] == b'\n' {
+        end - 1
+    } else {
+        end
+    };
+    let body = &bytes[start.min(body_end)..body_end];
+    // Each newline starts another line, and an empty body is one line.
+    let span_lines = body.split(|&b| b == b'\n').count();
+    let line_start = body
+        .iter()
+        .rposition(|&b| b == b'\n')
+        .map_or(start, |at| start + at + 1);
+    let last_line = content.get(line_start..body_end).unwrap_or("");
+    span_lines == literal_lines + 2 && last_line.trim_start_matches(['>', ' ', '\t']).starts_with(['`', '~'])
+}
+
+/// Visual column of byte `pos`, counting from the start of its line, with a
+/// tab advancing to the next multiple of four.
+fn visual_column(content: &str, pos: usize) -> usize {
+    let line_start = content[..pos].rfind('\n').map_or(0, |i| i + 1);
+    content[line_start..pos]
+        .chars()
+        .fold(0, |col, c| if c == '\t' { col + 4 - col % 4 } else { col + 1 })
 }
 
 /// A strong emphasis span captured during parsing
@@ -58,7 +106,8 @@ pub type LineToListMap = std::collections::HashMap<usize, usize>;
 /// Ordered list start values: maps list ID to the start value
 pub type ListStartValues = std::collections::HashMap<usize, u64>;
 
-/// Result of the central pulldown-cmark parse, capturing all data needed by individual rules
+/// Structure facts from document analysis, capturing data needed by individual rules.
+#[derive(Debug, Default)]
 pub struct ParseResult {
     /// Code block byte ranges (start, end)
     pub code_blocks: Vec<(usize, usize)>,
@@ -94,6 +143,18 @@ pub struct ParseResult {
     /// fields come from reads a definition, which ends every code span, link
     /// and emphasis running into it.
     pub colon_definitions: Vec<ColonDefinitionDetail>,
+    /// Byte range of every table the parser reads
+    pub table_ranges: Vec<(usize, usize)>,
+    /// Byte range of every block that is not inside another block, in document
+    /// order: a paragraph, list, blockquote, table, code block, and so on
+    pub top_level_blocks: Vec<(usize, usize)>,
+    /// Byte range (terms included) of every definition failing
+    /// `opens_definition`, before `colon_definitions` drops those whose text
+    /// reads the same either way
+    pub rejected_definition_ranges: Vec<(usize, usize)>,
+    /// Byte range of every list item together with the byte offset where its
+    /// content starts, for items that have content
+    pub list_items: Vec<(usize, usize, usize)>,
 }
 
 /// A definition pulldown-cmark opens on a colon touching its text, together
@@ -155,10 +216,48 @@ fn is_inline_tag_end(tag_end: TagEnd) -> bool {
 /// colon touching its text, as in `:warning:` or a `:::` fence closing a div,
 /// which those read as prose or as the fence it is.
 fn opens_definition(content: &str, start: usize) -> bool {
-    content[start..]
-        .trim_start_matches([' ', '\t'])
+    // A tab crossing a definition's container indent can make the parser's
+    // marker offset land inside the preceding UTF-8 character. Such an offset
+    // does not identify a source marker and belongs to the rejected reading.
+    let Some(rest) = content.get(start..) else {
+        return false;
+    };
+    rest.trim_start_matches([' ', '\t'])
         .strip_prefix(':')
         .is_some_and(|rest| rest.is_empty() || rest.starts_with([' ', '\t', '\n', '\r']))
+}
+
+/// Every indented code block a parse with `options` finds in `content`, as
+/// its byte range and the content column of the container it sits in: four
+/// columns short of where its code begins, less the columns a tab straddling
+/// that point overshot, which the parser supplies as a leading text event
+/// with an empty range.
+fn indented_block_columns(content: &str, options: Options) -> Vec<(usize, usize, usize)> {
+    let mut blocks = Vec::new();
+    let mut open: Option<(usize, usize)> = None;
+    let mut awaiting_first_event = false;
+    for (event, range) in Parser::new_ext(content, options).into_offset_iter() {
+        if std::mem::take(&mut awaiting_first_event)
+            && let Event::Text(text) = &event
+            && range.is_empty()
+            && let Some((_, column)) = &mut open
+        {
+            *column = column.saturating_sub(text.len());
+        }
+        match event {
+            Event::Start(Tag::CodeBlock(CodeBlockKind::Indented)) => {
+                open = Some((range.start, visual_column(content, range.start).saturating_sub(4)));
+                awaiting_first_event = true;
+            }
+            Event::End(TagEnd::CodeBlock) => {
+                if let Some((start, column)) = open.take() {
+                    blocks.push((start, range.end, column));
+                }
+            }
+            _ => {}
+        }
+    }
+    blocks
 }
 
 /// The byte ranges of the inline constructs a parse with `options` finds in
@@ -232,12 +331,48 @@ impl CodeBlockUtils {
     /// Returns code block ranges, inline code span ranges, and detailed code block info
     /// in a single pulldown-cmark pass.
     pub fn detect_code_blocks_and_spans(content: &str) -> ParseResult {
+        let line_starts: Vec<usize> = std::iter::once(0)
+            .chain(content.match_indices('\n').map(|(i, _)| i + 1))
+            .collect();
+        let options = rumdl_parser_options_for(content);
+        Self::collect_code_blocks_and_spans(
+            content,
+            &line_starts,
+            options,
+            Parser::new_ext(content, options).into_offset_iter(),
+        )
+    }
+
+    /// Collect structure from an existing parse, sharing its events and source
+    /// line index with other document consumers. Recovery parses still use
+    /// their own options where rumdl's reading differs from the primary parse.
+    pub(crate) fn collect_code_blocks_and_spans<'a>(
+        content: &str,
+        line_starts: &[usize],
+        options: Options,
+        events: impl Iterator<Item = (Event<'a>, std::ops::Range<usize>)>,
+    ) -> ParseResult {
         let mut blocks = Vec::new();
         let mut spans = Vec::new();
         let mut details = Vec::new();
         let mut strong_spans = Vec::new();
         let mut html_blocks = Vec::new();
-        let mut code_block_start: Option<(usize, bool, String)> = None;
+        let mut code_block_start: Option<(usize, bool, String, Option<usize>)> = None;
+        // The literal text of the code block being read, as a line count: the
+        // newlines seen, and whether the text so far ends in a partial line.
+        let mut literal_newlines = 0usize;
+        let mut literal_partial_line = false;
+        // Set while the event right after an indented block's start is unseen.
+        // When a tab straddles the column where the code begins, the parser
+        // starts the block after the tab and supplies the columns it overshot
+        // as a leading text event with an empty range.
+        let mut awaiting_first_code_event = false;
+        // One entry per open definition: whether `opens_definition` rejects
+        // it. The parser reads a rejected definition as a container, rumdl as
+        // the text it is, so an indented block inside one takes its content
+        // column from a parse without definition lists (`text_reading`).
+        let mut definition_rejected: Vec<bool> = Vec::new();
+        let mut text_reading = Vec::new();
 
         // Definition structure. `block_stack` holds one entry per open block,
         // the definition's start for a definition and `None` for anything else,
@@ -254,6 +389,11 @@ impl CodeBlockUtils {
         let mut definition_terms = Vec::new();
         let mut definition_texts = Vec::new();
         let mut colon_definitions = Vec::new();
+        let mut table_ranges: Vec<(usize, usize)> = Vec::new();
+        let mut top_level_blocks: Vec<(usize, usize)> = Vec::new();
+        let mut rejected_definition_ranges: Vec<(usize, usize)> = Vec::new();
+        let mut list_item_spans: Vec<(usize, usize, Option<usize>)> = Vec::new();
+        let mut open_items: Vec<usize> = Vec::new();
         let mut block_stack: Vec<Option<usize>> = Vec::new();
         let mut definition_paragraph: Option<(usize, usize)> = None;
         let mut tight_run: Option<DefinitionTextDetail> = None;
@@ -264,20 +404,30 @@ impl CodeBlockUtils {
         let mut list_stack: Vec<(usize, bool, u64)> = Vec::new(); // (list_id, is_ordered, start_value)
         let mut next_list_id: usize = 0;
 
-        // Pre-compute line start offsets for byte-to-line conversion
-        let line_starts: Vec<usize> = std::iter::once(0)
-            .chain(content.match_indices('\n').map(|(i, _)| i + 1))
-            .collect();
-
         let byte_to_line = |byte_offset: usize| -> usize { line_starts.partition_point(|&start| start <= byte_offset) };
 
-        let options = rumdl_parser_options();
-        let parser = Parser::new_ext(content, options).into_offset_iter();
-
-        for (event, range) in parser {
+        for (event, range) in events {
+            if let Some(&item) = open_items.last()
+                && list_item_spans[item].2.is_none()
+                && !matches!(event, Event::End(_))
+            {
+                list_item_spans[item].2 = Some(range.start);
+            }
+            if matches!(event, Event::Start(Tag::Item)) {
+                open_items.push(list_item_spans.len());
+                list_item_spans.push((range.start, range.end, None));
+            } else if matches!(event, Event::End(TagEnd::Item)) {
+                open_items.pop();
+            }
             match &event {
                 Event::Start(tag) if !is_inline_tag(tag) => {
                     definition_texts.extend(tight_run.take());
+                    if block_stack.is_empty() {
+                        top_level_blocks.push((range.start, range.end));
+                    }
+                    if matches!(tag, Tag::Table(_)) {
+                        table_ranges.push((range.start, range.end));
+                    }
                     if let (Tag::Paragraph, Some(Some(definition_start))) = (tag, block_stack.last()) {
                         definition_paragraph = Some((range.start, *definition_start));
                     }
@@ -289,15 +439,21 @@ impl CodeBlockUtils {
                             // The definition's range takes in the blank lines after
                             // it, quoted ones too, which belong to no block.
                             let item_start = pending_terms.first().map_or(range.start, |&(start, _)| start);
-                            let item_end = range.start
-                                + content[range.clone()]
-                                    .trim_end_matches([' ', '\t', '\n', '\r', '>'])
-                                    .len();
-                            if opens_definition(content, range.start) {
+                            // Only ASCII suffix bytes are removed. The parser
+                            // can report a non-character-boundary marker start
+                            // for a tab crossing the container indentation.
+                            let item_end = content.as_bytes()[range.clone()]
+                                .iter()
+                                .rposition(|byte| !matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'>'))
+                                .map_or(range.start, |index| range.start + index + 1);
+                            let accepted = opens_definition(content, range.start);
+                            definition_rejected.push(!accepted);
+                            if accepted {
                                 definition_items.push((item_start, item_end));
                                 definition_terms.append(&mut pending_terms);
                                 definition_start = Some(range.start);
                             } else {
+                                rejected_definition_ranges.push((item_start, item_end));
                                 colon_definitions.push(ColonDefinitionDetail {
                                     start: item_start,
                                     end: item_end,
@@ -319,6 +475,9 @@ impl CodeBlockUtils {
                             end: range.end,
                             definition_start,
                         });
+                    }
+                    if let TagEnd::DefinitionListDefinition = tag_end {
+                        definition_rejected.pop();
                     }
                     if let TagEnd::DefinitionList = tag_end {
                         pending_terms.clear();
@@ -342,22 +501,52 @@ impl CodeBlockUtils {
                     }
                 }
             }
+            if std::mem::take(&mut awaiting_first_code_event)
+                && let Event::Text(text) = &event
+                && range.is_empty()
+                && let Some((_, _, _, Some(column))) = &mut code_block_start
+            {
+                *column = column.saturating_sub(text.len());
+            }
+            if code_block_start.is_some()
+                && let Event::Text(text) = &event
+                && !text.is_empty()
+            {
+                literal_newlines += text.matches('\n').count();
+                literal_partial_line = !text.ends_with('\n');
+            }
             match event {
                 Event::Start(Tag::CodeBlock(kind)) => {
+                    literal_newlines = 0;
+                    literal_partial_line = false;
                     let (is_fenced, info_string) = match &kind {
                         CodeBlockKind::Fenced(info) => (true, info.to_string()),
                         CodeBlockKind::Indented => (false, String::new()),
                     };
-                    code_block_start = Some((range.start, is_fenced, info_string));
+                    let mut content_column =
+                        (!is_fenced).then(|| visual_column(content, range.start).saturating_sub(4));
+                    if !is_fenced && definition_rejected.contains(&true) {
+                        // Dropping definition lists would also drop an accepted
+                        // definition around the block, so its column is unknown.
+                        if !block_stack.iter().any(Option::is_some) {
+                            text_reading.push(range.start);
+                        }
+                        content_column = None;
+                    }
+                    awaiting_first_code_event = !is_fenced;
+                    code_block_start = Some((range.start, is_fenced, info_string, content_column));
                 }
                 Event::End(TagEnd::CodeBlock) => {
-                    if let Some((start, is_fenced, info_string)) = code_block_start.take() {
+                    if let Some((start, is_fenced, info_string, content_column)) = code_block_start.take() {
                         blocks.push((start, range.end));
+                        let literal_lines = literal_newlines + usize::from(literal_partial_line);
                         details.push(CodeBlockDetail {
                             start,
                             end: range.end,
                             is_fenced,
                             info_string,
+                            content_column,
+                            closed: is_fenced && fenced_block_is_closed(content, start, range.end, literal_lines),
                         });
                     }
                 }
@@ -404,14 +593,27 @@ impl CodeBlockUtils {
 
         // Handle edge case: unclosed code block at end of content
         // pulldown-cmark should handle this, but be defensive
-        if let Some((start, is_fenced, info_string)) = code_block_start {
+        if let Some((start, is_fenced, info_string, content_column)) = code_block_start {
             blocks.push((start, content.len()));
             details.push(CodeBlockDetail {
                 start,
                 end: content.len(),
                 is_fenced,
                 info_string,
+                content_column,
+                closed: false,
             });
+        }
+
+        if !text_reading.is_empty() {
+            let text_blocks = indented_block_columns(content, options - Options::ENABLE_DEFINITION_LIST);
+            for detail in details.iter_mut().filter(|d| text_reading.contains(&d.start)) {
+                let lines = (byte_to_line(detail.start), byte_to_line(detail.end.saturating_sub(1)));
+                detail.content_column = text_blocks
+                    .iter()
+                    .find(|&&(start, end, _)| (byte_to_line(start), byte_to_line(end.saturating_sub(1))) == lines)
+                    .map(|&(_, _, column)| column);
+            }
         }
 
         // A colon-led definition whose text holds the same inline constructs
@@ -446,6 +648,13 @@ impl CodeBlockUtils {
             line_to_list,
             list_start_values,
             html_blocks,
+            table_ranges,
+            top_level_blocks,
+            rejected_definition_ranges,
+            list_items: list_item_spans
+                .into_iter()
+                .filter_map(|(start, end, content)| content.map(|content| (start, end, content)))
+                .collect(),
         }
     }
 
@@ -569,86 +778,47 @@ impl CodeBlockUtils {
             || crate::utils::skip_context::is_table_line(trimmed)
             || trimmed.starts_with('>') // Blockquotes
     }
-
-    /// Detect fenced code blocks with markdown/md language tag.
-    ///
-    /// Returns a vector of `MarkdownCodeBlock` containing byte ranges for the
-    /// content between the fences (excluding the fence lines themselves).
-    ///
-    /// Only detects fenced code blocks (``` or ~~~), not indented code blocks,
-    /// since indented blocks don't have a language tag.
-    pub fn detect_markdown_code_blocks(content: &str) -> Vec<MarkdownCodeBlock> {
-        use pulldown_cmark::{CodeBlockKind, Event, Parser, Tag, TagEnd};
-
-        let mut blocks = Vec::new();
-        let mut current_block: Option<MarkdownCodeBlockBuilder> = None;
-
-        let options = rumdl_parser_options();
-        let parser = Parser::new_ext(content, options).into_offset_iter();
-
-        for (event, range) in parser {
-            match event {
-                Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) => {
-                    // Check if language is markdown or md (first word of info string)
-                    let language = info.split_whitespace().next().unwrap_or("");
-                    if language.eq_ignore_ascii_case("markdown") || language.eq_ignore_ascii_case("md") {
-                        // Find where content starts (after the opening fence line)
-                        let block_start = range.start;
-                        let content_start = content[block_start..]
-                            .find('\n')
-                            .map_or(content.len(), |i| block_start + i + 1);
-
-                        current_block = Some(MarkdownCodeBlockBuilder { content_start });
-                    }
-                }
-                Event::End(TagEnd::CodeBlock) => {
-                    if let Some(builder) = current_block.take() {
-                        // Find where content ends (before the closing fence line)
-                        let block_end = range.end;
-
-                        // Validate range before slicing
-                        if builder.content_start > block_end || builder.content_start > content.len() {
-                            continue;
-                        }
-
-                        let search_range = &content[builder.content_start..block_end.min(content.len())];
-                        let content_end = search_range
-                            .rfind('\n')
-                            .map_or(builder.content_start, |i| builder.content_start + i);
-
-                        // Only add block if it has valid content range
-                        if content_end >= builder.content_start {
-                            blocks.push(MarkdownCodeBlock {
-                                content_start: builder.content_start,
-                                content_end,
-                            });
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        blocks
-    }
-}
-
-/// Information about a markdown code block for recursive formatting
-#[derive(Debug, Clone)]
-pub struct MarkdownCodeBlock {
-    /// Byte offset where the content starts (after opening fence line)
-    pub content_start: usize,
-    /// Byte offset where the content ends (before closing fence line)
-    pub content_end: usize,
-}
-
-/// Builder for MarkdownCodeBlock during parsing
-struct MarkdownCodeBlockBuilder {
-    content_start: usize,
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_table_ranges_and_top_level_blocks_are_recorded() {
+        let content = "para\n\n|a|b|\n|-|-|\n|1|2|\n\n- item\n\n  |c|d|\n  |-|-|\n";
+        let parsed = CodeBlockUtils::detect_code_blocks_and_spans(content);
+        let text = |&(start, end): &(usize, usize)| &content[start..end];
+
+        assert_eq!(parsed.table_ranges.len(), 2);
+        assert_eq!(text(&parsed.table_ranges[0]), "|a|b|\n|-|-|\n|1|2|\n");
+        assert!(text(&parsed.table_ranges[1]).starts_with("|c|d|"));
+
+        // The paragraph, the first table and the list are top level; the table
+        // inside the list item is not.
+        let top: Vec<&str> = parsed.top_level_blocks.iter().map(text).collect();
+        assert_eq!(top.len(), 3, "{top:?}");
+        assert_eq!(top[0], "para\n");
+        assert!(top[2].starts_with("- item"));
+    }
+
+    #[test]
+    fn test_list_items_record_where_their_content_starts() {
+        let content = "- - x\n\n-   y\n-\n- \n  z\n";
+        let parsed = CodeBlockUtils::detect_code_blocks_and_spans(content);
+        let starts: Vec<(&str, &str)> = parsed
+            .list_items
+            .iter()
+            .map(|&(start, _, content_start)| (&content[start..=start], &content[content_start..=content_start]))
+            .collect();
+        // Outer item holds the inner marker; the empty `-` item has no content.
+        assert_eq!(starts, [("-", "-"), ("-", "x"), ("-", "y"), ("-", "z")]);
+    }
+
+    #[test]
+    fn test_no_table_ranges_without_a_table() {
+        let parsed = CodeBlockUtils::detect_code_blocks_and_spans("a|b\n|-|\n\n    |a|b|\n    |-|-|\n");
+        assert!(parsed.table_ranges.is_empty());
+    }
+
     use super::*;
 
     #[test]
@@ -959,6 +1129,80 @@ mod tests {
     }
 
     #[test]
+    fn test_indented_block_content_column_is_its_containers() {
+        let cases = [
+            ("Text\n\n    code\n", 0),
+            ("- a\n\n      code\n", 2),
+            ("1. a\n\n       code\n", 3),
+            // The unindented paragraph ends the list, so the block is at the margin.
+            ("1. a\n\nb\n\n       code\n", 0),
+            // A lazy continuation keeps the item open however long it runs.
+            ("1. a\nb\nc\nd\ne\nf\ng\n\n       code\n", 3),
+            (">     quoted\n", 2),
+            ("- a\n\n\t  code\n", 2),
+            // The second tab straddles column 7, where the code begins.
+            ("1. a\n\n\t\tcode\n", 3),
+            (">\t\tcode\n", 2),
+        ];
+        for (content, expected) in cases {
+            let result = CodeBlockUtils::detect_code_blocks_and_spans(content);
+            let columns: Vec<_> = result.code_block_details.iter().map(|d| d.content_column).collect();
+            assert_eq!(columns, [Some(expected)], "content column for {content:?}");
+        }
+
+        let fenced = CodeBlockUtils::detect_code_blocks_and_spans("- a\n\n  ```\n  code\n  ```\n");
+        let columns: Vec<_> = fenced.code_block_details.iter().map(|d| d.content_column).collect();
+        assert_eq!(columns, [None]);
+    }
+
+    #[test]
+    fn test_indented_block_in_rejected_definition_takes_its_columns_from_the_text_reading() {
+        let cases = [
+            // `:warning:` opens no definition, so the block sits at the margin.
+            ("term\n:warning:\n\n      x\n", Some(0)),
+            ("- a\n\n  term\n  :warning:\n\n        x\n", Some(2)),
+            // A definition rumdl accepts is a container.
+            ("term\n: def\n\n      x\n", Some(2)),
+            // Under an accepted definition the text reading would drop that
+            // container too, so the column is unknown.
+            ("term\n: def\n\n  t2\n  :warning:\n\n        x\n", None),
+        ];
+        for (content, expected) in cases {
+            let result = CodeBlockUtils::detect_code_blocks_and_spans(content);
+            let columns: Vec<_> = result.code_block_details.iter().map(|d| d.content_column).collect();
+            assert_eq!(columns, [expected], "content column for {content:?}");
+        }
+    }
+
+    #[test]
+    fn definition_marker_inside_utf8_keeps_the_rejected_source_reading() {
+        for newline in ["\n", "\r", "\r\n"] {
+            for term in ["", "a", "¡", "🦀"] {
+                for text in ["b", "\u{e000}", "🦀"] {
+                    for tail in ["\t:", "\t: next", "\t: *next*", "\t: `next`"] {
+                        let source = format!("{term}{newline}:{text}{newline}{tail}");
+                        let result = CodeBlockUtils::detect_code_blocks_and_spans(&source);
+                        assert!(result.definition_items.is_empty(), "{source:?}");
+                        assert!(result.definition_texts.is_empty(), "{source:?}");
+                        for &(start, end) in &result.rejected_definition_ranges {
+                            assert!(source.get(start..end).is_some(), "{source:?}: {start}..{end}");
+                        }
+                        let ctx = crate::lint_context::LintContext::new(
+                            &source,
+                            crate::config::MarkdownFlavor::Standard,
+                            None,
+                        );
+                        assert_eq!(ctx.content, source);
+                    }
+                }
+            }
+        }
+        assert!(!super::opens_definition("¡", 1));
+        assert!(!super::opens_definition(": text", usize::MAX));
+        assert!(super::opens_definition("\t: text", 0));
+    }
+
+    #[test]
     fn test_indented_code_in_list_issue_276() {
         // Issue #276: Indented code block inside a list should be detected by pulldown-cmark
         let content = r#"1. First item
@@ -983,129 +1227,6 @@ mod tests {
             all_content.contains("code block in a list") || all_content.contains("print"),
             "Detected block should contain the code content: {all_content:?}"
         );
-    }
-
-    #[test]
-    fn test_detect_markdown_code_blocks() {
-        let content = r#"# Example
-
-```markdown
-# Heading
-Content here
-```
-
-```md
-Another heading
-More content
-```
-
-```rust
-// Not markdown
-fn main() {}
-```
-"#;
-
-        let blocks = CodeBlockUtils::detect_markdown_code_blocks(content);
-
-        // Should detect 2 blocks (markdown and md, not rust)
-        assert_eq!(
-            blocks.len(),
-            2,
-            "Should detect exactly 2 markdown blocks, got {blocks:?}"
-        );
-
-        // First block should be the ```markdown block
-        let first = &blocks[0];
-        let first_content = &content[first.content_start..first.content_end];
-        assert!(
-            first_content.contains("# Heading"),
-            "First block should contain '# Heading', got: {first_content:?}"
-        );
-
-        // Second block should be the ```md block
-        let second = &blocks[1];
-        let second_content = &content[second.content_start..second.content_end];
-        assert!(
-            second_content.contains("Another heading"),
-            "Second block should contain 'Another heading', got: {second_content:?}"
-        );
-    }
-
-    #[test]
-    fn test_detect_markdown_code_blocks_empty() {
-        let content = "# Just a heading\n\nNo code blocks here\n";
-        let blocks = CodeBlockUtils::detect_markdown_code_blocks(content);
-        assert_eq!(blocks.len(), 0);
-    }
-
-    #[test]
-    fn test_detect_markdown_code_blocks_case_insensitive() {
-        let content = "```MARKDOWN\nContent\n```\n";
-        let blocks = CodeBlockUtils::detect_markdown_code_blocks(content);
-        assert_eq!(blocks.len(), 1);
-    }
-
-    #[test]
-    fn test_detect_markdown_code_blocks_at_eof_no_trailing_newline() {
-        // Block at end of file without trailing newline after closing fence
-        let content = "# Doc\n\n```markdown\nContent\n```";
-        let blocks = CodeBlockUtils::detect_markdown_code_blocks(content);
-        assert_eq!(blocks.len(), 1);
-        // Content should be extractable without panic
-        let block_content = &content[blocks[0].content_start..blocks[0].content_end];
-        assert!(block_content.contains("Content"));
-    }
-
-    #[test]
-    fn test_detect_markdown_code_blocks_single_line_content() {
-        // Single line of content, no extra newlines
-        let content = "```markdown\nX\n```\n";
-        let blocks = CodeBlockUtils::detect_markdown_code_blocks(content);
-        assert_eq!(blocks.len(), 1);
-        let block_content = &content[blocks[0].content_start..blocks[0].content_end];
-        assert_eq!(block_content, "X");
-    }
-
-    #[test]
-    fn test_detect_markdown_code_blocks_empty_content() {
-        // Block with no content between fences
-        let content = "```markdown\n```\n";
-        let blocks = CodeBlockUtils::detect_markdown_code_blocks(content);
-        // Should detect block but with empty range or not at all
-        // Either behavior is acceptable as long as no panic
-        if !blocks.is_empty() {
-            // If detected, content range should be valid
-            assert!(blocks[0].content_start <= blocks[0].content_end);
-        }
-    }
-
-    #[test]
-    fn test_detect_markdown_code_blocks_validates_ranges() {
-        // Ensure no panic on various edge cases
-        let test_cases = [
-            "",                             // Empty content
-            "```markdown",                  // Unclosed block
-            "```markdown\n",                // Unclosed block with newline
-            "```\n```",                     // Non-markdown block
-            "```markdown\n```",             // Empty markdown block
-            "   ```markdown\n   X\n   ```", // Indented block
-        ];
-
-        for content in test_cases {
-            // Should not panic
-            let blocks = CodeBlockUtils::detect_markdown_code_blocks(content);
-            // All detected blocks should have valid ranges
-            for block in &blocks {
-                assert!(
-                    block.content_start <= block.content_end,
-                    "Invalid range in content: {content:?}"
-                );
-                assert!(
-                    block.content_end <= content.len(),
-                    "Range exceeds content length in: {content:?}"
-                );
-            }
-        }
     }
 
     // ── is_in_code_block binary search tests ─────────────────────────────
@@ -1218,6 +1339,72 @@ fn main() {}
                 !CodeBlockUtils::is_in_code_block(&blocks, end),
                 "pos={end} should be outside"
             );
+        }
+    }
+}
+
+/// `CodeBlockDetail::closed` says whether a closing fence line ends the block,
+/// which only the parser's reading of the fence rules settles: a last line that
+/// looks like a fence can be code.
+#[cfg(test)]
+mod closed_fence_tests {
+    use super::*;
+
+    fn closed_of(content: &str) -> Vec<bool> {
+        CodeBlockUtils::detect_code_blocks_and_spans(content)
+            .code_block_details
+            .iter()
+            .filter(|detail| detail.is_fenced)
+            .map(|detail| detail.closed)
+            .collect()
+    }
+
+    #[test]
+    fn a_block_ended_by_a_closing_fence_is_closed() {
+        for content in [
+            "```\nx\n```\n",
+            "```\nx\n```",
+            "```\n```\n",
+            "~~~\nx\n~~~\n",
+            "````\nx\n`````\n",
+            "```\nx\n``` \n",
+            "> ```\n> x\n> ```\nfoo\n",
+            "> ```\n> ```\nfoo\n",
+            "-\n  ```\n  x\n  ```\n",
+            "- ```\n  x\n\n  ```\n",
+            "```\n\n\n```\n",
+            "   ```\nx\n   ```\n",
+        ] {
+            assert_eq!(closed_of(content), vec![true], "{content:?}");
+        }
+    }
+
+    #[test]
+    fn a_block_the_document_or_container_ends_is_not_closed() {
+        for content in [
+            "```\nx\n",
+            "```\nx",
+            "```",
+            "```\n",
+            "> ```\nfoo\n",
+            "> ```\n> x\nfoo\n",
+            // Last line looks like a fence but is code.
+            "> ```\n> ~~~\nfoo\n",
+            "```\n~~~\n",
+            "> ````\n> ```\nfoo\n",
+            "> ```\n>     ```\nfoo\n",
+            "```\n    ```\n",
+            "> ```\n> \u{a0}```\nfoo\n",
+            "> ```\n> ```x\nfoo\n",
+            "> ```\n> ```\u{a0}\nfoo\n",
+            // A last line of whitespace is inside the parser's range, and has no
+            // text event of its own.
+            "> ```\n> ",
+            "```\n  ",
+            "> ```\n> ~~~\n> ",
+            "- ```\nfoo\n",
+        ] {
+            assert_eq!(closed_of(content), vec![false], "{content:?}");
         }
     }
 }

@@ -1,16 +1,14 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
-"""OMN-20074: omnibase_spi's repo-evidence caller runs in S5 shadow mode.
+"""OMN-20074: omnibase_spi's repo-evidence caller enforces repo-owned evidence.
 
-The caller records the new-path verdict beside OCC's on the same head and must
-block nothing: the reusable's ``shadow`` input makes ``repo-evidence / verify``
-and ``repo-evidence / dod-verify`` conclude success, and no OCC caller is removed.
+S6 cut-over: ``shadow`` and ``compare-with-occ`` are both "false", so
+``repo-evidence / dod-verify`` carries a real verdict without an OCC comparison.
+The OCC minting callers and their helper are gone (see
+``test_no_occ_callers_omn20074.py``).
 
-Failure modes this catches: the caller dropped ``shadow`` or ``compare-with-occ``
-(the check-run would carry a real refusal); the pin moved to a branch name or an
-older reusable; the caller moved to ``pull_request`` (a PR could then edit what
-judges it); a job name was added (the context prefix would change); an OCC caller
-was removed before the S6 ruling; the repo contract lost a falsifier.
+These tests guard the base-branch trigger, immutable pin, caller inputs, stable
+context prefix, retirement of the OCC callers and runnable contract falsifiers.
 """
 
 from __future__ import annotations
@@ -29,11 +27,13 @@ WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 CALLER = WORKFLOWS / "call-repo-evidence-gate.yml"
 CONTRACT = REPO_ROOT / "contracts" / "OMN-20074.yaml"
 
-# Squash commit of omnibase_core#1932 on that repository's dev branch, a descendant
-# of #1914 (OMN-20032). 0.4.305 is the first omnimarket release carrying
-# omnimarket#3563, the verifier half of the contract-home marker, and it ships the
-# node_dod_verify occ-difference classifier (omnimarket#3277, 0.4.294).
-RECEIPT_GATE_PIN = "4e4f5e0404d364e296c5d37db6aa3ab9e07f8ffa"
+RECEIPT_GATE_PATH = "OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml"
+# Squash commit of omnibase_core#1914, which predates the VERIFIER_FLOOR refusal of
+# #1932 (OMN-20032). Dependabot only advances the pin, so this is the one pin to refuse.
+PRE_FLOOR_PIN = "fb0c6c2117d5868a398b0920cd0048d0824415b1"
+# 0.4.305 is the first omnimarket release carrying omnimarket#3563, the verifier half
+# of the contract-home marker, and it ships the node_dod_verify occ-difference
+# classifier (omnimarket#3277, 0.4.294).
 VERIFIER_FLOOR = (0, 4, 305)
 
 
@@ -73,13 +73,56 @@ def test_caller_job_is_a_bare_call_with_no_secrets() -> None:
     assert "secrets: inherit" not in CALLER.read_text(encoding="utf-8")
 
 
+def _is_pinned_receipt_gate(uses: str) -> bool:
+    # Dependabot may advance the immutable pin without changing the reusable.
+    match = re.fullmatch(rf"{re.escape(RECEIPT_GATE_PATH)}@([0-9a-f]{{40}})", uses)
+    return match is not None and match.group(1) != PRE_FLOOR_PIN
+
+
 def test_caller_pins_the_current_receipt_gate_by_full_sha() -> None:
-    uses = _job()["uses"]
-    assert re.fullmatch(
-        r"OmniNode-ai/omnibase_core/\.github/workflows/receipt-gate\.yml@[0-9a-f]{40}",
-        uses,
-    )
-    assert uses.endswith(f"@{RECEIPT_GATE_PIN}")
+    assert _is_pinned_receipt_gate(_job()["uses"])
+
+
+@pytest.mark.parametrize(
+    "pin",
+    [
+        "4e4f5e0404d364e296c5d37db6aa3ab9e07f8ffa",
+        "5bfbf807ad684e820733ab3d4eeb26e78d15327e",
+    ],
+)
+def test_receipt_gate_pin_accepts_full_sha_pin_updates(pin: str) -> None:
+    assert _is_pinned_receipt_gate(f"{RECEIPT_GATE_PATH}@{pin}")
+
+
+@pytest.mark.parametrize(
+    "ref",
+    [
+        "main",
+        "dev",
+        "v1.0.0",
+        "4e4f5e04",
+        "a" * 39,
+        "a" * 41,
+        "g" * 40,
+        "",
+        PRE_FLOOR_PIN,
+    ],
+)
+def test_receipt_gate_pin_rejects_mutable_malformed_or_pre_floor_refs(ref: str) -> None:
+    assert not _is_pinned_receipt_gate(f"{RECEIPT_GATE_PATH}@{ref}")
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "OmniNode-ai/onex_change_control/.github/workflows/receipt-gate.yml",
+        "other/omnibase_core/.github/workflows/receipt-gate.yml",
+        "OmniNode-ai/omnibase_core/.github/workflows/codeql-reusable.yml",
+        f"prefix/{RECEIPT_GATE_PATH}",
+    ],
+)
+def test_receipt_gate_pin_rejects_other_workflows(path: str) -> None:
+    assert not _is_pinned_receipt_gate(f"{path}@{'a' * 40}")
 
 
 def test_current_receipt_gate_verifier_version_is_at_or_above_the_floor() -> None:
@@ -87,33 +130,28 @@ def test_current_receipt_gate_verifier_version_is_at_or_above_the_floor() -> Non
     assert version >= VERIFIER_FLOOR
 
 
-def test_caller_is_in_shadow_mode_and_compares_with_occ() -> None:
+def test_caller_shadow_mode_is_off_and_the_evidence_source_is_the_caller() -> None:
     inputs = _job()["with"]
     assert inputs["evidence-source"] == "caller"
     # Quoted strings: the reusable's boolean-like inputs are string inputs.
-    assert inputs["shadow"] == "true"
-    assert inputs["compare-with-occ"] == "true"
+    assert inputs["shadow"] == "false"
+    assert inputs["compare-with-occ"] == "false"
     version = tuple(int(part) for part in inputs["verifier-version"].split("."))
     assert version >= VERIFIER_FLOOR
 
 
-def test_shadow_occ_context_is_a_job_name_the_repo_reports() -> None:
-    # The reusable's default lookup, `occ-preflight / eligibility`, names a job
-    # this repository never reports: its OCC preflight runs nested inside the
-    # reject-skip caller, so the check-run is `<caller job> / occ-preflight /
-    # eligibility`. Without this input the shadow waits and reads not_compared.
-    jobs = _load(WORKFLOWS / "call-reject-skip.yml")["jobs"]
-    assert "call-reject-skip-token" in jobs
-    assert "/reject-deploy-gate-skip.yml@" in jobs["call-reject-skip-token"]["uses"]
-    assert (
-        _job()["with"]["occ-context"]
-        == "call-reject-skip-token / occ-preflight / eligibility"
-    )
+def test_caller_ends_the_occ_comparison() -> None:
+    assert _job()["with"]["compare-with-occ"] == "false"
 
 
-def test_shadow_caller_removes_no_occ_caller() -> None:
+def test_caller_passes_no_occ_context() -> None:
+    assert "occ-context" not in _job()["with"]
+
+
+def test_occ_callers_are_removed() -> None:
     for name in ("call-occ-autobind.yml", "call-occ-companion-effect.yml"):
-        assert (WORKFLOWS / name).is_file(), f"{name} must stay until the S6 ruling"
+        assert not (WORKFLOWS / name).exists(), f"{name} is retired at S6"
+    assert not (REPO_ROOT / "scripts/ci/occ_manual_replay_precheck.py").exists()
 
 
 def test_repo_contract_names_a_falsifier_per_criterion() -> None:

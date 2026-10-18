@@ -20,6 +20,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from laya.agent import Agent, load  # noqa: E402
+from laya.onnx_agent import ONNXAgent  # noqa: E402
 from laya.calibrate import (  # noqa: E402
     CALIBRATION_VERSION,
     ECE_HOLDOUT_FRAC,
@@ -27,8 +28,10 @@ from laya.calibrate import (  # noqa: E402
     MIN_BUCKET_N,
     MIN_TYPE_N,
     MIN_BINNING_BUCKET_N,
+    _clamp_entry,
     _ece_report,
     _ece_split,
+    _fit_unclamped_temperature,
     _iter_records,
     _pairs_by_width,
     _softmax,
@@ -41,7 +44,7 @@ from laya.calibrate import (  # noqa: E402
     fit_temperatures,
     records_from_labeled,
 )
-from laya.common import QTYPES, TEMP_MAX, TEMP_MIN, ece_score, temp_bucket  # noqa: E402
+from laya.common import QTYPES, TEMP_MAX, TEMP_MIN, clamp_temperature, ece_score, temp_bucket  # noqa: E402
 import laya.calibrate as _calibrate  # noqa: E402
 import laya.agent as _agent_module  # noqa: E402
 
@@ -295,6 +298,60 @@ check_true("weight/both fits are interior, not a bound",
 check_true("weight/doubling a width pulls the fit to that width",
            abs(t_heavy - t_wide) < abs(t_even - t_wide) and abs(t_heavy - t_even) > 0.2,
            "even=%r heavy=%r wide=%r" % (t_even, t_heavy, t_wide))
+
+
+# ------------------------------------------------- the clamp is reported, not only applied
+# A clamped fit and a fit whose optimum really is the bound are the same number, so the
+# number cannot say which happened. `temperature_clamped` carries the unclamped scale
+# beside it. The value to install is still the clamped one, so these checks also pin that
+# the report changes nothing about `temperature` or `temperature_by_options`.
+lo_recs = [(QTYPES["choice"], z, t, 2) for z, t in lo_pairs]
+hi_recs = [(QTYPES["choice"], z, t, 2) for z, t in hi_pairs]
+mid_recs = [(QTYPES["choice"], z, t, len(z)) for z, t in mid]
+lo_map, hi_map, mid_map = (fit_temperature_map(r) for r in (lo_recs, hi_recs, mid_recs))
+
+check_true("clamp-report/the key is always present",
+           all("temperature_clamped" in m for m in (lo_map, hi_map, mid_map, med, fitted)))
+check("clamp-report/an interior fit is not reported", mid_map["temperature_clamped"], {})
+check_true("clamp-report/interior fit really was interior",
+           TEMP_MIN < mid_map["temperature"][QTYPES["choice"]] < TEMP_MAX,
+           "T=%r" % mid_map["temperature"][QTYPES["choice"]])
+
+for _name, _m, _bound, _applied in (("low", lo_map, "min", TEMP_MIN), ("high", hi_map, "max", TEMP_MAX)):
+    _rep = _m["temperature_clamped"]
+    # Both the bucket and the type scalar are fit from the same rows here, so both are named,
+    # the bucket by its `temperature_by_options` key and the type by its question-type name.
+    check("clamp-report/%s names the bucket and the type" % _name,
+          sorted(_rep), ["choice", "choice:2"])
+    check("clamp-report/%s bound" % _name, sorted({e["bound"] for e in _rep.values()}), [_bound])
+    check("clamp-report/%s applied is the clamped value" % _name,
+          sorted({e["applied"] for e in _rep.values()}), [_applied])
+    check("clamp-report/%s applied is what the result installs" % _name,
+          _rep.get("choice:2", {}).get("applied"), _m["temperature_by_options"]["choice:2"])
+    check_true("clamp-report/%s fitted is outside the band" % _name,
+               all(not TEMP_MIN <= e["fitted"] <= TEMP_MAX for e in _rep.values()),
+               "%r" % _rep)
+    check_true("clamp-report/%s fitted is on the right side" % _name,
+               all((e["fitted"] < TEMP_MIN) is (_bound == "min") for e in _rep.values()),
+               "%r" % _rep)
+
+# The clamped value stays the public answer: the report is additive, not a new return path.
+check("clamp-report/fit_one_temperature is unchanged at the floor",
+      fit_one_temperature(lo_pairs), lo_map["temperature_by_options"]["choice:2"])
+check("clamp-report/fit_one_temperature is unchanged at the ceiling",
+      fit_one_temperature(hi_pairs), hi_map["temperature_by_options"]["choice:2"])
+check_true("clamp-report/the unclamped fit is the clamped one's source",
+           abs(clamp_temperature(_fit_unclamped_temperature(lo_pairs), TEMP_MIN, TEMP_MAX)
+               - fit_one_temperature(lo_pairs)) < 1e-12)
+# The underflow case is a NaN, which `clamp_temperature` reports as the neutral 1.0. That is a
+# different fact from a clamp and must not be dressed up as one.
+check("clamp-report/a NaN fit is not a clamp", _clamp_entry(float("nan"), 1.0), None)
+check("clamp-report/an infinite fit is not a clamp", _clamp_entry(float("inf"), TEMP_MAX), None)
+check("clamp-report/a fit on the bound itself is not a clamp", _clamp_entry(TEMP_MIN, TEMP_MIN), None)
+# The search bound lives with the search now; the prose in `fit_one_temperature` must not be
+# what satisfies this.
+check_true("clamp-report/the search bound is in the fitting function",
+           "LOG_T_MARGIN" in inspect.getsource(_fit_unclamped_temperature))
 
 
 # --------------------------------------------------------------- ECE on a held-out split, not the fit rows
@@ -989,6 +1046,51 @@ check_true("init/stores subfolder", "self.subfolder = subfolder" in init_src)
 load_src = inspect.getsource(load)
 check_true("load/calibration kwarg", "calibration" in load_src)
 check_true("load/forwards calibration", "calibration=calibration" in load_src)
+
+onnx_init_src = inspect.getsource(ONNXAgent.__init__)
+check_true("onnx/init documents the calibration kwarg",
+           "calibration" in onnx_init_src.split("Args:")[1] if "Args:" in onnx_init_src else False)
+check_true("onnx/init reads calibration after checkpoint temperatures",
+           "self.load_calibration(calibration)" in onnx_init_src)
+check_true("onnx/load_calibration documents version/mismatch/clamp behaviour",
+           "version 1 and still loads" in inspect.getsource(ONNXAgent.load_calibration))
+check_true("onnx/load_calibration is the shared applier",
+           "apply_calibration_payload" in inspect.getsource(ONNXAgent.load_calibration))
+
+# The identity the mismatch check reads must actually be set here, exactly as the PyTorch `Agent`
+# sets it (`agent.py:385-386`). Without both lines every v2 payload compares against `None`, the
+# mismatch branch fires unconditionally on ONNX, and the docstring sentence above is false.
+check_true("onnx/init stores the identity the mismatch check reads",
+           "self.model_id_or_path = model_id_or_path" in onnx_init_src
+           and "self.subfolder = subfolder" in onnx_init_src)
+
+# The behavioural half of that claim, with no weights needed: a stub carrying the same identity
+# `ONNXAgent.__init__` installs. A v2 payload recorded for this very checkpoint loads in silence;
+# one recorded for a different checkpoint warns and still applies. This is the reachability the
+# docstring asserts and the check the four string matches above could not prove.
+onnx_like = type("OnnxLike", (), {})()
+onnx_like.model_id_or_path = "convaiinnovations/laya"
+onnx_like.subfolder = None
+onnx_like.cfg = {"encoder": "answerdotai/ModernBERT-large"}
+matched = calibration_payload(
+    [1.3, 1.2, 1.1], {"choice:2": 1.4},
+    model_id_or_path="convaiinnovations/laya", subfolder=None,
+    config={"encoder": "answerdotai/ModernBERT-large"})
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter("always")
+    apply_calibration_payload(onnx_like, matched)
+check_true("onnx/matching checkpoint loads without warning", not caught,
+           [str(w.message) for w in caught])
+check("onnx/matching load applies temperature", onnx_like.temperature, [1.3, 1.2, 1.1])
+
+crossed = dict(matched)
+crossed["model_id_or_path"] = "convaiinnovations/laya-multilingual"
+with warnings.catch_warnings(record=True) as caught2:
+    warnings.simplefilter("always")
+    apply_calibration_payload(onnx_like, crossed)
+check_true("onnx/different checkpoint warns", bool(caught2),
+           [str(w.message) for w in caught2])
+check("onnx/different checkpoint still applies", onnx_like.temperature, [1.3, 1.2, 1.1])
 
 rec_src = inspect.getsource(records_from_labeled)
 check_true("records/_encode_state", "_encode_state" in rec_src)

@@ -10,9 +10,10 @@ Three modes:
    then show the N slowest files with per-stage breakdowns so you can see
    *which* files are expensive and *where* the time goes.
 
-3. **mypyc** (``--mypyc``): build a mypyc-compiled wheel, install it in
-   a temporary venv, and re-run the profiling there.  Combines with
-   ``--slow N`` for per-file timing of compiled code.
+3. **mypyc** (``--mypyc``): build the shipped compiled configuration
+   (mypyc + Cython kernel), install it in a temporary venv, and re-run
+   the profiling there.  Combines with ``--slow N`` for per-file timing
+   of compiled code.
 """
 
 from __future__ import annotations
@@ -30,10 +31,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from detector_env import build_compiled_wheel
 from utils import collect_test_files
 
 import chardet
-from chardet._utils import DEFAULT_MAX_BYTES
+from chardet._utils import DEFAULT_MAX_BYTES, EVIDENCE_CAP_BYTES
 from chardet.enums import EncodingEra
 from chardet.pipeline import PipelineContext
 from chardet.pipeline.ascii import detect_ascii
@@ -189,28 +191,34 @@ def run_per_file_timing(data_dir: Path, slow_count: int) -> None:
             )
             continue
 
+        # Everything below the exhaustive checks converges on the evidence
+        # cap (ADR-0006).  The orchestrator slices once and feeds that view
+        # to all of them, so this replica must too --- profiling the full
+        # window here would report costs the shipping pipeline never pays.
+        evidence = data_truncated[:EVIDENCE_CAP_BYTES]
+
         # Validity filtering
         t0 = time.perf_counter()
-        valid_candidates = filter_by_validity(data_truncated, candidates)
+        valid_candidates = filter_by_validity(evidence, candidates)
         stages["validity"] = time.perf_counter() - t0
 
         # Structural scoring (for multibyte candidates)
         t0 = time.perf_counter()
         for enc_info in valid_candidates:
-            if enc_info.is_multibyte:
+            if enc_info.is_multibyte_cjk:
                 ctx = PipelineContext()
-                compute_structural_score(data_truncated, enc_info, ctx)
+                compute_structural_score(evidence, enc_info, ctx)
         stages["structural"] = time.perf_counter() - t0
 
         # Statistical scoring
         t0 = time.perf_counter()
-        stat_results = list(score_candidates(data_truncated, tuple(valid_candidates)))
+        stat_results = list(score_candidates(evidence, tuple(valid_candidates)))
         stages["statistical"] = time.perf_counter() - t0
 
         # Confusion resolution
         t0 = time.perf_counter()
         if stat_results:
-            resolve_confusion_groups(data_truncated, stat_results)
+            resolve_confusion_groups(evidence, stat_results)
         stages["confusion"] = time.perf_counter() - t0
 
         # Full detect for the actual result
@@ -302,7 +310,7 @@ def run_per_file_timing(data_dir: Path, slow_count: int) -> None:
 
 
 def _reexec_in_mypyc_venv() -> int:
-    """Build a mypyc wheel, create a temp venv, and re-run this script there.
+    """Build a compiled wheel, create a temp venv, and re-run this script there.
 
     The script and ``utils.py`` are copied to a temp directory outside the
     project tree so the venv Python imports the mypyc-compiled chardet
@@ -315,32 +323,21 @@ def _reexec_in_mypyc_venv() -> int:
     run_dir = Path(tempfile.mkdtemp(prefix="chardet-profile-run-"))
 
     try:
-        # Build mypyc wheel
-        print("Building mypyc wheel ...")
-        subprocess.run(
-            [
-                "uv",
-                "build",
-                "--wheel",
-                "--out-dir",
-                str(wheel_dir),
-                str(project_root),
-            ],
-            check=True,
-            env={**os.environ, "HATCH_BUILD_HOOK_ENABLE_MYPYC": "true"},
-        )
-        wheels = list(wheel_dir.glob("*.whl"))
-        if not wheels:
-            print("ERROR: no .whl file produced", file=sys.stderr)
+        # Build the shipped compiled configuration (mypyc + Cython kernel);
+        # the in-place artifact sweep happens inside the helper.
+        try:
+            wheel = build_compiled_wheel(project_root, wheel_dir)
+        except RuntimeError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
             return 1
-        print(f"  Built: {wheels[0].name}")
+        print(f"  Built: {wheel.name}")
 
         # Create venv and install
         print("Creating venv ...")
         subprocess.run(["uv", "venv", str(venv_dir)], check=True)
         venv_python = str(venv_dir / "bin" / "python")
         subprocess.run(
-            ["uv", "pip", "install", "--python", venv_python, str(wheels[0])],
+            ["uv", "pip", "install", "--python", venv_python, str(wheel)],
             check=True,
         )
 
@@ -348,6 +345,7 @@ def _reexec_in_mypyc_venv() -> int:
         # tree so the child process doesn't pick up the source chardet.
         shutil.copy2(Path(__file__).resolve(), run_dir / "profile_detection.py")
         shutil.copy2(scripts_dir / "utils.py", run_dir / "utils.py")
+        shutil.copy2(scripts_dir / "detector_env.py", run_dir / "detector_env.py")
 
         # Re-exec in the venv, forwarding all args except --mypyc
         forwarded = [a for a in sys.argv[1:] if a != "--mypyc"]
@@ -391,7 +389,8 @@ def main() -> None:
     parser.add_argument(
         "--mypyc",
         action="store_true",
-        help="Build a mypyc-compiled wheel and profile inside a temp venv",
+        help="Build the shipped compiled configuration (mypyc + Cython "
+        "kernel) and profile inside a temp venv",
     )
     parser.add_argument(
         "--data-dir",

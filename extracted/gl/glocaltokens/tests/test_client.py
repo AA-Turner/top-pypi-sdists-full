@@ -1,15 +1,17 @@
 """Client specific unittests."""
 
+# pylint: disable=too-many-lines
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from http import HTTPStatus
 import json
 import logging
-import subprocess
-import sys
 from typing import override
 from unittest import TestCase, mock
 from unittest.mock import NonCallableMock, patch
+import warnings
 
 from faker import Faker
 from faker.providers import internet
@@ -26,14 +28,9 @@ from glocaltokens.const import (
     ACCESS_TOKEN_SERVICE,
     ANDROID_ID_LENGTH,
     HOMEGRAPH_DURATION,
-    JSON_KEY_DEVICE_NAME,
-    JSON_KEY_HARDWARE,
-    JSON_KEY_IP,
-    JSON_KEY_LOCAL_AUTH_TOKEN,
-    JSON_KEY_NETWORK_DEVICE,
-    JSON_KEY_PORT,
     REQUEST_TIMEOUT,
 )
+from glocaltokens.exceptions import AuthenticationError, HomegraphError
 from glocaltokens.scanner import NetworkDevice
 from tests.assertions import DeviceAssertions, TypeAssertions
 from tests.factory.providers import HomegraphProvider, TokenProvider
@@ -42,6 +39,14 @@ faker = Faker()
 faker.add_provider(TokenProvider)
 faker.add_provider(HomegraphProvider)
 faker.add_provider(internet)
+
+
+def fake_rpc_error(code: grpc.StatusCode, details: str = "") -> grpc.RpcError:
+    """Return a gRPC error with the given status code and details."""
+    rpc_error = grpc.RpcError()
+    rpc_error.code = mock.Mock(return_value=code)  # type: ignore[method-assign]
+    rpc_error.details = mock.Mock(return_value=details)  # type: ignore[method-assign]
+    return rpc_error
 
 
 class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, TestCase):
@@ -80,53 +85,42 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         assert client.master_token is not None
         self.assertIsAasEt(client.master_token)
 
-    @patch("glocaltokens.client.LOGGER.error")
-    def test_initialization__valid(self, m_log: NonCallableMock) -> None:
+    def test_initialization__valid(self) -> None:
         """Valid initialization tests."""
         # With username and password
         GLocalAuthenticationTokens(username=faker.word(), password=faker.word())
-        assert m_log.call_count == 0
 
         # With master_token
         GLocalAuthenticationTokens(master_token=faker.master_token())
-        assert m_log.call_count == 0
+
+        # With oauth_token
+        GLocalAuthenticationTokens(oauth_token=faker.word())
+
+        # With a master_token of another length than today's
+        GLocalAuthenticationTokens(master_token=f"aas_et/{faker.word()}")
 
     @patch("glocaltokens.client.logging.basicConfig")
-    @patch("glocaltokens.client.LOGGER.setLevel")
-    def test_initialization__valid_verbose_logger(
-        self, m_set_level: NonCallableMock, m_basic_config: NonCallableMock
+    def test_initialization__verbose_deprecated(
+        self, m_basic_config: NonCallableMock
     ) -> None:
-        """Valid initialization tests with verbose logging."""
-        # Non verbose
-        GLocalAuthenticationTokens(username=faker.word(), password=faker.word())
-        m_set_level.assert_not_called()
+        """The verbose argument warns and leaves logging to the application."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            GLocalAuthenticationTokens(master_token=faker.master_token())
+
+        for verbose in (True, False):
+            with pytest.warns(
+                DeprecationWarning, match="verbose is deprecated"
+            ) as record:
+                GLocalAuthenticationTokens(
+                    master_token=faker.master_token(), verbose=verbose
+                )
+            assert record[0].filename == __file__
+            assert LOGGER.level == logging.NOTSET
         m_basic_config.assert_not_called()
 
-        # Verbose
-        GLocalAuthenticationTokens(
-            username=faker.word(), password=faker.word(), verbose=True
-        )
-        m_set_level.assert_called_once_with(logging.DEBUG)
-        m_basic_config.assert_called_once_with()
-
-    def test_initialization__verbose_output(self) -> None:
-        """Verbose logging reaches stderr in a script without logging configured."""
-        script = (
-            "from glocaltokens.client import GLocalAuthenticationTokens\n"
-            "client = GLocalAuthenticationTokens(username='u', password='p', verbose={})\n"
-            "client.get_android_id()\n"
-        )
-        for verbose, expected in ((True, True), (False, False)):
-            result = subprocess.run(
-                [sys.executable, "-c", script.format(verbose)],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            assert ("DEBUG:glocaltokens.client" in result.stderr) is expected
-
     def test_initialization__keeps_application_log_level(self) -> None:
-        """A non-verbose client keeps the level the application set."""
+        """The client keeps the level the application set."""
         package_logger = logging.getLogger("glocaltokens")
         package_logger.setLevel(logging.DEBUG)
         try:
@@ -135,24 +129,28 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         finally:
             package_logger.setLevel(logging.NOTSET)
 
-    @patch("glocaltokens.client.LOGGER.error")
-    def test_initialization__invalid(self, m_log: NonCallableMock) -> None:
+    def test_initialization__invalid(self) -> None:
         """Invalid initialization tests."""
+        no_credentials = "You must either provide"
         # Without username
-        GLocalAuthenticationTokens(password=faker.word())
-        assert m_log.call_count == 1
+        with pytest.raises(ValueError, match=no_credentials):
+            GLocalAuthenticationTokens(password=faker.word())
 
         # Without password
-        GLocalAuthenticationTokens(username=faker.word())
-        assert m_log.call_count == 2
+        with pytest.raises(ValueError, match=no_credentials):
+            GLocalAuthenticationTokens(username=faker.word())
 
         # Without username and password
-        GLocalAuthenticationTokens()
-        assert m_log.call_count == 3
+        with pytest.raises(ValueError, match=no_credentials):
+            GLocalAuthenticationTokens()
 
         # With invalid master_token
-        GLocalAuthenticationTokens(master_token=faker.word())
-        assert m_log.call_count == 4
+        master_token = faker.password(length=40, special_chars=False)
+        with pytest.raises(ValueError, match="AAS_ET format") as exc_info:
+            GLocalAuthenticationTokens(
+                username=faker.word(), password=faker.word(), master_token=master_token
+            )
+        assert master_token not in str(exc_info.value)
 
     def test_get_android_id(self) -> None:
         """Test getting android id."""
@@ -186,22 +184,28 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
             token_dt_non_expired, duration_sec
         )
 
-    @patch("glocaltokens.client.LOGGER.error")
     @patch("glocaltokens.client.perform_master_login")
-    def test_get_master_token(
-        self, m_perform_master_login: NonCallableMock, m_log: NonCallableMock
-    ) -> None:
+    def test_get_master_token(self, m_perform_master_login: NonCallableMock) -> None:
         """Test getting master token."""
         # No token in response
-        assert self.client.get_master_token() is None
+        m_perform_master_login.return_value = {"Error": "BadAuthentication"}
+        with pytest.raises(AuthenticationError, match="no master token") as exc_info:
+            self.client.get_master_token()
+        assert exc_info.value.error == "BadAuthentication"
         m_perform_master_login.assert_called_once_with(
             self.client.username, self.client.password, self.client.get_android_id()
         )
-        assert m_log.call_count == 1
+
+        # No token and no reason in response, or an empty token
+        for response in ({}, {"Token": ""}):
+            m_perform_master_login.return_value = response
+            with pytest.raises(AuthenticationError) as exc_info:
+                self.client.get_master_token()
+            assert exc_info.value.error is None
+        assert self.client.master_token is None
 
         # Reset mocks
         m_perform_master_login.reset_mock()
-        m_log.reset_mock()
 
         # With token in response
         expected_master_token = faker.master_token()
@@ -216,43 +220,165 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         )
         assert expected_master_token == master_token
         assert self.client.email == email
-        assert m_log.call_count == 0
 
         # Another request - must return the same token all the time
         master_token = self.client.get_master_token()
         assert expected_master_token == master_token
 
-        # Reset mocks
-        m_perform_master_login.reset_mock()
-        m_log.reset_mock()
-
-        # For passwords that are too long
+    @patch("glocaltokens.client.perform_master_login")
+    def test_get_master_token__password_too_long(
+        self, m_perform_master_login: NonCallableMock
+    ) -> None:
+        """Test a password gpsoauth can't encrypt raises AuthenticationError."""
+        password = faker.password(length=600)
+        client = GLocalAuthenticationTokens(username=faker.email(), password=password)
         m_perform_master_login.side_effect = ValueError("Plaintext is too long.")
-        self.client.invalidate_master_token()
-        master_token = self.client.get_master_token()
-        assert master_token is None
-        assert m_log.call_count == 2
 
-    @patch("glocaltokens.client.LOGGER.error")
+        with pytest.raises(AuthenticationError, match="too long") as exc_info:
+            client.get_master_token()
+        assert exc_info.value.error is None
+        assert isinstance(exc_info.value.__cause__, ValueError)
+        assert password not in str(exc_info.value)
+
+    @patch("glocaltokens.client.perform_master_login")
+    def test_get_master_token__invalid_proxy(
+        self, m_perform_master_login: NonCallableMock
+    ) -> None:
+        """Test a requests error that is a ValueError too isn't taken for a password."""
+        m_perform_master_login.side_effect = requests.exceptions.InvalidProxyURL()
+        with pytest.raises(requests.exceptions.InvalidProxyURL):
+            self.client.get_master_token()
+
+    @patch("requests.adapters.HTTPAdapter.close")
+    @patch("requests.adapters.HTTPAdapter.send")
+    def test_get_master_token__server_error(
+        self, m_send: NonCallableMock, m_close: NonCallableMock
+    ) -> None:
+        """Test an answer that means "try later" raises HTTPError.
+
+        gpsoauth reads any answer as a login response, so it would look like
+        Google refusing the credentials.
+        """
+
+        def response(status: HTTPStatus, text: str) -> requests.Response:
+            response = requests.Response()
+            response.status_code = status
+            response._content = text.encode()  # pylint: disable=protected-access
+            response.encoding = "utf-8"
+            return response
+
+        body = "<html>Unavailable</html>"
+        for status in (HTTPStatus.SERVICE_UNAVAILABLE, HTTPStatus.TOO_MANY_REQUESTS):
+            with self.subTest(status=status):
+                m_send.return_value = response(status, body)
+                with pytest.raises(
+                    requests.HTTPError, match=str(int(status))
+                ) as http_error:
+                    self.client.get_master_token()
+                # The error keeps Google's answer, but not the connection
+                assert http_error.value.response is not None
+                assert http_error.value.response.text == body
+                m_close.assert_called_once()
+                m_close.reset_mock()
+                # Other gpsoauth users still get gpsoauth's own result
+                assert gpsoauth.perform_oauth(
+                    faker.email(), faker.master_token(), faker.word(), "s", "a", "c"
+                ) == {body: ""}
+
+        # Google refusing the credentials is still an AuthenticationError
+        m_send.return_value = response(
+            HTTPStatus.FORBIDDEN, "Error=BadAuthentication\n"
+        )
+        with pytest.raises(AuthenticationError) as exc_info:
+            self.client.get_master_token()
+        assert exc_info.value.error == "BadAuthentication"
+
+    @patch("glocaltokens.client.requests.get")
+    @patch("glocaltokens.client.exchange_token")
+    @patch("glocaltokens.client.perform_master_login")
+    @patch("glocaltokens.client.perform_oauth")
+    def test_get_master_token__no_credentials(
+        self,
+        m_perform_oauth: NonCallableMock,
+        m_perform_master_login: NonCallableMock,
+        m_exchange_token: NonCallableMock,
+        m_get: NonCallableMock,
+    ) -> None:
+        """Test a client with only a master token can't get a new one."""
+        client = GLocalAuthenticationTokens(master_token=faker.master_token())
+        client.invalidate_master_token()
+
+        with pytest.raises(AuthenticationError, match="No master token") as exc_info:
+            client.get_master_token()
+        assert exc_info.value.error is None
+        # Nor can one with an empty username and password
+        empty = GLocalAuthenticationTokens(
+            username="", password="", master_token=faker.master_token()
+        )
+        empty.invalidate_master_token()
+        with pytest.raises(AuthenticationError, match="No master token"):
+            empty.get_master_token()
+        # The methods that need a master token raise the same error
+        with pytest.raises(AuthenticationError, match="No master token"):
+            client.get_access_token()
+        with pytest.raises(AuthenticationError, match="No master token"):
+            client.get_email()
+        with pytest.raises(AuthenticationError, match="No master token"):
+            client.get_google_devices(disable_discovery=True)
+        m_perform_master_login.assert_not_called()
+        m_exchange_token.assert_not_called()
+        m_perform_oauth.assert_not_called()
+        m_get.assert_not_called()
+
+    @patch("glocaltokens.client.perform_oauth")
+    @patch("glocaltokens.client.exchange_token")
+    def test_authentication_error__no_secrets_in_message(
+        self, m_exchange_token: NonCallableMock, m_perform_oauth: NonCallableMock
+    ) -> None:
+        """Test the error message has Google's reason, but no token or password."""
+        password = faker.password(length=20)
+        oauth_token = faker.password(length=40, special_chars=False)
+        url = faker.url() + faker.password(length=40, special_chars=False)
+        m_exchange_token.return_value = {"Error": "NeedsBrowser", "Url": url}
+        client = GLocalAuthenticationTokens(
+            username=faker.email(), password=password, oauth_token=oauth_token
+        )
+
+        with pytest.raises(AuthenticationError) as exc_info:
+            client.get_master_token()
+        message = str(exc_info.value)
+        assert message == "Google gave no master token: NeedsBrowser"
+        assert password not in message
+        assert oauth_token not in message
+        assert url not in message
+
+        master_token = faker.master_token()
+        m_perform_oauth.return_value = {"Error": "BadAuthentication"}
+        client = GLocalAuthenticationTokens(master_token=master_token)
+        with pytest.raises(AuthenticationError) as exc_info:
+            client.get_access_token()
+        message = str(exc_info.value)
+        assert message == "Google gave no access token: BadAuthentication"
+        assert master_token not in message
+
     @patch("glocaltokens.client.perform_master_login")
     @patch("glocaltokens.client.exchange_token")
     def test_get_master_token__oauth_token(
         self,
         m_exchange_token: NonCallableMock,
         m_perform_master_login: NonCallableMock,
-        m_log: NonCallableMock,
     ) -> None:
         """Test getting a master token by exchanging an oauth_token cookie."""
         oauth_token = faker.word()
         client = GLocalAuthenticationTokens(
             username=faker.word(), password=faker.word(), oauth_token=oauth_token
         )
-        assert m_log.call_count == 0
 
         # Failed exchange
         m_exchange_token.return_value = {"Error": "BadAuthentication"}
-        assert client.get_master_token() is None
-        assert m_log.call_count == 1
+        with pytest.raises(AuthenticationError) as exc_info:
+            client.get_master_token()
+        assert exc_info.value.error == "BadAuthentication"
 
         # Successful exchange, preferred over the password
         expected_master_token = faker.master_token()
@@ -268,19 +394,14 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         assert client.get_master_token() == expected_master_token
         m_exchange_token.assert_not_called()
 
-    @patch("glocaltokens.client.LOGGER.error")
     @patch("glocaltokens.client.perform_oauth")
     @patch("glocaltokens.client.exchange_token")
     def test_get_master_token__oauth_token_without_username(
-        self,
-        m_exchange_token: NonCallableMock,
-        m_perform_oauth: NonCallableMock,
-        m_log: NonCallableMock,
+        self, m_exchange_token: NonCallableMock, m_perform_oauth: NonCallableMock
     ) -> None:
         """Test an oauth_token alone is enough, and Google's email is kept."""
         oauth_token = faker.word()
         client = GLocalAuthenticationTokens(oauth_token=oauth_token)
-        assert m_log.call_count == 0
 
         master_token = faker.master_token()
         email = faker.email()
@@ -454,9 +575,7 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
             {"email": email, "email_verified": True}
         ).encode()
         m_send.return_value = response
-        client = GLocalAuthenticationTokens(
-            master_token=faker.master_token(), verbose=True
-        )
+        client = GLocalAuthenticationTokens(master_token=faker.master_token())
 
         with self.assertLogs(level=logging.DEBUG) as logs:
             assert client.get_email() == email
@@ -478,6 +597,19 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         assert client.get_email() is None
         m_get.assert_not_called()
 
+    @patch("glocaltokens.client.perform_oauth")
+    @patch("glocaltokens.client.perform_master_login")
+    def test_get_email__no_master_token(
+        self, m_perform_master_login: NonCallableMock, m_perform_oauth: NonCallableMock
+    ) -> None:
+        """Test get_email() raises the error Google gives for the master token."""
+        m_perform_master_login.return_value = {"Error": "BadAuthentication"}
+
+        with pytest.raises(AuthenticationError) as exc_info:
+            self.client.get_email()
+        assert exc_info.value.error == "BadAuthentication"
+        m_perform_oauth.assert_not_called()
+
     @patch("requests.adapters.HTTPAdapter.send")
     def test_get_email__request_timeout(self, m_send: NonCallableMock) -> None:
         """Test the access token request for the email address has a timeout."""
@@ -488,21 +620,21 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         m_send.assert_called_once()
         assert m_send.call_args.kwargs["timeout"] == REQUEST_TIMEOUT
 
-    @patch("glocaltokens.client.LOGGER.error")
     @patch("glocaltokens.client.perform_master_login")
     @patch("glocaltokens.client.perform_oauth")
     def test_get_access_token(
-        self,
-        m_perform_oauth: NonCallableMock,
-        m_get_master_token: NonCallableMock,
-        m_log: NonCallableMock,
+        self, m_perform_oauth: NonCallableMock, m_get_master_token: NonCallableMock
     ) -> None:
         """Test getting access token."""
         master_token = faker.master_token()
         m_get_master_token.return_value = {"Token": master_token}
 
         # No token in response
-        assert self.client.get_access_token() is None
+        m_perform_oauth.return_value = {"Error": "BadAuthentication"}
+        with pytest.raises(AuthenticationError, match="no access token") as exc_info:
+            self.client.get_access_token()
+        assert exc_info.value.error == "BadAuthentication"
+        assert self.client.access_token is None
         m_perform_oauth.assert_called_once_with(
             self.client.username,
             master_token,
@@ -511,11 +643,15 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
             service=ACCESS_TOKEN_SERVICE,
             client_sig=ACCESS_TOKEN_CLIENT_SIGNATURE,
         )
-        assert m_log.call_count == 1
+
+        # An empty token in response
+        m_perform_oauth.return_value = {"Auth": ""}
+        with pytest.raises(AuthenticationError, match="no access token"):
+            self.client.get_access_token()
+        assert self.client.access_token is None
 
         # Reset mocks
         m_perform_oauth.reset_mock()
-        m_log.reset_mock()
 
         # With token in response
         expected_access_token = faker.access_token()
@@ -530,11 +666,9 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
             client_sig=ACCESS_TOKEN_CLIENT_SIGNATURE,
         )
         assert expected_access_token == access_token
-        assert m_log.call_count == 0
 
         # Reset mocks
         m_perform_oauth.reset_mock()
-        m_log.reset_mock()
 
         # Another request with non expired token must return the same token
         # (no new requests)
@@ -625,19 +759,65 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         m_structure_service_stub: NonCallableMock,
         m_get_access_token: NonCallableMock,
     ) -> None:
-        """Test retries in  get_homegraph."""
+        """Test get_homegraph() gets a new access token when Google rejects it."""
         m_get_access_token.return_value = faker.word()
-        rpc_error = grpc.RpcError()
-        rpc_error.code = mock.Mock()  # type: ignore[method-assign]
-        rpc_error.code.return_value.name = "UNAUTHENTICATED"
-        rpc_error.details = mock.Mock()  # type: ignore[method-assign]
+        rpc_error = fake_rpc_error(grpc.StatusCode.UNAUTHENTICATED)
+        m_structure_service_stub.return_value.GetHomeGraph.side_effect = [
+            rpc_error,
+            mock.sentinel.homegraph,
+        ]
+        assert self.client.get_homegraph() is mock.sentinel.homegraph
+        assert m_structure_service_stub.return_value.GetHomeGraph.call_count == 2
+        assert m_get_access_token.call_count == 2
+
+        # Google keeps rejecting the access token
+        self.client.invalidate_homegraph()
+        m_structure_service_stub.reset_mock()
         m_structure_service_stub.return_value.GetHomeGraph.side_effect = rpc_error
-        result = self.client.get_homegraph()
-        assert result is None
+        with pytest.raises(HomegraphError, match="UNAUTHENTICATED") as exc_info:
+            self.client.get_homegraph()
+        assert exc_info.value.code == grpc.StatusCode.UNAUTHENTICATED
+        assert exc_info.value.__cause__ is rpc_error
         assert m_structure_service_stub.return_value.GetHomeGraph.call_count == 3
 
+        # The access token rejected on the last attempt isn't kept either
+        self.client.access_token = faker.word()
+        with pytest.raises(HomegraphError):
+            self.client.get_homegraph(auth_attempts=1)
+        assert self.client.access_token is None
+
+    @patch("glocaltokens.client.GLocalAuthenticationTokens.get_access_token")
+    @patch("glocaltokens.client.StructuresServiceStub")
+    def test_get_homegraph__rpc_error(
+        self,
+        m_structure_service_stub: NonCallableMock,
+        m_get_access_token: NonCallableMock,
+    ) -> None:
+        """Test other gRPC errors raise HomegraphError without a retry."""
+        m_get_access_token.return_value = faker.word()
+        for code in (grpc.StatusCode.UNAVAILABLE, grpc.StatusCode.DEADLINE_EXCEEDED):
+            with self.subTest(code=code):
+                m_structure_service_stub.reset_mock()
+                details = faker.sentence()
+                rpc_error = fake_rpc_error(code, details)
+                get_home_graph = m_structure_service_stub.return_value.GetHomeGraph
+                get_home_graph.side_effect = rpc_error
+
+                with pytest.raises(HomegraphError) as exc_info:
+                    self.client.get_homegraph()
+                assert exc_info.value.code == code
+                assert exc_info.value.__cause__ is rpc_error
+                assert str(exc_info.value) == (
+                    f"Could not get the home graph: {code.name} ({details})"
+                )
+                assert get_home_graph.call_count == 1
+                assert self.client.homegraph is None
+
     @patch("glocaltokens.client.GLocalAuthenticationTokens.get_homegraph")
-    def test_get_google_devices(self, m_get_homegraph: NonCallableMock) -> None:
+    @patch("glocaltokens.client.LOGGER.warning")
+    def test_get_google_devices(
+        self, m_warning: NonCallableMock, m_get_homegraph: NonCallableMock
+    ) -> None:
         """Test getting google devices."""
         # With just one device returned from homegraph
         fake_device_name = faker.word()
@@ -677,9 +857,129 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         )
         assert len(google_devices) == 1
         self.assertDevice(google_devices[0], homegraph_device_valid)
+        # Devices without a Cast token, like Google Wifi and Nest Wifi routers,
+        # are skipped quietly
+        m_warning.assert_not_called()
         assert google_devices[0].network_device is not None
         if google_devices[0].network_device is not None:
             assert google_devices[0].network_device.ip_address == fake_ip_address
+
+        # A device without a cloud device ID in the home graph
+        homegraph_device.device_info.ClearField("agent_info")
+        m_get_homegraph.return_value.home.devices = [homegraph_device]
+        google_devices = self.client.get_google_devices(
+            disable_discovery=True,
+            addresses={fake_device_name: fake_ip_address},
+        )
+        assert len(google_devices) == 1
+        self.assertDevice(google_devices[0], homegraph_device)
+        assert google_devices[0].as_dict()["cloud_device_id"] is None
+
+    @patch("glocaltokens.client.discover_devices")
+    @patch("glocaltokens.client.GLocalAuthenticationTokens.get_homegraph")
+    def test_get_google_devices__homegraph_error(
+        self, m_get_homegraph: NonCallableMock, m_discover_devices: NonCallableMock
+    ) -> None:
+        """Test the device methods raise the error of get_homegraph()."""
+        m_get_homegraph.side_effect = HomegraphError(
+            grpc.StatusCode.UNAVAILABLE, faker.sentence()
+        )
+        with pytest.raises(HomegraphError):
+            self.client.get_google_devices()
+        with pytest.raises(HomegraphError):
+            self.client.get_google_devices_json()
+        m_discover_devices.assert_not_called()
+
+    @patch("glocaltokens.client.GLocalAuthenticationTokens.get_homegraph")
+    def test_get_google_devices__invalid_addresses(
+        self, m_get_homegraph: NonCallableMock
+    ) -> None:
+        """Test addresses that aren't a dict of IPv4 addresses raise ValueError."""
+        for addresses in (
+            {faker.word(): faker.ipv6()},
+            {faker.word(): faker.word()},
+            [faker.ipv4()],
+        ):
+            with self.subTest(addresses), pytest.raises(ValueError, match="addresses"):
+                self.client.get_google_devices(
+                    disable_discovery=True,
+                    addresses=addresses,  # type: ignore[arg-type]
+                )
+        m_get_homegraph.assert_not_called()
+
+    @patch("glocaltokens.client.GLocalAuthenticationTokens.get_homegraph")
+    def test_get_google_devices__no_devices(
+        self, m_get_homegraph: NonCallableMock
+    ) -> None:
+        """Test an account without devices gives an empty list."""
+        m_get_homegraph.return_value.home.devices = []
+        assert not self.client.get_google_devices(disable_discovery=True)
+        assert self.client.get_google_devices_json(disable_discovery=True) == "[]"
+
+    @patch("glocaltokens.client.discover_devices")
+    @patch("glocaltokens.client.GLocalAuthenticationTokens.get_homegraph")
+    def test_get_google_devices_discovered(
+        self, m_get_homegraph: NonCallableMock, m_discover_devices: NonCallableMock
+    ) -> None:
+        """Test that a discovered device keeps its name from the home graph."""
+        homegraph_device = faker.homegraph_device(device_name="Den speakers")
+        m_get_homegraph.return_value.home.devices = [homegraph_device]
+        # A speaker pair announces the name of its leading speaker
+        network_device = NetworkDevice(
+            "Den speaker left",
+            faker.ipv4(),
+            8009,
+            homegraph_device.hardware.model,
+            homegraph_device.device_info.agent_info.unique_id,
+        )
+        m_discover_devices.return_value = [network_device]
+
+        google_devices = self.client.get_google_devices()
+        assert len(google_devices) == 1
+        self.assertDevice(google_devices[0], homegraph_device)
+        assert google_devices[0].network_device == network_device
+        assert google_devices[0].ip_address == network_device.ip_address
+
+    @patch("glocaltokens.client.discover_devices")
+    @patch("glocaltokens.client.GLocalAuthenticationTokens.get_homegraph")
+    @patch("glocaltokens.client.LOGGER.warning")
+    def test_get_google_devices__discovered_invalid_token(
+        self,
+        m_warning: NonCallableMock,
+        m_get_homegraph: NonCallableMock,
+        m_discover_devices: NonCallableMock,
+    ) -> None:
+        """Test that a discovered device with an invalid token is skipped with a warning."""
+        homegraph_device = faker.homegraph_device()
+        homegraph_device.local_auth_token = faker.word()
+        m_get_homegraph.return_value.home.devices = [homegraph_device]
+        m_discover_devices.return_value = [
+            NetworkDevice(
+                homegraph_device.device_name,
+                faker.ipv4(),
+                8009,
+                homegraph_device.hardware.model,
+                homegraph_device.device_info.agent_info.unique_id,
+            )
+        ]
+
+        assert not self.client.get_google_devices()
+        m_warning.assert_called_once()
+        assert "local_auth_token isn't" in m_warning.call_args.args[0]
+
+    @patch("glocaltokens.client.GLocalAuthenticationTokens.get_homegraph")
+    @patch("glocaltokens.client.LOGGER.error")
+    def test_get_google_devices__empty_device_name(
+        self, m_error: NonCallableMock, m_get_homegraph: NonCallableMock
+    ) -> None:
+        """Test that a device without a name is skipped with an error."""
+        homegraph_device = faker.homegraph_device()
+        homegraph_device.device_name = ""
+        m_get_homegraph.return_value.home.devices = [homegraph_device]
+
+        assert not self.client.get_google_devices(disable_discovery=True)
+        m_error.assert_called_once()
+        assert "device_name must be provided" in m_error.call_args.args[0]
 
     @patch("glocaltokens.client.GLocalAuthenticationTokens.get_google_devices")
     def test_get_google_devices_json(
@@ -701,6 +1001,7 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
                 device_name, ip_address, port, hardware, unique_id
             ),
             hardware=hardware,
+            cloud_device_id=unique_id,
         )
         m_get_google_devices.return_value = [google_device]
 
@@ -711,11 +1012,12 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
         assert m_get_google_devices.call_args.kwargs["discovery_timeout"] == 5
         received_json = json.loads(json_string)
         received_device = received_json[0]
-        assert received_device[JSON_KEY_DEVICE_NAME] == device_name
-        assert received_device[JSON_KEY_HARDWARE] == hardware
-        assert received_device[JSON_KEY_LOCAL_AUTH_TOKEN] == local_auth_token
-        assert received_device[JSON_KEY_NETWORK_DEVICE][JSON_KEY_PORT] == port
-        assert received_device[JSON_KEY_NETWORK_DEVICE][JSON_KEY_IP] == ip_address
+        assert received_device["device_name"] == device_name
+        assert received_device["hardware"] == hardware
+        assert received_device["cloud_device_id"] == unique_id
+        assert received_device["local_auth_token"] == local_auth_token
+        assert received_device["network_device"]["port"] == port
+        assert received_device["network_device"]["ip"] == ip_address
 
     def test_username_escaping(self) -> None:
         """Test that plus sign is escaped."""
@@ -732,37 +1034,40 @@ class GLocalAuthenticationTokensClientTests(DeviceAssertions, TypeAssertions, Te
 class DeviceClientTests(TypeAssertions, TestCase):
     """Device specific unittests."""
 
-    def test_initialization__valid(self) -> None:
-        """Test initialization that is valid."""
+    def test_initialization(self) -> None:
+        """Test that a Device stores its arguments as given."""
+        device_id = str(faker.uuid4())
+        device_name = faker.word()
         local_auth_token = faker.local_auth_token()
+        network_device = NetworkDevice(
+            faker.word(), faker.ipv4(), faker.port_number(), faker.word(), faker.word()
+        )
+        hardware = faker.word()
+        cloud_device_id = faker.word()
 
-        # With ip and port
         device = Device(
-            device_id=str(faker.uuid4()),
-            device_name=faker.word(),
-            network_device=NetworkDevice(
-                faker.word(),
-                faker.ipv4(),
-                faker.port_number(),
-                faker.word(),
-                faker.word(),
-            ),
+            device_id=device_id,
+            device_name=device_name,
+            local_auth_token=local_auth_token,
+            network_device=network_device,
+            hardware=hardware,
+            cloud_device_id=cloud_device_id,
+        )
+        assert device.device_id == device_id
+        assert device.device_name == device_name
+        assert device.local_auth_token == local_auth_token
+        assert device.network_device == network_device
+        assert device.hardware == hardware
+        assert device.cloud_device_id == cloud_device_id
+        assert device.ip_address == network_device.ip_address
+        assert device.port == network_device.port
+
+        # Without a network device, and with a token get_google_devices() skips
+        local_auth_token = faker.word()
+        device = Device(
+            device_id=device_id,
+            device_name=device_name,
             local_auth_token=local_auth_token,
         )
-
         assert device.local_auth_token == local_auth_token
-
-    @patch("glocaltokens.client.LOGGER.warning")
-    def test_initialization__invalid(self, m_log: NonCallableMock) -> None:
-        """Test initialization that is invalid."""
-
-        # Invalid local_auth_token
-        device = Device(
-            device_id=str(faker.uuid4()),
-            device_name=faker.word(),
-            local_auth_token=faker.word(),
-        )
-        assert m_log.call_count == 1
-        assert device.local_auth_token is None
-        # A device that failed validation can still be represented
         assert device.as_dict()["network_device"] == {"ip": None, "port": None}

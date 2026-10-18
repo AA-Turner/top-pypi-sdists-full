@@ -1,16 +1,14 @@
-"""Runtime fallback for :func:`typing.override`, so ``typing_extensions`` is not needed.
-
-``override`` runs at class-body time, so unlike the annotation-only helpers it
-cannot hide under ``TYPE_CHECKING``.  Looking it up by name rather than by
-interpreter version keeps this free of a version-gated branch.
-"""
+"""Runtime fallbacks for supported Python interpreters."""
 
 from __future__ import annotations
 
+import sys
 import typing
 from typing import TYPE_CHECKING
 
-__all__ = ["override"]
+__all__ = ["get_int_max_str_digits", "override"]
+
+get_int_max_str_digits = getattr(sys, "get_int_max_str_digits", lambda: 0)
 
 if TYPE_CHECKING:
     from typing_extensions import override

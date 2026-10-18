@@ -30,6 +30,7 @@ TrainingOptionKey: TypeAlias = Literal[
   "train_on_truncation",
   "train_on_error",
   "train_on_timeout",
+  "reasoning_effort",
   "disable_thinking",
   "reject_all_fail",
   "reject_all_pass",

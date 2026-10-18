@@ -1,26 +1,33 @@
 # To install the git pre-commit hooks run:
-#   pre-commit install --install-hooks
+#   prek install --install-hooks --overwrite
 # To update the versions:
-#   pre-commit autoupdate
+#   prek autoupdate
 exclude: '^(\.tox|ci/templates|\.bumpversion\.cfg)(/|$)'
 # Note the order is intentional to avoid multiple passes of the hooks
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.9
+    rev: v0.17.1
     hooks:
-      - id: ruff
-        args: [--fix, --exit-non-zero-on-fix, --show-fixes, --unsafe-fixes]
+      - id: ruff-check
+        # Using --unsafe-fixes can change code behavior
+        args: [--fix, --exit-non-zero-on-fix, --show-fixes]
       - id: ruff-format
-  - repo: https://github.com/ComPWA/taplo-pre-commit
-    rev: v0.9.3
+  - repo: https://github.com/tombi-toml/tombi-pre-commit
+    rev: v1.8.6
     hooks:
-      - id: taplo-format
-      - id: taplo-lint
+      - id: tombi-format
+        # args: [ "--offline" ]
+      - id: tombi-lint
+        # args: [ "--offline" ]
+    # Should you use this offline, uncomment those args
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: mixed-line-ending
-        args: [--fix=lf]
       - id: debug-statements
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.51.1
+    hooks:
+      - id: typos

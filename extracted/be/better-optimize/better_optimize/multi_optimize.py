@@ -19,8 +19,14 @@ from scipy.optimize import OptimizeResult
 from scipy.stats import qmc
 from threadpoolctl import threadpool_limits
 
-from better_optimize.constants import MINIMIZE_MODE_KWARGS, ROOT_MODE_KWARGS
-from better_optimize.utilities import ToggleableProgress
+from better_optimize.configuration import (
+    MINIMIZE_CONFIGS_BY_LOWER_NAME,
+    ROOT_CONFIGS_BY_LOWER_NAME,
+    BasinHoppingConfig,
+    OptimizerConfig,
+)
+from better_optimize.exceptions import OptimizationInterrupted
+from better_optimize.utilities import ToggleableProgress, is_interrupt
 from better_optimize.wrapper import build_progress_bar
 
 _log = logging.getLogger(__name__)
@@ -180,7 +186,14 @@ def _run_single(
     try:
         with limiter:
             result = solver(x0=x0, progressbar=progress, progress_task=task_id, **solver_kwargs)
-    except Exception as exc:
+    except BaseException as exc:
+        if is_interrupt(exc):
+            partial = getattr(exc, "result", None)
+            if isinstance(partial, OptimizeResult):
+                partial.update(run_index=run_index, x0=x0)
+            raise
+        if not isinstance(exc, Exception):
+            raise
         _log.warning(
             "Run %d failed with %s: %s",
             run_index,
@@ -284,6 +297,44 @@ class MultiStartResult:
         )
 
 
+def _uses_grad(method: str | OptimizerConfig) -> bool:
+    """Whether the solver a name or a configuration selects consumes a gradient.
+
+    A basinhopping run consumes whatever the minimizer it composes does. Any other
+    configuration answers with its own `uses_grad`. One that declares none, such as
+    differential evolution, consumes no gradient. A name resolves to the configuration class,
+    where the flag is a `ClassVar`, and resolves without regard to case the way
+    :func:`minimize` does.
+    """
+    if isinstance(method, BasinHoppingConfig):
+        return method.minimizer_config.uses_grad
+    if isinstance(method, OptimizerConfig):
+        return getattr(method, "uses_grad", False)
+
+    config_class = (
+        MINIMIZE_CONFIGS_BY_LOWER_NAME.get(method.lower()) if isinstance(method, str) else None
+    )
+
+    return config_class is not None and config_class.uses_grad
+
+
+def _uses_jac(method: str | OptimizerConfig) -> bool:
+    """Whether the root finder a name or a configuration selects consumes a jacobian.
+
+    A configuration answers with its own `uses_jac`. One that declares none consumes no
+    jacobian. A name resolves to the configuration class, where the flag is a `ClassVar`, and
+    resolves without regard to case the way :func:`root` does.
+    """
+    if isinstance(method, OptimizerConfig):
+        return getattr(method, "uses_jac", False)
+
+    config_class = (
+        ROOT_CONFIGS_BY_LOWER_NAME.get(method.lower()) if isinstance(method, str) else None
+    )
+
+    return config_class is not None and config_class.uses_jac
+
+
 class _MultiStart:
     """Implementation behind :func:`multistart`. Not part of the public API."""
 
@@ -342,18 +393,24 @@ class _MultiStart:
         progress = self._build_progress()
         task_ids = self._register_tasks(progress)
 
+        results = []
         with blas_config.limiter(), progress:
-            results = [
-                _run_single(
-                    run_index=i,
-                    x0=x0_i,
-                    solver=self._solver,
-                    solver_kwargs=self._solver_kwargs,
-                    progress=progress,
-                    task_id=task_id,
-                )
-                for i, (x0_i, task_id) in enumerate(zip(self._starting_points, task_ids))
-            ]
+            try:
+                for i, (x0_i, task_id) in enumerate(zip(self._starting_points, task_ids)):
+                    results.append(
+                        _run_single(
+                            run_index=i,
+                            x0=x0_i,
+                            solver=self._solver,
+                            solver_kwargs=self._solver_kwargs,
+                            progress=progress,
+                            task_id=task_id,
+                        )
+                    )
+            except BaseException as exc:
+                if not is_interrupt(exc):
+                    raise
+                raise self._interrupted(results, exc) from exc
         return MultiStartResult(results=results, sort_key=self._sort_key)
 
     def _run_parallel(self) -> MultiStartResult:
@@ -376,10 +433,15 @@ class _MultiStart:
             daemon=True,
         )
 
+        results = []
         with blas_config.limiter(), progress:
             listener.start()
             try:
-                results = Parallel(n_jobs=self._n_jobs, backend=self._backend)(
+                runs = Parallel(
+                    n_jobs=self._n_jobs,
+                    backend=self._backend,
+                    return_as="generator_unordered",
+                )(
                     delayed(_run_single)(
                         run_index=i,
                         x0=x0_i,
@@ -391,12 +453,34 @@ class _MultiStart:
                     )
                     for i, (x0_i, task_id) in enumerate(zip(self._starting_points, task_ids))
                 )
+                results.extend(runs)
+            except BaseException as exc:
+                if not is_interrupt(exc):
+                    raise
+                raise self._interrupted(results, exc) from exc
             finally:
                 stop.set()
                 listener.join(timeout=1.0)
                 manager.shutdown()
 
+        results.sort(key=lambda result: result.run_index)
         return MultiStartResult(results=results, sort_key=self._sort_key)
+
+    def _interrupted(
+        self, completed: list[OptimizeResult], exc: BaseException
+    ) -> OptimizationInterrupted:
+        """Collect the finished runs, plus the interrupted run's partial result when it has one."""
+        results = sorted(completed, key=lambda result: result.run_index)
+        partial = getattr(exc, "result", None)
+        if isinstance(partial, OptimizeResult):
+            results.append(partial)
+        message = (
+            f"Interrupted by KeyboardInterrupt after {len(completed)} of "
+            f"{len(self._starting_points)} runs finished."
+        )
+        return OptimizationInterrupted(
+            MultiStartResult(results=results, sort_key=self._sort_key), message
+        )
 
     _SOLVER_LABELS = {
         "minimize": "Minimizing",
@@ -417,12 +501,10 @@ class _MultiStart:
         method = self._solver_kwargs.get("method", "")
 
         if self._is_root:
-            mode_info = ROOT_MODE_KWARGS.get(method, {})
-            use_jac = mode_info.get("uses_jac", False) or "jac" in self._solver_kwargs
+            use_jac = _uses_jac(method) or "jac" in self._solver_kwargs
             use_rayleigh = False
         else:
-            mode_info = MINIMIZE_MODE_KWARGS.get(method, {})
-            use_jac = mode_info.get("uses_grad", False) or "jac" in self._solver_kwargs
+            use_jac = _uses_grad(method) or "jac" in self._solver_kwargs
             has_hess = "hess" in self._solver_kwargs or "hessp" in self._solver_kwargs
             use_rayleigh = use_jac and has_hess
 

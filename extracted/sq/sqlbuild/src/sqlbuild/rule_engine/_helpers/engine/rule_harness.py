@@ -6,25 +6,27 @@ import inspect
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from sqlbuild.adapters.duckdb.classes.duckdb_adapter import DuckDbAdapter
-from sqlbuild.compiler.compile.types import CompiledProjectView
-from sqlbuild.compiler.discovery.main.discover import discover_project_inputs
-from sqlbuild.compiler.discovery.models import DiscoveredProjectInputs
-from sqlbuild.compiler.pipeline.main.project import compile_project
-from sqlbuild.rule_engine._helpers.engine.config import load_rules_config
-from sqlbuild.rule_engine._helpers.engine.definition import (
-    resolve_rule_signature,
-    rule_from_value,
-)
-from sqlbuild.rule_engine.constants import MIN_CUSTOM_RULE_TEST_CASES
-from sqlbuild.rule_engine.exceptions import RuleAssertionError, RuleUsageError
-from sqlbuild.rule_engine.main._evaluate import evaluate
-from sqlbuild.rule_engine.models import (
+from sqlbuild._native import (
+    MIN_CUSTOM_RULE_TEST_CASES,
+    DiscoveredProjectInputs,
     Rule,
+    RuleAssertionError,
     RuleCase,
     RuleResult,
     RulesConfig,
     RulesResult,
+    RuleUsageError,
+    build_compiled_project,
+    discover_project_inputs,
+    evaluate_project_rules,
+    load_rules_config,
+    rule_option_toml_value,
+)
+from sqlbuild.adapters.duckdb.classes.duckdb_adapter import DuckDbAdapter
+from sqlbuild.compiler.compile.types import CompiledProjectView
+from sqlbuild.rule_engine._helpers.engine.definition import (
+    resolve_rule_signature,
+    rule_from_value,
 )
 from sqlbuild.rule_engine.types import RuleCheck
 
@@ -40,8 +42,8 @@ def run_rule_case(*, rule: RuleCheck | Rule, test_case: RuleCase) -> RuleResult:
         root: Path = Path(temporary)
         _ = _write_rule_project(root=root, rule=resolved, test_case=test_case)
         project: CompiledProjectView = _compile_rule_project(root=root)
-        config: RulesConfig = load_rules_config(root)
-        result: RulesResult = evaluate(
+        config: RulesConfig = load_rules_config(project_dir=root)
+        result: RulesResult = evaluate_project_rules(
             project=project,
             config=config,
             project_dir=root,
@@ -74,7 +76,7 @@ def _write_rule_project(*, root: Path, rule: Rule, test_case: RuleCase) -> Path:
     if test_case.config:
         config_lines.append(f"[rules.rule_options.{rule.code}]")
         for name, value in sorted(test_case.config.items()):
-            config_lines.append(f"{name} = {_toml_value(value=value)}")
+            config_lines.append(f"{name} = {rule_option_toml_value(value)}")
         config_lines.append("")
     project_config: str = "\n".join(config_lines)
     (root / "sqlbuild_project.toml").write_text(project_config, encoding="utf-8")
@@ -94,20 +96,7 @@ def _write_rule_project(*, root: Path, rule: Rule, test_case: RuleCase) -> Path:
     return rule_path
 
 
-def _toml_value(*, value: object) -> str:
-    if isinstance(value, bool):
-        return str(value).lower()
-    if isinstance(value, int):
-        return str(value)
-    if isinstance(value, str):
-        escaped: str = value.replace("\\", "\\\\").replace('"', '\\"')
-        return f'"{escaped}"'
-    if isinstance(value, (list, tuple)):
-        return "[" + ", ".join(_toml_value(value=item) for item in value) + "]"
-    raise RuleUsageError(f"RuleCase config value {value!r} cannot be represented as a rule option")
-
-
 def _compile_rule_project(*, root: Path) -> CompiledProjectView:
     discovered: DiscoveredProjectInputs = discover_project_inputs(project_dir=root)
     adapter: DuckDbAdapter = DuckDbAdapter()
-    return compile_project(discovered_inputs=discovered, adapter=adapter)
+    return build_compiled_project(discovered_inputs=discovered, adapter=adapter)

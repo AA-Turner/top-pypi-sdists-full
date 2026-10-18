@@ -100,7 +100,7 @@ class Ao3Extractor(Extractor):
         }
 
     def _pagination(self, path, needle='<li id="work_'):
-        if not isinstance(needle, str):
+        if needle.__class__ is not str:
             findall = needle.findall
             needle = None
 
@@ -134,7 +134,7 @@ class Ao3WorkExtractor(Ao3Extractor):
             self.formats = ("pdf",)
         elif not formats:
             self.formats = ()
-        elif isinstance(formats, str):
+        elif formats.__class__ is str:
             self.formats = formats.lower().replace(" ", "").split(",")
         else:
             self.formats = formats

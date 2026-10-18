@@ -8,8 +8,9 @@ use rumdl_lib::config as rumdl_config;
 use rumdl_lib::discovery::{
     ExcludeMatchers, LintableFileMode, LintablePathSelector, MARKDOWNLINTIGNORE, MarkdownWalkOptions,
     apply_markdown_walk_options, apply_walk_options_with_markdownlintignore, exclude_override_rule,
-    expand_directory_pattern, has_markdown_extension, include_pattern_compiles, normalize_pattern_for_base,
-    path_relative_to, strip_verbatim_prefix,
+    expand_directory_pattern, expand_include_directory, has_markdown_extension, include_pattern_compiles,
+    is_exclude_negation, normalize_pattern_for_base, path_relative_to, skip_version_control_directories,
+    strip_verbatim_prefix,
 };
 use rumdl_lib::rule::Rule;
 use std::collections::HashSet;
@@ -285,10 +286,10 @@ pub fn to_display_path(file_path: &str, project_root: Option<&Path>) -> String {
     relative_display_path(canonical_file.as_deref().unwrap_or(path), file_path, project_root)
 }
 
-/// [`to_display_path`] for a path [`find_markdown_files`] returned.
+/// [`to_display_path`] for a selected path the check runner canonicalized.
 ///
-/// Discovery canonicalizes every file it returns, so resolving the path again
-/// would repeat the same filesystem walk once per report for nothing.
+/// Resolving the selected path again would repeat the same filesystem walk
+/// once per report for nothing.
 pub fn discovered_display_path(file_path: &str, project_root: Option<&Path>) -> String {
     relative_display_path(Path::new(file_path), file_path, project_root)
 }
@@ -529,7 +530,8 @@ struct IgnoredBy {
 
 /// The files a discovery walk selected, and why it selected none.
 pub struct Discovered {
-    /// Files to check, canonicalized and deduplicated.
+    /// Files to check, deduplicated. Paths retain their supplied or walked name
+    /// until configuration grouping and CLI2 ignore selection have completed.
     pub files: Vec<String>,
     /// Why `files` is empty; `None` whenever at least one file was found.
     pub empty_reason: Option<EmptyDiscovery>,
@@ -538,12 +540,74 @@ pub struct Discovered {
     /// fixing them that way rewrites the program. See
     /// [`rumdl_lib::discovery::classify_file`].
     pub refused: Vec<String>,
+    #[cfg(unix)]
+    pub(crate) canonical_walk_root: Option<WalkSourcePaths>,
+    /// Source-code files an `include` wildcard swept up while walking, held out
+    /// of `files`. A wildcard names no file, so these are skipped with a warning
+    /// rather than refused; a file that is also named explicitly is in `refused`.
+    pub skipped: Vec<String>,
+}
+
+/// Whether `pattern` holds an unescaped glob operator. A backslash escapes the
+/// character after it, so `\[x\].py` names the file `[x].py`.
+fn has_glob_syntax(pattern: &str) -> bool {
+    let mut chars = pattern.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => {
+                chars.next();
+            }
+            // A closing bracket or brace with no opener is a literal character.
+            '*' | '?' | '[' | '{' => return true,
+            _ => {}
+        }
+    }
+    false
+}
+
+/// The `include` patterns that name one file outright, with no glob syntax.
+/// Such a pattern is as deliberate as a path argument, so what it selects is
+/// refused rather than skipped like a wildcard match.
+fn literal_include_matchers(patterns: &[String]) -> rumdl_lib::discovery::ExplicitIncludeMatchers {
+    let literal: Vec<String> = patterns
+        .iter()
+        .filter(|pattern| {
+            !pattern.is_empty() && !pattern.ends_with('/') && !pattern.starts_with('!') && !has_glob_syntax(pattern)
+        })
+        .cloned()
+        .collect();
+    rumdl_lib::discovery::ExplicitIncludeMatchers::new(&literal)
+}
+
+/// Whether a literal `include` pattern selects `path` itself.
+fn names_literal_include(
+    literal: &rumdl_lib::discovery::ExplicitIncludeMatchers,
+    project_root: Option<&Path>,
+    path: &Path,
+) -> bool {
+    // Without a project root, include patterns are rooted at the current directory.
+    let current_dir = std::env::current_dir().and_then(|dir| dir.canonicalize()).ok();
+    let relative = project_root
+        .or(current_dir.as_deref())
+        .and_then(|root| rumdl_lib::discovery::path_relative_to(path, root))
+        .unwrap_or_else(|| path.to_string_lossy().into_owned());
+    literal.matches_relative_path(&relative)
 }
 
 /// Split the files rumdl cannot read out of `files`.
-fn take_source_code(files: &mut Vec<String>) -> Vec<String> {
+fn take_source_code(files: &mut Vec<String>, #[cfg(unix)] mut walk: Option<&mut WalkSourcePaths>) -> Vec<String> {
     let (refused, kept) = std::mem::take(files).into_iter().partition(|file| {
-        rumdl_lib::discovery::classify_file(Path::new(file)) == rumdl_lib::discovery::FileKind::SourceCode
+        // A regular leaf from this non-following walk has the same filename
+        // under its canonical parent. Reuse that resolution for classification;
+        // explicit names, symlinks and metadata failures keep the legacy path.
+        #[cfg(unix)]
+        let resolved = walk
+            .as_deref_mut()
+            .and_then(|walk| walk.resolve(file))
+            .unwrap_or_else(|| std::path::PathBuf::from(canonicalize_path_safe(file)));
+        #[cfg(not(unix))]
+        let resolved = std::path::PathBuf::from(canonicalize_path_safe(file));
+        rumdl_lib::discovery::classify_file(&resolved) == rumdl_lib::discovery::FileKind::SourceCode
     });
     *files = kept;
     refused
@@ -689,13 +753,16 @@ fn diagnose_empty_discovery(roots: &[&str], filters: &DiscoveryFilters<'_>) -> E
     } = *filters;
 
     let excluded_by_pattern = overrides_from(pattern_base, exclude_patterns.iter().map(|p| exclude_override_rule(p)));
-    let included_by_pattern = overrides_from(pattern_base, include_patterns.iter().cloned());
+    let included_by_pattern = overrides_from(
+        pattern_base,
+        include_patterns.iter().flat_map(|p| expand_include_directory(p)),
+    );
     // Kept apart from the combined set so an unmatched pattern can be named
     // individually: a pattern that selects nothing is a typo, while a pattern
     // losing to another filter is not.
     let per_include: Vec<ignore::overrides::Override> = include_patterns
         .iter()
-        .map(|pattern| overrides_from(pattern_base, [pattern.clone()]))
+        .map(|pattern| overrides_from(pattern_base, expand_include_directory(pattern)))
         .collect();
 
     // A file rumdl would have had to check: markdown by default, plus whatever an
@@ -703,11 +770,21 @@ fn diagnose_empty_discovery(roots: &[&str], filters: &DiscoveryFilters<'_>) -> E
     // include that widens the walk without admitting a new file type reaches no
     // further, so a file it merely touches was never a candidate and must not be
     // reported as one the configuration removed.
+    let literal_includes = literal_include_matchers(include_patterns);
+    // Source code a wildcard sweeps up is skipped, never a file a filter lost, so
+    // it cannot make an otherwise empty run a configuration problem.
+    let is_skipped_source = |path: &Path| {
+        if has_markdown_extension(path) || !included_by_pattern.matched(path, false).is_whitelist() {
+            return false;
+        }
+        rumdl_lib::discovery::classify_file(&canonical_walk_path(path)) == rumdl_lib::discovery::FileKind::SourceCode
+            && !names_literal_include(&literal_includes, canonical_project_root, path)
+    };
     let is_lintable = |path: &Path| {
         if has_markdown_extension(path) {
             return true;
         }
-        if !included_by_pattern.matched(path, false).is_whitelist() {
+        if !included_by_pattern.matched(path, false).is_whitelist() || is_skipped_source(path) {
             return false;
         }
         lintable.keeps(&canonical_walk_path(path))
@@ -738,6 +815,7 @@ fn diagnose_empty_discovery(roots: &[&str], filters: &DiscoveryFilters<'_>) -> E
     };
 
     let mut matched_includes = vec![false; per_include.len()];
+    let mut matched_only_skipped = vec![false; per_include.len()];
     let note_include_matches = |path: &Path, matched: &mut Vec<bool>| {
         for (pattern, seen) in per_include.iter().zip(matched.iter_mut()) {
             *seen = *seen || pattern.matched(path, false).is_whitelist();
@@ -755,7 +833,19 @@ fn diagnose_empty_discovery(roots: &[&str], filters: &DiscoveryFilters<'_>) -> E
     // reached along the way are kept for the second walk.
     let (mut total, mut exclude, mut not_included) = (0, 0, 0);
     let mut reached_dirs: HashSet<std::path::PathBuf> = HashSet::new();
-    for entry in reachable_entries(roots, respect_gitignore, true, None) {
+    // What the walk reaches with the include patterns applied is added to what it
+    // reaches without them: an include outranks the ignore files for the entry it
+    // names, so a directory an include names is entered by the real walk even when
+    // an ignore file lists it, and its files are candidates like any other.
+    let rescued_by_include = (!include_patterns.is_empty())
+        .then(|| reachable_entries(roots, respect_gitignore, true, Some(&included_by_pattern)))
+        .into_iter()
+        .flatten();
+    let mut seen_entries: HashSet<std::path::PathBuf> = HashSet::new();
+    for entry in reachable_entries(roots, respect_gitignore, true, None).chain(rescued_by_include) {
+        if !seen_entries.insert(entry.path().to_path_buf()) {
+            continue;
+        }
         if entry.file_type().is_some_and(|file_type| file_type.is_dir()) {
             reached_dirs.insert(canonical_walk_path(entry.path()));
             continue;
@@ -764,6 +854,9 @@ fn diagnose_empty_discovery(roots: &[&str], filters: &DiscoveryFilters<'_>) -> E
             continue;
         }
         let path = entry.into_path();
+        if is_skipped_source(&path) {
+            note_include_matches(&path, &mut matched_only_skipped);
+        }
         if !is_lintable(&path) || is_repeat(&path) {
             continue;
         }
@@ -793,9 +886,10 @@ fn diagnose_empty_discovery(roots: &[&str], filters: &DiscoveryFilters<'_>) -> E
     // ignore files applied at all. One that selects a file the walk reached
     // overrides them, so the real walk did reach it too and only an exclude can
     // have dropped it; the run being empty is what makes that a conclusion
-    // rather than a guess. An include cannot reach into a directory the walk
-    // never entered, so a file whose directory an ignore file pruned is the
-    // ignore file's doing however plainly an include names it. Without include
+    // rather than a guess. An include reaches into a directory only by naming
+    // it, and the walk above has entered those, so a file whose directory an
+    // ignore file pruned is the ignore file's doing however plainly an include
+    // names the file. Without include
     // patterns the ignore files are the only thing left, and this walk finding a
     // file the first one could not see is the evidence. Their exclude patterns
     // are never asked: an ignored path never reached them, and answering for a
@@ -841,13 +935,26 @@ fn diagnose_empty_discovery(roots: &[&str], filters: &DiscoveryFilters<'_>) -> E
     // "matches no file" would describe it as a glob that names nothing when it is
     // not a glob at all. The walk reports those itself, and reporting them here
     // again would also quote a pattern that walk deliberately did not.
-    let unmatched: Vec<&str> = include_patterns
-        .iter()
-        .zip(&matched_includes)
-        .filter(|(pattern, matched)| !**matched && include_pattern_compiles(pattern))
-        .map(|(pattern, _)| pattern.as_str())
-        .collect();
-    let unmatched_includes = unmatched_include_lines(&unmatched, include_source_withheld);
+    let unselected = |skipped_only: bool| -> Vec<&str> {
+        include_patterns
+            .iter()
+            .zip(matched_includes.iter().zip(&matched_only_skipped))
+            .filter(|(pattern, (matched, skipped))| {
+                !**matched && **skipped == skipped_only && include_pattern_compiles(pattern)
+            })
+            .map(|(pattern, _)| pattern.as_str())
+            .collect()
+    };
+    let mut unmatched_includes = unmatched_include_lines(&unselected(false), include_source_withheld);
+    // A pattern whose only matches were skipped source files did select them, so
+    // it is described as that rather than as matching nothing.
+    if include_source_withheld.is_none() {
+        unmatched_includes.extend(
+            unselected(true).into_iter().map(|pattern| {
+                format!("include pattern '{pattern}' matches only files that are not Markdown (skipped)")
+            }),
+        );
+    }
 
     let named = named_excluded.len();
     EmptyDiscovery::filtered(
@@ -1109,11 +1216,18 @@ pub fn find_markdown_files(
         .flatten();
 
     // Exclude patterns: CLI > Config (but disabled if --no-exclude is set)
+    // A negation is reported by `compile_exclude_matchers` and applied nowhere, so
+    // the walker, the named-file matchers and the empty-run notice agree on it.
     let raw_exclude_patterns = effective_exclude_patterns(args, config);
+    let applied_exclude_patterns: Vec<String> = raw_exclude_patterns
+        .iter()
+        .filter(|pattern| !is_exclude_negation(pattern))
+        .cloned()
+        .collect();
 
     // Expand directory-only patterns to also match their contents (for the
     // walker overrides; ExcludeMatchers applies the same expansion itself)
-    let final_exclude_patterns: Vec<String> = raw_exclude_patterns
+    let final_exclude_patterns: Vec<String> = applied_exclude_patterns
         .iter()
         .flat_map(|p| expand_directory_pattern(p))
         .collect();
@@ -1137,7 +1251,15 @@ pub fn find_markdown_files(
     } else {
         LintableFileMode::Markdown
     };
-    let lintable = LintablePathSelector::new(selector_base.as_deref(), selector_includes, selector_mode);
+    let mut lintable = LintablePathSelector::new(selector_base.as_deref(), selector_includes, selector_mode);
+    if args.include.is_some() {
+        // A pattern that names a directory selects the Markdown beneath it; only
+        // a pattern that reaches a file itself widens the run to other types.
+        lintable = lintable.with_named_files(overrides_from(
+            project_root.unwrap_or(Path::new(".")),
+            final_include_patterns.iter().cloned(),
+        ));
+    }
     // --- End Pattern Determination ---
 
     // --- Split explicit paths into named files and directory roots ---
@@ -1168,24 +1290,14 @@ pub fn find_markdown_files(
             // when it lies under it, so output reads the same for relative and
             // absolute arguments.
             let cleaned_path = if path.is_absolute() {
-                // Try to make it relative to the current directory
-                // Use canonicalized paths to handle symlinks (e.g., /tmp -> /private/tmp on macOS)
-                if let Ok(cwd) = std::env::current_dir() {
-                    // Canonicalize both paths to resolve symlinks
-                    if let (Ok(canonical_cwd), Ok(canonical_path)) = (cwd.canonicalize(), path.canonicalize()) {
-                        if let Ok(relative) = canonical_path.strip_prefix(&canonical_cwd) {
-                            relative.to_string_lossy().to_string()
-                        } else {
-                            // Path is absolute but not under cwd, keep as-is
-                            path_str.clone()
-                        }
-                    } else {
-                        // Canonicalization failed, keep path as-is
-                        path_str.clone()
-                    }
-                } else {
-                    path_str.clone()
-                }
+                std::env::current_dir()
+                    .ok()
+                    .and_then(|cwd| {
+                        path.strip_prefix(cwd)
+                            .ok()
+                            .map(|relative| relative.to_string_lossy().into_owned())
+                    })
+                    .unwrap_or_else(|| path_str.clone())
             } else if let Some(stripped) = path_str.strip_prefix("./") {
                 stripped.to_string()
             } else {
@@ -1195,13 +1307,21 @@ pub fn find_markdown_files(
             // Check if this file should be excluded based on exclude patterns
             // This is the default behavior to match user expectations and avoid
             // duplication between rumdl config and pre-commit config (issue #99)
-            if let Some(pattern) =
+            if !args.no_exclude
+                && config
+                    .cli2_ignores
+                    .iter()
+                    .any(|scope| scope.root && scope.matches(path))
+            {
+                excluded_named_files.push(std::path::PathBuf::from(canonicalize_path_safe(&cleaned_path)));
+                report_named_file_excluded(args, &cleaned_path, "markdownlint-cli2 ignores");
+            } else if let Some(pattern) =
                 named_file_exclude_pattern(&exclude_matchers, canonical_project_root.as_deref(), path)
             {
                 excluded_named_files.push(std::path::PathBuf::from(canonicalize_path_safe(&cleaned_path)));
                 report_named_file_excluded(args, &cleaned_path, pattern);
             } else {
-                explicit_files.push(canonicalize_path_safe(&cleaned_path));
+                explicit_files.push(cleaned_path);
             }
         }
 
@@ -1217,7 +1337,11 @@ pub fn find_markdown_files(
         if explicit_dirs.is_empty() {
             explicit_files.sort();
             explicit_files.dedup();
-            let refused = take_source_code(&mut explicit_files);
+            let refused = take_source_code(
+                &mut explicit_files,
+                #[cfg(unix)]
+                None,
+            );
             let excluded = excluded_named_files.len();
             let empty_reason = (explicit_files.is_empty() && refused.is_empty())
                 .then(|| EmptyDiscovery::all_named_files_excluded(excluded));
@@ -1225,6 +1349,9 @@ pub fn find_markdown_files(
                 files: explicit_files,
                 empty_reason,
                 refused,
+                #[cfg(unix)]
+                canonical_walk_root: None,
+                skipped: Vec::new(),
             });
         }
     }
@@ -1264,8 +1391,11 @@ pub fn find_markdown_files(
             // Important: In ignore crate, bare patterns act as includes if no exclude (!) is present.
             // If we add excludes later, these includes ensure *only* matching files are considered.
             // If no excludes are added, these effectively define the set of files to walk.
-            match (override_builder.add(pattern), include_source_withheld) {
-                (Ok(_), _) => {}
+            let added = expand_include_directory(pattern)
+                .iter()
+                .try_for_each(|rule| override_builder.add(rule).map(|_| ()));
+            match (added, include_source_withheld) {
+                (Ok(()), _) => {}
                 // The error quotes the pattern it could not parse, which is text
                 // out of a file this may not repeat. Which file pointed at it is
                 // the extending config's own text, so that much can still be said.
@@ -1306,6 +1436,22 @@ pub fn find_markdown_files(
             skip_vendor_dirs: false,
         },
     );
+    // Without the Markdown type filter nothing else keeps the walk out of `.git`.
+    if lintable.selects_every_file_type() {
+        skip_version_control_directories(&mut walk_builder);
+    }
+
+    // A non-following walk supplies each regular file's actual filename.
+    // Retain that provenance through configuration/ignore selection: regular
+    // selected leaves can then share their parent-directory canonicalization.
+    // Supplied spellings remain untouched until configuration/ignores resolve.
+    #[cfg(unix)]
+    let mut canonical_walk_root = if walk_roots.len() == 1 && explicit_files.is_empty() {
+        walk_builder.follow_links(false);
+        WalkSourcePaths::new(Path::new(walk_roots[0]))
+    } else {
+        None
+    };
 
     // --- Execute Walk ---
 
@@ -1316,6 +1462,13 @@ pub fn find_markdown_files(
                 // We are primarily interested in files. ignore crate handles dir traversal.
                 // Check if it's a file and if it wasn't explicitly excluded by overrides
                 if entry.file_type().is_some_and(|file_type| file_type.is_file()) {
+                    // The legacy selection stores lossy UTF-8 paths. If any
+                    // entry needs that conversion, retain filesystem resolution
+                    // for the whole walk, including possible spelling collisions.
+                    #[cfg(unix)]
+                    if path.to_str().is_none() {
+                        canonical_walk_root = None;
+                    }
                     let file_path = path.to_string_lossy().to_string();
                     // Clean the path before pushing
                     let cleaned_path = if let Some(stripped) = file_path.strip_prefix("./") {
@@ -1323,7 +1476,7 @@ pub fn find_markdown_files(
                     } else {
                         file_path
                     };
-                    file_paths.push(canonicalize_path_safe(&cleaned_path));
+                    file_paths.push(cleaned_path);
                 }
             }
             Err(err) => {
@@ -1366,16 +1519,67 @@ pub fn find_markdown_files(
     file_paths.retain(|path_str| lintable.keeps(Path::new(path_str)));
     // -------------------------------------
 
-    // Union with the explicitly named files. Both sides hold canonicalized
-    // paths, so a file that is both named and found by the directory walk
-    // dedups away.
+    // Globby prunes some directories for complemented ignore expressions.
+    // Apply that only to walked files: explicit names bypass directory traversal.
+    let before_cli2_walk_filter = file_paths.len();
+    if !args.no_exclude
+        && config
+            .cli2_ignores
+            .iter()
+            .any(|scope| scope.root && scope.prunes_directories())
+    {
+        let absolute = |path: &Path| rumdl_lib::workspace_index::absolute_selection_path(path).ok();
+        let roots: Vec<_> = walk_roots.iter().filter_map(|root| absolute(Path::new(root))).collect();
+        file_paths.retain(|file| {
+            let Some(path) = absolute(Path::new(file)) else {
+                return true;
+            };
+            let matching: Vec<_> = roots.iter().filter(|root| path.starts_with(root)).collect();
+            matching.is_empty()
+                || matching.iter().any(|root| {
+                    !config
+                        .cli2_ignores
+                        .iter()
+                        .any(|scope| scope.root && scope.prunes_walked_path(&path, root))
+                })
+        });
+    }
+    let cli2_walk_excluded = before_cli2_walk_filter - file_paths.len();
+
+    // Supplied and walked names survive until per-directory ignores are applied.
+    // The check runner canonicalizes and deduplicates the selected groups.
+    // Only the walked set is separable from the named files here: whatever the
+    // walk matched without being named is skipped, and a file that is also named
+    // goes through `explicit_files` and is refused below.
+    let walked_source = take_source_code(
+        &mut file_paths,
+        #[cfg(unix)]
+        canonical_walk_root.as_mut(),
+    );
+    let literal_includes = literal_include_matchers(&final_include_patterns);
+    let (named_by_include, mut skipped): (Vec<String>, Vec<String>) = walked_source
+        .into_iter()
+        .partition(|file| names_literal_include(&literal_includes, canonical_project_root.as_deref(), Path::new(file)));
+    skipped.sort();
+    skipped.dedup();
     file_paths.extend(explicit_files);
     file_paths.sort();
     file_paths.dedup();
-    let refused = take_source_code(&mut file_paths);
+    let mut refused = take_source_code(
+        &mut file_paths,
+        #[cfg(unix)]
+        canonical_walk_root.as_mut(),
+    );
+    refused.extend(named_by_include);
+    refused.sort();
+    refused.dedup();
+    skipped.retain(|file| !refused.contains(file));
 
     // Only an empty result pays for the diagnosis, and only it needs one.
     let empty_reason = (file_paths.is_empty() && refused.is_empty()).then(|| {
+        if cli2_walk_excluded > 0 {
+            return EmptyDiscovery::all_named_files_excluded(cli2_walk_excluded + excluded_named_files.len());
+        }
         diagnose_empty_discovery(
             &walk_roots,
             &DiscoveryFilters {
@@ -1396,5 +1600,166 @@ pub fn find_markdown_files(
         files: file_paths,
         empty_reason,
         refused,
+        #[cfg(unix)]
+        canonical_walk_root,
+        skipped,
     })
+}
+
+/// Selected regular leaves from one non-following walk. Explicit names and
+/// unsupported spellings retain filesystem canonicalization. Each selected
+/// leaf is checked for metadata access, and only directory identities are
+/// shared; an inaccessible or replaced leaf is never assumed canonical.
+#[cfg(unix)]
+pub(crate) struct WalkSourcePaths {
+    cwd: std::path::PathBuf,
+    spelled: std::path::PathBuf,
+    parents: std::collections::HashMap<std::path::PathBuf, Option<std::path::PathBuf>>,
+}
+
+#[cfg(unix)]
+impl WalkSourcePaths {
+    fn new(root: &Path) -> Option<Self> {
+        if !root.is_dir() {
+            return None;
+        }
+        let cwd = std::env::current_dir().ok()?;
+        let spelled = if root.is_absolute() {
+            root.to_path_buf()
+        } else {
+            cwd.join(root)
+        };
+        Some(Self {
+            cwd,
+            spelled,
+            parents: std::collections::HashMap::new(),
+        })
+    }
+
+    pub(crate) fn resolve(&mut self, file: &str) -> Option<std::path::PathBuf> {
+        let path = Path::new(file);
+        let joined;
+        let absolute = if path.is_absolute() {
+            path
+        } else {
+            joined = self.cwd.join(path);
+            &joined
+        };
+        let suffix = absolute.strip_prefix(&self.spelled).ok()?;
+        if suffix.as_os_str().is_empty()
+            || suffix
+                .components()
+                .any(|part| !matches!(part, std::path::Component::Normal(_)))
+        {
+            return None;
+        }
+        // Directory entries alone do not prove metadata access. In particular
+        // an ACL can deny canonicalization of a readable regular file. A
+        // failed check keeps the legacy lookup and its supplied-path fallback.
+        if !std::fs::symlink_metadata(absolute).ok()?.is_file() {
+            return None;
+        }
+        let parent = absolute.parent()?;
+        let name = absolute.file_name()?;
+        let canonical = self
+            .parents
+            .entry(parent.to_path_buf())
+            .or_insert_with(|| std::fs::canonicalize(parent).ok());
+        Some(canonical.as_ref()?.join(name))
+    }
+}
+
+#[cfg(all(test, unix))]
+mod walk_source_tests {
+    use super::*;
+    use std::os::unix::fs::symlink;
+
+    #[test]
+    fn walk_source_classification_keeps_alias_and_missing_file_results() {
+        let temp = tempfile::tempdir().unwrap();
+        let real = temp.path().join("real");
+        std::fs::create_dir_all(&real).unwrap();
+        for name in ["guide.md", "script.swift", "template.md.swift", "lib.rs"] {
+            std::fs::write(real.join(name), "text\n").unwrap();
+        }
+        symlink(real.join("script.swift"), real.join("source.md")).unwrap();
+        symlink(real.join("guide.md"), real.join("document.swift")).unwrap();
+        let alias = temp.path().join("alias");
+        symlink(&real, &alias).unwrap();
+        for root in [&real, &alias] {
+            let original: Vec<String> = [
+                "guide.md",
+                "script.swift",
+                "template.md.swift",
+                "lib.rs",
+                "source.md",
+                "document.swift",
+                "missing.swift",
+                "missing.md",
+            ]
+            .into_iter()
+            .map(|name| root.join(name).to_str().unwrap().to_owned())
+            .collect();
+            let mut expected = original.clone();
+            let expected_refused = take_source_code(&mut expected, None);
+            let mut actual = original;
+            let mut walk = WalkSourcePaths::new(root).unwrap();
+            let actual_refused = take_source_code(&mut actual, Some(&mut walk));
+            assert_eq!(actual, expected);
+            assert_eq!(actual_refused, expected_refused);
+            assert!(actual_refused.iter().any(|name| name.ends_with("source.md")));
+            assert!(actual.iter().any(|name| name.ends_with("document.swift")));
+        }
+    }
+
+    fn verify_walk(path: &Path) -> usize {
+        let mut root = WalkSourcePaths::new(path).unwrap();
+        let mut count = 0;
+        for entry in WalkBuilder::new(path).follow_links(false).build() {
+            let entry = entry.unwrap();
+            if entry.file_type().is_some_and(|kind| kind.is_file()) {
+                let raw = entry.path().to_str().unwrap();
+                assert_eq!(
+                    root.resolve(raw).unwrap(),
+                    std::fs::canonicalize(entry.path()).unwrap(),
+                    "{raw}"
+                );
+                count += 1;
+            }
+        }
+        count
+    }
+
+    #[test]
+    fn walk_source_matches_canonicalization_for_regular_descendants_and_symlink_roots() {
+        let temp = tempfile::tempdir().unwrap();
+        let real = temp.path().join("real");
+        std::fs::create_dir_all(real.join("nested/é🦀")).unwrap();
+        std::fs::write(real.join("a.md"), "a").unwrap();
+        std::fs::write(real.join("nested/é🦀/b.md"), "b").unwrap();
+        symlink(real.join("a.md"), real.join("alias.md")).unwrap();
+        symlink(real.join("nested"), real.join("directory-alias")).unwrap();
+        symlink(&real, real.join("loop")).unwrap();
+        symlink(temp.path().join("missing"), real.join("broken.md")).unwrap();
+        let alias = temp.path().join("root-alias");
+        symlink(&real, &alias).unwrap();
+        assert_eq!(verify_walk(&real), 2);
+        assert_eq!(verify_walk(&alias), 2);
+        assert_eq!(verify_walk(&alias.join("nested/..")), 2);
+        assert!(WalkSourcePaths::new(&real.join("a.md")).is_none());
+        let mut paths = WalkSourcePaths::new(&real).unwrap();
+        assert!(paths.resolve(real.join("alias.md").to_str().unwrap()).is_none());
+        assert!(paths.resolve(real.join("absent.md").to_str().unwrap()).is_none());
+    }
+
+    #[test]
+    fn walk_source_handles_cwd_spellings_and_declines_parent_or_unrelated_paths() {
+        let mut root = WalkSourcePaths::new(Path::new(".")).unwrap();
+        for file in ["Cargo.toml", "./Cargo.toml", "src/main.rs", "./src/main.rs"] {
+            assert_eq!(root.resolve(file).unwrap(), std::fs::canonicalize(file).unwrap());
+        }
+        assert!(root.resolve("../outside.md").is_none());
+        assert!(root.resolve("src/../Cargo.toml").is_none());
+        assert!(root.resolve(".").is_none());
+    }
 }

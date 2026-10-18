@@ -11,15 +11,15 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from sqlbuild.compiler.planner.models import (
+from sqlbuild._native import (
+    ScenarioArtifactKind,
     ScenarioExecutionPlan,
     ScenarioFixturePlan,
     SeedPlanEntry,
+    error_code,
+    error_message,
 )
-from sqlbuild.compiler.planner.types import ScenarioArtifactKind
 from sqlbuild.errors.contracts.exceptions import ExecutorInputError
-from sqlbuild.errors.contracts.main.error_code import error_code
-from sqlbuild.errors.contracts.main.error_message import error_message
 from sqlbuild.executor.scenario.constants import (
     JSONL_BLANK_LINE,
     SCENARIO_EXEC_CAPTURE_LIMIT_EXCEEDED,

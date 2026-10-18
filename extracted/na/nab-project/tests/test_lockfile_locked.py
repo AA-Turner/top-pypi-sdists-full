@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import sys
 from typing import TYPE_CHECKING
 
 import pytest
 
+from nab_markersets._compat import get_int_max_str_digits
 from nab_project.lockfile import (
     BASE_MEMBER,
     IndexPin,
@@ -27,6 +27,10 @@ from nab_provider._vendor.packaging.requirements import Requirement
 from nab_provider._vendor.packaging.version import Version
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import ResolveTarget
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -91,7 +95,7 @@ def _write_foreign_lock(path: Path, packages: str) -> Path:
     return path
 
 
-_AT_LIMIT = "9" * sys.get_int_max_str_digits()
+_AT_LIMIT = "9" * (get_int_max_str_digits() or 4300)
 _OVERSIZED = _AT_LIMIT + "9"
 
 
@@ -144,6 +148,27 @@ class TestReadErrors:
                 default_groups=(),
             )
 
+    def test_requires_python_conversion_failure_raises_invalid(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        target = _write_requires_python_lock(tmp_path / "pylock.toml", ">=3.10")
+
+        def refuse(_specifier: object) -> None:
+            raise ValueError("integer conversion refused")
+
+        monkeypatch.setattr(
+            "nab_project._lockfile.validate.validate_specifier_versions", refuse
+        )
+        with pytest.raises(InvalidLockfileError, match="requires-python"):
+            check_locked(
+                target,
+                requires_python=">=3.10",
+                extras=(),
+                dependency_groups=(),
+                default_groups=(),
+            )
+
+    @requires_int_limit
     def test_oversized_requires_python_raises_invalid(self, tmp_path: Path) -> None:
         """A digit run past int()'s limit parses as a specifier but never converts."""
         target = _write_requires_python_lock(

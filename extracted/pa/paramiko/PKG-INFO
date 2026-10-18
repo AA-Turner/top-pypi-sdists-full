@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: paramiko
-Version: 5.0.0
+Version: 5.1.0
 Summary: SSH2 protocol library
 Author-email: Jeff Forcier <jeff@bitprophet.org>
 License-Expression: LGPL-2.1
@@ -22,6 +22,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import logging
-from copy import copy
-from typing import TYPE_CHECKING
+from argparse import ArgumentTypeError
+from typing import TYPE_CHECKING, Final
 
 from python_discovery import PythonInfo
 
 from virtualenv.create.via_global_ref.store import handle_store_python
 from virtualenv.util.error import ProcessCallFailedError
-from virtualenv.util.path import ensure_dir
+from virtualenv.util.path import ensure_within
 from virtualenv.util.subprocess import run_cmd
+from virtualenv.util.text import collapse_line_boundaries
 
 from .api import ViaGlobalRefApi, ViaGlobalRefMeta
 from .builtin.cpython.common import is_mac_os_framework
@@ -48,15 +49,34 @@ class Venv(ViaGlobalRefApi):
         return None
 
     def create(self) -> None:
+        # stdlib venv writes interpreter files, configuration and activation scripts in place, so a planted symlink or
+        # hard link would receive them outside the environment
+        for directory in (self.bin_dir, self.purelib, self.platlib):
+            ensure_within(self.dest, directory)
+        for path in (self.dest / "pyvenv.cfg", self.dest / ".gitignore", *self.bin_dir.iterdir()):
+            if path.is_symlink() or (path.is_file() and path.stat().st_nlink > 1):
+                path.unlink()
         if self.can_be_inline:
             self.create_inline()
         else:
             self.create_via_sub_process()
-        for lib in self.libs:  # ty: ignore[not-iterable]
-            ensure_dir(lib)
         if self.describe is not None:
             self.describe.install_venv_shared_libs(self)
         super().create()
+
+    @classmethod
+    def validate_dest(cls, raw_value: str) -> str:
+        return cls._check_line_boundaries(super().validate_dest(cls._check_line_boundaries(raw_value)))
+
+    @staticmethod
+    def _check_line_boundaries(value: str) -> str:
+        # stdlib venv writes the destination into pyvenv.cfg without escaping line boundaries.
+        if collapse_line_boundaries(value) != value:
+            msg: Final = (
+                f"destination {value!r} must not contain a line boundary as venv cannot record it in pyvenv.cfg"
+            )
+            raise ArgumentTypeError(msg)
+        return value
 
     def create_inline(self) -> None:
         from venv import EnvBuilder  # ruff:ignore[import-outside-top-level]
@@ -77,7 +97,15 @@ class Venv(ViaGlobalRefApi):
             raise ProcessCallFailedError(code, out, err, cmd)
 
     def get_host_create_cmd(self) -> list[str]:
-        cmd = [self.interpreter.system_executable, "-m", "venv", "--without-pip"]
+        cmd = [
+            self.interpreter.system_executable,
+            "-c",
+            (
+                "import sys; sys.path[:] = [p for p in sys.path if p != '']; "
+                "import runpy; runpy.run_module('venv', run_name='__main__', alter_sys=True)"
+            ),
+            "--without-pip",
+        ]
         if self.interpreter.version_info >= (3, 13):
             cmd.append("--without-scm-ignore-files")
         if self.enable_system_site_package:
@@ -86,10 +114,11 @@ class Venv(ViaGlobalRefApi):
         return cmd  # ty: ignore[invalid-return-type]
 
     def set_pyenv_cfg(self) -> None:
-        # prefer venv options over ours, but keep our extra
-        venv_content = copy(self.pyenv_cfg.refresh())
         super().set_pyenv_cfg()
-        self.pyenv_cfg.update(venv_content)
+        if self.interpreter.implementation == "GraalPy":
+            # GraalPy launchers need these settings on Windows and macOS.
+            self.pyenv_cfg["venvlauncher_command"] = self.interpreter.system_exe
+            self.pyenv_cfg["base-executable"] = self.interpreter.system_exe
 
     def __getattribute__(self, item: str) -> object:
         describe = object.__getattribute__(self, "describe")

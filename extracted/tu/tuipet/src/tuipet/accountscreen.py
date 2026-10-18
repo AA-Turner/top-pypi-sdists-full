@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from .sfx import CueQueue
 from rich.cells import cell_len
-from rich.text import Text
 
 from . import menu
 from .theme import INK, INK_B, DIM, SEL  # noqa: F401  (theme.apply propagation)
@@ -15,7 +14,7 @@ _NAME_MAX = 24                  # the server's MAX_NAME: what you SEE is what
 #                                 logs in (round 35: the buffer held 64 and
 #                                 the confirm silently trimmed)
 _PW_MAX = 64
-_FIELD_W = 26                   # input cells shown (38 - the 12-col label)
+_FIELD_W = 26                   # input cells shown (38 - cursor 2 - label 10)
 
 
 def _tail(s, w):
@@ -84,8 +83,8 @@ class AccountPanel(CueQueue):
         return None
 
     def text(self):
-        t = Text()
-        t.append("  TUIPET ACCOUNT\n\n", style=INK_B)
+        t = menu.header("ACCOUNT", "SIGN IN")
+        t.append_text(menu.blanks(1))
         # tail-window long input BY CELLS so a line never overruns the 40-col
         # LCD (the box CLIPS overflow live -- lobby audit 2026-07-04; the
         # password renders as 1-cell stars, so its char slice is safe)
@@ -97,17 +96,19 @@ class AccountPanel(CueQueue):
         stars = ("*" * (len(self.pw_buf) - 1) + self.pw_buf[-1]
                  if self.field == "pw" and self.pw_buf else "*" * len(self.pw_buf))
         pw = (stars + ("_" if self.field == "pw" else ""))[-_FIELD_W:]
-        t.append("  name:     ", style=DIM)
-        t.append(nm + "\n", style=INK_B if self.field == "name" else INK)
-        t.append("  password: ", style=DIM)
-        t.append(pw + "\n\n", style=INK_B if self.field == "pw" else INK)
+        t.append_text(menu.row("Name      " + nm, self.field == "name"))
+        t.append_text(menu.row("Password  " + pw, self.field == "pw"))
         # keys ride the strip (round 35: the in-LCD hint line doubled it)
         # the note WRAPS, never scrolls (menus call #14 = A, 2026-10-15): a
         # server's words are the ones you must read -- the old marquee made
         # you wait for the actionable tail of a long rejection
         import textwrap
         lines = textwrap.wrap(self.note, menu.W - 2) or [""]
-        t.append("\n".join("  " + ln for ln in lines[:6]), style=DIM)
+        lines = lines[:5]
+        t.append_text(menu.blanks(max(1, 7 - len(lines))))
+        t.append("\n".join("  " + ln for ln in lines),
+                 style=INK_B if self.note in ("Name and password both, please.",
+                                             "Names need a letter or number.") else DIM)
         return t
 
 
@@ -128,14 +129,15 @@ class CloudWaitPanel(CueQueue):
         self.frame_i += 1
 
     def strip(self):
-        return "[dim]checking the cloud…[/]"
+        return menu.feedback("checking the cloud…")
 
     def key(self, k):
         return None
 
     def text(self):
-        t = Text()
-        t.append("  TUIPET ACCOUNT\n\n", style=INK_B)
+        t = menu.header("ACCOUNT", "SIGN IN")
+        t.append_text(menu.blanks(1))
         t.append("  " + _tail(self.name, _FIELD_W) + "\n\n", style=INK)
+        t.append_text(menu.blanks(6))
         t.append("  checking the cloud" + "." * (1 + (self.frame_i // 4) % 3), style=DIM)
         return t

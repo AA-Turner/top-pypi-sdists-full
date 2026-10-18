@@ -34,6 +34,7 @@ use sqlbuild_render::macro_calls::main::macro_call_names::macro_call_names;
 use sqlbuild_sqltext::compiler::models::DeclarationReferenceStop;
 use sqlbuild_sqltext::sql_references::main::extract_sql_references::extract_sql_references;
 use sqlbuild_sqltext::sql_references::models::{ReferenceExtraction, SqlReference};
+use sqlbuild_sqltext::sql_scan::models::LexicalSyntax;
 
 use crate::bindings::_helpers::cache::sql_test_scan_store::SqlTestScanStore;
 use crate::bindings::_helpers::compiled_project::model_loop::{
@@ -46,6 +47,7 @@ use crate::bindings::_helpers::compiled_project::source_loop::{
     AuthoredExpansion, expanded_authored_sql, scoped_declarations,
 };
 use crate::bindings::_helpers::compiled_project::source_views::replaced;
+use crate::bindings::_helpers::records::fields::field as native_field;
 
 const MODEL_MODE: &str = "model";
 const MACRO_MODE: &str = "macro";
@@ -532,9 +534,9 @@ impl<'py> TestScope<'_, 'py> {
             )));
         }
         let enum_visibility: Bound<'py, PyDict> =
-            declarations.getattr(ENUM_VISIBILITY)?.downcast_into()?;
+            native_field(declarations, ENUM_VISIBILITY)?.downcast_into()?;
         let constant_visibility: Bound<'py, PyDict> =
-            declarations.getattr(CONSTANT_VISIBILITY)?.downcast_into()?;
+            native_field(declarations, CONSTANT_VISIBILITY)?.downcast_into()?;
         for reference in scans.iter().flat_map(|scan| scan.references.iter()) {
             let visibility: &Bound<'py, PyDict> = match reference.kind {
                 sqlbuild_sqltext::compiler::models::DeclarationReferenceKind::Enum => {
@@ -551,22 +553,22 @@ impl<'py> TestScope<'_, 'py> {
                 unique.set_item(
                     self.usage(
                         resource,
-                        &record.getattr("declaration")?,
-                        &record.getattr("through")?,
+                        &native_field(&record, "declaration")?,
+                        &native_field(&record, "through")?,
                     )?,
                     py.None(),
                 )?;
             }
         }
         let macro_records: Bound<'py, PyDict> =
-            declarations.getattr(MACRO_RECORDS)?.downcast_into()?;
+            native_field(declarations, MACRO_RECORDS)?.downcast_into()?;
         let macro_visibility: Bound<'py, PyDict> =
-            declarations.getattr(MACRO_VISIBILITY)?.downcast_into()?;
+            native_field(declarations, MACRO_VISIBILITY)?.downcast_into()?;
         for name in top_level_macro_names(sql).map_err(|message| self.error(message))? {
             let Some(record) = macro_records.get_item(&name)? else {
                 continue;
             };
-            let identity: Bound<'py, PyAny> = record.getattr("identity")?;
+            let identity: Bound<'py, PyAny> = native_field(&record, "identity")?;
             let visible: Vec<Bound<'py, PyAny>> = match macro_visibility.get_item(&name)? {
                 Some(visibility) => test_visibility(&visibility)?,
                 None => Vec::new(),
@@ -579,7 +581,7 @@ impl<'py> TestScope<'_, 'py> {
             }
             for record in visible {
                 unique.set_item(
-                    self.usage(resource, &identity, &record.getattr("through")?)?,
+                    self.usage(resource, &identity, &native_field(&record, "through")?)?,
                     py.None(),
                 )?;
             }
@@ -662,8 +664,10 @@ impl<'py> TestScope<'_, 'py> {
                 scenario: false,
             })
             .collect();
-        let classified: Vec<SqlTestClassification> =
-            extract_sql_tests(&requests, &self.model_loop.syntax).map_err(|failure| {
+        let syntax: &LexicalSyntax = &self.model_loop.syntax;
+        let classified: Vec<SqlTestClassification> = py
+            .detach(|| extract_sql_tests(&requests, syntax))
+            .map_err(|failure| {
                 let test: &ExpandedTest<'_, 'py> = &tests[pending[failure.index]];
                 self.located(&failure, test.file, (test.block, &test.sql))
             })?;
@@ -863,12 +867,12 @@ impl<'py> TestScope<'_, 'py> {
         fields.set_item("declaration_usages", &test.usages)?;
         fields.set_item("parent_name", test_name)?;
         let block: &Bound<'py, PyAny> = test_block.bind(py);
-        fields.set_item("parameter_schema", block.getattr("parameters")?)?;
+        fields.set_item("parameter_schema", native_field(block, "parameters")?)?;
         if let Some((case, case_name, _)) = test.case {
             let case: &Bound<'py, PyAny> = case.bind(py);
             fields.set_item("case_name", case_name)?;
-            fields.set_item("case_index", case.getattr("case_index")?)?;
-            fields.set_item("parameter_values", case.getattr("values")?)?;
+            fields.set_item("case_index", native_field(case, "case_index")?)?;
+            fields.set_item("parameter_values", native_field(case, "values")?)?;
         }
         Ok(Some(
             self.settings
@@ -908,7 +912,7 @@ impl<'py> TestScope<'_, 'py> {
         );
         let (line, column) = (located.line, located.column);
         let arguments: Bound<'py, PyDict> = PyDict::new(py);
-        arguments.set_item("path", file.3.bind(py).getattr("relative_path")?)?;
+        arguments.set_item("path", native_field(file.3.bind(py), "relative_path")?)?;
         arguments.set_item("line", line)?;
         arguments.set_item("column", column)?;
         arguments.set_item("end_line", located.end_line)?;
@@ -984,7 +988,7 @@ fn test_visibility<'py>(records: &Bound<'py, PyAny>) -> PyResult<Vec<Bound<'py, 
     let all: Vec<Bound<'py, PyAny>> = records.try_iter()?.collect::<PyResult<_>>()?;
     let mut granted: Vec<Bound<'py, PyAny>> = Vec::new();
     for record in &all {
-        if !record.getattr("through")?.is_none() {
+        if !native_field(record, "through")?.is_none() {
             granted.push(record.clone());
         }
     }

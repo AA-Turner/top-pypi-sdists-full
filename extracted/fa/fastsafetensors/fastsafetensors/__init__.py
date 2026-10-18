@@ -5,6 +5,7 @@ from importlib.metadata import version
 __version__ = version(__name__)
 
 from ._planner import BudgetInfeasibleError
+from .allocation import live_allocation_bytes, live_allocation_count
 from .auto_loader import AutoLoader
 from .common import (
     SafeTensorsMetadata,
@@ -21,3 +22,4 @@ from .ep_slice import (
 from .file_buffer import FilesBufferOnDevice
 from .loader import SafeTensorsFileLoader, fastsafe_open
 from .parallel_loader import ParallelLoader
+from .saver import ParallelSaver

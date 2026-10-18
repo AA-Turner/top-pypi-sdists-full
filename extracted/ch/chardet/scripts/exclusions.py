@@ -5,7 +5,11 @@ from __future__ import annotations
 import codecs
 import hashlib
 import re
+import sys
 from pathlib import Path
+
+from arabic_shape import is_shaped_visual
+from bidi_order import is_dual_order, reorder_visual
 
 #: Characters a transcode is most likely to have replaced.  A test file is
 #: fingerprinted from its *decoded* bytes, after the generator substituted
@@ -270,6 +274,7 @@ def build_exclusion_set(test_data_dir: Path) -> ExclusionIndex:
     if not test_data_dir.is_dir():
         return index
 
+    reorder_available = True
     for encoding_dir in sorted(test_data_dir.iterdir()):
         if not encoding_dir.is_dir():
             continue
@@ -286,6 +291,46 @@ def build_exclusion_set(test_data_dir: Path) -> ExclusionIndex:
         if codec is None:
             continue
 
+        # Dual-convention encodings store test files in either bidi order,
+        # but the training corpus is always logical, so a visual-order test
+        # file's fingerprints would never match its own source article.
+        # Index the forward reordering of every file in such directories as
+        # well.  UBA is NOT exactly its own inverse (measured: a trailing
+        # parenthetical clause can land elsewhere in the line), but sentence
+        # units are matched individually and re-reordering recovers 91-100%
+        # of a visual file's logical units (measured on the converted
+        # corpus) -- far above the coverage the overlap check needs.
+        # Shaped-visual pages (cp864) cannot be recovered by transform:
+        # shaping *deletes* characters (harakat, unmapped punctuation, a
+        # measured 1.3% of letters), and content-defined units break on any
+        # in-unit deletion -- NFKC-plus-reorder recovery scored 0-20% of
+        # units on prose, overlaps() False across the board.  Their
+        # directories instead carry a `_logical_source/` sidecar with the
+        # exact pre-shaping text, indexed verbatim below.
+        dual_order = is_dual_order(codec)
+        if is_shaped_visual(codec):
+            sidecar = encoding_dir / "_logical_source"
+            if not sidecar.is_dir():
+                msg = (
+                    f"{encoding_dir.name}: shaped-visual test data has no "
+                    f"_logical_source/ sidecar.  Transform-based recovery "
+                    f"does not work for shaped text (measured 0-20% of "
+                    f"units), so without the sidecar overlap detection "
+                    f"would silently index nothing usable for this "
+                    f"encoding and training could ship a model trained on "
+                    f"its own evaluation data."
+                )
+                raise RuntimeError(msg)
+            for source_path in sorted(sidecar.iterdir()):
+                if not source_path.is_file():
+                    continue
+                try:
+                    source_text = source_path.read_text("utf-8")
+                except (UnicodeDecodeError, OSError):
+                    continue
+                if len(source_text) >= 10:
+                    index.add(source_text)
+
         for filepath in sorted(encoding_dir.iterdir()):
             if not filepath.is_file():
                 continue
@@ -300,6 +345,21 @@ def build_exclusion_set(test_data_dir: Path) -> ExclusionIndex:
                 continue
 
             index.add(text)
+            if dual_order and reorder_available:
+                try:
+                    index.add(reorder_visual(text))
+                except RuntimeError:
+                    # ICU is macOS-only; the overlap CHECK degrades instead
+                    # of crashing (training itself still hard-fails, in
+                    # train.py, where reordered corpus text is mandatory).
+                    reorder_available = False
+                    print(
+                        f"WARNING: visual-order reindexing unavailable on "
+                        f"this platform (needs macOS libicucore); overlap "
+                        f"detection for {encoding_dir.name} covers logical "
+                        f"order only.",
+                        file=sys.stderr,
+                    )
 
     return index
 

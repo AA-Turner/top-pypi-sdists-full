@@ -331,8 +331,61 @@ impl MD063HeadingCapitalization {
         false
     }
 
+    /// Whether `word` is an `ignore-words` entry, case-sensitively. A token is
+    /// matched as written first (entries like `C++` or `.NET` carry their own
+    /// punctuation), then again with trailing punctuation peeled off one character
+    /// at a time, so `Kubernetes?`, `Kubernetes),` and `C++,` match the entries
+    /// `Kubernetes` and `C++`.
     fn is_ignored_word(&self, word: &str) -> bool {
-        self.config.ignore_words.iter().any(|ignored| ignored == word)
+        let mut candidate = word;
+        loop {
+            if self.config.ignore_words.iter().any(|ignored| ignored == candidate) {
+                return true;
+            }
+            match candidate.char_indices().next_back() {
+                Some((i, c)) if Self::is_trailing_punctuation(c) => candidate = &candidate[..i],
+                _ => return false,
+            }
+        }
+    }
+
+    /// Punctuation that can follow a word without becoming part of it: sentence
+    /// punctuation and closing brackets or quotes, in ASCII, Latin, CJK and fullwidth
+    /// forms. Symbols such as `+` or `#` and combining marks are not in the set, so
+    /// `c++` stays distinct from `c` and a decomposed accent stays with its letter.
+    fn is_trailing_punctuation(c: char) -> bool {
+        matches!(
+            c,
+            '.' | ','
+                | ';'
+                | ':'
+                | '!'
+                | '?'
+                | ')'
+                | ']'
+                | '}'
+                | '"'
+                | '\''
+                | '\u{2026}'
+                | '\u{2019}'
+                | '\u{201d}'
+                | '\u{203a}'
+                | '\u{bb}'
+                | '\u{3001}'
+                | '\u{3002}'
+                | '\u{3009}'
+                | '\u{300b}'
+                | '\u{300d}'
+                | '\u{300f}'
+                | '\u{3011}'
+                | '\u{ff01}'
+                | '\u{ff09}'
+                | '\u{ff0c}'
+                | '\u{ff0e}'
+                | '\u{ff1a}'
+                | '\u{ff1b}'
+                | '\u{ff1f}'
+        )
     }
 
     /// Detect numeric ordinals like `1st`, `2nd`, `3rd`, `4th`, `21st`,
@@ -606,6 +659,11 @@ impl MD063HeadingCapitalization {
 
                 // Preserve words in ignore list or with internal capitals
                 if self.should_preserve_word(word) {
+                    return (*word).to_string();
+                }
+
+                // An ignore-words entry is kept whole, hyphens included
+                if self.is_ignored_word(word) {
                     return (*word).to_string();
                 }
 
@@ -1244,6 +1302,11 @@ impl MD063HeadingCapitalization {
                     return Self::apply_canonical_form_to_word(word, canonical);
                 }
 
+                // An ignore-words entry is kept whole, hyphens included
+                if self.is_ignored_word(word) {
+                    return (*word).to_string();
+                }
+
                 // Handle hyphenated words
                 if word.contains('-') {
                     return self.handle_hyphenated_word(word, is_first, is_last);
@@ -1276,9 +1339,10 @@ impl MD063HeadingCapitalization {
     }
 
     /// Fix an ATX heading line
-    fn fix_atx_heading(&self, _line: &str, heading: &crate::lint_context::HeadingInfo, fixed_text: &str) -> String {
-        // Parse the line to preserve structure
-        let indent = " ".repeat(heading.marker_column);
+    fn fix_atx_heading(&self, line: &str, heading: &crate::lint_context::HeadingInfo, fixed_text: &str) -> String {
+        // Everything before the `#`s stays: the indentation and, for a heading
+        // that opens a list item, the list marker
+        let indent = &line[..heading.marker_column];
         let hashes = "#".repeat(heading.level as usize);
 
         // Reconstruct with closing sequence if present
@@ -1291,9 +1355,10 @@ impl MD063HeadingCapitalization {
     }
 
     /// Fix a Setext heading line
-    fn fix_setext_heading(&self, line: &str, _heading: &crate::lint_context::HeadingInfo, fixed_text: &str) -> String {
-        // Preserve leading whitespace from original line
-        let leading_ws: String = line.chars().take_while(|c| c.is_whitespace()).collect();
+    fn fix_setext_heading(&self, line: &str, heading: &crate::lint_context::HeadingInfo, fixed_text: &str) -> String {
+        // Everything before the text stays: the indentation and, for a heading
+        // that opens a list item, the list marker
+        let leading_ws = &line[..heading.content_column];
 
         format!("{leading_ws}{fixed_text}")
     }
@@ -1338,21 +1403,44 @@ impl MD063HeadingCapitalization {
         first_idx: usize,
         last_idx: usize,
         heading: &crate::lint_context::HeadingInfo,
+        quoted: bool,
         flavor: crate::config::MarkdownFlavor,
     ) -> Option<Vec<String>> {
-        let bodies: Vec<(&str, &str)> = (first_idx..=last_idx)
+        let quote_depth = if quoted {
+            ctx.lines
+                .get(last_idx + 1)
+                .and_then(|underline| crate::utils::blockquote::parse_blockquote_prefix(underline.content(ctx.content)))
+                .map_or(0, |prefix| prefix.nesting_level)
+        } else {
+            0
+        };
+        let bodies: Vec<(&str, &str, &str)> = (first_idx..=last_idx)
             .map(|idx| {
                 let line = ctx.lines[idx].content(ctx.content);
-                if idx < last_idx && ctx.line_ends_with_hard_break(idx + 1) {
-                    line.split_at(line.len() - 1)
+                // The first line may open with a list marker, which is not
+                // one of the heading's words; a line inside a blockquote
+                // carries the quote markers, which are not either
+                let (prefix, line) = if idx == first_idx {
+                    line.split_at(heading.content_column)
+                } else if quoted {
+                    // Only the heading's own quote markers are the quote's; a
+                    // `>` further in is text of the heading
+                    let margin = crate::utils::blockquote::quote_margin_len(line, quote_depth).unwrap_or(0);
+                    line.split_at(margin)
                 } else {
-                    (line, "")
+                    ("", line)
+                };
+                if idx < last_idx && ctx.line_ends_with_hard_break(idx + 1) {
+                    let (body, hard_break) = line.split_at(line.len() - 1);
+                    (prefix, body, hard_break)
+                } else {
+                    (prefix, line, "")
                 }
             })
             .collect();
         let fixed_text = self.apply_capitalization(&heading.raw_text, flavor);
         let fixed_words: Vec<&str> = fixed_text.split_whitespace().collect();
-        let original_words: usize = bodies.iter().map(|(body, _)| body.split_whitespace().count()).sum();
+        let original_words: usize = bodies.iter().map(|(_, body, _)| body.split_whitespace().count()).sum();
         if fixed_words.len() != original_words {
             return None;
         }
@@ -1361,7 +1449,9 @@ impl MD063HeadingCapitalization {
         Some(
             bodies
                 .iter()
-                .map(|(body, hard_break)| format!("{}{hard_break}", Self::rewrite_words(body, &mut words)))
+                .map(|(prefix, body, hard_break)| {
+                    format!("{prefix}{}{hard_break}", Self::rewrite_words(body, &mut words))
+                })
                 .collect(),
         )
     }
@@ -1381,7 +1471,7 @@ impl Rule for MD063HeadingCapitalization {
     }
 
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        !ctx.likely_has_headings() || !ctx.lines.iter().any(|line| line.heading.is_some())
+        !ctx.likely_has_headings() || ctx.headings().next().is_none()
     }
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
@@ -1393,75 +1483,79 @@ impl Rule for MD063HeadingCapitalization {
 
         let mut warnings = Vec::new();
 
-        for (line_num, line_info) in ctx.lines.iter().enumerate() {
-            if let Some(heading) = &line_info.heading {
-                // Check level filter
-                if heading.level < self.config.min_level || heading.level > self.config.max_level {
-                    continue;
-                }
+        let edges = crate::utils::blockquote::container_edges(ctx);
 
-                // Skip headings in code blocks (indented headings)
-                if line_info.visual_indent >= 4 && matches!(heading.style, crate::lint_context::HeadingStyle::ATX) {
-                    continue;
-                }
+        for parsed in ctx.headings() {
+            let line_num = parsed.line_num - 1;
+            let line_info = parsed.line_info;
+            let heading = parsed.heading;
+            // Check level filter
+            if heading.level < self.config.min_level || heading.level > self.config.max_level {
+                continue;
+            }
 
-                // Apply capitalization and compare
-                let original_text = &heading.raw_text;
-                let fixed_text = self.apply_heading_capitalization(ctx, line_num, heading);
+            // Skip headings in code blocks (indented headings)
+            if !parsed.is_blockquote()
+                && crate::utils::blockquote::is_indented_past_edge(&edges, line_num, line_info.content(ctx.content))
+                && matches!(heading.style, crate::lint_context::HeadingStyle::ATX)
+            {
+                continue;
+            }
 
-                if original_text != &fixed_text {
-                    let line = line_info.content(ctx.content);
-                    let style_name = match self.config.style {
-                        HeadingCapStyle::TitleCase => "title case",
-                        HeadingCapStyle::SentenceCase => "sentence case",
-                        HeadingCapStyle::AllCaps => "ALL CAPS",
-                    };
+            // Apply capitalization and compare
+            let original_text = &heading.raw_text;
+            let fixed_text = self.apply_heading_capitalization(ctx, line_num, heading);
 
-                    // A setext heading's text is the whole paragraph its
-                    // underline ends, so the warning covers every one of those
-                    // lines and the fix rewrites them where they stand.
-                    if heading.text_lines > 1 {
-                        let first_idx = line_num + 1 - heading.text_lines;
-                        let first_line = ctx.lines[first_idx].content(ctx.content);
-                        let fix = self
-                            .fix_setext_heading_span(ctx, first_idx, line_num, heading, ctx.flavor)
-                            .map(|rewritten| {
-                                let range = ctx.line_content_byte_range(first_idx + 1).start
-                                    ..ctx.line_content_byte_range(line_num + 1).end;
-                                Fix::new(range, rewritten.join("\n"))
-                            });
-                        warnings.push(LintWarning {
-                            rule_name: Some(self.name().to_string()),
-                            line: first_idx + 1,
-                            column: byte_to_char_count(first_line, heading.content_column),
-                            end_line: line_num + 1,
-                            end_column: line.trim_end().chars().count() + 1,
-                            message: format!("Heading should use {style_name}: '{original_text}' -> '{fixed_text}'"),
-                            severity: Severity::Warning,
-                            fix,
+            if original_text != &fixed_text {
+                let line = line_info.content(ctx.content);
+                let style_name = match self.config.style {
+                    HeadingCapStyle::TitleCase => "title case",
+                    HeadingCapStyle::SentenceCase => "sentence case",
+                    HeadingCapStyle::AllCaps => "ALL CAPS",
+                };
+
+                // A setext heading's text is the whole paragraph its
+                // underline ends, so the warning covers every one of those
+                // lines and the fix rewrites them where they stand.
+                if heading.text_lines > 1 {
+                    let first_idx = line_num + 1 - heading.text_lines;
+                    let first_line = ctx.lines[first_idx].content(ctx.content);
+                    let fix = self
+                        .fix_setext_heading_span(ctx, first_idx, line_num, heading, parsed.is_blockquote(), ctx.flavor)
+                        .map(|rewritten| {
+                            let range = ctx.line_content_byte_range(first_idx + 1).start
+                                ..ctx.line_content_byte_range(line_num + 1).end;
+                            Fix::new(range, rewritten.join("\n"))
                         });
-                        continue;
-                    }
-
                     warnings.push(LintWarning {
                         rule_name: Some(self.name().to_string()),
-                        line: line_num + 1,
-                        column: byte_to_char_count(line, heading.content_column),
+                        line: first_idx + 1,
+                        column: byte_to_char_count(first_line, heading.content_column),
                         end_line: line_num + 1,
-                        end_column: byte_to_char_count(line, heading.content_column) + original_text.chars().count(),
+                        end_column: line.trim_end().chars().count() + 1,
                         message: format!("Heading should use {style_name}: '{original_text}' -> '{fixed_text}'"),
                         severity: Severity::Warning,
-                        fix: Some(Fix::new(
-                            ctx.line_content_byte_range(line_num + 1),
-                            match heading.style {
-                                crate::lint_context::HeadingStyle::ATX => {
-                                    self.fix_atx_heading(line, heading, &fixed_text)
-                                }
-                                _ => self.fix_setext_heading(line, heading, &fixed_text),
-                            },
-                        )),
+                        fix,
                     });
+                    continue;
                 }
+
+                warnings.push(LintWarning {
+                    rule_name: Some(self.name().to_string()),
+                    line: line_num + 1,
+                    column: byte_to_char_count(line, heading.content_column),
+                    end_line: line_num + 1,
+                    end_column: byte_to_char_count(line, heading.content_column) + original_text.chars().count(),
+                    message: format!("Heading should use {style_name}: '{original_text}' -> '{fixed_text}'"),
+                    severity: Severity::Warning,
+                    fix: Some(Fix::new(
+                        ctx.line_content_byte_range(line_num + 1),
+                        match heading.style {
+                            crate::lint_context::HeadingStyle::ATX => self.fix_atx_heading(line, heading, &fixed_text),
+                            _ => self.fix_setext_heading(line, heading, &fixed_text),
+                        },
+                    )),
+                });
             }
         }
 
@@ -1478,49 +1572,60 @@ impl Rule for MD063HeadingCapitalization {
         let lines = ctx.raw_lines();
         let mut fixed_lines: Vec<String> = lines.iter().map(|&s| s.to_string()).collect();
 
-        for (line_num, line_info) in ctx.lines.iter().enumerate() {
+        let edges = crate::utils::blockquote::container_edges(ctx);
+
+        for parsed in ctx.headings() {
+            let line_num = parsed.line_num - 1;
+            let line_info = parsed.line_info;
+            let heading = parsed.heading;
             // Skip lines where the rule is disabled via inline config
             if ctx.is_rule_disabled(self.name(), line_num + 1) {
                 continue;
             }
 
-            if let Some(heading) = &line_info.heading {
-                // Check level filter
-                if heading.level < self.config.min_level || heading.level > self.config.max_level {
-                    continue;
-                }
+            // Check level filter
+            if heading.level < self.config.min_level || heading.level > self.config.max_level {
+                continue;
+            }
 
-                // Skip headings in code blocks
-                if line_info.visual_indent >= 4 && matches!(heading.style, crate::lint_context::HeadingStyle::ATX) {
-                    continue;
-                }
+            // Skip headings in code blocks
+            if !parsed.is_blockquote()
+                && crate::utils::blockquote::is_indented_past_edge(&edges, line_num, line_info.content(ctx.content))
+                && matches!(heading.style, crate::lint_context::HeadingStyle::ATX)
+            {
+                continue;
+            }
 
-                let original_text = &heading.raw_text;
-                let fixed_text = self.apply_heading_capitalization(ctx, line_num, heading);
+            let original_text = &heading.raw_text;
+            let fixed_text = self.apply_heading_capitalization(ctx, line_num, heading);
 
-                if original_text != &fixed_text {
-                    let line = line_info.content(ctx.content);
-                    // A setext heading's text is the whole paragraph its
-                    // underline ends, so each of those lines keeps its own words.
-                    if heading.text_lines > 1 {
-                        let first_idx = line_num + 1 - heading.text_lines;
-                        // The warning is dropped when any of the heading's
-                        // lines is disabled, and the rewrite goes with it.
-                        if (first_idx..line_num).any(|idx| ctx.is_rule_disabled(self.name(), idx + 1)) {
-                            continue;
-                        }
-                        if let Some(rewritten) =
-                            self.fix_setext_heading_span(ctx, first_idx, line_num, heading, ctx.flavor)
-                        {
-                            fixed_lines[first_idx..=line_num].clone_from_slice(&rewritten);
-                        }
+            if original_text != &fixed_text {
+                let line = line_info.content(ctx.content);
+                // A setext heading's text is the whole paragraph its
+                // underline ends, so each of those lines keeps its own words.
+                if heading.text_lines > 1 {
+                    let first_idx = line_num + 1 - heading.text_lines;
+                    // The warning is dropped when any of the heading's
+                    // lines is disabled, and the rewrite goes with it.
+                    if (first_idx..line_num).any(|idx| ctx.is_rule_disabled(self.name(), idx + 1)) {
                         continue;
                     }
-                    fixed_lines[line_num] = match heading.style {
-                        crate::lint_context::HeadingStyle::ATX => self.fix_atx_heading(line, heading, &fixed_text),
-                        _ => self.fix_setext_heading(line, heading, &fixed_text),
-                    };
+                    if let Some(rewritten) = self.fix_setext_heading_span(
+                        ctx,
+                        first_idx,
+                        line_num,
+                        heading,
+                        parsed.is_blockquote(),
+                        ctx.flavor,
+                    ) {
+                        fixed_lines[first_idx..=line_num].clone_from_slice(&rewritten);
+                    }
+                    continue;
                 }
+                fixed_lines[line_num] = match heading.style {
+                    crate::lint_context::HeadingStyle::ATX => self.fix_atx_heading(line, heading, &fixed_text),
+                    _ => self.fix_setext_heading(line, heading, &fixed_text),
+                };
             }
         }
 
@@ -1575,6 +1680,39 @@ mod tests {
             ..Default::default()
         };
         MD063HeadingCapitalization::from_config_struct(config)
+    }
+
+    #[test]
+    fn test_heading_indent_counts_from_the_list_item_content_column() {
+        let rule = create_rule();
+        for (source, expected) in [
+            ("- x\n\n    ## hello world\n", "- x\n\n    ## Hello World\n"),
+            ("- x\n\n     ## hello world\n", "- x\n\n     ## Hello World\n"),
+            ("1. x\n\n    ## hello world\n", "1. x\n\n    ## Hello World\n"),
+            ("10. x\n\n    ## hello world\n", "10. x\n\n    ## Hello World\n"),
+            ("10. x\n\n     ## hello world\n", "10. x\n\n     ## Hello World\n"),
+            ("- x\n\n\t## hello world\n", "- x\n\n\t## Hello World\n"),
+        ] {
+            let ctx = LintContext::new(source, crate::config::MarkdownFlavor::Standard, None);
+            assert_eq!(rule.check(&ctx).unwrap().len(), 1, "{source:?}");
+            assert_eq!(rule.fix(&ctx).unwrap(), expected, "{source:?}");
+        }
+    }
+
+    #[test]
+    fn test_heading_four_columns_past_the_list_item_content_column_is_code() {
+        let rule = create_rule();
+        for source in [
+            "- x\n\n      ## hello world\n",
+            "1. x\n\n       ## hello world\n",
+            "10. x\n\n        ## hello world\n",
+            "- x\n\n\t\t## hello world\n",
+            "    ## hello world\n",
+        ] {
+            let ctx = LintContext::new(source, crate::config::MarkdownFlavor::Standard, None);
+            assert!(rule.check(&ctx).unwrap().is_empty(), "{source:?}");
+            assert_eq!(rule.fix(&ctx).unwrap(), source, "{source:?}");
+        }
     }
 
     // Title case tests

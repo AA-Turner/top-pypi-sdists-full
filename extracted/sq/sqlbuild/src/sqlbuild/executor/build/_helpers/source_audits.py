@@ -4,18 +4,21 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlbuild._native import (
+    AuditPlanEntry,
+    CompiledObjectKey,
+    CompiledResourceType,
+    PlanOutput,
+    audit_resource_id,
+)
 from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
 from sqlbuild.compiler.auditing.types import AuditOutcome, AuditRunScope
-from sqlbuild.compiler.compile.models import CompiledObjectKey
-from sqlbuild.compiler.compile.types import CompiledResourceType
-from sqlbuild.compiler.planner.models import AuditPlanEntry, PlanOutput
 from sqlbuild.executor.auditing.main._execute_reporting_errors import (
     execute_audit_reporting_errors,
 )
 from sqlbuild.executor.auditing.main.publish_completed_audit_results import (
     publish_completed_audit_results,
 )
-from sqlbuild.executor.auditing.main.resource_id import audit_resource_id
 from sqlbuild.executor.auditing.models import AuditExecutionResult
 from sqlbuild.executor.build._helpers.blocking import downstream_blocked_keys
 from sqlbuild.executor.build.models import SourceAuditRunResult

@@ -114,15 +114,21 @@ class YankCandidates:
             for _version, file in versions
         )
         cached = tuple(
-            candidate for candidate in result if self.installable(candidate, versions)
+            candidate
+            for candidate in result
+            if self.installable(candidate, versions, assume_sorted=True)
         )
         self.candidates[package] = cached
         return cached
 
     def installable(
-        self, candidate: Candidate, versions: Sequence[tuple[Version, DistFile]]
+        self,
+        candidate: Candidate,
+        versions: Sequence[tuple[Version, DistFile]],
+        *,
+        assume_sorted: bool = False,
     ) -> bool:
-        """Require an sdist among this candidate's files for sdist-install."""
+        """Require an sdist for sdist-install; sorted inputs must be newest first."""
         if (
             self.provider.effective_dist_policy(
                 candidate.base,
@@ -132,12 +138,16 @@ class YankCandidates:
             is not DistPolicy.SDIST_INSTALL
         ):
             return True
+        files = (
+            dists_at_version(versions, candidate.version)
+            if assume_sorted
+            else (file for version, file in versions if version == candidate.version)
+        )
         return any(
-            version == candidate.version
-            and str(intern_version(file.version)) == candidate.label
+            str(intern_version(file.version)) == candidate.label
             and isinstance(file, SdistFile)
             and bool(file.yanked) == candidate.withdrawn
-            for version, file in versions
+            for file in files
         )
 
     def preparation_provider(self, candidate: Candidate) -> Provider:

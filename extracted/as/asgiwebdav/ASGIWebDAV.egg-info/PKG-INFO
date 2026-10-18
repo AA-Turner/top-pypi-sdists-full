@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ASGIWebDAV
-Version: 2.0.2
+Version: 2.1.0
 Summary: An asynchronous WebDAV server implementation, support multi-provider.
 Author: Rex Zhang
 Author-email: rex.zhang@gmail.com
@@ -10,13 +10,13 @@ Project-URL: repository, https://github.com/rexzhang/asgi-webdav
 Project-URL: changelog, https://github.com/rexzhang/asgi-webdav/blob/main/docs/changelog.en.md
 Keywords: webdav,asgi,asyncio
 Classifier: Development Status :: 4 - Beta
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: asgiref
@@ -24,21 +24,20 @@ Requires-Dist: aiofiles>=25.1.0
 Requires-Dist: ASGIMiddlewareStaticFile>=0.7.0
 Requires-Dist: xmltodict~=1.0.2
 Requires-Dist: dataclass-wizard[dotenv]~=1.0.0
-Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: chardet
 Requires-Dist: click
 Provides-Extra: full
 Requires-Dist: uvicorn; extra == "full"
-Requires-Dist: uvloop; extra == "full"
-Requires-Dist: httptools; extra == "full"
+Requires-Dist: uvloop>=0.23; sys_platform != "win32" and extra == "full"
+Requires-Dist: httptools>=0.9; extra == "full"
 Requires-Dist: backports.zstd; python_version < "3.14" and extra == "full"
 Requires-Dist: bonsai~=1.5.0; extra == "full"
 Requires-Dist: httpx; extra == "full"
 Requires-Dist: httpx-kerberos; extra == "full"
 Provides-Extra: standalone
 Requires-Dist: uvicorn; extra == "standalone"
-Requires-Dist: uvloop; extra == "standalone"
-Requires-Dist: httptools; extra == "standalone"
+Requires-Dist: uvloop>=0.23; sys_platform != "win32" and extra == "standalone"
+Requires-Dist: httptools>=0.9; extra == "standalone"
 Requires-Dist: backports.zstd; python_version < "3.14" and extra == "standalone"
 Provides-Extra: ldap
 Requires-Dist: bonsai~=1.5.0; extra == "ldap"

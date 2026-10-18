@@ -265,6 +265,182 @@ async fn test_inline_enable_under_an_unrelated_ignore_pattern_is_silent() {
     );
 }
 
+/// A server whose configuration is explicit, so per-file discovery cannot replace
+/// the patterns given to the test.
+async fn explicit_config_server() -> RumdlLanguageServer {
+    let server = create_test_server();
+    server.config.write().await.config_path = Some("rumdl.toml".to_string());
+    server
+}
+
+fn has_rule(diagnostics: &[Diagnostic], rule: &str) -> bool {
+    diagnostics
+        .iter()
+        .any(|d| d.code == Some(NumberOrString::String(rule.to_string())))
+}
+
+/// An unsaved buffer names no file, so per-file-ignores match it by its URI, the
+/// way `--stdin-filename untitled:Untitled-2` does on the command line.
+#[tokio::test]
+async fn test_per_file_ignores_match_an_untitled_buffer_by_uri() {
+    let server = explicit_config_server().await;
+    server
+        .rumdl_config
+        .write()
+        .await
+        .per_file_ignores
+        .insert("untitled:Untitled-*".to_string(), vec!["MD041".to_string()]);
+    let text = "no heading here\n";
+
+    let ignored = server
+        .lint_document(&Url::parse("untitled:Untitled-2").unwrap(), text, false)
+        .await
+        .unwrap();
+    assert!(
+        !has_rule(&ignored, "MD041"),
+        "matched buffer must be ignored: {ignored:?}"
+    );
+
+    // Controls: a buffer the pattern does not cover, and a saved file.
+    let other = server
+        .lint_document(&Url::parse("untitled:Scratch").unwrap(), text, false)
+        .await
+        .unwrap();
+    assert!(has_rule(&other, "MD041"), "unmatched buffer must report: {other:?}");
+    let saved = server
+        .lint_document(&Url::from_file_path(test_temp_path("note.md")).unwrap(), text, false)
+        .await
+        .unwrap();
+    assert!(has_rule(&saved, "MD041"), "saved file must report: {saved:?}");
+}
+
+/// A path pattern does not cover a URI that is not a path.
+#[tokio::test]
+async fn test_path_style_ignore_pattern_does_not_cover_an_untitled_buffer() {
+    let server = explicit_config_server().await;
+    server
+        .rumdl_config
+        .write()
+        .await
+        .per_file_ignores
+        .insert("**/scratch-*.md".to_string(), vec!["MD041".to_string()]);
+
+    let diagnostics = server
+        .lint_document(&Url::parse("untitled:Untitled-2").unwrap(), "no heading here\n", false)
+        .await
+        .unwrap();
+    assert!(has_rule(&diagnostics, "MD041"), "got: {diagnostics:?}");
+}
+
+/// Fix-all, code actions and formatting resolve per-file-ignores the same way
+/// diagnostics do, so an ignored rule is neither reported nor fixed.
+#[tokio::test]
+async fn test_untitled_buffer_per_file_ignores_apply_to_fixes_and_actions() {
+    let server = explicit_config_server().await;
+    server
+        .rumdl_config
+        .write()
+        .await
+        .per_file_ignores
+        .insert("untitled:Untitled-*".to_string(), vec!["MD009".to_string()]);
+    // One trailing space, which MD009 flags and fixes.
+    let text = "# Title\n\nText. \n";
+    let ignored = Url::parse("untitled:Untitled-2").unwrap();
+    let other = Url::parse("untitled:Scratch").unwrap();
+
+    assert_eq!(server.apply_all_fixes(&ignored, text).await.unwrap(), None);
+    assert!(server.apply_all_fixes(&other, text).await.unwrap().is_some());
+
+    let whole = Range::new(Position::new(0, 0), Position::new(3, 0));
+    let actions = server.get_code_actions(&ignored, text, whole).await.unwrap();
+    assert!(
+        actions.iter().all(|a| !a.title.contains("MD009")),
+        "ignored rule offers no action: {actions:?}"
+    );
+    let actions = server.get_code_actions(&other, text, whole).await.unwrap();
+    assert!(
+        actions.iter().any(|a| a.title.contains("MD009")),
+        "control: {actions:?}"
+    );
+}
+
+/// The merge-conflict guard is itself a rule per-file-ignores can switch off, so
+/// it matches an untitled buffer by URI like every other rule does.
+#[tokio::test]
+async fn test_untitled_buffer_per_file_ignore_switches_off_the_conflict_guard() {
+    let server = explicit_config_server().await;
+    server
+        .rumdl_config
+        .write()
+        .await
+        .per_file_ignores
+        .insert("untitled:Untitled-*".to_string(), vec!["MD092".to_string()]);
+    let text = "# Title\n\n<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> branch\n\nText. \n";
+    let ignored = Url::parse("untitled:Untitled-2").unwrap();
+    let other = Url::parse("untitled:Scratch").unwrap();
+
+    assert!(
+        !has_rule(&server.lint_document(&ignored, text, false).await.unwrap(), "MD092"),
+        "the ignored guard must not report"
+    );
+    assert!(has_rule(
+        &server.lint_document(&other, text, false).await.unwrap(),
+        "MD092"
+    ));
+
+    assert!(server.apply_all_fixes(&ignored, text).await.unwrap().is_some());
+    assert_eq!(server.apply_all_fixes(&other, text).await.unwrap(), None);
+
+    let whole = Range::new(Position::new(0, 0), Position::new(9, 0));
+    let actions = server.get_code_actions(&ignored, text, whole).await.unwrap();
+    assert!(actions.iter().any(|a| a.title.contains("MD009")), "got: {actions:?}");
+    assert!(server.get_code_actions(&other, text, whole).await.unwrap().is_empty());
+
+    for uri in [&ignored, &other] {
+        server.documents.write().await.insert(
+            uri.clone(),
+            DocumentEntry {
+                content: text.into(),
+                version: Some(1),
+                from_disk: false,
+            },
+        );
+    }
+    let options = FormattingOptions::default();
+    let (original, formatted) = server.format_document(&ignored, &options).await.unwrap();
+    assert_ne!(original, formatted, "the ignored guard must not block formatting");
+    let (original, formatted) = server.format_document(&other, &options).await.unwrap();
+    assert_eq!(original, formatted, "the guard blocks formatting a conflicted buffer");
+}
+
+/// `exclude` patterns match an untitled buffer by its URI too.
+#[tokio::test]
+async fn test_exclude_matches_an_untitled_buffer_by_uri() {
+    let server = explicit_config_server().await;
+    server
+        .rumdl_config
+        .write()
+        .await
+        .global
+        .exclude
+        .push("untitled:Untitled-*".to_string());
+    let text = "no heading here\n";
+
+    let excluded = Url::parse("untitled:Untitled-2").unwrap();
+    assert!(server.should_exclude_uri(&excluded).await);
+    assert!(
+        server.lint_document(&excluded, text, false).await.unwrap().is_empty(),
+        "an excluded buffer gets no diagnostics"
+    );
+
+    let other = Url::parse("untitled:Scratch").unwrap();
+    assert!(!server.should_exclude_uri(&other).await);
+    assert!(has_rule(
+        &server.lint_document(&other, text, false).await.unwrap(),
+        "MD041"
+    ));
+}
+
 #[tokio::test]
 async fn test_get_code_actions() {
     let server = create_test_server();
@@ -309,6 +485,44 @@ async fn test_source_fix_all_with_single_fixable_issue() {
         !fix_all_actions.is_empty(),
         "source.fixAll.rumdl should be available even with a single fixable issue"
     );
+}
+
+#[tokio::test]
+async fn fix_all_behind_a_byte_order_mark_edits_the_right_text_and_keeps_the_mark() {
+    let server = create_test_server();
+    let uri = Url::parse("file:///test.md").unwrap();
+    let text = "\u{feff}# Title\n\nbody   \n\n\n\nend\n";
+    let range = Range {
+        start: Position { line: 0, character: 0 },
+        end: Position { line: 0, character: 8 },
+    };
+    let actions = server.get_code_actions(&uri, text, range).await.unwrap();
+    let fix_all = actions
+        .iter()
+        .find(|a| a.kind.as_ref().is_some_and(|k| k.as_str() == "source.fixAll.rumdl"))
+        .expect("a fix-all action");
+    let edit = &fix_all.edit.as_ref().unwrap().changes.as_ref().unwrap()[&uri][0];
+    assert_eq!(edit.new_text, "\u{feff}# Title\n\nbody\n\nend\n");
+}
+
+#[test]
+fn fence_language_completion_works_behind_a_byte_order_mark() {
+    let plain = RumdlLanguageServer::detect_code_fence_language_position(
+        "```py\ncode\n```\n",
+        Position { line: 0, character: 5 },
+    );
+    let marked = RumdlLanguageServer::detect_code_fence_language_position(
+        "\u{feff}```py\ncode\n```\n",
+        Position { line: 0, character: 6 },
+    );
+    assert_eq!(plain, Some((3, "py".to_string())));
+    assert_eq!(marked, Some((4, "py".to_string())));
+    // A mark in front of a later fence is ordinary text, so it is no fence.
+    let later = RumdlLanguageServer::detect_code_fence_language_position(
+        "# T\n\n\u{feff}```py\ncode\n```\n",
+        Position { line: 2, character: 6 },
+    );
+    assert_eq!(later, None);
 }
 
 #[tokio::test]
@@ -655,6 +869,36 @@ async fn test_document_symbol_outline() {
     assert_eq!(children[1].name, "Child B");
     let grandchildren = children[1].children.as_ref().expect("Child B has a child");
     assert_eq!(grandchildren[0].name, "Grandchild");
+}
+
+#[tokio::test]
+async fn document_symbols_include_a_first_line_heading_behind_a_byte_order_mark() {
+    let server = create_test_server();
+    *server.client_supports_hierarchical_symbols.write().await = true;
+    let uri = Url::parse("file:///marked-outline.md").unwrap();
+    server.documents.write().await.insert(
+        uri.clone(),
+        DocumentEntry {
+            content: "\u{feff}# Top\n\n## Child\n".to_string(),
+            version: Some(1),
+            from_disk: false,
+        },
+    );
+
+    let params = DocumentSymbolParams {
+        text_document: TextDocumentIdentifier { uri },
+        work_done_progress_params: WorkDoneProgressParams::default(),
+        partial_result_params: PartialResultParams::default(),
+    };
+    let result = server.document_symbol(params).await.unwrap();
+    let Some(DocumentSymbolResponse::Nested(symbols)) = result else {
+        panic!("expected nested document symbols, got {result:?}");
+    };
+    assert_eq!(symbols.len(), 1);
+    assert_eq!(symbols[0].name, "Top");
+    assert_eq!(symbols[0].selection_range.start.character, 3);
+    assert_eq!(symbols[0].selection_range.end.character, 6);
+    assert_eq!(symbols[0].children.as_ref().expect("Top has a child")[0].name, "Child");
 }
 
 #[tokio::test]
@@ -5141,58 +5385,61 @@ async fn test_goto_definition_cursor_not_on_link() {
 async fn test_find_references_positions_links_after_multibyte_text() {
     use crate::lsp::index_worker::cross_file_rules;
 
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().resolve_like_server();
-    let target_file = root.join("t.md");
-    let source_file = root.join("s.md");
-    let target = "## Sub Part \u{1F600}\n\nText.\n";
-    let source = "\u{1F600}\u{1F600} \u{e9} [x](t.md#sub-part-) tail\n";
-    std::fs::write(&target_file, target).unwrap();
-    std::fs::write(&source_file, source).unwrap();
+    for prefix in ["", "\u{feff}"] {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().resolve_like_server();
+        let target_file = root.join("t.md");
+        let source_file = root.join("s.md");
+        let target = "## Sub Part \u{1F600}\n\nText.\n";
+        let source = format!("{prefix}\u{1F600} \u{e9} \u{1F600}[x](t.md#sub-part-) tail\n");
+        std::fs::write(&target_file, target).unwrap();
+        std::fs::write(&source_file, &source).unwrap();
 
-    let server = create_test_server();
-    let target_uri = Url::from_file_path(&target_file).unwrap();
-    server.documents.write().await.insert(
-        target_uri.clone(),
-        DocumentEntry {
-            content: target.to_string(),
-            version: Some(1),
-            from_disk: false,
-        },
-    );
-    {
-        let rules = cross_file_rules(&Config::default());
-        let mut index = server.workspace_index.write().await;
-        for (path, content) in [(&target_file, target), (&source_file, source)] {
-            let file_index = crate::build_file_index_only(
-                content,
-                &rules,
-                crate::config::MarkdownFlavor::Standard,
-                Some(path.clone()),
-            );
-            index.insert_file(path.clone(), file_index);
-        }
-    }
-
-    // On the heading, and on body text, which lists every link to the file.
-    for cursor in [Position { line: 0, character: 5 }, Position { line: 2, character: 1 }] {
-        let locations = server
-            .handle_references(&target_uri, cursor)
-            .await
-            .expect("the link references the file and its heading");
-
-        // `[` follows two surrogate pairs, a space, `é` and a space: UTF-16 column 7.
-        let source_uri = Url::from_file_path(&source_file).unwrap();
-        let starts: Vec<_> = locations
-            .iter()
-            .filter(|location| location.uri == source_uri)
-            .map(|location| location.range.start)
-            .collect();
-        assert_eq!(
-            starts,
-            [Position { line: 0, character: 7 }],
-            "{cursor:?}: {locations:?}"
+        let server = create_test_server();
+        let target_uri = Url::from_file_path(&target_file).unwrap();
+        server.documents.write().await.insert(
+            target_uri.clone(),
+            DocumentEntry {
+                content: target.to_string(),
+                version: Some(1),
+                from_disk: false,
+            },
         );
+        {
+            let rules = cross_file_rules(&Config::default());
+            let mut index = server.workspace_index.write().await;
+            for (path, content) in [(&target_file, target), (&source_file, source.as_str())] {
+                let file_index = crate::build_file_index_only(
+                    content,
+                    &rules,
+                    crate::config::MarkdownFlavor::Standard,
+                    Some(path.clone()),
+                );
+                index.insert_file(path.clone(), file_index);
+            }
+        }
+
+        // On the heading, and on body text, which lists every link to the file.
+        for cursor in [Position { line: 0, character: 5 }, Position { line: 2, character: 1 }] {
+            let locations = server
+                .handle_references(&target_uri, cursor)
+                .await
+                .expect("the link references the file and its heading");
+
+            // The emoji immediately before `[` makes counting the BOM instead of
+            // that emoji observably wrong: two pairs + two spaces + `é` = 7.
+            let source_uri = Url::from_file_path(&source_file).unwrap();
+            let starts: Vec<_> = locations
+                .iter()
+                .filter(|location| location.uri == source_uri)
+                .map(|location| location.range.start)
+                .collect();
+            assert_eq!(
+                starts,
+                [Position { line: 0, character: 7 }],
+                "{cursor:?}: {locations:?}"
+            );
+        }
     }
 }
 
@@ -6624,23 +6871,23 @@ async fn test_lint_document_embedded_markdown_when_enabled() {
     }
 
     let uri = Url::parse("file:///test.md").unwrap();
-    // The embedded markdown block has trailing spaces (MD009 violation)
-    let text = "# Test\n\n```markdown\n# Hello  \n```\n";
+    // The embedded markdown block has no space after the hash (MD018 violation)
+    let text = "# Test\n\n```markdown\n#Hello\n```\n";
 
     let diagnostics = server.lint_document(&uri, text, true).await.unwrap();
 
-    // Should contain a diagnostic from the embedded block (trailing spaces on line 4)
+    // Should contain a diagnostic from the embedded block (missing heading space on line 4)
     let embedded_diags: Vec<_> = diagnostics
         .iter()
         .filter(|d| {
-            // Line 4 (0-indexed: 3) is the "# Hello  " line inside the code block
+            // Line 4 (0-indexed: 3) is the "#Hello" line inside the code block
             d.range.start.line == 3
         })
         .collect();
 
     assert!(
         !embedded_diags.is_empty(),
-        "Expected embedded markdown diagnostics for trailing spaces inside code block, got none. All diagnostics: {diagnostics:?}"
+        "Expected embedded markdown diagnostics for the heading inside the code block, got none. All diagnostics: {diagnostics:?}"
     );
 }
 
@@ -6650,7 +6897,7 @@ async fn test_lint_document_no_embedded_markdown_when_disabled() {
 
     // code_block_tools defaults to disabled
     let uri = Url::parse("file:///test.md").unwrap();
-    let text = "# Test\n\n```markdown\n# Hello  \n```\n";
+    let text = "# Test\n\n```markdown\n#Hello\n```\n";
 
     let diagnostics = server.lint_document(&uri, text, true).await.unwrap();
 
@@ -6701,20 +6948,20 @@ async fn test_lint_document_multiple_embedded_blocks() {
     }
 
     let uri = Url::parse("file:///test.md").unwrap();
-    // Two markdown blocks, each with trailing spaces
-    let text = "# Test\n\n```markdown\n# One  \n```\n\n```markdown\n# Two  \n```\n";
+    // Two markdown blocks, each with a missing heading space
+    let text = "# Test\n\n```markdown\n#One\n```\n\n```markdown\n#Two\n```\n";
 
     let diagnostics = server.lint_document(&uri, text, true).await.unwrap();
 
     // Should have diagnostics from both embedded blocks
     let block1_diags: Vec<_> = diagnostics
         .iter()
-        .filter(|d| d.range.start.line == 3) // "# One  " is line 4 (0-indexed: 3)
+        .filter(|d| d.range.start.line == 3) // "#One" is line 4 (0-indexed: 3)
         .collect();
 
     let block2_diags: Vec<_> = diagnostics
         .iter()
-        .filter(|d| d.range.start.line == 7) // "# Two  " is line 8 (0-indexed: 7)
+        .filter(|d| d.range.start.line == 7) // "#Two" is line 8 (0-indexed: 7)
         .collect();
 
     assert!(
@@ -6725,6 +6972,29 @@ async fn test_lint_document_multiple_embedded_blocks() {
         !block2_diags.is_empty(),
         "Expected diagnostics from second embedded block. All diagnostics: {diagnostics:?}"
     );
+}
+
+#[tokio::test]
+async fn test_lint_document_embedded_markdown_inside_blockquote() {
+    let server = create_test_server();
+
+    {
+        let mut cfg = server.rumdl_config.write().await;
+        cfg.code_block_tools = make_embedded_markdown_config();
+    }
+
+    let uri = Url::parse("file:///test.md").unwrap();
+    let text = "# Test\n\n> ```markdown\n> #Hello\n> ```\n";
+
+    let diagnostics = server.lint_document(&uri, text, true).await.unwrap();
+
+    // MD018 starts just past the hash, which sits after the blockquote's "> "
+    let starts: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| d.range.start.line == 3)
+        .map(|d| d.range.start.character)
+        .collect();
+    assert_eq!(starts, vec![3], "All diagnostics: {diagnostics:?}");
 }
 
 #[tokio::test]
@@ -6752,7 +7022,7 @@ async fn test_lint_document_embedded_markdown_md_alias() {
     }
 
     let uri = Url::parse("file:///test.md").unwrap();
-    let text = "# Test\n\n```md\n# Hello  \n```\n";
+    let text = "# Test\n\n```md\n#Hello\n```\n";
 
     let diagnostics = server.lint_document(&uri, text, true).await.unwrap();
 
@@ -7394,6 +7664,149 @@ async fn test_goto_definition_lowercase_line_anchor() {
     } else {
         panic!("Expected Scalar goto-definition response for a lowercase line anchor");
     }
+}
+
+/// The hover preview for `[x](guide.md#a)` when guide.md holds `target_content`
+/// and the workspace index lists a heading `a` on `line` (1-indexed, the last
+/// text line of a setext heading).
+async fn anchor_hover_preview(target_content: &str, line: usize, is_setext: bool) -> String {
+    use crate::workspace_index::{FileIndex, HeadingIndex};
+
+    let server = create_test_server();
+    let docs_dir = test_temp_path("rumdl-hover-level/docs");
+    let current_file = docs_dir.join("index.md");
+    let target_file = docs_dir.join("guide.md");
+    let current_uri = Url::from_file_path(&current_file).unwrap();
+    let target_uri = Url::from_file_path(&target_file).unwrap();
+
+    for (uri, content) in [
+        (&current_uri, "# Index\n\nSee [x](guide.md#a) here.\n"),
+        (&target_uri, target_content),
+    ] {
+        server.documents.write().await.insert(
+            uri.clone(),
+            DocumentEntry {
+                content: content.to_string(),
+                version: Some(1),
+                from_disk: false,
+            },
+        );
+    }
+    {
+        let mut index = server.workspace_index.write().await;
+        let mut fi = FileIndex::default();
+        fi.add_heading(HeadingIndex {
+            text: "a".to_string(),
+            auto_anchor: "a".to_string(),
+            custom_anchor: None,
+            line,
+            text_lines: 1,
+            is_setext,
+        });
+        index.insert_file(target_file.clone(), fi);
+    }
+
+    let hover = server
+        .handle_hover(&current_uri, Position { line: 2, character: 14 })
+        .await
+        .expect("hover for an anchor link");
+    let HoverContents::Markup(markup) = hover.contents else {
+        panic!("Expected markup hover contents");
+    };
+    markup.value
+}
+
+#[tokio::test]
+async fn test_hover_section_ends_at_the_parsed_level_of_a_heading_in_a_container() {
+    // (target document, line of the heading `a`, setext, text the section must
+    // hold, text that starts the next section)
+    let cases: [(&str, usize, bool, &str, &str); 5] = [
+        // A list item's heading: the line starts with a marker, not a `#`.
+        (
+            "- ## a\n\nbody\n\n### sub\n\n## next\n\nafter\n",
+            1,
+            false,
+            "### sub",
+            "## next",
+        ),
+        (
+            "1. # a\n\nbody\n\n## sub\n\n# next\n\nafter\n",
+            1,
+            false,
+            "## sub",
+            "# next",
+        ),
+        // A quoted heading.
+        (
+            "> ## a\n\nbody\n\n### sub\n\n## next\n\nafter\n",
+            1,
+            false,
+            "### sub",
+            "## next",
+        ),
+        // A quoted setext H1: its underline starts with `>`, not `=`.
+        (
+            "> a\n> ===\n\nbody\n\n## sub\n\n# next\n\nafter\n",
+            1,
+            true,
+            "## sub",
+            "# next",
+        ),
+        // A setext H1 opening a list item.
+        (
+            "- a\n  ===\n\nbody\n\n## sub\n\n# next\n\nafter\n",
+            1,
+            true,
+            "## sub",
+            "# next",
+        ),
+    ];
+    for (content, line, is_setext, inside, outside) in cases {
+        let preview = anchor_hover_preview(content, line, is_setext).await;
+        assert!(preview.contains("body"), "{content:?}: {preview:?}");
+        assert!(
+            preview.contains(inside),
+            "{content:?} must show {inside:?}: {preview:?}"
+        );
+        assert!(
+            !preview.contains(outside),
+            "{content:?} must stop before {outside:?}: {preview:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_hover_section_ends_at_a_quoted_heading() {
+    // (target document, text the section must hold, text that starts the next section)
+    let cases: [(&str, &str, &str); 4] = [
+        ("## a\n\nbody\n\n### sub\n\n> ## next\n\nafter\n", "### sub", "## next"),
+        ("# a\n\nbody\n\n> # next\n\nafter\n", "body", "# next"),
+        // A quoted heading nested in a list item.
+        ("# a\n\nbody\n\n- > # next\n\nafter\n", "body", "# next"),
+        // A quoted setext heading spanning two text lines ends the section at
+        // its first text line, not at its underline.
+        ("# a\n\nbody\n\n> multi\n> line\n> ===\n\nafter\n", "body", "multi"),
+    ];
+    for (content, inside, outside) in cases {
+        let preview = anchor_hover_preview(content, 1, false).await;
+        assert!(
+            preview.contains(inside),
+            "{content:?} must show {inside:?}: {preview:?}"
+        );
+        assert!(
+            !preview.contains(outside),
+            "{content:?} must stop before {outside:?}: {preview:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_hover_without_a_parsed_heading_on_the_indexed_line_has_no_section_end() {
+    // The index is stale: line 1 is no longer a heading. The preview must not
+    // invent a level to stop at, so it runs on to the line limit.
+    let preview = anchor_hover_preview("text\n\n# other\n\nmore\n", 1, false).await;
+    assert!(preview.contains("# other"), "{preview:?}");
+    assert!(preview.contains("more"), "{preview:?}");
 }
 
 #[tokio::test]
@@ -8183,6 +8596,124 @@ async fn test_prepare_rename_setext_heading() {
         assert_eq!(range.end.character, 18); // "Installation Guide"
     } else {
         panic!("Expected Range response");
+    }
+}
+
+#[tokio::test]
+async fn test_prepare_rename_keeps_the_marker_of_a_heading_on_a_list_marker_line() {
+    use crate::workspace_index::{FileIndex, HeadingIndex};
+
+    // (document, last text line, text lines, setext, expected (start line, start col, end line, end col))
+    type Case = (&'static str, usize, usize, bool, (u32, u32, u32, u32));
+    let cases: [Case; 6] = [
+        ("- a\n  ---\n", 1, 1, true, (0, 2, 0, 3)),
+        ("1. a\n   ---\n", 1, 1, true, (0, 3, 0, 4)),
+        ("- a\n  b\n  ---\n", 2, 2, true, (0, 2, 1, 3)),
+        ("- ## a\n", 1, 1, false, (0, 5, 0, 6)),
+        ("> - a\n>   ---\n", 1, 1, true, (0, 4, 0, 5)),
+        ("- - ## a ##\n", 1, 1, false, (0, 7, 0, 8)),
+    ];
+    for (n, (content, line, text_lines, is_setext, expected)) in cases.into_iter().enumerate() {
+        let server = create_test_server();
+        let file = test_temp_path(&format!("rumdl-rename-marker-{n}/doc.md"));
+        let uri = Url::from_file_path(&file).unwrap();
+        server.documents.write().await.insert(
+            uri.clone(),
+            DocumentEntry {
+                content: content.to_string(),
+                version: Some(1),
+                from_disk: false,
+            },
+        );
+        {
+            let mut index = server.workspace_index.write().await;
+            let mut fi = FileIndex::default();
+            fi.add_heading(HeadingIndex {
+                text: if text_lines == 2 { "a b" } else { "a" }.to_string(),
+                auto_anchor: "a".to_string(),
+                custom_anchor: None,
+                line,
+                text_lines,
+                is_setext,
+            });
+            index.insert_file(file.clone(), fi);
+        }
+
+        let position = Position {
+            line: (line - text_lines) as u32,
+            character: 5,
+        };
+        let Some(PrepareRenameResponse::Range(range)) = server.handle_prepare_rename(&uri, position).await else {
+            panic!("{content:?}: expected a rename range");
+        };
+        assert_eq!(
+            (
+                range.start.line,
+                range.start.character,
+                range.end.line,
+                range.end.character
+            ),
+            expected,
+            "{content:?}: the range must cover the heading text and leave the list marker alone"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_prepare_rename_range_follows_commonmark_atx_whitespace() {
+    use crate::workspace_index::{FileIndex, HeadingIndex};
+
+    // CommonMark strips only spaces and tabs around an ATX heading's content and
+    // before its closing sequence. (document, indexed text, expected end column
+    // of the range.) The start column is 2 in every row.
+    let cases: [(&str, &str, u32); 6] = [
+        // a `#` set off by an em space is text, not a closing sequence
+        ("# a #\u{2003}\n", "a #", 5),
+        // the same with a custom ID after it
+        ("# a #\u{2003} {#id}\n", "a #", 5),
+        // spaces before a real closing sequence are not part of the range
+        ("# a  ##\n", "a", 3),
+        // a tab separates the marker from the text
+        ("#\ta\n", "a", 3),
+        // a tab before the closing sequence
+        ("# a\t##\n", "a", 3),
+        // control: a space-separated closing sequence
+        ("# a ##\n", "a", 3),
+    ];
+    for (n, (content, text, end)) in cases.into_iter().enumerate() {
+        let server = create_test_server();
+        let file = test_temp_path(&format!("rumdl-rename-ws-{n}/doc.md"));
+        let uri = Url::from_file_path(&file).unwrap();
+        server.documents.write().await.insert(
+            uri.clone(),
+            DocumentEntry {
+                content: content.to_string(),
+                version: Some(1),
+                from_disk: false,
+            },
+        );
+        {
+            let mut index = server.workspace_index.write().await;
+            let mut fi = FileIndex::default();
+            fi.add_heading(HeadingIndex {
+                text: text.to_string(),
+                auto_anchor: "a".to_string(),
+                custom_anchor: None,
+                line: 1,
+                text_lines: 1,
+                is_setext: false,
+            });
+            index.insert_file(file.clone(), fi);
+        }
+        let position = Position { line: 0, character: 2 };
+        let Some(PrepareRenameResponse::Range(range)) = server.handle_prepare_rename(&uri, position).await else {
+            panic!("{content:?}: expected a rename range");
+        };
+        assert_eq!(
+            (range.start.character, range.end.character),
+            (2, end),
+            "{content:?}: the range must cover exactly the heading text"
+        );
     }
 }
 
@@ -12006,6 +12537,33 @@ async fn test_reflow_action_on_crlf_document_matches_the_lf_action() {
     );
 }
 
+/// An inline `rumdl-configure-file` comment sets the MD013 options the manual
+/// "Reflow paragraph" action uses, exactly like the same keys in a config file.
+#[tokio::test]
+async fn test_reflow_action_honours_inline_configure_file() {
+    let server = create_test_server();
+    let uri = Url::parse("file:///reflow-inline.md").unwrap();
+    let paragraph = "This is a long paragraph with enough words to exceed forty columns easily.";
+    let text = format!(
+        "# T\n\n<!-- rumdl-configure-file {{\"MD013\": {{\"line-length\": 40, \"reflow-mode\": \"normalize\"}}}} -->\n\n{paragraph}\n"
+    );
+    let range = Range {
+        start: Position { line: 4, character: 0 },
+        end: Position { line: 4, character: 0 },
+    };
+    let actions = server.get_code_actions(&uri, &text, range).await.unwrap();
+    let action = actions
+        .into_iter()
+        .find(|a| a.title == "Reflow paragraph")
+        .expect("MD013 must offer the reflow action on the over-long line");
+    let edits = action.edit.unwrap().changes.unwrap().remove(&uri).unwrap();
+    assert_eq!(edits.len(), 1);
+    assert_eq!(
+        edits[0].new_text,
+        "This is a long paragraph with enough\nwords to exceed forty columns easily.\n"
+    );
+}
+
 #[tokio::test]
 async fn test_merge_conflict_blocks_formatting_options_and_code_actions() {
     let server = create_test_server();
@@ -12129,6 +12687,93 @@ async fn test_rename_multi_line_setext_heading_replaces_the_whole_span() {
         edits.iter().any(|e| e.new_text == "setup"),
         "the link to the old anchor is updated: {edits:?}"
     );
+}
+
+/// A heading written on a list marker line is renamed in place: the edit starts
+/// after the marker, so the list item survives, and the link to the old anchor
+/// follows the new name.
+#[tokio::test]
+async fn test_rename_heading_on_a_list_marker_line_keeps_the_list_item() {
+    for (content, expected_start, expected_end) in [
+        ("- Alpha\n  ---\n\nSee [x](#alpha).\n", 2, 7),
+        ("- ## Alpha\n\nSee [x](#alpha).\n", 5, 10),
+    ] {
+        let server = create_test_server();
+        let file = test_temp_path("rumdl-marker-rename").join("doc.md");
+        let uri = Url::from_file_path(&file).unwrap();
+        server.documents.write().await.insert(
+            uri.clone(),
+            DocumentEntry {
+                content: content.to_string(),
+                version: Some(1),
+                from_disk: false,
+            },
+        );
+        server
+            .workspace_index
+            .write()
+            .await
+            .insert_file(file.clone(), index_for(content, &file));
+
+        let edit = server
+            .handle_rename(&uri, Position { line: 0, character: 4 }, "Beta")
+            .await
+            .unwrap_or_else(|| panic!("{content:?}: renaming must produce an edit"));
+        let changes = edit.changes.expect("the edit carries changes");
+        let edits = changes.get(&uri).expect("the document is edited");
+        let heading_edits: Vec<_> = edits.iter().filter(|e| e.new_text == "Beta").collect();
+        assert_eq!(
+            heading_edits.len(),
+            1,
+            "{content:?}: one edit for the heading: {edits:?}"
+        );
+        assert_eq!(
+            heading_edits[0].range,
+            Range {
+                start: Position {
+                    line: 0,
+                    character: expected_start
+                },
+                end: Position {
+                    line: 0,
+                    character: expected_end
+                },
+            },
+            "{content:?}: the edit covers only the heading text"
+        );
+        assert!(
+            edits.iter().any(|e| e.new_text == "beta"),
+            "{content:?}: the link follows the rename: {edits:?}"
+        );
+    }
+}
+
+/// An index that lags the buffer must not steer an edit into text that is no
+/// longer the heading it describes.
+#[tokio::test]
+async fn test_rename_declines_when_the_index_describes_a_different_heading() {
+    let server = create_test_server();
+    let file = test_temp_path("rumdl-stale-rename").join("doc.md");
+    let uri = Url::from_file_path(&file).unwrap();
+    let indexed = "- a\n  b\n  ---\n";
+    let buffer = "- a\n- # b\n";
+    server.documents.write().await.insert(
+        uri.clone(),
+        DocumentEntry {
+            content: buffer.to_string(),
+            version: Some(2),
+            from_disk: false,
+        },
+    );
+    server
+        .workspace_index
+        .write()
+        .await
+        .insert_file(file.clone(), index_for(indexed, &file));
+
+    let position = Position { line: 1, character: 5 };
+    assert!(server.handle_prepare_rename(&uri, position).await.is_none());
+    assert!(server.handle_rename(&uri, position, "new").await.is_none());
 }
 
 /// Following a link to the heading's anchor lands on the line the heading
@@ -13141,4 +13786,369 @@ async fn test_an_open_source_file_is_not_indexed_as_a_link_target() {
     // flushed both.
     wait_for_index_entry(&server, &markdown, |file| !file.headings.is_empty()).await;
     assert!(server.workspace_index.read().await.get_file(&source).is_none());
+}
+
+#[path = "../../tests/support/native_tool.rs"]
+mod native_code_block_tool;
+
+fn lsp_tool_project(extra: &str, mode: &str) -> (tempfile::TempDir, Url) {
+    let dir = tempfile::tempdir().unwrap();
+    native_code_block_tool::install(dir.path(), mode);
+    std::fs::write(dir.path().join("pyproject.toml"), "").unwrap();
+    std::fs::write(
+        dir.path().join(".rumdl.toml"),
+        format!(
+            r#"
+[code-block-tools]
+enabled = true
+on-no-tools-run = "fail"
+binary-preferences = {{ rumdl-policy-test = "project" }}
+{extra}
+[code-block-tools.tools.test]
+command = ["rumdl-policy-test"]
+stdin = true
+stdout = true
+[code-block-tools.languages]
+python = {{ lint = ["test"] }}
+"#
+        ),
+    )
+    .unwrap();
+    let path = dir.path().join("t.md");
+    std::fs::write(&path, "").unwrap();
+    let uri = Url::from_file_path(&path).unwrap();
+    (dir, uri)
+}
+
+#[tokio::test]
+async fn code_block_policies_run_on_save_but_not_on_keystrokes() {
+    let (dir, uri) = lsp_tool_project("on-unknown-language-tag = \"fail\"", "count");
+    let server = create_test_server();
+    let text = "# Test\n\n```pyhton\nx\n```\n\n```python\nx\n```\n";
+    let typed = server.lint_document(&uri, text, false).await.unwrap();
+    assert!(!dir.path().join("calls").exists());
+    assert!(
+        !typed
+            .iter()
+            .any(|d| d.message.contains("Unrecognized") || d.message.contains("No tools executed"))
+    );
+    let saved = server.lint_document(&uri, text, true).await.unwrap();
+    assert!(
+        saved
+            .iter()
+            .any(|d| d.message.contains("Unrecognized code block language")),
+        "{saved:?}"
+    );
+    assert!(
+        !saved.iter().any(|d| d.message.contains("No tools executed")),
+        "{saved:?}"
+    );
+    assert_eq!(std::fs::read_to_string(dir.path().join("calls")).unwrap(), "ran\n");
+    assert_eq!(std::fs::read_to_string(dir.path().join("t.md")).unwrap(), "");
+}
+
+#[tokio::test]
+async fn code_block_save_uses_project_native_binary_on_each_requested_check() {
+    let (dir, uri) = lsp_tool_project("", "count");
+    let server = create_test_server();
+    let text = "# Test\n\n```python\nx\n```\n";
+    for _ in 0..2 {
+        let diagnostics = server.lint_document(&uri, text, true).await.unwrap();
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|d| d.message.contains("No tools executed") || d.message.contains("not found")),
+            "{diagnostics:?}"
+        );
+    }
+    assert_eq!(std::fs::read_to_string(dir.path().join("calls")).unwrap(), "ran\nran\n");
+}
+
+#[tokio::test]
+async fn code_block_save_reports_block_coverage_and_fail_fast_stops_valid_blocks() {
+    let (dir, uri) = lsp_tool_project("on-missing-language-tag = \"fail-fast\"", "count");
+    let server = create_test_server();
+    let text = "# Test\n\n```\nx\n```\n\n```python\nx\n```\n";
+    let diagnostics = server.lint_document(&uri, text, true).await.unwrap();
+    assert!(
+        diagnostics.iter().any(|d| d.message.contains("no language tag")),
+        "{diagnostics:?}"
+    );
+    assert!(
+        !diagnostics.iter().any(|d| d.message.contains("No tools executed")),
+        "{diagnostics:?}"
+    );
+    assert!(!dir.path().join("calls").exists());
+}
+
+#[tokio::test]
+async fn code_block_lsp_only_system_preference_rejects_project_only_tool() {
+    let (dir, uri) = lsp_tool_project("on-missing-tool-binary = \"fail\"", "count");
+    let config = dir.path().join(".rumdl.toml");
+    std::fs::write(
+        &config,
+        std::fs::read_to_string(&config)
+            .unwrap()
+            .replace("rumdl-policy-test = \"project\"", "rumdl-policy-test = \"only-system\""),
+    )
+    .unwrap();
+    let server = create_test_server();
+    let text = "# Test\n\n```python\nx\n```\n";
+    let diagnostics = server.lint_document(&uri, text, true).await.unwrap();
+    assert!(
+        diagnostics.iter().any(|d| d.message.contains("not found")),
+        "{diagnostics:?}"
+    );
+    assert!(!dir.path().join("calls").exists());
+}
+
+#[tokio::test]
+async fn code_block_invocation_policy_does_not_flag_automatic_prose_checks() {
+    let (_dir, uri) = lsp_tool_project("", "count");
+    let server = create_test_server();
+    for external in [false, true] {
+        let diagnostics = server.lint_document(&uri, "# Clean\n", external).await.unwrap();
+        assert!(
+            !diagnostics.iter().any(|d| d.message.contains("No tools executed")),
+            "{diagnostics:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_cli2_nested_inheritance_aliases_and_ignores_use_workspace_scope() {
+    use std::fs;
+    use tempfile::tempdir;
+    let temp = tempdir().unwrap();
+    let root = temp.path().resolve_like_server();
+    let docs = root.join("docs");
+    let user = root.join("xdg");
+    fs::create_dir_all(&docs).unwrap();
+    fs::create_dir_all(&user).unwrap();
+    fs::write(
+        root.join(".markdownlint-cli2.yaml"),
+        "config:\n  MD013:\n    line_length: 100\nignores:\n  - docs/root.md\n",
+    )
+    .unwrap();
+    fs::write(
+        docs.join(".markdownlint-cli2.yaml"),
+        "config:\n  line-length:\n    line_length: 120\nignores:\n  - nested.md\n",
+    )
+    .unwrap();
+    let file = docs.join("nested.md");
+    fs::write(&file, "# T\n\ntext   \n").unwrap();
+    let server = create_test_server();
+    server.workspace_roots.write().await.push(root.clone());
+    // HOME == workspace root: both the workspace config and nested config apply.
+    let config = server
+        .resolve_config_for_file_impl(&file, Some(&user), Some(&root))
+        .await;
+    assert_eq!(
+        crate::config::get_rule_config_value::<usize>(&config, "MD013", "line-length"),
+        Some(120)
+    );
+    assert!(config.is_cli2_ignored(&file));
+    assert!(config.is_cli2_ignored(&docs.join("root.md")));
+    assert!(!config.is_cli2_ignored(&docs.join("keep.md")));
+    let uri = Url::from_file_path(&file).unwrap();
+    // The cache populated above must carry ignores into diagnostics and formatting.
+    assert!(
+        server
+            .lint_document(&uri, "# T\n\ntext   \n", false)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn test_cli2_root_ignores_survive_native_document_config() {
+    use std::fs;
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().resolve_like_server();
+    let docs = root.join("docs");
+    let user = root.join("xdg");
+    fs::create_dir_all(&docs).unwrap();
+    fs::create_dir_all(&user).unwrap();
+    fs::write(
+        root.join(".markdownlint-cli2.yaml"),
+        "ignores:\n  - docs/generated/**\n",
+    )
+    .unwrap();
+    fs::write(docs.join(".rumdl.toml"), "[global]\nenable = [\"MD009\"]\n").unwrap();
+    let file = docs.join("generated/unsaved.md");
+    let server = create_test_server();
+    server.workspace_roots.write().await.push(root.clone());
+    let config = server
+        .resolve_config_for_file_impl(&file, Some(&user), Some(&root))
+        .await;
+    assert!(config.is_cli2_ignored(&file));
+    assert!(!config.is_cli2_ignored(&docs.join("keep.md")));
+    let uri = Url::from_file_path(&file).unwrap();
+    assert!(
+        server
+            .lint_document(&uri, "# T\n\ntext   \n", false)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    let text = "# T\n\ntext   ";
+    server.documents.write().await.insert(
+        uri.clone(),
+        DocumentEntry {
+            content: text.into(),
+            version: Some(1),
+            from_disk: false,
+        },
+    );
+    let options = FormattingOptions {
+        tab_size: 4,
+        insert_spaces: true,
+        properties: HashMap::new(),
+        trim_trailing_whitespace: Some(true),
+        insert_final_newline: Some(true),
+        trim_final_newlines: Some(true),
+    };
+    let (original, formatted) = server.format_document(&uri, &options).await.unwrap();
+    assert_eq!(original, text);
+    assert_eq!(formatted, text);
+}
+
+#[tokio::test]
+async fn test_explicit_cli2_ignores_use_workspace_root() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().resolve_like_server();
+    let path = root.join(".markdownlint-cli2.yaml");
+    std::fs::write(&path, "ignores:\n  - docs/**\n").unwrap();
+    let server = create_test_server_with_cli_config(path.to_str().unwrap());
+    server.workspace_roots.write().await.push(root.clone());
+    server.load_configuration(false).await;
+    let file = root.join("docs/unsaved.md");
+    let config = server.resolve_config_for_file(&file).await;
+    assert!(config.is_cli2_ignored(&file));
+    let uri = Url::from_file_path(&file).unwrap();
+    let text = "# T\n\ntext   ";
+    assert!(server.lint_document(&uri, text, false).await.unwrap().is_empty());
+    assert!(
+        server
+            .get_code_actions(&uri, text, Range::new(Position::new(0, 0), Position::new(3, 0)))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    server.documents.write().await.insert(
+        uri.clone(),
+        DocumentEntry {
+            content: text.into(),
+            version: Some(1),
+            from_disk: false,
+        },
+    );
+    let options = FormattingOptions {
+        tab_size: 4,
+        insert_spaces: true,
+        properties: HashMap::new(),
+        trim_trailing_whitespace: Some(true),
+        insert_final_newline: Some(true),
+        trim_final_newlines: Some(true),
+    };
+    let (original, formatted) = server.format_document(&uri, &options).await.unwrap();
+    assert_eq!(original, text);
+    assert_eq!(formatted, text);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn test_cli2_ignores_preserve_symlink_directory_spelling() {
+    let temp = tempfile::tempdir().unwrap();
+    let target = tempfile::tempdir().unwrap();
+    let root = temp.path().resolve_like_server();
+    std::fs::write(
+        root.join(".markdownlint-cli2.yaml"),
+        "config:\n  MD013:\n    line_length: 100\nignores:\n  - docs/**\n",
+    )
+    .unwrap();
+    std::fs::write(
+        target.path().join(".markdownlint-cli2.yaml"),
+        "config:\n  MD041: false\n",
+    )
+    .unwrap();
+    std::os::unix::fs::symlink(target.path(), root.join("docs")).unwrap();
+    let server = create_test_server();
+    server.workspace_roots.write().await.push(root.clone());
+    server.load_configuration(false).await;
+    let file = root.join("docs/unsaved.md");
+    let config = server.resolve_config_for_file(&file).await;
+    assert_eq!(
+        crate::config::get_rule_config_value::<usize>(&config, "MD013", "line-length"),
+        Some(100)
+    );
+    assert!(config.is_cli2_ignored(&file));
+    let uri = Url::from_file_path(&file).unwrap();
+    let text = "# T\n\ntext   ";
+    assert!(server.lint_document(&uri, text, false).await.unwrap().is_empty());
+    server.documents.write().await.insert(
+        uri.clone(),
+        DocumentEntry {
+            content: text.into(),
+            version: Some(1),
+            from_disk: false,
+        },
+    );
+    let options = FormattingOptions {
+        tab_size: 4,
+        insert_spaces: true,
+        properties: HashMap::new(),
+        trim_trailing_whitespace: Some(true),
+        insert_final_newline: Some(true),
+        trim_final_newlines: Some(true),
+    };
+    let (_, formatted) = server.format_document(&uri, &options).await.unwrap();
+    assert_eq!(formatted, text);
+}
+
+#[test]
+fn test_lsp_config_walk_stops_at_the_profile_boundary() {
+    // The user profile, when it is a home in its own right next to the resolved home,
+    // is user-level exactly like the home: its dotfile is not a project config.
+    use std::fs;
+    use tempfile::tempdir;
+
+    let temp = tempdir().unwrap();
+    let fake_home = temp.path().join("home");
+    let profile = temp.path().join("profile");
+    let nested = profile.join("notes").join("subdir");
+    let project = profile.join("proj");
+    fs::create_dir_all(&fake_home).unwrap();
+    fs::create_dir_all(&nested).unwrap();
+    fs::create_dir_all(project.join("docs")).unwrap();
+    fs::write(profile.join(".rumdl.toml"), "[global]\ndisable = [\"MD041\"]\n").unwrap();
+    fs::write(project.join(".rumdl.toml"), "[global]\ndisable = [\"MD013\"]\n").unwrap();
+
+    let candidates =
+        crate::config::collect_project_config_candidates_bounded(&nested, None, Some(&fake_home), Some(&profile));
+    assert!(
+        candidates.is_empty(),
+        "The profile dotfile must not be discovered as a project config, got: {candidates:?}"
+    );
+
+    let control = crate::config::collect_project_config_candidates_bounded(
+        &project.join("docs"),
+        None,
+        Some(&fake_home),
+        Some(&profile),
+    );
+    assert_eq!(control.first(), Some(&project.join(".rumdl.toml")));
+
+    let workspace_is_profile = crate::config::collect_project_config_candidates_bounded(
+        &nested,
+        Some(&profile),
+        Some(&fake_home),
+        Some(&profile),
+    );
+    assert_eq!(
+        workspace_is_profile.first(),
+        Some(&profile.join(".rumdl.toml")),
+        "A workspace opened at the profile keeps its own config"
+    );
 }

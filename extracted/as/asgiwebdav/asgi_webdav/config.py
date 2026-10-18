@@ -1,20 +1,14 @@
 from __future__ import annotations
 
 import json
-import sys
+import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from logging import getLogger
 from pathlib import Path
 from typing import Any
 
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib  # type: ignore
-
-from dataclass_wizard import EnvWizard
-from dataclass_wizard.v0 import JSONPyWizard
+from dataclass_wizard import EnvWizard, JSONWizard
 
 from asgi_webdav.cache import DAVCacheType
 from asgi_webdav.constants import (
@@ -35,8 +29,8 @@ logger = getLogger(__name__)
 
 
 class EnvConfig(EnvWizard):
-    class _(EnvWizard.Meta):
-        env_prefix = "WEBDAV_"  # type: ignore
+    class _(EnvWizard.Meta):  # type: ignore[no-untyped-call]
+        env_prefix = "WEBDAV_"
         env_file = True
 
     username: str | None = None
@@ -77,8 +71,7 @@ class HTTPBasicAuth:
 class HTTPDigestAuth:
     enable: bool = False
     enable_rule: str = ""  # Valid when "enable" is false
-    disable_rule: str = "neon/"  # Valid when "enable" is true
-    # TODO Compatible with neon
+    disable_rule: str = ""  # Valid when "enable" is true
 
 
 @dataclass
@@ -162,7 +155,7 @@ class Logging:
 
 
 @dataclass
-class Config(JSONPyWizard):
+class Config(JSONWizard):
     # auth
     account_mapping: list[User] = field(default_factory=list)
 

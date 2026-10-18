@@ -14,7 +14,7 @@ from errno import EIO
 from functools import partial
 from multiprocessing import Event, Process
 from pathlib import Path
-from typing import TYPE_CHECKING, Final, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 import pytest
 from capabilities import CAPABILITIES
@@ -28,6 +28,7 @@ from filelock._soft_rw._protocol import GenerationLog, Participant, Snapshot, en
 from filelock._soft_rw._storage import OsFiles
 from tests.capability_marks import (
     NEEDS_FILE_MODE,
+    NEEDS_FOREIGN_STICKY_TMP,
     NEEDS_FORK,
     NEEDS_POSIX_SIGNALS,
     NEEDS_SYMLINK,
@@ -249,6 +250,130 @@ def test_singleton_returns_same_instance(lock_file: str) -> None:
         assert first is second
     finally:
         first.close()
+
+
+@pytest.mark.parametrize("order", [(0, 1, 2), (1, 2, 0), (2, 0, 1)])
+def test_singletons_are_distinct_per_subclass(lock_file: str, order: tuple[int, int, int]) -> None:
+    class FirstLock(SoftReadWriteLock):
+        pass
+
+    class SecondLock(SoftReadWriteLock):
+        pass
+
+    lock_types = (SoftReadWriteLock, FirstLock, SecondLock)
+    instances: list[SoftReadWriteLock] = []
+    try:
+        for index in order:
+            lock_type = lock_types[index]
+            instance = lock_type(lock_file)
+            instances.append(instance)
+            assert type(instance) is lock_type
+            assert lock_type.get_lock(lock_file) is instance
+        assert len({id(instance) for instance in instances}) == len(lock_types)
+        with instances[0].write_lock():
+            for contender in instances[1:]:
+                with pytest.raises(Timeout):
+                    contender.acquire_write(blocking=False)
+    finally:
+        for instance in instances:
+            instance.close()
+
+
+@pytest.mark.parametrize("relation", ["base", "sibling", "child"])
+def test_singleton_construction_can_overlap_across_classes(lock_file: str, relation: str) -> None:
+    entered, release = threading.Event(), threading.Event()
+
+    class SlowLock(SoftReadWriteLock):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:  # ruff:ignore[any-type]  # forwards the public constructor unchanged
+            if type(self) is SlowLock:
+                entered.set()
+                assert release.wait(timeout=5)
+            super().__init__(*args, **kwargs)
+
+    class SiblingLock(SoftReadWriteLock):
+        pass
+
+    class ChildLock(SlowLock):
+        pass
+
+    other_type = {"base": SoftReadWriteLock, "sibling": SiblingLock, "child": ChildLock}[relation]
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(SlowLock, lock_file)
+        try:
+            assert entered.wait(timeout=5)
+            # The second construction must finish while the first is still inside __init__.
+            with closing(pool.submit(other_type, lock_file).result(timeout=5)) as other:
+                assert type(other) is other_type
+                assert other_type.get_lock(lock_file) is other
+        finally:
+            release.set()
+            with closing(first.result(timeout=5)) as instance:
+                assert type(instance) is SlowLock
+                assert SlowLock.get_lock(lock_file) is instance
+
+
+@pytest.mark.parametrize("is_singleton", [True, False])
+def test_subclass_forwards_cooperative_class_keywords(lock_file: str, is_singleton: bool) -> None:
+    class LabelMixin:
+        label: str
+
+        def __init_subclass__(cls, *, label: str, **kwargs: object) -> None:
+            super().__init_subclass__(**kwargs)
+            cls.label = label
+
+    class LabeledLock(SoftReadWriteLock, LabelMixin, label="invoice"):
+        pass
+
+    class ChildLock(LabeledLock, label="child"):
+        pass
+
+    with (
+        closing(LabeledLock(lock_file, is_singleton=is_singleton)) as parent,
+        closing(ChildLock(lock_file, is_singleton=is_singleton)) as child,
+    ):
+        assert type(parent) is LabeledLock
+        assert type(child) is ChildLock
+        assert (parent.label, child.label) == ("invoice", "child")
+
+
+def test_subclass_rejects_recursive_singleton_construction_and_can_retry(lock_file: str) -> None:
+    recurse = True
+
+    class RecursiveLock(SoftReadWriteLock):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:  # ruff:ignore[any-type]  # forwards the public constructor unchanged
+            if recurse:
+                RecursiveLock(lock_file)
+            super().__init__(*args, **kwargs)
+
+    with pytest.raises(RuntimeError, match="Singleton lock construction is already active"):
+        RecursiveLock(lock_file)
+    recurse = False
+    with closing(RecursiveLock(lock_file)) as instance:
+        assert RecursiveLock(lock_file) is instance
+
+
+def test_subclass_concurrent_constructors_share_one_singleton(lock_file: str) -> None:
+    callers = threading.Barrier(8)
+    init_calls = 0
+
+    class CustomLock(SoftReadWriteLock):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:  # ruff:ignore[any-type]  # forwards the public constructor unchanged
+            nonlocal init_calls
+            init_calls += 1
+            super().__init__(*args, **kwargs)
+
+    def construct() -> SoftReadWriteLock:
+        callers.wait(timeout=5)
+        return CustomLock(lock_file)
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        instances = list(pool.map(lambda _: construct(), range(8)))
+    try:
+        assert init_calls == 1
+        assert all(instance is instances[0] for instance in instances)
+    finally:
+        for instance in instances:
+            instance.close()
 
 
 def test_non_singleton_returns_distinct_instances(lock_file: str) -> None:
@@ -735,6 +860,66 @@ def test_heartbeat_reports_a_removed_holder_record(lock_file: str) -> None:
         lock.close()
 
 
+def _wait_for_compromise(lock: SoftReadWriteLock) -> LeaseCompromise:
+    deadline = time.monotonic() + 2
+    while (compromise := lock.compromise) is None and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert compromise is not None
+    return compromise
+
+
+@pytest.mark.skipif(
+    not (CAPABILITIES["symlink"] and CAPABILITIES["link-dir-fd"]),
+    reason="a swapped tree is refused only where records are reached through descriptors",
+)
+def test_heartbeat_reports_a_symlinked_tree_as_lost(
+    lock_file: str, tmp_path: Path
+) -> None:  # pragma: needs link-dir-fd
+    seen: list[LeaseCompromise] = []
+    lock = _make_lock(lock_file, heartbeat_interval=0.05, stale_threshold=0.2, on_compromise=seen.append)
+    lock.acquire_write(timeout=2)
+    try:
+        Path(f"{lock_file}.rw").rename(tmp_path / "aside")
+        Path(f"{lock_file}.rw").symlink_to(tmp_path, target_is_directory=True)
+        assert _wait_for_compromise(lock).reason == "evicted"
+        assert len(seen) == 1
+    finally:
+        lock.release(force=True)
+        lock.close()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="only Windows reaches records by name, through junctions")
+def test_heartbeat_reports_a_junction_tree_as_lost(  # pragma: win32 cover
+    lock_file: str, tmp_path: Path, create_junction: Callable[[Path, Path], None]
+) -> None:
+    seen: list[LeaseCompromise] = []
+    lock = _make_lock(lock_file, heartbeat_interval=0.05, stale_threshold=0.2, on_compromise=seen.append)
+    lock.acquire_write(timeout=2)
+    try:
+        Path(f"{lock_file}.rw").rename(tmp_path / "aside")
+        (target := tmp_path / "target").mkdir()
+        create_junction(Path(f"{lock_file}.rw"), target)
+        assert _wait_for_compromise(lock).reason == "evicted"
+        assert len(seen) == 1
+    finally:
+        lock.release(force=True)
+        lock.close()
+
+
+def test_a_heartbeat_that_raises_reports_the_hold_lost(lock_file: str, mocker: MockerFixture) -> None:
+    error = ValueError("broken")
+    lock = _make_lock(lock_file, heartbeat_interval=0.05, stale_threshold=0.2)
+    lock.acquire_write(timeout=2)
+    try:
+        mocker.patch.object(Participant, "heartbeat", autospec=True, side_effect=error)
+        compromise = _wait_for_compromise(lock)
+        assert (compromise.reason, compromise.error) == ("refresh-failed", error)
+    finally:
+        mocker.stopall()
+        lock.release(force=True)
+        lock.close()
+
+
 def test_release_leaves_a_peers_claim_alone(lock_file: str) -> None:
     # A holder paused past the stale threshold (GC pause, SIGSTOP, suspended VM) can be evicted, after which a peer
     # holds the writer slot. Releasing commits this holder out and leaves the peer's claim alone.
@@ -901,8 +1086,9 @@ def test_singleton_rejects_a_different_on_compromise(lock_file: str) -> None:
         first.close()
 
 
+@pytest.mark.parametrize("mode", [pytest.param("read", id="read"), pytest.param("write", id="write")])
 @pytest.mark.parametrize("force", [pytest.param(True, id="force"), pytest.param(False, id="plain")])
-def test_release_from_on_compromise_leaves_cleanly(lock_file: str, force: bool) -> None:
+def test_release_from_on_compromise_leaves_cleanly(lock_file: str, force: bool, mode: Literal["read", "write"]) -> None:
     # The callback runs on the heartbeat thread; a release there has no thread to join and must still leave.
     lock = SoftReadWriteLock(
         lock_file,
@@ -912,7 +1098,7 @@ def test_release_from_on_compromise_leaves_cleanly(lock_file: str, force: bool) 
         poll_interval=0.02,
         on_compromise=lambda _compromise: lock.release(force=force),
     )
-    lock.acquire_write(timeout=2)
+    (lock.acquire_read if mode == "read" else lock.acquire_write)(timeout=2)
     hold = lock._hold
     assert hold is not None
     try:
@@ -1139,6 +1325,115 @@ def test_symlinked_protocol_directory_is_refused(
     with pytest.raises(RuntimeError, match="not a directory or is a symlink"):
         lock.acquire_read(timeout=0.5)
     assert list(victim_dir.iterdir()) == []
+
+
+@pytest.mark.skipif(
+    not (CAPABILITIES["symlink"] and CAPABILITIES["link-dir-fd"]),
+    reason="swapping in a symlinked directory is refused only where records are reached through descriptors",
+)
+@pytest.mark.parametrize("swapped", ["gen", "holders"])
+def test_protocol_tree_swapped_after_an_acquire_is_refused(  # pragma: needs link-dir-fd
+    lock_file: str, tmp_path: Path, lock: SoftReadWriteLock, swapped: str
+) -> None:
+    with lock.write_lock(timeout=2):
+        pass
+    # A process that can write the lock's directory can rename the checked tree aside and put one in its place.
+    (root := Path(f"{lock_file}.rw")).rename(tmp_path / "aside")
+    for name in ("gen", "holders"):
+        (root / name).mkdir(parents=True)
+    (root / swapped).rmdir()
+    (root / swapped).symlink_to(target := tmp_path / "target", target_is_directory=True)
+    target.mkdir()
+
+    with pytest.raises(RuntimeError, match="is not a directory or is a symlink"):
+        lock.acquire_write(timeout=0.5)
+    assert list(target.iterdir()) == []
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="only Windows reaches records by name, through junctions")
+@pytest.mark.parametrize("when", ["before-first-acquire", "after-first-acquire"])
+@pytest.mark.parametrize("swapped", ["gen", "holders"])
+def test_protocol_tree_with_a_junction_is_refused(  # pragma: win32 cover
+    lock_file: str,
+    tmp_path: Path,
+    lock: SoftReadWriteLock,
+    create_junction: Callable[[Path, Path], None],
+    when: str,
+    swapped: str,
+) -> None:
+    root = Path(f"{lock_file}.rw")
+    if when == "after-first-acquire":
+        with lock.write_lock(timeout=2):
+            pass
+        root.rename(tmp_path / "aside")
+    for name in ("gen", "holders"):
+        if name != swapped:
+            (root / name).mkdir(parents=True)
+    (target := tmp_path / "target").mkdir()
+    create_junction(root / swapped, target)
+
+    with pytest.raises(RuntimeError, match="is not a directory or is a symlink"):
+        lock.acquire_write(timeout=0.5)
+    assert list(target.iterdir()) == []
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="only Windows reaches records by name")
+def test_protocol_tree_stays_in_place_while_a_record_is_written(  # pragma: win32 cover
+    lock_file: str, tmp_path: Path, lock: SoftReadWriteLock, mocker: MockerFixture
+) -> None:
+    real_write: Final = storage_mod.write_all
+    refused: list[bool] = []
+
+    def try_to_move_the_tree_aside(fd: int, data: bytes) -> None:
+        try:
+            Path(f"{lock_file}.rw").rename(tmp_path / "aside")
+        except PermissionError:
+            refused.append(True)
+        real_write(fd, data)
+
+    mocker.patch.object(storage_mod, "write_all", side_effect=try_to_move_the_tree_aside)
+    with lock.write_lock(timeout=2):
+        pass
+
+    assert (bool(refused), (tmp_path / "aside").exists()) == (True, False)
+
+
+@NEEDS_FOREIGN_STICKY_TMP
+@pytest.mark.usefixtures("directories_of_another_account")
+def test_protocol_directory_of_another_account_is_refused(  # pragma: needs foreign-sticky-tmp
+    lock_path_in_shared_tmp: Path,
+) -> None:
+    (root := Path(f"{lock_path_in_shared_tmp}.rw")).mkdir()
+    lock = SoftReadWriteLock(lock_path_in_shared_tmp, is_singleton=False)
+    try:
+        with pytest.raises(RuntimeError, match="not to this process's account"):
+            lock.acquire_write(timeout=0)
+    finally:
+        lock.close()
+    assert list(root.iterdir()) == []
+
+
+@NEEDS_FOREIGN_STICKY_TMP
+def test_live_lock_refuses_a_tree_another_account_planted_after_a_recovery(  # pragma: needs foreign-sticky-tmp
+    lock_path_in_shared_tmp: Path, mocker: MockerFixture
+) -> None:
+    lock = SoftReadWriteLock(lock_path_in_shared_tmp, is_singleton=False)
+    try:
+        with lock.write_lock(timeout=2):
+            pass
+        (root := Path(f"{lock_path_in_shared_tmp}.rw")).rename(aside := Path(f"{lock_path_in_shared_tmp}.rw.aside"))
+        try:
+            for name in ("gen", "holders"):
+                (root / name).mkdir(parents=True)
+            assert sys.platform != "win32"  # the capability is absent there; narrows os.geteuid for the type checker
+            mocker.patch("filelock._util.os.geteuid", autospec=True, return_value=os.geteuid() + 1)
+            with pytest.raises(RuntimeError, match="not to this process's account"):
+                lock.acquire_write(timeout=0.5)
+            assert list((root / "holders").iterdir()) == []
+        finally:
+            shutil.rmtree(aside, ignore_errors=True)
+    finally:
+        lock.close()
 
 
 def test_protocol_path_as_regular_file_is_refused(lock_file: str, lock: SoftReadWriteLock) -> None:
@@ -1494,3 +1789,102 @@ def test_writer_timeout_commits_itself_out(lock_file: str) -> None:
     finally:
         writer.close()
         reader.close()
+
+
+def test_soft_read_on_a_lost_hold_raises(lost_lock: SoftReadWriteLock, lost: threading.Event) -> None:
+    lost_lock.acquire_read(timeout=2)
+    _evict_every_holder(lost_lock.lock_file)
+    assert lost.wait(_PROCESS_DEADLINE)
+
+    with ThreadPoolExecutor(max_workers=1) as other_thread, pytest.raises(RuntimeError, match="hold was lost"):
+        other_thread.submit(lost_lock.acquire_read, 1).result(_PROCESS_DEADLINE)
+    lost_lock.release()
+
+
+def test_soft_read_after_the_lost_hold_drains_asks_the_log(lost_lock: SoftReadWriteLock, lost: threading.Event) -> None:
+    lost_lock.acquire_read(timeout=2)
+    _evict_every_holder(lost_lock.lock_file)
+    assert lost.wait(_PROCESS_DEADLINE)
+    lost_lock.release()
+    with closing(_make_lock(lost_lock.lock_file, heartbeat_interval=0.05, stale_threshold=0.2)) as writer:
+        writer.acquire_write(timeout=2)
+
+        with pytest.raises(Timeout):
+            lost_lock.acquire_read(blocking=False)
+
+
+@pytest.fixture
+def lost() -> threading.Event:
+    return threading.Event()
+
+
+@pytest.fixture
+def lost_lock(lock_file: str, lost: threading.Event) -> Generator[SoftReadWriteLock]:
+    instance = _make_lock(
+        lock_file, heartbeat_interval=0.05, stale_threshold=0.2, on_compromise=lambda _compromise: lost.set()
+    )
+    try:
+        yield instance
+    finally:
+        instance.close()
+
+
+def _evict_every_holder(lock_file: str) -> None:
+    log = GenerationLog(OsFiles(lock_file), lock_file, f"{lock_file}.rw")
+    assert log.commit(Snapshot(generation=log.latest().generation + 1, writer=None, readers=frozenset()))
+
+
+def test_soft_read_release_from_a_thread_without_a_read_level_raises(
+    lock: SoftReadWriteLock, other_thread: ThreadPoolExecutor
+) -> None:
+    lock.acquire_read(timeout=2)
+
+    with pytest.raises(RuntimeError, match="which does not hold it"):
+        other_thread.submit(lock.release).result(_PROCESS_DEADLINE)
+
+    assert not _writer_gets_in(lock.lock_file)
+    lock.release()
+
+
+def test_soft_read_release_of_a_dropped_hold_leaves_a_newer_one_held(
+    lock: SoftReadWriteLock, other_thread: ThreadPoolExecutor
+) -> None:
+    lock.acquire_read(timeout=2)
+    lock.release(force=True)
+    other_thread.submit(lock.acquire_read, 2).result(_PROCESS_DEADLINE)
+
+    with pytest.raises(RuntimeError, match="which does not hold it"):
+        lock.release()
+
+    assert not _writer_gets_in(lock.lock_file)
+    other_thread.submit(lock.release).result(_PROCESS_DEADLINE)
+
+
+def test_soft_read_release_gives_back_only_the_callers_levels(
+    lock: SoftReadWriteLock, other_thread: ThreadPoolExecutor
+) -> None:
+    lock.acquire_read(timeout=2)
+    other_thread.submit(lock.acquire_read, 2).result(_PROCESS_DEADLINE)
+    lock.release()
+
+    with pytest.raises(RuntimeError, match="which does not hold it"):
+        lock.release()
+
+    assert not _writer_gets_in(lock.lock_file)
+    other_thread.submit(lock.release).result(_PROCESS_DEADLINE)
+    assert _writer_gets_in(lock.lock_file)
+
+
+@pytest.fixture
+def other_thread() -> Generator[ThreadPoolExecutor]:
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        yield executor
+
+
+def _writer_gets_in(lock_file: str) -> bool:
+    with closing(_make_lock(lock_file)) as contender:
+        try:
+            contender.acquire_write(blocking=False)
+        except Timeout:
+            return False
+    return True

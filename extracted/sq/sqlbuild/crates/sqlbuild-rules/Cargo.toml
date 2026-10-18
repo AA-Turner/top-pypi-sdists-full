@@ -8,16 +8,20 @@ publish.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+blake3.workspace = true
 fensu-policy.workspace = true
 globset.workspace = true
 polyglot-sql.workspace = true
 rayon.workspace = true
 regex.workspace = true
+rustc-hash.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 sqlbuild-analysis.workspace = true
+sqlbuild-attachments.workspace = true
 sqlbuild-core.workspace = true
+sqlbuild-scopes.workspace = true
 sqlbuild-sqltext.workspace = true
 stacker.workspace = true
 sqlparser.workspace = true

@@ -1,8 +1,3 @@
-import json
-import os
-import subprocess
-import sys
-
 from functools import partial
 
 import numpy as np
@@ -13,7 +8,7 @@ from scipy.optimize import OptimizeResult
 from scipy.optimize import minimize as scipy_minimize
 from scipy.optimize import root as scipy_root
 
-from better_optimize import StopOptimization
+from better_optimize import OptimizationInterrupted, StopOptimization
 from better_optimize.wrapper import (
     ObjectiveWrapper,
     _compose_callback,
@@ -21,31 +16,61 @@ from better_optimize.wrapper import (
 )
 
 
+def _numba_style_interrupt():
+    # Numba surfaces Ctrl-C inside compiled code as a SystemError chained to the interrupt.
+    try:
+        raise KeyboardInterrupt
+    except KeyboardInterrupt as interrupt:
+        raise SystemError("returned a result with an exception set") from interrupt
+
+
+def _raise_keyboard_interrupt():
+    raise KeyboardInterrupt
+
+
+@pytest.mark.parametrize(
+    "interrupt", [_raise_keyboard_interrupt, _numba_style_interrupt], ids=["python", "numba"]
+)
 @pytest.mark.parametrize(
     "root, method", [(True, "lm"), (False, "nelder-mead")], ids=["root-lm", "minimize-nm"]
 )
-def test_early_return_from_keyboard_interrupt(root, method):
-    # Run error_script.py in a separate process to test KeyboardInterrupt handling.
+def test_keyboard_interrupt_raises_with_the_last_iterate(root, method, interrupt):
+    n_calls = 0
 
-    script_path = os.path.join(os.path.dirname(__file__), "util/error_script.py")
-    args = [sys.executable, script_path, "--method", method]
-    if root:
-        args += ["--root"]
+    def f(x):
+        nonlocal n_calls
+        n_calls += 1
+        if n_calls == 10:
+            interrupt()
+        return x**2
 
-    process = subprocess.run(args, capture_output=True, text=True, check=False)
+    objective = ObjectiveWrapper(f=f, root=root, progressbar=False)
+    f_optim = partial(
+        scipy_root if root else scipy_minimize,
+        fun=objective,
+        x0=np.array([1.0]),
+        method=method,
+        callback=None if root else objective.callback,
+    )
 
-    res = json.loads(process.stdout.strip())
-    assert not res["success"]
+    with pytest.raises(OptimizationInterrupted) as excinfo:
+        optimizer_early_stopping_wrapper(f_optim)
 
-    if root:
-        # lm doesn't allow callbacks, so we get the back return on interrupt
-        assert (
-            res["message"]
-            == "`StopIteration` or `KeyboardInterrupt` raised -- optimization stopped prematurely."
-        )
-    else:
-        # otherwise it should have stopped gracefully and given back the result object
-        assert res["message"] == "`callback` raised `StopIteration`."
+    result = excinfo.value.result
+    assert not result.success
+    assert result.nfev == 9
+    np.testing.assert_allclose(result.fun, result.x**2)
+
+
+def test_early_stop_reports_the_value_at_the_last_iterate():
+    # hybr never calls a callback, so maxeval stops it through the StopIteration branch.
+    objective = ObjectiveWrapper(f=lambda x: x**2 + 1.0, root=True, progressbar=False, maxeval=5)
+    f_optim = partial(scipy_root, fun=objective, x0=np.array([3.0, 4.0]), method="hybr")
+
+    result = optimizer_early_stopping_wrapper(f_optim)
+
+    assert result.message == "`StopIteration` raised -- optimization stopped prematurely."
+    np.testing.assert_allclose(result.fun, result.x**2 + 1.0)
 
 
 @pytest.mark.parametrize("root", [True, False], ids=["root", "minimize"])
@@ -194,3 +219,53 @@ def test_wrapper_compatible_with_sparse_outputs():
 
     value, grad = result
     assert sp.issparse(grad)
+
+
+@pytest.mark.parametrize(
+    "solver_uses_grad, solver_uses_hess, expected",
+    [(True, True, 3), (True, False, 2), (False, False, 1)],
+    ids=["grad and hess", "grad only", "neither"],
+)
+def test_the_return_shape_follows_what_the_solver_consumes(
+    solver_uses_grad, solver_uses_hess, expected
+):
+    """scipy is handed a derivative-free method's objective with ``jac=None``, so returning
+    a gradient it did not ask for would be unpacked as the objective value."""
+    objective = ObjectiveWrapper(
+        f=lambda x: float(np.sum(x**2)),
+        jac=lambda x: 2 * x,
+        hess=lambda x: 2 * np.eye(len(x)),
+        progressbar=False,
+        solver_uses_grad=solver_uses_grad,
+        solver_uses_hess=solver_uses_hess,
+    )
+    returned = objective(np.array([1.0, 2.0]))
+    parts = returned if isinstance(returned, tuple) else (returned,)
+
+    assert len(parts) == expected
+
+
+def test_a_withheld_derivative_is_still_evaluated():
+    """It is what the progress bar reports the norm of, and what this package tells the
+    caller it will keep paying for."""
+    calls = {"grad": 0, "hess": 0}
+
+    def jac(x):
+        calls["grad"] += 1
+        return 2 * x
+
+    def hess(x):
+        calls["hess"] += 1
+        return 2 * np.eye(len(x))
+
+    objective = ObjectiveWrapper(
+        f=lambda x: float(np.sum(x**2)),
+        jac=jac,
+        hess=hess,
+        progressbar=False,
+        solver_uses_grad=False,
+        solver_uses_hess=False,
+    )
+    objective(np.array([1.0, 2.0]))
+
+    assert calls == {"grad": 1, "hess": 1}

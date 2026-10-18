@@ -6,21 +6,25 @@ use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyDict, PyDictMethods, PyTuple, PyTupleMethods};
 use pyo3::{pyclass, pymethods};
 
+use crate::bindings::_helpers::compile_driver::stage_work::{LINEAGE_GRAPH_BUILDS, count_stage};
 use crate::bindings::_helpers::compiled_project::compiled_model_view::{
     NativeCompiledModel, model_graph_row,
 };
+use crate::bindings::_helpers::compiled_project::function_views::NativeCompiledFunction;
 use crate::bindings::_helpers::compiled_project::model_input_view::{
     InputViewClasses, authored_expansion, view_classes,
 };
 use crate::bindings::_helpers::compiled_project::project::NativeCompiledProject;
+use crate::bindings::_helpers::compiled_project::seed_views::NativeCompiledSeed;
+use crate::bindings::_helpers::compiled_project::source_views::NativeCompiledSource;
 use crate::bindings::_helpers::graph::project_graph::{
     NativeProjectGraph, ResourceRow, project_graph,
 };
+use crate::bindings::_helpers::records::fields::field as native_field;
 
 const MODELS_FIELD: &str = "models";
 const RUN_ID_FIELD: &str = "run_id";
 const ENFORCE_EXPLICIT_FIELD: &str = "enforce_explicit_references";
-const FILE_PATH_ATTRIBUTE: &str = "file_path";
 const KEY_ATTRIBUTE: &str = "key";
 const DEPS_ATTRIBUTE: &str = "deps";
 const TAGS_ATTRIBUTE: &str = "tags";
@@ -250,6 +254,31 @@ impl NativeProjectView {
         ))
     }
 
+    /// The project field custom-rule facts and rules runs read by `name`, or `None` for any other.
+    pub(crate) fn fact_field(&self, py: Python<'_>, name: &str) -> Option<Py<PyAny>> {
+        let field: &Py<PyAny> = match name {
+            "settings" => &self.fields.compiler.settings,
+            "sql_scenarios" => &self.fields.compiler.sql_scenarios,
+            "scope_index" => &self.fields.compiler.scope_index,
+            "diagnostics" => &self.fields.compiler.diagnostics,
+            "sources" => &self.fields.compiler.sources,
+            "seeds" => &self.fields.compiler.seeds,
+            "functions" => &self.fields.compiler.functions,
+            "audits" => &self.fields.compiler.audits,
+            "sql_tests" => &self.fields.compiler.sql_tests,
+            "public_enums" => &self.fields.boundary.public_enums,
+            "public_constants" => &self.fields.boundary.public_constants,
+            "models" => return Some(self.fields.models.clone_ref(py).into_any()),
+            _ => return None,
+        };
+        Some(field.clone_ref(py))
+    }
+
+    /// The compiled project this view projects.
+    pub(crate) fn owner(&self) -> &Py<NativeCompiledProject> {
+        &self.owner
+    }
+
     fn with_fields(owner: Py<NativeCompiledProject>, fields: ProjectFields) -> Self {
         Self {
             owner,
@@ -274,7 +303,7 @@ impl NativeProjectView {
 
     /// Every field by name, for an explicit `CompiledProject` projection.
     #[pyo3(signature = (include_sql_expansions = true))]
-    fn fields<'py>(
+    pub(crate) fn fields<'py>(
         &self,
         py: Python<'py>,
         include_sql_expansions: bool,
@@ -293,107 +322,107 @@ impl NativeProjectView {
     }
 
     #[getter]
-    fn run_id(&self) -> String {
+    pub(crate) fn run_id(&self) -> String {
         self.fields.run_id.clone()
     }
 
     #[getter]
-    fn effective_target_name(&self) -> Option<String> {
+    pub(crate) fn effective_target_name(&self) -> Option<String> {
         self.fields.effective_target_name.clone()
     }
 
     #[getter]
-    fn effective_target_database(&self) -> Option<String> {
+    pub(crate) fn effective_target_database(&self) -> Option<String> {
         self.fields.effective_target_database.clone()
     }
 
     #[getter]
-    fn effective_target_schema(&self) -> Option<String> {
+    pub(crate) fn effective_target_schema(&self) -> Option<String> {
         self.fields.effective_target_schema.clone()
     }
 
     #[getter]
-    fn sql_analysis_dialect(&self) -> Option<String> {
+    pub(crate) fn sql_analysis_dialect(&self) -> Option<String> {
         self.fields.sql_analysis_dialect.clone()
     }
 
     #[getter(enforce_explicit_references)]
-    fn is_explicit_reference_enforced(&self) -> bool {
+    pub(crate) fn is_explicit_reference_enforced(&self) -> bool {
         self.fields.enforce_explicit_references
     }
 
     #[getter]
-    fn models(&self, py: Python<'_>) -> Py<PyTuple> {
+    pub(crate) fn models(&self, py: Python<'_>) -> Py<PyTuple> {
         self.fields.models.clone_ref(py)
     }
 
     #[getter]
-    fn native_project(&self, py: Python<'_>) -> Py<NativeCompiledProject> {
+    pub(crate) fn native_project(&self, py: Python<'_>) -> Py<NativeCompiledProject> {
         self.owner.clone_ref(py)
     }
 
     #[getter]
-    fn effective_connection(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn effective_connection(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.boundary.effective_connection.clone_ref(py)
     }
 
     #[getter]
-    fn effective_vars(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn effective_vars(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.boundary.effective_vars.clone_ref(py)
     }
 
     #[getter]
-    fn binding_catalog(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn binding_catalog(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.boundary.binding_catalog.clone_ref(py)
     }
 
     #[getter]
-    fn sql_lexical_syntax(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn sql_lexical_syntax(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.boundary.sql_lexical_syntax.clone_ref(py)
     }
 
     #[getter]
-    fn compile_cache_dir(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn compile_cache_dir(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.boundary.compile_cache_dir.clone_ref(py)
     }
 
     #[getter]
-    fn loader_functions(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn loader_functions(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.boundary.loader_functions.clone_ref(py)
     }
 
     #[getter]
-    fn hook_functions(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn hook_functions(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.boundary.hook_functions.clone_ref(py)
     }
 
     #[getter]
-    fn sql_hook_files(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn sql_hook_files(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.boundary.sql_hook_files.clone_ref(py)
     }
 
     #[getter]
-    fn materialization_files(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn materialization_files(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.boundary.materialization_files.clone_ref(py)
     }
 
     #[getter]
-    fn public_enums(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn public_enums(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.boundary.public_enums.clone_ref(py)
     }
 
     #[getter]
-    fn public_constants(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn public_constants(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.boundary.public_constants.clone_ref(py)
     }
 
     #[getter]
-    fn loaded_macros(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn loaded_macros(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.boundary.loaded_macros.clone_ref(py)
     }
 
     #[getter]
-    fn external_sql_reference_resolver(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn external_sql_reference_resolver(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields
             .boundary
             .external_sql_reference_resolver
@@ -401,57 +430,57 @@ impl NativeProjectView {
     }
 
     #[getter]
-    fn native_session(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn native_session(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.boundary.native_session.clone_ref(py)
     }
 
     #[getter]
-    fn settings(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn settings(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.compiler.settings.clone_ref(py)
     }
 
     #[getter]
-    fn scenario(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn scenario(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.compiler.scenario.clone_ref(py)
     }
 
     #[getter]
-    fn sources(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn sources(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.compiler.sources.clone_ref(py)
     }
 
     #[getter]
-    fn seeds(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn seeds(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.compiler.seeds.clone_ref(py)
     }
 
     #[getter]
-    fn functions(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn functions(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.compiler.functions.clone_ref(py)
     }
 
     #[getter]
-    fn audits(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn audits(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.compiler.audits.clone_ref(py)
     }
 
     #[getter]
-    fn sql_tests(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn sql_tests(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.compiler.sql_tests.clone_ref(py)
     }
 
     #[getter]
-    fn sql_scenarios(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn sql_scenarios(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.compiler.sql_scenarios.clone_ref(py)
     }
 
     #[getter]
-    fn diagnostics(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn diagnostics(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.compiler.diagnostics.clone_ref(py)
     }
 
     #[getter]
-    fn unmatched_literal_sql_relations(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn unmatched_literal_sql_relations(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields
             .compiler
             .unmatched_literal_sql_relations
@@ -459,13 +488,13 @@ impl NativeProjectView {
     }
 
     #[getter]
-    fn scope_index(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn scope_index(&self, py: Python<'_>) -> Py<PyAny> {
         self.fields.compiler.scope_index.clone_ref(py)
     }
 
     /// Each model's authored-to-expanded passes by file path, where interpolation kept the query.
     #[getter]
-    fn sql_expansions(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+    pub(crate) fn sql_expansions(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
         self.sql_expansions
             .get_or_try_init(py, || {
                 let classes: InputViewClasses<'_> = view_classes(&self.owner, py)?;
@@ -474,8 +503,7 @@ impl NativeProjectView {
                 for record in owner.inputs() {
                     let expansion: Py<PyAny> = authored_expansion(&classes, record)?;
                     if !expansion.is_none(py) {
-                        let path: Bound<'_, PyAny> =
-                            record.model_file.bind(py).getattr(FILE_PATH_ATTRIBUTE)?;
+                        let path: Bound<'_, PyAny> = record.model_file.get().path_objects(py)?.0;
                         expansions.set_item(path, expansion)?;
                     }
                 }
@@ -486,7 +514,7 @@ impl NativeProjectView {
 
     /// The lineage edges, tags, model folders and names, indexed natively once per project.
     #[getter]
-    fn lineage_graph(&self, py: Python<'_>) -> PyResult<Py<NativeProjectGraph>> {
+    pub(crate) fn lineage_graph(&self, py: Python<'_>) -> PyResult<Py<NativeProjectGraph>> {
         self.lineage_graph
             .get_or_try_init(py, || {
                 let mut rows: Vec<ResourceRow> = Vec::new();
@@ -496,21 +524,37 @@ impl NativeProjectView {
                 }
                 let compiler: &CompilerHandles = &self.fields.compiler;
                 for source in compiler.sources.bind(py).try_iter()? {
-                    rows.push(resource_row(&source?, None)?);
+                    let source: Bound<'_, PyAny> = source?;
+                    rows.push(match source.cast::<NativeCompiledSource>() {
+                        Ok(native) => native.get().graph_row(py)?,
+                        Err(_) => resource_row(&source, None)?,
+                    });
                 }
                 for seed in compiler.seeds.bind(py).try_iter()? {
                     let seed: Bound<'_, PyAny> = seed?;
-                    let tags: Bound<'_, PyAny> = seed
-                        .getattr(SCHEMA_ENTRY_ATTRIBUTE)?
-                        .getattr(TAGS_ATTRIBUTE)?;
-                    rows.push(resource_row(&seed, Some(&tags))?);
+                    rows.push(match seed.cast::<NativeCompiledSeed>() {
+                        Ok(native) => native.get().graph_row(py)?,
+                        Err(_) => {
+                            let tags: Bound<'_, PyAny> = native_field(
+                                &native_field(&seed, SCHEMA_ENTRY_ATTRIBUTE)?,
+                                TAGS_ATTRIBUTE,
+                            )?;
+                            resource_row(&seed, Some(&tags))?
+                        }
+                    });
                 }
                 for function in compiler.functions.bind(py).try_iter()? {
                     let function: Bound<'_, PyAny> = function?;
-                    let tags: Bound<'_, PyAny> = function.getattr(TAGS_ATTRIBUTE)?;
-                    rows.push(resource_row(&function, Some(&tags))?);
+                    rows.push(match function.cast::<NativeCompiledFunction>() {
+                        Ok(native) => native.get().graph_row(py)?,
+                        Err(_) => {
+                            let tags: Bound<'_, PyAny> = native_field(&function, TAGS_ATTRIBUTE)?;
+                            resource_row(&function, Some(&tags))?
+                        }
+                    });
                 }
                 self.owner.bind(py).borrow_mut().record_graph_build();
+                count_stage(py, LINEAGE_GRAPH_BUILDS, 1)?;
                 Py::new(py, project_graph(rows)?)
             })
             .map(|graph| graph.clone_ref(py))
@@ -523,7 +567,7 @@ fn resource_row(
     tags: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<ResourceRow> {
     let mut deps: Vec<(String, String)> = Vec::new();
-    for key in resource.getattr(DEPS_ATTRIBUTE)?.try_iter()? {
+    for key in native_field(resource, DEPS_ATTRIBUTE)?.try_iter()? {
         deps.push(key_row(&key?)?);
     }
     let mut tag_names: Vec<String> = Vec::new();
@@ -533,7 +577,7 @@ fn resource_row(
         }
     }
     Ok((
-        key_row(&resource.getattr(KEY_ATTRIBUTE)?)?,
+        key_row(&native_field(resource, KEY_ATTRIBUTE)?)?,
         deps,
         tag_names,
         None,
@@ -543,7 +587,9 @@ fn resource_row(
 /// `(resource type, name)` of a `CompiledObjectKey`.
 pub(crate) fn key_row(key: &Bound<'_, PyAny>) -> PyResult<(String, String)> {
     Ok((
-        key.getattr(RESOURCE_TYPE_ATTRIBUTE)?.str()?.extract()?,
-        key.getattr(NAME_ATTRIBUTE)?.extract()?,
+        native_field(key, RESOURCE_TYPE_ATTRIBUTE)?
+            .str()?
+            .extract()?,
+        native_field(key, NAME_ATTRIBUTE)?.extract()?,
     ))
 }

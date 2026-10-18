@@ -180,10 +180,7 @@ where
             strict: schema_options.and_then(|schema_options| schema_options.strict()),
             format: schema_options.and_then(|schema_options| schema_options.format.clone()),
             lint: schema_options.and_then(|schema_options| schema_options.lint.clone()),
-            cache: Some(tombi_cache::Options {
-                no_cache: args.common.no_cache.then_some(true),
-                ..Default::default()
-            }),
+            cache: Some(args.common.cache_options()),
             trusted_hosts: None,
         });
 

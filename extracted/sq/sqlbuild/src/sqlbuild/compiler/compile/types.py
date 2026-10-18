@@ -5,17 +5,14 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
 
-from sqlbuild.sql_values.models import SqlValue
+from sqlbuild._native import SqlValue
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from pathlib import Path
 
     import sqlbuild._native as _native
-    from sqlbuild.compiler.auditing.models import MeasurementContract, MeasurementThresholds
-    from sqlbuild.compiler.auditing.types import AuditEvaluationMode, AuditSeverity
-    from sqlbuild.compiler.compile.models import (
-        CompactBatchPreparation,
+    from sqlbuild._native import (
         CompiledLineageColumnFact,
         CompiledObjectKey,
         CompiledRelationLocation,
@@ -26,56 +23,54 @@ if TYPE_CHECKING:
         CompiledSqlTest,
         CompileModelConfig,
         CompilerDiagnostic,
-        CompileSeedInput,
-        CompileSourceInput,
         CompileSqlReference,
-        CompileSqlScenarioInput,
-        CompileSqlTestInput,
-        DeclarationScopeBuild,
-        DynamicColumnContractProof,
-        FunctionArgument,
-        FunctionReturnColumn,
-        InferredColumn,
-        LoadedMacro,
-        MacroContext,
-    )
-    from sqlbuild.compiler.discovery.models import (
         ConstantDeclaration,
         DiscoveredAuditBlock,
         DiscoveredAuditFile,
         DiscoveredHookFunction,
         DiscoveredLoaderFunction,
         DiscoveredMaterializationFile,
-        DiscoveredProjectInputs,
-        DiscoveredPythonFunctionFile,
         DiscoveredSchemaFile,
         DiscoveredSeedFile,
         DiscoveredSourceFile,
-        DiscoveredSqlFunctionFile,
         DiscoveredSqlHookFile,
-        DiscoveredSqlModelFile,
+        DynamicColumnContractProof,
         EnumDeclaration,
-    )
-    from sqlbuild.compiler.references.models import LiteralSqlRelation
-    from sqlbuild.compiler.references.types import ExternalSqlReferenceResolver
-    from sqlbuild.compiler.scopes.models import ScopeIndex, UsageRecord
-    from sqlbuild.compiler.sql_analysis.models import SqlLexicalSyntax
-    from sqlbuild.lint.types import RelationKeyRow
-    from sqlbuild.spec.contracts.models import (
-        LocalConfig,
-        ProjectConfig,
+        FunctionArgument,
+        FunctionReturnColumn,
+        InferredColumn,
+        LiteralSqlRelation,
+        LoadedMacro,
+        MeasurementContract,
+        MeasurementThresholds,
         ScenarioConfig,
         SchemaModelEntry,
         SchemaSeedEntry,
+        ScopeIndex,
         SettingsConfig,
         SourceEntry,
         SourceLocation,
-        TargetConfig,
+        SqlLexicalSyntax,
+        UsageRecord,
     )
+    from sqlbuild.compiler.auditing.types import AuditEvaluationMode, AuditSeverity
+
+
+type RelationKeyRow = tuple[
+    str,
+    str,
+    str,
+    str,
+    str,
+    bool,
+    list[str] | None,
+    list[tuple[str, list[str], bool]],
+    list[tuple[str, str | None]],
+]
 
 
 class SourceInput(Protocol):
-    """One attached source: a native owner view, or a hand-built `CompileSourceInput`."""
+    """One attached source, as the native owner view holds it."""
 
     @property
     def source_entry(self) -> SourceEntry: ...
@@ -102,17 +97,6 @@ class CompiledSourceView(Protocol):
     def source_file(self) -> DiscoveredSourceFile: ...
 
 
-class SeedInput(Protocol):
-    """One seed paired with its declaration: a native owner view, or a `CompileSeedInput`."""
-
-    @property
-    def seed_file(self) -> DiscoveredSeedFile: ...
-    @property
-    def schema_entry(self) -> SchemaSeedEntry: ...
-    @property
-    def schema_file(self) -> DiscoveredSchemaFile: ...
-
-
 class CompiledSeedView(Protocol):
     """One assembled seed: a native owner view, or a hand-built `CompiledSeed`."""
 
@@ -132,59 +116,6 @@ class CompiledSeedView(Protocol):
     def destination(self) -> CompiledRelationLocation: ...
     @property
     def external(self) -> bool: ...
-
-
-class FunctionInput(Protocol):
-    """One attached function: a native owner view, or a hand-built `CompileSqlFunctionInput`."""
-
-    @property
-    def function_file(self) -> DiscoveredSqlFunctionFile | DiscoveredPythonFunctionFile: ...
-    @property
-    def name(self) -> str: ...
-    @property
-    def arguments(self) -> tuple[FunctionArgument, ...]: ...
-    @property
-    def returns(self) -> str: ...
-    @property
-    def body_sql(self) -> str: ...
-    @property
-    def return_columns(self) -> tuple[FunctionReturnColumn, ...]: ...
-    @property
-    def references(self) -> tuple[CompileSqlReference, ...]: ...
-    @property
-    def language(self) -> FunctionLanguage: ...
-    @property
-    def runtime_version(self) -> str | None: ...
-    @property
-    def entry_point(self) -> str | None: ...
-    @property
-    def packages(self) -> tuple[str, ...]: ...
-    @property
-    def tags(self) -> tuple[str, ...]: ...
-    @property
-    def description(self) -> str | None: ...
-    @property
-    def database(self) -> str | None: ...
-    @property
-    def schema(self) -> str | None: ...
-    @property
-    def logical_database(self) -> str | None: ...
-    @property
-    def logical_schema(self) -> str | None: ...
-    @property
-    def fingerprint_database(self) -> str | None: ...
-    @property
-    def fingerprint_schema(self) -> str | None: ...
-    @property
-    def fingerprint_logical_database(self) -> str | None: ...
-    @property
-    def fingerprint_logical_schema(self) -> str | None: ...
-    @property
-    def declaration_usages(self) -> tuple[UsageRecord, ...]: ...
-    @property
-    def assembly_row(
-        self,
-    ) -> tuple[str, str, list[str], list[tuple[str, str, str | None]]]: ...
 
 
 class CompiledFunctionView(Protocol):
@@ -226,55 +157,6 @@ class CompiledFunctionView(Protocol):
     def destination(self) -> CompiledRelationLocation: ...
     @property
     def fingerprint_destination(self) -> CompiledRelationLocation: ...
-
-
-class AuditInput(Protocol):
-    """One attached audit: a native owner view, or a hand-built `CompileAuditInput`."""
-
-    @property
-    def audit_file(self) -> DiscoveredAuditFile: ...
-    @property
-    def audit_block(self) -> DiscoveredAuditBlock: ...
-    @property
-    def sql_body(self) -> str: ...
-    @property
-    def evaluation_mode(self) -> AuditEvaluationMode: ...
-    @property
-    def measurement_contract(self) -> MeasurementContract | None: ...
-    @property
-    def thresholds(self) -> MeasurementThresholds | None: ...
-    @property
-    def minimum_samples(self) -> int | None: ...
-    @property
-    def measure_sql(self) -> str | None: ...
-    @property
-    def evidence_sql(self) -> str | None: ...
-    @property
-    def evidence_limit(self) -> int | None: ...
-    @property
-    def references(self) -> tuple[CompileSqlReference, ...]: ...
-    @property
-    def attached_target_kind(self) -> AttachedAuditTargetKind | None: ...
-    @property
-    def attached_target_name(self) -> str | None: ...
-    @property
-    def attached_column_name(self) -> str | None: ...
-    @property
-    def severity(self) -> AuditSeverity | None: ...
-    @property
-    def run_scope(self) -> str | None: ...
-    @property
-    def always_run(self) -> bool: ...
-    @property
-    def description(self) -> str | None: ...
-    @property
-    def declaration_usages(self) -> tuple[UsageRecord, ...]: ...
-    @property
-    def name(self) -> str | None: ...
-    @property
-    def assembly_row(
-        self,
-    ) -> tuple[list[tuple[str, str, str | None]], tuple[str, str] | None]: ...
 
 
 class CompiledAuditView(Protocol):
@@ -324,67 +206,6 @@ class CompiledAuditView(Protocol):
     def always_run(self) -> bool: ...
     @property
     def description(self) -> str | None: ...
-
-
-class CompileInputsView(Protocol):
-    """A compile's attached inputs: a native owner view, or hand-built `CompileProjectInputs`."""
-
-    @property
-    def project_config(self) -> ProjectConfig: ...
-    @property
-    def local_config(self) -> LocalConfig: ...
-    @property
-    def discovered_inputs(self) -> DiscoveredProjectInputs: ...
-    @property
-    def sql_lexical_syntax(self) -> SqlLexicalSyntax: ...
-    @property
-    def run_id(self) -> str: ...
-    @property
-    def effective_target_name(self) -> str | None: ...
-    @property
-    def effective_target(self) -> TargetConfig | None: ...
-    @property
-    def compile_cache_dir(self) -> Path | None: ...
-    @property
-    def effective_connection(self) -> dict[str, object]: ...
-    @property
-    def effective_settings(self) -> SettingsConfig: ...
-    @property
-    def no_sql_validation(self) -> bool: ...
-    @property
-    def effective_vars(self) -> dict[str, object]: ...
-    @property
-    def macro_context(self) -> MacroContext | None: ...
-    @property
-    def loaded_macros(self) -> dict[str, LoadedMacro]: ...
-    @property
-    def public_enums(self) -> dict[str, EnumDeclaration]: ...
-    @property
-    def public_constants(self) -> dict[str, ConstantDeclaration]: ...
-    @property
-    def model_inputs(self) -> tuple[ModelInput, ...]: ...
-    @property
-    def seed_inputs(self) -> tuple[CompileSeedInput, ...]: ...
-    @property
-    def source_inputs(self) -> tuple[CompileSourceInput, ...]: ...
-    @property
-    def sql_function_inputs(self) -> tuple[FunctionInput, ...]: ...
-    @property
-    def test_inputs(self) -> tuple[CompileSqlTestInput, ...]: ...
-    @property
-    def scenario_inputs(self) -> tuple[CompileSqlScenarioInput, ...]: ...
-    @property
-    def audit_inputs(self) -> tuple[AuditInput, ...]: ...
-    @property
-    def diagnostics(self) -> tuple[CompilerDiagnostic, ...]: ...
-    @property
-    def external_sql_reference_resolver(self) -> ExternalSqlReferenceResolver | None: ...
-    @property
-    def scope_index(self) -> ScopeIndex: ...
-    @property
-    def declaration_scope(self) -> DeclarationScopeBuild | None: ...
-    @property
-    def native_project(self) -> _native.NativeCompiledProject | None: ...
 
 
 class CompiledProjectView(Protocol):
@@ -537,51 +358,6 @@ class CompiledModelView(Protocol):
     def output_column_count(self) -> int: ...
 
 
-class ModelInput(Protocol):
-    """One model's compile input: a native owner view, or a hand-built `CompileModelInput`."""
-
-    @property
-    def model_file(self) -> DiscoveredSqlModelFile: ...
-    @property
-    def config(self) -> CompileModelConfig: ...
-    @property
-    def query_sql(self) -> str: ...
-    @property
-    def macro_source_sql(self) -> str: ...
-    @property
-    def references(self) -> tuple[CompileSqlReference, ...]: ...
-    @property
-    def schema_entry(self) -> SchemaModelEntry | None: ...
-    @property
-    def schema_file(self) -> DiscoveredSchemaFile | None: ...
-    @property
-    def sql_validation_enabled(self) -> bool: ...
-    @property
-    def rejected_sql_analysis_opt_out(self) -> SourceLocation | None: ...
-    @property
-    def enum_declarations(self) -> tuple[EnumDeclaration, ...]: ...
-    @property
-    def constant_declarations(self) -> tuple[ConstantDeclaration, ...]: ...
-    @property
-    def enum_columns(self) -> dict[str, EnumDeclaration]: ...
-    @property
-    def macro_deps(self) -> tuple[str, ...]: ...
-    @property
-    def macro_usages(self) -> tuple[UsageRecord, ...]: ...
-    @property
-    def declaration_usages(self) -> tuple[UsageRecord, ...]: ...
-    @property
-    def sql_expansion(self) -> CompiledSqlExpansion | None: ...
-    @property
-    def lint_expansion(self) -> CompiledSqlExpansion | None: ...
-    @property
-    def reference_rows(self) -> list[tuple[str, str, str | None, int | None]]: ...
-    @property
-    def attached_schema_name(self) -> str | None: ...
-    @property
-    def relation_key_row(self) -> RelationKeyRow: ...
-
-
 class TypedSqlValueRenderer(Protocol):
     """Adapter rendering operations consumed by authored SQL expansion."""
 
@@ -597,74 +373,10 @@ class TypedSqlValueRenderer(Protocol):
     def render_typed_object(self, *, value: SqlValue) -> str: ...
 
 
-class CompactBatchResponseCallback(Protocol):
-    """Keyword-only callback for publishing one native compact response."""
-
-    def __call__(self, *, preparation: CompactBatchPreparation, response: object) -> None: ...
-
-
-class CompileInputsReadyCallback(Protocol):
-    """Invocation-local observer for the completed pre-semantic input snapshot."""
-
-    def __call__(self, *, inputs: CompileInputsView) -> None: ...
-
-
 class AttachedAuditTargetKind(StrEnum):
     MODEL = "model"
     SOURCE = "source"
     SEED = "seed"
-
-    @property
-    def resource_type(self) -> CompiledResourceType:
-        """Return the compiled resource type of the attached target."""
-
-        return CompiledResourceType(self.value)
-
-
-class CompileContextKey(StrEnum):
-    RUN_ID = "run.id"
-    RUN_TARGET = "run.target"
-    MODEL_NAME = "model.name"
-    MODEL_DATABASE = "model.database"
-    MODEL_SCHEMA = "model.schema"
-    MODEL_ALIAS = "model.alias"
-    DESTINATION_DATABASE = "destination.database"
-    DESTINATION_SCHEMA = "destination.schema"
-    DESTINATION_TABLE = "destination.table"
-    DESTINATION_QUALIFIED = "destination.qualified"
-
-
-class CompiledResourceType(StrEnum):
-    MODEL = "model"
-    SOURCE = "source"
-    SEED = "seed"
-    UDF = "udf"
-    TABLE_FN = "table_fn"
-    DBT_REF = "dbt_ref"
-    AUDIT = "audit"
-    SQL_TEST = "sql_test"
-    SQL_SCENARIO = "sql_scenario"
-
-
-class DiagnosticPhase(StrEnum):
-    """Phase that produced a compiler diagnostic."""
-
-    COMPILE = "compile"
-    CONTRACT = "contract"
-    RULE = "rule"
-    PLAN = "plan"
-    BUILD = "build"
-    AUDIT = "audit"
-    TEST = "test"
-    CONNECTION = "connection"
-
-
-class DiagnosticSeverity(StrEnum):
-    """Severity for a compiler diagnostic."""
-
-    ERROR = "error"
-    WARNING = "warning"
-    INFO = "info"
 
 
 class FunctionLanguage(StrEnum):
@@ -679,4 +391,88 @@ class SqlTestMode(StrEnum):
     TABLE_FN = "table_fn"
 
 
-type SqlReferenceScanFailure = tuple[str, int]
+type PythonResourceRow = tuple[str, str, str | None, Callable[[], SourceLocation], str]
+
+
+class AuditInput(Protocol):
+    """One attached audit, as the native owner view holds it."""
+
+    @property
+    def audit_file(self) -> DiscoveredAuditFile: ...
+    @property
+    def audit_block(self) -> DiscoveredAuditBlock: ...
+    @property
+    def sql_body(self) -> str: ...
+    @property
+    def evaluation_mode(self) -> AuditEvaluationMode: ...
+    @property
+    def measurement_contract(self) -> MeasurementContract | None: ...
+    @property
+    def thresholds(self) -> MeasurementThresholds | None: ...
+    @property
+    def minimum_samples(self) -> int | None: ...
+    @property
+    def measure_sql(self) -> str | None: ...
+    @property
+    def evidence_sql(self) -> str | None: ...
+    @property
+    def evidence_limit(self) -> int | None: ...
+    @property
+    def references(self) -> tuple[CompileSqlReference, ...]: ...
+    @property
+    def attached_target_kind(self) -> AttachedAuditTargetKind | None: ...
+    @property
+    def attached_target_name(self) -> str | None: ...
+    @property
+    def attached_column_name(self) -> str | None: ...
+    @property
+    def severity(self) -> AuditSeverity | None: ...
+    @property
+    def run_scope(self) -> str | None: ...
+    @property
+    def always_run(self) -> bool: ...
+    @property
+    def description(self) -> str | None: ...
+    @property
+    def declaration_usages(self) -> tuple[UsageRecord, ...]: ...
+    @property
+    def name(self) -> str | None: ...
+    @property
+    def assembly_row(
+        self,
+    ) -> tuple[list[tuple[str, str, str | None]], tuple[str, str] | None]: ...
+
+
+class ExternalSqlReferenceResolver(Protocol):
+    """Resolve first-class SQLBuild references backed by external metadata."""
+
+    def validate_model_names(self, *, known_model_names: set[str]) -> None:
+        """Validate SQLBuild model names against external integration resources."""
+
+    def extend_sql_test_model_names(self, *, known_model_names: set[str]) -> set[str]:
+        """Return extra model names valid for SQL-native test targets."""
+
+    def extend_sql_test_source_names(self, *, known_source_names: set[str]) -> set[str]:
+        """Return extra source names valid for SQL-native test mocks."""
+
+    def extend_sql_test_seed_names(self, *, known_seed_names: set[str]) -> set[str]:
+        """Return extra seed names valid for SQL-native test mocks."""
+
+    def validate_reference(
+        self,
+        *,
+        ref_kind: str,
+        ref_name: str,
+        ref_package: str | None,
+        owner_relative_sql_path: Path,
+    ) -> None:
+        """Validate one external SQL reference from a SQLBuild-owned file."""
+
+    def resolve_reference(
+        self,
+        *,
+        ref_kind: str,
+        ref_name: str,
+        ref_package: str | None,
+    ) -> str | None:
+        """Return the physical relation for an external reference, if resolvable."""

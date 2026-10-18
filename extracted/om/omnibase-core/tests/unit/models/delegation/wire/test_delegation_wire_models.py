@@ -8,6 +8,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import get_args
 
 import pytest
 from pydantic import ValidationError
@@ -59,6 +60,7 @@ from omnibase_core.models.delegation.wire import (
 _CANONICAL_DELEGATION_TASK_TYPES = frozenset(
     {
         "agent_delegation",
+        "brief_drafting",
         "code_generation",
         "code_review",
         "complex_reasoning",
@@ -376,7 +378,7 @@ class TestModelDelegationRequest:
         """Every Market-authoritative task class crosses the Core wire.
 
         OMN-15651 keeps this consumer mechanically coherent with the Market-owned
-        15-class authority through cross-repository admission. Core intentionally
+        16-class authority through cross-repository admission. Core intentionally
         does not import Market at runtime.
         """
         r = self._make(task_type=task_type)
@@ -1657,27 +1659,33 @@ class TestModelBifrostDelegationConfig:
             ModelDelegationBackendConfig(backend_id="local_qwen3", tier="unknown")
 
     def test_all_live_tier_values_accepted(self) -> None:
-        """All tier values present in live bifrost_delegation.yaml must be valid (OMN-12663).
+        """The live bifrost_delegation.yaml tiers this model can name are its whole set.
 
-        Verified against bifrost_delegation.yaml and routing_tiers.yaml in omnimarket
-        and omnibase_infra; values confirmed in D3 trace (OMN-12642).
+        The set is spelled here because omnibase_core cannot read the omnimarket
+        config; comparing the field's own Literal to it keeps the test from
+        passing on a stale list (OMN-17122, DR-17). The live judge tier is not
+        listed: core code names no lab lane and judge is one, so
+        that tier waits on a ruling about how core may name it.
         """
         live_tiers = (
             "local",
             "frontier_api",
             "cheap_cloud",
             "cheap_frontier",
-            "cli_agents",
+            "typed_decision",
         )
+        declared = get_args(
+            ModelDelegationBackendConfig.model_fields["tier"].annotation
+        )
+        assert set(declared) == set(live_tiers)
         for tier in live_tiers:
             backend = ModelDelegationBackendConfig(backend_id=f"test-{tier}", tier=tier)
             assert backend.tier == tier, f"tier={tier!r} round-trip failed"
 
-    def test_previously_missing_tiers_now_accepted(self) -> None:
-        """cheap_cloud, cheap_frontier, and cli_agents were the three missing values (OMN-12663)."""
-        for tier in ("cheap_cloud", "cheap_frontier", "cli_agents"):
-            backend = ModelDelegationBackendConfig(backend_id=f"test-{tier}", tier=tier)
-            assert backend.tier == tier
+    def test_removed_cli_agents_tier_rejected(self) -> None:
+        """cli_agents was removed from the live config (OMN-17122, DR-17)."""
+        with pytest.raises(ValidationError):
+            ModelDelegationBackendConfig(backend_id="test-cli", tier="cli_agents")
 
 
 @pytest.mark.unit

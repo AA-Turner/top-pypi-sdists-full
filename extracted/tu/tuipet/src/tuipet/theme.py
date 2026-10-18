@@ -110,6 +110,38 @@ BEZEL = SHELL = LABEL = KEY = ""
 FLASH: tuple = ("", "", "")
 
 
+SHELL_BG = "#121212"
+SHELL_ROLES = ("accent", "pos", "neg", "heart", "energy", "care", "life", "coin")
+_GREY_SHELL = dict(accent="#e47b6b", pos="#7fa8d8", neg="#e47b6b",
+                   heart="#e47b6b", energy="#7fa8d8", care="#b28ad4",
+                   life="#68b89f", coin="#d8b45c")
+
+
+def shell_colors(t):
+    """Semantic inks for dark cards, independent of the LCD palette."""
+    colors = {role: t[role] for role in SHELL_ROLES}
+    if t is THEMES["grey"]:
+        colors.update(_GREY_SHELL)
+    return colors
+
+
+def shell_markup(markup):
+    """Retint explicit card markup only; never rewrite LCD or sprite inks."""
+    import re
+    t = THEMES[_current]
+    colors = shell_colors(t)
+    mapping = {t[role]: colors[role] for role in SHELL_ROLES}
+    return re.sub(r"#[0-9a-fA-F]{6}", lambda m: mapping.get(m[0], m[0]), markup)
+
+
+def shell_feedback(markup):
+    """Translate LCD feedback roles for the dark shell message box."""
+    t = THEMES[_current]
+    ink = t["sil_lightsoff"] if _current == "grey" else t["on"]
+    return (shell_markup(markup).replace(f" on {t['bg']}", "")
+            .replace(t["on"], ink))
+
+
 def _derive(t):
     on, bg, mid = t["on"], t["bg"], t["mid"]
     return {
@@ -127,7 +159,7 @@ def _derive(t):
         # (the DMG shell polish, 2026-07-05)
         "BEZEL": t.get("bezel", t["border"]),
         "SHELL": t.get("shell", t["border"]),
-        "LABEL": t.get("label", t["mid"]),
+        "LABEL": t.get("label", "#7d8186" if t is THEMES["grey"] else t["on"]),
         "KEY": t.get("key", "cyan"),   # cyan is PINNED design (the shell-revert
         #                                ruling, test_theme) -- the 2026-07-22
         #                                theme audit flagged it as terminal-

@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use tombi_ast_syntax::{AstNode, AstToken, DanglingCommentGroupOr};
+use tombi_ast_syntax::{AstNode, AstToken, DanglingCommentGroupOr, TomlElement};
 use tower_lsp_server::gen_lsp_types::{FoldingRange, FoldingRangeKind, FoldingRangeParams};
 
 use crate::backend::Backend;
@@ -173,9 +173,36 @@ fn resolve_region_overlaps(ranges: Vec<(FoldingRange, bool)>, text: &str) -> Vec
 }
 
 fn create_folding_spans(root: &tombi_ast_syntax::Root<'_>, text: &str) -> Vec<FoldingSpan> {
-    let mut spans: Vec<FoldingSpan> = region_marker_folding_spans(root, text);
+    let mut spans = vec![];
+    let mut region_starts = vec![];
 
-    for node in root.nodes() {
+    for element in root.elements() {
+        let node = match element {
+            TomlElement::Comment(comment) => {
+                let span = comment.syntax().span();
+                let start = usize::from(span.start);
+                let line_start = text[..start].rfind('\n').map_or(0, |index| index + 1);
+                if text[line_start..start].trim().is_empty() {
+                    match comment.region_marker() {
+                        Some(tombi_ast_syntax::RegionMarker::Start) => {
+                            region_starts.push(span.start);
+                        }
+                        Some(tombi_ast_syntax::RegionMarker::End) => {
+                            if let Some(start) = region_starts.pop() {
+                                spans.push(FoldingSpan {
+                                    span: tombi_text::Span::new(start, span.end),
+                                    kind: FoldingRangeKind::Region,
+                                    is_region_marker: true,
+                                });
+                            }
+                        }
+                        None => {}
+                    }
+                }
+                continue;
+            }
+            TomlElement::Node(node) => node,
+        };
         if let tombi_ast_syntax::TomlNode::KeyValue(key_value) = node {
             for folding_span in [key_value
                 .leading_comments()
@@ -502,42 +529,6 @@ fn create_folding_spans(root: &tombi_ast_syntax::Root<'_>, text: &str) -> Vec<Fo
                             .get_comment_folding_span()
                     }),
             );
-        }
-    }
-
-    spans
-}
-
-/// Pairs `# region` / `# endregion` comments into folding spans.
-///
-/// The markers are matched like a stack, so regions can be nested.
-/// An unmatched `# endregion` is ignored, and so is an unclosed `# region`.
-/// A marker must start its line; a trailing comment such as `a = 1 # region`
-/// is not one, as in editors' own region folding.
-fn region_marker_folding_spans(root: &tombi_ast_syntax::Root<'_>, text: &str) -> Vec<FoldingSpan> {
-    let mut spans = vec![];
-    let mut starts = vec![];
-
-    for comment in root.comments() {
-        let span = comment.syntax().span();
-        let start = usize::from(span.start);
-        let line_start = text[..start].rfind('\n').map_or(0, |index| index + 1);
-        if !text[line_start..start].trim().is_empty() {
-            continue;
-        }
-
-        match comment.region_marker() {
-            Some(tombi_ast_syntax::RegionMarker::Start) => starts.push(span.start),
-            Some(tombi_ast_syntax::RegionMarker::End) => {
-                if let Some(start) = starts.pop() {
-                    spans.push(FoldingSpan {
-                        span: tombi_text::Span::new(start, span.end),
-                        kind: FoldingRangeKind::Region,
-                        is_region_marker: true,
-                    });
-                }
-            }
-            None => {}
         }
     }
 

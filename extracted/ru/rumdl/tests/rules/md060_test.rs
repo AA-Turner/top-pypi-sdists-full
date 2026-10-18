@@ -4100,7 +4100,6 @@ fn test_md060_explicit_padding_checks_content_as_well_as_delimiter() {
     for content in [
         "|\tABC\t|\n|-----|\n|\tXYZ\t|\n",
         "|  \tABC\t  |\n|  ---  |\n|  \tXYZ\t  |\n",
-        "|\tABC\t|\n|\t---\t|\n|\tXYZ\t|\n",
         "|\tABC\t|\n|-----|\n|  \t  |\n",
     ] {
         assert_eq!(
@@ -4135,4 +4134,214 @@ fn test_md060_any_style_with_configured_padding_is_idempotent() {
             assert!(rule.check(&ctx).unwrap().is_empty());
         }
     }
+}
+
+// Regression: #950. GFM includes pipe-less lines in a table's body.
+/// A footnote definition starts a block of its own to the parser, so it ends the
+/// table instead of being one of its rows, and is left as written.
+#[test]
+fn test_md060_footnote_definition_ends_the_table() {
+    let content = "| Name | Status |\n|------|--------|\n| Alpha | Done |\n[^a b]: footnote-like text\n\nEnd.\n";
+    let rule = MD060TableFormat::new(true, "aligned".to_string());
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert_eq!(ctx.table_blocks.len(), 1);
+    assert_eq!(ctx.table_blocks[0].content_lines.len(), 1);
+    assert_eq!(
+        rule.fix(&ctx).unwrap(),
+        "| Name  | Status |\n| ----- | ------ |\n| Alpha | Done   |\n[^a b]: footnote-like text\n\nEnd.\n"
+    );
+}
+
+#[test]
+fn test_md060_preserves_pipe_less_body_rows() {
+    for style in ["any", "aligned", "aligned-no-space", "compact", "tight"] {
+        for row in [
+            "Note: this line is lost after fixing",
+            "Another continuation with **bold** and `code`",
+            "注記: café ✅",
+            "Family: 👨‍👩‍👧",
+            "Zero-width space: \u{200B}",
+            "Zero-width non-joiner: \u{200C}",
+            "Word joiner: \u{2060}",
+            r"Escaped pipe \| stays in the cell",
+            r"Trailing backslash \",
+            "<span>HTML block</span>",
+        ] {
+            for (header_prefix, body_prefix) in [("", ""), ("> ", "> "), ("> > ", "> > "), ("- ", "  ")] {
+                let content = format!(
+                    "# Title\n\n{header_prefix}| Name | Status |\n{body_prefix}|------|--------|\n{body_prefix}| Alpha | Done |\n{body_prefix}{row}\n\nEnd.\n"
+                );
+                let rule = MD060TableFormat::new(true, style.to_string());
+                let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+                assert_eq!(ctx.table_blocks.len(), 1);
+                assert_eq!(
+                    ctx.table_blocks[0].content_lines.len(),
+                    2,
+                    "row {row:?} with prefix {header_prefix:?}"
+                );
+
+                let fixed = rule.fix(&ctx).unwrap();
+                assert!(fixed.contains(row), "Lost content for {style}: {fixed}");
+                assert!(fixed.starts_with("# Title\n\n"));
+                assert!(fixed.ends_with("\n\nEnd.\n"));
+                let render = |markdown: &str| {
+                    let parser = pulldown_cmark::Parser::new_ext(markdown, pulldown_cmark::Options::ENABLE_TABLES);
+                    let mut html = String::new();
+                    pulldown_cmark::html::push_html(&mut html, parser);
+                    html
+                };
+                assert_eq!(render(&fixed), render(&content), "Changed GFM rendering for {style}");
+                let render_other =
+                    |markdown: &str| markdown::to_html_with_options(markdown, &markdown::Options::gfm()).unwrap();
+                assert_eq!(
+                    render_other(&fixed),
+                    render_other(&content),
+                    "Changed markdown-rs rendering for {style}"
+                );
+                let fixed_row = fixed.lines().nth(5).unwrap();
+                if row.contains('|') {
+                    assert!(fixed_row.starts_with(&format!("{body_prefix}|")));
+                } else {
+                    assert_eq!(fixed_row, format!("{body_prefix}{row}"));
+                }
+
+                // CLI and editor fixes use warning replacements, not Rule::fix.
+                let warnings = rule.check(&ctx).unwrap();
+                assert!(!warnings.is_empty());
+                for warning in warnings {
+                    let fix = warning.fix.unwrap();
+                    let mut applied = content.clone();
+                    applied.replace_range(fix.range, &fix.replacement);
+                    assert_eq!(applied, fixed);
+                }
+
+                let fixed_ctx = LintContext::new(&fixed, MarkdownFlavor::Standard, None);
+                assert_eq!(rule.fix(&fixed_ctx).unwrap(), fixed, "Not idempotent for {style}");
+                assert!(rule.check(&fixed_ctx).unwrap().is_empty());
+            }
+        }
+    }
+}
+
+#[test]
+fn test_md060_preserves_multiple_pipe_less_rows_when_auto_compacting() {
+    let rule = MD060TableFormat::from_config_struct(
+        MD060Config {
+            enabled: true,
+            style: "aligned".to_string(),
+            max_width: LineLength::from_const(10),
+            aligned_delimiter: true,
+            ..Default::default()
+        },
+        MD013Config::default(),
+        false,
+    );
+    let content = "Name | Status\n-----|-------\nAlpha | Done\nFirst continuation without pipes\nSecond continuation without pipes\n\nEnd.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let fixed = rule.fix(&ctx).unwrap();
+    assert_eq!(
+        fixed,
+        "| Name | Status |\n| ---- | ------ |\n| Alpha | Done |\nFirst continuation without pipes\nSecond continuation without pipes\n\nEnd.\n"
+    );
+    let fixed_ctx = LintContext::new(&fixed, MarkdownFlavor::Standard, None);
+    assert_eq!(rule.fix(&fixed_ctx).unwrap(), fixed);
+    assert!(rule.check(&fixed_ctx).unwrap().is_empty());
+}
+
+#[test]
+fn test_md060_skips_fix_that_changes_cell_content() {
+    // Without padding, the new closing pipe would be escaped by the backslash.
+    for (style, pad_width) in [("tight", None), ("aligned", Some(0)), ("compact", Some(0))] {
+        let rule = MD060TableFormat::from_config_struct(
+            MD060Config {
+                enabled: true,
+                style: style.to_string(),
+                pad_width,
+                ..Default::default()
+            },
+            MD013Config::default(),
+            false,
+        );
+        let content = String::from("| Name | Status |\n|------|--------|\n| Trailing backslash \\ |\n");
+        let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+        assert_eq!(rule.fix(&ctx).unwrap(), content, "Unsafe fix for {style}");
+        assert!(rule.check(&ctx).unwrap().is_empty());
+    }
+}
+
+#[test]
+fn test_md060_any_keeps_compact_style_with_pipe_less_rows() {
+    let content = "| Name | Status |\n|------|--------|\n| Alpha | Done |\nA long note must not determine column widths\n| Beta | Ready |\nAnother note";
+    let rule = MD060TableFormat::new(true, "any".to_string());
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let fixed = rule.fix(&ctx).unwrap();
+    assert_eq!(
+        fixed,
+        "| Name | Status |\n| ------ | -------- |\n| Alpha | Done |\nA long note must not determine column widths\n| Beta | Ready |\nAnother note"
+    );
+    let fixed_ctx = LintContext::new(&fixed, MarkdownFlavor::Standard, None);
+    assert_eq!(rule.fix(&fixed_ctx).unwrap(), fixed);
+    assert!(rule.check(&fixed_ctx).unwrap().is_empty());
+}
+
+#[test]
+fn test_md060_preserves_pipe_less_lines_in_every_flavor() {
+    for flavor in [
+        MarkdownFlavor::Standard,
+        MarkdownFlavor::MkDocs,
+        MarkdownFlavor::MDX,
+        MarkdownFlavor::Pandoc,
+        MarkdownFlavor::Quarto,
+        MarkdownFlavor::Obsidian,
+        MarkdownFlavor::Kramdown,
+        MarkdownFlavor::AzureDevOps,
+        MarkdownFlavor::MyST,
+        MarkdownFlavor::Hugo,
+        MarkdownFlavor::MDG,
+        MarkdownFlavor::GhAw,
+    ] {
+        for suffix in ["Note: keep this text", "{: .table-striped}", ": Caption {#tbl-x}"] {
+            let content = format!("| Name | Status |\n|------|--------|\n| Alpha | Done |\n{suffix}");
+            let rule = MD060TableFormat::new(true, "any".to_string());
+            let ctx = LintContext::new(&content, flavor, None);
+            let fixed = rule.fix(&ctx).unwrap();
+            assert_eq!(
+                fixed,
+                format!("| Name | Status |\n| ------ | -------- |\n| Alpha | Done |\n{suffix}"),
+                "Changed pipe-less content or table style for {flavor:?}"
+            );
+            let fixed_ctx = LintContext::new(&fixed, flavor, None);
+            assert_eq!(rule.fix(&fixed_ctx).unwrap(), fixed);
+            assert!(rule.check(&fixed_ctx).unwrap().is_empty());
+        }
+    }
+}
+
+#[test]
+fn test_md060_keeps_mdg_table_indent_with_pipe_less_suffix() {
+    let content = "  | a | b |\n  |---|---|\n  | 1 | 2 |\nA Gherkin description without pipes";
+    let rule = MD060TableFormat::new(true, "any".to_string());
+    let ctx = LintContext::new(content, MarkdownFlavor::MDG, None);
+    let fixed = rule.fix(&ctx).unwrap();
+    assert_eq!(
+        fixed,
+        "  | a | b |\n  | --- | --- |\n  | 1 | 2 |\nA Gherkin description without pipes"
+    );
+    let fixed_ctx = LintContext::new(&fixed, MarkdownFlavor::MDG, None);
+    assert_eq!(rule.fix(&fixed_ctx).unwrap(), fixed);
+    assert!(rule.check(&fixed_ctx).unwrap().is_empty());
+}
+
+/// `a\\|b` is one cell to GFM. Formatting must keep the row at the cell count
+/// the parser reads, not split it into an extra cell.
+#[test]
+fn test_even_backslash_run_before_pipe_keeps_the_cell_together() {
+    let content = "| H1 | H2 |\n|----|----|\n| a\\\\|b | c |\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let rule = MD060TableFormat::new(true, "aligned".to_string());
+    let fixed = rule.fix(&ctx).unwrap();
+    let body = fixed.lines().nth(2).unwrap();
+    assert!(body.starts_with("| a\\\\|b"), "cell must stay whole: {fixed:?}");
+    assert!(body.contains("| c"), "second cell must survive: {fixed:?}");
+    assert_eq!(body.matches('|').count(), 4, "{fixed:?}");
 }

@@ -7,7 +7,7 @@ import logging
 import random
 import re
 import sys
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import pytest
+
+from nab_markersets._compat import get_int_max_str_digits
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -25,6 +27,7 @@ from nab_index.client import SdistFile, WheelFile, _parse_files
 from nab_index.multi_index import IndexConfig
 from nab_markersets.errors import IntractableMarkerSet
 from nab_markersets.markersets import MarkerSet
+from nab_project._lockfile import pylock as projection_engine
 from nab_project._lockfile.builder import _common_requires_python
 from nab_project._lockfile.coverage import (
     CoverageError,
@@ -109,6 +112,10 @@ from nab_provider.target import (
     slices_from_points,
 )
 from nab_provider.testing import pkg_override
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
 
 
 def _target(
@@ -1592,9 +1599,7 @@ class TestErrorPaths:
             _pin_discriminator(Weird())  # type: ignore[arg-type]
 
     def test_wheel_primary_digest_requires_acceptable_hash(self) -> None:
-        """A wheel artefact whose hashes contain only unacceptable
-        algorithms (e.g. md5) raises rather than emitting a
-        non-PEP-751 lockfile entry."""
+        """A wheel's primary digest requires sha256, sha384, or sha512."""
         artifact = WheelArtifact(
             filename="foo-1.0-py3-none-any.whl",
             url="https://example.com/foo-1.0-py3-none-any.whl",
@@ -3326,6 +3331,7 @@ class TestBuildTargetLock:
         text = write_lock(_lock_from(lock))
         assert ">=3.6.*" not in text
 
+    @requires_int_limit
     def test_oversized_requires_python_dropped_and_emittable(self) -> None:
         """A digit run past int()'s limit is dropped like a malformed value.
 
@@ -3333,7 +3339,7 @@ class TestBuildTargetLock:
         against it, so this one constructs and ``excluded_by_python`` admits the
         artefact on every Python.
         """
-        oversized = ">=" + "9" * (sys.get_int_max_str_digits() + 1)
+        oversized = ">=" + "9" * ((get_int_max_str_digits() or 4300) + 1)
         provider = _FakeProvider(
             listings={"foo": [(Version("1.0"), _wheel_file(requires_python=oversized))]}
         )
@@ -3353,7 +3359,7 @@ class TestBuildTargetLock:
 
         The check is a conversion, not a length cap.
         """
-        at_limit = ">=" + "9" * sys.get_int_max_str_digits()
+        at_limit = ">=" + "9" * (get_int_max_str_digits() or 4300)
         provider = _FakeProvider(
             listings={"foo": [(Version("1.0"), _wheel_file(requires_python=at_limit))]}
         )
@@ -4131,11 +4137,11 @@ class TestBuildTargetLock:
         assert isinstance(pin, IndexPin)
         assert pin.wheels[0].upload_time is None
 
-    def test_missing_acceptable_hash_raises(self) -> None:
+    def test_missing_hash_raises(self) -> None:
         wheel = _wheel_file(sha256=None)
         provider = _FakeProvider(listings={"foo": [(Version("1.0"), wheel)]})
         lock = build_target_lock(provider, _HOST, {"foo": Version("1.0")})
-        with pytest.raises(MissingHashError, match="no acceptable hash"):
+        with pytest.raises(MissingHashError):
             write_lock(_lock_from(lock))
 
     def test_unsupported_algorithm_raises(self) -> None:
@@ -4151,7 +4157,7 @@ class TestBuildTargetLock:
         )
         provider = _FakeProvider(listings={"foo": [(Version("1.0"), wheel_md5_only)]})
         lock = build_target_lock(provider, _HOST, {"foo": Version("1.0")})
-        with pytest.raises(MissingHashError, match="no acceptable hash"):
+        with pytest.raises(MissingHashError):
             write_lock(_lock_from(lock))
 
     def test_sha384_and_sha512_emit(self) -> None:
@@ -4305,7 +4311,7 @@ class TestMissingHashFormatAware:
             listings={"foo": [(Version("1.0"), _wheel_file(sha256=None))]}
         )
         lock = build_target_lock(provider, _HOST, {"foo": Version("1.0")})
-        with pytest.raises(MissingHashError, match="no acceptable hash"):
+        with pytest.raises(MissingHashError):
             write_lock(_lock_from(lock))
 
     def test_listing_digest_carrying_a_newline_leaves_pin_hashless(self) -> None:
@@ -4323,6 +4329,121 @@ class TestMissingHashFormatAware:
 
         with pytest.raises(MissingHashError, match="no acceptable hash"):
             write_requirements_with_hashes(_lock_from(lock))
+
+
+def _pin_with_hashes(kind: str, hashes: tuple[tuple[str, str], ...]) -> PinShape:
+    """Give one artefact the supplied hashes while keeping sibling artefacts valid."""
+    if kind == "archive":
+        return ArchivePin(
+            name="foo",
+            version="1.0",
+            url="https://example.com/foo.tar.gz",
+            hashes=hashes,
+        )
+    pin = _index_pin()
+    if kind == "wheel":
+        pin.wheels[0].hashes = hashes
+    else:
+        assert kind == "sdist"
+        assert pin.sdist is not None
+        pin.sdist.hashes = hashes
+    return pin
+
+
+@pytest.mark.parametrize(
+    ("writer", "kind"),
+    [
+        (write_lock, "wheel"),
+        (write_lock, "sdist"),
+        (write_lock, "archive"),
+        (write_requirements_with_hashes, "wheel"),
+        (write_requirements_with_hashes, "sdist"),
+        (write_requirements_with_hashes, "archive"),
+        (write_requirements_without_hashes, "archive"),
+    ],
+)
+class TestPublishedDigestValidation:
+    @pytest.mark.parametrize("algorithm", ["sha256", "sha384", "sha512"])
+    @pytest.mark.parametrize("digest", ["", "not-a-digest", "ab cd", "abcd\n"])
+    def test_invalid_digest_preserves_destination(
+        self,
+        tmp_path: Path,
+        writer: Callable[..., str],
+        kind: str,
+        algorithm: str,
+        digest: str,
+    ) -> None:
+        pin = _pin_with_hashes(kind, ((algorithm, digest),))
+        lock_input = LockInput(targets=_one({"foo": pin}))
+        destination = tmp_path / "pylock.toml"
+        destination.write_bytes(b"existing destination\n")
+
+        with pytest.raises(LockValidationError, match="non-empty hexadecimal"):
+            writer(lock_input, output_path=destination)
+
+        assert destination.read_bytes() == b"existing destination\n"
+        assert list(tmp_path.iterdir()) == [destination]
+
+    def test_invalid_secondary_digest_is_rejected(
+        self, tmp_path: Path, writer: Callable[..., str], kind: str
+    ) -> None:
+        pin = _pin_with_hashes(kind, (("sha256", "a" * 64), ("sha512", "not-a-digest")))
+        destination = tmp_path / "pylock.toml"
+
+        with pytest.raises(LockValidationError, match="sha512"):
+            writer(LockInput(targets=_one({"foo": pin})), output_path=destination)
+
+        assert not destination.exists()
+        assert not list(tmp_path.iterdir())
+
+    @pytest.mark.parametrize(
+        ("algorithm", "digest"),
+        [
+            pytest.param(algorithm, digit * width, id=f"{algorithm}-{case}")
+            for algorithm, width in [("sha256", 64), ("sha384", 96), ("sha512", 128)]
+            for digit, case in [("a", "lowercase"), ("A", "uppercase")]
+        ]
+        + [
+            pytest.param("sha256", "a", id="short-hex"),
+            pytest.param("sha512", "AbC123", id="mixed-case-short-hex"),
+        ],
+    )
+    def test_hex_digest_is_preserved(
+        self,
+        tmp_path: Path,
+        writer: Callable[..., str],
+        kind: str,
+        algorithm: str,
+        digest: str,
+    ) -> None:
+        pin = _pin_with_hashes(kind, ((algorithm, digest),))
+        destination = tmp_path / "pylock.toml"
+        text = writer(LockInput(targets=_one({"foo": pin})), output_path=destination)
+
+        assert destination.read_text(encoding="utf-8") == text
+
+        if writer is write_lock:
+            package = tomllib.loads(text)["packages"][0]
+            artifact = package["wheels"][0] if kind == "wheel" else package[kind]
+            assert artifact["hashes"] == {algorithm: digest}
+        elif kind == "archive":
+            assert (
+                text.strip()
+                == f"foo @ https://example.com/foo.tar.gz#{algorithm}={digest}"
+            )
+        else:
+            sibling_digest = ("b" if kind == "wheel" else "a") * 64
+            expected = [f"{algorithm}:{digest}", f"sha256:{sibling_digest}"]
+            assert re.findall(r"--hash=(\S+)", text) == sorted(expected)
+
+
+@pytest.mark.parametrize("kind", ["wheel", "sdist"])
+def test_without_hashes_ignores_unemitted_index_digests(kind: str) -> None:
+    pin = _pin_with_hashes(kind, (("sha256", "not-a-digest"),))
+    assert (
+        write_requirements_without_hashes(LockInput(targets=_one({"foo": pin})))
+        == "foo==1.0\n"
+    )
 
 
 class TestDirectoryFields:
@@ -4915,6 +5036,64 @@ class TestPathHelpers:
         assert _relativize_path(target, tmp_path) == target.as_posix()
 
 
+@pytest.mark.parametrize(
+    "write",
+    [write_requirements_with_hashes, write_requirements_without_hashes],
+    ids=["with_hashes", "without_hashes"],
+)
+class TestArchiveRequirementsHashes:
+    @pytest.mark.parametrize("hashes", [(), (("blake2b", "0" * 128),)])
+    def test_unusable_hash_preserves_output(
+        self,
+        tmp_path: Path,
+        write: Callable[..., str],
+        hashes: tuple[tuple[str, str], ...],
+    ) -> None:
+        destination = tmp_path / "requirements.txt"
+        destination.write_text("committed\n", encoding="utf-8")
+        pin = ArchivePin(
+            name="foo",
+            version="1.0",
+            url="https://example.com/foo-1.0.tar.gz",
+            hashes=hashes,
+        )
+
+        with pytest.raises(MissingHashError):
+            write(LockInput(targets=_one({"foo": pin})), output_path=destination)
+
+        assert destination.read_text(encoding="utf-8") == "committed\n"
+        assert list(tmp_path.iterdir()) == [destination]
+
+    @pytest.mark.parametrize(
+        ("algorithm", "length"),
+        [
+            ("md5", 32),
+            ("sha1", 40),
+            ("sha224", 56),
+            ("sha256", 64),
+            ("sha384", 96),
+            ("sha512", 128),
+        ],
+    )
+    def test_recognized_fragment_hash_retained(
+        self, write: Callable[..., str], algorithm: str, length: int
+    ) -> None:
+        digest = "a" * length
+        pin = ArchivePin(
+            name="foo",
+            version="1.0",
+            url="https://example.com/foo-1.0.tar.gz",
+            hashes=(("blake2b", "0" * 128), (algorithm, digest)),
+            subdirectory="part one/pkg",
+        )
+
+        text = write(LockInput(targets=_one({"foo": pin})))
+
+        assert text == (
+            f"foo @ {pin.url}#{algorithm}={digest}&subdirectory=part%20one/pkg\n"
+        )
+
+
 class TestWriteRequirementsWithHashes:
     def test_index_pin_emits_hashes(self) -> None:
         text = write_requirements_with_hashes(
@@ -4973,6 +5152,73 @@ class TestWriteRequirementsWithHashes:
             f"    --hash=sha256:{'f' * 64} \\\n"
             f"    --hash=sha512:{'9' * 128}\n"
         )
+
+    def test_unsupported_hashes_omitted(self) -> None:
+        sdist = SdistArtifact(
+            filename="foo-1.0.tar.gz",
+            url="https://example.com/foo-1.0.tar.gz",
+            hashes=(("md5", "1" * 32), ("sha384", "2" * 96)),
+        )
+        wheel = WheelArtifact(
+            filename="foo-1.0-py3-none-any.whl",
+            url="https://example.com/foo-1.0-py3-none-any.whl",
+            hashes=(("md5", "3" * 32), ("sha256", "4" * 64)),
+        )
+        pin = IndexPin(
+            name="foo", version="1.0", index="pypi", sdist=sdist, wheels=(wheel,)
+        )
+
+        text = write_requirements_with_hashes(LockInput(targets=_one({"foo": pin})))
+
+        assert text == (
+            "foo==1.0 \\\n"
+            f"    --hash=sha256:{'4' * 64} \\\n"
+            f"    --hash=sha384:{'2' * 96}\n"
+        )
+
+    @pytest.mark.parametrize(
+        ("sdist", "wheels"),
+        [
+            pytest.param(
+                None,
+                (
+                    WheelArtifact(
+                        filename="foo-1.0-py3-none-any.whl",
+                        url="https://example.com/foo-1.0-py3-none-any.whl",
+                        hashes=(("md5", "1" * 32),),
+                    ),
+                ),
+                id="wheel",
+            ),
+            pytest.param(
+                SdistArtifact(
+                    filename="foo-1.0.tar.gz",
+                    url="https://example.com/foo-1.0.tar.gz",
+                    hashes=(("md5", "1" * 32),),
+                ),
+                (),
+                id="sdist",
+            ),
+        ],
+    )
+    def test_md5_only_artifact_preserves_output(
+        self,
+        tmp_path: Path,
+        sdist: SdistArtifact | None,
+        wheels: tuple[WheelArtifact, ...],
+    ) -> None:
+        destination = tmp_path / "requirements.txt"
+        destination.write_text("committed\n", encoding="utf-8")
+        pin = IndexPin(
+            name="foo", version="1.0", index="pypi", sdist=sdist, wheels=wheels
+        )
+
+        with pytest.raises(MissingHashError, match="no acceptable hash"):
+            write_requirements_with_hashes(
+                LockInput(targets=_one({"foo": pin})), output_path=destination
+            )
+
+        assert destination.read_text(encoding="utf-8") == "committed\n"
 
     def test_local_pin_uses_file_url(self, tmp_path: Path) -> None:
         text = write_requirements_with_hashes(
@@ -6323,6 +6569,138 @@ class TestConflictForkNegatedEmission:
             assert torch_markers[f"2.{5 + i}.0"] == raw_marker(names)
 
 
+def _projection_work(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
+    """Count actual peer products and shared-condition computations."""
+    counts = {"products": 0, "conditions": 0, "empty": 0, "refused": 0}
+    original_product = projection_engine.product
+    original_condition = projection_engine._merged_fork_gate
+
+    def products(
+        *values: Iterable[tuple[str, str]],
+    ) -> Iterator[tuple[tuple[str, str], ...]]:
+        counts["products"] += 1
+        return original_product(*values)
+
+    def condition(
+        axes: projection_engine._ForkAxes,
+        name: str,
+        peers: Sequence[str],
+        erased: frozenset[tuple[str, str]],
+    ) -> frozenset[tuple[str, str]] | None:
+        counts["conditions"] += 1
+        result = original_condition(axes, name, peers, erased)
+        if result is None:
+            counts["refused"] += 1
+        elif not result:
+            counts["empty"] += 1
+        return result
+
+    monkeypatch.setattr(projection_engine, "product", products)
+    monkeypatch.setattr(projection_engine, "_merged_fork_gate", condition)
+    return counts
+
+
+def _projection_memos(
+    monkeypatch: pytest.MonkeyPatch,
+) -> list[projection_engine._ProjectionMemo]:
+    """Observe the real projection stores a lock operation constructs."""
+    stores = []
+    original = projection_engine._ProjectionMemo
+
+    def create(
+        axes: projection_engine._ForkAxes, budget: int
+    ) -> projection_engine._ProjectionMemo:
+        store = original(axes, budget)
+        stores.append(store)
+        return store
+
+    monkeypatch.setattr(projection_engine, "_ProjectionMemo", create)
+    return stores
+
+
+def _projection_references(memo: projection_engine._ProjectionMemo) -> int:
+    """Count cached record references without following already-owned input axes."""
+    members = memo.member_axes or ()
+    references = len(members) + sum(len(axis) for axis in members)
+    for (_, held, groups), peers in memo.peer_cache.items():
+        references += 5 + len(held) + len(groups)
+        if peers is not None:
+            references += 3 + len(peers.erased) + len(peers.labels)
+    for (_, peers), condition in memo.conditions.items():
+        assert any(peers is stored for stored in memo.peer_cache.values())
+        references += 4 + len(condition or ())
+    return references
+
+
+def _synchronous_fork_projections(
+    axes: projection_engine._ForkAxes,
+    pin_groups: Mapping[str, Sequence[tuple[list[PinShape], list[str]]]],
+    env_fork_counts: Mapping[projection_engine._EnvSignature, int],
+    env_base_names: Mapping[projection_engine._EnvSignature, frozenset[str]],
+) -> dict[tuple[str, str], projection_engine._Projection]:
+    """Reference propagation that intersects every dependency after each full round."""
+    same_pin, edges = {}, {}
+    for name, groups in pin_groups.items():
+        for _, labels in groups:
+            peers = frozenset(labels)
+            declared = frozenset(
+                dependency
+                for peer in labels
+                for dependency in axes.targets[peer].dependencies.get(name, ())
+            )
+            for label in labels:
+                same_pin[name, label] = peers
+                edges[name, label] = declared
+    limits = {key: frozenset(axes.targets[key[1]].target.selection) for key in same_pin}
+    projections = {}
+    memo = projection_engine._ProjectionMemo(axes, 0)
+    stale = set(same_pin)
+    while stale:
+        for name, label in stale:
+            projections[name, label] = projection_engine._project_fork(
+                axes,
+                name,
+                label,
+                limits[name, label],
+                same_pin[name, label],
+                memo,
+                is_base=projection_engine._is_base(
+                    name, axes.env_signatures[label], env_fork_counts, env_base_names
+                ),
+            )
+        narrowed = {}
+        for (name, label), limit in limits.items():
+            shared = frozenset(axes.targets[label].target.selection)
+            for dependency in edges[name, label]:
+                child = projections.get((dependency, label))
+                shared &= child.dropped if child is not None else frozenset()
+            narrowed[name, label] = limit & shared
+        stale = {key for key in limits if narrowed[key] != limits[key]}
+        limits = narrowed
+    return projections
+
+
+def _check_projection_rounds(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """Compare complete projections with the all-edge reference on real lock inputs."""
+    checked = []
+    original = projection_engine._fork_projections
+
+    def compare(
+        axes: projection_engine._ForkAxes,
+        pin_groups: Mapping[str, Sequence[tuple[list[PinShape], list[str]]]],
+        counts: Mapping[projection_engine._EnvSignature, int],
+        base_names: Mapping[projection_engine._EnvSignature, frozenset[str]],
+    ) -> dict[tuple[str, str], projection_engine._Projection]:
+        expected = _synchronous_fork_projections(axes, pin_groups, counts, base_names)
+        result = original(axes, pin_groups, counts, base_names)
+        assert result == expected
+        checked.append(len(result))
+        return result
+
+    monkeypatch.setattr(projection_engine, "_fork_projections", compare)
+    return checked
+
+
 class TestConflictSetCrossGating:
     """Two engaged conflict sets condition a package on the set it varies over.
 
@@ -6362,6 +6740,8 @@ class TestConflictSetCrossGating:
         ],
         base_names: frozenset[str] = frozenset(),
         edges: Callable[[str, str], dict[str, tuple[str, ...]]] | None = None,
+        *,
+        additional_groups: Sequence[str] = (),
     ) -> Pylock:
         """Emit the 2x3 product of the a and b sets, one fork per point."""
         targets: dict[str, TargetLock] = {}
@@ -6378,7 +6758,7 @@ class TestConflictSetCrossGating:
             LockInput(
                 targets=targets,
                 env_base_names={_env_signature(self._BASE): base_names},
-                dependency_groups=(*self._A, *self._B),
+                dependency_groups=(*self._A, *self._B, *additional_groups),
                 conflicts=self._conflicts,
             )
         )
@@ -6401,6 +6781,195 @@ class TestConflictSetCrossGating:
             )
 
         return self._forked_lock(contribution, base_names=frozenset({"packaging"}))
+
+    def test_shared_peer_lookups_and_conditions_are_prepared_once_per_lock(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        work = _projection_work(monkeypatch)
+        first = self._lock()
+        assert work["products"] == 6
+        assert work["conditions"] == 9
+        assert self._dangling(first) == []
+
+        second = self._lock()
+        assert work["products"] == 12
+        assert work["conditions"] == 18
+        for a, b in itertools.product([None, *self._A], [None, *self._B]):
+            groups = tuple(member for member in (a, b) if member is not None)
+            assert self._select(first, groups) == self._select(second, groups)
+
+    def test_failed_and_empty_shared_conditions_are_both_reused(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        work = _projection_work(monkeypatch)
+        pylock = self._forked_lock(
+            lambda _a, b: (
+                {"attrs": _selection_pin("attrs", "24.0")},
+                {} if b == "b1" else {"attrs": (("group", b),)},
+            )
+        )
+
+        assert work["refused"] == 1
+        assert work["empty"] == 1
+        assert self._select(pylock, ["b1"]) == {"attrs 24.0"}
+        assert self._select(pylock, ["a1"]) == set()
+
+    @pytest.mark.parametrize("budget", [0, 2, 26, 38, 64, 1_024])
+    def test_projection_cache_retains_only_budgeted_references(
+        self, monkeypatch: pytest.MonkeyPatch, budget: int
+    ) -> None:
+        memo_type = projection_engine._ProjectionMemo
+        stores = _projection_memos(monkeypatch)
+        self._lock()
+        axes = stores[0].axes
+        signature = next(iter(axes.env_signatures.values()))
+        erased = frozenset().union(*axes.exclusion_groups)
+        memo = memo_type(axes, budget)
+
+        peers = memo.peers(signature, frozenset(), (0, 1), erased)
+        assert peers is not None
+        assert len(peers.labels) == 6
+        for name in ("packaging", "six", "idna"):
+            memo.condition(name, peers)
+
+        assert _projection_references(memo) <= budget
+        assert memo.remaining >= 0
+
+    def test_peer_lookups_keep_the_environment_and_held_members(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        memo_type = projection_engine._ProjectionMemo
+        stores = _projection_memos(monkeypatch)
+        self._lock()
+        axes = stores[0].axes
+        targets = dict(axes.targets)
+        counterparts = {}
+        for label, lock in axes.targets.items():
+            target = _target(python_version="3.11").with_selection(
+                lock.target.selection
+            )
+            targets[target.label] = replace(lock, target=target)
+            counterparts[label] = target.label
+
+        signatures = {
+            label: _env_signature(lock.target) for label, lock in targets.items()
+        }
+        expanded = replace(
+            axes,
+            targets=targets,
+            env_signatures=signatures,
+            forks=projection_engine._fork_index(targets, signatures),
+            markers={
+                **axes.markers,
+                **{
+                    counterparts[label]: marker
+                    for label, marker in axes.markers.items()
+                },
+            },
+            gates={
+                **axes.gates,
+                **{
+                    (name, counterparts[label]): condition
+                    for (name, label), condition in axes.gates.items()
+                },
+            },
+            environment_markers={},
+        )
+        memo = memo_type(expanded, 4_096)
+        varying, fixed = axes.exclusion_groups
+        for signature in set(signatures.values()):
+            for member in fixed:
+                held = frozenset({member})
+                peers = memo.peers(signature, held, (0,), frozenset(varying))
+                assert peers is not None
+                expected = {
+                    label
+                    for (environment, selection), label in expanded.forks.items()
+                    if environment == signature and selection - varying == held
+                }
+                assert set(peers.labels) == expected
+
+    @pytest.mark.parametrize("budget", [0, 1_024])
+    def test_missing_peer_refuses_and_reuses_the_refusal(
+        self, monkeypatch: pytest.MonkeyPatch, budget: int
+    ) -> None:
+        memo_type = projection_engine._ProjectionMemo
+        stores = _projection_memos(monkeypatch)
+        self._lock()
+        axes = stores[0].axes
+        missing = next(iter(axes.forks))
+        partial = replace(
+            axes,
+            forks={key: value for key, value in axes.forks.items() if key != missing},
+        )
+        memo = memo_type(partial, budget)
+        work = _projection_work(monkeypatch)
+        signature = missing[0]
+        erased = frozenset().union(*axes.exclusion_groups)
+
+        assert memo.peers(signature, frozenset(), (0, 1), erased) is None
+        assert memo.peers(signature, frozenset(), (0, 1), erased) is None
+        assert work["products"] == (1 if budget else 2)
+        assert _projection_references(memo) <= budget
+
+    def test_peer_conditions_remain_package_specific(self) -> None:
+        def contribution(
+            a: str, b: str
+        ) -> tuple[dict[str, PinShape], dict[str, tuple[tuple[str, str], ...]]]:
+            pins: dict[str, PinShape] = {}
+            conditions: dict[str, tuple[tuple[str, str], ...]] = {}
+            if a == "a1" or b == "b1":
+                pins["attrs"] = _selection_pin("attrs", "24.0")
+                conditions["attrs"] = tuple(
+                    ("group", member) for member in (a, b) if member in {"a1", "b1"}
+                )
+            if b == "b1":
+                pins["idna"] = _selection_pin("idna", "3.7")
+                conditions["idna"] = (("group", b),)
+            return pins, conditions
+
+        pylock = self._forked_lock(contribution)
+        assert self._select(pylock, ["a1"]) == {"attrs 24.0"}
+        assert self._select(pylock, ["b1"]) == {"attrs 24.0", "idna 3.7"}
+        assert self._select(pylock, ["a2", "b2"]) == set()
+
+    def test_shared_conditions_keep_nonconflicting_group_requirements(self) -> None:
+        pylock = self._forked_lock(
+            lambda _a, _b: (
+                {
+                    "attrs": _selection_pin("attrs", "24.0"),
+                    "idna": _selection_pin("idna", "3.7"),
+                },
+                {
+                    "attrs": (("group", "keep-a"),),
+                    "idna": (("group", "keep-b"),),
+                },
+            ),
+            additional_groups=("keep-a", "keep-b"),
+        )
+
+        assert self._select(pylock, ["keep-a"]) == {"attrs 24.0"}
+        assert self._select(pylock, ["keep-b"]) == {"idna 3.7"}
+        assert self._select(pylock, ["keep-a", "keep-b"]) == {"attrs 24.0", "idna 3.7"}
+        assert self._select(pylock, ["a1"]) == set()
+        assert self._select(pylock, []) == set()
+
+    @pytest.mark.parametrize("budget", [0, 2, 26])
+    def test_exhausted_projection_cache_keeps_emitted_packages_and_selections(
+        self, monkeypatch: pytest.MonkeyPatch, budget: int
+    ) -> None:
+        expected = self._lock()
+        monkeypatch.setattr(projection_engine, "_PROJECTION_CACHE_MIN_UNITS", budget)
+        monkeypatch.setattr(projection_engine, "_PROJECTION_CACHE_UNITS_PER_FORK", 0)
+        work = _projection_work(monkeypatch)
+        actual = self._lock()
+
+        assert actual.to_dict()["packages"] == expected.to_dict()["packages"]
+        assert work["products"] > 6
+        assert self._dangling(actual) == []
+        for a, b in itertools.product([None, *self._A], [None, *self._B]):
+            groups = tuple(member for member in (a, b) if member is not None)
+            assert self._select(actual, groups) == self._select(expected, groups)
 
     def _select(self, pylock: Pylock, groups: Sequence[str]) -> set[str]:
         return {
@@ -6572,6 +7141,196 @@ class TestConflictSetCrossGating:
         assert self._dangling(pylock) == []
         assert self._select(pylock, ["a1"]) == set()
         assert self._select(pylock, ["a1", "b1"]) == {"attrs 24.0", "idna 3.7"}
+
+    def test_one_round_needs_no_reverse_index(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def unexpected_index(
+            _edges: Mapping[tuple[str, str], frozenset[str]],
+        ) -> dict[tuple[str, str], set[tuple[str, str]]]:
+            pytest.fail("An independent projection needs no dependency index")
+
+        monkeypatch.setattr(projection_engine, "_fork_dependents", unexpected_index)
+        checked = _check_projection_rounds(monkeypatch)
+        pylock = self._lock()
+        assert checked == [18]
+        assert self._dangling(pylock) == []
+
+    def test_dependency_chain_fanout_cycle_skips_unrelated_entries(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        calls: dict[tuple[frozenset[str], str], int] = {}
+        original = projection_engine._dependency_drops
+
+        def intersect(
+            axes: projection_engine._ForkAxes,
+            projections: Mapping[tuple[str, str], projection_engine._Projection],
+            label: str,
+            declared: frozenset[str],
+        ) -> frozenset[tuple[str, str]]:
+            key = (declared, label)
+            calls[key] = calls.get(key, 0) + 1
+            return original(axes, projections, label, declared)
+
+        monkeypatch.setattr(projection_engine, "_dependency_drops", intersect)
+        checked = _check_projection_rounds(monkeypatch)
+
+        def contribution(
+            a: str, b: str
+        ) -> tuple[dict[str, PinShape], dict[str, tuple[tuple[str, str], ...]]]:
+            versions = {
+                "attrs": "24.0",
+                "charset-normalizer": "3.0",
+                "certifi": "2024.1",
+                "packaging": "24.0",
+                "idna": self._B[b],
+                "six": self._A[a],
+            }
+            return (
+                {
+                    name: _selection_pin(name, version)
+                    for name, version in versions.items()
+                },
+                dict.fromkeys(versions, (("group", a),)),
+            )
+
+        pylock = self._forked_lock(
+            contribution,
+            edges=lambda _a, _b: {
+                "attrs": ("idna",),
+                "charset-normalizer": ("attrs",),
+                "certifi": ("attrs", "packaging"),
+                "packaging": ("charset-normalizer", "certifi"),
+            },
+        )
+        assert checked == [36]
+        assert (
+            sum(value for (dependencies, _), value in calls.items() if not dependencies)
+            == 12
+        )
+        expected_calls = {
+            frozenset(): 2,
+            frozenset({"idna"}): 1,
+            frozenset({"attrs"}): 2,
+            frozenset({"attrs", "packaging"}): 3,
+            frozenset({"charset-normalizer", "certifi"}): 2,
+        }
+        assert all(
+            value == expected_calls[dependencies]
+            for (dependencies, _), value in calls.items()
+        )
+
+        assert self._dangling(pylock) == []
+        assert self._select(pylock, ["a1"]) == {"six 1.16.0"}
+        assert self._select(pylock, ["a1", "b1"]) == {
+            "attrs 24.0",
+            "charset-normalizer 3.0",
+            "certifi 2024.1",
+            "packaging 24.0",
+            "idna 3.7",
+            "six 1.16.0",
+        }
+
+    def test_narrower_allowance_can_exchange_dropped_axes(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        histories: dict[
+            tuple[str, str],
+            list[tuple[frozenset[tuple[str, str]], frozenset[tuple[str, str]]]],
+        ] = {}
+        original = projection_engine._project_fork
+
+        def project(
+            axes: projection_engine._ForkAxes,
+            name: str,
+            label: str,
+            limit: frozenset[tuple[str, str]],
+            same_pin: frozenset[str],
+            memo: projection_engine._ProjectionMemo,
+            *,
+            is_base: bool,
+        ) -> projection_engine._Projection:
+            result = original(axes, name, label, limit, same_pin, memo, is_base=is_base)
+            histories.setdefault((name, label), []).append((limit, result.dropped))
+            return result
+
+        monkeypatch.setattr(projection_engine, "_project_fork", project)
+        checked = _check_projection_rounds(monkeypatch)
+
+        def contribution(
+            a: str, b: str
+        ) -> tuple[dict[str, PinShape], dict[str, tuple[tuple[str, str], ...]]]:
+            return (
+                {
+                    "attrs": _selection_pin(
+                        "attrs", "1" if a == "a1" or b == "b1" else "2"
+                    ),
+                    "idna": _selection_pin("idna", self._A[a]),
+                    "six": _selection_pin("six", "1.16.0"),
+                },
+                dict.fromkeys(("attrs", "idna", "six"), (("group", a), ("group", b))),
+            )
+
+        pylock = self._forked_lock(
+            contribution,
+            edges=lambda _a, _b: {"attrs": ("idna",), "six": ("attrs",)},
+        )
+        assert checked == [18]
+        assert any(
+            after_limit < before_limit
+            and before_dropped - after_dropped
+            and after_dropped - before_dropped
+            for (name, _), history in histories.items()
+            if name == "attrs"
+            for (before_limit, before_dropped), (
+                after_limit,
+                after_dropped,
+            ) in itertools.pairwise(history)
+        )
+        assert self._dangling(pylock) == []
+        for a, b in itertools.product(self._A, self._B):
+            assert self._select(pylock, [a, b]) == {
+                f"attrs {'1' if a == 'a1' or b == 'b1' else '2'}",
+                f"idna {self._A[a]}",
+                "six 1.16.0",
+            }
+
+    @pytest.mark.parametrize("seed", range(16))
+    def test_projection_rounds_match_with_varying_pins_and_edges(
+        self, seed: int, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        checked = _check_projection_rounds(monkeypatch)
+        generator = random.Random(seed)  # noqa: S311 - reproducible test matrices contain no secrets
+        names = ("attrs", "idna", "six", "certifi")
+        versions = {
+            (a, b): {name: str(generator.randint(1, 2)) for name in names}
+            for a, b in itertools.product(self._A, self._B)
+        }
+        dependencies = {
+            (a, b): {
+                name: tuple(child for child in names if generator.randrange(4) == 0)
+                for name in names
+            }
+            for a, b in itertools.product(self._A, self._B)
+        }
+
+        def contribution(
+            a: str, b: str
+        ) -> tuple[dict[str, PinShape], dict[str, tuple[tuple[str, str], ...]]]:
+            return (
+                {
+                    name: _selection_pin(name, version)
+                    for name, version in versions[a, b].items()
+                },
+                dict.fromkeys(names, (("group", a), ("group", b))),
+            )
+
+        pylock = self._forked_lock(contribution, edges=lambda a, b: dependencies[a, b])
+        assert checked == [24]
+        for a, b in itertools.product(self._A, self._B):
+            assert self._select(pylock, [a, b]) == {
+                f"{name} {version}" for name, version in versions[a, b].items()
+            }
 
     def test_an_edge_only_one_fork_carries_holds_the_whole_entry(self) -> None:
         # The entry's edges are the union over its forks, so the idna

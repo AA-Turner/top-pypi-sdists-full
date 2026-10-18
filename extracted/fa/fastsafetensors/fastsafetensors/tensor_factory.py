@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from . import cpp as fstcpp
+from .allocation import SharedDeviceAllocation
 from .common import SafeTensorsMetadata, init_logger, is_debug
 from .copier.base import CopierInterface, DummyDeviceBuffer
 from .frameworks import FrameworkOpBase, ProcessGroupBase, TensorBase
@@ -33,27 +34,68 @@ class LazyTensorFactory:
         self.tensors: Dict[str, TensorBase] = {}
         self.shuffled: Dict[str, TensorBase] = {}
         self.gbuf: Optional[fstcpp.gds_device_buffer] = None
+        # Shared owner of gbuf. Created in wait_io and referenced by every
+        # owning storage materialized from the buffer. Borrowed storage does
+        # not acquire a reference. See SharedDeviceAllocation.
+        self.allocation: Optional[SharedDeviceAllocation] = None
+        self.borrowed_tensors = False
         self.rank = rank
         self.factory_idx_bits = factory_idx_bits
         self.lidx = lidx
         self.next_tag = 1
         self.disable_cache = disable_cache
+        # Bind directly to the copier only when views precede DMA completion.
+        # Blocking and unsupported paths have no per-tensor callback overhead.
+        self.wait_tensor: Optional[Callable[[str], None]] = None
 
-    def submit_io(self, use_buf_register: bool, max_copy_block_size: int):
+    def submit_io(
+        self,
+        use_buf_register: bool,
+        max_copy_block_size: int,
+        allow_inflight: bool = False,
+    ):
         if self.copier is not None:
+            if allow_inflight and self.copier.enable_tensor_readiness():
+                self.wait_tensor = self.copier.wait_tensor
             self.gbuf = self.copier.submit_io(use_buf_register, max_copy_block_size)
             if self.gbuf:
                 logger.debug(
                     "submit_io: new buf, addr=0x%x", self.gbuf.get_base_address()
                 )
 
-    def wait_io(self, dtype: DType = DType.AUTO, noalign: bool = False):
+    def wait_io(
+        self,
+        dtype: DType = DType.AUTO,
+        noalign: bool = False,
+        borrowed_tensors: bool = False,
+    ):
+        self.borrowed_tensors = borrowed_tensors
         if self.copier is not None and self.gbuf is not None:
-            self.tensors = self.copier.wait_io(self.gbuf, dtype=dtype, noalign=noalign)
+            # Create the shared owner before materializing tensors so that even
+            # if wait_io raises, free_dev_ptrs() can release the buffer. Owning
+            # tensors acquire a DLPack reference; borrowed tensors leave the
+            # factory as the sole owner, including when derived views survive.
+            self.allocation = SharedDeviceAllocation(
+                self.gbuf,
+                self.framework,
+                self.device,
+                owns_memory=not isinstance(self.gbuf, DummyDeviceBuffer),
+            )
+            owner = None if borrowed_tensors else self.allocation
+            if self.wait_tensor is not None and dtype == DType.AUTO:
+                self.tensors = self.copier.prepare_tensors(self.gbuf, owner=owner)
+                return
+            self.tensors = self.copier.wait_io(
+                self.gbuf,
+                dtype=dtype,
+                noalign=noalign,
+                owner=owner,
+            )
             if is_debug(logger):
                 for name in self.tensors.keys():
                     logger.debug("wait_io: tensor=%s", name)
             self.copier = None
+            self.wait_tensor = None
 
     def push(
         self,
@@ -62,6 +104,8 @@ class LazyTensorFactory:
         dst_rank: int,
         src_rank: int,
     ) -> Optional[TensorBase]:
+        if self.wait_tensor is not None:
+            self.wait_tensor(tensor_name)
         if pg.size() == 1:
             return self.tensors[tensor_name]
         tag = (self.next_tag << self.factory_idx_bits) + self.lidx
@@ -116,14 +160,15 @@ class LazyTensorFactory:
         return t
 
     def shuffle(self, pg: ProcessGroupBase, tensor_name: str, dim: int) -> TensorBase:
-        if pg.size() == 1:
-            # The returned tensor shares the backing gbuf lifetime; public APIs
-            # document that callers must clone/copy before buffer close.
-            return self.tensors[tensor_name]
         if tensor_name in self.shuffled:
             logger.debug("shuffle: use cache, tensor_name=%s", tensor_name)
             t = self.shuffled[tensor_name].clone().detach()
             return t
+        if self.wait_tensor is not None:
+            self.wait_tensor(tensor_name)
+        if pg.size() == 1:
+            # Owning tensors retain the allocation; borrowed views expire at close.
+            return self.tensors[tensor_name]
         frame = self.metadata.tensors[tensor_name]
         if dim == -1:
             if tensor_name in self.tensors:
@@ -197,6 +242,8 @@ class LazyTensorFactory:
         rank_tensors: List[List[TensorBase]] = [[] for i in range(0, pg.size())]
         new_shape: List[int] = []
         for tensor_name in tensor_names:
+            if self.wait_tensor is not None:
+                self.wait_tensor(tensor_name)
             frame = self.metadata.tensors[tensor_name]
             total_size = frame.shape[dim]
             block_size = (total_size + pg.size() - 1) // pg.size()
@@ -259,8 +306,40 @@ class LazyTensorFactory:
         return dst
 
     def free_dev_ptrs(self):
+        """Release this factory's reference to the backing allocation.
+
+        This is a logical close: it drops the buffer-side reference and the
+        factory's internal tensor references, but does not forcibly free memory
+        that exported tensors still hold. The physical buffer is freed by
+        SharedDeviceAllocation once its last reference disappears. Idempotent:
+        safe to call repeatedly (e.g. from repeated close()).
+        """
+        try:
+            if self.copier is not None:
+                if self.wait_tensor is None and self.gbuf is not None:
+                    # A later file can fail before this blocking copier's
+                    # wait_io was reached. Drain its writes before cleanup.
+                    self.copier.wait_io(self.gbuf, noalign=True)
+                else:
+                    self.copier.finish_io()
+        finally:
+            self.copier = None
+            self.wait_tensor = None
+            self._free_buffer()
+
+    def _free_buffer(self):
         self.tensors = {}
-        if self.gbuf is not None and not isinstance(self.gbuf, DummyDeviceBuffer):
+        if self.allocation is not None:
+            logger.debug(
+                "free_dev_ptrs: release buf, addr=0x%x",
+                self.allocation.get_base_address() if self.allocation.live else 0,
+            )
+            self.allocation.release()
+            self.allocation = None
+            self.gbuf = None
+        elif self.gbuf is not None and not isinstance(self.gbuf, DummyDeviceBuffer):
+            # submit_io ran but wait_io never created the allocation (e.g. an
+            # error before materialization): free the raw buffer directly.
             self.framework.free_tensor_memory(self.gbuf, self.device)
             logger.debug(
                 "free_dev_ptrs: delete buf, addr=0x%x", self.gbuf.get_base_address()

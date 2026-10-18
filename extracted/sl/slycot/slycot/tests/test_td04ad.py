@@ -137,6 +137,7 @@ def test_staticgain():
     assert C.shape == (3,0)
     np.testing.assert_array_almost_equal(D, Dc)
 
+    # ruff: disable[RUF059]
     n, A, B, C, D = transform.td04ad('R', 2, 3, idxr, denr, num)
     #print('A=\n', A, '\nB=\n', B, '\nC=\n', C, '\nD=\n', D)
     assert A.shape == (0,0)
@@ -182,6 +183,7 @@ def test_mixfeedthrough():
     denc = np.array([[1.0, 1.1],
                         [1.0, 0.0]])
     idxc = np.array([1, 0])
+    # ruff: disable[RUF059]
     n, A, B, C, D = transform.td04ad('C', 2, 2, idxc, denc, numc)
     np.testing.assert_array_almost_equal(D, np.array([[0,  0],[-0.1, 0]]))
 
@@ -198,6 +200,7 @@ def test_toandfrom():
     num = tfout[6]
     den = tfout[5]
     idxc = np.array([1, 0])
+    # ruff: disable[RUF059]
     n, At, Bt, Ct, Dt = transform.td04ad('R', 2, 2, idxc, den, num)
     np.testing.assert_array_almost_equal(D, Dt)
     np.testing.assert_array_almost_equal(A, At)
@@ -214,6 +217,7 @@ def test_tfm2ss_6():
     n, A, B, C, D = transform.td04ad('R', m, p, index, dcoeff, ucoeff)
     assert n == 0
     np.testing.assert_array_almost_equal(D, np.array([[64]]))
+    # ruff: disable[RUF059]
     n, A, B, C, D = transform.td04ad('C', m, p, index, dcoeff, ucoeff)
     assert n == 0
     np.testing.assert_array_almost_equal(D, np.array([[64]]))

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: libpass
-Version: 1.9.3
+Version: 1.9.4
 Summary: Fork of passlib, a comprehensive password hashing framework supporting over 30 schemes
 Project-URL: Homepage, https://github.com/notypecheck/passlib
 Project-URL: Repository, https://github.com/notypecheck/passlib

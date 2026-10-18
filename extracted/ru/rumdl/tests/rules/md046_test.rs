@@ -975,3 +975,539 @@ fn test_code_block_after_a_quoted_list_is_fenced_at_the_document_margin() {
     let fixed_ctx = LintContext::new(&fixed, rumdl_lib::config::MarkdownFlavor::Standard, None);
     assert_eq!(rule.fix(&fixed_ctx).unwrap(), fixed);
 }
+
+/// Assert that `content` holds exactly one indented code block, that `check`
+/// reports it with a fix, and that `fix` fences the whole block, producing
+/// `expected`, after which the document is clean and stable.
+fn assert_whole_block_fenced(content: &str, expected: &str) {
+    assert_whole_block_fenced_in(rumdl_lib::config::MarkdownFlavor::Standard, content, expected);
+}
+
+fn assert_whole_block_fenced_in(flavor: rumdl_lib::config::MarkdownFlavor, content: &str, expected: &str) {
+    let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Fenced);
+    let ctx = LintContext::new(content, flavor, None);
+    let warnings = rule.check(&ctx).unwrap();
+    assert_eq!(
+        warnings.len(),
+        1,
+        "expected one warning for {content:?}, got: {warnings:?}"
+    );
+    assert!(
+        warnings[0].fix.is_some(),
+        "the warning for {content:?} must carry a fix, got: {warnings:?}"
+    );
+
+    let fixed = rule.fix(&ctx).unwrap();
+    assert_eq!(fixed, expected, "fix must fence the whole block of {content:?}");
+
+    let fixed_ctx = LintContext::new(&fixed, flavor, None);
+    let remaining = rule.check(&fixed_ctx).unwrap();
+    assert!(remaining.is_empty(), "fixed {content:?} still warns: {remaining:?}");
+    assert_eq!(
+        rule.fix(&fixed_ctx).unwrap(),
+        fixed,
+        "fix of {content:?} is not idempotent"
+    );
+}
+
+/// Assert that MD046 neither flags nor rewrites `content`.
+fn assert_not_code(content: &str) {
+    assert_not_code_in(rumdl_lib::config::MarkdownFlavor::Standard, content);
+}
+
+fn assert_not_code_in(flavor: rumdl_lib::config::MarkdownFlavor, content: &str) {
+    let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Fenced);
+    let ctx = LintContext::new(content, flavor, None);
+    let warnings = rule.check(&ctx).unwrap();
+    assert!(
+        warnings.is_empty(),
+        "{content:?} must not be flagged, got: {warnings:?}"
+    );
+    assert_eq!(rule.fix(&ctx).unwrap(), content, "{content:?} must not be rewritten");
+}
+
+/// Inside an indented code block every line is literal text, so a line that
+/// would open a list item, block quote or footnote definition elsewhere
+/// belongs to the block and moves into the fence with the rest of it.
+const CONTAINER_LOOKALIKES: [&str; 8] = ["- ", "* ", "+ ", "1. ", "1) ", "> ", ">", "[^1]: "];
+
+#[test]
+fn test_issue_934_reported_document_is_fenced_whole() {
+    assert_whole_block_fenced(
+        "# T\n\nSome text.\n\n    Metadata stored on documents:\n    - `a` (bool): first.\n    - `b` (bool): second.\n\nMore text.\n",
+        "# T\n\nSome text.\n\n```\nMetadata stored on documents:\n- `a` (bool): first.\n- `b` (bool): second.\n```\n\nMore text.\n",
+    );
+}
+
+#[test]
+fn test_container_lookalike_inside_indented_block_is_fenced_with_it() {
+    for marker in CONTAINER_LOOKALIKES {
+        assert_whole_block_fenced(
+            &format!("Text.\n\n    head\n    {marker}one\n    {marker}two\n    tail\n"),
+            &format!("Text.\n\n```\nhead\n{marker}one\n{marker}two\ntail\n```\n"),
+        );
+    }
+}
+
+#[test]
+fn test_container_lookalike_after_interior_blank_line_is_fenced_with_block() {
+    for marker in CONTAINER_LOOKALIKES {
+        assert_whole_block_fenced(
+            &format!("Text.\n\n    head\n\n    {marker}one\n"),
+            &format!("Text.\n\n```\nhead\n\n{marker}one\n```\n"),
+        );
+    }
+}
+
+#[test]
+fn test_container_lookalike_indented_deeper_inside_block_is_fenced_with_it() {
+    for marker in CONTAINER_LOOKALIKES {
+        assert_whole_block_fenced(
+            &format!("Text.\n\n    head\n        {marker}one\n"),
+            &format!("Text.\n\n```\nhead\n    {marker}one\n```\n"),
+        );
+    }
+}
+
+#[test]
+fn test_indented_block_opening_on_list_or_footnote_lookalike_is_fenced() {
+    // Four columns of indentation after a paragraph and a blank line open an
+    // indented code block: no list or footnote is open for the line to
+    // continue, and a top-level one cannot start that far in.
+    for marker in ["- ", "* ", "+ ", "1. ", "1) ", "[^1]: "] {
+        assert_whole_block_fenced(
+            &format!("Text.\n\n    {marker}one\n    {marker}two\n"),
+            &format!("Text.\n\n```\n{marker}one\n{marker}two\n```\n"),
+        );
+        assert_whole_block_fenced(
+            &format!("Text.\n\n\t{marker}one\n"),
+            &format!("Text.\n\n```\n{marker}one\n```\n"),
+        );
+    }
+}
+
+#[test]
+fn test_list_lookalike_in_list_internal_code_block_is_fenced_with_it() {
+    assert_whole_block_fenced(
+        "- item\n\n      code\n      - not an item\n",
+        "- item\n\n  ```\n  code\n  - not an item\n  ```\n",
+    );
+}
+
+#[test]
+fn test_indented_items_that_continue_an_open_container_are_not_code() {
+    // A nested list item indented four columns inside an open list item.
+    assert_not_code("- item\n\n    - nested\n");
+    assert_not_code("1. item\n\n    - nested\n");
+    // A list inside a footnote definition's body.
+    assert_not_code("Text[^1].\n\n[^1]: Note.\n\n    - point\n    - another\n");
+    // Indented code inside a block quote stays out of MD046's reach.
+    assert_not_code("> quote\n>\n>     code\n>     - x\n");
+    // Lines straight after a paragraph line continue that paragraph.
+    assert_not_code("Text.\n    - a\n    - b\n");
+}
+
+#[test]
+fn test_mkdocs_container_lookalike_inside_indented_block_is_fenced_with_it() {
+    let mkdocs = rumdl_lib::config::MarkdownFlavor::MkDocs;
+    for opener in ["!!! note", "??? tip", "=== \"Tab\""] {
+        assert_whole_block_fenced_in(
+            mkdocs,
+            &format!("Text.\n\n    head\n    {opener}\n        body\n    tail\n"),
+            &format!("Text.\n\n```\nhead\n{opener}\n    body\ntail\n```\n"),
+        );
+    }
+}
+
+#[test]
+fn test_mkdocs_container_bodies_are_not_code() {
+    let mkdocs = rumdl_lib::config::MarkdownFlavor::MkDocs;
+    assert_not_code_in(mkdocs, "!!! note\n\n    admonition body\n    - item\n    > quoted\n");
+    assert_not_code_in(mkdocs, "=== \"Tab\"\n\n    tab body\n    - item\n    > quoted\n");
+}
+
+/// No warning and no rewrite: the document is already in fenced style.
+fn assert_unchanged(content: &str) {
+    let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Fenced);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let warnings = rule.check(&ctx).unwrap();
+    assert!(
+        warnings.is_empty(),
+        "{content:?} must not be flagged, got: {warnings:?}"
+    );
+    assert_eq!(rule.fix(&ctx).unwrap(), content, "{content:?} must not be rewritten");
+}
+
+/// A fence indented short of a list item's content column cannot continue
+/// the item, so it closes at its own indent. Reading it against the item's
+/// column rejected every closer, including the one the fix appended, and the
+/// fix then grew the document on every pass.
+#[test]
+fn test_fence_short_of_item_content_column_closes_at_its_own_indent() {
+    assert_unchanged("1. Commit:\n  ```\n  make tag\n  ```");
+    assert_unchanged("1. Commit:\n  ```\n  make tag\n  ```\n");
+    assert_unchanged("-  Commit:\n  ```\n  make tag\n  ```");
+    assert_unchanged("- Commit:\n ```\n make tag\n ```");
+    assert_unchanged("1. Commit:\n  ~~~\n  make tag\n  ~~~");
+}
+
+/// Leaving the innermost item does not leave the list: the fence still
+/// belongs to the outer item whose content column it reaches.
+#[test]
+fn test_fence_leaving_nested_item_closes_in_outer_item() {
+    assert_unchanged("- a\n  - b\n  ```\n  x\n  ```");
+    assert_unchanged("- a\n  - b\n  ```\n  x\n  ```\n");
+}
+
+#[test]
+fn test_unclosed_fence_short_of_item_column_is_closed_at_its_indent() {
+    assert_whole_block_fenced("1. Commit:\n  ```\n  make tag", "1. Commit:\n  ```\n  make tag\n  ```");
+    assert_whole_block_fenced("- a\n  - b\n  ```\n  x", "- a\n  - b\n  ```\n  x\n  ```");
+}
+
+/// After a blank line no line is a lazy continuation, so one indented short of
+/// the nested item leaves it, and the indented block below belongs to the
+/// outer item and is fenced at that item's content column.
+#[test]
+fn test_line_after_blank_short_of_nested_item_returns_to_outer_item() {
+    assert_whole_block_fenced(
+        "- a\n  - b\n\n  c\n\n      code\n",
+        "- a\n  - b\n\n  c\n\n  ```\n  code\n  ```\n",
+    );
+}
+
+#[test]
+fn test_lazy_continuation_keeps_item_content_column() {
+    assert_whole_block_fenced(
+        "1. a\n  lazy\n\n       code\n",
+        "1. a\n  lazy\n\n   ```\n   code\n   ```\n",
+    );
+    assert_unchanged("1. Commit:\n   ```\n   make tag\n   ```");
+}
+
+/// A backtick run whose info string holds a backtick is paragraph text, so
+/// it lazily continues the nested item instead of leaving it.
+#[test]
+fn test_backtick_line_that_is_not_a_fence_keeps_nested_item() {
+    assert_whole_block_fenced(
+        "- a\n  - b\n   ```foo`bar\n\n        code\n",
+        "- a\n  - b\n   ```foo`bar\n\n    ```\n    code\n    ```\n",
+    );
+}
+
+/// A fence indented four or more past the container it would land in cannot
+/// open there, so it is paragraph text that lazily continues the item.
+#[test]
+fn test_fence_too_deep_for_its_landing_container_keeps_item() {
+    assert_whole_block_fenced(
+        "1000. a\n    ~~~\n\n          code\n",
+        "1000. a\n    ~~~\n\n      ```\n      code\n      ```\n",
+    );
+    assert_whole_block_fenced(
+        "- a\n\n  1000. b\n      ~~~\n\n            code\n",
+        "- a\n\n  1000. b\n      ~~~\n\n        ```\n        code\n        ```\n",
+    );
+}
+
+/// After a blank line an unindented line cannot continue a list item, so it
+/// ends the list and the indented block below sits at the document margin:
+/// the fence goes at column 0 and the code keeps every column past the four
+/// that made it code.
+#[test]
+fn test_code_after_unindented_line_that_ended_list_is_fenced_at_margin() {
+    assert_whole_block_fenced("1. a\n\nb\n\n      code\n", "1. a\n\nb\n\n```\n  code\n```\n");
+    assert_whole_block_fenced("1. a\n\nb\n\n       code\n", "1. a\n\nb\n\n```\n   code\n```\n");
+    assert_whole_block_fenced("- a\n\nb\n\n    code\n", "- a\n\nb\n\n```\ncode\n```\n");
+    assert_whole_block_fenced("1. a\n\n> q\n\n      code\n", "1. a\n\n> q\n\n```\n  code\n```\n");
+}
+
+/// Lazy continuation lines keep a paragraph, and with it the list item, open
+/// however many there are, so the block after them belongs to the item.
+#[test]
+fn test_code_after_long_lazy_paragraph_stays_in_item() {
+    assert_whole_block_fenced(
+        "1. a\nb\nc\nd\ne\nf\ng\n\n       code\n",
+        "1. a\nb\nc\nd\ne\nf\ng\n\n   ```\n   code\n   ```\n",
+    );
+}
+
+/// A tab that reaches past the four columns making a line code leaves its
+/// remainder in the code, which a tab under the fence keeps.
+#[test]
+fn test_code_with_tab_split_at_item_code_column_keeps_remainder() {
+    assert_whole_block_fenced("1. a\n\n\t\tcode\n", "1. a\n\n   ```\n\tcode\n   ```\n");
+}
+
+/// A `>` inside an indented code block is literal text, so a block opening on
+/// one is code like any other, and only a `>` before the code makes a quote.
+#[test]
+fn test_indented_block_opening_on_quote_lookalike_is_fenced() {
+    for marker in ["> ", ">"] {
+        assert_whole_block_fenced(
+            &format!("Text.\n\n    {marker}one\n    {marker}two\n"),
+            &format!("Text.\n\n```\n{marker}one\n{marker}two\n```\n"),
+        );
+        assert_whole_block_fenced(
+            &format!("Text.\n\n\t{marker}one\n"),
+            &format!("Text.\n\n```\n{marker}one\n```\n"),
+        );
+    }
+    assert_whole_block_fenced(
+        "# T\n\nSome text.\n\n    > quoted\n    plain line\n\nMore text.\n",
+        "# T\n\nSome text.\n\n```\n> quoted\nplain line\n```\n\nMore text.\n",
+    );
+    assert_whole_block_fenced(
+        "- item\n\n      > not a quote\n",
+        "- item\n\n  ```\n  > not a quote\n  ```\n",
+    );
+}
+
+/// A list item with five or more spaces after its marker opens indented code on
+/// the marker line itself. A fence cannot share that line with the marker, so
+/// the block is reported but has no fix, and `fix` leaves the document alone.
+#[test]
+fn test_indented_block_on_list_marker_line_is_reported_without_fix() {
+    let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Fenced);
+    for content in [
+        "-     code\n",
+        "1.     code\n       more\n",
+        "* a\n\n    *     - b\n    *     - c\n",
+    ] {
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(!warnings.is_empty(), "{content:?} must be flagged");
+        assert!(
+            warnings.iter().all(|w| w.fix.is_none()),
+            "{content:?} must have no fix, got: {warnings:?}"
+        );
+        assert_eq!(rule.fix(&ctx).unwrap(), content, "{content:?} must not be rewritten");
+    }
+}
+
+/// A complete fence indented into code moves back to its container's content
+/// column: the opener lands there, the code keeps its indentation relative to
+/// the opener, and the closer lands there too so it still closes the fence.
+#[test]
+fn test_misplaced_fence_moves_to_its_container_column() {
+    assert_whole_block_fenced(
+        "Text\n\n    ```json\n    {\n        \"a\": 1\n    }\n    ```\n",
+        "Text\n\n```json\n{\n    \"a\": 1\n}\n```\n",
+    );
+    assert_whole_block_fenced("- a\n\n      ```\n      x\n      ```\n", "- a\n\n  ```\n  x\n  ```\n");
+    assert_whole_block_fenced(
+        "1. a\n\n       ```sh\n         indented\n       ```\n",
+        "1. a\n\n   ```sh\n     indented\n   ```\n",
+    );
+    assert_whole_block_fenced("Text\n\n        ```\n        x\n        ```\n", "Text\n\n```\nx\n```\n");
+    assert_whole_block_fenced(
+        "Text\n\n    ```\n        x\n        ```\n\nAfter.\n",
+        "Text\n\n```\n    x\n```\n\nAfter.\n",
+    );
+}
+
+/// Two indented blocks can touch with no blank line between them only when
+/// they sit in different containers: a line short of a list item's content
+/// column ends the item, and four spaces make it code at the margin. Each
+/// block gets its own fence at its own container's column.
+#[test]
+fn test_adjacent_blocks_in_different_containers_are_fenced_separately() {
+    let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Fenced);
+    for (content, expected) in [
+        (
+            "1000. a\n\n          code\n    top\n",
+            "1000. a\n\n      ```\n      code\n      ```\n```\ntop\n```\n",
+        ),
+        (
+            "-    a\n\n         code\n    top\n",
+            "-    a\n\n     ```\n     code\n     ```\n```\ntop\n```\n",
+        ),
+    ] {
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        assert_eq!(rule.check(&ctx).unwrap().len(), 2, "{content:?} holds two blocks");
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(fixed, expected, "each block of {content:?} must get its own fence");
+        let fixed_ctx = LintContext::new(&fixed, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        assert!(
+            rule.check(&fixed_ctx).unwrap().is_empty(),
+            "fixed {content:?} still warns"
+        );
+    }
+}
+
+/// A complete fence indented into a list item stays a misplaced fence when an
+/// adjacent block at the margin follows it, so it is dedented on its own and
+/// the margin block is fenced separately.
+#[test]
+fn test_misplaced_fence_adjacent_to_block_in_other_container_is_dedented() {
+    let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Fenced);
+    let content = "1000. a\n\n          ```\n          x\n          ```\n    top\n";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    assert_eq!(
+        rule.fix(&ctx).unwrap(),
+        "1000. a\n\n      ```\n      x\n      ```\n```\ntop\n```\n"
+    );
+}
+
+/// Adjacent blocks in different containers count as two blocks when the
+/// consistent style weighs indented against fenced ones.
+#[test]
+fn test_consistent_style_counts_adjacent_blocks_separately() {
+    let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Consistent);
+    let content = "1000. a\n\n          code\n    top\n\n```\nx\n```\n";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let warnings = rule.check(&ctx).unwrap();
+    assert_eq!(warnings.len(), 1, "got: {warnings:?}");
+    assert_eq!(warnings[0].line, 6);
+    assert_eq!(warnings[0].message, "Use indented code blocks");
+}
+
+/// A body line indented less than the misplaced fence's opener keeps the
+/// container's content column, so it stays inside the list item and the fence.
+#[test]
+fn test_misplaced_fence_body_shallower_than_opener_stays_in_container() {
+    assert_whole_block_fenced(
+        "- a\n\n          ```\n      x\n          ```\n\nAfter.\n",
+        "- a\n\n  ```\n  x\n  ```\n\nAfter.\n",
+    );
+    assert_whole_block_fenced(
+        "- a\n\n          ```\n        x\n            y\n          ```\n",
+        "- a\n\n  ```\n  x\n    y\n  ```\n",
+    );
+    assert_whole_block_fenced("Text\n\n        ```\n    x\n        ```\n", "Text\n\n```\nx\n```\n");
+}
+
+/// A colon touching its text (`:warning:`) opens no definition, so an
+/// indented block after it sits in the surrounding container and is fenced
+/// at that container's column with its code unchanged.
+#[test]
+fn test_indented_block_after_colon_word_is_fenced_at_its_container() {
+    assert_whole_block_fenced("term\n:warning:\n\n      x\n", "term\n:warning:\n\n```\n  x\n```\n");
+    assert_whole_block_fenced(
+        "- a\n\n  term\n  :warning:\n\n        x\n",
+        "- a\n\n  term\n  :warning:\n\n  ```\n    x\n  ```\n",
+    );
+}
+
+/// Tabs left in a misplaced fence's indentation after dedenting land on the
+/// same columns as before, so the fence stays in its list item and the code
+/// keeps its indentation relative to the opener.
+#[test]
+fn test_misplaced_fence_indented_with_tabs_keeps_its_columns() {
+    assert_whole_block_fenced(
+        "1000. a\n\n\t\t\t```\n\t\t\tx\n\t\t\t\ty\n\t\t\t```\n",
+        "1000. a\n\n      ```\n      x\n          y\n      ```\n",
+    );
+    assert_whole_block_fenced("- a\n\n\t\t```\n\t\tx\n\t\t```\n", "- a\n\n  ```\n  x\n  ```\n");
+    assert_whole_block_fenced("Text\n\n\t\t```\n\t\t\tx\n\t\t```\n", "Text\n\n```\n\tx\n```\n");
+}
+
+/// A file whose only indentation is tabs still has its indented code checked.
+#[test]
+fn test_tab_indented_code_is_checked() {
+    let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Fenced);
+    for content in ["para\n\n\tcode\n", "1. a\n\n\t\tcode\n"] {
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        assert!(!rule.should_skip(&ctx), "{content:?} holds indented code");
+    }
+    let ctx = LintContext::new("para\n\tcontinued\n", rumdl_lib::config::MarkdownFlavor::Standard, None);
+    assert!(
+        rule.should_skip(&ctx),
+        "a tab-indented paragraph continuation is no code block"
+    );
+
+    assert_whole_block_fenced("para\n\n\tcode\n", "para\n\n```\ncode\n```\n");
+    // The item takes three of the tab's four columns, so the code keeps the
+    // fourth, as it did as indented code.
+    assert_whole_block_fenced("1. a\n\n\t\tcode\n", "1. a\n\n   ```\n\tcode\n   ```\n");
+}
+
+/// Whitespace on a blank line past the code's indentation is code text, so
+/// fencing keeps it; whitespace up to that indentation carries nothing and the
+/// line is written empty.
+#[test]
+fn test_whitespace_only_code_line_keeps_its_code_text() {
+    assert_whole_block_fenced("text\n\n    a\n        \n    b\n", "text\n\n```\na\n    \nb\n```\n");
+    assert_whole_block_fenced(
+        "- x\n\n      a\n          \n      b\n",
+        "- x\n\n  ```\n  a\n      \n  b\n  ```\n",
+    );
+    assert_whole_block_fenced("text\n\n    a\n    \n    b\n", "text\n\n```\na\n\nb\n```\n");
+    assert_whole_block_fenced(
+        "Text\n\n    ```\n    a\n          \n    b\n    ```\n",
+        "Text\n\n```\na\n      \nb\n```\n",
+    );
+}
+
+/// An indented block is a misplaced fence only when its first closer is its
+/// last line. A closer earlier in the block would end the fence there and
+/// leave the rest to open a new one, so such a block is reported and left as
+/// it is.
+#[test]
+fn test_indented_block_with_closer_before_its_end_is_not_a_misplaced_fence() {
+    let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Fenced);
+    for content in [
+        "text\n\n    ```\n    x\n    ```\n    ```\n",
+        "text\n\n    ```\n    x\n    ```\n    y\n    ```\n\nAfter.\n",
+        "text\n\n    ```\n\nAfter.\n",
+    ] {
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 1, "{content:?} holds one indented block: {warnings:?}");
+        assert!(warnings[0].fix.is_none(), "{content:?} must have no fix: {warnings:?}");
+        assert_eq!(rule.fix(&ctx).unwrap(), content, "{content:?} must not be rewritten");
+    }
+
+    // A fence line four or more columns past the opener is code, not a
+    // closer, so the block is still one complete misplaced fence.
+    let content = "text\n\n    ```\n        ```\n    ```\n";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    assert_eq!(rule.fix(&ctx).unwrap(), "text\n\n```\n    ```\n```\n");
+}
+
+/// A backtick line whose info string holds a backtick does not open a fence,
+/// so an indented block starting with one is plain code, not a misplaced
+/// fence. Dedenting it would turn the code into a paragraph and leave its
+/// last line opening a fence over the rest of the document.
+#[test]
+fn test_backtick_line_with_backtick_in_info_string_is_not_a_misplaced_fence() {
+    let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Fenced);
+    let content = "a\n\n    ```a`b\n    code\n    ```\n\nafter\n";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let warnings = rule.check(&ctx).unwrap();
+    assert_eq!(warnings.len(), 1, "one indented block: {warnings:?}");
+    assert!(warnings[0].fix.is_none(), "must have no fix: {warnings:?}");
+    assert_eq!(rule.fix(&ctx).unwrap(), content);
+
+    // A tilde fence may carry backticks in its info string.
+    let content = "a\n\n    ~~~ a`b\n    code\n    ~~~\n\nafter\n";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    assert_eq!(rule.fix(&ctx).unwrap(), "a\n\n~~~ a`b\ncode\n~~~\n\nafter\n");
+}
+
+/// Front matter is metadata, not Markdown, so fence markers inside it are not
+/// a fenced code block whatever style is configured.
+#[test]
+fn test_fence_markers_in_front_matter_are_not_a_code_block() {
+    let yaml = "---\nnotes: |\n  ```\n  code\n  ```\n---\n\n# T\n";
+    let toml = "+++\nnotes = \"\"\"\n```\ncode\n```\n\"\"\"\n+++\n\n# T\n";
+    for content in [yaml, toml] {
+        let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Indented);
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert!(warnings.is_empty(), "{content:?} has no code block: {warnings:?}");
+    }
+
+    // Under `consistent`, the only real block is indented, so nothing is
+    // flagged; a fence after the front matter is still a real block.
+    let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Consistent);
+    let content = "---\nnotes: |\n  ```\n  code\n  ```\n---\n\n# T\n\nText.\n\n    real code\n";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    assert!(rule.check(&ctx).unwrap().is_empty());
+
+    let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Indented);
+    let content = "---\ntitle: x\n---\n\n# T\n\n```\ncode\n```\n";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let warnings = rule.check(&ctx).unwrap();
+    assert_eq!(warnings.len(), 1, "the fence after front matter is code: {warnings:?}");
+    assert_eq!(warnings[0].line, 7);
+}

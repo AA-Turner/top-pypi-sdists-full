@@ -43,11 +43,11 @@ def template(text: str) -> re.Pattern:
 def test_every_approved_file_is_used_here():
     used = {"job/record-session.PROPOSED.md", "tools/shell.PROPOSED.md", "tools/read.PROPOSED.md",
             "tools/session.NEW.md", "tools/final_result.PROPOSED.md", "compaction/summary-prompt.PROPOSED.md",
-            "compaction/earlier-turns.md", "loop/loop-stop.PROPOSED.md"}
+            "compaction/earlier-turns.md", "loop/loop-stop.PROPOSED.md", "loop/retries-spent.NEW.md"}
     used |= {f"bite/{p.name}" for p in (FIXTURES / "bite").glob("*.PROPOSED.md")}
     # `reads/` (the daemon's reader) is pinned in test_daemon_reads_prompts.py.
     assert {str(p.relative_to(FIXTURES)) for p in FIXTURES.rglob("*.md") if p.relative_to(FIXTURES).parts[0] != "reads"} == used
-    assert len(used) == 24
+    assert len(used) == 25
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +129,7 @@ def test_the_compaction_prompt_and_the_loop_stop_are_the_approved_text():
     with pytest.raises(SkipToolExecution) as stopped:
         asyncio.run(detector.before_tool_execute(None, call=None, tool_def=None, args={}))
     assert stopped.value.result == body("loop/loop-stop.PROPOSED.md").replace("{why}", detector.tripped)
+    assert agent_mod.RETRIES_SPENT == body("loop/retries-spent.NEW.md")
 
 
 # ---------------------------------------------------------------------------

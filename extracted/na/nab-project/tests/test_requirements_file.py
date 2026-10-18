@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from nab_markersets._compat import get_int_max_str_digits
 from nab_project.pyproject_files import (
     build_system_requires,
     read_pyproject_build_requires,
@@ -33,7 +34,11 @@ from nab_provider.requirements_file import (
 )
 from nab_resolver.errors import ResolutionError
 
-_AT_LIMIT = "1" * sys.get_int_max_str_digits()
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
+
+_AT_LIMIT = "1" * (get_int_max_str_digits() or 4300)
 _OVERSIZED = _AT_LIMIT + "1"
 
 
@@ -229,6 +234,7 @@ class TestReadPyprojectDependencies:
         ):
             read_pyproject_dependencies(p)
 
+    @requires_int_limit
     @pytest.mark.parametrize("operator", ["==", "==="])
     def test_oversized_specifier_version_raises(
         self, tmp_path: object, operator: str
@@ -498,6 +504,7 @@ class TestResolveGroupsToRequirements:
         assert "include-group chain" in message
         assert "marker" not in message
 
+    @requires_int_limit
     @pytest.mark.parametrize("operator", ["==", "==="])
     def test_oversized_specifier_version_raises(self, operator: str) -> None:
         """An oversized version converts only on comparison; parsing forces it."""
@@ -816,6 +823,7 @@ class TestExpandExtraRequirements:
         out = expand_extra_requirements(opt, None, ["all"])
         assert sorted(r.name for r in out) == ["mypkg", "plain"]
 
+    @requires_int_limit
     @pytest.mark.parametrize("operator", ["==", "==="])
     def test_oversized_specifier_version_raises(self, operator: str) -> None:
         """An oversized version converts only on comparison; parsing forces it."""
@@ -860,8 +868,8 @@ class TestExpandExtraRequirements:
     @pytest.mark.parametrize(
         "literal",
         [
-            pytest.param(_AT_LIMIT, id="at-limit"),
-            pytest.param(_OVERSIZED, id="over-limit"),
+            pytest.param(_AT_LIMIT, id="at-limit", marks=requires_int_limit),
+            pytest.param(_OVERSIZED, id="over-limit", marks=requires_int_limit),
         ],
     )
     def test_oversized_self_ref_marker_version_refuses(self, literal: str) -> None:

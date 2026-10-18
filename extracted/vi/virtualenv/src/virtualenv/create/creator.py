@@ -3,17 +3,19 @@ from __future__ import annotations
 import json
 import logging
 import os
+import stat
 import sys
 import textwrap
 from abc import ABC, abstractmethod
-from argparse import ArgumentTypeError
+from argparse import Action, ArgumentTypeError
 from ast import literal_eval
 from collections import OrderedDict
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final, cast
 
 if TYPE_CHECKING:
-    from argparse import ArgumentParser
+    from argparse import ArgumentParser, Namespace
+    from collections.abc import Sequence
     from typing import Any, NoReturn
 
     from python_discovery import PythonInfo
@@ -23,8 +25,9 @@ if TYPE_CHECKING:
 
 from os.path import commonpath
 
-from virtualenv.util.path import safe_delete
+from virtualenv.util.path import safe_delete, write_file
 from virtualenv.util.subprocess import LogCmd, run_cmd
+from virtualenv.util.text import collapse_line_boundaries
 from virtualenv.version import __version__
 
 from .pyenv_cfg import PyEnvCfg
@@ -55,7 +58,9 @@ class Creator(ABC):
         self.clear = options.clear
         self.no_vcs_ignore = options.no_vcs_ignore
         self.venv_redirect = options.venv_redirect
-        self.pyenv_cfg = PyEnvCfg.from_folder(self.dest)
+        self.pyenv_cfg = (
+            PyEnvCfg(OrderedDict(), self.dest / "pyvenv.cfg") if self.clear else PyEnvCfg.from_folder(self.dest)
+        )
         self.app_data = options.app_data
         self.env = options.env
         self.prompt = getattr(options, "prompt", None)
@@ -122,10 +127,31 @@ class Creator(ABC):
         :param meta: value as returned by :meth:`can_create`
 
         """
+
+        class Destination(Action):
+            def __call__(
+                self,
+                parser: ArgumentParser,
+                namespace: Namespace,
+                values: str | Sequence[str] | None,
+                option_string: str | None = None,
+            ) -> None:
+                raw: Final = cast("str", values)
+                try:
+                    namespace.dest = cls.validate_dest(raw)
+                except ArgumentTypeError as exception:
+                    parser.error(f"argument {option_string or self.dest}: {exception}")
+                destination: Final = Path(os.path.abspath(raw))
+                namespace.dest_is_link = destination.is_symlink() or (
+                    os.name == "nt"
+                    and destination.exists()
+                    and bool(destination.lstat().st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT)
+                )
+
         parser.add_argument(
             "dest",
             help="directory to create virtualenv at",
-            type=cls.validate_dest,
+            action=Destination,
         )
         parser.add_argument(
             "--clear",
@@ -190,18 +216,18 @@ class Creator(ABC):
             bad = "".join(refused.keys())
             msg = f"the file system codec ({encoding}) cannot handle characters {bad!r} within {raw_value!r}"
             raise ArgumentTypeError(msg)
-        if os.pathsep in raw_value:
-            msg = (
-                f"destination {raw_value!r} must not contain the path separator ({os.pathsep})"
-                f" as this would break the activation scripts"
-            )
-            raise ArgumentTypeError(msg)
-
         value = Path(raw_value)
         if value.exists() and value.is_file():
             msg = f"the destination {value} already exists and is a file"
             raise ArgumentTypeError(msg)
         dest = Path(os.path.abspath(str(value))).resolve()  # on Windows absolute does not imply resolve so use both
+        for destination in (raw_value, str(dest)):
+            if os.pathsep in destination:
+                msg = (
+                    f"destination {destination!r} must not contain the path separator ({os.pathsep})"
+                    f" as this would break the activation scripts"
+                )
+                raise ArgumentTypeError(msg)
         value = dest
         while dest:
             if dest.exists():
@@ -236,7 +262,7 @@ class Creator(ABC):
                 # For information about cache directory tags, see:
                 #   https://bford.info/cachedir/
             """).strip()
-            cachedir_tag_file.write_text(cachedir_tag_text, encoding="utf-8")
+            write_file(cachedir_tag_file, cachedir_tag_text.encode("utf-8"))
 
     def set_pyenv_cfg(self) -> None:
         self.pyenv_cfg.content = OrderedDict()
@@ -260,7 +286,7 @@ class Creator(ABC):
         # mark this folder to be ignored by VCS, handle https://www.python.org/dev/peps/pep-0610/#registered-vcs
         git_ignore = self.dest / ".gitignore"
         if not git_ignore.exists():
-            git_ignore.write_text("# created by virtualenv automatically\n*\n", encoding="utf-8")
+            write_file(git_ignore, b"# created by virtualenv automatically\n*\n")
         # Mercurial - does not support the .hgignore file inside a subdirectory directly, but only if included via the
         # subinclude directive from root, at which point on might as well ignore the directory itself, see
         # https://www.selenic.com/mercurial/hgignore.5.html for more details
@@ -281,6 +307,13 @@ class Creator(ABC):
             return
         if redirect.exists() and not _points_at_virtualenv(redirect):
             LOGGER.debug("%s points at an environment virtualenv did not create, leaving it", redirect)
+            return
+        if collapse_line_boundaries(self.dest.name) != self.dest.name or self.dest.name != self.dest.name.strip():
+            LOGGER.warning(
+                "could not point %s at %s - the name contains a line boundary or surrounding whitespace",
+                redirect,
+                self.dest,
+            )
             return
         try:
             redirect.write_text(f"{self.dest.name}\n", encoding="utf-8")
@@ -303,7 +336,7 @@ def _points_at_virtualenv(redirect: Path) -> bool:
     try:
         line = redirect.read_text(encoding="utf-8").removesuffix("\n")  # universal newlines already turned \r\n into \n
         return bool(line) and "virtualenv" in PyEnvCfg.from_folder(redirect.parent / line)
-    except (OSError, UnicodeDecodeError):  # unreadable, so not a redirect virtualenv can claim
+    except (OSError, UnicodeDecodeError, ValueError):  # unreadable, so not a redirect virtualenv can claim
         return False
 
 

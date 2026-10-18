@@ -23,21 +23,15 @@ Assertion modes:
 
 import os
 import re
+from collections.abc import Callable, Iterator
 from typing import (
     Any,
-    Callable,
-    Dict,
-    Iterator,
-    List,
-    Optional,
-    Tuple,
-    Union,
 )
 
 import yaml
 from pydantic import BaseModel, model_validator
 
-PathElement = Union[str, int, Dict[str, Any]]
+PathElement = str | int | dict[str, Any]
 
 _UNSET = object()
 
@@ -56,16 +50,16 @@ class Assertion(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    path: List[PathElement]
+    path: list[PathElement]
     value: Any = _UNSET
-    value_contains: Optional[str] = None
-    value_any_contains: Optional[str] = None
-    value_set: Optional[List[Any]] = None
-    value_matches: Optional[str] = None
-    value_truthy: Optional[bool] = None
-    value_falsy: Optional[bool] = None
-    value_type: Optional[str] = None
-    value_absent: Optional[bool] = None
+    value_contains: str | None = None
+    value_any_contains: str | None = None
+    value_set: list[Any] | None = None
+    value_matches: str | None = None
+    value_truthy: bool | None = None
+    value_falsy: bool | None = None
+    value_type: str | None = None
+    value_absent: bool | None = None
 
     @model_validator(mode="after")
     def _check_exactly_one_mode(self) -> "Assertion":
@@ -94,13 +88,19 @@ class TestCase(BaseModel):
     fixture: str
     operation: str
     expect_error: bool = False
-    assertions: List[Assertion] = []
+    assertions: list[Assertion] = []
+    # Named whole-result structural checks (e.g. layout graph properties).
+    # Each name is resolved against a checker registry injected by the caller;
+    # the checker takes the operation result and raises on violation. The names
+    # are a language-agnostic contract — other languages reimplement the
+    # checkers, not the coordinates.
+    graph_properties: list[str] = []
 
 
 class ExpectationSuite(BaseModel):
     """Top-level model: maps test IDs to test cases."""
 
-    root: Dict[str, TestCase]
+    root: dict[str, TestCase]
 
     @classmethod
     def from_yaml(cls, path: str) -> "ExpectationSuite":
@@ -112,7 +112,7 @@ class ExpectationSuite(BaseModel):
         return cls(root=raw)
 
 
-def navigate(obj: Any, path: List[PathElement]) -> Any:
+def navigate(obj: Any, path: list[PathElement]) -> Any:
     """Walk an object by a list of path elements."""
     for element in path:
         if element == "$length":
@@ -196,14 +196,13 @@ def assert_value_type(obj: Any, expected_type: str):
     assert isinstance(obj, typ), f"expected type {expected_type}, got {type(obj).__name__}"
 
 
-def load_expectation_cases(expectations_dir: str) -> Iterator[Tuple[str, TestCase]]:
+def load_expectation_cases(expectations_dir: str) -> Iterator[tuple[str, TestCase]]:
     """Yield (test_id, TestCase) for every expectation YAML in a directory."""
     for fname in sorted(os.listdir(expectations_dir)):
         if not fname.endswith(".yml"):
             continue
         suite = ExpectationSuite.from_yaml(os.path.join(expectations_dir, fname))
-        for test_id, case in suite.root.items():
-            yield test_id, case
+        yield from suite.root.items()
 
 
 def run_assertion(obj: Any, assertion: Assertion):
@@ -237,15 +236,20 @@ def run_assertion(obj: Any, assertion: Assertion):
 
 def run_declarative_case(
     case: TestCase,
-    operations: Dict[str, Callable[..., Any]],
+    operations: dict[str, Callable[..., Any]],
     load_fixture: Callable[[str], Any],
+    graph_property_checkers: dict[str, Callable[[Any], None]] | None = None,
 ):
     """Execute one declarative test case.
 
     Args:
-        case: TestCase with fixture, operation, and optionally assertions / expect_error
+        case: TestCase with fixture, operation, and optionally assertions /
+            graph_properties / expect_error
         operations: mapping of operation name to callable
         load_fixture: callable that takes a fixture name and returns the loaded workflow dict
+        graph_property_checkers: optional mapping of property name to a checker
+            ``(result) -> None`` (raises on violation). Required only when a
+            case lists ``graph_properties``.
     """
     operation = operations[case.operation]
 
@@ -259,6 +263,13 @@ def run_declarative_case(
     result = operation(load_fixture(case.fixture))
     for assertion in case.assertions:
         run_assertion(result, assertion)
+    checkers = graph_property_checkers or {}
+    for property_name in case.graph_properties:
+        if property_name not in checkers:
+            raise KeyError(
+                f"Unknown graph property {property_name!r}; no checker registered. Known: {sorted(checkers)}"
+            )
+        checkers[property_name](result)
 
 
 class DeclarativeTestSuite:
@@ -279,14 +290,16 @@ class DeclarativeTestSuite:
 
     def __init__(
         self,
-        operations: Dict[str, Callable[..., Any]],
+        operations: dict[str, Callable[..., Any]],
         load_fixture: Callable[[str], Any],
-        expectations_dir: Optional[str] = None,
-        cases: Optional[List[Tuple[str, TestCase]]] = None,
+        expectations_dir: str | None = None,
+        cases: list[tuple[str, TestCase]] | None = None,
+        graph_property_checkers: dict[str, Callable[[Any], None]] | None = None,
     ):
         """Initialize with operations map and fixture loader."""
         self.operations = operations
         self.load_fixture = load_fixture
+        self.graph_property_checkers = graph_property_checkers
         if cases is not None:
             self._cases = list(cases)
         elif expectations_dir is not None:
@@ -295,7 +308,7 @@ class DeclarativeTestSuite:
             raise ValueError("Either expectations_dir or cases must be provided")
 
     @property
-    def cases(self) -> List[Tuple[str, TestCase]]:
+    def cases(self) -> list[tuple[str, TestCase]]:
         """Return loaded test cases."""
         return self._cases
 
@@ -313,4 +326,9 @@ class DeclarativeTestSuite:
 
     def run(self, test_id: str, case: TestCase):
         """Execute a single declarative test case."""
-        run_declarative_case(case, self.operations, self.load_fixture)
+        run_declarative_case(
+            case,
+            self.operations,
+            self.load_fixture,
+            graph_property_checkers=self.graph_property_checkers,
+        )

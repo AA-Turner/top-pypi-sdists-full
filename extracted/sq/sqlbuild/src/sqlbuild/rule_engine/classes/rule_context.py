@@ -5,7 +5,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast
 
-from sqlbuild.compiler.compile.types import CompiledModelView, CompiledProjectView
+from sqlbuild._native import (
+    Finding,
+    Model,
+    ProjectPath,
+    Rule,
+    RuleFactViews,
+    RuleOption,
+    RulesConfig,
+    RuleUsageError,
+    SqlNode,
+    finding_position,
+)
 from sqlbuild.rule_engine.classes.audit_facts import AuditFacts
 from sqlbuild.rule_engine.classes.column_facts import ColumnFacts
 from sqlbuild.rule_engine.classes.contract_facts import ContractFacts
@@ -15,22 +26,11 @@ from sqlbuild.rule_engine.classes.graph_facts import GraphFacts
 from sqlbuild.rule_engine.classes.model_test_facts import TestFacts
 from sqlbuild.rule_engine.classes.project_facts import ProjectFacts
 from sqlbuild.rule_engine.classes.sql_facts import SqlFacts
-from sqlbuild.rule_engine.constants import PARENT_DIRECTORY_TOKEN
-from sqlbuild.rule_engine.exceptions import RuleUsageError
-from sqlbuild.rule_engine.models import (
-    Finding,
-    Model,
-    ProjectPath,
-    Rule,
-    RuleFactViews,
-    RuleOption,
-    RulesConfig,
-    SqlNode,
-)
+from sqlbuild.rule_engine.types import RuleFactModel, RuleFactProject
 
 
 def build_rule_fact_views(
-    *, project: CompiledProjectView, project_dir: Path, dialect: str
+    *, project: RuleFactProject, project_dir: Path, dialect: str
 ) -> RuleFactViews:
     """Build immutable views once for one compiled project snapshot."""
 
@@ -53,10 +53,10 @@ class EvaluationRuleContext:
     def __init__(
         self,
         *,
-        model: CompiledModelView | None,
+        model: RuleFactModel | None,
         rule: Rule,
         config: RulesConfig,
-        project: CompiledProjectView,
+        project: RuleFactProject,
         project_dir: Path,
         selected_rules: tuple[Rule, ...],
         dialect: str,
@@ -114,14 +114,9 @@ class EvaluationRuleContext:
             path = Path(subject.value)
         else:
             path = Path(subject)
-        if path.is_absolute() or PARENT_DIRECTORY_TOKEN in path.parts:
-            raise RuleUsageError(f"finding path must be project-relative: {path}")
-        resolved_line: int = line if line is not None else int(getattr(node, "line", 1) or 1)
-        resolved_column: int = (
-            column if column is not None else int(getattr(node, "column", 1) or 1)
+        resolved_line, resolved_column = finding_position(
+            path=path, line=line, column=column, node=node
         )
-        if resolved_line < 1 or resolved_column < 1:
-            raise RuleUsageError("finding line and column must be positive")
         return Finding(
             code=self._rule.code,
             path=path,

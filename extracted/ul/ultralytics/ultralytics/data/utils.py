@@ -227,7 +227,7 @@ def get_hash(paths: list[str]) -> str:
     """Return a hash of paths and their file sizes and modification times."""
     h = __import__("hashlib").sha256()
     for p in paths:
-        h.update(p.encode())
+        h.update(os.fsencode(p))  # fsencode handles surrogate-escaped non-UTF-8 filenames, byte-identical otherwise
         h.update(b"\0")
         try:
             stat = os.stat(p)
@@ -476,7 +476,8 @@ def verify_image_label(args: tuple) -> tuple | list:
                     points = lb[:, 1:]
                 # Coordinate points check with 1% tolerance
                 assert points.max() <= 1.01, f"non-normalized or out of bounds coordinates {points[points > 1.01]}"
-                assert lb.min() >= -0.01, f"negative class labels or coordinate {lb[lb < -0.01]}"
+                lb_min = lb.min()
+                assert lb_min >= 0 or (lb_min >= -0.01 and lb[:, 3:5].min() >= 0), f"negative label values {lb[lb < 0]}"
                 assert (lb[:, 0] % 1 == 0).all(), f"non-integer class labels {lb[:, 0][lb[:, 0] % 1 != 0]}"
 
                 # All labels
@@ -644,7 +645,8 @@ def find_dataset_yaml(path: Path) -> Path:
     """Find and return the YAML file associated with a Detect, Segment or Pose dataset.
 
     This function searches for a YAML file at the root level of the provided directory first, and if not found, it
-    performs a recursive search. It prefers YAML files that have the same stem as the provided path.
+    performs a recursive search, considering `.yml` files only when no `.yaml` file exists. It prefers YAML files that
+    have the same stem as the provided path.
 
     Args:
         path (Path): The directory path to search for the YAML file.
@@ -652,7 +654,7 @@ def find_dataset_yaml(path: Path) -> Path:
     Returns:
         (Path): The path of the found YAML file.
     """
-    files = list(path.glob("*.yaml")) or list(path.rglob("*.yaml"))  # try root level first and then recursive
+    files = next((f for e in ("*.yaml", "*.yml") if (f := list(path.glob(e)) or list(path.rglob(e)))), [])
     assert files, f"No YAML file found in '{path.resolve()}'"
     if len(files) > 1:
         files = [f for f in files if f.stem == path.stem]  # prefer YAML files that match

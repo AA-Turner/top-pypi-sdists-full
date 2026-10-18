@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: nab-project
-Version: 0.0.21
+Version: 0.0.22
 Summary: Index-backed provider, lockfile emitter, and downloader for nab
 Project-URL: Homepage, https://github.com/notatallshaw/nab
 Project-URL: Documentation, https://nab.readthedocs.io/
@@ -17,14 +17,15 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: build>=1.2
 Requires-Dist: installer>=1.0
-Requires-Dist: nab-index==0.0.21
-Requires-Dist: nab-markersets==0.0.21
-Requires-Dist: nab-provider==0.0.21
-Requires-Dist: nab-resolver==0.0.21
+Requires-Dist: nab-index==0.0.22
+Requires-Dist: nab-markersets==0.0.22
+Requires-Dist: nab-provider==0.0.22
+Requires-Dist: nab-resolver==0.0.22
 Requires-Dist: packaging>=24.0
 Requires-Dist: pyproject-hooks>=1.2
 Requires-Dist: tomli-w>=1.2

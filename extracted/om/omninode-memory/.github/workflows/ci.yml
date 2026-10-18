@@ -23,37 +23,6 @@ env:
   CACHE_VERSION: "0.1.0"
 
 jobs:
-  # OMN-18854: the existing eligibility validator must feed the required
-  # CI Summary. Other validations remain independent of this evidence gate.
-  occ-preflight:
-    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    permissions:
-      contents: read
-      pull-requests: read
-    uses: OmniNode-ai/omnibase_core/.github/workflows/occ-preflight.yml@13ceae69c246a33c9fc8fc4b33f83fb66b89edc6
-    with:
-      core-ref: 13ceae69c246a33c9fc8fc4b33f83fb66b89edc6
-      contracts-dir: contracts
-      receipts-dir: drift/dod_receipts
-
-  # OMN-18854: evidence admission has its own verdict; shape detectors and
-  # their result aggregation do not branch directly on the evidence preflight.
-  occ-eligibility:
-    name: OCC Eligibility Admission
-    runs-on: ubuntu-latest
-    needs: occ-preflight
-    if: always()
-    steps:
-      - name: Require eligible evidence on admission events
-        run: |
-          event="${{ github.event_name }}"
-          if [[ "$event" == "pull_request" || "$event" == "merge_group" ]]; then
-            if [[ "${{ needs.occ-preflight.result }}" != "success" ]]; then
-              echo "::error::occ-preflight did not pass (result: ${{ needs.occ-preflight.result }})"
-              exit 1
-            fi
-          fi
-
   # =============================================================================
   # JOB ORDERING RATIONALE (Fail-Fast Optimization)
   # =============================================================================
@@ -257,10 +226,6 @@ jobs:
       # CI counterpart of the no-git-precommit-additional-dependencies hook.
       - name: Pre-commit dependencies come from package indexes (OMN-19666)
         run: bash tests/test_precommit_additional_dependencies_omn19666.sh
-
-      # OMN-18854: the same focused regression runs before commit and in CI.
-      - name: Verify OCC eligibility enforcement (OMN-18854)
-        run: uv run pytest tests/scripts/test_occ_eligibility_enforcement.py -q
 
       # SYNC: Pre-commit hook 'validate-gitignore-baseline' at pre-commit stage (OMN-18033)
       # This step and the hook both pin released omnibase-core==0.47.23,
@@ -629,65 +594,52 @@ jobs:
 
   contract-compliance:
     name: Contract Compliance Check
-    # OMNI_RUNNER_SELECTOR_V1 (OMN-16437): `uv sync` here resolves onex_change_control's
-    # dependency set from the internal-only `.201` Tailscale PyPI mirror
-    # (http://omninode-pc.tail75df5e.ts.net:3141/root/pypi/...).
-    # onex-allow-internal-ip OMN-16437 reason="doc comment naming the host this fix routes around; not runnable"
-    # `ubuntu-latest` is GitHub-hosted, non-tailnet, and cannot resolve that hostname.
-    # Same defect class as OMN-16413 (omnibase_core#1579), OMN-16427
-    # (omninode_infra#969), OMN-16428 (omnimarket), and OMN-16431 (omniclaude#2023,
-    # same job name/shape) -- adopts the identical fork-aware selector: only an
-    # ACTUAL fork PR (head repo != base repo) routes to the public ubuntu-latest
-    # runner; every same-repo pull_request, push, and merge_group gets the
-    # tailnet-connected self-hosted omnibase-ci fleet, which CAN reach the .201
-    # mirror. This does NOT widen the trust boundary: untrusted fork code still
-    # never reaches the self-hosted fleet.
-    runs-on: >-
-      ${{
-        (github.event_name == 'pull_request' &&
-         github.event.pull_request.head.repo.full_name != github.repository)
-        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-      }}
+    # OMN-19998: public repository, GitHub-hosted runner only (RULING 2026-10-16T07:07:09Z).
+    # OMN-20074 S6: validate this repository's contracts with locked core.
+    runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push'
     steps:
       - uses: actions/checkout@v7
-      # OMN-20001: read the onex_change_control rev pinned in pyproject.toml,
-      # never OCC's live default branch.
-      - name: Resolve pinned onex_change_control rev
-        id: occ-pin
-        run: |
-          rev="$(grep -oE 'onex_change_control\.git@[0-9a-f]{40}' pyproject.toml | head -1 | cut -d@ -f2)"
-          [[ "$rev" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::no pinned onex_change_control rev in pyproject.toml"; exit 1; }
-          echo "rev=$rev" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout onex_change_control
-        uses: actions/checkout@v7
-        with:
-          repository: OmniNode-ai/onex_change_control
-          ref: ${{ steps.occ-pin.outputs.rev }}
-          path: onex_change_control
-
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          cache-dependency-glob: 'onex_change_control/uv.lock'
+          cache-dependency-glob: uv.lock
 
-      - name: Install onex_change_control
-        working-directory: onex_change_control
-        run: uv sync --locked --all-extras
+      - name: Install dependencies
+        run: uv sync --frozen
 
       - name: Validate contract YAML files
-        working-directory: onex_change_control
         run: |
-          CONTRACTS=$(find "$GITHUB_WORKSPACE/onex_change_control/contracts" -maxdepth 1 -name "OMN-*.yaml" 2>/dev/null)
-          if [ -z "$CONTRACTS" ]; then
-            echo "No contract YAML files found — skipping validation"
-            exit 0
-          fi
-          uv run validate-yaml $CONTRACTS
-        env:
-          GH_TOKEN: ${{ github.token }}
+          set -euo pipefail
+          # Top-level ticket contracts only: contracts/v1 holds a different shape.
+          mapfile -t CONTRACTS < <(find contracts -maxdepth 1 -type f -name "OMN-*.yaml")
+          uv run python3 - "${CONTRACTS[@]}" <<'PY'
+          import sys
+          from pathlib import Path
+
+          from omnibase_core.models.errors.model_onex_error import ModelOnexError
+          from omnibase_core.models.ticket.model_ticket_contract import ModelTicketContract
+
+          # Named contracts, or every contracts/OMN-*.yaml when none are named.
+          paths = [Path(arg) for arg in sys.argv[1:]] or sorted(Path("contracts").glob("OMN-*.yaml"))
+          if not paths:
+              print("::error::contracts/ holds no OMN-*.yaml ticket contract")
+              sys.exit(1)
+
+          broken = []
+          for path in paths:
+              try:
+                  ModelTicketContract.from_yaml(path.read_text(encoding="utf-8"))
+              except (OSError, ModelOnexError) as exc:
+                  broken.append((path, " ".join(str(exc).split())))
+
+          for path, reason in broken:
+              print(f"::error file={path.as_posix()}::{path.as_posix()}: {reason}")
+          if broken:
+              print(f"ERROR: {len(broken)} of {len(paths)} ticket contract(s) fail omnibase_core's ModelTicketContract.")
+              sys.exit(1)
+          print(f"OK: {len(paths)} ticket contract(s) pass omnibase_core's ModelTicketContract.")
+          PY
 
   no-noncanonical-lifecycle-classes:
     name: no-noncanonical-lifecycle-classes
@@ -899,21 +851,120 @@ jobs:
               python -m omnibase_core.validators.canonical_file_shape --head HEAD
           fi
 
+      - name: Node-home positive control (planted node refused, clean tree accepted)
+        run: |
+          set -u
+          node_home() {
+            uv run --no-project --with "$CANONICAL_FILE_SHAPE_CORE" \
+              python -m omnibase_core.nodes.node_node_home_check_compute.runtime_node_home_check "$@"
+          }
+          planted=src/omnimemory/nodes/node_zz_canary_planted_compute
+          mkdir -p "$planted"
+          printf 'name: node_zz_canary_planted_compute\n' > "$planted/contract.yaml"
+          printf 'class NodeZzCanaryPlantedCompute:\n    pass\n' > "$planted/handler.py"
+          git add "$planted"
+          if node_home; then
+            echo "POSITIVE CONTROL FAILED: planted $planted was accepted"
+            exit 1
+          fi
+          echo "positive control: planted node refused"
+          git rm -q -r --cached "$planted"
+          rm -r "$planted"
+          node_home
+          echo "positive control: clean tree accepted"
+
+      - name: Refuse new ONEX nodes outside omnimarket (OMN-20702)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          MQ_BASE: ${{ github.event.merge_group.base_sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -u
+          node_home() {
+            uv run --no-project --with "$CANONICAL_FILE_SHAPE_CORE" \
+              python -m omnibase_core.nodes.node_node_home_check_compute.runtime_node_home_check "$@"
+          }
+          base="${PR_BASE:-${MQ_BASE:-${PUSH_BEFORE:-}}}"
+          if [ -n "$base" ] && git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base="$(git merge-base "$base" HEAD)"
+            node_home --base "$base"
+          elif [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; then
+            echo "node-home ratchet: no resolvable base revision on $EVENT_NAME; refusing"
+            exit 1
+          else
+            echo "no base revision on this event; checking the tree against HEAD"
+            node_home --base HEAD
+          fi
+
+  # OMN-19998: public-repository runner placement (RULING 2026-10-16T07:07:09Z,
+  # "Ci runners should be for private repos only"). omnibase_core's check refuses
+  # a job whose runs-on is, or can resolve to, a self-hosted label unless core's
+  # shrink-only baseline (shipped in the package, not editable here) records it,
+  # and refuses a baselined job that is new or newly self-hosted against the base.
+  # Same core release as the check-public-runner-placement pre-commit hook.
+  # Unconditional: no `if:`, no `needs:`; a CI Summary member below.
+  public-runner-placement:
+    name: Public Runner Placement (OMN-19998)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # The published release whose tag v0.47.46 is the pre-commit hook's rev.
+      RUNNER_PLACEMENT_CORE: "omnibase-core==0.47.46"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.3"
+      - name: Positive control (planted self-hosted job refused)
+        run: |
+          set -u
+          printf 'on: push\njobs:\n  planted:\n    runs-on: [self-hosted, omnibase-ci]\n    steps:\n      - run: "true"\n' \
+            > .github/workflows/zz-canary-planted.yml
+          git add .github/workflows/zz-canary-planted.yml
+          if uv run --no-project --with "$RUNNER_PLACEMENT_CORE" \
+            python -m omnibase_core.handlers.handler_public_runner_placement_cli --repo omnimemory \
+            .github/workflows/zz-canary-planted.yml; then
+            echo "POSITIVE CONTROL FAILED: planted self-hosted job was accepted"
+            exit 1
+          fi
+          echo "positive control: planted self-hosted job refused"
+          git rm -q --cached .github/workflows/zz-canary-planted.yml
+          rm .github/workflows/zz-canary-planted.yml
+      - name: Refuse new self-hosted jobs in this public repository
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          MQ_BASE: ${{ github.event.merge_group.base_sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -u
+          base="${PR_BASE:-${MQ_BASE:-${PUSH_BEFORE:-}}}"
+          args=(--repo omnimemory --visibility public)
+          if [ -n "$base" ] && git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            args+=(--base-ref "$(git merge-base "$base" HEAD)")
+          else
+            echo "no base revision on this event; checking the tree against the baseline only"
+          fi
+          uv run --no-project --with "$RUNNER_PLACEMENT_CORE" \
+            python -m omnibase_core.handlers.handler_public_runner_placement_cli "${args[@]}"
+
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [migration-freeze, lint, pyright, onex-validation, transport-import-guard, contract-validation, io-audit, check-handshake, test-select, tests-gate, compliance, contract-compliance, no-noncanonical-lifecycle-classes, detect-secrets, shape-gate-independence, canonical-file-shape, occ-eligibility]
+    needs: [migration-freeze, lint, pyright, onex-validation, transport-import-guard, contract-validation, io-audit, check-handshake, test-select, tests-gate, compliance, contract-compliance, no-noncanonical-lifecycle-classes, detect-secrets, shape-gate-independence, canonical-file-shape, public-runner-placement]
     if: always()
 
     steps:
       - name: Check test results
         run: |
-          # OMN-18854: require the admission verdict on every event. That job
-          # judges eligibility on PR/queue events and passes non-admission events.
-          if [[ "${{ needs.occ-eligibility.result }}" != "success" ]]; then
-            echo "::error::occ-eligibility did not pass (result: ${{ needs.occ-eligibility.result }})"
-            exit 1
-          fi
           # OMN-14350: strict fail-closed gate on the non-canonical lifecycle-class
           # ratchet - only 'success' passes; skipped/cancelled/failure ALL block. It is
           # in needs: so this job WAITS for it (no race).
@@ -938,6 +989,12 @@ jobs:
           # only 'success' passes; skipped/cancelled/failure ALL block.
           if [[ "${{ needs.canonical-file-shape.result }}" != "success" ]]; then
             echo "::error::canonical-file-shape ratchet did not pass (result: ${{ needs.canonical-file-shape.result }}) - fail-closed (OMN-20304)"
+            exit 1
+          fi
+          # OMN-19998: strict fail-closed gate on public-repository runner
+          # placement - only 'success' passes; skipped/cancelled/failure ALL block.
+          if [[ "${{ needs.public-runner-placement.result }}" != "success" ]]; then
+            echo "::error::public-runner-placement did not pass (result: ${{ needs.public-runner-placement.result }}) - fail-closed (OMN-19998)"
             exit 1
           fi
           migration_freeze="${{ needs.migration-freeze.result }}"

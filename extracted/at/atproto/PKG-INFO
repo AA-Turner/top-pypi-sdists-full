@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: atproto
-Version: 0.0.72
+Version: 0.0.73
 Summary: The AT Protocol SDK
 License-Expression: MIT
 License-File: LICENSE
@@ -29,6 +29,7 @@ Requires-Dist: dnspython (>=2.4.0,<3)
 Requires-Dist: httpx (>=0.25.0,<0.29.0)
 Requires-Dist: libipld (>=3.0.1,<4)
 Requires-Dist: pydantic (>=2.7,<3)
+Requires-Dist: tlds (>=2026093003)
 Requires-Dist: typing-extensions (>=4.8.0,<5)
 Requires-Dist: websockets (>=15,<18)
 Requires-Dist: zstandard (>=0.24.0,<0.26.0)

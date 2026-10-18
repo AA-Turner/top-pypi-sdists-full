@@ -517,11 +517,6 @@ def ensure_implicit_chain(
     return cur
 
 
-def _default_eol(doc: Document) -> str:
-    """A bare-newline EOL run for a freshly synthesised slot."""
-    return doc._newline  # noqa: SLF001
-
-
 def _link_run_between(
     prev: Slot | None, run: Sequence[Slot], nxt: Slot | None, doc: Document
 ) -> None:
@@ -1239,7 +1234,7 @@ def _new_kv_slot(
     return KVSlot(
         leading,
         owner,
-        _default_eol(doc),
+        doc._newline,  # noqa: SLF001
         host_path,
         make_keyparts(key) if key_parts is None else key_parts,
         (".",) * (len(key) - 1) if key_seps is None else key_seps,
@@ -1434,7 +1429,7 @@ def _new_section_header(
     header = StructuralHeaderSlot(
         leading,
         owner_aot_entry,
-        _default_eol(doc),
+        doc._newline,  # noqa: SLF001
         make_keyparts(path),
         (".",) * (len(path) - 1),
         path,
@@ -1746,6 +1741,16 @@ def _aot_separator(aot: AoT, doc: Document) -> str:
     return _peer_separator(last_entry.header.leading, doc)
 
 
+def _aot_header_indent(aot: AoT, index: int | None = None) -> str:
+    """Borrow column indentation from the insertion target, or the last entry."""
+    if not aot:
+        return ""
+    peer = aot[-1 if index is None else min(index, len(aot) - 1)]
+    header = peer._header  # noqa: SLF001
+    assert header is not None
+    return trailing_ws(header.leading)
+
+
 def add_aot_entry(
     aot: AoT,
     body: Mapping[str, TomlInput] | None,
@@ -1764,7 +1769,9 @@ def add_aot_entry(
         assert rehome._layout_root is None  # noqa: SLF001
         body = rehome
     table = _container.Table() if rehome is None else rehome
-    prepared = _prepare_entry(aot, table, {} if body is None else body, (aot,), {})
+    prepared = _prepare_entry(
+        aot, table, {} if body is None else body, (aot,), {}, index=index
+    )
     return _install_entry(
         aot,
         prepared,
@@ -2240,7 +2247,11 @@ def adopt_private_entry(
     slots = _move_private_subtree(value, aot, path, owner=owner)
     if original_header is None:
         header = _new_section_header(
-            path, leading="", doc=doc, entry=owner, owner_aot_entry=owner
+            path,
+            leading=_aot_header_indent(aot),
+            doc=doc,
+            entry=owner,
+            owner_aot_entry=owner,
         )
         slots.insert(0, header)
     else:
@@ -3084,17 +3095,19 @@ def hosts_site(view: Container | AoT, site: Container | AoT) -> bool:
 class _PreparedEntry:
     """An existing or unpublished entry and its destination-ready body."""
 
-    __slots__ = ("body", "header", "table")
+    __slots__ = ("body", "body_indent", "header", "table")
 
     def __init__(
         self,
         table: Table,
         header: StructuralHeaderSlot,
         body: list[Slot] | dict[str, TomlInput],
+        body_indent: str | None,
     ) -> None:
         self.table = table
         self.header = header
         self.body = body
+        self.body_indent = body_indent
 
 
 def clone_aot_entry_layout(
@@ -3147,12 +3160,16 @@ def _prepare_entry(
     body: Mapping[str, TomlInput],
     sites: Sequence[Container | AoT],
     snapshots: dict[int, Document],
+    *,
+    index: int | None = None,
+    body_indent: str | None = None,
 ) -> _PreparedEntry:
     """Capture a body without clearing, wiring or publishing its destination.
 
     A whole structural source contributes slots, independently of any
     later adoption of its children. Nested values in mapping bodies
-    retain ordinary attachment semantics.
+    retain ordinary attachment semantics. Existing entries retain their
+    own body indentation; ``body_indent`` is the fallback for new entries.
     """
     doc = aot._attached_doc  # noqa: SLF001
     path = aot._path  # noqa: SLF001
@@ -3164,6 +3181,9 @@ def _prepare_entry(
         owner = table._owner_aot_entry  # noqa: SLF001
         assert owner is not None
         header = owner.header
+        tail = _last_body_kv(table)
+        if tail is not None:
+            body_indent = trailing_ws(tail.leading)
     payload: list[Slot] | dict[str, TomlInput]
     if (
         isinstance(body, _container.Container)
@@ -3183,9 +3203,13 @@ def _prepare_entry(
         payload = _capture_items(_mapping_items(body), sites, snapshots)
     if header is None:
         header = _new_section_header(
-            path, leading="", doc=doc, entry=owner, owner_aot_entry=owner
+            path,
+            leading=_aot_header_indent(aot, index),
+            doc=doc,
+            entry=owner,
+            owner_aot_entry=owner,
         )
-    return _PreparedEntry(table, header, payload)
+    return _PreparedEntry(table, header, payload, body_indent)
 
 
 def _insert_entry_run(
@@ -3234,6 +3258,7 @@ def _install_entry(
 ) -> Table:
     """Publish a fresh header or retain an existing one, then consume its body."""
     table, header = prepared.table, prepared.header
+    body_indent = prepared.body_indent
     owner = header.entry
     assert owner is not None
     parent = aot._host  # noqa: SLF001
@@ -3261,6 +3286,12 @@ def _install_entry(
     if isinstance(prepared.body, dict):
         for key, value in prepared.body.items():
             table._setitem_validated(key, value)  # noqa: SLF001
+            if body_indent is not None:
+                tail = _last_body_kv(table)
+                # Dotted-child grafts retain their source indentation.
+                if tail is not None and tail.key_path == (key,):
+                    tail.leading = strip_trailing_ws(tail.leading) + body_indent
+                    body_indent = None
     else:
         _splice_block_after(prepared.body, header, doc)
         _populate_entry_views(
@@ -3294,8 +3325,16 @@ def assign_aot_entries(
     ]
     sites = [aot] if resizing else [table for table, _ in targets]
     snapshots: dict[int, Document] = {}
+    body_indent = None
+    if resizing and aot:
+        tail = _last_body_kv(aot[min(start, len(aot) - 1)])
+        if tail is not None:
+            body_indent = trailing_ws(tail.leading)
     prepared = [
-        _prepare_entry(aot, table, body, sites, snapshots) for table, body in targets
+        _prepare_entry(
+            aot, table, body, sites, snapshots, index=start, body_indent=body_indent
+        )
+        for table, body in targets
     ]
     if resizing and indices:
         remove_aot_entries(aot, indices)
@@ -3306,9 +3345,9 @@ def assign_aot_entries(
 def renormalise_aot_order(aot: AoT, new_logical_order: Sequence[Table]) -> None:
     """Re-order an attached AoT's entries to ``new_logical_order``.
 
-    Normalises on reorder: snapshot the slot before the AoT's first
-    owned slot, unlink every owned entry slot, then reinsert entries in
-    the new order as contiguous blocks.
+    Entries exchange their original header positions, leaving foreign
+    runs between those positions. Each entry's whole subtree moves as
+    one contiguous block, gathering any internally scattered fragments.
 
     ``new_logical_order`` must be a permutation of the AoT's current
     entries (same set of `Table` objects, possibly reordered).
@@ -3321,35 +3360,34 @@ def renormalise_aot_order(aot: AoT, new_logical_order: Sequence[Table]) -> None:
         return
     doc = aot._attached_doc  # noqa: SLF001
 
-    # Collect every entry's full physical block, in current logical
-    # order (which equals physical doc-stream order for AoT entries),
-    # and map each surviving Table identity back to its block. The
-    # ``len(aot) <= 1`` early return above guarantees at least two
-    # attached entries, each of which retains its ``[[path]]`` header.
-    #
-    # A block spans the entry's whole subtree, not just its own
-    # header + KV slots: a nested ``[[a.x]]`` has its own AoTEntry and
-    # must travel with its parent entry, so that reordering doesn't
-    # strand it and re-parent it onto whichever entry lands at its old
-    # position.
-    physical_blocks: list[list[Slot]] = []
-    phys_idx_by_id: dict[int, int] = {}
-    for entry_table in aot:
-        e = entry_table._owner_aot_entry  # noqa: SLF001
-        assert e is not None
-        phys_idx_by_id[id(entry_table)] = len(physical_blocks)
-        physical_blocks.append(owned_slots(entry_table))
+    # Include nested AoT owners so descendants cannot rebind to another
+    # entry when reparsed. Logical order is also physical header order.
+    blocks_by_id = {id(table): owned_slots(table) for table in aot}
+    physical_blocks = list(blocks_by_id.values())
+    output_blocks = [blocks_by_id[id(table)] for table in new_logical_order]
 
     region_predecessor = physical_blocks[0][0]._prev  # noqa: SLF001
     region_successor = physical_blocks[-1][-1]._next  # noqa: SLF001
-
-    new_order_indices = [
-        phys_idx_by_id[id(t)] for t in new_logical_order if id(t) in phys_idx_by_id
-    ]
-    output_blocks = [physical_blocks[phys_idx] for phys_idx in new_order_indices]
-    movable_slots = [slot for block in physical_blocks for slot in block]
-    placements = _peer_placements(physical_blocks, output_blocks)
-    with _refile_region_refs(doc, region_predecessor, region_successor):
+    movable_slots = _slots_between(doc, region_predecessor, region_successor)
+    owned = {slot for block in physical_blocks for slot in block}
+    entry_placements = dict(
+        zip(
+            (block[0] for block in physical_blocks),
+            _peer_placements(physical_blocks, output_blocks),
+            strict=True,
+        )
+    )
+    placements: list[tuple[list[Slot], str]] = []
+    foreign_run: list[Slot] = []
+    for slot in movable_slots:
+        if slot in entry_placements:
+            placements.append(entry_placements[slot])
+            foreign_run = []
+        elif slot not in owned:
+            if not foreign_run:
+                placements.append((foreign_run, slot.leading))
+            foreign_run.append(slot)
+    with _refile_slot_refs(movable_slots):
         _splice_blocks_in_order(
             doc, movable_slots, placements, anchor_prev=region_predecessor
         )

@@ -1,4 +1,4 @@
-use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
+use crate::rule::{Fix, FixCapability, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::utils::range_utils::calculate_line_range;
 use crate::utils::table_utils::TableUtils;
 
@@ -19,21 +19,23 @@ impl MD056TableColumnCount {
     /// Try to fix a table row content (with list context awareness)
     fn fix_table_row_content(
         &self,
-        row_content: &str,
         expected_count: usize,
         flavor: crate::config::MarkdownFlavor,
         table_block: &crate::utils::table_utils::TableBlock,
         line_index: usize,
         original_line: &str,
+        header: &str,
     ) -> Option<String> {
+        let row_content = TableUtils::extract_table_row_content(original_line, table_block, line_index);
         let current_count = TableUtils::count_cells_with_flavor(row_content, flavor);
 
         if current_count == expected_count || current_count == 0 {
             return None;
         }
 
-        let fixed = self.fix_row_by_truncation(row_content, expected_count, flavor)?;
-        Some(self.restore_prefixes(&fixed, table_block, line_index, original_line))
+        let is_delimiter = line_index == 1;
+        let fixed = self.fix_row_cell_count(row_content, expected_count, is_delimiter, flavor)?;
+        Some(self.restore_prefixes(&fixed, table_block, line_index, original_line, header))
     }
 
     /// Restore list/blockquote prefixes to a fixed row
@@ -43,6 +45,7 @@ impl MD056TableColumnCount {
         table_block: &crate::utils::table_utils::TableBlock,
         line_index: usize,
         original_line: &str,
+        header: &str,
     ) -> String {
         // Extract blockquote prefix from original
         let (blockquote_prefix, _) = TableUtils::extract_blockquote_prefix(original_line);
@@ -58,20 +61,26 @@ impl MD056TableColumnCount {
                 format!("{blockquote_prefix}{indent}{fixed_content}")
             }
         } else {
-            // No list context, just blockquote
-            if blockquote_prefix.is_empty() {
-                fixed_content.to_string()
-            } else {
-                format!("{blockquote_prefix}{fixed_content}")
-            }
+            // No list context: the row keeps the quote and list markers it was written after
+            let prefix = TableUtils::row_prefix(original_line, header, table_block, line_index);
+            format!("{prefix}{fixed_content}")
         }
     }
 
-    /// Fix a table row by truncating or adding cells
-    fn fix_row_by_truncation(
+    /// Fix a table row's cell count without losing text.
+    ///
+    /// A short row is padded: empty cells for a body row (what GFM renders for
+    /// missing cells anyway) and `---` for the delimiter row, where an empty
+    /// cell is not a valid delimiter. A long row is cut back only when every
+    /// extra cell is empty or the row is the delimiter row, whose cells hold
+    /// no text. Otherwise there is no lossless fix, since only the author
+    /// knows whether the header lacks a column or the row has a stray pipe,
+    /// and this returns `None`.
+    fn fix_row_cell_count(
         &self,
         row: &str,
         expected_count: usize,
+        is_delimiter: bool,
         flavor: crate::config::MarkdownFlavor,
     ) -> Option<String> {
         let current_count = TableUtils::count_cells_with_flavor(row, flavor);
@@ -88,21 +97,19 @@ impl MD056TableColumnCount {
         let cells = TableUtils::split_table_row_with_flavor(trimmed, flavor);
         let mut cell_contents: Vec<&str> = cells.iter().map(|c| c.trim()).collect();
 
-        // Adjust cell count to match expected count
         match current_count.cmp(&expected_count) {
             std::cmp::Ordering::Greater => {
-                // Too many cells, remove excess
+                let extra = cell_contents.get(expected_count..).unwrap_or_default();
+                if !is_delimiter && extra.iter().any(|cell| !cell.is_empty()) {
+                    return None;
+                }
                 cell_contents.truncate(expected_count);
             }
             std::cmp::Ordering::Less => {
-                // Too few cells, add empty ones
-                while cell_contents.len() < expected_count {
-                    cell_contents.push("");
-                }
+                let padding = if is_delimiter { "---" } else { "" };
+                cell_contents.resize(expected_count, padding);
             }
-            std::cmp::Ordering::Equal => {
-                // Perfect number of cells, no adjustment needed
-            }
+            std::cmp::Ordering::Equal => {}
         }
 
         // An empty last cell exists only before a closing pipe: without one it
@@ -127,6 +134,10 @@ impl MD056TableColumnCount {
 }
 
 impl Rule for MD056TableColumnCount {
+    fn native_format_policy(&self) -> Option<crate::format_proof::NativeFormatPolicy> {
+        Some(crate::format_proof::NativeFormatPolicy::for_rule::<Self>(56))
+    }
+
     fn name(&self) -> &'static str {
         "MD056"
     }
@@ -137,6 +148,10 @@ impl Rule for MD056TableColumnCount {
 
     fn category(&self) -> RuleCategory {
         RuleCategory::Table
+    }
+
+    fn fix_capability(&self) -> FixCapability {
+        FixCapability::ConditionallyFixable
     }
 
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
@@ -159,7 +174,10 @@ impl Rule for MD056TableColumnCount {
         // Use pre-computed table blocks from context
         let table_blocks = &ctx.table_blocks;
 
-        for table_block in table_blocks {
+        for table_block in table_blocks
+            .iter()
+            .filter(|block| block.parser_confirmed || block.repairable)
+        {
             // Collect all table lines for building the whole-table fix
             let all_line_indices: Vec<usize> = std::iter::once(table_block.header_line)
                 .chain(std::iter::once(table_block.delimiter_line))
@@ -187,10 +205,21 @@ impl Rule for MD056TableColumnCount {
 
                     // Build a per-row fix so inline-disabled rows are not
                     // overwritten by fixes on other rows in the same table.
-                    let fixed_line = self
-                        .fix_table_row_content(row_content, expected_count, flavor, table_block, i, line)
-                        .unwrap_or_else(|| line.to_string());
-                    let row_range = ctx.line_column_byte_range_with_length(line_idx + 1, 1, line.chars().count());
+                    // A row with no lossless fix is reported without one.
+                    let fix = self
+                        .fix_table_row_content(
+                            expected_count,
+                            flavor,
+                            table_block,
+                            i,
+                            line,
+                            lines[table_block.header_line],
+                        )
+                        .map(|fixed_line| {
+                            let row_range =
+                                ctx.line_column_byte_range_with_length(line_idx + 1, 1, line.chars().count());
+                            Fix::new(row_range, fixed_line)
+                        });
 
                     warnings.push(LintWarning {
                         rule_name: Some(self.name().to_string()),
@@ -200,13 +229,17 @@ impl Rule for MD056TableColumnCount {
                         end_line,
                         end_column: end_col,
                         severity: Severity::Warning,
-                        fix: Some(Fix::new(row_range, fixed_line)),
+                        fix,
                     });
                 }
             }
         }
 
         Ok(warnings)
+    }
+
+    fn fixes_from_diagnostics(&self) -> bool {
+        true
     }
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
@@ -309,19 +342,96 @@ mod tests {
         assert!(fixed.contains("| Cell 1 | Cell 2 |  |"));
     }
 
+    /// Extra cells holding text are reported but never removed: only the
+    /// author knows whether the header lacks a column or the row has a stray
+    /// pipe, and removing them would delete the text.
     #[test]
-    fn test_fix_too_many_columns() {
+    fn test_fix_keeps_extra_cells_with_content() {
         let rule = MD056TableColumnCount;
         let content = "| Header 1 | Header 2 |
 |----------|----------|
 | Cell 1   | Cell 2   | Cell 3   | Cell 4   |
 | Cell 5   | Cell 6   |";
         let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
-        let fixed = rule.fix(&ctx).unwrap();
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 1);
+        assert!(
+            warnings[0].fix.is_none(),
+            "no fix may be offered: {:?}",
+            warnings[0].fix
+        );
 
-        assert!(fixed.contains("| Cell 1 | Cell 2 |"));
-        assert!(!fixed.contains("Cell 3"));
-        assert!(!fixed.contains("Cell 4"));
+        assert_eq!(rule.fix(&ctx).unwrap(), content);
+    }
+
+    #[test]
+    fn test_fix_keeps_extra_cell_from_issue_940() {
+        let rule = MD056TableColumnCount;
+        let content = "# T\n\n| A | B | C |\n| - | - | - |\n| one | two | three | four |\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        assert_eq!(rule.check(&ctx).unwrap().len(), 1);
+        assert_eq!(rule.fix(&ctx).unwrap(), content);
+    }
+
+    /// One non-empty cell anywhere past the header's width blocks the fix,
+    /// including when empty cells sit between it and the last header column.
+    #[test]
+    fn test_fix_keeps_row_when_any_extra_cell_has_content() {
+        let rule = MD056TableColumnCount;
+        for content in [
+            "| A | B |\n|---|---|\n| 1 | 2 |  | x |\n",
+            "| A | B |\n|---|---|\n| 1 | 2 | x |  |\n",
+            "| A | B |\n|---|---|\n| 1 | 2 | `x` |\n",
+        ] {
+            let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+            let warnings = rule.check(&ctx).unwrap();
+            assert_eq!(warnings.len(), 1, "{content:?}");
+            assert!(warnings[0].fix.is_none(), "{content:?}");
+            assert_eq!(rule.fix(&ctx).unwrap(), content);
+        }
+    }
+
+    /// Empty extra cells hold no text, so removing them loses nothing.
+    #[test]
+    fn test_fix_removes_empty_extra_cells() {
+        let rule = MD056TableColumnCount;
+        for (content, expected) in [
+            (
+                "| A | B |\n|---|---|\n| 1 | 2 |  |\n",
+                "| A | B |\n|---|---|\n| 1 | 2 |\n",
+            ),
+            (
+                "| A | B |\n|---|---|\n| 1 | 2 | |   |\n",
+                "| A | B |\n|---|---|\n| 1 | 2 |\n",
+            ),
+        ] {
+            let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+            assert_eq!(rule.fix(&ctx).unwrap(), expected, "{content:?}");
+        }
+    }
+
+    /// A delimiter row's cells hold no text, so extra ones are removed and
+    /// missing ones are added as `---`. An empty cell is not a delimiter
+    /// cell, and padding with one leaves a row that is not a table.
+    #[test]
+    fn test_fix_delimiter_row() {
+        let rule = MD056TableColumnCount;
+        for (content, expected) in [
+            (
+                "| A | B | C |\n|---|---|\n| 1 | 2 | 3 |\n",
+                "| A | B | C |\n| --- | --- | --- |\n| 1 | 2 | 3 |\n",
+            ),
+            (
+                "| A | B |\n|:--|--:|---|\n| 1 | 2 |\n",
+                "| A | B |\n| :-- | --: |\n| 1 | 2 |\n",
+            ),
+        ] {
+            let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+            let fixed = rule.fix(&ctx).unwrap();
+            assert_eq!(fixed, expected, "{content:?}");
+            let ctx = LintContext::new(&fixed, crate::config::MarkdownFlavor::Standard, None);
+            assert!(rule.check(&ctx).unwrap().is_empty(), "{fixed:?}");
+        }
     }
 
     #[test]
@@ -476,15 +586,29 @@ Some text in between.
     #[test]
     fn test_fix_preserves_pipe_style() {
         let rule = MD056TableColumnCount;
-        // Truncating a row with no trailing pipe keeps it open
+        // Removing an empty extra cell keeps a closed row closed and an open
+        // delimiter row open
         let content = "| Header 1 | Header 2
-|----------|----------
-| Cell 1   | Cell 2   | Cell 3";
+|----------|----------|---
+| Cell 1   | Cell 2   |  |";
         let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         let lines: Vec<&str> = fixed.lines().collect();
-        assert_eq!(lines[2], "| Cell 1 | Cell 2 ");
+        assert_eq!(lines[1], "| ---------- | ---------- ");
+        assert_eq!(lines[2], "| Cell 1 | Cell 2 |");
+    }
+
+    /// A row with no closing pipe whose extra cell holds text is kept as is.
+    #[test]
+    fn test_fix_keeps_open_row_with_extra_content() {
+        let rule = MD056TableColumnCount;
+        let content = "| Header 1 | Header 2
+|----------|----------
+| Cell 1   | Cell 2   | Cell 3";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        assert_eq!(rule.check(&ctx).unwrap().len(), 1);
+        assert_eq!(rule.fix(&ctx).unwrap(), content);
     }
 
     #[test]
@@ -624,14 +748,31 @@ Some text in between.
         let rule = MD056TableColumnCount;
         let content = "> | A | B |
 > |---|---|
-> | 1 | 2 | 3 | 4 |";
+> | 1 | 2 | 3 | 4 |
+> | 5 | 6 |  |";
         let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
-        // Should preserve blockquote prefix while truncating columns
-        assert!(fixed.lines().nth(2).unwrap().starts_with("> "));
-        assert!(fixed.contains("> | 1 | 2 |"));
-        assert!(!fixed.contains("| 3 |"));
+        // The row with text in its extra cells is kept; the empty extra cell
+        // is removed with the blockquote prefix preserved
+        assert_eq!(fixed, "> | A | B |\n> |---|---|\n> | 1 | 2 | 3 | 4 |\n> | 5 | 6 |");
+    }
+
+    #[test]
+    fn test_list_table_keeps_extra_cells_with_content() {
+        let rule = MD056TableColumnCount;
+        let content = "- item\n\n  | A | B |\n  |---|---|\n  | 1 | 2 | 3 |\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        assert_eq!(rule.check(&ctx).unwrap().len(), 1);
+        assert_eq!(rule.fix(&ctx).unwrap(), content);
+    }
+
+    #[test]
+    fn test_fix_capability() {
+        assert_eq!(
+            MD056TableColumnCount.fix_capability(),
+            FixCapability::ConditionallyFixable
+        );
     }
 
     // === Roundtrip safety tests ===
@@ -654,10 +795,9 @@ Some text in between.
     }
 
     #[test]
-    fn test_roundtrip_too_many_columns() {
-        assert_fix_roundtrip("| A | B |\n|---|---|\n| 1 | 2 | 3 | 4 |");
+    fn test_roundtrip_empty_extra_columns() {
+        assert_fix_roundtrip("| A | B |\n|---|---|\n| 1 | 2 |  |  |");
     }
-
     #[test]
     fn test_roundtrip_with_trailing_newline() {
         assert_fix_roundtrip("| A | B | C |\n|---|---|---|\n| 1 | 2 |\n");

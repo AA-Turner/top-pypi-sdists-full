@@ -46,6 +46,7 @@
 #define CUFILE_SYM_GET_VERSION              "cuFileGetVersion"
 #define CUFILE_SYM_DRIVER_OPEN              "cuFileDriverOpen"
 #define CUFILE_SYM_DRIVER_CLOSE            "cuFileDriverClose"
+#define CUFILE_SYM_DRIVER_GET_PROPERTIES   "cuFileDriverGetProperties"
 #define CUFILE_SYM_DRIVER_SET_MAX_DIO_SIZE "cuFileDriverSetMaxDirectIOSize"
 #define CUFILE_SYM_DRIVER_SET_MAX_PIN_SIZE "cuFileDriverSetMaxPinnedMemSize"
 #define CUFILE_SYM_BUF_REGISTER            "cuFileBufRegister"
@@ -56,6 +57,7 @@
 
 // hipFile (ROCm DMA) library and symbol names
 #define HIPFILE_LIB                         "libhipfile.so"
+#define HIPFILE_SYM_GET_VERSION             "hipFileGetVersion"
 #define HIPFILE_SYM_DRIVER_OPEN            "hipFileDriverOpen"
 #define HIPFILE_SYM_DRIVER_CLOSE           "hipFileDriverClose"
 #define HIPFILE_SYM_DRIVER_SET_MAX_DIO_SIZE "hipFileDriverSetMaxDirectIOSize"
@@ -65,5 +67,8 @@
 #define HIPFILE_SYM_HANDLE_REGISTER        "hipFileHandleRegister"
 #define HIPFILE_SYM_HANDLE_DEREGISTER      "hipFileHandleDeregister"
 #define HIPFILE_SYM_READ                   "hipFileRead"
+
+// fgds library
+#define FGDS_LIB                            "libfgds.so"
 
 #endif // __GPU_COMPAT_H__

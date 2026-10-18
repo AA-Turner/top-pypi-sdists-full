@@ -1,4 +1,5 @@
 from copy import copy
+import warnings
 from operator import attrgetter
 
 import numpy as np
@@ -19,6 +20,37 @@ from empyrical.stats import (
 DECIMAL_PLACES = 8
 
 rand = np.random.RandomState(1337)
+
+
+@pytest.mark.parametrize("as_array", [False, True])
+def test_batting_average_excludes_missing_return_pairs(as_array):
+    index = pd.date_range("2024-01-02", periods=4, freq="B")
+    returns = pd.Series([0.02, 0.03, np.nan, 0.01], index=index)
+    benchmark = pd.Series([0.01, np.nan, -0.02, -0.01], index=index)
+    if as_array:
+        returns = returns.to_numpy()
+        benchmark = benchmark.to_numpy()
+
+    result = empyrical.batting_average(returns, benchmark)
+
+    assert result["batting average"] == 1.0
+    assert result["up market"] == 1.0
+    assert result["down market"] == 1.0
+
+
+def test_batting_average_aligns_strategy_and_benchmark_dates():
+    returns = pd.Series(
+        [0.02, 0.03], index=pd.to_datetime(["2024-01-02", "2024-01-03"])
+    )
+    benchmark = pd.Series(
+        [0.01, -0.02], index=pd.to_datetime(["2024-01-02", "2024-01-04"])
+    )
+
+    result = empyrical.batting_average(returns, benchmark)
+
+    assert result["batting average"] == 1.0
+    assert result["up market"] == 1.0
+    assert np.isnan(result["down market"])
 
 
 class BaseTestClass:
@@ -811,7 +843,10 @@ class TestStats(BaseTestClass):
             if len(masked_benchmark_data) < 2:
                 with pytest.warns(
                     RuntimeWarning,
-                    match="invalid value encountered in (?:scalar divide|sqrt)",
+                    match=(
+                        "invalid value encountered in (?:scalar divide|sqrt)"
+                        "|One or more sample arguments is too small"
+                    ),
                 ):
                     slope, intercept, _, _, _ = stats.linregress(
                         masked_benchmark_data, masked_returns_data
@@ -986,7 +1021,10 @@ class TestStats(BaseTestClass):
             if len(masked_benchmark_data) < 2:
                 with pytest.warns(
                     RuntimeWarning,
-                    match="invalid value encountered in (?:scalar divide|sqrt)",
+                    match=(
+                        "invalid value encountered in (?:scalar divide|sqrt)"
+                        "|One or more sample arguments is too small"
+                    ),
                 ):
                     slope, intercept, _, _, _ = stats.linregress(
                         masked_benchmark_data, masked_returns_data
@@ -1037,7 +1075,10 @@ class TestStats(BaseTestClass):
             if len(masked_returns_data_for_x) < 2:
                 with pytest.warns(
                     RuntimeWarning,
-                    match="invalid value encountered in (?:scalar divide|sqrt)",
+                    match=(
+                        "invalid value encountered in (?:scalar divide|sqrt)"
+                        "|One or more sample arguments is too small"
+                    ),
                 ):
                     slope, intercept, _, _, _ = stats.linregress(
                         masked_returns_data_for_x, masked_benchmark_data_for_y
@@ -1544,6 +1585,35 @@ class TestStats(BaseTestClass):
                 expected_cvar,
             )
 
+    def test_conditional_value_at_risk_ignores_nan(self):
+        conditional_value_at_risk = self.empyrical.conditional_value_at_risk
+
+        # Missing observations must not change the answer: counted in the
+        # cutoff index, they widened the averaged tail and pulled CVaR
+        # towards zero (issue #54).
+        returns = np.random.default_rng(5).normal(0.0004, 0.011, 1512)
+        positions = np.random.default_rng(5).integers(0, 1512, 40)
+        padded = np.insert(returns, positions, np.nan)
+
+        for cutoff in (0.01, 0.05, 0.20):
+            np.testing.assert_almost_equal(
+                conditional_value_at_risk(padded, cutoff),
+                conditional_value_at_risk(returns, cutoff),
+            )
+
+        assert np.isnan(conditional_value_at_risk(np.array([np.nan, np.nan])))
+
+    def test_conditional_value_at_risk_empty(self):
+        conditional_value_at_risk = self.empyrical.conditional_value_at_risk
+
+        # Empty input returns NaN directly rather than through the mean of an
+        # empty slice, so no RuntimeWarning is raised.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            for empty in (np.array([]), pd.Series([], dtype=float), []):
+                for cutoff in (0, 0.05, 1):
+                    assert np.isnan(conditional_value_at_risk(empty, cutoff))
+
     @property
     def empyrical(self):
         """
@@ -1580,6 +1650,55 @@ class TestStatsArrays(TestStats):
     type np.ndarray or float.
 
     """
+
+    @pytest.mark.parametrize(
+        "prices, dtype, expected",
+        [
+            ([100, 110, 121], np.int64, [0.1, 0.1]),
+            ([250, 5, 10], np.uint8, [-0.98, 1.0]),
+            ([-128, 127, -128], np.int8, [-255 / 128, -255 / 127]),
+            (
+                [[100, 200], [110, 180], [121, 162]],
+                np.int64,
+                [[0.1, -0.1], [0.1, -0.1]],
+            ),
+            ([0, 0, 10, 0], np.int64, [np.nan, np.inf, -1.0]),
+        ],
+    )
+    def test_simple_returns_integer_prices(self, prices, dtype, expected):
+        prices = np.array(prices, dtype=dtype)
+        result = self.empyrical.simple_returns(prices)
+        np.testing.assert_allclose(result, expected)
+        assert np.issubdtype(result.dtype, np.floating)
+
+    @pytest.mark.parametrize(
+        "prices, dtype, expected",
+        [
+            ([2**53, 2**53 + 1], np.int64, [1 / 2**53]),
+            ([2**63 - 2, 2**63 - 1], np.int64, [1 / (2**63 - 2)]),
+            ([2**64 - 2, 2**64 - 1], np.uint64, [1 / (2**64 - 2)]),
+            ([2**64 - 1, 2**64 - 2], np.uint64, [-1 / (2**64 - 1)]),
+            (
+                [[2**53, 2**53 + 1], [2**53 + 1, 2**53]],
+                np.int64,
+                [[1 / 2**53, -1 / (2**53 + 1)]],
+            ),
+        ],
+    )
+    def test_simple_returns_integer_prices_preserve_one_tick_changes(
+        self, prices, dtype, expected
+    ):
+        prices = np.array(prices, dtype=dtype)
+        result = self.empyrical.simple_returns(prices)
+        np.testing.assert_allclose(result, expected, rtol=1e-15, atol=0)
+
+    @pytest.mark.parametrize("shape", [(0,), (1,), (0, 2), (1, 2)])
+    def test_simple_returns_integer_prices_no_periods(self, shape):
+        prices = np.ones(shape, dtype=np.int64)
+        result = self.empyrical.simple_returns(prices)
+        expected = np.empty((0,) + shape[1:])
+        np.testing.assert_array_equal(result, expected)
+        assert np.issubdtype(result.dtype, np.floating)
 
     @property
     def empyrical(self):
@@ -1680,6 +1799,54 @@ class TestHelpers(BaseTestClass):
             function=empyrical.max_drawdown,
         )
         assert res.size == 0
+
+
+class TestRollingIndex:
+    @pytest.mark.parametrize(
+        "index",
+        [
+            pd.Index([0, 0, 1], name="date"),
+            pd.DatetimeIndex(["2024-01-01", "2024-01-01", "2024-01-02"], name="date"),
+        ],
+    )
+    def test_rolling_capture_keeps_distinct_values_at_duplicate_labels(self, index):
+        returns = pd.Series([0.1, 0.2, 0.3], index=index)
+        benchmark = pd.Series([0.1, 0.1, 0.1], index=index)
+
+        result = empyrical.roll_up_capture(
+            returns, benchmark, window=1, period="yearly"
+        )
+
+        pd.testing.assert_series_equal(result, pd.Series([1.0, 2.0, 3.0], index=index))
+
+    @pytest.mark.parametrize("length", [0, 1])
+    def test_empty_rolling_capture_preserves_datetime_metadata(self, length):
+        index = pd.date_range("2024-01-01", periods=length, tz="UTC", name="date")
+        returns = pd.Series(0.1, index=index)
+
+        result = empyrical.roll_up_capture(returns, returns, window=2)
+
+        expected_index = pd.date_range("2024-01-01", periods=0, tz="UTC", name="date")
+        pd.testing.assert_series_equal(
+            result, pd.Series([], index=expected_index, dtype=float)
+        )
+
+    @pytest.mark.parametrize(
+        "index",
+        [
+            pd.RangeIndex(3, name="observation"),
+            pd.date_range("2024-01-01", periods=3, tz="UTC", name="date"),
+        ],
+    )
+    def test_rolling_capture_preserves_index_type_name_and_frequency(self, index):
+        returns = pd.Series([0.1, 0.2, 0.3], index=index)
+        benchmark = pd.Series([0.1, 0.1, 0.1], index=index)
+
+        result = empyrical.roll_up_capture(
+            returns, benchmark, window=1, period="yearly"
+        )
+
+        pd.testing.assert_series_equal(result, pd.Series([1.0, 2.0, 3.0], index=index))
 
 
 class Test2DStats:
@@ -1949,3 +2116,21 @@ class PassArraysEmpyricalProxy(ConvertPandasEmpyricalProxy):
             item += "_aligned"
 
         return super(PassArraysEmpyricalProxy, self).__getattr__(item)
+
+
+def _capture_pair_inputs():
+    idx = pd.date_range("2024-01-02", periods=6, freq="B")
+    returns = pd.Series([0.02, 0.03, np.nan, -0.01, 0.01, -0.02], index=idx)
+    factor = pd.Series([0.01, np.nan, -0.02, -0.01, 0.02, -0.03], index=idx)
+    valid = returns.notna() & factor.notna()
+    return returns, factor, valid
+
+
+def test_up_down_capture_ignore_unpaired_observations():
+    import empyrical
+
+    returns, factor, valid = _capture_pair_inputs()
+    for fn in (empyrical.up_capture, empyrical.down_capture, empyrical.up_down_capture):
+        expected = fn(returns[valid], factor[valid])
+        assert np.isclose(fn(returns, factor), expected), fn.__name__
+        assert np.isclose(fn(returns.values, factor.values), expected), fn.__name__

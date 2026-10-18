@@ -4,29 +4,30 @@ use sqlbuild_rules::constants::{API_VERSION, NATIVE_BUILD_IDENTITY};
 
 use crate::bindings::_helpers::boundary::panics::NativeCompilerError;
 use crate::bindings::_helpers::{
-    analysis, analysis_session, attachments, boundary, cache, compile_outputs, compiled_project,
-    contracts, discovery, graph, lineage, model_config, project_assembly, refactor, render, rules,
-    scopes, semantic_checks, sql_test_glue, sqltext, type_system,
+    analysis, analysis_session, attachments, auditing, authored_values, boundary, cache, cli,
+    compile_attachment, compile_command, compile_driver, compile_outputs, compiled_project,
+    contracts, cursor, dag_artifact, diagnostics, discovery, exported_constants, fingerprints,
+    frontier, graph, lifecycle_events, lineage, macro_bridge, manifest, microbatches, model_config,
+    native_host, plan_output, planner_registration, project_assembly, records, refactor,
+    references, render, rules, scopes, semantic_checks, semantic_shapes, sql_test_glue, sqltext,
+    state_rows, type_system,
 };
 use crate::bindings::models;
 
 #[pymodule]
 pub fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    rules::evaluation::register(module)?;
-    rules::lint::register(module)?;
-    rules::skills::register(module)?;
-    module.add(
-        "NativeCompilerError",
-        module.py().get_type::<NativeCompilerError>(),
-    )?;
-    module.add_class::<models::ProjectCatalog>()?;
-    module.add_class::<models::CompactAnalysisJob>()?;
-    module.add_class::<models::BindingPositions>()?;
+    records::registration::register(module)?;
+    records::registry::verify_tables()?;
+    records::construct::capture(module)?;
+    native_host::registration::register(module)?;
+    rules::registration::register(module)?;
+    cli::registration::register(module)?;
     analysis::normalization::register(module)?;
     analysis::queries::register(module)?;
     analysis::sql_tests::register(module)?;
     sqltext::registration::register(module)?;
     boundary::oracles::register(module)?;
+    boundary::expected_errors::register(module)?;
     discovery::registration::register(module)?;
     scopes::registration::register(module)?;
     model_config::registration::register(module)?;
@@ -35,13 +36,32 @@ pub fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     register_analysis_stages(module)?;
     module.add("API_VERSION", API_VERSION)?;
     module.add("BUILD_IDENTITY", NATIVE_BUILD_IDENTITY)?;
-    Ok(())
+    records::registry::verify_attributes(module)
 }
 
 fn register_project_stages(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add(
+        "NativeCompilerError",
+        module.py().get_type::<NativeCompilerError>(),
+    )?;
+    module.add_class::<models::ProjectCatalog>()?;
+    module.add_class::<models::CompactAnalysisJob>()?;
+    module.add_class::<models::BindingPositions>()?;
     cache::registration::register(module)?;
     attachments::registration::register(module)?;
     refactor::registration::register(module)?;
+    plan_output::registration::register(module)?;
+    planner_registration::registration::register(module)?;
+    references::registration::register(module)?;
+    authored_values::registration::register(module)?;
+    auditing::registration::register(module)?;
+    cursor::registration::register(module)?;
+    exported_constants::registration::register(module)?;
+    state_rows::registration::register(module)?;
+    microbatches::registration::register(module)?;
+    lifecycle_events::registration::register(module)?;
+    diagnostics::registration::register(module)?;
+    analysis::sql_test_comparisons::register(module)?;
     Ok(())
 }
 
@@ -49,12 +69,21 @@ fn register_analysis_stages(module: &Bound<'_, PyModule>) -> PyResult<()> {
     type_system::registration::register(module)?;
     analysis_session::registration::register(module)?;
     semantic_checks::registration::register(module)?;
+    semantic_shapes::registration::register(module)?;
     contracts::registration::register(module)?;
     lineage::registration::register(module)?;
+    fingerprints::registration::register(module)?;
     sql_test_glue::registration::register(module)?;
     project_assembly::registration::register(module)?;
     compile_outputs::registration::register(module)?;
     graph::registration::register(module)?;
     compiled_project::registration::register(module)?;
+    compile_attachment::registration::register(module)?;
+    compile_command::registration::register(module)?;
+    compile_driver::registration::register(module)?;
+    frontier::registration::register(module)?;
+    macro_bridge::registration::register(module)?;
+    dag_artifact::registration::register(module)?;
+    manifest::registration::register(module)?;
     Ok(())
 }

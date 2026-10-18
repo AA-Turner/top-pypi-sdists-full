@@ -350,7 +350,7 @@ impl MD053LinkImageReferenceDefinitions {
 
         // 4. Find shortcut references [ref] not already handled by DocumentStructure.links
         //    and ensure they are not within code spans or code blocks.
-        let code_spans = ctx.code_spans();
+        let code_spans = ctx.source_code_spans();
 
         // Build sorted array of code span byte ranges for binary search
         let mut span_ranges: Vec<(usize, usize)> = code_spans
@@ -487,8 +487,16 @@ impl Rule for MD053LinkImageReferenceDefinitions {
     ///
     /// This implementation uses caching for improved performance on large documents.
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
+        // Definitions come from the shared parse. Without any, there can be
+        // neither unused nor duplicate definitions, regardless of the usages.
+        if ctx.reference_definitions().is_empty() {
+            return Ok(Vec::new());
+        }
         // Find definitions and usages using LintContext
         let definitions = self.find_definitions(ctx);
+        if definitions.is_empty() {
+            return Ok(Vec::new());
+        }
         let usages = self.find_usages(ctx);
 
         // Get unused references by comparing definitions and usages
@@ -596,8 +604,7 @@ impl Rule for MD053LinkImageReferenceDefinitions {
 
     /// Check if this rule should be skipped for performance
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        // Skip if content is empty or has no links/images
-        ctx.content.is_empty() || !ctx.likely_has_links_or_images()
+        ctx.reference_definitions().is_empty()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

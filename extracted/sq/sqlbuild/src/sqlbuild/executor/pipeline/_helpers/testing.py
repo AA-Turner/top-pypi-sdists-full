@@ -12,15 +12,18 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 from uuid import uuid4
 
+from sqlbuild._native import (
+    CompiledObjectKey,
+    CompiledRelationLocation,
+    FunctionPlanEntry,
+    PlanOutput,
+    SqlTestPlanEntry,
+    sql_test_resource_id,
+)
 from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
 from sqlbuild.adapter.contract.classes.statement_recorder import StatementRecorder
 from sqlbuild.adapter.contract.models import FunctionInfo
-from sqlbuild.compiler.compile.models import (
-    CompiledObjectKey,
-    CompiledRelationLocation,
-)
 from sqlbuild.compiler.compile.types import FunctionLanguage
-from sqlbuild.compiler.planner.models import FunctionPlanEntry, PlanOutput, SqlTestPlanEntry
 from sqlbuild.executor.build.models import FunctionExecutionResult
 from sqlbuild.executor.functions.main._execute import execute_function
 from sqlbuild.executor.pipeline._helpers.connections import (
@@ -31,7 +34,6 @@ from sqlbuild.executor.pipeline.models import TestPipelineCallbacks
 from sqlbuild.executor.scheduling.types import ExecutionStatus
 from sqlbuild.executor.testing.constants import SQL_TEST_EXECUTION_ERROR_CODE
 from sqlbuild.executor.testing.main._execute import execute_sql_test
-from sqlbuild.executor.testing.main.resource_id import sql_test_resource_id
 from sqlbuild.executor.testing.models import SqlTestExecutionResult, StepResult
 from sqlbuild.executor.testing.types import SqlTestOutcome
 from sqlbuild.runtime.observability.classes.operation_lifecycle import OperationLifecycle

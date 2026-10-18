@@ -1,8 +1,8 @@
 //! Assemble compiled SQL test facts from compile inputs' own objects, without a JSON request.
 
+use pyo3::PyErr;
 use pyo3::exceptions::PyValueError;
-use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyModule, PyModuleMethods, PyResult, Python};
-use pyo3::{FromPyObject, PyErr, pyfunction, wrap_pyfunction};
+use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python};
 use sqlbuild_analysis::compiler::main::sql_test_assembly::assemble_sql_test_batch;
 use sqlbuild_analysis::compiler::models::{
     AssembledSqlTestFacts, SqlTestAssemblyBatch, SqlTestAssemblyFailure, SqlTestAssemblyModel,
@@ -13,6 +13,7 @@ use sqlbuild_analysis::compiler::models::{
 use sqlbuild_core::panics::main::native_failure::native_failure;
 
 use crate::bindings::_helpers::boundary::panics::value_error;
+use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::sqltext::lexical_syntax::LexicalSyntaxInput;
 use crate::bindings::types::CompilerDetach;
 
@@ -23,9 +24,9 @@ const DECIMAL_OVERFLOW: &str = "decimal_overflow";
 const SQL_TEST_ASSEMBLY_CONTEXT: &str = "native SQL test assembly";
 
 /// `(line, column, end line, end column, message, help)` of one P013 diagnostic.
-type DiagnosticRow = (usize, usize, usize, usize, String, String);
+pub(crate) type DiagnosticRow = (usize, usize, usize, usize, String, String);
 /// `(name, scope deps, target models, case fingerprint, diagnostic resource, diagnostics)`.
-type FactsRow = (
+pub(crate) type FactsRow = (
     String,
     Vec<(&'static str, String)>,
     Vec<String>,
@@ -34,22 +35,17 @@ type FactsRow = (
     Vec<DiagnosticRow>,
 );
 /// The test's facts, and the `(kind, message)` of the error its assembly raises, if any.
-type AssemblyRow = (Option<FactsRow>, Option<(&'static str, String)>);
+pub(crate) type AssemblyRow = (Option<FactsRow>, Option<(&'static str, String)>);
 
-/// The Python assembly request: the project's model inputs and the SQL test inputs.
-#[derive(FromPyObject)]
-struct AssemblyRequest<'py> {
-    #[pyo3(attribute)]
-    model_inputs: Vec<Bound<'py, PyAny>>,
-    #[pyo3(attribute)]
-    test_inputs: Vec<Bound<'py, PyAny>>,
-    #[pyo3(attribute)]
-    lexical_syntax: LexicalSyntaxInput,
+/// The compile inputs assembly reads: model inputs, SQL test inputs and lexical rules.
+pub(crate) struct AssemblyRequest<'py> {
+    pub(crate) model_inputs: Vec<Bound<'py, PyAny>>,
+    pub(crate) test_inputs: Vec<Bound<'py, PyAny>>,
+    pub(crate) lexical_syntax: LexicalSyntaxInput,
 }
 
 /// Each test input's assembled facts, or the error its assembly raises.
-#[pyfunction]
-fn assemble_compiled_sql_tests(
+pub(crate) fn assemble_compiled_sql_tests(
     py: Python<'_>,
     request: AssemblyRequest<'_>,
 ) -> PyResult<Vec<AssemblyRow>> {
@@ -73,30 +69,29 @@ fn assemble_compiled_sql_tests(
 }
 
 fn assembly_model(model: &Bound<'_, PyAny>) -> PyResult<SqlTestAssemblyModel> {
-    let macro_deps: Vec<String> = model.getattr("macro_deps")?.extract()?;
+    let macro_deps: Vec<String> = native_field(model, "macro_deps")?.extract()?;
     let unscanned_macro_source = if macro_deps.is_empty() {
-        Some(model.getattr("macro_source_sql")?.extract::<String>()?)
+        Some(native_field(model, "macro_source_sql")?.extract::<String>()?)
             .filter(|sql| sql.contains(MACRO_TOKEN))
     } else {
         None
     };
     Ok(SqlTestAssemblyModel {
-        name: model
-            .getattr("model_file")?
-            .getattr("file_path")?
-            .getattr("stem")?
-            .extract()?,
+        name: native_field(
+            &native_field(&native_field(model, "model_file")?, "file_path")?,
+            "stem",
+        )?
+        .extract()?,
         macro_deps,
         unscanned_macro_source,
-        references: model
-            .getattr("references")?
+        references: native_field(model, "references")?
             .try_iter()?
             .map(|reference| {
                 let reference = reference?;
                 Ok(SqlTestAssemblyReference {
-                    kind: reference.getattr("ref_kind")?.extract()?,
-                    name: reference.getattr("ref_name")?.extract()?,
-                    package: reference.getattr("ref_package")?.extract()?,
+                    kind: native_field(&reference, "ref_kind")?.extract()?,
+                    name: native_field(&reference, "ref_name")?.extract()?,
+                    package: native_field(&reference, "ref_package")?.extract()?,
                 })
             })
             .collect::<PyResult<_>>()?,
@@ -104,54 +99,50 @@ fn assembly_model(model: &Bound<'_, PyAny>) -> PyResult<SqlTestAssemblyModel> {
 }
 
 fn assembly_test(test: &Bound<'_, PyAny>) -> PyResult<SqlTestAssemblyTest> {
-    let test_file = test.getattr("test_file")?;
-    let test_block = test.getattr("test_block")?;
-    let relative_path = test_file.getattr("relative_path")?;
-    let payload = test.getattr("payload")?;
+    let test_file = native_field(test, "test_file")?;
+    let test_block = native_field(test, "test_block")?;
+    let relative_path = native_field(&test_file, "relative_path")?;
+    let payload = native_field(test, "payload")?;
     let payload = if payload.hasattr("actual_cte")? {
         SqlTestAssemblyPayload::Direct {
-            mode: payload.getattr("mode")?.extract()?,
-            tested_resource_names: payload.getattr("tested_resource_names")?.extract()?,
+            mode: native_field(&payload, "mode")?.extract()?,
+            tested_resource_names: native_field(&payload, "tested_resource_names")?.extract()?,
         }
     } else {
         SqlTestAssemblyPayload::Model(SqlTestAssemblyModelPayload {
             authored_ctes: ctes(&payload, "authored_ctes")?,
             expected_ctes: ctes(&payload, "expected_ctes")?,
             assertion_ctes: ctes(&payload, "assertion_ctes")?,
-            expected_model_names: payload.getattr("expected_model_names")?.extract()?,
-            assertion_target_model_names: payload
-                .getattr("assertion_target_model_names")?
+            expected_model_names: native_field(&payload, "expected_model_names")?.extract()?,
+            assertion_target_model_names: native_field(&payload, "assertion_target_model_names")?
                 .extract()?,
-            reference_target_model_names: payload
-                .getattr("reference_target_model_names")?
+            reference_target_model_names: native_field(&payload, "reference_target_model_names")?
                 .extract()?,
-            mock_model_names: payload.getattr("mock_model_names")?.extract()?,
+            mock_model_names: native_field(&payload, "mock_model_names")?.extract()?,
         })
     };
     Ok(SqlTestAssemblyTest {
-        block_name: test_block.getattr("name")?.extract()?,
-        file_stem: test_file.getattr("file_path")?.getattr("stem")?.extract()?,
+        block_name: native_field(&test_block, "name")?.extract()?,
+        file_stem: native_field(&native_field(&test_file, "file_path")?, "stem")?.extract()?,
         relative_path: relative_path.call_method0("as_posix")?.extract()?,
-        relative_stem: relative_path.getattr("stem")?.extract()?,
-        contents: test_file.getattr("contents")?.extract()?,
-        block_sql: test_block.getattr("sql_body")?.extract()?,
-        block_index: test_block.getattr("test_index")?.extract()?,
-        sql_body: test.getattr("sql_body")?.extract()?,
-        case_name: test.getattr("case_name")?.extract()?,
-        parameter_schema: test
-            .getattr("parameter_schema")?
+        relative_stem: native_field(&relative_path, "stem")?.extract()?,
+        contents: native_field(&test_file, "contents")?.extract()?,
+        block_sql: native_field(&test_block, "sql_body")?.extract()?,
+        block_index: native_field(&test_block, "test_index")?.extract()?,
+        sql_body: native_field(test, "sql_body")?.extract()?,
+        case_name: native_field(test, "case_name")?.extract()?,
+        parameter_schema: native_field(test, "parameter_schema")?
             .try_iter()?
             .map(|parameter| {
                 let parameter = parameter?;
                 Ok((
-                    parameter.getattr("name")?.extract()?,
-                    parameter.getattr("value_type")?.extract()?,
-                    parameter.getattr("nullable")?.extract()?,
+                    native_field(&parameter, "name")?.extract()?,
+                    native_field(&parameter, "value_type")?.extract()?,
+                    native_field(&parameter, "nullable")?.extract()?,
                 ))
             })
             .collect::<PyResult<_>>()?,
-        parameter_values: test
-            .getattr("parameter_values")?
+        parameter_values: native_field(test, "parameter_values")?
             .try_iter()?
             .map(|entry| {
                 let (name, value): (String, Bound<'_, PyAny>) = entry?.extract()?;
@@ -169,8 +160,8 @@ fn ctes(owner: &Bound<'_, PyAny>, attribute: &str) -> PyResult<Vec<SqlTestCte>> 
         .map(|value| {
             let value = value?;
             Ok(SqlTestCte {
-                name: value.getattr("name")?.extract()?,
-                sql_body: value.getattr("sql_body")?.extract()?,
+                name: native_field(&value, "name")?.extract()?,
+                sql_body: native_field(&value, "sql_body")?.extract()?,
             })
         })
         .collect()
@@ -178,8 +169,8 @@ fn ctes(owner: &Bound<'_, PyAny>, attribute: &str) -> PyResult<Vec<SqlTestCte>> 
 
 /// One `SqlValue`, read by its logical kind; decimals keep `as_tuple()`'s digits.
 fn parameter_value(value: &Bound<'_, PyAny>) -> PyResult<SqlTestParameterValue> {
-    let kind: String = value.getattr("logical_type")?.getattr("kind")?.extract()?;
-    let payload = value.getattr("value")?;
+    let kind: String = native_field(&native_field(value, "logical_type")?, "kind")?.extract()?;
+    let payload = native_field(value, "value")?;
     Ok(match kind.as_str() {
         "string" => SqlTestParameterValue::String(payload.extract()?),
         "integer" => SqlTestParameterValue::Integer(payload.extract()?),
@@ -263,9 +254,4 @@ fn facts_row(facts: AssembledSqlTestFacts) -> FactsRow {
             })
             .collect(),
     )
-}
-
-pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_function(wrap_pyfunction!(assemble_compiled_sql_tests, module)?)?;
-    Ok(())
 }

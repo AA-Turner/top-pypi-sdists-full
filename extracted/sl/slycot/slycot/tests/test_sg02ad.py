@@ -26,6 +26,7 @@ def test_sg02ad_case1():
                     [-1.94918951, -3.15480639,  5.24379117],
                     [ 4.29133973,  8.10585767, -5.88895897]])
     L = np.array(np.zeros((3,1)))
+    # ruff: disable[RUF059]
     rcondu, X, alphar, alphai, beta, S, T, U, iwarn = \
         synthesis.sg02ad('D', 'B', 'N', 'U', 'Z', 'N', 'S', 'R',
                             n, m, 1,

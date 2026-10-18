@@ -12,6 +12,13 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, ClassVar
 
+from sqlbuild._native import (
+    SeedCsvSettings,
+    SourceFreshnessRecord,
+    SqlLexicalSyntax,
+    SqlValue,
+    render_insert_source_freshness_records_sql,
+)
 from sqlbuild.adapter.contract._helpers.seed_csv import get_seed_csv_null_values
 from sqlbuild.adapter.contract.classes.base_adapter import (
     BaseAdapter,
@@ -78,19 +85,13 @@ from sqlbuild.adapter.contract.types import (
 from sqlbuild.adapter.relations.main.get_columns_for_relations import (
     get_columns_for_relations_bulk,
 )
-from sqlbuild.adapter.state_sql.main.render_insert_source_freshness_records_sql import (
-    render_insert_source_freshness_records_sql,
-)
 from sqlbuild.adapter.type_system.main.first_arg_nullability import first_arg_nullability
 from sqlbuild.adapter.type_system.main.normalize_numeric_family import normalize_numeric_family
 from sqlbuild.adapter.type_system.main.types_equal import types_equal
 from sqlbuild.compiler.compile.types import FunctionLanguage
-from sqlbuild.compiler.source_freshness.models import SourceFreshnessRecord
-from sqlbuild.compiler.sql_analysis.models import SqlLexicalSyntax
 from sqlbuild.diagnostics.main.log_sql import log_sql
+from sqlbuild.runtime.user_code.main.user_code_spec import user_code_spec
 from sqlbuild.spec.contracts.constants import DEFAULT_SEED_CSV_SETTINGS
-from sqlbuild.spec.contracts.models import SeedCsvSettings
-from sqlbuild.sql_values.models import SqlValue
 
 
 class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
@@ -765,7 +766,7 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
         database: str | None,
         schema: str,
     ) -> str:
-        from sqlbuild.compiler.fingerprints.main.create_table_sql import (
+        from sqlbuild._native import (
             build_create_table_sql,
         )
 
@@ -782,7 +783,7 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
         database: str | None,
         schema: str,
     ) -> str:
-        from sqlbuild.compiler.fingerprints.main.read_latest_sql import (
+        from sqlbuild._native import (
             build_read_latest_sql,
         )
 
@@ -807,20 +808,16 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
         database: str | None,
         schema: str,
     ) -> str:
-        from sqlbuild.compiler.source_freshness.main.read_latest_sql import (
-            build_read_latest_sql,
-        )
+        from sqlbuild._native import build_source_freshness_read_latest_sql
 
-        return build_read_latest_sql(
+        return build_source_freshness_read_latest_sql(
             database=database,
             schema=schema,
             render_qualified_name=self.render_qualified_name,
         )
 
     def render_create_source_freshness_table_sql(self, *, database: str | None, schema: str) -> str:
-        from sqlbuild.compiler.source_freshness.main.create_table_sql import (
-            build_create_table_sql as build_source_freshness_create_table_sql,
-        )
+        from sqlbuild._native import build_source_freshness_create_table_sql
 
         return build_source_freshness_create_table_sql(
             database=database,
@@ -909,11 +906,10 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
         )
 
     def render_create_migration_state_table_sql(self, *, database: str | None, schema: str) -> str:
-        from sqlbuild.compiler.migrations.main.create_table_sql import (
-            build_migration_state_create_table_sql,
-        )
+        from sqlbuild._native import render_migration_state_create_sql
 
-        return build_migration_state_create_table_sql(
+        return render_migration_state_create_sql(
+            kind="model",
             database=database,
             schema=schema,
             render_qualified_name=self.render_qualified_name,
@@ -923,11 +919,10 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
     def render_create_old_name_view_state_table_sql(
         self, *, database: str | None, schema: str
     ) -> str:
-        from sqlbuild.compiler.migrations.main.old_name_view_create_table_sql import (
-            build_old_name_view_state_create_table_sql,
-        )
+        from sqlbuild._native import render_migration_state_create_sql
 
-        return build_old_name_view_state_create_table_sql(
+        return render_migration_state_create_sql(
+            kind="old_name",
             database=database,
             schema=schema,
             render_qualified_name=self.render_qualified_name,
@@ -937,11 +932,10 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
     def render_create_column_migration_state_table_sql(
         self, *, database: str | None, schema: str
     ) -> str:
-        from sqlbuild.compiler.migrations.main.column_create_table_sql import (
-            build_column_migration_state_create_table_sql,
-        )
+        from sqlbuild._native import render_migration_state_create_sql
 
-        return build_column_migration_state_create_table_sql(
+        return render_migration_state_create_sql(
+            kind="column",
             database=database,
             schema=schema,
             render_qualified_name=self.render_qualified_name,
@@ -955,7 +949,7 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
         schema: str,
         retain_versions: int,
     ) -> str:
-        from sqlbuild.compiler.fingerprints.constants import FINGERPRINT_TABLE_NAME
+        from sqlbuild._native import FINGERPRINT_TABLE_NAME
 
         table_name: str | None = self.render_qualified_name(
             database=database,
@@ -983,7 +977,7 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
         schema: str,
         retain_versions: int,
     ) -> str:
-        from sqlbuild.compiler.source_freshness.constants import SOURCE_FRESHNESS_TABLE_NAME
+        from sqlbuild._native import SOURCE_FRESHNESS_TABLE_NAME
 
         table_name: str | None = self.render_qualified_name(
             database=database,
@@ -1403,8 +1397,8 @@ class DuckDbBackedAdapter(UnkeyedDiffMixin, BaseAdapter):
         module_name: str = "sqlbuild_python_udf_" + "_".join(
             source_file_path.with_suffix("").parts[-4:]
         ).replace("-", "_")
-        spec: ModuleSpec | None = importlib.util.spec_from_file_location(
-            module_name, source_file_path
+        spec: ModuleSpec | None = user_code_spec(
+            name=module_name, file_path=source_file_path, root=source_file_path.parent
         )
         if spec is None or spec.loader is None:
             raise AdapterUserError(message=f"Could not load Python UDF from '{source_file_path}'")

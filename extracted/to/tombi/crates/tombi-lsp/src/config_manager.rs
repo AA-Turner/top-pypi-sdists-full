@@ -496,10 +496,7 @@ fn schema_store_options(
             .schema
             .as_ref()
             .and_then(|schema| schema.lint.clone()),
-        cache: Some(tombi_cache::Options {
-            no_cache: backend_options.no_cache,
-            ..Default::default()
-        }),
+        cache: Some(backend_options.cache.clone()),
         trusted_hosts: None,
     }
 }

@@ -2,8 +2,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyModule, PyModuleMethods, PyResult, Python};
-use pyo3::{FromPyObject, pyfunction, wrap_pyfunction};
+use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python};
 use sqlbuild_analysis::compiler::main::sql_test_chains::resolve_sql_test_chains;
 use sqlbuild_analysis::compiler::main::sql_test_glue::plan_sql_test_batch;
 use sqlbuild_analysis::compiler::main::sql_test_plan_errors::sql_test_plan_error_messages;
@@ -13,16 +12,18 @@ use sqlbuild_analysis::compiler::models::{
     SqlTestPlanTest,
 };
 
+use crate::bindings::_helpers::analysis::model_reads;
 use crate::bindings::_helpers::boundary::panics::value_error;
+use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::sqltext::lexical_syntax::LexicalSyntaxInput;
 use crate::bindings::types::CompilerDetach;
 
 const MODEL_RESOURCE_TYPE: &str = "model";
 const PLANNING_WORKERS: usize = 4;
 
-type CtePair = (String, String);
+pub(crate) type CtePair = (String, String);
 /// `(model, SQL, expected SQL, lifted CTEs, body, expected columns, expected lifted CTEs)`.
-type ChainRow = (
+pub(crate) type ChainRow = (
     String,
     String,
     Option<String>,
@@ -32,11 +33,11 @@ type ChainRow = (
     Vec<CtePair>,
 );
 /// `(name, resolved SQL, lifted CTEs, comparison body)`.
-type AssertionRow = (String, String, Vec<CtePair>, Option<String>);
+pub(crate) type AssertionRow = (String, String, Vec<CtePair>, Option<String>);
 /// `(model, severity, message)`.
-type WarningRow = (Option<String>, &'static str, String);
+pub(crate) type WarningRow = (Option<String>, &'static str, String);
 /// `(SQL, chain, assertions, model names, warnings, distinct error messages)`.
-type PlanRow = (
+pub(crate) type PlanRow = (
     Option<String>,
     Vec<ChainRow>,
     Vec<AssertionRow>,
@@ -45,51 +46,33 @@ type PlanRow = (
     Vec<String>,
 );
 
-/// The Python planning request: compiled models and tests, with the adapter's facts.
-#[derive(FromPyObject)]
-struct PlanningRequest<'py> {
-    #[pyo3(attribute)]
-    models: Vec<Bound<'py, PyAny>>,
+/// The planning request: compiled models and tests, with the adapter's facts.
+pub(crate) struct PlanningRequest<'py> {
+    pub(crate) models: Vec<Bound<'py, PyAny>>,
     /// Cursor-rendered SQL by model index, for models whose SQL uses cursor intrinsics.
-    #[pyo3(attribute)]
-    rendered_model_sql: HashMap<usize, String>,
-    #[pyo3(attribute)]
-    functions: Vec<(String, String, String, String, String)>,
-    #[pyo3(attribute)]
-    tests: Vec<Bound<'py, PyAny>>,
+    pub(crate) rendered_model_sql: HashMap<usize, String>,
+    pub(crate) functions: Vec<(String, String, String, String, String)>,
+    pub(crate) tests: Vec<Bound<'py, PyAny>>,
     /// Cursor-rendered model query overrides by test index, replacing the test's own.
-    #[pyo3(attribute)]
-    rendered_test_overrides: HashMap<usize, BTreeMap<String, String>>,
-    #[pyo3(attribute)]
-    sql_analysis_enabled: bool,
-    #[pyo3(attribute)]
-    sql_analysis_dialect: Option<String>,
-    #[pyo3(attribute)]
-    set_difference_operator: String,
-    #[pyo3(attribute)]
-    requires_derived_table_aliases: bool,
-    #[pyo3(attribute)]
-    lexical_syntax: LexicalSyntaxInput,
-    #[pyo3(attribute)]
-    render_sql: bool,
-    #[pyo3(attribute)]
-    include_plan: bool,
+    pub(crate) rendered_test_overrides: HashMap<usize, BTreeMap<String, String>>,
+    pub(crate) sql_analysis_enabled: bool,
+    pub(crate) sql_analysis_dialect: Option<String>,
+    pub(crate) set_difference_operator: String,
+    pub(crate) requires_derived_table_aliases: bool,
+    pub(crate) lexical_syntax: LexicalSyntaxInput,
+    pub(crate) render_sql: bool,
+    pub(crate) include_plan: bool,
 }
 
-/// The Python chain request: compiled models and the tests whose chains to resolve.
-#[derive(FromPyObject)]
-struct ChainRequest<'py> {
-    #[pyo3(attribute)]
-    models: Vec<Bound<'py, PyAny>>,
-    #[pyo3(attribute)]
-    tests: Vec<Bound<'py, PyAny>>,
-    #[pyo3(attribute)]
-    lexical_syntax: LexicalSyntaxInput,
+/// The chain request: compiled models and the tests whose chains to resolve.
+pub(crate) struct ChainRequest<'py> {
+    pub(crate) models: Vec<Bound<'py, PyAny>>,
+    pub(crate) tests: Vec<Bound<'py, PyAny>>,
+    pub(crate) lexical_syntax: LexicalSyntaxInput,
 }
 
 /// Each test's ordered unmocked model chain; direct-logic tests have none.
-#[pyfunction]
-fn resolve_compiled_sql_test_chains(
+pub(crate) fn resolve_compiled_sql_test_chains(
     py: Python<'_>,
     request: ChainRequest<'_>,
 ) -> PyResult<Vec<Vec<String>>> {
@@ -99,7 +82,7 @@ fn resolve_compiled_sql_test_chains(
             .iter()
             .map(|model| {
                 Ok(SqlTestChainModel {
-                    name: model.getattr("name")?.extract()?,
+                    name: model_reads::name_object(model)?.extract()?,
                     model_dependencies: model_dependencies(model)?,
                 })
             })
@@ -116,8 +99,7 @@ fn resolve_compiled_sql_test_chains(
 }
 
 /// Plan SQL tests in one batch and return each plan with its distinct error messages.
-#[pyfunction]
-fn plan_compiled_sql_tests(
+pub(crate) fn plan_compiled_sql_tests(
     py: Python<'_>,
     request: PlanningRequest<'_>,
 ) -> PyResult<(Vec<PlanRow>, u64, u64)> {
@@ -165,10 +147,10 @@ fn plan_model(
     rendered_sql: Option<String>,
 ) -> PyResult<SqlTestPlanModel> {
     Ok(SqlTestPlanModel {
-        name: model.getattr("name")?.extract()?,
+        name: model_reads::name_object(model)?.extract()?,
         query_sql: match rendered_sql {
             Some(sql) => sql,
-            None => model.getattr("query_sql")?.extract()?,
+            None => model_reads::query_sql(model)?.extract()?,
         },
         model_dependencies: model_dependencies(model)?,
     })
@@ -177,13 +159,10 @@ fn plan_model(
 /// The names of the models among a compiled model's dependencies, in dependency order.
 fn model_dependencies(model: &Bound<'_, PyAny>) -> PyResult<Vec<String>> {
     let mut names: Vec<String> = Vec::new();
-    for dependency in model.getattr("deps")?.try_iter()? {
+    for dependency in native_field(model, "deps")?.try_iter()? {
         let dependency = dependency?;
-        if dependency
-            .getattr("resource_type")?
-            .eq(MODEL_RESOURCE_TYPE)?
-        {
-            names.push(dependency.getattr("name")?.extract()?);
+        if native_field(&dependency, "resource_type")?.eq(MODEL_RESOURCE_TYPE)? {
+            names.push(native_field(&dependency, "name")?.extract()?);
         }
     }
     Ok(names)
@@ -211,12 +190,12 @@ fn plan_test(
     test: &Bound<'_, PyAny>,
     rendered_overrides: Option<BTreeMap<String, String>>,
 ) -> PyResult<SqlTestPlanTest> {
-    let payload = test.getattr("payload")?;
+    let payload = native_field(test, "payload")?;
     let payload: SqlTestPlanPayload = if payload.hasattr("actual_cte")? {
         SqlTestPlanPayload::Direct {
-            mode: payload.getattr("mode")?.extract()?,
-            actual_cte: cte(&payload.getattr("actual_cte")?)?,
-            expected_cte: cte(&payload.getattr("expected_cte")?)?,
+            mode: native_field(&payload, "mode")?.extract()?,
+            actual_cte: cte(&native_field(&payload, "actual_cte")?)?,
+            expected_cte: cte(&native_field(&payload, "expected_cte")?)?,
             helper_ctes: ctes(&payload, "helper_ctes")?,
         }
     } else {
@@ -224,22 +203,20 @@ fn plan_test(
             authored_ctes: ctes(&payload, "authored_ctes")?,
             model_query_overrides: match rendered_overrides {
                 Some(overrides) => overrides,
-                None => payload.getattr("model_query_overrides")?.extract()?,
+                None => native_field(&payload, "model_query_overrides")?.extract()?,
             },
             expected_ctes: ctes(&payload, "expected_ctes")?,
-            expected_model_names: payload.getattr("expected_model_names")?.extract()?,
+            expected_model_names: native_field(&payload, "expected_model_names")?.extract()?,
             assertion_ctes: ctes(&payload, "assertion_ctes")?,
-            read_helper_names: Some(test.getattr("read_helper_names")?.extract()?),
+            read_helper_names: Some(native_field(test, "read_helper_names")?.extract()?),
             reference_target_model_names: Some(
-                test.getattr("reference_target_model_names")?.extract()?,
+                native_field(test, "reference_target_model_names")?.extract()?,
             ),
         }
     };
     Ok(SqlTestPlanTest {
-        name: test.getattr("name")?.extract()?,
-        file_label: test
-            .getattr("test_file")?
-            .getattr("relative_path")?
+        name: native_field(test, "name")?.extract()?,
+        file_label: native_field(&native_field(test, "test_file")?, "relative_path")?
             .str()?
             .extract()?,
         payload,
@@ -256,8 +233,8 @@ fn ctes(owner: &Bound<'_, PyAny>, attribute: &str) -> PyResult<Vec<SqlTestCte>> 
 
 fn cte(value: &Bound<'_, PyAny>) -> PyResult<SqlTestCte> {
     Ok(SqlTestCte {
-        name: value.getattr("name")?.extract()?,
-        sql_body: value.getattr("sql_body")?.extract()?,
+        name: native_field(value, "name")?.extract()?,
+        sql_body: native_field(value, "sql_body")?.extract()?,
     })
 }
 
@@ -295,10 +272,4 @@ fn assertion_row(step: SqlTestAssertionStep) -> AssertionRow {
         step.lifted_ctes,
         step.comparison_body_sql,
     )
-}
-
-pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_function(wrap_pyfunction!(plan_compiled_sql_tests, module)?)?;
-    module.add_function(wrap_pyfunction!(resolve_compiled_sql_test_chains, module)?)?;
-    Ok(())
 }

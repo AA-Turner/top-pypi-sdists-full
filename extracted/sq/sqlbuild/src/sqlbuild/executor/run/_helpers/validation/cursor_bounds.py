@@ -8,68 +8,57 @@ from datetime import UTC, datetime
 from functools import partial
 from typing import Any
 
-from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
-from sqlbuild.adapter.relations.main.cached_relation_exists import cached_relation_exists
-from sqlbuild.compiler.compile.main.cursor_intrinsics import resolve_cursor_intrinsics
-from sqlbuild.compiler.planner.constants import MICROBATCH_END_SENTINEL, MICROBATCH_START_SENTINEL
-from sqlbuild.compiler.planner.main.cursor_window.cursor_window_override_flags import (
-    cursor_window_override_flags,
-)
-from sqlbuild.compiler.planner.main.cursor_window.empty_cursor_input_decision import (
-    decide_empty_cursor_inputs,
-)
-from sqlbuild.compiler.planner.main.cursor_window.empty_input_rebuild_refusal import (
-    empty_input_rebuild_refusal,
-)
-from sqlbuild.compiler.planner.main.execution.cursor_replay_policy import (
-    apply_typed_cursor_replay_policy,
-)
-from sqlbuild.compiler.planner.main.execution.future_cursor_safety import apply_future_cursor_safety
-from sqlbuild.compiler.planner.main.execution.maximum_start_safety import apply_maximum_start_policy
-from sqlbuild.compiler.planner.models import (
+from sqlbuild._native import (
+    GRAIN_ORDER,
+    MICROBATCH_END_SENTINEL,
+    MICROBATCH_START_SENTINEL,
+    ZERO_DAY_CURSOR_DURATION,
+    AlignedInterval,
+    BackfillAction,
     CursorBounds,
+    CursorGrain,
     CursorInputEvidence,
     CursorInputRelation,
+    CursorType,
+    DateValue,
     Duration,
     EmptyCursorInputDecision,
+    IntegerValue,
     MaximumStartPolicyInputs,
+    MicrobatchStrategy,
     ModelCursorSnapshot,
     ModelPlanEntry,
-)
-from sqlbuild.compiler.planner.types import (
-    BackfillAction,
-    CursorGrain,
-    CursorType,
-    MicrobatchStrategy,
-)
-from sqlbuild.cursor_algebra.constants import GRAIN_ORDER
-from sqlbuild.cursor_algebra.main.clamp import clamp
-from sqlbuild.cursor_algebra.main.compare import compare
-from sqlbuild.cursor_algebra.main.exclusive_end_from_observed_max import (
-    exclusive_end_from_observed_max,
-)
-from sqlbuild.cursor_algebra.main.exclusive_to_inclusive import exclusive_to_inclusive
-from sqlbuild.cursor_algebra.main.floor_to_grain import floor_to_grain
-from sqlbuild.cursor_algebra.main.inclusive_to_exclusive import inclusive_to_exclusive
-from sqlbuild.cursor_algebra.main.max_bound import max_bound
-from sqlbuild.cursor_algebra.main.min_bound import min_bound
-from sqlbuild.cursor_algebra.main.parse import parse
-from sqlbuild.cursor_algebra.main.render import render
-from sqlbuild.cursor_algebra.main.sentinel_from_token import sentinel_from_token
-from sqlbuild.cursor_algebra.main.sentinel_to_token import sentinel_to_token
-from sqlbuild.cursor_algebra.models import (
-    AlignedInterval,
-    DateValue,
-    IntegerValue,
+    StartCursorsConfig,
     TimestampValue,
+    apply_maximum_start_policy,
+    apply_typed_cursor_replay_policy,
+    cursor_window_override_flags,
+    decide_empty_cursor_inputs,
+    empty_input_rebuild_refusal,
+    resolve_cursor_intrinsics,
 )
+from sqlbuild._native import cursor_clamp as clamp
+from sqlbuild._native import cursor_compare as compare
+from sqlbuild._native import (
+    cursor_exclusive_end_from_observed_max as exclusive_end_from_observed_max,
+)
+from sqlbuild._native import cursor_exclusive_to_inclusive as exclusive_to_inclusive
+from sqlbuild._native import cursor_floor_to_grain as floor_to_grain
+from sqlbuild._native import cursor_inclusive_to_exclusive as inclusive_to_exclusive
+from sqlbuild._native import cursor_max_bound as max_bound
+from sqlbuild._native import cursor_min_bound as min_bound
+from sqlbuild._native import cursor_parse as parse
+from sqlbuild._native import cursor_render as render
+from sqlbuild._native import cursor_sentinel_from_token as sentinel_from_token
+from sqlbuild._native import cursor_sentinel_to_token as sentinel_to_token
+from sqlbuild._native import resolve_future_cursor_safety as apply_future_cursor_safety
+from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
+from sqlbuild.adapter.relations.main.cached_relation_exists import cached_relation_exists
 from sqlbuild.cursor_algebra.types import BoundSentinel, CursorScalar
 from sqlbuild.errors.contracts.exceptions import ExecutorInputError
 from sqlbuild.executor.run.exceptions import EmptyCursorInputsError
 from sqlbuild.executor.run.models import RuntimeCursorInputRelation, RuntimeCursorSpec
 from sqlbuild.executor.run.types import RuntimeCursorWatermarkMode, WatermarkResolver
-from sqlbuild.spec.contracts.constants import ZERO_DAY_CURSOR_DURATION
-from sqlbuild.spec.contracts.models import StartCursorsConfig
 
 
 def has_runtime_owned_cursor_watermarks(

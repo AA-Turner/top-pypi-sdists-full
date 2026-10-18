@@ -5,13 +5,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import io
-import sys
 import zipfile
 from typing import TYPE_CHECKING
 
 import pytest
 from packaging.utils import canonicalize_name
 
+from nab_index import lazy_wheel
 from nab_index.client import MalformedSimpleResponseError, WheelHashMismatchError
 from nab_index.lazy_wheel import (
     RangeCapability,
@@ -23,6 +23,11 @@ from nab_index.lazy_wheel import (
     read_wheel_metadata_over_range,
 )
 from nab_index.transport import HttpError
+from nab_markersets._compat import get_int_max_str_digits
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -31,7 +36,7 @@ _META = b"Metadata-Version: 2.1\nName: widget\nVersion: 1.0\n\nBody text.\n"
 _URL = "https://files.example.org/packages/widget-1.0-py3-none-any.whl"
 
 # Digit runs at and just past CPython's int-from-string limit.
-_AT_LIMIT_DIGITS = "9" * sys.get_int_max_str_digits()
+_AT_LIMIT_DIGITS = "9" * (get_int_max_str_digits() or 4300)
 _OVERSIZED_DIGITS = _AT_LIMIT_DIGITS + "9"
 
 
@@ -592,7 +597,10 @@ def test_absolute_probe_200_gzip_is_unsupported() -> None:
     [
         {},
         {"content-range": "bytes 0-0/*"},
-        {"content-range": f"bytes 0-0/{_OVERSIZED_DIGITS}"},
+        pytest.param(
+            {"content-range": f"bytes 0-0/{_OVERSIZED_DIGITS}"},
+            marks=requires_int_limit,
+        ),
     ],
     ids=["absent", "unknown-length", "oversized-length"],
 )
@@ -971,6 +979,7 @@ def test_suffix_206_unparseable_content_range_downgrades() -> None:
     assert result.text == _META.decode("utf-8")
 
 
+@requires_int_limit
 def test_suffix_206_oversized_total_downgrades() -> None:
     """A complete-length too long to convert reads as no length at all."""
 
@@ -1022,17 +1031,35 @@ def test_zero_tail_size_gives_up_instead_of_re_requesting() -> None:
     assert result.text is None
 
 
+@pytest.mark.parametrize("refused", ["0", "1", "2"])
+def test_content_range_conversion_failure_is_unreadable(
+    monkeypatch: pytest.MonkeyPatch, refused: str
+) -> None:
+    def convert(value: str) -> int:
+        if value == refused:
+            raise ValueError("integer conversion refused")
+        return int(value)
+
+    monkeypatch.setattr(lazy_wheel, "int", convert, raising=False)
+    assert _parse_content_range("bytes 0-1/2") is None
+
+
 def test_parse_content_range_at_int_limit() -> None:
     parsed = _parse_content_range(f"bytes 0-0/{_AT_LIMIT_DIGITS}")
     assert parsed == (0, 0, int(_AT_LIMIT_DIGITS))
 
 
+@requires_int_limit
 @pytest.mark.parametrize(
     "value",
     [
-        f"bytes 0-0/{_OVERSIZED_DIGITS}",
-        f"bytes 0-{_OVERSIZED_DIGITS}/{_OVERSIZED_DIGITS}",
-        f"bytes {_OVERSIZED_DIGITS}-{_OVERSIZED_DIGITS}/{_OVERSIZED_DIGITS}",
+        pytest.param(f"bytes 0-0/{_OVERSIZED_DIGITS}"),
+        pytest.param(
+            f"bytes 0-{_OVERSIZED_DIGITS}/{_OVERSIZED_DIGITS}",
+        ),
+        pytest.param(
+            f"bytes {_OVERSIZED_DIGITS}-{_OVERSIZED_DIGITS}/{_OVERSIZED_DIGITS}",
+        ),
     ],
     ids=["total", "end", "start"],
 )

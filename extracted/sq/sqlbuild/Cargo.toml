@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/sqlbuild-core", "crates/sqlbuild-cache", "crates/sqlbuild-sqltext", "crates/sqlbuild-config", "crates/sqlbuild-discovery", "crates/sqlbuild-scopes", "crates/sqlbuild-model-config", "crates/sqlbuild-render", "crates/sqlbuild-attachments", "crates/sqlbuild-analysis", "crates/sqlbuild-rules", "crates/sqlbuild-refactor", "crates/sqlbuild-python"]
+members = ["crates/sqlbuild-core", "crates/sqlbuild-cursor", "crates/sqlbuild-state", "crates/sqlbuild-pysource", "crates/sqlbuild-cache", "crates/sqlbuild-sqltext", "crates/sqlbuild-config", "crates/sqlbuild-discovery", "crates/sqlbuild-scopes", "crates/sqlbuild-model-config", "crates/sqlbuild-render", "crates/sqlbuild-attachments", "crates/sqlbuild-analysis", "crates/sqlbuild-rules", "crates/sqlbuild-refactor", "crates/sqlbuild-cli", "crates/sqlbuild-python"]
 resolver = "2"
 
 # Native crates from the bottom up: each crate may depend only on crates listed before it.
@@ -8,13 +8,16 @@ resolver = "2"
 [workspace.metadata.native-layers]
 order = [
     "sqlbuild-core",
+    "sqlbuild-cursor",
+    "sqlbuild-state",
+    "sqlbuild-pysource",
     "sqlbuild-cache",
     "sqlbuild-sqltext",
     "sqlbuild-config",
+    "sqlbuild-model-config",
     "sqlbuild-discovery",
     "sqlbuild-render",
     "sqlbuild-scopes",
-    "sqlbuild-model-config",
     "sqlbuild-attachments",
     "sqlbuild-analysis",
     "sqlbuild-rules",
@@ -26,7 +29,7 @@ python-boundary = "sqlbuild-python"
 polyglot-floor = "sqlbuild-analysis"
 
 [workspace.package]
-version = "0.156.1"
+version = "0.157.2"
 edition = "2024"
 license = "Apache-2.0"
 publish = false
@@ -58,7 +61,13 @@ blake3 = { version = "1", features = ["rayon"] }
 ctrlc = "3"
 quote = "1"
 rayon = "1"
+# Static reading of project Python source; the parser fensu uses.
+ruff_python_ast = "=0.0.4"
+ruff_python_parser = "=0.0.4"
+ruff_text_size = "=0.0.4"
 # Unix only: `sqb` shares the compute log prune lock with Python's `filelock` through `flock`.
+# Fast deterministic hasher for hot in-memory maps whose iteration order never reaches output.
+rustc-hash = "2"
 rustix = { version = "1.1.4", default-features = false, features = ["fs", "std"] }
 saphyr-parser = "0.1"
 regex = "1"
@@ -69,15 +78,19 @@ sha2 = "0.10"
 sqlbuild-analysis = { path = "crates/sqlbuild-analysis" }
 sqlbuild-attachments = { path = "crates/sqlbuild-attachments" }
 sqlbuild-cache = { path = "crates/sqlbuild-cache" }
+sqlbuild-cli = { path = "crates/sqlbuild-cli" }
 sqlbuild-config = { path = "crates/sqlbuild-config" }
 sqlbuild-core = { path = "crates/sqlbuild-core" }
+sqlbuild-cursor = { path = "crates/sqlbuild-cursor" }
 sqlbuild-discovery = { path = "crates/sqlbuild-discovery" }
 sqlbuild-render = { path = "crates/sqlbuild-render" }
 sqlbuild-refactor = { path = "crates/sqlbuild-refactor" }
 sqlbuild-rules = { path = "crates/sqlbuild-rules" }
 sqlbuild-model-config = { path = "crates/sqlbuild-model-config" }
+sqlbuild-pysource = { path = "crates/sqlbuild-pysource" }
 sqlbuild-scopes = { path = "crates/sqlbuild-scopes" }
 sqlbuild-sqltext = { path = "crates/sqlbuild-sqltext" }
+sqlbuild-state = { path = "crates/sqlbuild-state" }
 stacker = "0.1"
 sqlparser = { version = "0.58", features = ["visitor"] }
 syn = { version = "2", features = ["full", "visit", "extra-traits"] }
@@ -104,3 +117,11 @@ debug = false
 
 [profile.release]
 strip = "symbols"
+
+# Local iteration: release-level optimisation with incremental builds, so rebuilding after a
+# focused change does not recompile the whole binding crate. CI and wheels use `release`.
+[profile.fast]
+inherits = "release"
+incremental = true
+codegen-units = 256
+strip = "none"

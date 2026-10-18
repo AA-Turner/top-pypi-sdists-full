@@ -1,9 +1,6 @@
 """Public adapter conditional nullability inference operation."""
 
-from sqlbuild.adapter.type_system._helpers.inference_rules import (
-    conditional_result_nullability as _conditional_result_nullability,
-)
-from sqlbuild.compiler.lineage.types import InferredNullability
+from sqlbuild._native import InferredNullability, infer_conditional_result_nullability
 
 
 def conditional_result_nullability(
@@ -11,4 +8,4 @@ def conditional_result_nullability(
 ) -> InferredNullability:
     """Infer IF/IFF-style nullability from true and false result arguments."""
 
-    return _conditional_result_nullability(args)
+    return infer_conditional_result_nullability(args)

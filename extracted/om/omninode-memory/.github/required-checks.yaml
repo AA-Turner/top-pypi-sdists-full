@@ -26,20 +26,6 @@ required_checks:
       PR title ticket-reference check: the job runs omnimarket's
       node_pr_title_check_compute from a pinned omnimarket release (OMN-20997).
 
-  # OMN-18854: this is an umbrella member, not a separate protection context.
-  - name: "occ-preflight / eligibility"
-    workflow: ci.yml
-    job_id: occ-preflight
-    conditional: true
-    condition: "Required on pull_request and merge_group; not applicable on push or workflow_dispatch"
-    rationale: >-
-      OMN-18854. The shared eligibility validator feeds the required CI Summary
-      through the OCC Eligibility Admission job. On pull_request and
-      merge_group, only successful preflight passes admission; CI Summary
-      requires a successful admission verdict on every event. Failed,
-      cancelled, skipped and absent results block. The caller and validator
-      source use the same immutable omnibase_core revision.
-
   # -- Phase 1: Quick Validation (parallel, ~2-5 min) -------------------------
 
   - name: "Migration Freeze Check"
@@ -132,6 +118,18 @@ required_checks:
       .onex_ratchets/canonical_file_shape_baseline.txt. Gates merges through
       the required CI Summary context, which needs: this job and accepts only a
       success result.
+
+  - name: "Public Runner Placement (OMN-19998)"
+    workflow: ci.yml
+    job_id: public-runner-placement
+    conditional: false
+    rationale: >-
+      OMN-19998. Operator ruling 2026-10-16T07:07:09Z: CI runners are for
+      private repositories only. Refuses a job whose runs-on is, or can resolve
+      to, a self-hosted label, using omnibase_core's check at the release the
+      pre-commit hook pins. Unconditional (no needs, no if); gates merges
+      through the required CI Summary context, which needs: this job and
+      accepts only a success result.
 
   # -- Phase 2: Full Test Suite ------------------------------------------------
 

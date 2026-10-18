@@ -2,20 +2,31 @@
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 from threading import Event
 import time
 from typing import TYPE_CHECKING, NamedTuple, override
+import warnings
 
 from zeroconf import ServiceBrowser, ServiceInfo, ServiceListener, Zeroconf
 
 from .const import DISCOVERY_TIMEOUT, GOOGLE_CAST_GROUP, SERVICE_INFO_TIMEOUT
-from .utils import network as net_utils
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _is_reachable(address: str) -> bool:
+    """Whether a discovered address can be used to reach the device.
+
+    A link-local IPv6 address can't be, as it only works with its interface,
+    which zeroconf's parsed_addresses() leaves out.
+    """
+    ip = ipaddress.ip_address(address)
+    return ip.version == 4 or not ip.is_link_local
 
 
 class NetworkDevice(NamedTuple):
@@ -38,19 +49,16 @@ class CastListener(ServiceListener):
     def __init__(
         self,
         add_callback: Callable[[], None] | None = None,
-        remove_callback: Callable[[], None] | None = None,
-        update_callback: Callable[[], None] | None = None,
         deadline: float | None = None,
     ):
         """Create cast listener.
 
+        add_callback: called after a service is added or updated.
         deadline: time.monotonic() value after which service lookups stop.
         """
         self.devices: dict[str, NetworkDevice] = {}
         self.deadline = deadline
         self.add_callback = add_callback
-        self.remove_callback = remove_callback
-        self.update_callback = update_callback
 
     @property
     def count(self) -> int:
@@ -61,13 +69,13 @@ class CastListener(ServiceListener):
     def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:
         """Add a service to the collection."""
         LOGGER.debug("add_service %s, %s", type_, name)
-        self._add_update_service(zc, type_, name, self.add_callback)
+        self._add_update_service(zc, type_, name)
 
     @override
     def update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
         """Update a service in the collection."""
         LOGGER.debug("update_service %s, %s", type_, name)
-        self._add_update_service(zc, type_, name, self.update_callback)
+        self._add_update_service(zc, type_, name)
 
     @override
     def remove_service(self, _zc: Zeroconf, type_: str, name: str) -> None:
@@ -75,16 +83,8 @@ class CastListener(ServiceListener):
         LOGGER.debug("remove_service %s, %s", type_, name)
         if name in self.devices:
             del self.devices[name]
-        if self.remove_callback:
-            self.remove_callback()
 
-    def _add_update_service(
-        self,
-        zc: Zeroconf,
-        type_: str,
-        name: str,
-        callback: Callable[[], None] | None,
-    ) -> None:
+    def _add_update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
         """Add or update a service."""
         if name.endswith("_sub._googlecast._tcp.local."):
             LOGGER.debug("_add_update_service ignoring %s, %s", type_, name)
@@ -115,9 +115,8 @@ class CastListener(ServiceListener):
             LOGGER.debug("_add_update_service failed to add %s, %s", type_, name)
             return
 
-        addresses = service.parsed_addresses()
-        server_name = service.server or service.name
-        ip_address = addresses[0] if addresses else server_name
+        # zeroconf lists IPv4 addresses first
+        ip_address = next(filter(_is_reachable, service.parsed_addresses()), None)
 
         model_name = self.get_service_value(service, "md")
         friendly_name = self.get_service_value(service, "fn")
@@ -126,14 +125,14 @@ class CastListener(ServiceListener):
         if not model_name or not friendly_name or not service.port or not unique_id:
             LOGGER.debug(
                 "Discovered device %s has incomplete service info, skipping...",
-                ip_address,
+                name,
             )
             return
 
-        if not net_utils.is_valid_ipv4_address(
-            ip_address
-        ) and not net_utils.is_valid_ipv6_address(ip_address):
-            LOGGER.error("Discovered device has invalid IP address: %s", ip_address)
+        if ip_address is None:
+            LOGGER.debug(
+                "Discovered device %s has no reachable IP address, skipping...", name
+            )
             return
 
         if not 0 <= service.port <= 65535:
@@ -150,8 +149,8 @@ class CastListener(ServiceListener):
             unique_id=unique_id,
         )
 
-        if callback:
-            callback()
+        if self.add_callback:
+            self.add_callback()
 
     @staticmethod
     def get_service_value(service: ServiceInfo, key: str) -> str | None:
@@ -175,9 +174,13 @@ def discover_devices(
     logging_level: int | None = None,
 ) -> list[NetworkDevice]:
     """Discover devices."""
-    # Leave the level to the application unless the caller asks for one.
     if logging_level is not None:
-        LOGGER.setLevel(logging_level)
+        warnings.warn(
+            "logging_level is deprecated and ignored, set the level of the "
+            "glocaltokens logger in your application instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     LOGGER.debug("Discovering devices...")
 
@@ -187,7 +190,7 @@ def discover_devices(
         )
 
     def callback() -> None:
-        """Handle the event when zeroconf discovers a new device."""
+        """Handle zeroconf adding or updating a device."""
         if max_devices is not None and (
             sum(map(is_wanted, listener.devices.values())) >= max_devices
         ):

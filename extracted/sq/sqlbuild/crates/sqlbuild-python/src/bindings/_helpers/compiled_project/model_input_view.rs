@@ -1,15 +1,22 @@
 //! A model's compile input, read from the native compiled project that owns it.
 
+use std::sync::Arc;
+
 use pyo3::prelude::{Bound, Py, PyAny, PyAnyMethods, PyResult, Python};
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyDict, PyDictMethods, PyString, PyTuple};
 use pyo3::{FromPyObject, IntoPyObject, pyclass, pymethods};
+use sqlbuild_analysis::compiled_project::models::SchemaColumnFact;
 
 use crate::bindings::_helpers::compiled_project::compiled_model_view::{
     CompiledArguments, CompiledRecord, CompiledViewClasses, NativeCompiledModel, compiled_record,
 };
 use crate::bindings::_helpers::compiled_project::model_loop_host::ReferenceRow;
 use crate::bindings::_helpers::compiled_project::project::NativeCompiledProject;
+use crate::bindings::_helpers::compiled_project::schema_facts::python_column_facts;
+use crate::bindings::_helpers::discovery::model_file_record::{NativeModelFile, projected_text};
+use crate::bindings::_helpers::model_config::header_metadata::HeaderColumns;
+use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::render::declaration_expansion::SpanRow;
 use crate::bindings::_helpers::rules::relation_keys::{RelationKeyRow, relation_key_row};
 
@@ -30,7 +37,7 @@ pub(crate) struct InputViewClasses<'py> {
 /// A model's attached header schema; its specs carry user-authored audit arguments.
 pub(crate) struct SchemaRecord {
     pub(crate) description: Option<String>,
-    pub(crate) columns: Py<PyTuple>,
+    pub(crate) columns: Arc<HeaderColumns>,
     pub(crate) audits: Py<PyTuple>,
     pub(crate) dynamic_columns: Py<PyTuple>,
     pub(crate) type_enforcement: bool,
@@ -40,9 +47,9 @@ pub(crate) struct SchemaRecord {
 /// The expansion passes of a model's query, from authored text to expanded SQL.
 pub(crate) struct ExpansionRecord {
     /// The authored query below the header.
-    pub(crate) authored_sql: Py<PyString>,
+    pub(crate) authored_sql: Arc<str>,
     /// The declaration- and macro-expanded SQL before canonicalisation.
-    pub(crate) expanded_sql: Py<PyString>,
+    pub(crate) expanded_sql: Arc<str>,
     pub(crate) interpolation_spans: Vec<SpanRow>,
     pub(crate) declaration_spans: Vec<SpanRow>,
     pub(crate) macro_spans: Vec<SpanRow>,
@@ -52,13 +59,15 @@ pub(crate) struct ExpansionRecord {
 
 /// What the model loop finished for one model beyond its facts; handles carry user values.
 pub(crate) struct ModelInputRecord {
+    /// The model's name, its file stem.
+    pub(crate) name: String,
     /// The discovered model file, owned by the discovery inputs.
-    pub(crate) model_file: Py<PyAny>,
+    pub(crate) model_file: Py<NativeModelFile>,
     /// The resolved config, whose values hold user values.
     pub(crate) config: Py<PyAny>,
-    /// Immutable text shared with discovery, expansions and every Python-facing projection.
-    pub(crate) query_sql: Py<PyString>,
-    pub(crate) macro_source_sql: Py<PyString>,
+    /// Immutable text shared with discovery and expansions; Python reads build strings on demand.
+    pub(crate) query_sql: Arc<str>,
+    pub(crate) macro_source_sql: Arc<str>,
     pub(crate) references: Vec<ReferenceRow>,
     pub(crate) schema: Option<SchemaRecord>,
     pub(crate) sql_validation_enabled: bool,
@@ -80,6 +89,7 @@ pub(crate) struct ModelInputRecord {
 
 /// A model input's Python attribute projections, each built once on first access.
 pub(crate) struct InputProjections {
+    query_sql: PyOnceLock<Py<PyString>>,
     references: PyOnceLock<Py<PyTuple>>,
     schema_entry: PyOnceLock<Py<PyAny>>,
     sql_expansion: PyOnceLock<Py<PyAny>>,
@@ -89,6 +99,7 @@ pub(crate) struct InputProjections {
 impl Default for InputProjections {
     fn default() -> Self {
         Self {
+            query_sql: PyOnceLock::new(),
             references: PyOnceLock::new(),
             schema_entry: PyOnceLock::new(),
             sql_expansion: PyOnceLock::new(),
@@ -109,13 +120,33 @@ impl NativeModelInput {
         Self { owner, index }
     }
 
-    fn read<'py, T>(
+    pub(crate) fn read<'py, T>(
         &self,
         py: Python<'py>,
         read: impl FnOnce(&ModelInputRecord, Python<'py>) -> PyResult<T>,
     ) -> PyResult<T> {
         read_input(&self.owner, self.index, py, read)
     }
+
+    /// Read the input record together with the project that owns it.
+    pub(crate) fn read_with_owner<'py, T>(
+        &self,
+        py: Python<'py>,
+        read: impl FnOnce(&NativeCompiledProject, &ModelInputRecord) -> PyResult<T>,
+    ) -> PyResult<T> {
+        read_input_with_owner(&self.owner, self.index, py, read)
+    }
+}
+
+/// Read the input record at `index` of `owner` together with `owner`.
+pub(crate) fn read_input_with_owner<T>(
+    owner: &Py<NativeCompiledProject>,
+    index: usize,
+    py: Python<'_>,
+    read: impl FnOnce(&NativeCompiledProject, &ModelInputRecord) -> PyResult<T>,
+) -> PyResult<T> {
+    let owner = owner.bind(py).borrow();
+    read(&owner, owner.input(index)?)
 }
 
 /// Read the input record at `index` of `owner`.
@@ -140,99 +171,105 @@ pub(crate) fn view_classes<'py>(
 #[pymethods]
 impl NativeModelInput {
     #[getter]
-    fn model_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.read(py, |record, py| Ok(record.model_file.clone_ref(py)))
+    pub(crate) fn model_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.read(py, |record, py| {
+            Ok(record.model_file.clone_ref(py).into_any())
+        })
     }
 
     #[getter]
-    fn config(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn config(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         self.read(py, |record, py| Ok(record.config.clone_ref(py)))
     }
 
     #[getter]
-    fn query_sql(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
-        self.read(py, |record, py| Ok(record.query_sql.clone_ref(py)))
+    pub(crate) fn query_sql<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
+        self.read(py, |record, py| Ok(query_sql_text(py, record)))
     }
 
     #[getter]
-    fn macro_source_sql(&self, py: Python<'_>) -> PyResult<Py<PyString>> {
-        self.read(py, |record, py| Ok(record.macro_source_sql.clone_ref(py)))
+    pub(crate) fn macro_source_sql<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
+        self.read(py, |record, py| {
+            Ok(PyString::new(py, &record.macro_source_sql))
+        })
     }
 
     #[getter]
-    fn references(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+    pub(crate) fn references(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
         let classes: InputViewClasses<'_> = view_classes(&self.owner, py)?;
         self.read(py, |record, _| references(&classes, record))
     }
 
     #[getter]
-    fn schema_entry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn schema_entry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let classes: InputViewClasses<'_> = view_classes(&self.owner, py)?;
         self.read(py, |record, _| schema_entry(&classes, record))
     }
 
     /// Each reference as `(kind, name, package, call argument count)`.
     #[getter]
-    fn reference_rows(&self, py: Python<'_>) -> PyResult<Vec<ReferenceRow>> {
+    pub(crate) fn reference_rows(&self, py: Python<'_>) -> PyResult<Vec<ReferenceRow>> {
         self.read(py, |record, _| Ok(record.references.clone()))
     }
 
     /// The model's declared key facts, for deriving its unique keys.
     #[getter]
-    fn relation_key_row(&self, py: Python<'_>) -> PyResult<RelationKeyRow> {
-        self.read(py, model_relation_key_row)
+    pub(crate) fn relation_key_row(&self, py: Python<'_>) -> PyResult<RelationKeyRow> {
+        self.read_with_owner(py, |owner, record| {
+            model_relation_key_row(owner, record, py)
+        })
     }
 
     /// The name of the schema entry attached to the model, or `None`.
     #[getter]
-    fn attached_schema_name(&self, py: Python<'_>) -> PyResult<Option<String>> {
-        self.read(py, |record, py| attached_schema_name(record, py))
+    pub(crate) fn attached_schema_name(&self, py: Python<'_>) -> PyResult<Option<String>> {
+        self.read(py, |record, _| Ok(attached_schema_name(record)))
     }
 
     #[getter]
-    fn schema_file(&self, py: Python<'_>) -> Py<PyAny> {
+    pub(crate) fn schema_file(&self, py: Python<'_>) -> Py<PyAny> {
         py.None()
     }
 
     #[getter]
-    fn sql_validation_enabled(&self, py: Python<'_>) -> PyResult<bool> {
+    pub(crate) fn sql_validation_enabled(&self, py: Python<'_>) -> PyResult<bool> {
         self.read(py, |record, _| Ok(record.sql_validation_enabled))
     }
 
     #[getter]
-    fn rejected_sql_analysis_opt_out(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn rejected_sql_analysis_opt_out(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         self.read(py, |record, py| Ok(rejected_opt_out(record, py)))
     }
 
     #[getter]
-    fn enum_declarations(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+    pub(crate) fn enum_declarations(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
         self.read(py, |record, py| Ok(record.enum_declarations.clone_ref(py)))
     }
 
     #[getter]
-    fn constant_declarations(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+    pub(crate) fn constant_declarations(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
         self.read(py, |record, py| {
             Ok(record.constant_declarations.clone_ref(py))
         })
     }
 
     #[getter]
-    fn enum_columns(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
+    pub(crate) fn enum_columns(&self, py: Python<'_>) -> PyResult<Py<PyDict>> {
         self.read(py, |record, py| Ok(record.enum_columns.clone_ref(py)))
     }
 
     #[getter]
-    fn macro_deps<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+    pub(crate) fn macro_deps<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
         self.read(py, |record, py| PyTuple::new(py, &record.macro_deps))
     }
 
     #[getter]
-    fn macro_usages(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+    pub(crate) fn macro_usages(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
         self.read(py, |record, py| Ok(record.macro_usages.clone_ref(py)))
     }
 
     #[getter]
-    fn declaration_usages(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+    pub(crate) fn declaration_usages(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
         self.read(py, |record, py| Ok(record.declaration_usages.clone_ref(py)))
     }
 
@@ -244,12 +281,7 @@ impl NativeModelInput {
     ) -> PyResult<NativeCompiledModel> {
         let mut owner = self.owner.bind(py).borrow_mut();
         let record: &mut ModelInputRecord = owner.input_mut(self.index)?;
-        let name: String = record
-            .model_file
-            .bind(py)
-            .getattr("file_path")?
-            .getattr("stem")?
-            .extract()?;
+        let name: String = record.name.clone();
         record.compiled = Some(compiled_record(py, record, &name, arguments)?);
         Ok(NativeCompiledModel::new(
             self.owner.clone_ref(py),
@@ -259,14 +291,14 @@ impl NativeModelInput {
 
     /// The authored-to-expanded passes, when interpolation left the authored query unchanged.
     #[getter]
-    fn sql_expansion(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn sql_expansion(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let classes: InputViewClasses<'_> = view_classes(&self.owner, py)?;
         self.read(py, |record, _| authored_expansion(&classes, record))
     }
 
     /// The whole expansion, variables included, which early SQL lint reuses.
     #[getter]
-    fn lint_expansion(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn lint_expansion(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let classes: InputViewClasses<'_> = view_classes(&self.owner, py)?;
         self.read(py, |record, py| {
             record
@@ -287,6 +319,18 @@ impl NativeModelInput {
                 .map(|expansion| expansion.clone_ref(py))
         })
     }
+}
+
+/// The compiled query as the Python string every reader shares; the authored query's when equal.
+pub(crate) fn query_sql_text<'py>(
+    py: Python<'py>,
+    record: &ModelInputRecord,
+) -> Bound<'py, PyString> {
+    let model_file: &NativeModelFile = record.model_file.get();
+    if Arc::ptr_eq(&record.query_sql, model_file.query_text()) {
+        return model_file.query_sql(py);
+    }
+    projected_text(py, &record.projections.query_sql, &record.query_sql)
 }
 
 /// The authored-to-expanded passes, when interpolation left the authored query unchanged.
@@ -353,44 +397,28 @@ pub(crate) fn reference_tuple(
 
 /// The model's declared key facts: its config and attached schema columns and audits.
 pub(crate) fn model_relation_key_row(
+    owner: &NativeCompiledProject,
     record: &ModelInputRecord,
     py: Python<'_>,
 ) -> PyResult<RelationKeyRow> {
-    let values: Bound<'_, PyAny> = record.config.bind(py).getattr("values")?;
+    let values: Bound<'_, PyAny> = native_field(record.config.bind(py), "values")?;
+    let declared = match (&record.schema, owner.input_schema_fact(record)) {
+        (Some(schema), Some(fact)) => {
+            Some((fact.columns.as_slice(), schema.audits.bind(py).as_any()))
+        }
+        _ => None,
+    };
     relation_key_row(
         MODEL_RELATION_KIND,
-        record
-            .model_file
-            .bind(py)
-            .getattr("file_path")?
-            .getattr("stem")?
-            .extract()?,
+        record.name.clone(),
         values.downcast::<PyDict>()?,
-        record.schema.as_ref().map(|schema| {
-            (
-                schema.columns.bind(py).as_any(),
-                schema.audits.bind(py).as_any(),
-            )
-        }),
+        declared,
     )
 }
 
 /// The name of the model's attached schema entry, its file stem, or `None`.
-pub(crate) fn attached_schema_name(
-    record: &ModelInputRecord,
-    py: Python<'_>,
-) -> PyResult<Option<String>> {
-    if record.schema.is_none() {
-        return Ok(None);
-    }
-    Ok(Some(
-        record
-            .model_file
-            .bind(py)
-            .getattr("file_path")?
-            .getattr("stem")?
-            .extract()?,
-    ))
+pub(crate) fn attached_schema_name(record: &ModelInputRecord) -> Option<String> {
+    record.schema.as_ref().map(|_| record.name.clone())
 }
 
 /// The model's attached `SchemaModelEntry`, or `None`, built once.
@@ -407,18 +435,11 @@ pub(crate) fn schema_entry(
                 return Ok::<_, pyo3::PyErr>(py.None());
             };
             let fields: Bound<'_, PyDict> = PyDict::new(py);
-            fields.set_item(
-                "name",
-                record
-                    .model_file
-                    .bind(py)
-                    .getattr("file_path")?
-                    .getattr("stem")?,
-            )?;
+            fields.set_item("name", &record.name)?;
             fields.set_item("model_schema", &schema.model_schema)?;
             fields.set_item("description", &schema.description)?;
             fields.set_item("type_enforcement", schema.type_enforcement.then_some(true))?;
-            fields.set_item("columns", schema.columns.bind(py))?;
+            fields.set_item("columns", schema.columns.project(py)?)?;
             fields.set_item("dynamic_columns", schema.dynamic_columns.bind(py))?;
             fields.set_item("audits", schema.audits.bind(py))?;
             Ok(classes.schema_model_entry.call((), Some(&fields))?.unbind())
@@ -442,8 +463,98 @@ fn expansion_object(
         pass_objects.push(PyTuple::new(py, span_objects)?);
     }
     let fields: Bound<'_, PyDict> = PyDict::new(py);
-    fields.set_item("authored_sql", expansion.authored_sql.bind(py))?;
-    fields.set_item("expanded_sql", expansion.expanded_sql.bind(py))?;
+    fields.set_item("authored_sql", &*expansion.authored_sql)?;
+    fields.set_item("expanded_sql", &*expansion.expanded_sql)?;
     fields.set_item("passes", PyTuple::new(py, pass_objects)?)?;
     Ok(classes.sql_expansion.call((), Some(&fields))?.unbind())
+}
+
+/// A model input's attached schema: its name and dynamic column families.
+pub(crate) struct AttachedSchema<'py> {
+    pub(crate) name: String,
+    pub(crate) dynamic_columns: Bound<'py, PyAny>,
+    pub(crate) type_enforcement: bool,
+}
+
+/// The attached schema of `model_input`; a native input answers without building its entry.
+pub(crate) fn attached_schema<'py>(
+    model_input: &Bound<'py, PyAny>,
+) -> PyResult<Option<AttachedSchema<'py>>> {
+    let py: Python<'py> = model_input.py();
+    if let Ok(native) = model_input.cast::<NativeModelInput>() {
+        return native.get().read(py, |record, py| {
+            let Some(schema) = &record.schema else {
+                return Ok(None);
+            };
+            Ok(Some(AttachedSchema {
+                name: record.name.clone(),
+                dynamic_columns: schema.dynamic_columns.bind(py).clone().into_any(),
+                type_enforcement: schema.type_enforcement,
+            }))
+        });
+    }
+    let entry: Bound<'py, PyAny> = native_field(model_input, "schema_entry")?;
+    if entry.is_none() {
+        return Ok(None);
+    }
+    Ok(Some(AttachedSchema {
+        name: native_field(&entry, "name")?.extract()?,
+        dynamic_columns: native_field(&entry, "dynamic_columns")?,
+        type_enforcement: native_field(&entry, "type_enforcement")?.is_truthy()?,
+    }))
+}
+
+/// The declared column facts of `model_input`'s attached schema, empty without one.
+pub(crate) fn attached_columns(model_input: &Bound<'_, PyAny>) -> PyResult<Vec<SchemaColumnFact>> {
+    let py: Python<'_> = model_input.py();
+    if let Ok(native) = model_input.cast::<NativeModelInput>() {
+        return native.get().read_with_owner(py, |owner, record| {
+            Ok(owner
+                .input_schema_fact(record)
+                .map(|fact| fact.columns.clone())
+                .unwrap_or_default())
+        });
+    }
+    let entry: Bound<'_, PyAny> = native_field(model_input, "schema_entry")?;
+    if entry.is_none() {
+        return Ok(Vec::new());
+    }
+    python_column_facts(&native_field(&entry, "columns")?, None)
+}
+
+/// The name of `model_input`, its file stem; a native input answers from its record.
+pub(crate) fn input_model_name(model_input: &Bound<'_, PyAny>) -> PyResult<String> {
+    if let Ok(native) = model_input.cast::<NativeModelInput>() {
+        return native
+            .get()
+            .read(model_input.py(), |record, _| Ok(record.name.clone()));
+    }
+    native_field(model_input, "model_file")?
+        .getattr("file_path")?
+        .getattr("stem")?
+        .extract()
+}
+
+/// Each reference of `model_input` as `(kind, name, package, call argument count)`.
+pub(crate) fn input_reference_rows(model_input: &Bound<'_, PyAny>) -> PyResult<Vec<ReferenceRow>> {
+    let py: Python<'_> = model_input.py();
+    if let Ok(native) = model_input.cast::<NativeModelInput>() {
+        return native
+            .get()
+            .read(py, |record, _| Ok(record.references.clone()));
+    }
+    native_field(model_input, "references")?
+        .try_iter()?
+        .map(|reference| reference_row_of(&reference?))
+        .collect()
+}
+
+/// One `CompileSqlReference` record as its row.
+fn reference_row_of(reference: &Bound<'_, PyAny>) -> PyResult<ReferenceRow> {
+    Ok((
+        native_field(reference, "ref_kind")?.str()?.extract()?,
+        native_field(reference, "ref_name")?.extract()?,
+        native_field(reference, "ref_package")?.extract()?,
+        native_field(reference, "call_argument_count")?.extract()?,
+    ))
 }

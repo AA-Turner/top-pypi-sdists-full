@@ -3,9 +3,9 @@
 use std::cell::RefCell;
 
 use pyo3::exceptions::PyValueError;
-use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyModule, PyModuleMethods, PyResult};
+use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult};
 use pyo3::types::{PyDict, PyDictMethods, PyListMethods, PyString, PyStringMethods};
-use pyo3::{FromPyObject, PyErr, pyfunction, wrap_pyfunction};
+use pyo3::{FromPyObject, PyErr};
 use sqlbuild_sqltext::compiler::main::sql_interpolation::interpolate_sql;
 use sqlbuild_sqltext::compiler::models::InterpolationRead;
 use sqlbuild_sqltext::compiler::types::InterpolationHost;
@@ -14,7 +14,7 @@ const ENVIRONMENT_READ: &str = "env";
 const CONTEXT_READ: &str = "ctx";
 
 /// `(sql or None when unchanged, spans, reads, error message or None)` for one SQL text.
-type InterpolationRow = (
+pub(crate) type InterpolationRow = (
     Option<String>,
     Vec<(usize, usize, usize, usize)>,
     Vec<(&'static str, String)>,
@@ -142,18 +142,17 @@ fn key_text(key: &Bound<'_, PyAny>) -> String {
     key.str().map(|text| text.to_string()).unwrap_or_default()
 }
 
-/// Interpolate each `(sql, file path)`; an error is returned in its row, not raised.
-#[pyfunction]
-fn interpolate_sql_batch<'py>(
-    sqls: Vec<(String, String)>,
-    sources: InterpolationSources<'py>,
+/// Each `(sql, file path)` interpolated in order; non-rendering Python failures raise.
+pub(crate) fn interpolation_batch(
+    sources: InterpolationSources<'_>,
+    sqls: &[(String, String)],
 ) -> PyResult<Vec<InterpolationRow>> {
     let host = PythonInterpolationHost {
         sources,
         raised: RefCell::new(None),
     };
     let mut rows = Vec::with_capacity(sqls.len());
-    for (sql, file_path) in &sqls {
+    for (sql, file_path) in sqls {
         let row = match interpolate_sql(&host, sql, file_path) {
             Ok(result) => (result.sql, result.spans, read_rows(result.reads), None),
             Err(failure) => (
@@ -202,9 +201,4 @@ fn read_rows(reads: Vec<InterpolationRead>) -> Vec<(&'static str, String)> {
             InterpolationRead::Context(name) => (CONTEXT_READ, name),
         })
         .collect()
-}
-
-pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_function(wrap_pyfunction!(interpolate_sql_batch, module)?)?;
-    Ok(())
 }

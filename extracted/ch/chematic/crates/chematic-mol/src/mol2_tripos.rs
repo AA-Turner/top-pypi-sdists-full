@@ -5,6 +5,9 @@
 //!
 //! Reference: Tripos MOL2 format specification (SYBYL 7.x).
 
+mod atom_index;
+
+use atom_index::{mol2_atom_index, prepare_atom_ids};
 use core::fmt::Write as _;
 
 use chematic_core::{
@@ -25,7 +28,7 @@ pub(crate) fn perceive_mol2_tetrahedral_from_3d(
     if crate::mol2000::classify_geometry_rank(&points) != crate::mol2000::GeometryRank::ThreeD {
         return;
     }
-    crate::mol2000::perceive_tetrahedral_from_3d(mol, &Coords3D { points });
+    crate::mol2000::perceive_tetrahedral_from_3d_mol2(mol, &Coords3D { points });
 }
 
 pub(crate) fn perceive_mol2_stereo_from_coordinates(
@@ -34,6 +37,73 @@ pub(crate) fn perceive_mol2_stereo_from_coordinates(
 ) {
     perceive_mol2_tetrahedral_from_3d(mol, coordinates);
     chematic_perception::apply_ez_directions_from_3d(mol, coordinates);
+}
+
+/// MOL2 carries no implicit-H count or radical field. A record with explicit
+/// hydrogen atoms uses its atom/bond inventory as the hydrogen authority;
+/// otherwise a valence deficit is indistinguishable from an omitted H and
+/// the usual implicit-H rules remain in effect. Apply this before 3D stereo
+/// perception so the candidate-center calculation sees the same graph that
+/// SMILES output will use.
+pub(crate) fn preserve_mol2_explicit_hydrogen_inventory(mol: &mut Molecule) {
+    if !mol.atoms().any(|(_, atom)| atom.element == Element::H) {
+        return;
+    }
+    let heavy_atoms: Vec<_> = mol
+        .atoms()
+        .filter(|(_, atom)| atom.element != Element::H)
+        .map(|(idx, _)| idx)
+        .collect();
+    for idx in heavy_atoms {
+        mol.set_hydrogen_count(idx, Some(0));
+    }
+}
+
+/// Open Babel writes both carboxylate C--O bonds as `ar` when the oxygen type
+/// is `O.co2`. A formal -1 charge identifies the single-bonded oxygen; keep
+/// the original bond tokens in the source record while projecting the graph.
+pub(crate) fn restore_mol2_carboxylate_orders(
+    mol: &mut Molecule,
+    is_co2_oxygen: impl Fn(AtomIdx) -> bool,
+) {
+    let corrections: Vec<_> = mol
+        .atoms()
+        .filter(|(center, atom)| {
+            atom.element == Element::C && atom.charge == 0 && mol.degree(*center) == 3
+        })
+        .filter_map(|(center, _)| {
+            let oxygen_bonds: Vec<_> = mol
+                .neighbors(center)
+                .filter(|&(neighbor, bond)| {
+                    is_co2_oxygen(neighbor)
+                        && mol.atom(neighbor).element == Element::O
+                        && mol.degree(neighbor) == 1
+                        && mol.bond(bond).order == BondOrder::Aromatic
+                })
+                .collect();
+            if oxygen_bonds.len() != 2 {
+                return None;
+            }
+            let first = oxygen_bonds[0];
+            let second = oxygen_bonds[1];
+            if mol.neighbors(center).any(|(_, bond)| {
+                bond != first.1 && bond != second.1 && mol.bond(bond).order != BondOrder::Single
+            }) {
+                return None;
+            }
+            let first_charge = mol.atom(first.0).charge;
+            let second_charge = mol.atom(second.0).charge;
+            match (first_charge, second_charge) {
+                (-1, 0) => Some((first.1, second.1)),
+                (0, -1) => Some((second.1, first.1)),
+                _ => None,
+            }
+        })
+        .collect();
+    for (single, double) in corrections {
+        mol.set_bond_order(single, BondOrder::Single);
+        mol.set_bond_order(double, BondOrder::Double);
+    }
 }
 
 /// One `@<TRIPOS>ATOM` row whose interchange fields are not representable by
@@ -582,17 +652,8 @@ fn parse_mol2_atoms(
         parsed.coords.push(atom.coords);
         parsed.records.push(atom.record);
     }
+    prepare_atom_ids(&mut parsed.ids);
     Ok(parsed)
-}
-
-fn mol2_atom_index(ids: &[(u32, AtomIdx)], id: u32, line: usize) -> Result<AtomIdx, Mol2Error> {
-    ids.iter()
-        .find(|&&(candidate, _)| candidate == id)
-        .map(|&(_, index)| index)
-        .ok_or_else(|| Mol2Error::InvalidBondLine {
-            line,
-            detail: format!("atom_id {id} not found"),
-        })
 }
 
 fn parse_mol2_bond(
@@ -619,11 +680,11 @@ fn parse_mol2_bond(
     let a1_id = parse_id(1, "origin atom_id")?;
     let a2_id = parse_id(2, "target atom_id")?;
     let order = match fields[3] {
-        "1" | "1.5" => BondOrder::Single,
+        "1" | "1.5" | "am" => BondOrder::Single,
         "2" => BondOrder::Double,
         "3" => BondOrder::Triple,
         "4" => BondOrder::Quadruple,
-        "ar" | "am" => BondOrder::Aromatic,
+        "ar" => BondOrder::Aromatic,
         "un" => BondOrder::QueryAny,
         "du" | "nc" => BondOrder::Zero,
         _ => BondOrder::Single,
@@ -673,6 +734,10 @@ fn add_mol2_bonds(
 }
 
 /// Parse a loss-aware MOL2 record with explicit resource limits.
+///
+/// If any H atom is present, its explicit atom/bond inventory defines the
+/// hydrogen count for all heavy atoms. With no H atoms, normal valence-based
+/// implicit-H inference applies. Mixed-H sources are ambiguous in MOL2.
 pub fn parse_mol2_record_with_limits(
     s: &str,
     limits: &Mol2ParseLimits,
@@ -683,6 +748,12 @@ pub fn parse_mol2_record_with_limits(
     let mut atoms = parse_mol2_atoms(&all_lines, limits, &unity_formal_charges)?;
     let (bond_records, duplicate_bonds) = add_mol2_bonds(&all_lines, limits, &mut atoms)?;
     let mut molecule = atoms.builder.build();
+    preserve_mol2_explicit_hydrogen_inventory(&mut molecule);
+    restore_mol2_carboxylate_orders(&mut molecule, |idx| {
+        atoms.records[idx.0 as usize]
+            .atom_type
+            .eq_ignore_ascii_case("O.co2")
+    });
     perceive_mol2_stereo_from_coordinates(&mut molecule, &atoms.coords);
     Ok(Mol2Record {
         molecule,
@@ -821,10 +892,13 @@ fn write_mol2_atom(record: &Mol2Record, idx: AtomIdx, out: &mut String) {
         .and_then(|row| row.subst_name.as_deref())
         .unwrap_or("LIG");
     let partial_charge = source.and_then(|row| row.partial_charge).unwrap_or(0.0);
-    let _ = write!(
-        out,
-        "{atom_id:>6} {atom_name:<8} {x:>10.4} {y:>10.4} {z:>10.4} {atom_type:<8} {subst_id:>4}  {subst_name:<8} {partial_charge:>10.4}"
-    );
+    let _ = write!(out, "{atom_id:>6} {atom_name:<8} ");
+    for value in [x, y, z] {
+        crate::mol2000::push_fixed4(out, value, 10);
+        out.push(' ');
+    }
+    let _ = write!(out, "{atom_type:<8} {subst_id:>4}  {subst_name:<8} ");
+    crate::mol2000::push_fixed4(out, partial_charge, 10);
     if let Some(row) = source {
         for status in &row.status_bits {
             out.push(' ');
@@ -1176,6 +1250,15 @@ GASTEIGER
         for (_, bond) in mol.bonds() {
             assert_eq!(bond.order, BondOrder::Aromatic);
         }
+    }
+
+    #[test]
+    fn amide_bond_type_is_single_and_keeps_its_source_token() {
+        let input = ETHANOL_MOL2.replace("2     2     3    1", "2     2     3    am");
+        let (mol, _) = parse_mol2(&input).unwrap();
+        assert_eq!(mol.bonds().nth(1).unwrap().1.order, BondOrder::Single);
+        let record = parse_mol2_record(&input).unwrap();
+        assert_eq!(record.bonds[1].bond_type, "am");
     }
 
     #[test]

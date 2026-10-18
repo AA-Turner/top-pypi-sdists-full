@@ -10,12 +10,19 @@ import functools
 import hashlib
 import importlib.resources
 import math
-import struct
+import operator
+import sys
 import warnings
-import zlib
 
 from chardet import _kernel
 from chardet._kernel import dot_packed, pack_profile
+from chardet.models._format import (
+    langnorm_from_table,
+    parse_langnorm_bin,
+    parse_models_bin,
+    parse_rowmax_bin,
+    rowmax_from_table,
+)
 from chardet.registry import REGISTRY, lookup_encoding
 
 #: Shared empty packed buffers for profiles scored through another path.
@@ -42,8 +49,11 @@ _EMPTY_PACKED = (array.array("i"), array.array("i"))
 #: and silently diverging.  Change either one and check the other.
 _KERNEL_COMPILED = _kernel.__file__.endswith((".so", ".pyd"))
 
-_unpack_uint32 = struct.Struct(">I").unpack_from
-_unpack_float64 = struct.Struct(">d").unpack_from
+#: Whether interpreted dense profiles score through ``operator.itemgetter``.
+#: On CPython that moves the per-bigram gather and multiply-add into C,
+#: about 1.7x faster per model than the Python loop.  PyPy's JIT runs the
+#: plain loop about 4x faster than the itemgetter form, so it keeps the loop.
+_GATHER_DOT = sys.implementation.name == "cpython"
 
 # 256-entry membership table for whitespace bytes whose runs training
 # collapsed — native byte indexing under mypyc, used in the bigram-profile
@@ -57,10 +67,6 @@ _unpack_float64 = struct.Struct(">d").unpack_from
 _ASCII_WHITESPACE_TABLE = bytes(
     1 if b in (0x20, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0xA0) else 0 for b in range(256)
 )
-_V2_MAGIC = b"CMD2"
-#: rowmax.bin format: magic + SHA-256 of the matching models.bin + one
-#: 256-byte row-maxima table per model, in models.bin header order.
-_ROWMAX_MAGIC = b"CRM1"
 
 # Encodings that map to exactly one language, derived from the registry.
 # Keyed by canonical name only — callers always use canonical names.
@@ -68,127 +74,6 @@ _SINGLE_LANG_MAP: dict[str, str] = {}
 for _enc in REGISTRY.values():
     if len(_enc.languages) == 1:
         _SINGLE_LANG_MAP[_enc.name] = _enc.languages[0]
-
-
-def _decompress_tables(
-    data: bytes, offset: int, names: list[str], chunk_size: int = 262144
-) -> dict[str, bytes]:
-    """Decompress the model tables from ``data[offset:]``, one per name.
-
-    Each model is stored as its own bytes object rather than a memoryview
-    slice of one big blob: mypyc compiles bytes indexing in the scoring hot
-    loop to a native C array access, while memoryview indexing goes through
-    a boxed generic call.  Decompression is incremental, one 64 KB table at
-    a time — materializing the whole multi-megabyte blob and slicing it
-    would transiently double the allocation and strand the freed pages in
-    process RSS.  Trailing compressed bytes are ignored, as with whole-blob
-    ``zlib.decompress``; the decompressed size is validated instead.
-
-    :raises ValueError: If the decompressed size is not exactly
-        ``len(names) * 65536``.
-    """
-    num_models = len(names)
-    expected_size = num_models * 65536
-    decomp = zlib.decompressobj()
-    models: dict[str, bytes] = {}
-    table = bytearray()
-    produced = 0
-    pos = offset
-    end = len(data)
-    flushed = False
-    while len(models) < num_models:
-        need = 65536 - len(table)
-        if decomp.unconsumed_tail:
-            piece = decomp.decompress(decomp.unconsumed_tail, need)
-        elif pos < end:
-            chunk = data[pos : pos + chunk_size]
-            pos += len(chunk)
-            piece = decomp.decompress(chunk, need)
-        elif not flushed:
-            flushed = True
-            piece = decomp.flush()
-            if not piece:
-                break  # stream exhausted early -> size mismatch below
-        else:
-            break  # stream exhausted early -> size mismatch below
-        produced += len(piece)
-        table += piece
-        if len(table) == 65536:
-            models[names[len(models)]] = bytes(table)
-            table.clear()
-        elif len(table) > 65536:
-            break  # oversized flush -> size mismatch below
-    if len(models) == num_models:
-        # Drain any leftover decompressed output so extra data is caught,
-        # including surplus tables in compressed input not yet fed to the
-        # decompressor.  Bytes after the stream's end marker (decomp.eof)
-        # are ignored, matching whole-blob zlib.decompress behavior.
-        extra = b""
-        if decomp.unconsumed_tail:
-            extra = decomp.decompress(decomp.unconsumed_tail, 1)
-        while not extra and not decomp.eof and pos < end:
-            chunk = data[pos : pos + chunk_size]
-            pos += len(chunk)
-            extra = decomp.decompress(chunk, 1)
-        if not extra and not decomp.eof and not flushed:
-            extra = decomp.flush()
-        produced += len(extra)
-    if produced != expected_size or len(models) != num_models:
-        msg = (
-            f"corrupt models.bin: decompressed size {produced} "
-            f"!= expected {expected_size}"
-        )
-        raise ValueError(msg)
-    return models
-
-
-def _parse_models_bin(
-    data: bytes,
-) -> tuple[dict[str, bytes], dict[str, float]]:
-    """Parse the v2 dense zlib-compressed models.bin format.
-
-    :param data: Raw bytes of models.bin (must be non-empty).
-    :returns: A ``(models, norms)`` tuple.
-    :raises ValueError: If the data is corrupt or truncated.
-    """
-    try:
-        if data[:4] != _V2_MAGIC:
-            msg = "corrupt models.bin: missing CMD2 magic"
-            raise ValueError(msg)
-
-        offset = 4  # skip magic
-        (num_models,) = _unpack_uint32(data, offset)
-        offset += 4
-
-        if num_models > 10_000:
-            msg = f"corrupt models.bin: num_models={num_models} exceeds limit"
-            raise ValueError(msg)
-
-        names: list[str] = []
-        norms: dict[str, float] = {}
-        for _ in range(num_models):
-            (name_len,) = _unpack_uint32(data, offset)
-            offset += 4
-            if name_len > 256:
-                msg = f"corrupt models.bin: name_len={name_len} exceeds 256"
-                raise ValueError(msg)
-            name = data[offset : offset + name_len].decode("utf-8")
-            offset += name_len
-            (norm,) = _unpack_float64(data, offset)
-            offset += 8
-            names.append(name)
-            norms[name] = norm
-
-        models = _decompress_tables(data, offset, names)
-
-    except zlib.error as e:
-        msg = f"corrupt models.bin: {e}"
-        raise ValueError(msg) from e
-    except (struct.error, UnicodeDecodeError) as e:
-        msg = f"corrupt models.bin: {e}"
-        raise ValueError(msg) from e
-
-    return models, norms
 
 
 @functools.cache
@@ -209,7 +94,7 @@ def _load_models_data() -> tuple[dict[str, bytes], dict[str, float]]:
         )
         return {}, {}
 
-    return _parse_models_bin(data)
+    return parse_models_bin(data)
 
 
 def load_models() -> dict[str, bytes]:
@@ -287,10 +172,11 @@ def get_rowmax() -> dict[str, bytes]:
     (65536 terms) — statistical scoring uses this to rule out candidate
     models without scoring them fully.
 
-    Loads the precomputed ``rowmax.bin`` (written by ``scripts/train.py`` in
-    the same model order as ``models.bin``).  The file starts with a ``CRM1``
-    magic and the SHA-256 of the ``models.bin`` it was derived from: a stale
-    or mismatched file would silently under-estimate row maxima and break
+    Loads the precomputed ``rowmax.bin`` (written by
+    ``chardet.models._format.write_model_artifacts`` in the same model
+    order as ``models.bin``).  The file starts with a ``CRM1`` magic and
+    the SHA-256 of the ``models.bin`` it was derived from: a stale or
+    mismatched file would silently under-estimate row maxima and break
     the upper bound that pruning depends on, so anything that does not match
     the *current* ``models.bin`` byte-for-byte is rejected and the tables
     are derived from the models directly (slower, but always correct).
@@ -305,17 +191,10 @@ def get_rowmax() -> dict[str, bytes]:
     except (FileNotFoundError, OSError):
         data = b""
         models_digest = b""
-    header_size = 4 + 32
-    if (
-        data[:4] == _ROWMAX_MAGIC
-        and data[4:header_size] == models_digest
-        and len(data) == header_size + len(models) * 256
-    ):
-        # models preserves models.bin header order, matching rowmax.bin.
-        return {
-            key: data[header_size + i * 256 : header_size + (i + 1) * 256]
-            for i, key in enumerate(models)
-        }
+    # models preserves models.bin header order, matching rowmax.bin.
+    tables = parse_rowmax_bin(data, models_digest, list(models))
+    if tables is not None:
+        return tables
     if models:
         warnings.warn(
             "chardet rowmax.bin is missing or does not match models.bin; "
@@ -323,10 +202,70 @@ def get_rowmax() -> dict[str, bytes]:
             RuntimeWarning,
             stacklevel=2,
         )
-    return {
-        key: bytes(max(table[start : start + 256]) for start in range(0, 65536, 256))
-        for key, table in models.items()
-    }
+    return {key: rowmax_from_table(table) for key, table in models.items()}
+
+
+@functools.cache
+def get_language_norms() -> dict[str, float]:
+    """Return per-model norms for language scoring, keyed by model key.
+
+    The language tiers score in an IDF-weighted space (see
+    :meth:`BigramProfile.for_language`), where a model's length is its
+    norm after each weight is scaled by the square root of its bigram's
+    IDF.  Loads the precomputed ``langnorm.bin`` (written by
+    ``chardet.models._format.write_model_artifacts`` in the same model
+    order as ``models.bin``) and, like :func:`get_rowmax`, rejects a file
+    whose embedded digest does not match the current ``models.bin``:
+    a stale norm table would tilt every language comparison.  The
+    fallback derives the norms from the tables directly, which is correct
+    but costs a pass over every model.
+    """
+    models = load_models()
+    files = importlib.resources.files("chardet.models")
+    try:
+        data = files.joinpath("langnorm.bin").read_bytes()
+        models_digest = hashlib.sha256(
+            files.joinpath("models.bin").read_bytes()
+        ).digest()
+    except (FileNotFoundError, OSError):
+        data = b""
+        models_digest = b""
+    norms = parse_langnorm_bin(data, models_digest, list(models))
+    if norms is not None:
+        return norms
+    if models:
+        warnings.warn(
+            "chardet langnorm.bin is missing or does not match models.bin; "
+            "deriving language norms from the models (slower startup)",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    idf = get_idf_weights()
+    return {key: langnorm_from_table(table, idf) for key, table in models.items()}
+
+
+#: The root-IDF scale table carries this factor so its entries fill a byte:
+#: ``round(16 * sqrt(idf))`` runs from 16 to 255.  The language profile's
+#: norm carries the same factor, so it cancels out of every score.
+_LANGUAGE_SCALE_FACTOR = 16
+
+
+@functools.cache
+def get_language_scale() -> bytes:
+    """Return the 65536-byte root-IDF table the language profile multiplies by.
+
+    Entry ``i`` is ``round(16 * sqrt(idf[i]))``.  The language tiers
+    compare an IDF-weighted profile against models weighted by the square
+    root of IDF; folding the model-side factor into the profile, as the
+    product of this table and the IDF table per occurrence, leaves the
+    model tables untouched, so the same scoring loop serves both metrics
+    and only the norm differs (see :func:`get_language_norms`).  A byte
+    table keeps the profile walk on native indexing: a list of the
+    products costs about as much again as the walk itself.
+    """
+    idf = get_idf_weights()
+    roots = bytes(round(_LANGUAGE_SCALE_FACTOR * math.sqrt(v)) for v in range(256))
+    return bytes(roots[v] for v in idf)
 
 
 @functools.cache
@@ -363,7 +302,8 @@ class BigramProfile:
     Each bigram is weighted by its IDF (inverse document frequency) across all
     models — bigrams unique to few models get high weight, bigrams common to
     all models get weight 1.  ``nonzero`` lists the indices carrying weight,
-    in first-encounter order.
+    in first-encounter order.  :meth:`for_language` builds the same profile
+    under the language tiers' heavier weighting instead.
 
     The weights are reachable two ways, and which one a profile fills
     depends on how it was built:
@@ -374,6 +314,10 @@ class BigramProfile:
     * ``values`` — a plain list parallel to ``nonzero``, filled by
       :meth:`from_weighted_freq` for the small focused profiles confusion
       resolution builds, which are scored inline instead.
+    * ``gather``/``dense_vals`` — an :func:`operator.itemgetter` over
+      ``nonzero`` and the weights it picks out of the dense table, filled
+      for a streaming profile only when the kernel is not compiled and
+      the interpreter is CPython.
     ``row_freq`` aggregates the weights by lead byte (256 entries) and
     ``nonzero_rows`` lists the lead bytes with non-zero total; together with
     per-model row maxima (:func:`get_rowmax`) they let statistical scoring
@@ -387,7 +331,9 @@ class BigramProfile:
     """
 
     __slots__ = (
+        "dense_vals",
         "freq",
+        "gather",
         "idx_arr",
         "input_norm",
         "nonzero",
@@ -444,6 +390,61 @@ class BigramProfile:
         # more than the sparse constructor's allocation saves.
         self._finish(freq, nonzero, [], w_sum)
 
+    @classmethod
+    def for_language(cls, data: bytes) -> "BigramProfile":
+        """Build the profile the language tiers score with.
+
+        Same bigram walk as the streaming constructor, but each occurrence
+        carries IDF times :func:`get_language_scale` (a byte-quantized
+        root of IDF) rather than IDF alone.  Scored against
+        :func:`get_language_norms`, this is the cosine between the
+        IDF-weighted input and models weighted by the square root of IDF.
+        The plain cosine lets one high-IDF bigram that
+        two languages share, such as the UTF-8 pair for ``é``, outweigh
+        every bigram that tells them apart: it rates the model by the share
+        that bigram takes of its *unweighted* length, so an accent-heavy
+        language wins French text on the strength of ``é`` alone.  Weighting
+        the model side too charges each model for its rare bigrams, and the
+        common bigrams decide again.
+
+        :param data: The raw byte data to profile.
+        :returns: A profile for use with ``language_weighting=True``.
+        """
+        profile = cls(b"")
+        total_bigrams = len(data) - 1
+        if total_bigrams <= 0:
+            return profile
+        idf = get_idf_weights()
+        freq: list[int] = [0] * 65536
+        nonzero: list[int] = []
+        for i in range(total_bigrams):
+            b1 = data[i]
+            b2 = data[i + 1]
+            if b1 == b2 and _ASCII_WHITESPACE_TABLE[b1]:
+                continue
+            idx = (b1 << 8) | b2
+            if freq[idx] == 0:
+                nonzero.append(idx)
+            freq[idx] += idf[idx]
+        # The walk above is the streaming constructor's, under IDF alone.
+        # The model-side factor (root IDF, scaled to a byte) is applied once
+        # per distinct bigram rather than once per occurrence, and the
+        # profile's own length is taken under IDF with the same scale
+        # factor so it cancels: the quotient is then the cosine between the
+        # IDF-weighted input and the root-IDF-weighted model.
+        scale = get_language_scale()
+        w_sum = 0
+        norm_sq = 0
+        for idx in nonzero:
+            v = freq[idx]
+            norm_sq += v * v
+            w = v * scale[idx]
+            freq[idx] = w
+            w_sum += w
+        profile._finish(freq, nonzero, [], w_sum)
+        profile.input_norm = _LANGUAGE_SCALE_FACTOR * math.sqrt(norm_sq)
+        return profile
+
     def _finish(
         self,
         freq: list[int],
@@ -494,6 +495,14 @@ class BigramProfile:
             self.idx_arr, self.val_arr = pack_profile(nonzero, freq)
         # Retained only when scoring will read it -- see _KERNEL_COMPILED.
         self.freq = [] if (values or _KERNEL_COMPILED) else freq
+        # See _GATHER_DOT.  Skipped below two bigrams, where itemgetter
+        # returns a bare value rather than a tuple.
+        self.gather: operator.itemgetter[tuple[int, ...]] | None = None
+        self.dense_vals: tuple[int, ...] = ()
+        if self.freq and len(nonzero) > 1 and _GATHER_DOT:
+            gather = operator.itemgetter(*nonzero)
+            self.gather = gather
+            self.dense_vals = gather(freq)
 
     @classmethod
     def from_weighted_freq(cls, weighted_freq: dict[int, int]) -> "BigramProfile":
@@ -530,6 +539,8 @@ def score_with_profile(
     profile: BigramProfile,
     model: "bytes | bytearray | memoryview",
     model_key: str = "",
+    *,
+    language_weighting: bool = False,
 ) -> float:
     """Score a pre-computed bigram profile against a single model using cosine similarity.
 
@@ -537,20 +548,28 @@ def score_with_profile(
     copied to ``bytes`` first: the narrow type lets mypyc compile the
     dot-product loop with native byte indexing (and keeps compiled and
     pure-Python installs accepting the same argument types).
+
+    With *language_weighting* the profile must come from
+    :meth:`BigramProfile.for_language` and the model is normalized by its
+    :func:`get_language_norms` entry, which together give the cosine in
+    the language tiers' IDF-weighted space.
     """
     if not isinstance(model, bytes):
         model = bytes(model)
     if profile.input_norm == 0.0:
         return 0.0
-    norms = _get_model_norms()
+    norms = get_language_norms() if language_weighting else _get_model_norms()
     model_norm = norms.get(model_key) if model_key else None
     if model_norm is None:
-        sq_sum = 0
-        for i in range(65536):
-            v = model[i]
-            if v:
-                sq_sum += v * v
-        model_norm = math.sqrt(sq_sum)
+        if language_weighting:
+            model_norm = langnorm_from_table(model, get_idf_weights())
+        else:
+            sq_sum = 0
+            for i in range(65536):
+                v = model[i]
+                if v:
+                    sq_sum += v * v
+            model_norm = math.sqrt(sq_sum)
     if model_norm == 0.0:
         return 0.0
     nonzero = profile.nonzero
@@ -567,10 +586,14 @@ def score_with_profile(
     else:
         # No compiled kernel: the dense table beats packed buffers here,
         # because a list returns a cached int where array('i') boxes a new one.
-        dot = 0
-        freq = profile.freq
-        for idx in nonzero:
-            dot += model[idx] * freq[idx]
+        gather = profile.gather
+        if gather is not None:
+            dot = sum(map(operator.mul, gather(model), profile.dense_vals))
+        else:
+            dot = 0
+            freq = profile.freq
+            for idx in nonzero:
+                dot += model[idx] * freq[idx]
     return dot / (model_norm * profile.input_norm)
 
 
@@ -594,12 +617,13 @@ ART_LANGUAGE = "zxx"
 _THIN_RARE_MAX_BYTES = 128
 
 #: Maximum lead over the best prevalent-language variant for a rare win on
-#: a short input to count as noise.  Measured mislabels win by <= 0.021.
-#: This is NOT a safety floor: genuine gd/cy snippets measure 0.07+ and the
-#: nearest measured genuine escape is Welsh at 0.043, but short Breton and
-#: Irish can sit inside the band and are the accepted casualty class per
-#: ADR-0005's addendum — widening the margin widens that class.
-_THIN_RARE_MARGIN = 0.03
+#: a short input to count as noise, measured in the language tiers' weighted
+#: cosine.  The calibrated English mislabel snippet wins as Gaelic by 0.039
+#: and the pinned Irish casualty by 0.053.  This is NOT a safety floor:
+#: genuine gd/cy/ga snippets measure 0.14+ at 60 characters, but short
+#: Breton and Irish can sit inside the band and are the accepted casualty
+#: class per ADR-0005's addendum — widening the margin widens that class.
+_THIN_RARE_MARGIN = 0.06
 
 
 def score_best_language(
@@ -608,6 +632,7 @@ def score_best_language(
     profile: BigramProfile | None = None,
     *,
     demote_thin_rare: bool = False,
+    language_weighting: bool = False,
 ) -> tuple[float, str | None]:
     """Score data against all language variants of an encoding.
 
@@ -630,6 +655,12 @@ def score_best_language(
         so ``len(data)`` here is not a reliable proxy for input size.
         Language-fill callers pass this; encoding-ranking callers must not,
         so that candidate ordering stays byte-identical.
+    :param language_weighting: Score in the language tiers' IDF-weighted
+        space (see :meth:`BigramProfile.for_language`).  A *profile* passed
+        alongside must have been built by that constructor.  The
+        encoding-ranking caller leaves this off for the same reason as
+        *demote_thin_rare*: its scores feed the confidence and ordering of
+        encodings, and the weighted cosine lives on a different scale.
     :returns: A ``(score, language)`` tuple.  The score is always the best
         cosine similarity across variants; the language matches it except
         when ``demote_thin_rare`` fires, in which case the label is the
@@ -645,14 +676,20 @@ def score_best_language(
         return 0.0, None
 
     if profile is None:
-        profile = BigramProfile(data)
+        profile = (
+            BigramProfile.for_language(data)
+            if language_weighting
+            else BigramProfile(data)
+        )
 
     best_score = 0.0
     best_lang: str | None = None
     best_prevalent = 0.0
     best_prevalent_lang: str | None = None
     for lang, model, model_key in variants:
-        s = score_with_profile(profile, model, model_key)
+        s = score_with_profile(
+            profile, model, model_key, language_weighting=language_weighting
+        )
         if s > best_score:
             best_score = s
             best_lang = lang

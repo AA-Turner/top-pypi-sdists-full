@@ -7,12 +7,15 @@ import re
 import sys
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple
 
 from . import cpp as fstcpp
 from .dlpack import from_cuda_buffer
 from .frameworks import FrameworkOpBase, TensorBase
 from .st_types import Device, DType
+
+if TYPE_CHECKING:
+    from .allocation import SharedDeviceAllocation
 
 
 def init_logger(name: str):
@@ -61,6 +64,62 @@ def get_fs_type(path: str, mounts_file: str = "/proc/mounts") -> str:
         return best_type
     except OSError:
         return ""
+
+
+# Preserve kernel readahead and client caching on network filesystems.
+_NETWORK_FS = {
+    "nfs",
+    "nfs4",
+    "cifs",
+    "smb3",
+    "smbfs",
+    "sshfs",
+    "fuse.sshfs",
+    "lustre",
+    "gpfs",
+    "beegfs",
+    "glusterfs",
+    "ceph",
+    "9p",
+    "virtiofs",
+}
+# RAM-backed filesystems: the page cache is the storage, so a bounce-buffer
+# reader gains nothing from O_DIRECT, and tmpfs rejects it before Linux 6.6.
+# Only copiers that opt in (nogds) read these buffered; the unified copier's
+# multithreaded direct reader is unmeasured there and keeps its default.
+_RAM_FS = {"tmpfs", "ramfs"}
+_warned_odirect_fs: Set[str] = set()
+
+# Appended to read failures on an O_DIRECT descriptor, so the user can tell a
+# direct-I/O rejection from a truncated or unreadable file.
+ODIRECT_HINT = "set FASTSAFETENSORS_ODIRECT=0 to use buffered reads"
+
+
+def is_odirect_enabled(path: str, buffered_ram_fs: bool = False) -> bool:
+    """Select direct I/O by default on local or unknown filesystems.
+
+    FASTSAFETENSORS_ODIRECT=1/0 overrides the filesystem policy for every
+    copier. ``buffered_ram_fs`` also reads tmpfs and ramfs buffered. Platforms
+    without O_DIRECT use buffered I/O. This is a policy check, not a probe of
+    whether this particular file accepts direct I/O; copiers that open with
+    O_DIRECT fall back to buffered reads when the filesystem rejects it.
+    """
+    if not getattr(os, "O_DIRECT", 0):
+        return False
+    override = os.environ.get("FASTSAFETENSORS_ODIRECT")
+    if override is not None:
+        return override == "1"
+    fstype = get_fs_type(path)
+    if fstype in _NETWORK_FS or (buffered_ram_fs and fstype in _RAM_FS):
+        if fstype not in _warned_odirect_fs:
+            _warned_odirect_fs.add(fstype)
+            init_logger(__name__).info(
+                "checkpoint on %s: using buffered reads instead of O_DIRECT "
+                "(set FASTSAFETENSORS_ODIRECT=1 to force)",
+                fstype,
+            )
+        return False
+    return True
 
 
 def get_device_numa_node(device: Optional[int]) -> Optional[int]:
@@ -390,9 +449,10 @@ class SafeTensorsMetadata:
         device: Device,
         copy_start_offset: int,
         dtype: DType = DType.AUTO,
+        owner: Optional["SharedDeviceAllocation"] = None,
     ) -> Dict[str, TensorBase]:
         """Instantiate every tensor in this shard from the device buffer."""
-        return self._get_tensors(gbuf, device, copy_start_offset, dtype)
+        return self._get_tensors(gbuf, device, copy_start_offset, dtype, owner=owner)
 
     def _get_tensors(
         self,
@@ -401,13 +461,36 @@ class SafeTensorsMetadata:
         copy_start_offset: int,
         dtype: DType = DType.AUTO,
         names: Optional[Set[str]] = None,
+        owner: Optional["SharedDeviceAllocation"] = None,
     ) -> Dict[str, TensorBase]:
         # ``names`` restricts instantiation to that subset of tensors. Required
         # when ``gbuf`` is a compacted chunk buffer (holding only some tensors'
         # bytes): other tensors' computed offsets would fall outside the buffer.
+        # In-place dtype conversion below uses individual destination views;
+        # only the unconverted path can use shared typed storage. A single
+        # tensor has nothing to share and is cheaper on the portable path.
+        if dtype == DType.AUTO and len(self.tensors if names is None else names) > 1:
+            views = self.framework.iter_buffer_views(
+                self, gbuf, device, copy_start_offset, names, owner=owner
+            )
+            if views is not None:
+                return dict(views)
         ret = {}
         for tensor_name, t in self.tensors.items():
             if names is not None and tensor_name not in names:
+                continue
+            if t.data_offsets[0] == t.data_offsets[1]:
+                if dtype != DType.AUTO and self.framework.get_dtype_size(
+                    dtype
+                ) > self.framework.get_dtype_size(t.dtype):
+                    raise Exception(
+                        f"Online type conversion to larger sizes is not supported ({t.dtype} -> {dtype})"
+                    )
+                ret[tensor_name] = self.framework.get_empty_tensor(
+                    t.shape, t.dtype if dtype == DType.AUTO else dtype, device
+                )
+                if dtype != DType.AUTO:
+                    t.dtype = dtype
                 continue
             dst_dev_ptr = (
                 gbuf.get_base_address()
@@ -425,6 +508,7 @@ class SafeTensorsMetadata:
                 dl_strides,
                 disk_dtype,
                 device,
+                owner,
             )
             t2 = self.framework.from_dlpack(dl_tensor, device, disk_dtype)
             if disk_dtype != t.dtype:
@@ -451,6 +535,7 @@ class SafeTensorsMetadata:
                     t.strides,
                     conv_dtype,
                     device,
+                    owner,
                 )
                 t2 = self.framework.from_dlpack(dl_tensor, device, conv_dtype)
                 if dtype != conv_dtype:
@@ -510,6 +595,10 @@ class TensorFrame:
     @classmethod
     def from_buffer(self, entry: OrderedDict[str, List[int]]):
         shape = entry["shape"]
+        if not isinstance(shape, list) or any(
+            type(d) is not int or d < 0 for d in shape
+        ):
+            raise ValueError(f"shape must contain nonnegative integers: {shape!r}")
         data_offsets = list(entry["data_offsets"])
         strides = []
         offsets = []

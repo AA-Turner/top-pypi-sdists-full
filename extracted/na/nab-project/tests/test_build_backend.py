@@ -9,7 +9,6 @@ dynamic dispatch in ``extract_metadata``, including the
 from __future__ import annotations
 
 import errno
-import sys
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from pathlib import Path
@@ -18,6 +17,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import tomli
 
+from nab_markersets._compat import get_int_max_str_digits
 from nab_project.build_backend import (
     BuildBackendError,
     extract_metadata,
@@ -31,6 +31,10 @@ from nab_provider._vendor.packaging.specifiers import SpecifierSet
 from nab_provider._vendor.packaging.version import Version
 from nab_provider.metadata import parse_metadata
 from nab_provider.requirements_file import InvalidProjectRequirementError
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
 
 
 def _write_pyproject(tmp: Path, body: str) -> Path:
@@ -220,9 +224,10 @@ class TestExtractStaticMetadata:
         ):
             extract_static_metadata(tmp_path)
 
+    @requires_int_limit
     def test_oversized_version_raises(self, tmp_path: Path) -> None:
         """A release segment past the int-from-string limit is corrupt too."""
-        oversized = "1" * (sys.get_int_max_str_digits() + 1)
+        oversized = "1" * ((get_int_max_str_digits() or 4300) + 1)
         _write_pyproject(
             tmp_path, f'[project]\nname = "foo"\nversion = "{oversized}"\n'
         )
@@ -232,9 +237,10 @@ class TestExtractStaticMetadata:
         ):
             extract_static_metadata(tmp_path)
 
+    @requires_int_limit
     def test_oversized_requires_python_raises(self, tmp_path: Path) -> None:
         """A specifier parses fine and only fails when something compares it."""
-        oversized = "1" * (sys.get_int_max_str_digits() + 1)
+        oversized = "1" * ((get_int_max_str_digits() or 4300) + 1)
         _write_pyproject(
             tmp_path,
             f'[project]\nname = "foo"\nversion = "1.0"\n'
@@ -246,9 +252,10 @@ class TestExtractStaticMetadata:
         ):
             extract_static_metadata(tmp_path)
 
+    @requires_int_limit
     def test_oversized_dependency_version_raises(self, tmp_path: Path) -> None:
         """The same deferred conversion applies to a dependency's specifier."""
-        oversized = "1" * (sys.get_int_max_str_digits() + 1)
+        oversized = "1" * ((get_int_max_str_digits() or 4300) + 1)
         _write_pyproject(
             tmp_path,
             f'[project]\nname = "foo"\nversion = "1.0"\n'

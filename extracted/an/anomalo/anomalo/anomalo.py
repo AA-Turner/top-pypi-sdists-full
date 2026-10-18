@@ -7,8 +7,8 @@ import sys
 import fire
 
 from .cli.cli import CLI
-from .client import Client, client_version  # noqa
-from .encoder import Encoder  # noqa
+from .client import Client, client_version  # noqa: F401 (unused-import)
+from .encoder import Encoder  # noqa: F401 (unused-import)
 from .update_check import UpdateNotice
 
 

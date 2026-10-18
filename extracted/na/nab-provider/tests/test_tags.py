@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from nab_markersets._compat import get_int_max_str_digits
 from nab_provider._vendor.packaging.tags import Tag
 from nab_provider.records import WheelFile
 from nab_provider.tags import (
@@ -36,6 +37,10 @@ from nab_provider.tags import (
     wheel_tag_set,
 )
 from nab_provider.target import PLATFORM_MARKERS
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
 
 # numpy 2.5.1 ships one manylinux wheel (tagged 2.27 and 2.28, no older),
 # one musllinux wheel, and one free-threaded wheel per platform.
@@ -1069,6 +1074,18 @@ class TestSelectWheel:
         assert tags.pick([older, newer]) is newer
         assert tags.pick([newer, older]) is newer
 
+    def test_build_number_conversion_failure_is_malformed(self) -> None:
+        spec = PlatformSpec("linux_x86_64")
+        tags = TagSet.for_spec(python_version="3.11", spec=spec)
+        untagged = _wheel("pkg-1.0-py3-none-any.whl")
+        rebuild = _wheel("pkg-1.0-5-py3-none-any.whl")
+
+        with patch("nab_provider.tags.int", side_effect=ValueError, create=True):
+            chosen = tags.pick([untagged, rebuild])
+
+        assert chosen is untagged
+
+    @requires_int_limit
     def test_an_absurd_build_number_is_malformed(self) -> None:
         """The index names the build tag, and int() raises above 4300 digits."""
         spec = PlatformSpec("linux_x86_64")

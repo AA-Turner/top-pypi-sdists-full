@@ -1,8 +1,8 @@
 //! Enum and constant references expanded natively, for model queries and every other caller.
 
-use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyErr, PyModule, PyModuleMethods, PyResult};
+use pyo3::FromPyObject;
+use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyErr, PyResult};
 use pyo3::types::{PyDict, PyDictMethods, PyInt, PyTuple};
-use pyo3::{FromPyObject, pyfunction, wrap_pyfunction};
 use sqlbuild_analysis::compiled_project::errors::DeclarationError;
 use sqlbuild_analysis::compiled_project::main::declaration_error_message::declaration_error_message;
 use sqlbuild_analysis::compiled_project::main::enum_member_literal::enum_member_literal;
@@ -10,6 +10,8 @@ use sqlbuild_analysis::compiled_project::main::splice_declarations::splice_decla
 use sqlbuild_analysis::compiled_project::models::{
     DeclarationSplice, InaccessibleDeclaration, SplicedSql,
 };
+
+use crate::bindings::_helpers::render::declaration_values::ConstantRendering;
 
 const ENUM_REFERENCE_KIND: u8 = 0;
 const ENUM_KIND: &str = "enum";
@@ -57,14 +59,14 @@ pub(crate) struct ExpansionConsumer<'a, 'py> {
     pub(crate) path: &'a str,
 }
 
-/// One expansion: the SQL, its scan, the visible declarations and the adapter's constant renderer.
+/// One expansion: the SQL, its scan, the visible declarations and the adapter's constant rendering.
 pub(crate) struct DeclarationExpansion<'a, 'py> {
     pub(crate) sql: &'a str,
     pub(crate) references: &'a [ScannedReference],
     pub(crate) stop: Option<u8>,
     pub(crate) context: &'a Bound<'py, PyAny>,
     pub(crate) consumer: ExpansionConsumer<'a, 'py>,
-    pub(crate) render_constant: &'a Bound<'py, PyAny>,
+    pub(crate) rendering: &'a ConstantRendering,
     pub(crate) classes: &'a ExpansionClasses<'py>,
 }
 
@@ -145,12 +147,9 @@ fn constant_text<'py>(
     name: &str,
 ) -> PyResult<(String, Bound<'py, PyAny>)> {
     let declaration: Bound<'py, PyAny> = visible_declaration(request, CONSTANT_KIND, name)?;
-    let arguments: Bound<'py, PyDict> = PyDict::new(declaration.py());
-    arguments.set_item(DECLARATION, declaration)?;
     let rendered: String = request
-        .render_constant
-        .call((), Some(&arguments))?
-        .extract()?;
+        .rendering
+        .render(&declaration, request.consumer.path)?;
     Ok((rendered, visibility(request, CONSTANT_VISIBILITY, name)?))
 }
 
@@ -291,36 +290,4 @@ pub(crate) fn span_rows(spliced: &SplicedSql) -> Vec<SpanRow> {
             )
         })
         .collect()
-}
-
-/// Expand one string's scanned references; `source` is `(sql, references, stop code)`.
-#[pyfunction]
-fn expand_declaration_references<'py>(
-    source: (String, Vec<ScannedReference>, Option<u8>),
-    context: Bound<'py, PyAny>,
-    consumer: (Option<Bound<'py, PyAny>>, bool, String),
-    renderers: (Bound<'py, PyAny>, ExpansionClasses<'py>),
-) -> PyResult<(String, Vec<SpanRow>, Vec<Bound<'py, PyAny>>)> {
-    let (sql, references, stop) = source;
-    let (identity, relationship_visibility, path) = consumer;
-    let (render_constant, classes) = renderers;
-    let expanded: ExpandedDeclarations<'py> = expand_declarations(&DeclarationExpansion {
-        sql: &sql,
-        references: &references,
-        stop,
-        context: &context,
-        consumer: ExpansionConsumer {
-            identity,
-            relationship_visibility,
-            path: &path,
-        },
-        render_constant: &render_constant,
-        classes: &classes,
-    })?;
-    let spans: Vec<SpanRow> = span_rows(&expanded.spliced);
-    Ok((expanded.spliced.sql, spans, expanded.usages))
-}
-
-pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_function(wrap_pyfunction!(expand_declaration_references, module)?)
 }

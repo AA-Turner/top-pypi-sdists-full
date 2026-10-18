@@ -382,13 +382,31 @@ impl MD073TocValidation {
         self.detect_by_markers(ctx)
     }
 
+    /// Remove `depth` blockquote markers, each with at most one following space,
+    /// leaving any further indentation in place.
+    fn strip_quote_markers(line: &str, depth: usize) -> &str {
+        let mut rest = line;
+        for _ in 0..depth {
+            let Some(after) = rest.trim_start().strip_prefix('>') else {
+                break;
+            };
+            rest = after.strip_prefix(' ').unwrap_or(after);
+        }
+        rest
+    }
+
     /// Extract TOC entries from the detected region
     fn extract_toc_entries(&self, ctx: &LintContext, region: &TocRegion) -> Vec<TocEntry> {
         let mut entries = Vec::new();
 
         for idx in (region.start_line - 1)..region.end_line.min(ctx.lines.len()) {
             let line_info = &ctx.lines[idx];
-            let content = line_info.content(ctx.content);
+            // A TOC inside a blockquote is matched on the text after the quote
+            // markers, keeping the indentation of nested entries.
+            let content = line_info.blockquote.as_ref().map_or_else(
+                || line_info.content(ctx.content),
+                |quote| Self::strip_quote_markers(line_info.content(ctx.content), quote.nesting_level),
+            );
 
             if let Some(caps) = TOC_ENTRY_PATTERN.captures(content) {
                 let indent_spaces = caps.get(1).map_or(0, |m| m.as_str().len());
@@ -411,66 +429,64 @@ impl MD073TocValidation {
         let mut entries = Vec::new();
         let mut fragment_counts: HashMap<String, usize> = HashMap::new();
 
-        for (idx, line_info) in ctx.lines.iter().enumerate() {
-            let line_num = idx + 1;
-
-            // Skip headings before/within the TOC region
-            if line_num <= toc_region.end_line {
-                // Also skip the TOC heading itself for heading-based detection
-                continue;
-            }
+        // Every heading takes a number from the renderer, in document order, whether
+        // or not it appears in the TOC, so the duplicate numbering runs over all of
+        // them and only the entries are filtered.
+        for parsed in ctx.headings() {
+            let line_num = parsed.line_num;
+            let line_info = parsed.line_info;
+            let heading = parsed.heading;
 
             // Skip code blocks, front matter, HTML blocks
             if line_info.in_code_block || line_info.in_front_matter || line_info.in_html_block {
                 continue;
             }
 
-            if let Some(heading) = &line_info.heading {
-                // Filter by min/max level
-                if heading.level < self.min_level || heading.level > self.max_level {
-                    continue;
-                }
-
-                // A custom ID ({#id}) replaces the generated slug. An HTML anchor
-                // element beside the heading adds a target either way: the
-                // renderer keeps the element's own id, and without a custom ID it
-                // still generates the slug from the text, which still counts
-                // towards the numbering of later duplicates.
-                let (anchor, aliases) = match &heading.custom_id {
-                    Some(custom_id) => (
-                        Self::deduplicate_fragment(&mut fragment_counts, custom_id),
-                        extract_html_anchor_ids(&heading.raw_text),
-                    ),
-                    None => {
-                        let slug = AnchorStyle::GitHub.generate_fragment(&heading.slug_text);
-                        let generated = Self::deduplicate_fragment(&mut fragment_counts, &slug);
-                        let mut explicit = extract_html_anchor_ids(&heading.raw_text);
-                        match explicit.first().cloned() {
-                            Some(preferred) => {
-                                explicit.remove(0);
-                                explicit.push(generated);
-                                (preferred, explicit)
-                            }
-                            // A heading whose text slugs to nothing (an image, an
-                            // emoji) gets no anchor from GitHub, only a number on a
-                            // repeat, so without an element of its own no TOC entry
-                            // can reach it. It still counts towards the numbering.
-                            None if slug.is_empty() => continue,
-                            None => (generated, Vec::new()),
+            // A custom ID ({#id}) replaces the generated slug. An HTML anchor
+            // element beside the heading adds a target either way: the
+            // renderer keeps the element's own id, and without a custom ID it
+            // still generates the slug from the text, which still counts
+            // towards the numbering of later duplicates.
+            let (anchor, aliases) = match &heading.custom_id {
+                Some(custom_id) => (
+                    Self::deduplicate_fragment(&mut fragment_counts, custom_id),
+                    extract_html_anchor_ids(&heading.raw_text),
+                ),
+                None => {
+                    let slug = AnchorStyle::GitHub.generate_fragment(&heading.slug_text);
+                    let generated = Self::deduplicate_fragment(&mut fragment_counts, &slug);
+                    let mut explicit = extract_html_anchor_ids(&heading.raw_text);
+                    match explicit.first().cloned() {
+                        Some(preferred) => {
+                            explicit.remove(0);
+                            explicit.push(generated);
+                            (preferred, explicit)
                         }
+                        // A heading whose text slugs to nothing (an image, an
+                        // emoji) gets no anchor from GitHub, only a number on a
+                        // repeat, so without an element of its own no TOC entry
+                        // can reach it. It still counts towards the numbering.
+                        None if slug.is_empty() => continue,
+                        None => (generated, Vec::new()),
                     }
-                };
+                }
+            };
 
-                entries.push(ExpectedTocEntry {
-                    // A Setext heading is recorded on the last line of its text,
-                    // and a reader looks for it where it starts.
-                    heading_line: line_num + 1 - heading.text_lines,
-                    level: heading.level,
-                    text: heading.text.clone(),
-                    anchor,
-                    aliases,
-                });
+            // Headings before/within the TOC region are not listed, and the
+            // configured level range limits the rest.
+            if line_num <= toc_region.end_line || heading.level < self.min_level || heading.level > self.max_level {
+                continue;
             }
+
+            entries.push(ExpectedTocEntry {
+                // A Setext heading is recorded on the last line of its text,
+                // and a reader looks for it where it starts.
+                heading_line: parsed.first_line_num(),
+                level: heading.level,
+                text: heading.text.clone(),
+                anchor,
+                aliases,
+            });
         }
 
         entries
@@ -743,6 +759,12 @@ impl Rule for MD073TocValidation {
             let regenerated = Self::keep_reached_anchors(&actual_entries, &expected_entries, &matching);
             let new_toc = self.generate_toc(&regenerated);
             let fix_range = region.content_start..region.content_end;
+            // Generated entries carry no container prefix, so a TOC whose markers
+            // sit in a blockquote is reported but not rewritten.
+            let (stop_marker_line, _) = ctx.offset_to_line_col(region.content_end);
+            let in_blockquote = [region.start_line - 1, stop_marker_line]
+                .into_iter()
+                .any(|line| ctx.line_info(line).is_some_and(|info| info.blockquote.is_some()));
 
             warnings.push(LintWarning {
                 rule_name: Some(self.name().to_string()),
@@ -752,11 +774,15 @@ impl Rule for MD073TocValidation {
                 end_line: region.end_line,
                 end_column: 1,
                 severity: Severity::Warning,
-                fix: Some(Fix::new(fix_range, new_toc)),
+                fix: (!in_blockquote).then(|| Fix::new(fix_range, new_toc)),
             });
         }
 
         Ok(warnings)
+    }
+
+    fn fixes_from_diagnostics(&self) -> bool {
+        true
     }
 
     fn fix(&self, ctx: &LintContext) -> Result<String, LintError> {
@@ -2804,5 +2830,109 @@ Content.
             "the heading starts on line 7: {}",
             result[0].message
         );
+    }
+    mod quoted_headings {
+        use super::*;
+
+        fn warnings(content: &str) -> usize {
+            let rule = create_enabled_rule();
+            rule.check(&create_ctx(content)).unwrap().len()
+        }
+
+        #[test]
+        fn quoted_heading_belongs_in_the_toc() {
+            let toc = |entries: &str| format!("# T\n\n<!-- toc -->\n\n{entries}\n<!-- tocstop -->\n\n## A\n\n> ## Q\n");
+            assert_eq!(warnings(&toc("- [A](#a)\n- [Q](#q)\n")), 0);
+            assert!(
+                warnings(&toc("- [A](#a)\n")) > 0,
+                "a quoted heading missing from the TOC is reported"
+            );
+        }
+
+        #[test]
+        fn quoted_heading_in_every_container_shape_is_listed() {
+            for body in ["> ## Q\n", "> > ## Q\n", "- x\n\n  > ## Q\n", "> - x\n>\n>   ## Q\n"] {
+                let content = format!("# T\n\n<!-- toc -->\n\n<!-- tocstop -->\n\n{body}");
+                let rule = create_enabled_rule();
+                let fixed = rule.fix(&create_ctx(&content)).unwrap();
+                assert!(fixed.contains("[Q](#q)"), "{body:?}: {fixed:?}");
+            }
+        }
+
+        #[test]
+        fn a_toc_inside_a_blockquote_is_reported_without_a_fix() {
+            // Regenerated entries carry no quote prefix, so splicing them in
+            // would end the quote.
+            let content = "# T\n\n> <!-- toc -->\n>\n> <!-- tocstop -->\n\n## A\n";
+            let rule = create_enabled_rule();
+            let warnings = rule.check(&create_ctx(content)).unwrap();
+            assert_eq!(warnings.len(), 1);
+            assert!(warnings[0].fix.is_none());
+            assert_eq!(rule.fix(&create_ctx(content)).unwrap(), content);
+        }
+
+        #[test]
+        fn a_correct_toc_inside_a_blockquote_is_valid() {
+            let content =
+                "# T\n\n> <!-- toc -->\n>\n> - [A](#a)\n> - [Q](#q)\n>\n> <!-- tocstop -->\n\n## A\n\n> ## Q\n";
+            assert_eq!(warnings(content), 0);
+            let stale = content.replace("> - [Q](#q)\n", "");
+            assert_eq!(warnings(&stale), 1);
+        }
+
+        #[test]
+        fn a_quoted_toc_keeps_the_indentation_of_nested_entries() {
+            for quote in [">", ">>"] {
+                let mut toc = String::new();
+                for line in ["<!-- toc -->", "", "- [A](#a)", "  - [B](#b)", "", "<!-- tocstop -->"] {
+                    toc.push_str(quote);
+                    if !line.is_empty() {
+                        toc.push(' ');
+                        toc.push_str(line);
+                    }
+                    toc.push('\n');
+                }
+                let content = format!("# T\n\n{toc}\n## A\n\nx\n\n### B\n");
+                assert_eq!(warnings(&content), 0, "{content:?}");
+                let flat = content.replace("  - [B]", "- [B]");
+                assert_eq!(warnings(&flat), 1, "{flat:?}");
+            }
+        }
+
+        #[test]
+        fn a_quote_next_to_an_unquoted_toc_does_not_withhold_its_fix() {
+            let rule = create_enabled_rule();
+            for content in [
+                "# T\n\n<!-- toc -->\n<!-- tocstop -->\n> Intro\n\n## A\n",
+                "> Intro\n<!-- toc -->\n<!-- tocstop -->\n\n## A\n",
+                "> Intro\n\n<!-- toc -->\n\n<!-- tocstop -->\n\n> Outro\n\n## A\n",
+            ] {
+                let warnings = rule.check(&create_ctx(content)).unwrap();
+                assert_eq!(warnings.len(), 1, "{content:?}");
+                assert!(warnings[0].fix.is_some(), "{content:?}");
+            }
+        }
+
+        #[test]
+        fn duplicates_are_numbered_across_quoted_and_unquoted_headings() {
+            let content = "# T\n\n<!-- toc -->\n\n- [Q](#q)\n- [Q](#q-1)\n\n<!-- tocstop -->\n\n> ## Q\n\n## Q\n";
+            assert_eq!(warnings(content), 0);
+        }
+
+        #[test]
+        fn headings_outside_the_level_range_still_take_a_number() {
+            // The title is level 1, outside the default range, yet GitHub numbers the
+            // later `## Repeat` as `repeat-1`.
+            let content = "# Repeat\n\n<!-- toc -->\n\n- [Repeat](#repeat-1)\n\n<!-- tocstop -->\n\n## Repeat\n";
+            assert_eq!(warnings(content), 0);
+            let quoted = "<!-- toc -->\n\n- [Repeat](#repeat-1)\n\n<!-- tocstop -->\n\n> # Repeat\n\n## Repeat\n";
+            assert_eq!(warnings(quoted), 0);
+        }
+
+        #[test]
+        fn quoted_heading_in_a_quoted_code_block_is_not_listed() {
+            let content = "# T\n\n<!-- toc -->\n\n<!-- tocstop -->\n\n> ```\n> ## Q\n> ```\n";
+            assert_eq!(warnings(content), 0);
+        }
     }
 }

@@ -5,13 +5,14 @@ import ntpath
 import os
 import posixpath
 import re
+import shlex
 import zipfile
 from abc import ABC, abstractmethod
 from configparser import ConfigParser
 from itertools import chain
 from pathlib import Path
 from tempfile import mkdtemp
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from distlib.scripts import ScriptMaker, enquote_executable
 
@@ -156,7 +157,7 @@ class PipInstall(ABC):
             self._console_entry_points = {}
             entry_points = self._dist_info / "entry_points.txt"  # ty: ignore[unsupported-operator]
             if entry_points.exists():
-                parser = ConfigParser()
+                parser = EntryPointConfig(interpolation=None, strict=False)
                 with entry_points.open(encoding="utf-8") as file_handler:
                     parser.read_file(file_handler)
                 if "console_scripts" in parser.sections():
@@ -182,35 +183,48 @@ class PipInstall(ABC):
         paths = (p for p in in_folders if p.stem.split("-")[0] == dist_name and p.suffix == ".dist-info" and p.is_dir())
         existing_dist = next(paths, None)
         if existing_dist is not None:
-            self._uninstall_dist(existing_dist)
+            self._uninstall_dist(existing_dist, self._creator.dest)
 
     @staticmethod
-    def _uninstall_dist(dist: Path) -> None:
-        dist_base = dist.parent
+    def _uninstall_dist(dist: Path, env_dir: Path) -> None:
+        dist_base: Final = dist.parent
         LOGGER.debug("uninstall existing distribution %s from %s", dist.stem, dist_base)
 
-        top_txt = dist / "top_level.txt"  # add top level packages at folder level
-        paths = (
+        top_txt: Final = dist / "top_level.txt"
+        paths: Final = (
             {dist.parent / i.strip() for i in top_txt.read_text(encoding="utf-8").splitlines()}
             if top_txt.exists()
             else set()
         )
-        paths.add(dist)  # add the dist-info folder itself
+        paths.add(dist)
 
-        base_dirs, record = paths.copy(), dist / "RECORD"  # collect entries in record that we did not register yet
+        base_dirs: Final = paths.copy()
+        record: Final = dist / "RECORD"
         for name in (
             (i.split(",")[0] for i in record.read_text(encoding="utf-8").splitlines()) if record.exists() else ()
         ):
-            path = dist_base / name
-            if not any(p in base_dirs for p in path.parents):  # only add if not already added as a base dir
+            path: Final = dist_base / name
+            if not any(p in base_dirs for p in path.parents):
                 paths.add(path)
 
-        for path in sorted(paths):  # actually remove stuff in a stable order
-            if path.exists():
-                if path.is_dir() and not path.is_symlink():
-                    safe_delete(path)
+        root: Final = env_dir.resolve()
+        metadata_parents: Final = set(dist.resolve().parents)
+        for entry in sorted(paths):
+            if entry.exists() or entry.is_symlink():
+                linked: Final = entry.is_symlink()
+                # Unlinking the final link leaves its target intact; parent links still affect containment.
+                resolved: Final = entry.parent.resolve() / entry.name if linked else entry.resolve()
+                if root not in resolved.parents or resolved in metadata_parents:
+                    LOGGER.warning(
+                        "skip removal of %s listed by %s: not inside environment %s or a parent of the metadata",
+                        entry,
+                        dist.name,
+                        root,
+                    )
+                elif entry.is_dir() and not linked:
+                    safe_delete(entry)
                 else:
-                    path.unlink()
+                    entry.unlink()
 
     def clear(self) -> None:
         if self._image_dir.exists():
@@ -218,6 +232,12 @@ class PipInstall(ABC):
 
     def has_image(self) -> bool:
         return self._image_dir.exists() and any(self._image_dir.iterdir())
+
+
+class EntryPointConfig(ConfigParser):
+    @staticmethod
+    def optionxform(optionstr: str) -> str:
+        return optionstr
 
 
 class ScriptMakerCustom(ScriptMaker):
@@ -229,14 +249,33 @@ class ScriptMakerCustom(ScriptMaker):
         self.version_info = version_info.major, version_info.minor  # ty: ignore[unresolved-attribute]
         self.variants = {"", "X", "X.Y"}
         self._name = name
+        self._raw_executable = str(executable)
+
+    def _build_shebang(self, executable: bytes, post_interp: bytes) -> bytes:
+        shebang: Final = super()._build_shebang(executable, post_interp)
+        if os.name != "posix" or len(shebang.split()) == 1:
+            return shebang
+        return shell_shebang(self._raw_executable, post_interp)
 
     def _write_script(
         self, names: set[str], shebang: bytes, script_bytes: bytes, filenames: list[str], ext: str
     ) -> None:
         names.add(f"{self._name}{self.version_info[0]}.{self.version_info[1]}")
+        for name in names:
+            path: Final = Path(self.target_dir) / (f"{name}.exe" if os.name == "nt" else name)
+            if path.is_symlink():
+                path.unlink()
         super()._write_script(names, shebang, script_bytes, filenames, ext)
 
 
+def shell_shebang(executable: str, post_interp: bytes = b"") -> bytes:
+    # The exec line is read by both sh and Python; double-quoted backslashes survive both readers.
+    quoted: Final = shlex.quote(executable).replace("\\", "'\"\\\\\"'")
+    return b"#!/bin/sh\n'''exec' " + quoted.encode("utf-8") + post_interp + b' "$0" "$@"\n' + b"' '''\n"
+
+
 __all__ = [
+    "EntryPointConfig",
     "PipInstall",
+    "shell_shebang",
 ]

@@ -25,7 +25,7 @@ class Params(base.ParamsModelBase):
         None  #: Collection NSIDs or '<prefix>.*' patterns; constrains which commit events are delivered. Non-commit kinds are unaffected — combine with kinds=commit for a commits-only collection stream. Rejected pre-upgrade with HTTP 400 (InvalidRequest) when kinds is set and excludes commit, since the filter could never apply. Omitted or empty: all collections.
     )
     cursor: t.Optional[int] = (
-        None  #: Resume position, inclusive: the server replays events with seq >= cursor and the client dedups the overlap. Values >= 1e15 are interpreted as a unix-microseconds timestamp instead of a seq and translated to the first seq witnessed at or after that instant; a timestamp below the retention floor clamps up to the floor and an #info OutdatedCursor frame is sent. Omitted: start at the live tip.
+        None  #: Resume position, inclusive: the server replays events with seq >= cursor and the client dedups the overlap. Values >= 1e15 are interpreted as a unix-microseconds timestamp instead of a seq and translated to the first seq witnessed at or after that instant; a timestamp below the retention floor or the oldest archived event clamps up to it and an #info OutdatedCursor frame is sent. A seq beyond the next seq to be assigned starts at the live tip after an #info FutureCursor frame. Omitted: start at the live tip.
     )
     dids: te.Annotated[t.Optional[t.List[string_formats.Did]], Field(max_length=10000)] = (
         None  #: Repo DIDs to receive events for; applies to every event kind. Omitted or empty: all repos.
@@ -47,7 +47,7 @@ class ParamsDict(t.TypedDict):
     ]  #: Collection NSIDs or '<prefix>.*' patterns; constrains which commit events are delivered. Non-commit kinds are unaffected — combine with kinds=commit for a commits-only collection stream. Rejected pre-upgrade with HTTP 400 (InvalidRequest) when kinds is set and excludes commit, since the filter could never apply. Omitted or empty: all collections.
     cursor: te.NotRequired[
         t.Optional[int]
-    ]  #: Resume position, inclusive: the server replays events with seq >= cursor and the client dedups the overlap. Values >= 1e15 are interpreted as a unix-microseconds timestamp instead of a seq and translated to the first seq witnessed at or after that instant; a timestamp below the retention floor clamps up to the floor and an #info OutdatedCursor frame is sent. Omitted: start at the live tip.
+    ]  #: Resume position, inclusive: the server replays events with seq >= cursor and the client dedups the overlap. Values >= 1e15 are interpreted as a unix-microseconds timestamp instead of a seq and translated to the first seq witnessed at or after that instant; a timestamp below the retention floor or the oldest archived event clamps up to it and an #info OutdatedCursor frame is sent. A seq beyond the next seq to be assigned starts at the live tip after an #info FutureCursor frame. Omitted: start at the live tip.
     dids: te.NotRequired[
         t.Optional[t.List[string_formats.Did]]
     ]  #: Repo DIDs to receive events for; applies to every event kind. Omitted or empty: all repos.
@@ -74,6 +74,9 @@ class Commit(base.ModelBase):
     time: string_formats.DateTime  #: The event's display timestamp, microsecond precision: when Jetstream witnessed the event, unless an operator timestamp import overrode it. Timestamp cursors translate against the witnessed time, so after an import this value may not be a faithful resume position.
     cid: t.Optional[string_formats.Cid] = None  #: CID of the record. Absent for deletes.
     record: t.Optional['UnknownType'] = None  #: The record decoded to JSON. Absent for deletes.
+    witnessed_at: t.Optional[string_formats.DateTime] = (
+        None  #: When this Jetstream instance witnessed the event, microsecond precision. Never altered by timestamp imports and monotonic with seq on a single instance, so it is the value a ?cursor=<unix-microseconds> resume translates against. Unlike seq it is meaningful across instances (approximately: each instance witnesses independently), which makes it the portable resume position. Optional for compatibility with servers predating it.
+    )
 
     py_type: t.Literal['network.bsky.jetstream.subscribeEvents#commit'] = Field(
         default='network.bsky.jetstream.subscribeEvents#commit', alias='$type', frozen=True
@@ -87,6 +90,9 @@ class Identity(base.ModelBase):
     identity: 'models.ComAtprotoSyncSubscribeRepos.Identity'  #: The upstream event; its seq and time are the upstream relay's, not Jetstream's.
     seq: int  #: Seq.
     time: string_formats.DateTime  #: The time Jetstream witnessed this event, microsecond precision. Timestamp imports apply only to record (commit) events, so this is always the witnessed time.
+    witnessed_at: t.Optional[string_formats.DateTime] = (
+        None  #: When this Jetstream instance witnessed the event, microsecond precision. Never altered by timestamp imports and monotonic with seq on a single instance, so it is the value a ?cursor=<unix-microseconds> resume translates against. Unlike seq it is meaningful across instances (approximately: each instance witnesses independently), which makes it the portable resume position. Optional for compatibility with servers predating it.
+    )
 
     py_type: t.Literal['network.bsky.jetstream.subscribeEvents#identity'] = Field(
         default='network.bsky.jetstream.subscribeEvents#identity', alias='$type', frozen=True
@@ -100,6 +106,9 @@ class Account(base.ModelBase):
     did: string_formats.Did  #: Did.
     seq: int  #: Seq.
     time: string_formats.DateTime  #: The time Jetstream witnessed this event, microsecond precision. Timestamp imports apply only to record (commit) events, so this is always the witnessed time.
+    witnessed_at: t.Optional[string_formats.DateTime] = (
+        None  #: When this Jetstream instance witnessed the event, microsecond precision. Never altered by timestamp imports and monotonic with seq on a single instance, so it is the value a ?cursor=<unix-microseconds> resume translates against. Unlike seq it is meaningful across instances (approximately: each instance witnesses independently), which makes it the portable resume position. Optional for compatibility with servers predating it.
+    )
 
     py_type: t.Literal['network.bsky.jetstream.subscribeEvents#account'] = Field(
         default='network.bsky.jetstream.subscribeEvents#account', alias='$type', frozen=True
@@ -113,6 +122,9 @@ class Sync(base.ModelBase):
     seq: int  #: Seq.
     sync: 'models.ComAtprotoSyncSubscribeRepos.Sync'  #: The upstream event; its seq and time are the upstream relay's, not Jetstream's.
     time: string_formats.DateTime  #: The time Jetstream witnessed this event, microsecond precision. Timestamp imports apply only to record (commit) events, so this is always the witnessed time.
+    witnessed_at: t.Optional[string_formats.DateTime] = (
+        None  #: When this Jetstream instance witnessed the event, microsecond precision. Never altered by timestamp imports and monotonic with seq on a single instance, so it is the value a ?cursor=<unix-microseconds> resume translates against. Unlike seq it is meaningful across instances (approximately: each instance witnesses independently), which makes it the portable resume position. Optional for compatibility with servers predating it.
+    )
 
     py_type: t.Literal['network.bsky.jetstream.subscribeEvents#sync'] = Field(
         default='network.bsky.jetstream.subscribeEvents#sync', alias='$type', frozen=True
@@ -120,9 +132,9 @@ class Sync(base.ModelBase):
 
 
 class Info(base.ModelBase):
-    """Definition model for :obj:`network.bsky.jetstream.subscribeEvents`. An advisory, non-fatal notice about the stream (mirrors com.atproto.sync.subscribeRepos#info). Carries no seq and does not advance the cursor. OutdatedCursor is sent as the first frame when a unix-microseconds timestamp cursor below the retention floor was clamped up to the floor; the message names the seq actually resumed from."""
+    """Definition model for :obj:`network.bsky.jetstream.subscribeEvents`. An advisory, non-fatal notice about the stream (mirrors com.atproto.sync.subscribeRepos#info). Carries no seq and does not advance the cursor. Cursor notices are sent as the first frame. OutdatedCursor: a unix-microseconds timestamp cursor below the retention floor or the oldest archived event was clamped up to it, so events may have been missed; the message names the seq actually resumed from. FutureCursor: a seq cursor beyond the next seq to be assigned (for example one from another archive) started at the live tip, below the cursor."""
 
-    name: t.Union[t.Literal['OutdatedCursor'], str]  #: Name.
+    name: t.Union[t.Literal['OutdatedCursor', 'FutureCursor'], str]  #: Name.
     message: t.Optional[str] = None  #: Message.
 
     py_type: t.Literal['network.bsky.jetstream.subscribeEvents#info'] = Field(

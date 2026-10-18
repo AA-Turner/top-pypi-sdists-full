@@ -157,6 +157,10 @@ pub struct CheckArgs {
     #[arg(short, long, default_value = "false")]
     pub fix: bool,
 
+    /// Plan and validate the entire batch before applying fixes
+    #[arg(long, requires = "fix", conflicts_with_all = ["diff", "check", "stdin", "stdin_batch", "watch"])]
+    pub preflight: bool,
+
     /// Show diff of what would be fixed instead of fixing files
     #[arg(
         long,
@@ -231,6 +235,15 @@ pub struct CheckArgs {
     )]
     pub stdin_batch_closed_world: bool,
 
+    /// File of NUL-terminated paths that exist as link targets but are not linted
+    #[arg(
+        long,
+        value_name = "FILE",
+        requires = "stdin_batch",
+        help = "Read NUL-terminated link target paths (not linted) from FILE; a trailing / marks a directory"
+    )]
+    pub stdin_batch_targets: Option<std::path::PathBuf>,
+
     /// Suppress diagnostics and summaries
     #[arg(short, long, help = "Suppress diagnostics and summaries")]
     pub silent: bool,
@@ -267,6 +280,10 @@ pub struct FmtArgs {
     /// Files or directories to format (use '-' for stdin)
     #[arg(required = false)]
     pub paths: Vec<String>,
+
+    /// Plan and validate the entire batch before writing files
+    #[arg(long, conflicts_with_all = ["diff", "check", "stdin", "watch"])]
+    pub preflight: bool,
 
     /// Show diff of what would be formatted instead of rewriting files
     #[arg(
@@ -351,6 +368,7 @@ impl From<FmtArgs> for CheckArgs {
             // The flag is intentionally `false` so the check-dispatch path does not
             // independently enable `FixMode::CheckFix`.
             fix: false,
+            preflight: args.preflight,
             diff: args.diff,
             check: args.check,
             list_rules: args.list_rules,
@@ -364,6 +382,7 @@ impl From<FmtArgs> for CheckArgs {
             stdin: args.stdin,
             stdin_batch: false,
             stdin_batch_closed_world: false,
+            stdin_batch_targets: None,
             silent: args.silent,
             watch: args.watch,
             force_exclude: args.force_exclude,

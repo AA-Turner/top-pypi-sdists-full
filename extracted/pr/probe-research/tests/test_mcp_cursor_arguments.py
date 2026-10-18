@@ -323,3 +323,22 @@ def test_search_shares_the_path():
     second = service.calls[-1]
     assert second["search_in"] == [ToolCorpus.NOTES]
     assert second["top_k"] == 3
+
+
+def test_a_mis_copied_cursor_is_named_as_one_not_as_changed_arguments():
+    # strand-ai 2026-10-17: the writer copied a 371-character cursor with one
+    # character changed and two added, was told its request had changed, sent
+    # the same arguments and the same broken cursor twice more, and the bite failed.
+    service = _Transcripts()
+    cursor = _first_page(service)
+    body = cursor[len(continuation.PREFIX):]
+    i = len(body) // 2
+    miscopied = continuation.PREFIX + body[:i] + ("A" if body[i] != "A" else "B") + body[i + 1:]
+    error, text = _call(
+        service,
+        "entity",
+        {"refs": [_REF], "view": "transcript", "view_options": _GREP, "cursor": miscopied},
+    )
+    assert error
+    assert "not copied exactly" in text and "changed request/scope" not in text
+    assert len(service.calls) == 1, "nothing read on a cursor no result returned"

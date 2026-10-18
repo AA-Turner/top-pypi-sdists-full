@@ -146,6 +146,10 @@ class PipelineParallel:
         device_memory_budget: Optional[int] = None,
         accumulate_resident: bool = True,
         resident_tensor: Optional[Callable[[str], bool]] = None,
+        broadcast_run_bytes: int = 16 << 20,
+        broadcast_run_tensors: int = 64,
+        overlap_io: bool = True,
+        borrowed_tensors: bool = False,
         **kwargs,
     ):
 
@@ -158,6 +162,7 @@ class PipelineParallel:
         if pg is None:
             pg = SingleGroup()
         self.loader = loader
+        self.overlap_io = overlap_io
         # Read only the tensors this rank keeps (e.g. its owned experts); see
         # SafeTensorsFileLoader.set_tensor_filter. get_tensor broadcasts across
         # the loader's process group, so a per-rank filter is only correct when
@@ -188,10 +193,10 @@ class PipelineParallel:
             )
         self.use_chunk_budget_as_allocation_size = use_chunk_budget_as_allocation_size
         # When set (bytes), bound the load's TOTAL device footprint (resident
-        # tensors + transient buffers) via a static fit plan: whole-file loads
-        # while headroom is ample, per-file chunk budgets declining as the
-        # device fills. The caller picks the number -- it knows what else lives
-        # on the device and, under broadcast loading, must pass the same value
+        # tensors + transient buffers + fixed copier pools) via a static fit
+        # plan: whole-file loads while headroom is ample, per-file chunk budgets
+        # declining as the device fills. The caller knows what else lives on
+        # the device and, under broadcast loading, must pass the same value
         # on every rank (e.g. all-reduce(MIN) of each rank's free memory) so
         # the plan stays identical across ranks. See fastsafetensors._planner.
         self.device_memory_budget = device_memory_budget
@@ -215,8 +220,34 @@ class PipelineParallel:
         # next. Holding several at once overruns that reservation.
         self.resident_tensor = resident_tensor
 
-        # Single-process yields borrow the file buffer and require a clone.
-        self.need_clone = pg.size() == 1
+        if borrowed_tensors and accumulate_resident:
+            raise ValueError(
+                "borrowed_tensors requires accumulate_resident=False because "
+                "yielded tensors must not be retained after the iterator advances"
+            )
+        if borrowed_tensors and (pg.size() != 1 or loader.pg.size() != 1):
+            raise ValueError(
+                "borrowed_tensors requires a single-process loader group "
+                "(ParallelLoader(all_local=True) or pg=None)"
+            )
+        self.borrowed_tensors = borrowed_tensors
+        # Preserve independent outputs and the existing clone budget by default.
+        # Only an explicit borrowed mode exports the raw loader storage.
+        self.need_clone = pg.size() == 1 and not borrowed_tensors
+        if broadcast_run_bytes < 0 or broadcast_run_tensors < 0:
+            raise ValueError("broadcast run limits must be non-negative")
+        self.broadcast_run_bytes = broadcast_run_bytes
+        self.broadcast_run_tensors = broadcast_run_tensors
+        self._coalesce_broadcasts = (
+            pg.size() > 1
+            and loader.framework.get_name() == "pytorch"
+            and broadcast_run_bytes > 0
+            and broadcast_run_tensors > 0
+            # Keep selected resident tensors from retaining unrelated run
+            # storage by delivering them individually.
+            and resident_tensor is None
+        )
+        self._drain_broadcast_runs = not accumulate_resident
 
         # Before _create_batches, which reports any queue_size clamp.
         self.print_log = os.getenv("FASTSAFETENSORS_DEBUG", "false").lower() == "true"
@@ -264,6 +295,9 @@ class PipelineParallel:
                             files for all processes in the group
         """
         batch_size = pg.size()
+        # A new pipeline must not inherit headers from a previous load, even
+        # when it uses the same underlying loader without sub-file chunking.
+        self.loader._set_metadata_cache({})
         file_batches = [
             self.hf_weights_files[i : i + batch_size]
             for i in range(0, len(self.hf_weights_files), batch_size)
@@ -274,13 +308,19 @@ class PipelineParallel:
         keep = self.loader._tensor_filter
         fw = self.loader.framework
 
+        # Parse each distinct shard once for planning and all later chunks.
+        meta_by_path = {
+            f: SafeTensorsMetadata.from_file(f, fw)
+            for f in dict.fromkeys(self.hf_weights_files)
+        }
+
         # Per-file chunk budget. Uniform (max_batch_bytes) by default; with
         # device_memory_budget, a static fit plan chooses declining budgets so
         # resident + transient stays within the budget (see planner module).
         per_file_budget: Optional[Dict[str, int]] = None
-        meta_by_path: Dict[str, SafeTensorsMetadata] = {}
         if self.device_memory_budget is not None:
             from ._planner import (
+                BudgetInfeasibleError,
                 collect_file_stats,
                 fit_queue_size,
                 has_non_resident,
@@ -288,9 +328,7 @@ class PipelineParallel:
                 plan_file_budgets,
             )
 
-            metas = [
-                (f, SafeTensorsMetadata.from_file(f, fw)) for f in self.hf_weights_files
-            ]
+            metas = [(f, meta_by_path[f]) for f in self.hf_weights_files]
             stats = collect_file_stats(metas, keep, self.resident_tensor)
             # A clone of a yielded tensor only needs its own budget when it is
             # transient. With a residency predicate that is a property of the
@@ -299,12 +337,22 @@ class PipelineParallel:
             account_for_yield_clone = self.need_clone and (
                 not self.accumulate_resident or has_non_resident(stats)
             )
-            # How much transient device memory a live chunk costs is the
-            # copier's own business (e.g. the unified copier's mmap+pin
-            # fallback pins the chunk's pages alongside the device buffer,
-            # costing 2x span on a shared physical pool), so ask it.
+            # Transient and fixed device costs both depend on the copier's
+            # reader path (e.g. mmap+pin costs 2x per chunk, while O_DIRECT
+            # keeps a fixed pinned pool), so ask it before fitting and planning.
             copier = self.loader.copier_class
-            multiplier = copier.chunk_transient_multiplier([f for f, _ in metas])
+            paths = [f for f, _ in metas]
+            multiplier = copier.chunk_transient_multiplier(paths)
+            chunk_overhead = copier.chunk_device_overhead(paths)
+            fixed_overhead = copier.fixed_device_overhead(paths)
+            effective_budget = self.device_memory_budget - fixed_overhead
+            if effective_budget <= 0:
+                raise BudgetInfeasibleError(
+                    f"device_memory_budget={self.device_memory_budget} does not "
+                    f"cover {copier.__name__}'s fixed device overhead of "
+                    f"{fixed_overhead} bytes, leaving no budget for loading. "
+                    f"Free device memory or pass a larger explicit budget."
+                )
             # Too small a budget for the requested depth is a reason to load
             # more shallowly, not to fail: the budget comes from free memory at
             # load time while queue_size is static, so nobody can pick the right
@@ -314,12 +362,13 @@ class PipelineParallel:
             fitted = fit_queue_size(
                 self.queue_size,
                 stats,
-                self.device_memory_budget,
+                effective_budget,
                 max_batch_bytes=self.max_batch_bytes,
                 accumulate_resident=self.accumulate_resident,
                 transient_multiplier=multiplier,
                 group_size=batch_size,
                 account_for_yield_clone=account_for_yield_clone,
+                chunk_overhead=chunk_overhead,
             )
             if fitted is None:
                 # No depth fits. Plan serially anyway, so the error reports the
@@ -337,18 +386,27 @@ class PipelineParallel:
             # batch_size also sets the group width: those files load together,
             # one per rank, and every rank keeps all of them.
             depth = load_depth(self.queue_size, batch_size)
-            budgets = plan_file_budgets(
-                stats,
-                self.device_memory_budget,
-                depth,
-                max_batch_bytes=self.max_batch_bytes,
-                accumulate_resident=self.accumulate_resident,
-                transient_multiplier=multiplier,
-                group_size=batch_size,
-                account_for_yield_clone=account_for_yield_clone,
-            )
+            try:
+                budgets = plan_file_budgets(
+                    stats,
+                    effective_budget,
+                    depth,
+                    max_batch_bytes=self.max_batch_bytes,
+                    accumulate_resident=self.accumulate_resident,
+                    transient_multiplier=multiplier,
+                    group_size=batch_size,
+                    account_for_yield_clone=account_for_yield_clone,
+                    chunk_overhead=chunk_overhead,
+                )
+            except BudgetInfeasibleError as e:
+                if not fixed_overhead:
+                    raise
+                raise BudgetInfeasibleError(
+                    f"{e} (the budget passed was {self.device_memory_budget}, "
+                    f"less {fixed_overhead} bytes of fixed {copier.__name__} "
+                    f"device overhead)"
+                ) from e
             per_file_budget = {f: b for (f, _), b in zip(metas, budgets)}
-            meta_by_path = dict(metas)
 
         # Expand each file-batch (one file per rank) into aligned chunk-batches.
         # Chunk-batch j holds rank r's j-th chunk (or None once that rank's file
@@ -368,7 +426,7 @@ class PipelineParallel:
             assert self.max_batch_bytes is not None
             return (
                 plan_chunks(
-                    SafeTensorsMetadata.from_file(f, fw),
+                    meta_by_path[f],
                     self.max_batch_bytes,
                     keep_tensor=keep,
                 ),
@@ -385,12 +443,15 @@ class PipelineParallel:
                     if j < len(chunks):
                         names, ranges = chunks[j]
                         allocation_size = (
-                            budget if self.use_chunk_budget_as_allocation_size else None
+                            budget
+                            if ranges and self.use_chunk_budget_as_allocation_size
+                            else None
                         )
                         spec.append((f, names, ranges, allocation_size))
                     else:
                         spec.append(None)
                 chunk_batches.append(spec)
+        self.loader._set_metadata_cache(meta_by_path)
         return chunk_batches
 
     def _log_message(self, message: str, is_error: bool = False):
@@ -436,13 +497,20 @@ class PipelineParallel:
 
     def _drain_queue(self):
         """Discard queued items, closing any file buffers the consumer never took."""
+        error = None
         while True:
             try:
                 item = self.batch_queue.get_nowait()
             except queue.Empty:
-                return
+                break
             if isinstance(item, FileBatch):
-                item.fb.close()
+                try:
+                    item.fb.close()
+                except Exception as exc:
+                    if error is None:
+                        error = exc
+        if error is not None:
+            raise error
 
     def _spec_to_maps(self, spec: List[Any]):
         """Turn a batch spec into (rank_file_map, chunk_plan).
@@ -508,7 +576,10 @@ class PipelineParallel:
             with TimingContext(
                 "copy_files_to_device", self._log_message, batch_id
             ) as timer:
-                fb = self.loader.copy_files_to_device()
+                fb = self.loader.copy_files_to_device(
+                    allow_inflight=self.overlap_io,
+                    borrowed_tensors=self.borrowed_tensors,
+                )
             copy_time = timer.elapsed_ms
 
             # Get tensor keys
@@ -589,11 +660,24 @@ class PipelineParallel:
             with TimingContext(
                 "get_tensor", self._log_message, batch.batch_id
             ) as timer:
-                for key in batch.keys:
-                    tensor = batch.fb.get_tensor(key)
-                    if self.need_clone:
-                        tensor = tensor.clone()
-                    yield key, tensor
+                if self.borrowed_tensors:
+                    weights = batch.fb.iter_local_tensors(batch.keys)
+                elif self._coalesce_broadcasts:
+                    weights = batch.fb._iter_tensors(
+                        batch.keys,
+                        self.broadcast_run_bytes,
+                        self.broadcast_run_tensors,
+                        self._drain_broadcast_runs,
+                    )
+                else:
+                    weights = ((key, batch.fb.get_tensor(key)) for key in batch.keys)
+                try:
+                    for key, tensor in weights:
+                        if self.need_clone:
+                            tensor = tensor.clone()
+                        yield key, tensor
+                finally:
+                    weights.close()
             get_tensor_time = timer.elapsed_ms
         finally:
             # Close the file buffer
@@ -625,6 +709,13 @@ class PipelineParallel:
             ):
                 yield from self._consume_single_batch()
                 processed_batches += 1
+        except GeneratorExit:
+            # The caller closed the iterator before it was exhausted.
+            self._log_message(
+                f"iterate_weights closed early: {processed_batches} of "
+                f"{len(self.weight_files_batches)} batches fully consumed"
+            )
+            raise
         except Exception as e:
             self._log_message(f"Consumer error: {e}", is_error=True)
             self.stop_event.set()
@@ -636,8 +727,6 @@ class PipelineParallel:
                 f"Completed ParallelLoader iterate_weights, "
                 f"processed {processed_batches} batches, total time: {elapsed_time:.2f} seconds"
             )
-        if processed_batches < len(self.weight_files_batches):
-            self._log_error(f"Unexpected Error: not all tensors has been exported")
 
     def iterate_weights(self) -> Generator[Tuple[str, Any], None, None]:
         """Main weight iterator: consumer logic.
@@ -646,9 +735,21 @@ class PipelineParallel:
         It retrieves batches from the queue, extracts tensors, and yields them
         one by one. It also handles cleanup and error reporting.
 
+        Yielded tensors are independent of the load buffers and stay valid.
+        Each batch's buffers are freed once the iterator moves past its last
+        tensor, and the rest when the iterator is exhausted or closed. The
+        loader's ``close()`` does not free them: if the loop can stop early,
+        close the iterator (e.g. ``contextlib.closing``) before the loader.
+
         Yields:
             Tuple[str, Any]: Key-value pairs of tensor names and framework
             tensors (e.g. torch.Tensor for the pytorch framework)
+
+        Warning:
+            With borrowed_tensors=True, tensors and derived views do not own
+            the load buffer. Complete all use, including asynchronous device
+            work, before advancing or closing the iterator. Copy into independent
+            storage to retain data. Close the iterator on early exit.
         """
         self._log_message("Starting ParallelLoader iterate_weights")
 
@@ -665,16 +766,29 @@ class PipelineParallel:
             self.stop_event.set()
             if self.consumer_processed is not None:
                 self.consumer_processed.set()
-            self._drain_queue()
-            producer_thread.join(timeout=5)
-            if producer_thread.is_alive():
-                self._log_error(
-                    "producer thread still running after close (it exits "
-                    "once any in-flight copy completes)"
-                )
-            self._drain_queue()
+            error = None
+            try:
+                self._drain_queue()
+            except Exception as exc:
+                error = exc
+            # Stop may arrive while the producer submits IO or builds views.
+            # It owns those buffers until its cancellable queue put finishes.
+            # Join before closing the loader, even if a queued read failed.
+            producer_thread.join()
+            try:
+                self._drain_queue()
+            except Exception as exc:
+                if error is None:
+                    error = exc
+            if error is not None:
+                raise error
 
     def close(self):
+        """Close the underlying loader. Safe to call more than once.
+
+        Does not free buffers held by a live ``iterate_weights()`` iterator.
+        Exhaust or close the iterator first.
+        """
         self.loader.close()
 
 
@@ -736,6 +850,24 @@ class ParallelLoader(PipelineParallel):
                          non-resident tensor before requesting the next tensor.
                          Under broadcast, it must be a pure function of the name
                          with identical results on every rank.
+        overlap_io (bool): Prepare NoGDS / Unified O_DIRECT views during DMA,
+                         and wait only for
+                         each requested tensor. Default True. Unsupported copiers
+                         retain whole-batch waits. False disables this overlap.
+        use_fgds (bool): If True, use FGDS (alternative GPU Direct Storage) instead
+                        of cuFile GDS. When FGDS is unavailable, falls back to nogds.
+        borrowed_tensors (bool): Skip yield clones and return non-owning views.
+                         Complete all use, including asynchronous device work,
+                         before advancing or closing the iterator. Requires
+                         accumulate_resident=False and a single-process loader
+                         group (pg=None or all_local=True). Defaults to False,
+                         preserving independent outputs and yield-clone budgets.
+                         Available through the direct Python API.
+        broadcast_run_bytes (int): Maximum bytes per coalesced PyTorch broadcast
+                         (default 16 MiB). A larger individual tensor is sent alone.
+                         Zero disables coalescing. Identical on every rank.
+        broadcast_run_tensors (int): Maximum tensors per coalesced broadcast
+                         (default 64). Zero disables coalescing. Identical on every rank.
 
     The pipeline holds up to 1 chunk buffer per rank for queue_size=-1, otherwise
     queue_size+2. Broadcast receive tensors, yield clones, and copier staging
@@ -773,6 +905,11 @@ class ParallelLoader(PipelineParallel):
         device_memory_budget: Optional[int] = None,
         accumulate_resident: bool = True,
         resident_tensor: Optional[Callable[[str], bool]] = None,
+        use_fgds: bool = False,
+        broadcast_run_bytes: int = 16 << 20,
+        broadcast_run_tensors: int = 64,
+        overlap_io: bool = True,
+        borrowed_tensors: bool = False,
         **kwargs,
     ):
         """Initialize PipelineParallelLoader with a pre-configured SafeTensorsFileLoader.
@@ -790,6 +927,7 @@ class ParallelLoader(PipelineParallel):
             set_numa (bool): If True, set NUMA node for optimal memory allocation.
             debug_log (bool): Enable debug logs.
             framework (str): Framework to use for tensor operations.
+            use_fgds (bool): If True, use FGDS instead of cuFile GDS.
         """
         # all_local: load with a single-process group so each rank reads its
         # files independently (no cross-rank broadcast in get_tensor). This is
@@ -806,6 +944,8 @@ class ParallelLoader(PipelineParallel):
             set_numa=set_numa,
             debug_log=debug_log,
             framework=framework,
+            use_fgds=use_fgds,
+            device_memory_budget=device_memory_budget,
             **kwargs,
         )
         super().__init__(
@@ -821,5 +961,9 @@ class ParallelLoader(PipelineParallel):
             device_memory_budget=device_memory_budget,
             accumulate_resident=accumulate_resident,
             resident_tensor=resident_tensor,
+            broadcast_run_bytes=broadcast_run_bytes,
+            broadcast_run_tensors=broadcast_run_tensors,
+            overlap_io=overlap_io,
+            borrowed_tensors=borrowed_tensors,
             **kwargs,
         )

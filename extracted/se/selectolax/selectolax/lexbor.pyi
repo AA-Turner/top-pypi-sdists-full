@@ -4,6 +4,9 @@ from typing import NoReturn, TypeVar, overload
 
 _DefaultT = TypeVar("_DefaultT")
 
+LEXBOR_VERSION_MAJOR: int
+LEXBOR_VERSION_MINOR: int
+
 class LexborDocumentOptions(IntFlag):
     """Parser options for the Lexbor document.
 
@@ -535,14 +538,15 @@ class LexborNode:
     def replace_with(self, value: bytes | str | LexborNode) -> None:
         """Replace current Node with specified value.
 
+        The node is removed from its current position and placed here.
+        When the node belongs to a different parser, a deep copy is created.
+
         Parameters
         ----------
         value : str, bytes or Node
             The text or Node instance to replace the Node with.
             When a text string is passed, it's treated as text. All HTML tags will be escaped.
             Convert and pass the ``Node`` object when you want to work with HTML.
-            Does not clone the ``Node`` object.
-            All future changes to the passed ``Node`` object will also be taken into account.
 
         Examples
         --------
@@ -563,14 +567,15 @@ class LexborNode:
     def insert_before(self, value: bytes | str | LexborNode) -> None:
         """Insert a node before the current Node.
 
+        The node is removed from its current position and placed here.
+        When the node belongs to a different parser, a deep copy is created.
+
         Parameters
         ----------
         value : str, bytes or Node
             The text or Node instance to insert before the Node.
             When a text string is passed, it's treated as text. All HTML tags will be escaped.
             Convert and pass the ``Node`` object when you want to work with HTML.
-            Does not clone the ``Node`` object.
-            All future changes to the passed ``Node`` object will also be taken into account.
 
         Examples
         --------
@@ -591,14 +596,15 @@ class LexborNode:
     def insert_after(self, value: bytes | str | LexborNode) -> None:
         """Insert a node after the current Node.
 
+        The node is removed from its current position and placed here.
+        When the node belongs to a different parser, a deep copy is created.
+
         Parameters
         ----------
         value : str, bytes or Node
             The text or Node instance to insert after the Node.
             When a text string is passed, it's treated as text. All HTML tags will be escaped.
             Convert and pass the ``Node`` object when you want to work with HTML.
-            Does not clone the ``Node`` object.
-            All future changes to the passed ``Node`` object will also be taken into account.
 
         Examples
         --------
@@ -619,14 +625,15 @@ class LexborNode:
     def insert_child(self, value: bytes | str | LexborNode) -> None:
         """Insert a node inside (at the end of) the current Node.
 
+        The node is removed from its current position and placed here.
+        When the node belongs to a different parser, a deep copy is created.
+
         Parameters
         ----------
         value : str, bytes or Node
             The text or Node instance to insert inside the Node.
             When a text string is passed, it's treated as text. All HTML tags will be escaped.
             Convert and pass the ``Node`` object when you want to work with HTML.
-            Does not clone the ``Node`` object.
-            All future changes to the passed ``Node`` object will also be taken into account.
 
         Examples
         --------
@@ -697,6 +704,28 @@ class LexborNode:
     def remove(self, recursive: bool = True) -> None:
         """An alias for the decompose method."""
 
+    def template_fragments(self) -> list[LexborNode]:
+        """Return the content of every ``<template>`` in this subtree, as fragments.
+
+        The content of a ``<template>`` is not part of the document tree, so
+        ``css()`` never reaches it. This is how to get at it.
+
+        Returns
+        -------
+        list of LexborNode
+            One fragment per ``<template>``, in document order. Empty when the
+            subtree holds no templates.
+
+        Examples
+        --------
+        >>> tree = LexborHTMLParser("<div><template id='row'><b>x</b></template></div>")
+        >>> fragment = tree.css_first('div').template_fragments()[0]
+        >>> fragment.css('b')
+        [<LexborNode b>]
+        >>> fragment.parent.attributes['id']
+        'row'
+        """
+
     def select(self, query: str | None = None) -> LexborSelector:
         """Select nodes given a CSS selector.
 
@@ -728,12 +757,16 @@ class LexborNode:
     def comment_content(self) -> str | None:
         """Extract the textual content of an HTML comment node.
 
+        The text comes from the comment's character data, which is what
+        serializing the node would wrap in the markers anyway. Reading it also
+        keeps the answer about this node: a top-level comment of a fragment
+        serializes with all its siblings.
+
         Returns
         -------
         str or None
             Comment text with surrounding whitespace removed, or ``None`` if
-            the current node is not a comment or the comment markup cannot be
-            parsed.
+            the current node is not a comment.
 
         Examples
         --------
@@ -877,6 +910,7 @@ class LexborHTMLParser:
         fragment_namespace: str = "html",
         options: int = 0,
         encoding: bool = False,
+        scripting: bool = False,
     ) -> None:
         """Create a parser and load HTML.
 
@@ -967,6 +1001,34 @@ class LexborHTMLParser:
 
             The encoding is resolved before parsing, so this costs one extra pass
             over non-UTF-8 input and nothing at all for UTF-8.
+
+        scripting : bool, optional
+            Parse the way a browser with scripting enabled does. Defaults to
+            ``False``, the way a browser with scripting disabled does.
+
+            The HTML Standard parses ``<noscript>`` by this flag. With scripting
+            disabled, its content is parsed as markup, so a ``<noscript>`` in
+            ``<head>`` that holds an element ``<head>`` does not allow, such as a
+            tracking ``<img>``, closes ``<head>``, and every head element after
+            it ends up in ``<body>``::
+
+                >>> html = (
+                ...     '<head><noscript><img src="p.gif"></noscript>'
+                ...     '<link rel="canonical" href="/a"></head>'
+                ... )
+                >>> LexborHTMLParser(html).css_first("head link") is None
+                True
+
+            With scripting enabled, as in a browser that runs scripts, the
+            content of ``<noscript>`` is one text node, and the head elements
+            after it stay in ``<head>``::
+
+                >>> parser = LexborHTMLParser(html, scripting=True)
+                >>> parser.css_first("head link").attributes["href"]
+                '/a'
+
+            The flag also applies to HTML parsed into the document later, such
+            as an ``inner_html`` assignment, and :meth:`clone` keeps it.
 
         """
 
@@ -1285,6 +1347,31 @@ class LexborHTMLParser:
             ``True`` when a match exists.
         """
 
+    def template_fragments(self) -> list[LexborNode]:
+        """Return the content of every ``<template>`` in the document, as fragments.
+
+        The content of a ``<template>`` is not part of the document tree, so
+        ``css()`` never reaches it. This is how to get at it. See
+        :meth:`LexborNode.template_fragments`.
+
+        Returns
+        -------
+        list of LexborNode
+            One fragment per ``<template>``, in document order. Empty when the
+            document holds no templates.
+
+        Examples
+        --------
+        >>> tree = LexborHTMLParser("<template id='row'><b>x</b></template>")
+        >>> tree.css('b')
+        []
+        >>> fragment = tree.template_fragments()[0]
+        >>> fragment.css('b')
+        [<LexborNode b>]
+        >>> fragment.parent.attributes['id']
+        'row'
+        """
+
     def merge_text_nodes(self) -> None:
         """Iterates over all text nodes and merges all text nodes that are close to each other.
 
@@ -1314,7 +1401,7 @@ class LexborHTMLParser:
         You can use it to do temporary modifications without affecting the original HTML tree.
         It is tied to the current parser instance.
         Gets destroyed when the parser instance is destroyed.
-        Document options are preserved in the cloned parser.
+        Document options and the ``scripting`` flag are preserved in the cloned parser.
         The document ``head`` and ``body`` are preserved when available.
 
         Returns
@@ -1448,7 +1535,8 @@ def create_tag(tag: str) -> LexborNode:
     Given an HTML tag name, e.g. `"div"`, create a single empty node for that tag,
     e.g. `"<div></div>"`.
 
-    Use `LexborHTMLParser().create_node(..)` if you need to create a node tied to a specific parser instance.
+    Use `LexborHTMLParser(html).create_node(..)` if you need to create a node tied
+    to a specific parser instance.
     """
 
 def parse_fragment(html: str) -> list[LexborNode]:
@@ -1459,6 +1547,28 @@ def parse_fragment(html: str) -> list[LexborNode]:
     ------
     SelectolaxError
         Always.
+    """
+
+def extract_html_comment(text: str) -> str:
+    """Extract the inner content of an HTML comment string.
+
+    Slicing between the markers keeps this linear in the length of ``text``.
+    Matching a pattern instead means trying every split point and rescanning the
+    whitespace around each one, which is quadratic for an unterminated comment
+    made of whitespace.
+
+    Args:
+        text: Raw HTML comment, including the ``<!--`` and ``-->`` markers.
+
+    Returns:
+        The comment body with surrounding whitespace stripped.
+
+    Raises:
+        ValueError: If the input is not a well-formed HTML comment.
+
+    Examples:
+        >>> extract_html_comment("<!-- hello -->")
+        'hello'
     """
 
 class SelectolaxError(Exception):

@@ -7,6 +7,7 @@
 
 import typing as t
 
+import typing_extensions as te
 from pydantic import Field
 
 from atproto_client.models import string_formats
@@ -193,7 +194,7 @@ class ReportView(base.ModelBase):
     ]  #: Current status of the report.
     subject: 'models.ToolsOzoneModerationDefs.SubjectView'  #: The subject that was reported with full details.
     action_event_ids: t.Optional[t.List[int]] = (
-        None  #: Array of moderation event IDs representing actions taken on this report (sorted DESC, most recent first).
+        None  #: Array of moderation event IDs representing actions taken on this report, in append order (most recently linked event last).
     )
     action_note: t.Optional[str] = None  #: Note sent to reporter when report was actioned.
     actions: t.Optional[t.List['models.ToolsOzoneModerationDefs.ModEventView']] = (
@@ -207,9 +208,22 @@ class ReportView(base.ModelBase):
     is_muted: t.Optional[bool] = (
         None  #: Whether this report is muted. A report is muted if the reporter was muted or the subject was muted at the time the report was created.
     )
+    priority_level: t.Optional[str] = None  #: Priority level assigned to the report.
+    priority_score: te.Annotated[t.Optional[int], Field(ge=0, le=100)] = (
+        None  #: Report priority score. Higher scores have higher priority.
+    )
+    priority_target_met: t.Optional[bool] = (
+        None  #: Whether the current closure occurred within the report's snapshotted target.
+    )
+    priority_target_minutes: te.Annotated[t.Optional[int], Field(ge=1, le=2147483647)] = (
+        None  #: Target resolution duration in minutes.
+    )
     queue: t.Optional['models.ToolsOzoneQueueDefs.QueueView'] = None  #: The queue this report is assigned to (if any).
     queued_at: t.Optional[string_formats.DateTime] = None  #: When the report was assigned to its current queue.
     related_report_count: t.Optional[int] = None  #: Number of other pending reports on the same subject.
+    resolution_time_sec: te.Annotated[t.Optional[int], Field(ge=0)] = (
+        None  #: Time from report creation to its last closure.
+    )
     subject_status: t.Optional['models.ToolsOzoneModerationDefs.SubjectStatusView'] = (
         None  #: Current status of the reported subject.
     )
@@ -241,6 +255,21 @@ class AssignmentActivity(base.ModelBase):
 
     py_type: t.Literal['tools.ozone.report.defs#assignmentActivity'] = Field(
         default='tools.ozone.report.defs#assignmentActivity', alias='$type', frozen=True
+    )
+
+
+class UnassignmentActivity(base.ModelBase):
+    """Definition model for :obj:`tools.ozone.report.defs`. Activity recording a moderator being unassigned from a report."""
+
+    next_status: t.Optional[t.Union[t.Literal['open', 'closed', 'escalated', 'queued', 'assigned'], str]] = (
+        None  #: The report's status immediately after the moderator was unassigned. May equal previousStatus if unassignment did not change the report's status, or be absent on older activities.
+    )
+    previous_status: t.Optional[t.Union[t.Literal['open', 'closed', 'escalated', 'queued', 'assigned'], str]] = (
+        None  #: The report's status immediately before the moderator was unassigned. May be absent on older activities.
+    )
+
+    py_type: t.Literal['tools.ozone.report.defs#unassignmentActivity'] = Field(
+        default='tools.ozone.report.defs#unassignmentActivity', alias='$type', frozen=True
     )
 
 
@@ -295,6 +324,7 @@ class ReportActivityView(base.ModelBase):
         t.Union[
             'models.ToolsOzoneReportDefs.QueueActivity',
             'models.ToolsOzoneReportDefs.AssignmentActivity',
+            'models.ToolsOzoneReportDefs.UnassignmentActivity',
             'models.ToolsOzoneReportDefs.EscalationActivity',
             'models.ToolsOzoneReportDefs.CloseActivity',
             'models.ToolsOzoneReportDefs.ReopenActivity',
@@ -328,17 +358,41 @@ class ReportActivityView(base.ModelBase):
 class LiveStats(base.ModelBase):
     """Definition model for :obj:`tools.ozone.report.defs`. Live statistics for reports for the current calendar day, filterable by queue, moderator, or report type."""
 
+    acknowledged_count: t.Optional[int] = (
+        None  #: Number of closures whose last report action is not label, tag, or takedown.
+    )
     action_rate: t.Optional[int] = (
-        None  #: Percentage of reports actioned (actionedCount / inboundCount * 100), rounded to nearest integer.
+        None  #: Percentage of closures actioned (actionedCount / closedCount * 100), rounded to nearest integer.
     )
-    actioned_count: t.Optional[int] = None  #: Number of reports closed today.
-    avg_handling_time_sec: t.Optional[int] = (
-        None  #: Average time in seconds from report creation (or moderator assignment) to close.
+    actioned_count: t.Optional[int] = None  #: Number of closures whose last report action is label, tag, or takedown.
+    aht_duration_sec: t.Optional[int] = None  #: Sum of report assignment-to-close seconds.
+    aht_sample_count: t.Optional[int] = None  #: Number of assigned closed-report samples in ahtDurationSec.
+    avg_handling_time_sec: t.Optional[int] = None  #: Average handling time in seconds from report assignment to close.
+    avg_resolution_time_sec: t.Optional[int] = (
+        None  #: Average resolution time in seconds from report creation to close.
     )
-    escalated_count: t.Optional[int] = None  #: Number of reports escalated today.
-    inbound_count: t.Optional[int] = None  #: Reports received today.
+    closed_count: t.Optional[int] = None  #: Number of close transitions.
+    closure_target_met_count: te.Annotated[t.Optional[int], Field(ge=0)] = (
+        None  #: Reports whose closure meets their closure target.
+    )
+    closure_target_met_rate: te.Annotated[t.Optional[int], Field(ge=0, le=100)] = (
+        None  #: Percent of reports meeting their closure target.
+    )
+    closure_target_missed_count: te.Annotated[t.Optional[int], Field(ge=0)] = (
+        None  #: Reports whose closure exceeds their closure target.
+    )
+    closure_target_overdue_count: te.Annotated[t.Optional[int], Field(ge=0)] = (
+        None  #: Unmuted pending reports past their closure target.
+    )
+    escalated_count: t.Optional[int] = None  #: Number of reports escalated.
+    inbound_count: t.Optional[int] = None  #: Reports received.
+    label_action_count: t.Optional[int] = None  #: Closures whose last report action is a label event.
     last_updated: t.Optional[string_formats.DateTime] = None  #: When these statistics were last computed.
-    pending_count: t.Optional[int] = None  #: Number of reports currently not closed.
+    pending_count: t.Optional[int] = None  #: Number of unmuted reports currently not closed.
+    resolution_duration_sec: t.Optional[int] = None  #: Sum of report creation-to-close seconds.
+    resolution_sample_count: t.Optional[int] = None  #: Number of closed-report samples in resolutionDurationSec.
+    tag_action_count: t.Optional[int] = None  #: Closures whose last report action is a tag event.
+    takedown_action_count: t.Optional[int] = None  #: Closures whose last report action is a takedown event.
 
     py_type: t.Literal['tools.ozone.report.defs#liveStats'] = Field(
         default='tools.ozone.report.defs#liveStats', alias='$type', frozen=True
@@ -349,17 +403,47 @@ class HistoricalStats(base.ModelBase):
     """Definition model for :obj:`tools.ozone.report.defs`. A single daily snapshot of report statistics for a calendar date."""
 
     date: str  #: The calendar date this snapshot covers (YYYY-MM-DD).
-    action_rate: t.Optional[int] = (
-        None  #: Percentage of reports actioned (actionedCount / inboundCount * 100), rounded to nearest integer.
+    acknowledged_count: t.Optional[int] = (
+        None  #: Number of closures whose last report action is not label, tag, or takedown during this day.
     )
-    actioned_count: t.Optional[int] = None  #: Number of reports closed during this day.
-    avg_handling_time_sec: t.Optional[int] = (
-        None  #: Average time in seconds from report creation (or moderator assignment) to close.
+    action_rate: t.Optional[int] = (
+        None  #: Percentage of closures actioned (actionedCount / closedCount * 100), rounded to nearest integer.
+    )
+    actioned_count: t.Optional[int] = (
+        None  #: Number of closures whose last report action is label, tag, or takedown during this day.
+    )
+    aht_duration_sec: t.Optional[int] = None  #: Sum of report assignment-to-close seconds for this day's samples.
+    aht_sample_count: t.Optional[int] = None  #: Number of assigned closed-report samples in ahtDurationSec.
+    avg_handling_time_sec: t.Optional[int] = None  #: Average handling time in seconds from report assignment to close.
+    avg_resolution_time_sec: t.Optional[int] = (
+        None  #: Average resolution time in seconds from report creation to close.
+    )
+    closed_count: t.Optional[int] = None  #: Number of close transitions during this day.
+    closure_target_met_count: te.Annotated[t.Optional[int], Field(ge=0)] = (
+        None  #: Reports whose closure meets their closure target.
+    )
+    closure_target_met_rate: te.Annotated[t.Optional[int], Field(ge=0, le=100)] = (
+        None  #: Percent of reports meeting their closure target.
+    )
+    closure_target_missed_count: te.Annotated[t.Optional[int], Field(ge=0)] = (
+        None  #: Reports whose closure exceeds their closure target.
+    )
+    closure_target_overdue_count: te.Annotated[t.Optional[int], Field(ge=0)] = (
+        None  #: Unmuted pending reports past their closure target at the snapshot time.
     )
     computed_at: t.Optional[string_formats.DateTime] = None  #: When this snapshot was last computed.
     escalated_count: t.Optional[int] = None  #: Number of reports escalated during this day.
     inbound_count: t.Optional[int] = None  #: Reports received during this day.
-    pending_count: t.Optional[int] = None  #: Number of reports not closed at time of computation.
+    label_action_count: t.Optional[int] = None  #: Closures whose last report action is a label event during this day.
+    pending_count: t.Optional[int] = (
+        None  #: Number of unmuted reports not closed at the end of this UTC day, or at computation time for the current day.
+    )
+    resolution_duration_sec: t.Optional[int] = None  #: Sum of report creation-to-close seconds for this day's samples.
+    resolution_sample_count: t.Optional[int] = None  #: Number of closed-report samples in resolutionDurationSec.
+    tag_action_count: t.Optional[int] = None  #: Closures whose last report action is a tag event during this day.
+    takedown_action_count: t.Optional[int] = (
+        None  #: Closures whose last report action is a takedown event during this day.
+    )
 
     py_type: t.Literal['tools.ozone.report.defs#historicalStats'] = Field(
         default='tools.ozone.report.defs#historicalStats', alias='$type', frozen=True

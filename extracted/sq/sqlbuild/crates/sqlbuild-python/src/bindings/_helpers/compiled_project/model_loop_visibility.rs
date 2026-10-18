@@ -9,6 +9,7 @@ use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python};
 use pyo3::types::{PyDict, PyDictMethods, PyTuple};
 
 use crate::bindings::_helpers::compiled_project::model_loop::{LoopContext, VisibleDeclarations};
+use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::scopes::declaration_contexts::NativeDeclarationContexts;
 
 const NAME_FIELD: &str = "name";
@@ -124,21 +125,19 @@ impl<'py> ModelVisibility<'py> {
         let (enums, constants) = if classes.projects {
             let resolved: Bound<'py, PyAny> = self.resolved(context, model.file_path)?;
             for field in SHARED_FIELDS {
-                fields.set_item(field, resolved.getattr(field)?)?;
+                fields.set_item(field, native_field(&resolved, field)?)?;
             }
             fields.set_item(
                 ENUM_VISIBILITY_FIELD,
-                resolved.getattr(ENUM_VISIBILITY_FIELD)?,
+                native_field(&resolved, ENUM_VISIBILITY_FIELD)?,
             )?;
             fields.set_item(
                 CONSTANT_VISIBILITY_FIELD,
-                resolved.getattr(CONSTANT_VISIBILITY_FIELD)?,
+                native_field(&resolved, CONSTANT_VISIBILITY_FIELD)?,
             )?;
             (
-                resolved.getattr(ENUMS_FIELD)?.downcast_into::<PyDict>()?,
-                resolved
-                    .getattr(CONSTANTS_FIELD)?
-                    .downcast_into::<PyDict>()?,
+                native_field(&resolved, ENUMS_FIELD)?.downcast_into::<PyDict>()?,
+                native_field(&resolved, CONSTANTS_FIELD)?.downcast_into::<PyDict>()?,
             )
         } else {
             for field in [
@@ -189,7 +188,7 @@ impl<'py> ModelVisibility<'py> {
     ) -> PyResult<Bound<'py, PyAny>> {
         let resolver: &Bound<'py, PyAny> = &context.classes.visibility.resolver;
         let contexts: Bound<'py, NativeDeclarationContexts> =
-            resolver.getattr("native_contexts")?.downcast_into()?;
+            native_field(resolver, "native_contexts")?.downcast_into()?;
         let (resolved, _) = contexts.get().resolved_context(resolver, file_path, None)?;
         Ok(resolved)
     }
@@ -203,18 +202,18 @@ fn rebound<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let py: Python<'py> = cached.py();
     let enum_visibility: Bound<'py, PyDict> =
-        cached.getattr(ENUM_VISIBILITY_FIELD)?.downcast_into()?;
+        native_field(cached, ENUM_VISIBILITY_FIELD)?.downcast_into()?;
     let constant_visibility: Bound<'py, PyDict> =
-        cached.getattr(CONSTANT_VISIBILITY_FIELD)?.downcast_into()?;
+        native_field(cached, CONSTANT_VISIBILITY_FIELD)?.downcast_into()?;
     if enum_visibility.is_empty() && constant_visibility.is_empty() {
         return Ok(cached.clone());
     }
     let resolver: &Bound<'py, PyAny> = &context.classes.visibility.resolver;
     let contexts: Bound<'py, NativeDeclarationContexts> =
-        resolver.getattr("native_contexts")?.downcast_into()?;
+        native_field(resolver, "native_contexts")?.downcast_into()?;
     let fields: Bound<'py, PyDict> = PyDict::new(py);
     for field in VISIBLE_FIELDS {
-        fields.set_item(field, cached.getattr(field)?)?;
+        fields.set_item(field, native_field(cached, field)?)?;
     }
     fields.set_item(
         ENUM_VISIBILITY_FIELD,
@@ -256,7 +255,7 @@ fn by_name<'py>(declarations: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyDict>
     let named: Bound<'py, PyDict> = PyDict::new(declarations.py());
     for declaration in declarations.try_iter()? {
         let declaration: Bound<'py, PyAny> = declaration?;
-        named.set_item(declaration.getattr(NAME_FIELD)?, declaration)?;
+        named.set_item(native_field(&declaration, NAME_FIELD)?, declaration)?;
     }
     Ok(named)
 }

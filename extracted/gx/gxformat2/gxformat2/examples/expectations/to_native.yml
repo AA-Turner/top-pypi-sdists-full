@@ -177,3 +177,108 @@ test_to_native_step_input_default_file:
       value: File
     - path: [steps, "0", in_, input1, default, basename]
       value: a file
+
+test_to_native_list_form_steps:
+  fixture: synthetic-list-form-steps.gxwf.yml
+  operation: to_native
+  assertions:
+    - path: [a_galaxy_workflow]
+      value: "true"
+    - path: [name]
+      value: "List form workflow"
+    - path: [steps, "0", type_]
+      value: data_input
+    - path: [steps, "0", label]
+      value: the_input
+    - path: [steps, "1", type_]
+      value: tool
+    - path: [steps, "1", tool_id]
+      value: cat1
+    - path: [steps, "1", label]
+      value: cat
+
+test_to_native_list_form_step_dict_in_connections:
+  fixture: synthetic-list-form-steps.gxwf.yml
+  operation: to_native
+  assertions:
+    - path: [steps, "1", input_connections, input1, $length]
+      value: 1
+    - path: [steps, "1", input_connections, input1, 0, id]
+      value: 0
+    - path: [steps, "1", input_connections, input1, 0, output_name]
+      value: output
+
+test_to_native_list_form_step_dict_out_pja:
+  fixture: synthetic-list-form-steps.gxwf.yml
+  operation: to_native
+  assertions:
+    - path: [steps, "1", workflow_outputs, $length]
+      value: 1
+    - path: [steps, "1", workflow_outputs, 0, label]
+      value: the_output
+    - path: [steps, "1", post_job_actions, HideDatasetActionout_file1, action_type]
+      value: HideDatasetAction
+
+test_to_native_unlabelled_list_step_numeric_output_source:
+  fixture: synthetic-bp-step-no-label.gxwf.yml
+  operation: to_native
+  assertions:
+    - path: [steps, "1", type_]
+      value: tool
+    - path: [steps, "1", workflow_outputs, $length]
+      value: 1
+    - path: [steps, "1", workflow_outputs, 0, label]
+      value: the_output
+    - path: [steps, "0", workflow_outputs, $length]
+      value: 0
+
+test_to_native_input_bounds_min_max:
+  fixture: synthetic-numeric-input-bounds.gxwf.yml
+  operation: to_native
+  assertions:
+    - path: [steps, "0", tool_state, parameter_type]
+      value: integer
+    - path: [steps, "0", tool_state, validators]
+      value:
+        - {type: in_range, min: 1, max: 5, negate: false}
+
+test_to_native_input_bounds_min_only:
+  fixture: synthetic-numeric-input-bounds.gxwf.yml
+  operation: to_native
+  assertions:
+    - path: [steps, "1", tool_state, validators]
+      value:
+        - {type: in_range, min: 0, max: null, negate: false}
+
+test_to_native_input_bounds_max_only:
+  fixture: synthetic-numeric-input-bounds.gxwf.yml
+  operation: to_native
+  assertions:
+    - path: [steps, "2", tool_state, parameter_type]
+      value: float
+    - path: [steps, "2", tool_state, validators]
+      value:
+        - {type: in_range, min: null, max: 0.5, negate: false}
+
+test_to_native_text_input_validators:
+  fixture: synthetic-text-input-validators.gxwf.yml
+  operation: to_native
+  assertions:
+    - path: [steps, "0", tool_state, parameter_type]
+      value: text
+    - path: [steps, "0", tool_state, validators]
+      value:
+        - {type: regex, expression: "^moo", message: must start with moo, negate: false}
+    - path: [steps, "1", tool_state, validators]
+      value:
+        - {type: regex, expression: cow, negate: true}
+
+test_to_native_multi_text_input_validators:
+  fixture: synthetic-multi-text-input-validators.gxwf.yml
+  operation: to_native
+  assertions:
+    - path: [steps, "0", tool_state, multiple]
+      value: true
+    - path: [steps, "0", tool_state, validators]
+      value:
+        - {type: regex, expression: "^[ACGT]+$", negate: false}

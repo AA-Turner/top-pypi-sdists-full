@@ -4,17 +4,18 @@ use pyo3::exceptions::PyIndexError;
 use pyo3::prelude::{Bound, Py, PyAny, PyAnyMethods, PyResult, Python};
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyDict, PyDictMethods, PyTuple};
-use pyo3::{pyclass, pymethods};
+use pyo3::{IntoPyObjectExt, pyclass, pymethods};
 
 use crate::bindings::_helpers::compiled_project::compiled_model_view::object_key;
 use crate::bindings::_helpers::compiled_project::model_input_view::{
     InputViewClasses, view_classes,
 };
 use crate::bindings::_helpers::compiled_project::project::NativeCompiledProject;
+use crate::bindings::_helpers::graph::project_graph::ResourceRow;
+use crate::bindings::_helpers::records::fields::field as native_field;
+use crate::bindings::_helpers::records::fields::replaced_keywords;
 
 const SOURCE_RESOURCE: &str = "source";
-const DATACLASSES_MODULE: &str = "dataclasses";
-const REPLACE_FUNCTION: &str = "replace";
 
 /// `(database, schema)` native project assembly resolved for a source, or `None`.
 pub(crate) type SourceNamespace = Option<(Option<String>, Option<String>)>;
@@ -112,15 +113,11 @@ impl SourceRecord {
 
 /// `dataclasses.replace(value, **changes)`.
 pub(crate) fn replaced(
-    py: Python<'_>,
+    _py: Python<'_>,
     value: &Bound<'_, PyAny>,
     changes: &Bound<'_, PyDict>,
 ) -> PyResult<Py<PyAny>> {
-    Ok(py
-        .import(DATACLASSES_MODULE)?
-        .getattr(REPLACE_FUNCTION)?
-        .call((value,), Some(changes))?
-        .unbind())
+    Ok(replaced_keywords(value, changes)?.unbind())
 }
 
 fn read_source<'py, T>(
@@ -153,21 +150,21 @@ impl NativeSourceInput {
 #[pymethods]
 impl NativeSourceInput {
     #[getter]
-    fn source_entry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn source_entry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         read_source(&self.owner, self.index, py, |source, py| {
             source.attached_entry(py)
         })
     }
 
     #[getter]
-    fn source_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn source_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         read_source(&self.owner, self.index, py, |source, py| {
             Ok(source.attached.source_file.clone_ref(py))
         })
     }
 
     #[getter]
-    fn declaration_usages(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+    pub(crate) fn declaration_usages(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
         read_source(&self.owner, self.index, py, |source, py| {
             Ok(source.attached.usages.clone_ref(py))
         })
@@ -175,7 +172,7 @@ impl NativeSourceInput {
 
     /// `(name, has a loader, database, schema)`, what project assembly resolves a namespace from.
     #[getter]
-    fn assembly_row(
+    pub(crate) fn assembly_row(
         &self,
         py: Python<'_>,
     ) -> PyResult<(String, bool, Option<String>, Option<String>)> {
@@ -183,7 +180,7 @@ impl NativeSourceInput {
             let attached: &AttachedSource = &source.attached;
             Ok((
                 attached.name.clone(),
-                !attached.entry.bind(py).getattr("loader")?.is_none(),
+                !native_field(attached.entry.bind(py), "loader")?.is_none(),
                 attached.database.clone(),
                 attached.schema.clone(),
             ))
@@ -202,13 +199,25 @@ impl NativeCompiledSource {
     pub(crate) fn new(owner: Py<NativeCompiledProject>, index: usize) -> Self {
         Self { owner, index }
     }
+
+    /// The source's project graph row: its key, with no dependencies, tags or folder.
+    pub(crate) fn graph_row(&self, py: Python<'_>) -> PyResult<ResourceRow> {
+        read_source(&self.owner, self.index, py, |source, _| {
+            Ok((
+                (SOURCE_RESOURCE.to_owned(), source.attached.name.clone()),
+                Vec::new(),
+                Vec::new(),
+                None,
+            ))
+        })
+    }
 }
 
 #[pymethods]
 impl NativeCompiledSource {
     /// The source's planner-facing `CompiledObjectKey`.
     #[getter]
-    fn key(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn key(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let classes: InputViewClasses<'_> = view_classes(&self.owner, py)?;
         read_source(&self.owner, self.index, py, |source, py| {
             source
@@ -221,29 +230,42 @@ impl NativeCompiledSource {
     }
 
     #[getter]
-    fn deps<'py>(&self, py: Python<'py>) -> Bound<'py, PyTuple> {
+    pub(crate) fn deps<'py>(&self, py: Python<'py>) -> Bound<'py, PyTuple> {
         PyTuple::empty(py)
     }
 
     #[getter]
-    fn name(&self, py: Python<'_>) -> PyResult<String> {
+    pub(crate) fn name(&self, py: Python<'_>) -> PyResult<String> {
         read_source(&self.owner, self.index, py, |source, _| {
             Ok(source.attached.name.clone())
         })
     }
 
     #[getter]
-    fn source_entry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn source_entry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         read_source(&self.owner, self.index, py, |source, py| {
             source.assembled_entry(py)
         })
     }
 
     #[getter]
-    fn source_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn source_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         read_source(&self.owner, self.index, py, |source, py| {
             Ok(source.attached.source_file.clone_ref(py))
         })
+    }
+}
+
+impl NativeCompiledSource {
+    /// The `CompiledSource` field values, in field order, without building the record.
+    pub(crate) fn record_values<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
+        Ok(vec![
+            self.key(py)?.into_bound(py),
+            self.deps(py).into_any(),
+            self.name(py)?.into_bound_py_any(py)?,
+            self.source_entry(py)?.into_bound(py),
+            self.source_file(py)?.into_bound(py),
+        ])
     }
 }
 

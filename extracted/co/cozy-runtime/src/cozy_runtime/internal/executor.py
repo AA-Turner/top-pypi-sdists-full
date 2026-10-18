@@ -123,8 +123,8 @@ from cozy_runtime.author._invoke import (
 )
 from cozy_runtime.author._model import WARNINGS, Model, component_use
 from cozy_runtime.author._observations import Attribution
+from cozy_runtime.author._services import AdjustmentRow, ProgressFrame
 from cozy_runtime.author._services import Attempt as AuthorAttempt
-from cozy_runtime.author._services import ProgressFrame
 from cozy_runtime.author._split import install as install_pieces
 from cozy_runtime.author._weights import Weights as RawWeights
 from cozy_runtime.author.kernels import _SETS as KERNEL_SETS
@@ -143,6 +143,7 @@ from cozy_runtime.internal import (
     execution_evidence,
     executor_commands,
     fetch_plan,
+    fp8_linear,
     int8_linear,
     kernel_cache,
     kernel_compile,
@@ -161,6 +162,7 @@ from cozy_runtime.internal import (
 )
 from cozy_runtime.internal.config import inherited_environment, restore_seal, seal_snapshot
 from cozy_runtime.internal.discovery import discover_distribution, discover_installed
+from cozy_runtime.internal.encoding.leaves import FORMATS, serving
 from cozy_runtime.internal.executor_commands import (
     LOAD_ATTENTION_PIN,
     LOAD_PINNED,
@@ -434,6 +436,18 @@ def _deadline(seconds: float | None) -> float:
     return math.inf if seconds is None else time.monotonic() + seconds
 
 
+def adjustment_row(row: AdjustmentRow) -> dict[str, str]:
+    """The reply's adjustment row: kind and source stay fields; values cross as text."""
+    return {
+        "field": row.field,
+        "kind": row.kind,
+        "requested": "" if row.requested is None else str(row.requested),
+        "applied": "" if row.applied is None else str(row.applied),
+        "reason": row.reason[:256],
+        "source": row.source,
+    }
+
+
 def _granted_inputs(command: Invoke) -> dict[str, GrantedInput]:
     """Verified input paths in the attempt's spool."""
     return {input_id: row.granted(input_id) for input_id, row in command.inputs.items()}
@@ -578,9 +592,7 @@ class _OnDemand:
 _WARM_NOTED: set[type] = set()
 
 #: The requests rank 0 relays to the machine for a follower (`_relay`).
-_RELAYED = frozenset(
-    {"sealed_tier", "sealed_stage", "object_files", "model_source"}
-)
+_RELAYED = frozenset({"sealed_tier", "sealed_stage", "object_files", "model_source"})
 
 #: The runtime modules a construction imports, named ONCE so `start` can warm
 #: exactly the set `_prepare_first` re-imports (cr-104). Warming a name this tuple omits
@@ -3351,10 +3363,7 @@ class Executor:
         return {
             "ok": True,
             "features": dict(prepared.features.values),
-            "adjustments": [
-                {"field": row.field, "requested": str(row.requested), "applied": str(row.applied)}
-                for row in prepared.overlay.rows
-            ],
+            "adjustments": [adjustment_row(row) for row in prepared.overlay.rows],
             **prepared.digests(),
         }
 
@@ -3526,19 +3535,10 @@ class Executor:
         self.handled = (outcome, stage[0], record)
         if self.rank == 0:
             for member in self.model_executors or [self]:
-                for group in member.refused_leaves:
-                    fields = dataclasses.asdict(group)
-                    record.emit("log", "encoded leaf refused, served decoded", "warn", **fields)
+                self._emit_gemm(record, member)
             for feature, instead in accel.unavailable(self.device_kind) if self.models else ():
                 record.emit(
                     "log", f"{feature} unavailable on {self.device_kind}", "warn", instead=instead
-                )
-            for missing in int8_linear.unavailable():
-                record.emit(
-                    "log",
-                    "8-bit op unavailable, slower kernels served",
-                    "warn",
-                    **dataclasses.asdict(missing),
                 )
             for message, raised in WARNINGS:
                 record.emit("log", message, "warn", **raised)
@@ -3708,13 +3708,7 @@ class Executor:
             "result_ref": result_ref,
             "result_schema_digest": self._result_schema_digest(surface),
             "adjustments": [
-                {
-                    "field": row.field,
-                    "requested": str(row.requested),
-                    "applied": str(row.applied),
-                    "reason": f"{row.kind}: {row.reason}"[:256],
-                }
-                for row in (envelope.adjustments if envelope else ())
+                adjustment_row(row) for row in (envelope.adjustments if envelope else ())
             ],
             "ignored": list(record.ignored),
             "oversize_result_bytes": oversize,
@@ -3752,18 +3746,53 @@ class Executor:
     def _restore_attention(self) -> None:
         self._attention_snapshot().restore()
 
+    def _prefix(self) -> str:
+        """A qualified request names its model even when it is the only one; component-only pins
+        still match through attention._matches."""
+        return "+".join(sorted(self.models)) + "/" if self.models else ""
+
     def _attention_roots(self) -> dict[str, Any]:
         roots: dict[str, Any] = {}
         executors = self.model_executors or [self]
         for executor in executors:
             if executor.backend is None:
                 continue
-            # A qualified request names its model even when it is the only one.
-            # Component-only pins still match through attention._matches.
-            prefix = "+".join(sorted(executor.models)) + "/" if executor.models else ""
             for name, root in executor.backend.roots.items():
-                roots[prefix + name] = root
+                roots[executor._prefix() + name] = root
         return roots
+
+    @staticmethod
+    def _emit_gemm(record: AuthorAttempt, member: Executor) -> None:
+        """`gemm.selected`: per component and leaf provider, the kernel its installed leaves serve
+        now (read once a run, never per call). `gemm.fallback`: each that serves below what its
+        lane wanted, and why, also said as a warning line (a machine before TensorD keeps
+        `gemm.*` drops the fact)."""
+
+        def fallback(value: str, **fields: Any) -> None:
+            record.emit("confession", "gemm.fallback", value, **fields)
+            record.emit("log", "a GEMM served below its lane", "warn", kernel=value, **fields)
+
+        prefix = member._prefix()
+        counted = member.backend.gemm_sites if member.backend is not None else {}
+        index = member.device_facts.index if member.device_facts is not None else 0
+        missing = int8_linear.unavailable()
+        native = {"int8": int8_linear.OP, "fp8": fp8_linear.OP}
+        for (component, leaf), sites in sorted(counted.items()):
+            kernel, form = serving(leaf, index), FORMATS[leaf]
+            fields: dict[str, Any] = {"component": prefix + component, "sites": sites}
+            record.emit("confession", "gemm.selected", kernel, format=form, leaf=leaf, **fields)
+            wanted = native.get(form, kernel)
+            if missing and kernel != wanted:
+                fallback(kernel, wanted=wanted, served=kernel, reason=missing[0].reason, **fields)
+        for group in member.refused_leaves:
+            fallback(
+                "torch.linear",
+                component=prefix + group.component,
+                wanted=FORMATS.get(group.leaf, group.lane),
+                served={"bfloat16": "bf16", "float16": "fp16"}.get(group.dtype, group.dtype),
+                reason=group.reason,
+                sites=group.tensors,
+            )
 
     def _attention_selection(self, observed: attention.Applied) -> attention.Applied:
         """Attach preparation reasons only to the choices this request actually holds.
@@ -3776,9 +3805,8 @@ class Executor:
         for executor in self.model_executors or [self]:
             if executor.attention is None:
                 continue
-            prefix = "+".join(sorted(executor.models)) + "/" if executor.models else ""
             for row in executor.attention.fallbacks:
-                component = prefix + row["component"]
+                component = executor._prefix() + row["component"]
                 if pin and attention._matches(component, scope):
                     continue
                 if row["selected"] in observed.hosts.get(component, {}):

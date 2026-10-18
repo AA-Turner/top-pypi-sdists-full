@@ -1,5 +1,9 @@
 //! Typed SQL value normalization between Python authored values and native `SqlValue`s.
 
+use crate::bindings::_helpers::records::construct::{new_record, record_class};
+use crate::bindings::_helpers::records::fields::field as native_field;
+use crate::bindings::_helpers::records::ids::{NativeAttr, RecordId};
+use crate::bindings::_helpers::records::registry;
 use pyo3::prelude::{
     Bound, PyAny, PyAnyMethods, PyErr, PyModule, PyModuleMethods, PyResult, Python,
 };
@@ -10,12 +14,8 @@ use pyo3::types::{
 use pyo3::{IntoPyObjectExt, pyfunction, wrap_pyfunction};
 use sqlbuild_core::models::{SqlLogicalType, SqlValue};
 use sqlbuild_model_config::sql_values::errors::SqlValueFailure;
-use sqlbuild_model_config::sql_values::main::normalize_sql_value::normalize_sql_value;
+use sqlbuild_model_config::sql_values::main::normalize_sql_value::normalize_sql_value as normalized;
 use sqlbuild_model_config::sql_values::models::{RawKey, RawSqlValue, SqlValueLimits};
-
-const MODELS_MODULE: &str = "sqlbuild.sql_values.models";
-const TYPES_MODULE: &str = "sqlbuild.sql_values.types";
-const EXCEPTIONS_MODULE: &str = "sqlbuild.sql_values.exceptions";
 
 /// The Python classes authored values are told apart by and normalized values are built from.
 pub(crate) struct SqlValueClasses<'py> {
@@ -29,14 +29,13 @@ pub(crate) struct SqlValueClasses<'py> {
 
 impl<'py> SqlValueClasses<'py> {
     pub(crate) fn load(py: Python<'py>) -> PyResult<Self> {
-        let models = py.import(MODELS_MODULE)?;
         Ok(Self {
             decimal: py.import("decimal")?.getattr("Decimal")?,
-            authored_set: models.getattr("AuthoredSqlSet")?,
-            value_call: models.getattr("AuthoredSqlValueCall")?,
-            sql_value: models.getattr("SqlValue")?,
-            logical_type: models.getattr("SqlLogicalType")?,
-            kind: py.import(TYPES_MODULE)?.getattr("SqlValueKind")?,
+            authored_set: record_class(py, RecordId::AuthoredSqlSet)?,
+            value_call: record_class(py, RecordId::AuthoredSqlValueCall)?,
+            sql_value: record_class(py, RecordId::SqlValue)?,
+            logical_type: record_class(py, RecordId::SqlLogicalType)?,
+            kind: record_class(py, RecordId::SqlValueKind)?,
         })
     }
 }
@@ -87,7 +86,7 @@ pub(crate) fn raw_value(
         return sequence(value.downcast::<PyList>()?.iter(), classes).map(RawSqlValue::List);
     }
     if value.is_instance(&classes.authored_set)? {
-        let items = value.getattr("values")?;
+        let items = native_field(value, "values")?;
         return sequence(
             items.try_iter()?.collect::<PyResult<Vec<_>>>()?.into_iter(),
             classes,
@@ -96,7 +95,7 @@ pub(crate) fn raw_value(
     }
     if value.is_instance(&classes.value_call)? {
         let mut arguments: Vec<(String, RawSqlValue)> = Vec::new();
-        for argument in value.getattr("arguments")?.try_iter()? {
+        for argument in native_field(value, "arguments")?.try_iter()? {
             let (name, item): (String, Bound<'_, PyAny>) = argument?.extract()?;
             arguments.push((name, raw_value(&item, classes)?));
         }
@@ -177,9 +176,7 @@ pub(crate) fn sql_value<'py>(
 pub(crate) fn sql_value_error(py: Python<'_>, failure: SqlValueFailure) -> PyResult<PyErr> {
     Ok(match failure {
         SqlValueFailure::Invalid(message) => PyErr::from_value(
-            py.import(EXCEPTIONS_MODULE)?
-                .getattr("SqlValueValidationError")?
-                .call1((message,))?,
+            registry::native(py, NativeAttr::SqlValueValidationError)?.call1((message,))?,
         ),
         SqlValueFailure::DecimalOverflow => {
             let overflow = py.import("decimal")?.getattr("Overflow")?;
@@ -191,27 +188,31 @@ pub(crate) fn sql_value_error(py: Python<'_>, failure: SqlValueFailure) -> PyRes
 
 /// `normalize_sql_value`: the canonical `SqlValue` of an authored value.
 #[pyfunction]
-fn normalize_typed_sql_value<'py>(
-    py: Python<'py>,
+#[pyo3(signature = (*, raw_value, context, explicit_type = None, limits = None))]
+fn normalize_sql_value<'py>(
     raw_value: &Bound<'py, PyAny>,
-    typing: (String, Option<String>),
-    limits: (i64, i64, i64),
+    context: &str,
+    explicit_type: Option<&str>,
+    limits: Option<&Bound<'py, PyAny>>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let (context, explicit_type) = typing;
+    let py: Python<'py> = raw_value.py();
     let classes = SqlValueClasses::load(py)?;
     let raw = self::raw_value(raw_value, &classes)?;
-    let (max_depth, max_elements, max_size) = limits;
-    let limits = SqlValueLimits {
-        max_depth,
-        max_elements,
-        max_size,
+    let applied: Bound<'py, PyAny> = match limits {
+        Some(limits) if !limits.is_none() => limits.clone(),
+        _ => new_record(py, RecordId::SqlValueLimits, (), None)?,
     };
-    match normalize_sql_value(&raw, &context, explicit_type.as_deref(), limits) {
+    let limits = SqlValueLimits {
+        max_depth: native_field(&applied, "max_depth")?.extract()?,
+        max_elements: native_field(&applied, "max_elements")?.extract()?,
+        max_size: native_field(&applied, "max_size")?.extract()?,
+    };
+    match normalized(&raw, context, explicit_type, limits) {
         Ok(value) => sql_value(&value, &classes),
         Err(failure) => Err(sql_value_error(py, failure)?),
     }
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_function(wrap_pyfunction!(normalize_typed_sql_value, module)?)
+    module.add_function(wrap_pyfunction!(normalize_sql_value, module)?)
 }

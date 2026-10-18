@@ -290,7 +290,7 @@ def test_the_readers_feedback_is_a_question_for_the_researcher(tmp_path):
     (req,) = appr.Board().all(session_id=SID)
     assert (req.policy, req.state, req.facts["source"], req.facts["text"]) == (
         appr.FEEDBACK, appr.WAITING, "daemon_reader", text)
-    assert req.question.question.startswith("Feedback about Probe from the Probe daemon's reader:")
+    assert "\n\nThe Probe daemon's reader wrote:\n" in req.question.question
     assert req.facts["harness"] == "Claude Code"
     assert agent_mod.READER_FEEDBACK_HELD.format(header=req.question.header) in _text(script.seen[1][0])
 
@@ -406,6 +406,19 @@ def test_an_unasked_message_over_1200_characters_is_sent_back_to_be_shortened(tm
     assert "not sent: the message is 1500 characters - at most 1,200. Shorten it." in retry
     [msg] = _waiting()
     assert msg.text == "short"
+
+
+def test_a_turn_whose_tool_ran_out_of_retries_fails_and_keeps_its_events(tmp_path):
+    """A tool that keeps failing (the Probe MCP down) is a failed turn -- the
+    cursor stays and the next try backs off -- never prose that passes the
+    events over as read (Codex, review 2026-10-17). The library's own error:
+    an unknown tool asked for three times."""
+    w = _worker(tmp_path)
+    lane = _lane(w, Reader([("tool", ("no_such_tool", {}))] * 3))
+    before = lane.cursor()
+    got = asyncio.run(lane.run_turn("prompt"))
+    assert got.outcome == rl.Outcome.FAILED
+    assert lane.cursor() == before and lane.next_attempt_at > 0
 
 
 def test_prose_instead_of_final_result_is_the_answer_to_an_ask_and_dropped_otherwise(tmp_path):
@@ -1166,18 +1179,73 @@ def test_a_turn_that_grows_past_the_size_mid_turn_makes_no_summary_call(tmp_path
     assert w.store.live_read_conversation() is None, "ended over the size: the next turn is fresh"
 
 
-def test_a_turn_stops_once_a_round_is_near_the_routes_ceiling(tmp_path):
+def test_a_turn_stops_once_a_round_is_near_the_routes_ceiling(tmp_path, monkeypatch):
     """With no compaction a turn could grow until the route refuses it and all
     of its work is lost: past READ_STOP_TOKENS its tool calls are not run and
-    the model is told to end the turn."""
+    the model is told to end the turn. That is the guard's planned end: a turn
+    the model then ends itself is not a stopped turn and pings nobody
+    (strand-ai 2026-10-17: 18 rounds of lookups, then its answer, pinged)."""
+    pings = []
+    monkeypatch.setattr(rl.alerts, "report", lambda kind, **kw: pings.append((kind, kw.get("text"))))
     w = _worker(tmp_path)
     sized = _sized([("tool", ("session", {"op": "outline"}))], "digits-svm: best C=10.",
                    agent_mod.READ_STOP_TOKENS)
     lane = _lane(w, sized)
-    asyncio.run(lane.run_turn("prompt"))
+    got = asyncio.run(lane.run_turn("prompt"))
     [_first, (messages, _info)] = sized.inner.seen
     assert f"stopped - {agent_mod.READ_STOP_TOKENS:,} tokens" in _text(messages[-1:])
+    assert got.outcome == rl.Outcome.SENT and "best C=10" in got.text
+    assert rl.Status.TURN_STOPPED not in Path(mailbox.status_path(SID)).read_text()
+    assert pings == []
+
+
+@pytest.mark.parametrize("limit", ["rounds", "wall"])
+def test_a_turn_the_size_stop_did_not_end_still_pings(tmp_path, monkeypatch, limit):
+    """The model ignored the size stop and called again past its rounds or its
+    time, then answered: that guard ended it, not the size guard."""
+    pings = []
+    monkeypatch.setattr(rl.alerts, "report", lambda kind, **kw: pings.append((kind, kw.get("text"))))
+    if limit == "rounds":
+        monkeypatch.setattr(agent_mod, "READ_ROUNDS", 3)
+        why = "3 model rounds"
+    else:  # the clock passes the wall at the second round's tool call
+        monkeypatch.setattr(agent_mod.ReaderLimits, "_now",
+                            lambda self: self.state.started + (0 if self.state.rounds < 2 else 10_000))
+        why = f"{agent_mod.READ_WALL_S:.0f} seconds"
+    w = _worker(tmp_path)
+    outline = ("tool", ("session", {"op": "outline"}))
+    sized = _sized([outline, outline], "digits-svm: best C=10.", agent_mod.READ_STOP_TOKENS)
+    got = asyncio.run(_lane(w, sized).run_turn("prompt"))
+    assert len(sized.inner.seen) == 3 and got.outcome == rl.Outcome.SENT
+    assert pings == [(rl.alerts.Kind.READER_STOPPED, f"reader turn stopped: {why}")]
     assert rl.Status.TURN_STOPPED in Path(mailbox.status_path(SID)).read_text()
+
+
+def test_a_size_stopped_turn_that_ends_in_prose_still_pings(tmp_path, monkeypatch):
+    """No final_result after the size stop: the turn failed to end, its prose is
+    dropped -- the alert is for exactly this."""
+    pings = []
+    monkeypatch.setattr(rl.alerts, "report", lambda kind, **kw: pings.append((kind, kw.get("text"))))
+    w = _worker(tmp_path)
+    outline = ("tool", ("session", {"op": "outline"}))
+    got = asyncio.run(_lane(w, _sized([outline] + [("say", "C=10 won")] * 3, "", agent_mod.READ_STOP_TOKENS))
+                      .run_turn("prompt"))
+    assert got.outcome == rl.Outcome.PROSE
+    assert pings == [(rl.alerts.Kind.READER_STOPPED, f"reader turn stopped: {agent_mod.READ_STOP_TOKENS:,} tokens")]
+
+
+def test_a_turn_out_of_rounds_after_the_size_stop_still_pings(tmp_path, monkeypatch):
+    """Only the size guard's own end is quiet: a turn that then runs out of
+    rounds without ending is still a stopped turn."""
+    pings = []
+    monkeypatch.setattr(rl.alerts, "report", lambda kind, **kw: pings.append((kind, kw.get("text"))))
+    monkeypatch.setattr(agent_mod, "READ_ROUNDS", 3)
+    w = _worker(tmp_path)
+    outline = ("tool", ("session", {"op": "outline"}))
+    lane = _lane(w, _sized([outline] * 6, "", agent_mod.READ_STOP_TOKENS))
+    got = asyncio.run(lane.run_turn("prompt"))
+    assert got.outcome == rl.Outcome.STOPPED
+    assert [kind for kind, _text in pings] == [rl.alerts.Kind.READER_STOPPED]
 
 
 def test_a_kept_conversation_at_the_message_count_starts_fresh_before_the_turn(tmp_path, monkeypatch):

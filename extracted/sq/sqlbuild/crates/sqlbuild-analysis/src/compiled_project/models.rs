@@ -1,6 +1,7 @@
 //! Facts a compile's producers retain about each resource, in production order.
 
 use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 
 use serde_json::Value;
 
@@ -17,11 +18,11 @@ pub struct CompiledModelFacts {
     pub name: String,
     pub relative_path: String,
     /// SQL after variable, declaration and macro expansion.
-    pub query_sql: String,
+    pub query_sql: Arc<str>,
     /// The authored query below the `MODEL (...)` header.
-    pub authored_query_sql: String,
+    pub authored_query_sql: Arc<str>,
     /// The whole authored file.
-    pub authored_sql: String,
+    pub authored_sql: Arc<str>,
     pub config: ModelConfigFacts,
     pub references: Vec<ModelReferenceFact>,
     pub schema: Option<ModelSchemaFact>,
@@ -73,9 +74,13 @@ pub struct SchemaColumnFact {
     pub name: String,
     pub data_type: Option<String>,
     pub nullable: Option<bool>,
-    pub audit_count: u32,
-    /// Whether the column is declared outside the model file, in a named schema.
-    pub declared_outside_model: bool,
+    /// Whether the column declares a description.
+    pub described: bool,
+    pub migrate_from: Option<String>,
+    /// Each column audit's definition name, in declaration order.
+    pub audit_definitions: Vec<String>,
+    /// The file of a column declared outside the model file, in a named schema.
+    pub location_path: Option<String>,
 }
 
 /// One declared dynamic-column family; `key` is its name casefolded.
@@ -206,9 +211,9 @@ pub struct SplicedSql {
 pub struct PlainModel {
     pub name: String,
     pub relative_path: String,
-    pub query_sql: String,
-    pub authored_query_sql: String,
-    pub authored_sql: String,
+    pub query_sql: Arc<str>,
+    pub authored_query_sql: Arc<str>,
+    pub authored_sql: Arc<str>,
     pub config: ModelConfigFacts,
     /// The attached schema entry; present when the header declares description, columns or audits.
     pub schema: Option<ModelSchemaFact>,
@@ -224,13 +229,6 @@ pub struct PlainModel {
 pub struct TextPosition {
     pub line: usize,
     pub column: usize,
-}
-
-/// A legacy schema file that declares model entries, by its relative path.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct LegacySchemaFile {
-    pub relative_path: String,
-    pub model_names: Vec<String>,
 }
 
 /// The authored model a reference-scan fault is located in.

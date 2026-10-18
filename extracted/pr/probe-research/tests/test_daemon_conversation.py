@@ -682,6 +682,95 @@ def test_the_same_call_three_times_in_one_round_still_stops_the_run():
     assert failing.tripped and "the same failure 3 times" in failing.tripped
 
 
+def _mcp_refuses_every_call(caps: list, calls: int, *, varied: bool = False, tools: tuple = ("entity",),
+                            together: int = 1):
+    """A real run against a real in-process MCP server whose tools refuse every
+    call (the hosted MCP's refusal: a tool error, which pydantic-ai hands the
+    model as `ModelRetry`); the model makes `calls` rounds of `together` calls --
+    three rounds to each of `tools` in turn -- then ends. Returns the run's
+    result and what each call answered."""
+    from mcp.server.fastmcp import FastMCP
+    from mcp.server.fastmcp.exceptions import ToolError
+    from pydantic_ai import Agent
+    from pydantic_ai.mcp import MCPToolset
+
+    server = FastMCP("probe")
+
+    refused = {"n": 0}
+
+    def refuse(cursor: str) -> str:
+        refused["n"] += 1
+        if varied:  # a model guessing names: each refusal names what it was sent
+            raise ToolError(f"No entity named guess-{'abcdefghij'[refused['n'] % 10]}x.")
+        raise ToolError("Invalid continuation: this cursor was not copied exactly.")
+
+    for name in tools:
+        server.add_tool(refuse, name=name)
+
+    step = {"n": 0}
+
+    def model(messages, info: AgentInfo) -> ModelResponse:
+        step["n"] += 1
+        if step["n"] <= calls:
+            cursor = f"prb2_{'abcdefghijklmnop'[step['n']]}" if varied else "prb2_x"
+            name = tools[(step["n"] - 1) // 3 % len(tools)]
+            return ModelResponse(parts=[ToolCallPart(name, {"cursor": f"{cursor}{i}"}, tool_call_id=f"c{step['n']}-{i}")
+                                        for i in range(together)])
+        return ModelResponse(parts=[TextPart("done")])
+
+    agent = Agent(FunctionModel(model), toolsets=[MCPToolset(server)], capabilities=caps, retries=2)
+    result = asyncio.run(agent.run("look"))
+    answers = [str(getattr(p, "content", "")) for m in result.all_messages() if isinstance(m, ModelRequest)
+               for p in m.parts if getattr(p, "tool_name", None) in tools]
+    return result, answers
+
+
+def test_a_tool_out_of_retries_answers_the_model_instead_of_failing_the_run():
+    """strand-ai 2026-10-17: the writer sent one mis-copied `entity` cursor three
+    times; pydantic-ai failed the whole bite on the third MCP refusal."""
+    from pydantic_ai.exceptions import UnexpectedModelBehavior
+
+    with pytest.raises(UnexpectedModelBehavior, match="exceeded max retries"):
+        _mcp_refuses_every_call([agent_mod.LoopDetector()], calls=3)
+    result, answers = _mcp_refuses_every_call([agent_mod.RetriesSpentAreRefusals()], calls=3)
+    assert result.output == "done"
+    assert answers[-1].startswith("tool error (entity): failed 3 times in a row; not retried.")
+    assert "not copied exactly" in answers[-1]
+
+
+@pytest.mark.parametrize("tools,varied", [(("entity",), False), (("entity", "browse"), False),
+                                          (("entity",), True)])
+def test_a_second_round_out_of_retries_fails_the_run_as_before(tools, varied):
+    """An answered call refills the tool's retries, so only a count of the run's
+    spent rounds bounds it -- whatever the tool or the error. The second fails
+    the run the old way: its events stay queued and the next try backs off (an
+    MCP that keeps failing: overloaded, over a quota), never a loop stop that
+    skips them (Codex and Claude reviews, 2026-10-17)."""
+    from pydantic_ai.exceptions import UnexpectedModelBehavior
+
+    with pytest.raises(UnexpectedModelBehavior, match="exceeded max retries"):
+        _mcp_refuses_every_call([agent_mod.RetriesSpentAreRefusals(), agent_mod.LoopDetector()], calls=10,
+                                tools=tools, varied=varied)
+
+
+def test_calls_out_of_retries_together_count_as_one_round():
+    """Two calls the model made together had not seen each other's answer: both
+    are answered, and the run goes on."""
+    result, answers = _mcp_refuses_every_call([agent_mod.RetriesSpentAreRefusals()], calls=3, together=2)
+    assert result.output == "done"
+    assert sum(a.startswith("tool error (entity):") for a in answers) == 2
+
+
+def test_every_daemon_agent_answers_a_spent_retry_and_the_trace_sees_that_answer():
+    """`_harness` serves the writer, the reader and the audit. Last in it is the
+    innermost wrap, so the trace records what the model got, not the library's
+    run-failing error."""
+    for state in (agent_mod.RunState(trace=object()), agent_mod.ReaderState(trace=object())):
+        names = [type(c).__name__ for c in agent_mod._harness(state)]
+        assert names[-1] == "RetriesSpentAreRefusals"
+        assert names.index("TraceRecorder") < names.index("RetriesSpentAreRefusals")
+
+
 # ---------------------------------------------------------------------------
 # T2: a run yields between model rounds.
 # ---------------------------------------------------------------------------

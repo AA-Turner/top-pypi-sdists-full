@@ -14,7 +14,7 @@ from itertools import groupby
 from pathlib import Path
 from shutil import copy2
 from subprocess import DEVNULL, Popen
-from textwrap import dedent
+from textwrap import dedent, indent
 from threading import Thread
 from time import sleep
 from typing import TYPE_CHECKING, Final
@@ -22,6 +22,9 @@ from urllib.error import URLError
 from urllib.request import urlopen
 
 from virtualenv.app_data import AppDataDiskFolder
+from virtualenv.config.convert import BoolType
+from virtualenv.config.env_var import get_env_var
+from virtualenv.info import IS_ZIPAPP, ROOT
 from virtualenv.seed.wheels.embed import BUNDLE_SUPPORT
 from virtualenv.seed.wheels.util import Wheel
 from virtualenv.util.subprocess import CREATE_NO_WINDOW
@@ -65,7 +68,7 @@ def periodic_update(  # ruff:ignore[too-many-arguments]
             all_patches = list(group)
             ignore_grace_period_minor = any(version for version in all_patches if version.use(now))
             for version in all_patches:
-                if wheel is not None and Path(version.filename).name == wheel.name:
+                if wheel is not None and version.wheel.parsed_version <= wheel.parsed_version:
                     return wheel
                 if version.use(now, ignore_grace_period_minor):
                     return _update_wheel(version)
@@ -234,20 +237,33 @@ def trigger_update(  # ruff:ignore[too-many-arguments]
     periodic: bool,
 ) -> None:
     wheel_path = None if wheel is None else str(wheel.path)
-    cmd = [
-        sys.executable,
-        "-c",
+    code = (
         dedent(
-            """
+            """\
         from virtualenv.report import setup_report, MAX_LEVEL
         from virtualenv.seed.wheels.periodic_update import do_update
         setup_report(MAX_LEVEL, show_pid=True)
         do_update({!r}, {!r}, {!r}, {!r}, {!r}, {!r})
-        """,
+        """
         )
         .strip()
-        .format(distribution, for_py_version, wheel_path, str(app_data), [str(p) for p in search_dirs], periodic),
-    ]
+        .format(distribution, for_py_version, wheel_path, str(app_data), [str(p) for p in search_dirs], periodic)
+    )
+    if IS_ZIPAPP:
+        code = f"import runpy\nwith runpy.run_path({ROOT!r}, run_name='__loader__')['VersionedFindLoad']():\n" + indent(
+            code, "    "
+        )
+    else:
+        code = (
+            "import importlib.util\n"
+            f"spec = importlib.util.spec_from_file_location('virtualenv', {str(Path(ROOT) / 'virtualenv' / '__init__.py')!r})\n"
+            "package = importlib.util.module_from_spec(spec)\n"
+            "sys.modules['virtualenv'] = package\n"
+            "spec.loader.exec_module(package)\n"
+            f"{code}"
+        )
+    # drop the implicit working-directory entry before anything else is imported, as sys is built in
+    cmd: Final = [sys.executable, "-c", f"import sys\nsys.path = [p for p in sys.path if p]\n{code}"]
     debug = env.get("_VIRTUALENV_PERIODIC_UPDATE_INLINE") == "1"
     pipe = None if debug else DEVNULL
     kwargs = {"stdout": pipe, "stderr": pipe}
@@ -333,7 +349,11 @@ def _run_do_update(  # ruff:ignore[complex-structure, too-many-arguments]
             to_folder=wheelhouse,
             env=os.environ,  # ty: ignore[invalid-argument-type]
         )
-        if dest is None or (update_versions and update_versions[0].filename == dest.name):
+        if (
+            dest is None
+            or (update_versions and update_versions[0].filename == dest.name)
+            or (embed_version is not None and dest.parsed_version < embed_version)
+        ):
             break
         release_date = release_date_for_wheel_path(dest.path)
         last = NewVersion(filename=dest.path.name, release_date=release_date, found_date=download_time, source=source)
@@ -418,18 +438,11 @@ def _pypi_sha256_for_wheel(wheel: Wheel) -> str | None:
     return sha256 if isinstance(sha256, str) else None
 
 
-#: Opt-in escape hatch to restore the pre-2026 behavior of falling back to an unverified HTTPS context when the
-#: verified request fails. Off by default: a failed TLS handshake on the PyPI metadata lookup now aborts the update
-#: instead of silently downgrading, because the response drives which wheel version virtualenv thinks is up to date.
-_INSECURE_FALLBACK_ENV = "VIRTUALENV_PERIODIC_UPDATE_INSECURE"
-
-
 def _request_context() -> Generator[ssl.SSLContext | None, None, None]:
     yield None
-    if os.environ.get(_INSECURE_FALLBACK_ENV):
+    if (setting := get_env_var("periodic_update_insecure", BoolType(bool, bool), os.environ)) and setting[0]:
         LOGGER.warning(
-            "falling back to unverified HTTPS for PyPI metadata because %s is set",
-            _INSECURE_FALLBACK_ENV,
+            "falling back to unverified HTTPS for PyPI metadata because VIRTUALENV_PERIODIC_UPDATE_INSECURE is enabled",
         )
         yield ssl._create_unverified_context()  # ruff:ignore[suspicious-unverified-context-usage, private-member-access]
 

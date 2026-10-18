@@ -2,16 +2,20 @@
 
 from functools import cached_property
 
-from sqlbuild.compiler.compile.models import CompiledSqlTest
-from sqlbuild.compiler.compile.types import CompiledProjectView, SqlTestMode
-from sqlbuild.rule_engine.models import Model
+from sqlbuild._native import CompiledSqlTest, Model
+from sqlbuild.compiler.compile.types import SqlTestMode
+from sqlbuild.rule_engine.types import RuleFactProject
 
 
 class TestFacts:
     """Compiled SQL tests indexed by their model subject."""
 
-    def __init__(self, *, project: CompiledProjectView) -> None:
-        self._tests: tuple[CompiledSqlTest, ...] = project.sql_tests
+    def __init__(self, *, project: RuleFactProject) -> None:
+        self._project: RuleFactProject = project
+
+    @cached_property
+    def _tests(self) -> tuple[CompiledSqlTest, ...]:
+        return self._project.sql_tests
 
     @cached_property
     def _by_model(self) -> dict[str, tuple[CompiledSqlTest, ...]]:

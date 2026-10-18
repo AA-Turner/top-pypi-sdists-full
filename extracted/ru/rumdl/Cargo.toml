@@ -1,6 +1,6 @@
 [package]
 name = "rumdl"
-version = "0.2.79"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.94.0"
 description = "A fast Markdown linter and formatter written in Rust"
@@ -74,6 +74,7 @@ thiserror = "2.0.20"
 globset = "0.4.20"
 indexmap = { version = "2", features = ["serde"] }
 log = "0.4.34"
+memchr = "2.8"
 # `default-features` would add `getopts` for pulldown-cmark's own CLI binary,
 # which rumdl never builds. `html` is the renderer MD085 uses.
 pulldown-cmark = { version = "0.13.4", default-features = false, features = ["html"] }
@@ -94,7 +95,10 @@ percent-encoding = "2.3"
 
 # LSP dependencies (native only)
 tower-lsp = { version = "0.20", optional = true }
-tokio = { version = "1.53", features = ["full"], optional = true }
+# LSP needs async file/stdio/TCP I/O, tasks, synchronization, timers and macros.
+# Keep the existing parking_lot runtime locks; process and signal support are
+# unused. Avoid `full` so unrelated Tokio features do not enter native builds.
+tokio = { version = "1.53", features = ["fs", "io-std", "io-util", "macros", "net", "parking_lot", "rt-multi-thread", "sync", "time"], optional = true }
 # The default `humantime` feature pulls in jiff purely to render log timestamps,
 # which `main.rs` turns off with `.format_timestamp(None)`.
 env_logger = { version = "0.11", default-features = false, features = [

@@ -1,6 +1,5 @@
 use super::embedded::{
-    MAX_EMBEDDED_DEPTH, check_embedded_markdown_blocks, format_embedded_markdown_blocks, restore_indent,
-    should_lint_embedded_markdown, strip_common_indent,
+    MAX_EMBEDDED_DEPTH, check_embedded_markdown_blocks, format_embedded_markdown_blocks, should_lint_embedded_markdown,
 };
 use super::*;
 use rumdl_lib::config as rumdl_config;
@@ -291,7 +290,7 @@ fn test_format_embedded_markdown_blocks_atx_heading() {
     let rules = rumdl_lib::rules::filter_rules(&rumdl_lib::rules::all_rules(&config), &config.global);
 
     let mut content = "# Example\n\n```markdown\n#Heading without space\n```\n".to_string();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert!(formatted > 0, "Should format at least one block");
     assert!(
@@ -306,7 +305,7 @@ fn test_format_embedded_markdown_blocks_md_language() {
     let rules = rumdl_lib::rules::filter_rules(&rumdl_lib::rules::all_rules(&config), &config.global);
 
     let mut content = "# Example\n\n```md\n#Test\n```\n".to_string();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert!(formatted > 0, "Should format block with 'md' language");
     assert!(content.contains("# Test"), "Should fix heading, got: {content:?}");
@@ -318,7 +317,7 @@ fn test_format_embedded_markdown_blocks_case_insensitive() {
     let rules = rumdl_lib::rules::filter_rules(&rumdl_lib::rules::all_rules(&config), &config.global);
 
     let mut content = "# Doc\n\n```MARKDOWN\n#Upper case\n```\n".to_string();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert!(formatted > 0, "Should detect MARKDOWN (uppercase)");
     assert!(content.contains("# Upper case"));
@@ -330,7 +329,7 @@ fn test_format_embedded_markdown_blocks_tilde_fence() {
     let rules = rumdl_lib::rules::filter_rules(&rumdl_lib::rules::all_rules(&config), &config.global);
 
     let mut content = "# Doc\n\n~~~markdown\n#Tilde fence\n~~~\n".to_string();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert!(formatted > 0, "Should detect tilde fenced blocks");
     assert!(content.contains("# Tilde fence"));
@@ -342,7 +341,7 @@ fn test_format_embedded_markdown_blocks_multiple_blocks() {
     let rules = rumdl_lib::rules::filter_rules(&rumdl_lib::rules::all_rules(&config), &config.global);
 
     let mut content = "# Doc\n\n```markdown\n#First\n```\n\nText\n\n```md\n#Second\n```\n".to_string();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert_eq!(formatted, 2, "Should format both blocks");
     assert!(content.contains("# First"));
@@ -356,7 +355,7 @@ fn test_format_embedded_markdown_blocks_nested() {
 
     // Outer block contains inner block (using longer fence)
     let mut content = "# Doc\n\n````markdown\n#Outer\n\n```markdown\n#Inner\n```\n````\n".to_string();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert!(formatted >= 1, "Should format at least outer block");
     assert!(content.contains("# Outer"), "Should fix outer heading");
@@ -369,7 +368,7 @@ fn test_format_embedded_markdown_blocks_preserves_indentation() {
 
     // Content with relative indentation that should be preserved
     let mut content = "# Doc\n\n```markdown\n#Heading\n\n    code block\n```\n".to_string();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert!(formatted > 0);
     assert!(content.contains("# Heading"), "Should fix heading");
@@ -386,7 +385,7 @@ fn test_format_embedded_markdown_blocks_empty_block() {
 
     let mut content = "# Doc\n\n```markdown\n\n```\n".to_string();
     let original = content.clone();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert_eq!(formatted, 0, "Should skip empty blocks");
     assert_eq!(content, original, "Content should be unchanged");
@@ -399,7 +398,7 @@ fn test_format_embedded_markdown_blocks_whitespace_only() {
 
     let mut content = "# Doc\n\n```markdown\n   \n\n```\n".to_string();
     let original = content.clone();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert_eq!(formatted, 0, "Should skip whitespace-only blocks");
     assert_eq!(content, original, "Content should be unchanged");
@@ -412,7 +411,7 @@ fn test_format_embedded_markdown_blocks_skips_other_languages() {
 
     let mut content = "# Doc\n\n```rust\n#[derive(Debug)]\nfn main() {}\n```\n".to_string();
     let original = content.clone();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert_eq!(formatted, 0, "Should not format rust blocks");
     assert_eq!(content, original, "Content should be unchanged");
@@ -425,7 +424,7 @@ fn test_format_embedded_markdown_blocks_multiple_blank_lines() {
 
     // MD012 should fix multiple consecutive blank lines between non-heading content
     let mut content = "# Doc\n\n```markdown\nParagraph 1\n\n\n\nParagraph 2\n```\n".to_string();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert!(formatted > 0, "Should format block");
     // After formatting, should have at most one blank line between paragraphs
@@ -457,55 +456,8 @@ fn test_format_embedded_markdown_blocks_depth_limit() {
     }
 
     // Should not panic or stack overflow
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
     assert!(formatted <= MAX_EMBEDDED_DEPTH, "Should respect depth limit");
-}
-
-#[test]
-fn test_strip_common_indent_basic() {
-    let content = "    line1\n    line2\n";
-    let (stripped, indent) = strip_common_indent(content);
-
-    assert_eq!(indent, "    ");
-    assert!(stripped.starts_with("line1\n"));
-    assert!(stripped.contains("line2"));
-}
-
-#[test]
-fn test_strip_common_indent_mixed() {
-    // First line has 2 spaces, second has 4 - should strip 2
-    let content = "  line1\n    line2\n";
-    let (stripped, indent) = strip_common_indent(content);
-
-    assert_eq!(indent, "  ");
-    assert_eq!(stripped, "line1\n  line2\n");
-}
-
-#[test]
-fn test_strip_common_indent_preserves_empty_lines() {
-    let content = "  line1\n\n  line2\n";
-    let (stripped, _) = strip_common_indent(content);
-
-    assert!(stripped.contains("\n\n"), "Should preserve empty lines");
-}
-
-#[test]
-fn test_strip_and_restore_indent_keep_trailing_blank_lines() {
-    for (content, stripped, indent) in [
-        ("#A\n\n", "#A\n\n", ""),
-        ("  #A\n\n\n", "#A\n\n\n", "  "),
-        ("  #A\n  \n", "#A\n\n", "  "),
-        ("  #A", "#A", "  "),
-    ] {
-        assert_eq!(
-            strip_common_indent(content),
-            (stripped.to_string(), indent.to_string()),
-            "{content:?}"
-        );
-    }
-    assert_eq!(restore_indent("#A\n\n", "  "), "  #A\n\n");
-    assert_eq!(restore_indent("#A\n\n\n", "  "), "  #A\n\n\n");
-    assert_eq!(restore_indent("#A", "  "), "  #A");
 }
 
 /// Formatting an embedded block changes only what its rules fix: blank lines
@@ -533,35 +485,6 @@ fn test_format_embedded_markdown_blocks_keeps_trailing_blank_lines() {
 }
 
 #[test]
-fn test_restore_indent_basic() {
-    let content = "line1\nline2\n";
-    let restored = restore_indent(content, "  ");
-
-    assert_eq!(restored, "  line1\n  line2\n");
-}
-
-#[test]
-fn test_restore_indent_preserves_empty_lines() {
-    let content = "line1\n\nline2\n";
-    let restored = restore_indent(content, "  ");
-
-    assert_eq!(restored, "  line1\n\n  line2\n");
-}
-
-#[test]
-fn test_restore_indent_preserves_trailing_newline() {
-    let content = "line1\n";
-    let restored = restore_indent(content, "  ");
-
-    assert!(restored.ends_with('\n'), "Should preserve trailing newline");
-
-    let content_no_newline = "line1";
-    let restored_no_newline = restore_indent(content_no_newline, "  ");
-
-    assert!(!restored_no_newline.ends_with('\n'), "Should not add trailing newline");
-}
-
-#[test]
 fn test_format_embedded_markdown_no_extra_blank_line() {
     // Regression test: MD047 should NOT add extra blank line before closing fence
     let config = rumdl_config::Config::default();
@@ -570,7 +493,7 @@ fn test_format_embedded_markdown_no_extra_blank_line() {
     // Content that doesn't end with newline inside the block
     let mut content = "# Doc\n\n```markdown\n> [!INFO]\n> Content\n```\n".to_string();
     let original = content.clone();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     // If no changes needed inside the block, content should be unchanged
     // (no extra blank line before closing fence)
@@ -592,7 +515,7 @@ fn test_format_embedded_markdown_with_fix() {
     let rules = rumdl_lib::rules::filter_rules(&rumdl_lib::rules::all_rules(&config), &config.global);
 
     let mut content = "# Doc\n\n```markdown\n#Bad heading\n```\n".to_string();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert!(formatted > 0, "Should format the block");
     assert!(content.contains("# Bad heading"), "Should fix heading");
@@ -612,7 +535,7 @@ fn test_format_embedded_markdown_unicode_content() {
     let mut content = "# ドキュメント\n\n```markdown\n#見出し\n\n中文内容 🎉\n```\n".to_string();
     let original_structure = (content.contains("```markdown"), content.contains("```\n"));
 
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     // Structure should be preserved
     assert!(content.contains("```markdown"), "Opening fence preserved");
@@ -642,7 +565,7 @@ fn test_format_embedded_markdown_in_list_item() {
     let rules = rumdl_lib::rules::filter_rules(&rumdl_lib::rules::all_rules(&config), &config.global);
 
     let mut content = "- List item:\n\n  ```markdown\n  #Heading\n  ```\n".to_string();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert!(formatted > 0, "Should format embedded block");
     assert!(content.contains("# Heading"), "Should fix heading");
@@ -658,7 +581,7 @@ fn test_format_embedded_markdown_info_string_with_attributes() {
     let rules = rumdl_lib::rules::filter_rules(&rumdl_lib::rules::all_rules(&config), &config.global);
 
     let mut content = "# Doc\n\n```markdown title=\"Example\" highlight={1}\n#Heading\n```\n".to_string();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert!(formatted > 0, "Should recognize markdown despite extra info");
     assert!(content.contains("# Heading"), "Should fix heading");
@@ -680,7 +603,7 @@ fn test_format_embedded_markdown_depth_verification() {
     // Instead, we test multiple blocks in sequence to verify recursion works.
     let mut content = "# Doc\n\n```markdown\n#Level1\n```\n\n```md\n#Level2\n```\n".to_string();
 
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     // Both blocks should be formatted
     assert!(formatted >= 2, "Should format both blocks, got {formatted}");
@@ -697,7 +620,7 @@ fn test_format_embedded_markdown_true_nesting() {
     // Use tildes for outer, backticks for inner - this is valid CommonMark
     let mut content = "# Doc\n\n~~~markdown\n#Outer\n\n```markdown\n#Inner\n```\n~~~\n".to_string();
 
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     // Both levels should be formatted
     assert!(formatted >= 1, "Should format at least outer block");
@@ -728,7 +651,7 @@ fn test_format_embedded_markdown_cli_integration() {
 
     // Read and format the content
     let mut content = std::fs::read_to_string(temp_file.path()).expect("Failed to read temp file");
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     assert!(formatted > 0, "Should format embedded content");
     assert!(content.contains("# Bad Heading"), "Should fix embedded heading");
@@ -746,7 +669,7 @@ fn test_format_embedded_markdown_md041_behavior() {
     let mut content = "# Main Doc\n\n```markdown\n## Example H2\n```\n".to_string();
     let original = content.clone();
 
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     // Document the current behavior: MD041 does NOT have a fix function,
     // so even if it fires as a warning, it won't change the content.
@@ -819,6 +742,189 @@ fn test_check_embedded_markdown_blocks_empty() {
     assert!(warnings.is_empty(), "Should have no warnings without embedded markdown");
 }
 
+fn md018_md022_rules(config: &rumdl_config::Config) -> Vec<Box<dyn Rule>> {
+    rumdl_lib::rules::filter_rules(&rumdl_lib::rules::all_rules(config), &config.global)
+        .into_iter()
+        .filter(|rule| matches!(rule.name(), "MD018" | "MD022"))
+        .collect()
+}
+
+fn warning_positions(warnings: &[rumdl_lib::rule::LintWarning]) -> Vec<(&str, usize, usize)> {
+    warnings
+        .iter()
+        .map(|w| (w.rule_name.as_deref().unwrap_or(""), w.line, w.column))
+        .collect()
+}
+
+/// Fixes that would end the enclosing block early are not written back: MD048
+/// turning an inner `~~~` fence into backticks closes a ```` ``` ```` block at the
+/// inner fence. The block stays as it was and is reported at its own line, at
+/// any depth, while every other block is still formatted.
+#[test]
+fn test_format_embedded_markdown_refuses_fixes_that_end_the_block() {
+    let config = rumdl_config::Config::default();
+    let rules: Vec<Box<dyn Rule>> = vec![
+        Box::new(rumdl_lib::rules::MD018NoMissingSpaceAtx::new()),
+        Box::new(rumdl_lib::rules::MD048CodeFenceStyle::new(
+            rumdl_lib::rules::CodeFenceStyle::Backtick,
+        )),
+    ];
+    let tilde_block = "```markdown\n# Inner\n\n~~~py\nx = 1\n~~~\n```\n";
+
+    // (document, document after formatting, blocks formatted, refused lines)
+    let cases: Vec<(String, String, usize, Vec<usize>)> = vec![
+        (
+            format!("# T\n\n{tilde_block}\nAfter.\n"),
+            format!("# T\n\n{tilde_block}\nAfter.\n"),
+            0,
+            vec![3],
+        ),
+        (
+            format!("# T\n\n```markdown\n#Fix\n```\n\n{tilde_block}"),
+            format!("# T\n\n```markdown\n# Fix\n```\n\n{tilde_block}"),
+            1,
+            vec![7],
+        ),
+        (
+            "> ```markdown\n> ~~~py\n> x\n> ~~~\n> ```\n".to_string(),
+            "> ```markdown\n> ~~~py\n> x\n> ~~~\n> ```\n".to_string(),
+            0,
+            vec![1],
+        ),
+        // Refused one level down, reported at the nested block's document line.
+        (
+            format!("# T\n\n````markdown\nOuter.\n\n{tilde_block}````\n"),
+            format!("# T\n\n````markdown\nOuter.\n\n{tilde_block}````\n"),
+            0,
+            vec![6],
+        ),
+        (
+            format!("`````markdown\nA\n\n````markdown\nB\n\n{tilde_block}````\n`````\n"),
+            format!("`````markdown\nA\n\n````markdown\nB\n\n{tilde_block}````\n`````\n"),
+            0,
+            vec![7],
+        ),
+        // A nested fix counts once for each block it was written back into.
+        (
+            "````markdown\n```markdown\n#Fix\n```\n````\n".to_string(),
+            "````markdown\n```markdown\n# Fix\n```\n````\n".to_string(),
+            2,
+            vec![],
+        ),
+        // A longer fence holds the backtick fence.
+        (
+            "````markdown\n~~~py\nx\n~~~\n````\n".to_string(),
+            "````markdown\n```py\nx\n```\n````\n".to_string(),
+            1,
+            vec![],
+        ),
+    ];
+
+    for (document, expected, formatted, refused) in cases {
+        let mut content = document.clone();
+        let outcome = format_embedded_markdown_blocks(&mut content, &rules, &config);
+        assert_eq!(content, expected, "{document:?}");
+        assert_eq!(outcome.formatted, formatted, "{document:?}");
+        let lines: Vec<usize> = outcome.refused.iter().map(|warning| warning.line).collect();
+        assert_eq!(lines, refused, "{document:?}");
+        assert!(
+            outcome
+                .refused
+                .iter()
+                .all(|warning| warning.message.contains("block left unchanged")
+                    && warning.severity == rumdl_lib::rule::Severity::Error),
+            "{:?}",
+            outcome.refused
+        );
+    }
+}
+
+#[test]
+fn test_check_embedded_markdown_inside_containers() {
+    let config = rumdl_config::Config::default();
+    let rules = md018_md022_rules(&config);
+
+    // MD018 points just past the hash; each column adds the container prefix
+    // in front of the embedded line
+    let cases = [
+        ("```markdown\n#Heading\n```\n", 2),
+        ("> ```markdown\n> #Heading\n> ```\n", 4),
+        ("> > ```markdown\n> > #Heading\n> > ```\n", 6),
+        ("- ```markdown\n  #Heading\n  ```\n", 4),
+        ("> - ```markdown\n>   #Heading\n>   ```\n", 6),
+        (">```markdown\n>#Heading\n>```\n", 3),
+    ];
+    for (content, column) in cases {
+        let warnings = check_embedded_markdown_blocks(content, &rules, &config);
+        assert_eq!(
+            warning_positions(&warnings),
+            vec![("MD018", 2, column)],
+            "content: {content:?}"
+        );
+    }
+}
+
+#[test]
+fn test_check_embedded_markdown_ignores_indented_code_inside_it() {
+    let config = rumdl_config::Config::default();
+    let rules = md018_md022_rules(&config);
+
+    // Four spaces beyond the embedded document's margin make an indented code block
+    for content in [
+        "```markdown\n    #notaheading\n```\n",
+        "- ```markdown\n      #notaheading\n  ```\n",
+        "> ```markdown\n>     #notaheading\n> ```\n",
+    ] {
+        let warnings = check_embedded_markdown_blocks(content, &rules, &config);
+        assert!(warnings.is_empty(), "content: {content:?}, got {warnings:?}");
+
+        let mut formatted = content.to_string();
+        assert_eq!(
+            format_embedded_markdown_blocks(&mut formatted, &rules, &config).formatted,
+            0
+        );
+        assert_eq!(formatted, content);
+    }
+}
+
+#[test]
+fn test_format_embedded_markdown_inside_containers() {
+    let config = rumdl_config::Config::default();
+    let rules = md018_md022_rules(&config);
+
+    let cases = [
+        (
+            "> ```markdown\n> #Heading\n> text\n> ```\n",
+            "> ```markdown\n> # Heading\n>\n> text\n> ```\n",
+        ),
+        (
+            "> > ```markdown\n> > #Heading\n> > text\n> > ```\n",
+            "> > ```markdown\n> > # Heading\n> >\n> > text\n> > ```\n",
+        ),
+        (
+            "- ```markdown\n  #Heading\n  text\n  ```\n",
+            "- ```markdown\n  # Heading\n\n  text\n  ```\n",
+        ),
+        (
+            "> - ```markdown\n>   #Heading\n>   text\n>   ```\n",
+            "> - ```markdown\n>   # Heading\n>\n>   text\n>   ```\n",
+        ),
+        (
+            "- ```markdown\n  #Heading\n      code\n  ```\n",
+            "- ```markdown\n  # Heading\n\n      code\n  ```\n",
+        ),
+    ];
+    for (content, expected) in cases {
+        let mut formatted = content.to_string();
+        assert_eq!(
+            format_embedded_markdown_blocks(&mut formatted, &rules, &config).formatted,
+            1,
+            "content: {content:?}"
+        );
+        assert_eq!(formatted, expected, "content: {content:?}");
+    }
+}
+
 #[test]
 fn test_format_embedded_markdown_respects_filtered_rules() {
     // Test that embedded markdown formatting respects per-file-ignores
@@ -831,7 +937,7 @@ fn test_format_embedded_markdown_respects_filtered_rules() {
 
     // Test 1: WITH MD022 rule - should add blank line
     let mut content_with_rule = original.to_string();
-    let formatted_with_rule = format_embedded_markdown_blocks(&mut content_with_rule, &all_rules, &config);
+    let formatted_with_rule = format_embedded_markdown_blocks(&mut content_with_rule, &all_rules, &config).formatted;
 
     assert!(formatted_with_rule > 0, "Should format when MD022 is active");
     assert!(
@@ -847,7 +953,8 @@ fn test_format_embedded_markdown_respects_filtered_rules() {
         .collect();
 
     let mut content_without_rule = original.to_string();
-    let _formatted_without_rule = format_embedded_markdown_blocks(&mut content_without_rule, &filtered_rules, &config);
+    let _formatted_without_rule =
+        format_embedded_markdown_blocks(&mut content_without_rule, &filtered_rules, &config).formatted;
 
     // The content should NOT have MD022 fix applied
     assert!(
@@ -883,7 +990,7 @@ fn test_format_embedded_markdown_respects_inline_config() {
 "#;
 
     let mut content = original.to_string();
-    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut content, &rules, &config).formatted;
 
     // The embedded content should NOT be modified because MD022 is disabled via inline config
     assert!(
@@ -976,7 +1083,7 @@ fn test_check_and_format_consistency() {
 
     // Format should only modify the second block
     let mut format_content = content.to_string();
-    let formatted = format_embedded_markdown_blocks(&mut format_content, &rules, &config);
+    let formatted = format_embedded_markdown_blocks(&mut format_content, &rules, &config).formatted;
 
     assert!(formatted > 0, "Should format the second block");
     assert!(
@@ -1155,4 +1262,168 @@ fn rule_selection_keeps_the_all_keyword_recognisable() {
     let view = rule_selection(&flags, &rumdl_config::GlobalConfig::default());
     assert_eq!(view.disable.len(), 1);
     assert!(view.disable[0].eq_ignore_ascii_case("all"), "got {:?}", view.disable);
+}
+
+/// A rule that panics on any document containing "boom", the way a defect in a
+/// dependency's parser does.
+#[derive(Clone)]
+struct PanicsOnBoom;
+
+impl Rule for PanicsOnBoom {
+    fn name(&self) -> &'static str {
+        "MD999"
+    }
+
+    fn description(&self) -> &'static str {
+        "panics on a marker word"
+    }
+
+    fn check(&self, ctx: &rumdl_lib::lint_context::LintContext) -> rumdl_lib::rule::LintResult {
+        assert!(!ctx.content.contains("boom"), "boom");
+        Ok(vec![rumdl_lib::rule::LintWarning {
+            message: "seen".to_string(),
+            line: 1,
+            column: 1,
+            end_line: 1,
+            end_column: 2,
+            severity: rumdl_lib::rule::Severity::Warning,
+            fix: None,
+            rule_name: Some("MD999".to_string()),
+        }])
+    }
+
+    fn fix(&self, ctx: &rumdl_lib::lint_context::LintContext) -> Result<String, rumdl_lib::rule::LintError> {
+        Ok(ctx.content.to_string())
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+fn process_with_panicking_rule(path: &Path, fix_mode: crate::FixMode) -> FileProcessResult {
+    let rules: Vec<Box<dyn Rule>> = vec![Box::new(PanicsOnBoom)];
+    let rule_sets = RuleSets {
+        mode: crate::CodeBlockToolsMode::Configured,
+        selected: std::sync::Arc::new(rules.iter().map(|rule| dyn_clone::clone_box(&**rule)).collect()),
+        document: rules,
+        embedded_markdown: Vec::new(),
+        auxiliary: AuxiliaryExecutionPlan {
+            lint: false,
+            format: false,
+            relint: false,
+        },
+    };
+    process_file_with_formatter(
+        &path.to_string_lossy(),
+        &rule_sets,
+        fix_mode,
+        false,
+        false,
+        true,
+        true,
+        &rumdl_lib::output::OutputFormat::Text,
+        &rumdl_lib::output::OutputWriter::new(false, true),
+        &rumdl_config::Config::default(),
+        None,
+        None,
+        None,
+        false,
+        None,
+        None,
+        false,
+        false,
+    )
+}
+
+#[test]
+fn a_panic_while_linting_one_file_is_reported_as_an_error_for_that_file_only() {
+    let dir = TempDir::new().unwrap();
+    let bad = dir.path().join("bad.md");
+    let good = dir.path().join("good.md");
+    fs::write(&bad, "boom\n").unwrap();
+    fs::write(&good, "fine\n").unwrap();
+
+    for fix_mode in [crate::FixMode::Check, crate::FixMode::CheckFix] {
+        let failed = process_with_panicking_rule(&bad, fix_mode);
+        assert!(failed.errored, "a panicking file must be a tool error ({fix_mode:?})");
+        assert!(failed.warnings.is_empty());
+
+        let linted = process_with_panicking_rule(&good, fix_mode);
+        assert!(!linted.errored, "the next file must still be processed ({fix_mode:?})");
+        assert!(linted.has_issues, "the next file must still be linted ({fix_mode:?})");
+    }
+    assert_eq!(fs::read_to_string(&bad).unwrap(), "boom\n");
+}
+
+#[test]
+fn embedded_formatting_invalidates_prepared_document_diagnostics() {
+    use rumdl_lib::code_block_tools::{LanguageToolConfig, RUMDL_BUILTIN_TOOL};
+
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("document.md");
+    fs::write(
+        &path,
+        "#Title\n\n```markdown\n#Inner\ntext\n```\n\n[broken](missing.md)\n",
+    )
+    .unwrap();
+    let mut config = rumdl_config::Config::default();
+    config.code_block_tools.enabled = true;
+    config.code_block_tools.languages.insert(
+        "markdown".into(),
+        LanguageToolConfig {
+            lint: vec![RUMDL_BUILTIN_TOOL.into()],
+            format: vec![RUMDL_BUILTIN_TOOL.into()],
+            ..Default::default()
+        },
+    );
+    let rules: Vec<Box<dyn Rule>> = ["MD018", "MD022", "MD057"]
+        .into_iter()
+        .map(|name| rumdl_lib::rules::create_rule_by_name(name, &config).unwrap())
+        .collect();
+    let rule_sets = RuleSets {
+        mode: crate::CodeBlockToolsMode::Configured,
+        selected: std::sync::Arc::new(rules.iter().map(|rule| dyn_clone::clone_box(&**rule)).collect()),
+        embedded_markdown: rules.iter().map(|rule| dyn_clone::clone_box(&**rule)).collect(),
+        document: rules,
+        auxiliary: AuxiliaryExecutionPlan {
+            lint: true,
+            format: true,
+            relint: true,
+        },
+    };
+    let result = process_file_with_formatter(
+        &path.to_string_lossy(),
+        &rule_sets,
+        crate::FixMode::CheckFix,
+        false,
+        false,
+        true,
+        true,
+        &rumdl_lib::output::OutputFormat::Json,
+        &rumdl_lib::output::OutputWriter::new(false, true),
+        &config,
+        None,
+        None,
+        None,
+        false,
+        None,
+        None,
+        false,
+        false,
+    );
+    assert!(!result.errored);
+    assert!(result.content_changed);
+    let text = fs::read_to_string(&path).unwrap();
+    assert!(text.contains("# Inner\n\ntext"), "{text}");
+    let warning = result
+        .warnings
+        .iter()
+        .find(|warning| warning.rule_name.as_deref() == Some("MD057"))
+        .unwrap();
+    assert_eq!(
+        warning.line, 9,
+        "the embedded formatter inserted a line above the finding"
+    );
+    assert_eq!(text.lines().nth(warning.line - 1), Some("[broken](missing.md)"));
 }

@@ -8,11 +8,15 @@ use crate::project::constants::{
     REPLAY_ON_CHANGE_VALUES, SETTING_SNIPPET_INDENT,
 };
 use crate::project::errors::ConfigFailure;
+use crate::toml::main::toml_literal::toml_literal;
+use crate::toml::models::TomlLiteral;
 
 /// A setting value as TOML shows it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SettingValue<'a> {
     Bool(bool),
+    /// An integer, as its decimal text.
+    Integer(&'a str),
     Text(&'a str),
 }
 
@@ -26,13 +30,11 @@ pub(crate) struct Setting<'a> {
 }
 
 fn toml_value(value: SettingValue<'_>) -> String {
-    match value {
-        SettingValue::Bool(true) => "true".to_owned(),
-        SettingValue::Bool(false) => "false".to_owned(),
-        SettingValue::Text(text) => {
-            format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
-        }
-    }
+    toml_literal(&match value {
+        SettingValue::Bool(flag) => TomlLiteral::Bool(flag),
+        SettingValue::Integer(digits) => TomlLiteral::Integer(digits.to_owned()),
+        SettingValue::Text(text) => TomlLiteral::Text(text.to_owned()),
+    })
 }
 
 /// `setting_help`: `<purpose>, set this in <file>:` and the TOML section and key.
@@ -54,6 +56,17 @@ pub(crate) fn setting_note(setting: &Setting<'_>) -> String {
         setting.section,
         setting.key,
         toml_value(setting.value)
+    )
+}
+
+/// `setting_note(explicit=None)`: the current value, from the file or its default.
+pub(crate) fn current_value_note(setting: &Setting<'_>) -> String {
+    format!(
+        "the current value is [{}] {} = {} (from {} or its default)",
+        setting.section,
+        setting.key,
+        toml_value(setting.value),
+        setting.file_name
     )
 }
 

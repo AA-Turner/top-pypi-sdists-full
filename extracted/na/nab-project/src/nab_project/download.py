@@ -204,8 +204,12 @@ def download_lock(
     already-present files and local ``file://`` artefacts are still
     served.
     """
-    output_dir.mkdir(parents=True, exist_ok=True)
-    artefacts = _coalesce_download_targets(list(iter_artifacts(lock_input)))
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        artefacts = _coalesce_download_targets(list(iter_artifacts(lock_input)))
+    except BaseException:
+        asyncio.run(transport.aclose())
+        raise
     return asyncio.run(
         _run_downloads(
             artefacts, transport, output_dir, max_concurrency, offline=offline

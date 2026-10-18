@@ -1,106 +1,171 @@
-//! Native output-type recovery for failed models, with Python's revalidation in between.
+//! Native output-type recovery for failed models, revalidating planned models in Python.
 
-use pyo3::prelude::{Bound, PyModule, PyModuleMethods, PyRef, PyResult, Python};
-use pyo3::{pyclass, pyfunction, pymethods, wrap_pyfunction};
+use std::collections::HashSet;
+
+use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python};
+use pyo3::types::{PyDict, PyDictMethods, PyFrozenSet, PyList, PyString, PyTuple};
 use sqlbuild_analysis::semantic_checks::main::finish_type_recovery::finish_type_recovery;
 use sqlbuild_analysis::semantic_checks::main::plan_type_recovery::plan_type_recovery;
 use sqlbuild_analysis::semantic_checks::models::{
-    DiagnosticOwner, LineageOutput, ModelBinding, RawBinding, RecoveryModel, TypeRecoveryPlan,
-    TypeRecoveryRequest, TypeRecoveryStep,
+    DiagnosticOwner, LineageOutput, ModelBinding, RawBinding, RecoveryModel, TypeRecoveryRequest,
 };
 use sqlbuild_analysis::semantic_checks::types::RevisedBinding;
+use sqlbuild_analysis::semantic_validation::models as validation;
 
+use crate::bindings::_helpers::analysis::binding_catalog::schema_validations;
+use crate::bindings::_helpers::analysis::model_reads::{inferred_names, lineage_inputs};
 use crate::bindings::_helpers::analysis_session::session::NativeModelAnalysisSession;
 use crate::bindings::_helpers::boundary::panics::compiler_error;
+use crate::bindings::_helpers::compile_driver::stage_work::count_stage;
+use crate::bindings::_helpers::compiled_project::compiled_model_view::LineageInput;
+use crate::bindings::_helpers::compiled_project::records::with_type_recovery;
+use crate::bindings::_helpers::records::fields::field as native_field;
+use crate::bindings::_helpers::records::fields::mapping_get_or;
+use crate::bindings::_helpers::records::fields::mapping_items;
+use crate::bindings::_helpers::records::fields::mapping_values;
+use crate::bindings::_helpers::semantic_checks::constants::SCHEMA_REVALIDATIONS;
 use crate::bindings::_helpers::semantic_checks::failures::{internal_error, semantic_error};
+use crate::bindings::_helpers::semantic_checks::inputs::revalidation_request;
 use crate::bindings::_helpers::semantic_checks::session_facts::{
     column_names, session_model_facts,
 };
-use crate::bindings::models::ProjectCatalog;
+use crate::bindings::_helpers::semantic_checks::stage_objects::StageClasses;
+use crate::bindings::_helpers::semantic_shapes::shapes::project_shapes;
 use crate::bindings::types::CompilerDetach;
 
-/// `(output_column, [(resource_name, column_name)])`.
-pub(crate) type LineageInput = (String, Vec<(String, String)>);
-/// `(name, query_sql, inferred names, reference names, lineage, bindings, raw bindings)`.
-type ModelInput = (
-    String,
-    String,
-    Option<Vec<String>>,
-    Vec<String>,
-    Option<Vec<LineageInput>>,
-    Vec<(usize, String, String, bool)>,
-    Vec<(usize, String, String, Option<i64>, Option<i64>)>,
-);
-/// `(dialect, models, [(id, code, is_model, resource_name)])`.
-type RequestInput = (
-    Option<String>,
-    Vec<ModelInput>,
-    Vec<(usize, String, bool, Option<String>)>,
-);
-/// `(kept [(diagnostic index, appended note)], model binding positions)`.
-type OutcomeRow = (Vec<(usize, Option<String>)>, Vec<Vec<usize>>);
+const UNCHANGED: &str = "unchanged";
+const UNKNOWN_RECOVERED_TYPE: &str = "UNKNOWN";
 
-/// One planned type recovery, held between the native plan and Python's revalidation.
-#[pyclass(module = "sqlbuild._native", frozen)]
-pub(crate) struct SemanticTypeRecovery {
-    request: TypeRecoveryRequest,
-    step: TypeRecoveryStep,
+/// The analysis state every semantic completion step shares.
+pub(crate) struct StageShared<'a> {
+    pub(crate) catalog: &'a validation::ProjectCatalog,
+    pub(crate) session: Option<&'a NativeModelAnalysisSession>,
+    /// Models whose output names and lineage the finished session supplies.
+    pub(crate) session_models: HashSet<String>,
 }
 
-#[pymethods]
-impl SemanticTypeRecovery {
-    /// `unchanged` or `planned`.
-    #[getter]
-    fn status(&self) -> &'static str {
-        self.step.status()
+/// The project with recovered output types; unchanged when no model has a blocking binding.
+pub(crate) fn recovered_types<'py>(
+    classes: &StageClasses<'py>,
+    project: &Bound<'py, PyAny>,
+    binding_results: &Bound<'py, PyAny>,
+    shared: &StageShared<'_>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let py: Python<'py> = classes.py();
+    let models: Vec<Bound<'py, PyAny>> = items(&native_field(project, "models")?)?;
+    if !blocking_binding_found(&models)? {
+        return Ok(project.clone());
     }
-
-    /// Poisoned `(model, column)` outputs in Python's dict order.
-    #[getter]
-    fn poisoned(&self) -> Vec<(String, String)> {
-        self.step
-            .plan()
-            .map(TypeRecoveryPlan::poisoned_outputs)
-            .unwrap_or_default()
+    let ids: Bound<'py, PyDict> = diagnostic_ids(project, &models)?;
+    let raw_ids: Bound<'py, PyDict> = PyDict::new(py);
+    for rows in mapping_values(binding_results)?.try_iter()? {
+        for row in rows?.try_iter()? {
+            let row: Bound<'py, PyAny> = row?;
+            if !raw_ids.contains(&row)? {
+                raw_ids.set_item(&row, raw_ids.len())?;
+            }
+        }
     }
-
-    /// Model indexes Python revalidates with unknown poisoned types, in order.
-    #[getter]
-    fn revalidated(&self) -> Vec<usize> {
-        self.step
-            .plan()
-            .map(TypeRecoveryPlan::revalidated_models)
-            .unwrap_or_default()
+    let diagnostics: Vec<Bound<'py, PyAny>> = items(&native_field(project, "diagnostics")?)?;
+    let mut owners: Vec<DiagnosticOwner> = Vec::with_capacity(diagnostics.len());
+    for item in &diagnostics {
+        owners.push(DiagnosticOwner {
+            id: id_of(&ids, item)?,
+            code: native_field(item, "code")?.extract()?,
+            is_model: native_field(item, "resource_type")?.eq(&classes.model_resource)?,
+            resource_name: native_field(item, "resource_name")?.extract()?,
+        });
     }
-
-    /// Retained diagnostics and model binding positions; an internal failure raises.
-    fn finish(&self, revised: Vec<Vec<RevisedBinding>>) -> PyResult<OutcomeRow> {
-        let plan = self
-            .step
-            .plan()
-            .ok_or_else(|| internal_error("finishing a type recovery that has no plan"))?;
-        finish_type_recovery(&self.request, plan, &revised)
-            .map(|outcome| (outcome.kept, outcome.model_bindings))
-            .map_err(|reason| internal_error(&reason))
+    let mut recovery_models: Vec<RecoveryModel> = Vec::with_capacity(models.len());
+    for model in &models {
+        recovery_models.push(recovery_model(
+            model,
+            binding_results,
+            (&ids, &raw_ids),
+            shared,
+        )?);
     }
-}
-
-/// Plan type recovery, reading names and lineage from `session` for models with no lineage.
-#[pyfunction]
-#[pyo3(signature = (catalog, request, session=None))]
-fn plan_semantic_type_recovery(
-    py: Python<'_>,
-    catalog: PyRef<'_, ProjectCatalog>,
-    request: RequestInput,
-    session: Option<PyRef<'_, NativeModelAnalysisSession>>,
-) -> PyResult<SemanticTypeRecovery> {
-    let request = recovery_request(request, session.as_deref()).map_err(compiler_error)?;
-    let catalog = &catalog.inner;
+    let request = TypeRecoveryRequest {
+        dialect: native_field(project, "sql_analysis_dialect")?.extract()?,
+        models: recovery_models,
+        diagnostics: owners,
+    };
     let step = py
-        .compiler_detach(|| Ok(plan_type_recovery(&request, catalog)))
+        .compiler_detach(|| Ok(plan_type_recovery(&request, shared.catalog)))
         .map_err(compiler_error)?
         .map_err(|failure| semantic_error(py, &failure))?;
-    Ok(SemanticTypeRecovery { request, step })
+    if step.status() == UNCHANGED {
+        return Ok(project.clone());
+    }
+    let plan = step
+        .plan()
+        .ok_or_else(|| internal_error("finishing a type recovery that has no plan"))?;
+    let poisoned: Vec<(String, String)> = plan.poisoned_outputs();
+    let revised: Vec<Vec<RevisedBinding>> =
+        revalidated(classes, project, &plan.revalidated_models(), &poisoned)?;
+    let outcome =
+        finish_type_recovery(&request, plan, &revised).map_err(|reason| internal_error(&reason))?;
+    let mut kept: Vec<Bound<'py, PyAny>> = Vec::with_capacity(outcome.kept.len());
+    for (index, note) in outcome.kept {
+        let original: &Bound<'py, PyAny> = &diagnostics[index];
+        let mut notes: Vec<Bound<'py, PyAny>> = items(&native_field(original, "notes")?)?;
+        if let Some(note) = note {
+            notes.push(PyString::new(py, &note).into_any());
+        }
+        kept.push(classes.replaced(original, &[("notes", &PyTuple::new(py, notes)?.into_any())])?);
+    }
+    let poisoned_outputs: Bound<'py, PyFrozenSet> = PyFrozenSet::new(py, &poisoned)?;
+    let mut recovered: Vec<Bound<'py, PyAny>> = Vec::with_capacity(models.len());
+    for (model, positions) in models.iter().zip(outcome.model_bindings) {
+        let selected: Vec<Bound<'py, PyAny>> = positions
+            .into_iter()
+            .map(|position| kept[position].clone())
+            .collect();
+        recovered.push(with_type_recovery(
+            model,
+            &PyTuple::new(py, selected)?.into_any(),
+            &poisoned_outputs,
+        )?);
+    }
+    classes.project_with(
+        project,
+        &[
+            ("models", &PyTuple::new(py, recovered)?.into_any()),
+            ("diagnostics", &PyTuple::new(py, kept)?.into_any()),
+        ],
+    )
+}
+
+/// Every item of a Python iterable.
+pub(crate) fn items<'py>(value: &Bound<'py, PyAny>) -> PyResult<Vec<Bound<'py, PyAny>>> {
+    value.try_iter()?.collect()
+}
+
+/// One id per distinct diagnostic value, project diagnostics first, as Python's dicts see them.
+pub(crate) fn diagnostic_ids<'py>(
+    project: &Bound<'py, PyAny>,
+    models: &[Bound<'py, PyAny>],
+) -> PyResult<Bound<'py, PyDict>> {
+    let ids: Bound<'py, PyDict> = PyDict::new(project.py());
+    for item in native_field(project, "diagnostics")?.try_iter()? {
+        let item: Bound<'py, PyAny> = item?;
+        if !ids.contains(&item)? {
+            ids.set_item(&item, ids.len())?;
+        }
+    }
+    for model in models {
+        for item in native_field(model, "binding_diagnostics")?.try_iter()? {
+            let item: Bound<'py, PyAny> = item?;
+            if !ids.contains(&item)? {
+                ids.set_item(&item, ids.len())?;
+            }
+        }
+    }
+    Ok(ids)
+}
+
+pub(crate) fn id_of(ids: &Bound<'_, PyDict>, item: &Bound<'_, PyAny>) -> PyResult<usize> {
+    ids.as_any().get_item(item)?.extract()
 }
 
 pub(crate) fn lineage_outputs(lineage: Vec<LineageInput>) -> Vec<LineageOutput> {
@@ -113,69 +178,115 @@ pub(crate) fn lineage_outputs(lineage: Vec<LineageInput>) -> Vec<LineageOutput> 
         .collect()
 }
 
-fn recovery_request(
-    (dialect, models, diagnostics): RequestInput,
-    session: Option<&NativeModelAnalysisSession>,
-) -> Result<TypeRecoveryRequest, String> {
-    Ok(TypeRecoveryRequest {
-        dialect,
-        models: models
-            .into_iter()
-            .map(|model| recovery_model(model, session))
-            .collect::<Result<_, _>>()?,
-        diagnostics: diagnostics
-            .into_iter()
-            .map(|(id, code, is_model, resource_name)| DiagnosticOwner {
-                id,
-                code,
-                is_model,
-                resource_name,
-            })
-            .collect(),
-    })
+fn blocking_binding_found(models: &[Bound<'_, PyAny>]) -> PyResult<bool> {
+    for model in models {
+        for item in native_field(model, "binding_diagnostics")?.try_iter()? {
+            if native_field(&item?, "is_error")?.is_truthy()? {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
 }
 
 fn recovery_model(
-    (name, query_sql, inferred_columns, references, lineage, bindings, raw_bindings): ModelInput,
-    session: Option<&NativeModelAnalysisSession>,
-) -> Result<RecoveryModel, String> {
-    let (inferred_columns, lineage) = match lineage {
-        Some(lineage) => (inferred_columns, lineage),
-        None => {
-            let facts = session_model_facts(session, &name)?;
-            (column_names(facts), facts.lineage.clone())
+    model: &Bound<'_, PyAny>,
+    binding_results: &Bound<'_, PyAny>,
+    (ids, raw_ids): (&Bound<'_, PyDict>, &Bound<'_, PyDict>),
+    shared: &StageShared<'_>,
+) -> PyResult<RecoveryModel> {
+    let name: String = native_field(model, "name")?.extract()?;
+    let from_session: bool = shared.session_models.contains(&name);
+    let bindings: Vec<Bound<'_, PyAny>> = items(&native_field(model, "binding_diagnostics")?)?;
+    let mut model_bindings: Vec<ModelBinding> = Vec::with_capacity(bindings.len());
+    for item in &bindings {
+        model_bindings.push(ModelBinding {
+            id: id_of(ids, item)?,
+            code: native_field(item, "code")?.extract()?,
+            message: native_field(item, "message")?.extract()?,
+            is_error: native_field(item, "is_error")?.extract()?,
+        });
+    }
+    let mut raw_bindings: Vec<RawBinding> = Vec::new();
+    if !bindings.is_empty() {
+        let raws: Bound<'_, PyAny> =
+            mapping_get_or(binding_results, &name, PyList::empty(model.py()))?;
+        for raw in raws.try_iter()? {
+            let raw: Bound<'_, PyAny> = raw?;
+            raw_bindings.push(RawBinding {
+                id: id_of(raw_ids, &raw)?,
+                code: raw.get_item(0)?.extract()?,
+                message: raw.get_item(1)?.extract()?,
+                start: raw.get_item(4)?.extract()?,
+                end: raw.get_item(5)?.extract()?,
+            });
         }
+    }
+    let (inferred_columns, lineage) = if from_session {
+        let facts = session_model_facts(shared.session, &name).map_err(compiler_error)?;
+        (column_names(facts), facts.lineage.clone())
+    } else {
+        (inferred_names(model)?, lineage_inputs(model)?)
     };
+    let mut references: Vec<String> = Vec::new();
+    for reference in native_field(model, "references")?.try_iter()? {
+        references.push(native_field(&reference?, "ref_name")?.extract()?);
+    }
     Ok(RecoveryModel {
         name,
-        query_sql,
+        query_sql: native_field(model, "query_sql")?.extract()?,
         inferred_columns,
         references,
         lineage: lineage_outputs(lineage),
-        bindings: bindings
-            .into_iter()
-            .map(|(id, code, message, is_error)| ModelBinding {
-                id,
-                code,
-                message,
-                is_error,
-            })
-            .collect(),
-        raw_bindings: raw_bindings
-            .into_iter()
-            .map(|(id, code, message, start, end)| RawBinding {
-                id,
-                code,
-                message,
-                start,
-                end,
-            })
-            .collect(),
+        bindings: model_bindings,
+        raw_bindings,
     })
 }
 
-pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_class::<SemanticTypeRecovery>()?;
-    module.add_function(wrap_pyfunction!(plan_semantic_type_recovery, module)?)?;
-    Ok(())
+/// Python's revalidation of each planned model with unknown types for poisoned outputs.
+fn revalidated<'py>(
+    classes: &StageClasses<'py>,
+    project: &Bound<'py, PyAny>,
+    models: &[usize],
+    poisoned: &[(String, String)],
+) -> PyResult<Vec<Vec<RevisedBinding>>> {
+    if models.is_empty() {
+        return Ok(Vec::new());
+    }
+    let py: Python<'py> = classes.py();
+    let shapes: Bound<'py, PyDict> = project_shapes(project, None)?;
+    let unknown: Bound<'py, PyDict> = PyDict::new(py);
+    for item in mapping_items(&shapes)?.try_iter()? {
+        let (name, columns): (Bound<'py, PyAny>, Bound<'py, PyAny>) = item?.extract()?;
+        let copied: Bound<'py, PyDict> = PyDict::new(py);
+        copied.update(columns.downcast::<PyDict>()?.as_mapping())?;
+        unknown.set_item(name, copied)?;
+    }
+    for (name, column) in poisoned {
+        if let Some(columns) = unknown.get_item(name)?
+            && columns.contains(column)?
+        {
+            columns.set_item(column, UNKNOWN_RECOVERED_TYPE)?;
+        }
+    }
+    let project_models: Bound<'py, PyAny> = native_field(project, "models")?;
+    let mut revised: Vec<Vec<RevisedBinding>> = Vec::with_capacity(models.len());
+    for index in models {
+        let request: Bound<'py, PyAny> =
+            revalidation_request(project, &project_models.get_item(*index)?, &unknown)?;
+        count_stage(py, SCHEMA_REVALIDATIONS, 1)?;
+        let result: Bound<'py, PyAny> =
+            schema_validations(py, &PyTuple::new(py, [request])?.into_any())?.get_item(0)?;
+        let mut rows: Vec<RevisedBinding> = Vec::new();
+        for item in native_field(&result, "diagnostics")?.try_iter()? {
+            let item: Bound<'py, PyAny> = item?;
+            rows.push((
+                native_field(&item, "code")?.extract()?,
+                native_field(&item, "start")?.extract()?,
+                native_field(&item, "end")?.extract()?,
+            ));
+        }
+        revised.push(rows);
+    }
+    Ok(revised)
 }

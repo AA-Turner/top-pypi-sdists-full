@@ -67,20 +67,6 @@ type WarningPosition = (usize, usize, String, usize); // (line, column, found_na
 /// When fixing issues, this rule replaces incorrect capitalization with the correct form
 /// as defined in the configuration.
 ///
-/// Check if a trimmed line is an inline config comment from a linting tool.
-/// Recognized tools: rumdl, markdownlint, Vale, and remark-lint.
-fn is_inline_config_comment(trimmed: &str) -> bool {
-    trimmed.starts_with("<!-- rumdl-")
-        || trimmed.starts_with("<!-- markdownlint-")
-        || trimmed.starts_with("<!-- vale off")
-        || trimmed.starts_with("<!-- vale on")
-        || (trimmed.starts_with("<!-- vale ") && trimmed.contains(" = "))
-        || trimmed.starts_with("<!-- vale style")
-        || trimmed.starts_with("<!-- lint disable ")
-        || trimmed.starts_with("<!-- lint enable ")
-        || trimmed.starts_with("<!-- lint ignore ")
-}
-
 #[derive(Clone)]
 pub struct MD044ProperNames {
     config: MD044Config,
@@ -245,6 +231,13 @@ impl MD044ProperNames {
             frontmatter_values::field_map(ctx)
         };
 
+        // Matches inside a linter directive comment (rumdl, markdownlint, Vale,
+        // remark-lint), whatever lines it spans, are skipped by position so a fix
+        // never rewrites a directive. Prose around the comment is still checked,
+        // and a comment shown in code is an example, not a directive.
+        let directive_comments =
+            crate::inline_config::config_comment_ranges(content, |open| ctx.is_in_code_block_or_span(open));
+
         // Use ctx.lines for better performance
         for (line_idx, line_info) in ctx.lines.iter().enumerate() {
             let line_num = line_idx + 1;
@@ -303,11 +296,6 @@ impl MD044ProperNames {
                 None
             };
 
-            // Skip inline config comments (rumdl, markdownlint, Vale, remark-lint directives)
-            if is_inline_config_comment(trimmed) {
-                continue;
-            }
-
             // Early return: skip lines that don't contain any potential matches
             let line_lower = line.to_lowercase();
             let has_line_matches = self.name_variants.keys().any(|name| line_lower.contains(name));
@@ -331,6 +319,9 @@ impl MD044ProperNames {
 
                 // Skip matches inside HTML tag attributes (handles multi-line tags)
                 let byte_pos = line_info.byte_offset + start_pos;
+                if crate::inline_config::offset_in_ranges(&directive_comments, byte_pos) {
+                    continue;
+                }
                 if ctx.is_in_html_tag(byte_pos) {
                     continue;
                 }
@@ -876,7 +867,7 @@ impl MD044ProperNames {
     /// contains an identifier, whereas `foo-__abc__-bar` emphasizes just `abc`.
     /// Check the two boundaries independently so `_abc_def_` remains protected.
     fn is_underscore_emphasis_boundary(ctx: &crate::lint_context::LintContext, pos: usize, is_start: bool) -> bool {
-        ctx.emphasis_spans().iter().any(|span| {
+        ctx.source_emphasis_spans().iter().any(|span| {
             if span.marker != '_' {
                 return false;
             }
@@ -982,6 +973,10 @@ impl MD044ProperNames {
 }
 
 impl Rule for MD044ProperNames {
+    fn native_format_policy(&self) -> Option<crate::format_proof::NativeFormatPolicy> {
+        (self.config == Default::default()).then_some(crate::format_proof::NativeFormatPolicy::for_rule::<Self>(44))
+    }
+
     fn name(&self) -> &'static str {
         "MD044"
     }
@@ -1057,6 +1052,10 @@ impl Rule for MD044ProperNames {
             .collect();
 
         Ok(warnings)
+    }
+
+    fn fixes_from_diagnostics(&self) -> bool {
+        true
     }
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
@@ -1703,6 +1702,23 @@ Third line with RUST and PYTHON."#;
         assert_eq!(result.len(), 2, "Should only flag body lines, not config comments");
         assert_eq!(result[0].line, 2);
         assert_eq!(result[1].line, 5);
+    }
+
+    #[test]
+    fn test_compact_inline_config_comments_not_flagged() {
+        let config = MD044Config {
+            names: vec!["RUMDL".to_string(), "Markdownlint".to_string()],
+            ..MD044Config::default()
+        };
+        let rule = MD044ProperNames::from_config_struct(config);
+
+        // Compact directive lines are skipped like the spaced ones; the two body
+        // lines are flagged, and so is a comment that is not a directive.
+        let content = "<!--rumdl-disable MD044-->\nSome rumdl text.\n<!--markdownlint-enable MD044 -->\n<!--\trumdl-capture-->\nMore rumdl text.\n<!-- note markdownlint -->\n";
+        let ctx = create_context(content);
+        let result = rule.check(&ctx).unwrap();
+        let lines: Vec<usize> = result.iter().map(|w| w.line).collect();
+        assert_eq!(lines, vec![2, 5, 6], "{result:?}");
     }
 
     #[test]

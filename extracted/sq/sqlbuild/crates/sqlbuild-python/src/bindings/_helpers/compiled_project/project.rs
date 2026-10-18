@@ -18,15 +18,16 @@ use pyo3::prelude::{
 use pyo3::types::{PyDict, PyDictMethods, PyString};
 use pyo3::{FromPyObject, pyclass, pymethods};
 use serde_json::Value;
+use sqlbuild_analysis::compiled_project::main::model_facts::model_facts as project_model;
 use sqlbuild_analysis::compiled_project::main::project_models::project_models;
 use sqlbuild_analysis::compiled_project::main::record_model::record_model;
 use sqlbuild_analysis::compiled_project::main::record_model_analysis::record_model_analysis;
 use sqlbuild_analysis::compiled_project::models::{
-    CompiledModelFacts, CompiledProjectFacts, DeclarationFact, DynamicFamilyFact, DynamicProofFact,
-    ModelAnalysisFact, ModelConfigFacts, ModelReferenceFact, ModelSchemaFact, SchemaColumnFact,
+    CompiledModelFacts, CompiledProjectFacts, DeclarationFact, DynamicProofFact, ModelAnalysisFact,
+    ModelConfigFacts, ModelReferenceFact, ModelSchemaFact,
 };
 
-use crate::bindings::_helpers::boundary::panics::{NativeCompilerError, compiler_guard};
+use crate::bindings::_helpers::boundary::panics::NativeCompilerError;
 use crate::bindings::_helpers::compiled_project::audit_loop::{
     AttachmentOwner, AuditFileRow, AuditSettings, model_owner, resource_owner,
 };
@@ -55,6 +56,8 @@ use crate::bindings::_helpers::compiled_project::source_views::{
     AttachedSource, NativeCompiledSource, NativeSourceInput, SourceNamespace, SourceRecord,
 };
 use crate::bindings::_helpers::compiled_project::values::{object_value, plain_value};
+use crate::bindings::_helpers::records::fields::field as native_field;
+use crate::bindings::_helpers::render::declaration_values::ConstantRendering;
 
 pub(crate) const CONTRACT_KEY: &str = "contract";
 const INPUT_CLASSES_UNSET: &str = "no model loop recorded inputs into this project";
@@ -68,20 +71,6 @@ const TABLE_MATERIALIZATION: &str = "table";
 
 /// `(name, type)`.
 type NamedType = (String, Option<String>);
-/// `(name, type, nullable, audit count, declared outside the model)`.
-pub(crate) type SchemaColumnPy = (String, Option<String>, Option<bool>, u32, bool);
-/// `(key, name, pivot column, value column, aggregate, type, name pattern)`.
-pub(crate) type DynamicFamilyPy = (
-    String,
-    String,
-    String,
-    String,
-    String,
-    String,
-    Option<String>,
-);
-/// `(entry audit count, columns, dynamic families, (type enforcement, named schema))`.
-pub(crate) type SchemaPy = (u32, Vec<SchemaColumnPy>, Vec<DynamicFamilyPy>, (bool, bool));
 /// `(output proven, bare dynamic pivot, (family key, inferred type), failure, (family, type))`.
 type ProofPy = (bool, bool, Vec<NamedType>, Option<String>, Vec<NamedType>);
 /// `(inferred, (name, type), nullable per column, has star, unchecked output columns)`.
@@ -96,7 +85,6 @@ pub(crate) struct ModelInputPy<'py>(
     (String, String, String, String, String),
     (Bound<'py, PyDict>, Vec<String>, Option<String>),
     Vec<(String, String, Option<String>)>,
-    Option<SchemaPy>,
     Vec<String>,
     (Vec<DeclarationPy<'py>>, Vec<DeclarationPy<'py>>),
 );
@@ -133,14 +121,22 @@ pub(crate) struct NativeCompiledProject {
     functions: Vec<FunctionRecord>,
     /// Each singular, then model-, source- and seed-attached, audit in attachment order.
     audits: Vec<AuditRecord>,
-    /// The model loop and its host, which attach the project's other resources.
-    attachment: Option<(Py<NativeModelLoop>, Py<PyAny>)>,
+    /// The model loop and its constant rendering, which attach the project's other resources.
+    attachment: Option<(Py<NativeModelLoop>, Py<ConstantRendering>)>,
 }
 
 impl NativeCompiledProject {
     /// The facts recorded so far, for native consumers such as the rules request.
     pub(crate) fn facts(&self) -> &CompiledProjectFacts {
         &self.facts
+    }
+
+    /// A project holding only `facts`, which analyses can be recorded into apart from the compile's.
+    pub(crate) fn with_facts(facts: CompiledProjectFacts) -> Self {
+        Self {
+            facts,
+            ..Self::default()
+        }
     }
 
     /// Retain facts a producer finished natively.
@@ -168,30 +164,25 @@ impl NativeCompiledProject {
     fn attachment_owners<'py>(&self, py: Python<'py>) -> PyResult<Vec<AttachmentOwner<'py>>> {
         let mut owners: Vec<AttachmentOwner<'py>> = Vec::new();
         for record in &self.inputs {
-            let Some(schema) = &record.schema else {
+            let (Some(schema), Some(fact)) = (&record.schema, self.input_schema_fact(record))
+            else {
                 continue;
             };
-            let model_file: &Bound<'py, PyAny> = record.model_file.bind(py);
             owners.push(model_owner(
-                model_file
-                    .getattr("file_path")?
-                    .getattr("stem")?
-                    .extract()?,
-                model_file
-                    .getattr(RELATIVE_PATH_ATTRIBUTE)?
-                    .str()?
-                    .to_string(),
-                (schema.audits.bind(py), schema.columns.bind(py)),
+                record.name.clone(),
+                record.model_file.get().relative_text(py)?,
+                (
+                    schema.audits.bind(py),
+                    (schema.columns.as_ref(), &fact.columns),
+                ),
             )?);
         }
         for source in &self.sources {
             let attached: &AttachedSource = source.attached();
-            let path: String = attached
-                .source_file
-                .bind(py)
-                .getattr(RELATIVE_PATH_ATTRIBUTE)?
-                .str()?
-                .to_string();
+            let path: String =
+                native_field(attached.source_file.bind(py), RELATIVE_PATH_ATTRIBUTE)?
+                    .str()?
+                    .to_string();
             owners.push(resource_owner(
                 SOURCE_OWNER,
                 attached.name.clone(),
@@ -209,39 +200,38 @@ impl NativeCompiledProject {
                 SEED_OWNER,
                 name.to_owned(),
                 (
-                    seed_file
-                        .bind(py)
-                        .getattr(RELATIVE_PATH_ATTRIBUTE)?
+                    native_field(seed_file.bind(py), RELATIVE_PATH_ATTRIBUTE)?
                         .str()?
                         .to_string(),
-                    schema_file
-                        .bind(py)
-                        .getattr(RELATIVE_PATH_ATTRIBUTE)?
+                    native_field(schema_file.bind(py), RELATIVE_PATH_ATTRIBUTE)?
                         .str()?
                         .to_string(),
                 ),
                 (
-                    &schema_entry.getattr("audits")?,
-                    &schema_entry.getattr("columns")?,
+                    &native_field(schema_entry, "audits")?,
+                    &native_field(schema_entry, "columns")?,
                 ),
             )?);
         }
         Ok(owners)
     }
 
-    /// The kept model loop and its host.
-    fn attachment_loop(&self, py: Python<'_>) -> PyResult<(Py<NativeModelLoop>, Py<PyAny>)> {
+    /// The kept model loop and its constant rendering.
+    fn attachment_loop(
+        &self,
+        py: Python<'_>,
+    ) -> PyResult<(Py<NativeModelLoop>, Py<ConstantRendering>)> {
         match &self.attachment {
             Some((model_loop, host)) => Ok((model_loop.clone_ref(py), host.clone_ref(py))),
             None => Err(PyRuntimeError::new_err(ATTACHMENT_LOOP_UNSET)),
         }
     }
 
-    /// Keep the model loop and its host for attaching the project's other resources.
+    /// Keep the model loop and its constant rendering for attaching the project's other resources.
     pub(crate) fn keep_attachment_loop(
         &mut self,
         model_loop: Py<NativeModelLoop>,
-        host: Py<PyAny>,
+        host: Py<ConstantRendering>,
     ) {
         self.attachment = Some((model_loop, host));
     }
@@ -269,6 +259,11 @@ impl NativeCompiledProject {
     /// Every attached seed, in attachment order.
     pub(crate) fn seeds(&self) -> &[SeedRecord] {
         &self.seeds
+    }
+
+    /// The schema fact recorded for an input record's model.
+    pub(crate) fn input_schema_fact(&self, record: &ModelInputRecord) -> Option<&ModelSchemaFact> {
+        project_model(&self.facts, &record.name).and_then(|facts| facts.schema.as_ref())
     }
 
     /// Every model's input record, in loop order.
@@ -333,17 +328,8 @@ impl NativeCompiledProject {
         Self::default()
     }
 
-    /// Retain one model's compile-input facts; a name recorded again is replaced in place.
-    fn record_model(&mut self, model: ModelInputPy<'_>) -> PyResult<()> {
-        compiler_guard(|| {
-            let facts: CompiledModelFacts = model_facts(model)?;
-            record_model(&mut self.facts, facts);
-            Ok(())
-        })
-    }
-
     /// Attach a recorded model's typed analysis; `False` when that model was never recorded.
-    fn record_model_analysis(
+    pub(crate) fn record_model_analysis(
         &mut self,
         name: &str,
         columns: AnalysisPy,
@@ -373,7 +359,7 @@ impl NativeCompiledProject {
     }
 
     /// Record each assembled native model view's final typed analysis; return how many.
-    fn record_view_analyses(
+    pub(crate) fn record_view_analyses(
         slf: &Bound<'_, Self>,
         views: Vec<PyRef<'_, NativeCompiledModel>>,
     ) -> PyResult<usize> {
@@ -391,12 +377,15 @@ impl NativeCompiledProject {
     }
 
     /// The compile inputs view of this owner's model inputs with these input fields.
-    fn inputs_view(slf: Bound<'_, Self>, fields: Bound<'_, PyDict>) -> PyResult<NativeInputsView> {
+    pub(crate) fn inputs_view(
+        slf: Bound<'_, Self>,
+        fields: Bound<'_, PyDict>,
+    ) -> PyResult<NativeInputsView> {
         NativeInputsView::new(slf.unbind(), &fields)
     }
 
     /// The compiled project view of this owner's models with these project fields.
-    fn project_view(
+    pub(crate) fn project_view(
         slf: Bound<'_, Self>,
         fields: Bound<'_, PyDict>,
     ) -> PyResult<NativeProjectView> {
@@ -404,7 +393,7 @@ impl NativeCompiledProject {
     }
 
     /// Pair seed declarations with their CSV files and keep them; return each seed's view.
-    fn attach_seeds(
+    pub(crate) fn attach_seeds(
         slf: &Bound<'_, Self>,
         declarations: Vec<(Py<PyAny>, Py<PyAny>)>,
         seed_files: Vec<Py<PyAny>>,
@@ -430,7 +419,7 @@ impl NativeCompiledProject {
     }
 
     /// Attach every discovered source in order with the kept loop; return each source's view.
-    fn attach_sources(
+    pub(crate) fn attach_sources(
         slf: &Bound<'_, Self>,
         rows: Vec<SourceRow>,
         settings: SourceSettings,
@@ -447,7 +436,7 @@ impl NativeCompiledProject {
     }
 
     /// Attach every SQL, then Python, function with the kept loop; return each one's view.
-    fn attach_functions(
+    pub(crate) fn attach_functions(
         slf: &Bound<'_, Self>,
         rows: (Vec<FunctionRow>, Vec<FunctionRow>),
         settings: FunctionSettings,
@@ -460,12 +449,7 @@ impl NativeCompiledProject {
             .iter()
             .map(|record| {
                 Ok((
-                    record
-                        .model_file
-                        .bind(py)
-                        .getattr(RELATIVE_PATH_ATTRIBUTE)?
-                        .str()?
-                        .to_string(),
+                    record.model_file.get().relative_text(py)?,
                     record.references.clone(),
                 ))
             })
@@ -495,7 +479,7 @@ impl NativeCompiledProject {
     }
 
     /// Attach every SQL test case, then every scenario, with the kept loop.
-    fn attach_sql_tests(
+    pub(crate) fn attach_sql_tests(
         slf: &Bound<'_, Self>,
         files: Vec<TestFileRow>,
         scenarios: Vec<ScenarioRow>,
@@ -524,7 +508,7 @@ impl NativeCompiledProject {
     }
 
     /// Attach singular, then resource-attached, audits; return views and override warnings.
-    fn attach_audits<'py>(
+    pub(crate) fn attach_audits<'py>(
         slf: &Bound<'py, Self>,
         files: Vec<AuditFileRow>,
         settings: AuditSettings,
@@ -639,7 +623,6 @@ pub(crate) fn model_facts(model: ModelInputPy<'_>) -> PyResult<CompiledModelFact
         (name, relative_path, query_sql, authored_query_sql, authored_sql),
         (values, header_keys, layer_schema),
         references,
-        schema,
         enum_columns,
         (enum_declarations, constant_declarations),
     ) = model;
@@ -647,9 +630,9 @@ pub(crate) fn model_facts(model: ModelInputPy<'_>) -> PyResult<CompiledModelFact
     Ok(CompiledModelFacts {
         name,
         relative_path,
-        query_sql,
-        authored_query_sql,
-        authored_sql,
+        query_sql: query_sql.into(),
+        authored_query_sql: authored_query_sql.into(),
+        authored_sql: authored_sql.into(),
         config: ModelConfigFacts {
             values: config_values.0,
             encoding_error: config_values.1,
@@ -667,7 +650,7 @@ pub(crate) fn model_facts(model: ModelInputPy<'_>) -> PyResult<CompiledModelFact
                 package,
             })
             .collect(),
-        schema: schema.map(schema_fact),
+        schema: None,
         enum_columns,
         enum_declarations: declarations(enum_declarations)?,
         constant_declarations: declarations(constant_declarations)?,
@@ -697,45 +680,6 @@ pub(crate) fn text_value(values: &Bound<'_, PyDict>, key: &str) -> PyResult<Opti
     match values.get_item(key)? {
         Some(value) if value.is_instance_of::<PyString>() => Ok(Some(value.extract()?)),
         _ => Ok(None),
-    }
-}
-
-pub(crate) fn schema_fact(
-    (audit_count, columns, dynamic_columns, (type_enforcement, named_schema)): SchemaPy,
-) -> ModelSchemaFact {
-    ModelSchemaFact {
-        audit_count,
-        columns: columns
-            .into_iter()
-            .map(
-                |(name, data_type, nullable, audit_count, declared_outside_model)| {
-                    SchemaColumnFact {
-                        name,
-                        data_type,
-                        nullable,
-                        audit_count,
-                        declared_outside_model,
-                    }
-                },
-            )
-            .collect(),
-        dynamic_columns: dynamic_columns.into_iter().map(family_fact).collect(),
-        type_enforcement,
-        named_schema,
-    }
-}
-
-fn family_fact(
-    (key, name, pivot_column, value_column, aggregate, data_type, name_pattern): DynamicFamilyPy,
-) -> DynamicFamilyFact {
-    DynamicFamilyFact {
-        key,
-        name,
-        pivot_column,
-        value_column,
-        aggregate,
-        data_type,
-        name_pattern,
     }
 }
 

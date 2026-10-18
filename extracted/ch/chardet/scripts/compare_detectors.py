@@ -32,6 +32,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from detector_env import build_compiled_wheel
 from utils import collect_test_files, normalize_language
 from utils import format_bytes as _format_bytes
 from utils import percentiles as _percentiles
@@ -130,16 +131,25 @@ def _compute_benchmark_hash() -> str:
     removing, or modifying test files invalidates cached results.
     """
     scripts_dir = _PROJECT_ROOT / "scripts"
-    equiv_path = _PROJECT_ROOT / "src" / "chardet" / "equivalences.py"
+    chardet_dir = _PROJECT_ROOT / "src" / "chardet"
     paths = [
         scripts_dir / "benchmark_time.py",
         scripts_dir / "benchmark_memory.py",
         scripts_dir / "utils.py",
-        equiv_path,
+        # The acceptance rules every verdict is scored against.  These moved
+        # out of the (now deprecated) equivalences.py in 7.5; hashing the
+        # shim instead would leave the baseline caches -- which, unlike
+        # chardet's own, do not rotate with a dev version string -- holding
+        # verdicts scored under superseded rules.
+        chardet_dir / "evaluation.py",
+        chardet_dir / "output_names.py",
     ]
     h = hashlib.sha256()
     for p in paths:
-        h.update(p.read_bytes())
+        # Tolerate a missing file rather than taking the whole script down
+        # with it: these paths track another module's layout, and 8.0
+        # removes one of the modules this list has already pointed at.
+        h.update(p.read_bytes() if p.is_file() else b"")
     # Include test-data commit hash (changes when files are added/modified)
     data_dir = _PROJECT_ROOT / "tests" / "data"
     if data_dir.is_dir():
@@ -160,31 +170,6 @@ def _get_cache_dir() -> Path:
     cache_dir = _PROJECT_ROOT / ".benchmark_results"
     cache_dir.mkdir(exist_ok=True)
     return cache_dir
-
-
-def _clean_inplace_mypyc_artifacts(project_root: Path) -> list[Path]:
-    """Delete compiled extensions the mypyc build hook leaves in ``src/``.
-
-    hatch-mypyc compiles in place, so building a wheel with ``--mypyc``
-    leaves ``.so``/``.pyd`` files sitting next to the ``.py`` sources they
-    were built from.  Python imports an extension in preference to the
-    module beside it, so anything run from the source tree afterwards
-    silently gets the compiled build: a later source edit appears to do
-    nothing, a ``--pure`` measurement is not pure, and the files are
-    gitignored so ``git status`` stays clean while it happens.
-
-    The wheel already contains its own copies, so removing them here
-    costs nothing.  Returns the paths removed, for logging.
-    """
-    src_dir = project_root / "src"
-    if not src_dir.is_dir():
-        return []
-    removed: list[Path] = []
-    for pattern in ("*.so", "*.pyd"):
-        for path in sorted(src_dir.rglob(pattern)):
-            path.unlink()
-            removed.append(path)
-    return removed
 
 
 def _cache_filename(  # noqa: PLR0913
@@ -619,7 +604,7 @@ def _run_timing_subprocess(  # noqa: PLR0913
 def _is_cjk_encoding(name: str | None) -> bool:
     """Whether *name* is a legacy CJK multi-byte encoding.
 
-    Every ``is_multibyte`` entry in the registry is CJK (Big5, GB, EUC,
+    Every ``is_multibyte_cjk`` entry in the registry is CJK (Big5, GB, EUC,
     Shift_JIS, ISO-2022, Johab), so that flag is the classifier. UTF-8/16/32
     are excluded: they carry CJK text but skip the expensive disambiguation
     path, which is what this split is meant to isolate.
@@ -628,7 +613,7 @@ def _is_cjk_encoding(name: str | None) -> bool:
         return False
     canonical = lookup_encoding(name)
     info = REGISTRY.get(canonical) if canonical else None
-    return bool(info and info.is_multibyte)
+    return bool(info and info.is_multibyte_cjk)
 
 
 # ---------------------------------------------------------------------------
@@ -760,9 +745,11 @@ def _record_result(  # noqa: PLR0913
     detector_stats["per_enc"][expected_encoding]["total"] += 1
     if is_exact_match(expected_encoding, detected):
         detector_stats["strict_correct"] += 1
-    if is_correct(expected_encoding, detected) or (
-        detected is not None
-        and is_equivalent_detection(filepath.read_bytes(), expected_encoding, detected)
+    # Lazily composed on purpose, not is_acceptable(): `or` short-circuits
+    # the disk read when the name-level check already accepts, and this
+    # runs once per (file, detector) pair — thousands of reads per run.
+    if is_correct(expected_encoding, detected) or is_equivalent_detection(
+        filepath.read_bytes(), expected_encoding, detected
     ):
         detector_stats["correct"] += 1
         detector_stats["per_enc"][expected_encoding]["correct"] += 1
@@ -1470,48 +1457,19 @@ def _run_for_python_version(  # noqa: PLR0913
             k: v for k, v in os.environ.items() if k != "HATCH_BUILD_HOOK_ENABLE_MYPYC"
         }
     elif args.mypyc:
-        # Build a mypyc-compiled wheel so the venv gets compiled extensions.
+        # Build a compiled wheel so the venv gets compiled extensions.
         # Passing HATCH_BUILD_HOOK_ENABLE_MYPYC via env to `uv pip install`
         # doesn't reliably trigger the build hook, so we build explicitly.
         mypyc_wheel_dir = Path(tempfile.mkdtemp(prefix="chardet-mypyc-wheel-"))
-        print("Building mypyc wheel for local chardet ...")
-        build_cmd = [
-            "uv",
-            "build",
-            "--wheel",
-            "--out-dir",
-            str(mypyc_wheel_dir),
-            project_root,
-        ]
-        if python_version:
-            build_cmd.extend(["--python", python_version])
         try:
-            subprocess.run(
-                build_cmd,
-                check=True,
-                # Both hooks: mypyc for the pipeline modules, the custom hook
-                # for the Cython scoring kernel.  Enabling only the first
-                # builds a wheel that runs the packed buffers through the
-                # interpreter, which benchmarks ~30% slower than this one.
-                env={
-                    **os.environ,
-                    "HATCH_BUILD_HOOK_ENABLE_MYPYC": "true",
-                    "HATCH_BUILD_HOOK_ENABLE_CUSTOM": "true",
-                },
+            wheel = build_compiled_wheel(
+                Path(project_root), mypyc_wheel_dir, python_version=python_version
             )
-        finally:
-            stale = _clean_inplace_mypyc_artifacts(Path(project_root))
-            if stale:
-                print(
-                    f"  Removed {len(stale)} in-place mypyc artifact(s) "
-                    f"from {Path(project_root) / 'src'}"
-                )
-        wheels = list(mypyc_wheel_dir.glob("*.whl"))
-        if not wheels:
-            print("ERROR: mypyc wheel build produced no .whl file", file=sys.stderr)
+        except RuntimeError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
             sys.exit(1)
-        chardet_pip_args = [str(wheels[0])]
-        print(f"  Built: {wheels[0].name}")
+        chardet_pip_args = [str(wheel)]
+        print(f"  Built: {wheel.name}")
 
     # Build venv specs: (label, pip_args, env, detector_type, python_version)
     venv_specs: list[_VenvSpec] = [

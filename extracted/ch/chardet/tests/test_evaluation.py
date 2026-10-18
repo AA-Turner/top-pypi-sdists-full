@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 from chardet.evaluation import (
+    is_acceptable,
     is_correct,
     is_equivalent_detection,
+    is_exact_match,
     is_language_equivalent,
 )
 
@@ -183,3 +185,55 @@ def test_language_equivalent_unknown_language():
     """Unknown language code returns False."""
     assert is_language_equivalent("xx", "yy") is False
     assert is_language_equivalent("en", "fr") is False
+
+
+def test_is_acceptable_binary_expectation():
+    """A binary expectation (None) is met only by a None detection."""
+    assert is_acceptable(b"\x00\x01", None, None) is True
+    assert is_acceptable(b"\x00\x01", None, "utf-8") is False
+
+
+def test_is_acceptable_via_name_level_acceptance():
+    """A known superset is acceptable regardless of the data's bytes."""
+    assert is_acceptable(b"Hello", "ascii", "utf-8") is True
+
+
+def test_is_acceptable_via_byte_level_equivalence():
+    """Unrelated names are acceptable when this data decodes identically."""
+    data = b"plain ascii text"
+    assert is_correct("cp1250", "cp1252") is False
+    assert is_acceptable(data, "cp1250", "cp1252") is True
+
+
+def test_is_acceptable_rejects_differing_decodes():
+    """Neither half accepts encodings that read this data differently."""
+    data = "Привет мир".encode("cp1251")
+    assert is_acceptable(data, "cp1251", "cp1252") is False
+
+
+def test_is_exact_match_none_expected():
+    """A binary expectation (None) matches only a binary detection."""
+    assert is_exact_match(None, None) is True
+    assert is_exact_match(None, "utf-8") is False
+
+
+def test_is_exact_match_none_detected():
+    """A failed detection never exactly matches a real expectation."""
+    assert is_exact_match("utf-8", None) is False
+
+
+def test_equivalent_detection_mixed_identical_and_equivalent_chars():
+    """Identical characters pass through while listed pairs are equivalent.
+
+    0xA4 is the currency sign in iso-8859-1 and the euro sign in
+    iso-8859-15 — a listed equivalence — while the ASCII prefix decodes
+    identically under both.
+    """
+    data = b"ab\xa4"
+    assert is_equivalent_detection(data, "iso-8859-1", "iso-8859-15") is True
+
+
+def test_equivalent_detection_length_mismatch_is_not_equivalent():
+    """Decodes of different lengths cannot be functionally identical."""
+    data = "é".encode()
+    assert is_equivalent_detection(data, "utf-8", "iso-8859-1") is False

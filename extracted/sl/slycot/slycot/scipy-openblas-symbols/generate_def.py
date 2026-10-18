@@ -95,6 +95,7 @@ def main():
     )
 
     with open("scipy-openblas-symbols.def", "wt") as outfile:
+        # ruff: disable[FURB122]
         for symbol in blas + lapack + own_symbols + lapack_exclusions:
             outfile.write(f"-D{symbol.upper()}=SCIPY_{symbol.upper()}\n")
 

@@ -4,33 +4,17 @@ use crate::rule_config_serde::load_rule_config;
 use crate::utils::range_utils::calculate_line_range;
 use std::collections::HashMap;
 
+/// The whitespace CommonMark strips around a fence's info string: spaces and tabs.
+/// A U+00A0 or other Unicode space is part of the info string, so treating it as
+/// whitespace would let the fix replace it.
+const FENCE_SPACE: [char; 2] = [' ', '\t'];
+
 /// Rule MD040: Fenced code blocks should have a language
 ///
 /// See [docs/md040.md](../../docs/md040.md) for full documentation, configuration, and examples.
 pub mod md040_config;
 
-// ============================================================================
-// MkDocs Superfences Attribute Detection
-// ============================================================================
-
-/// Prefixes that indicate MkDocs superfences attributes rather than language identifiers.
-/// These are valid in MkDocs flavor without a language specification.
-/// See: <https://facelessuser.github.io/pymdown-extensions/extensions/superfences/>
-const MKDOCS_SUPERFENCES_ATTR_PREFIXES: &[&str] = &[
-    "title=",    // Block title
-    "hl_lines=", // Highlighted lines
-    "linenums=", // Line numbers
-    ".",         // CSS class (e.g., .annotate)
-    "#",         // CSS id
-];
-
-/// Check if a string starts with a MkDocs superfences attribute prefix
-#[inline]
-fn is_superfences_attribute(s: &str) -> bool {
-    MKDOCS_SUPERFENCES_ATTR_PREFIXES
-        .iter()
-        .any(|prefix| s.starts_with(prefix))
-}
+use crate::utils::fence_language::{FenceLanguage, classify};
 use md040_config::{LanguageStyle, MD040Config, UnknownLanguageAction};
 
 struct FencedCodeBlock {
@@ -225,6 +209,10 @@ impl MD040FencedCodeLanguage {
 }
 
 impl Rule for MD040FencedCodeLanguage {
+    fn native_format_policy(&self) -> Option<crate::format_proof::NativeFormatPolicy> {
+        (self.config == Default::default()).then_some(crate::format_proof::NativeFormatPolicy::for_rule::<Self>(40))
+    }
+
     fn name(&self) -> &'static str {
         "MD040"
     }
@@ -271,53 +259,17 @@ impl Rule for MD040FencedCodeLanguage {
             // blockquote prefix so the info string after the fence is recognized
             // inside blockquotes the same way it is at the top level.
             let line = lines.get(block.line_idx).unwrap_or(&"");
-            let fence_line = crate::utils::blockquote::strip_blockquote_prefix(line).trim();
-            let after_fence = fence_line.strip_prefix(&block.fence_marker).unwrap_or("").trim();
+            let fence_line = crate::utils::blockquote::strip_blockquote_prefix(line).trim_matches(FENCE_SPACE);
+            let after_fence = fence_marker_offset(fence_line, &block.fence_marker)
+                .map_or(block.language.as_str(), |offset| {
+                    fence_line[offset + block.fence_marker.len()..].trim_matches(FENCE_SPACE)
+                });
 
-            // Check if fence has MkDocs superfences attributes but no language
-            let has_mkdocs_attrs_only =
-                ctx.flavor == crate::config::MarkdownFlavor::MkDocs && is_superfences_attribute(after_fence);
-
-            // MyST directives use {name} as the info string (e.g., {note}, {code-cell} python).
-            // These are valid MyST syntax and should not trigger missing-language warnings.
-            let is_myst_directive =
-                ctx.flavor.supports_myst_directives() && after_fence.starts_with('{') && after_fence.contains('}') && {
-                    let name = after_fence.trim_start_matches('{').split('}').next().unwrap_or("");
-                    !name.is_empty() && name.chars().next().is_some_and(|c| c.is_alphabetic() || c == '_')
-                };
-
-            // Pandoc/Quarto brace-syntax code chunks fall into three forms:
-            //   1. `{=html}` raw blocks — accepted under any Pandoc-compatible flavor.
-            //      Validated by `is_pandoc_raw_block_lang` (non-empty ASCII format name).
-            //   2. `{.python}` / `{.haskell .numberLines}` code-attribute syntax — the
-            //      first `.class` declares the language. Accepted under any
-            //      Pandoc-compatible flavor.
-            //   3. `{r}` / `{python}` exec chunks — accepted under Quarto only.
-            // Anything else wrapped in braces (e.g. `{r}` under pure Pandoc, or
-            // `{#myid}` with no class) is not a real language identifier and must be
-            // flagged as missing-language.
-            let is_pandoc_raw =
-                ctx.flavor.is_pandoc_compatible() && crate::utils::pandoc::is_pandoc_raw_block_lang(after_fence);
-            let is_pandoc_class_attr =
-                ctx.flavor.is_pandoc_compatible() && crate::utils::pandoc::is_pandoc_code_class_attr(after_fence);
-            let is_quarto_exec = ctx.flavor == crate::config::MarkdownFlavor::Quarto
-                && after_fence.starts_with('{')
-                && after_fence.ends_with('}')
-                && !is_pandoc_raw
-                && !is_pandoc_class_attr;
-            let has_pandoc_or_quarto_syntax = is_pandoc_raw || is_pandoc_class_attr || is_quarto_exec;
-            let is_unrecognized_brace_syntax = after_fence.starts_with('{')
-                && after_fence.ends_with('}')
-                && !has_pandoc_or_quarto_syntax
-                && !is_myst_directive;
-
-            let needs_language = !has_mkdocs_attrs_only
-                && !is_myst_directive
-                && (block.language.is_empty()
-                    || is_superfences_attribute(&block.language)
-                    || is_unrecognized_brace_syntax);
-
-            if needs_language && !has_pandoc_or_quarto_syntax {
+            let classification = classify(after_fence, ctx.flavor);
+            if matches!(classification, FenceLanguage::Exempt | FenceLanguage::CodeSyntax) {
+                continue;
+            }
+            if classification == FenceLanguage::Missing {
                 let (start_line, start_col, end_line, end_col) = calculate_line_range(block.line_idx + 1, line);
 
                 let fix = fence_marker_offset(line, &block.fence_marker).map(|marker_offset| {
@@ -327,7 +279,8 @@ impl Rule for MD040FencedCodeLanguage {
                     // so trailing whitespace is cleaned up while any existing
                     // info string / attributes are preserved via the replacement.
                     let line_end_byte = line_start_byte + line.len();
-                    let after_fence_trimmed = line[marker_offset + block.fence_marker.len()..].trim();
+                    let after_fence_trimmed =
+                        line[marker_offset + block.fence_marker.len()..].trim_matches(FENCE_SPACE);
                     let replacement = if after_fence_trimmed.is_empty() {
                         "text".to_string()
                     } else {
@@ -346,11 +299,6 @@ impl Rule for MD040FencedCodeLanguage {
                     severity: Severity::Warning,
                     fix,
                 });
-                continue;
-            }
-
-            // Skip further checks for Pandoc raw blocks and Quarto exec chunks
-            if has_pandoc_or_quarto_syntax {
                 continue;
             }
 
@@ -434,6 +382,10 @@ impl Rule for MD040FencedCodeLanguage {
         Ok(warnings)
     }
 
+    fn fixes_from_diagnostics(&self) -> bool {
+        true
+    }
+
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
         if self.should_skip(ctx) {
             return Ok(ctx.content.to_string());
@@ -495,7 +447,12 @@ fn derive_fenced_code_blocks(ctx: &crate::lint_context::LintContext) -> Vec<Fenc
             let fence_marker =
                 find_fence_marker(line).map_or_else(|| "```".to_string(), |(_, marker)| marker.to_string());
 
-            let language = detail.info_string.split_whitespace().next().unwrap_or("").to_string();
+            let language = detail
+                .info_string
+                .split(FENCE_SPACE)
+                .find(|word| !word.is_empty())
+                .unwrap_or("")
+                .to_string();
 
             FencedCodeBlock {
                 line_idx,
@@ -537,12 +494,12 @@ fn find_label_span(line: &str, fence_marker: &str) -> Option<(usize, usize)> {
 
     let label_start_rel = after_fence
         .char_indices()
-        .find(|&(_, ch)| !ch.is_whitespace())
+        .find(|&(_, ch)| !FENCE_SPACE.contains(&ch))
         .map(|(idx, _)| idx)?;
     let after_label = &after_fence[label_start_rel..];
     let label_end_rel = after_label
         .char_indices()
-        .find(|&(_, ch)| ch.is_whitespace())
+        .find(|&(_, ch)| FENCE_SPACE.contains(&ch))
         .map_or(after_fence.len(), |(idx, _)| label_start_rel + idx);
 
     Some((
@@ -2056,5 +2013,40 @@ echo hi
         assert_eq!(standard.len(), 1);
         assert!(standard[0].fix.is_some());
         assert!(rule.fix(&standard_ctx).unwrap().contains("```javascript"));
+    }
+
+    #[test]
+    fn test_unicode_space_around_the_info_string_is_not_trimmed() {
+        // U+00A0 is not fence whitespace: it is part of the info string, which is
+        // a language label here, so nothing is added or rewritten.
+        let content = "```\u{a0}\ncode\n```\n";
+        let fixed = run_fix(content).unwrap();
+        assert!(fixed.contains('\u{a0}'), "{fixed:?}");
+        assert_eq!(run_fix(&fixed).unwrap(), fixed);
+    }
+
+    #[test]
+    fn test_ascii_space_around_the_info_string_is_still_trimmed() {
+        let content = "```  \ncode\n```\n";
+        assert_eq!(run_check(content).unwrap().len(), 1);
+        assert_eq!(run_fix(content).unwrap(), "```text\ncode\n```\n");
+    }
+
+    #[test]
+    fn test_consistent_mode_keeps_text_after_a_unicode_space() {
+        let config = || MD040Config {
+            style: LanguageStyle::Consistent,
+            ..Default::default()
+        };
+        // The label ends at a space or tab: with U+00A0 the whole word is the
+        // (unknown) label, so there is nothing to normalize and nothing is cut.
+        let nbsp = "```bash\na\n```\n\n```bash\nb\n```\n\n```sh\u{a0}keep\nc\n```\n";
+        assert_eq!(run_fix_with_config(nbsp, config()).unwrap(), nbsp);
+        // Positive control: with an ASCII space the label is `sh` and is rewritten.
+        let ascii = nbsp.replace('\u{a0}', " ");
+        assert_eq!(
+            run_fix_with_config(&ascii, config()).unwrap(),
+            ascii.replace("```sh keep", "```bash keep")
+        );
     }
 }

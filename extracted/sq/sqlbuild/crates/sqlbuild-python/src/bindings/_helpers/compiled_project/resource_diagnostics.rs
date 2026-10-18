@@ -2,6 +2,7 @@
 
 use pyo3::exceptions::PyValueError;
 use sqlbuild_discovery::yaml_files::main::yaml_entry_lines::yaml_entry_lines;
+use sqlbuild_pysource::definition_locations::main::decorator_location::decorator_location;
 use sqlbuild_sqltext::compiler::main::model_header_entry_span::model_header_entry_span;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -21,6 +22,8 @@ use sqlbuild_analysis::resource_diagnostics::main::yaml_help::yaml_help;
 use sqlbuild_analysis::resource_diagnostics::models::{CursorModel, HeaderHelp};
 
 use crate::bindings::_helpers::compiled_project::project::NativeCompiledProject;
+use crate::bindings::_helpers::discovery::model_file_record::NativeModelFile;
+use crate::bindings::_helpers::records::fields::field as native_field;
 
 const MISSING_DESCRIPTION_CODE: &str = "P010";
 const CURSOR_WITHOUT_INPUTS_CODE: &str = "P011";
@@ -31,7 +34,7 @@ const CURSOR_INPUTS_KEY: &str = "cursor_inputs";
 const PYTHON_UDF_DECORATOR: &str = "udf";
 
 /// A loader's description, relative path and whether that path is a YAML file.
-type LoaderRow = (Option<String>, String, bool);
+pub(crate) type LoaderRow = (Option<String>, String, bool);
 
 /// A Python resource's kind, name, description (a `str` that may hold surrogates), location, help.
 type PythonResourceRow = (String, String, Option<Py<PyString>>, Py<PyAny>, String);
@@ -57,8 +60,6 @@ pub(crate) struct DiagnosticSettings {
     loaders: HashMap<String, LoaderRow>,
     /// Python-defined resources: kind, name, description, location and help, read by Python.
     python_resources: Vec<PythonResourceRow>,
-    /// The Python locators module: YAML entry lines, MODEL header spans and decorators.
-    locators: Py<PyAny>,
 }
 
 /// The orphaned audit factory warnings, then the missing descriptions, then the cursor errors.
@@ -201,12 +202,13 @@ pub(crate) fn resource_diagnostics<'py>(
 
 fn orphaned_factories<'py>(diagnostics: &Diagnostics<'_, 'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
     let py: Python<'py> = diagnostics.py;
+    if diagnostics.settings.audit_factories.is_empty() {
+        return Ok(Vec::new());
+    }
     let mut referenced: HashSet<String> = HashSet::new();
     for model_file in &diagnostics.settings.model_files {
-        let header: Bound<'py, PyDict> = model_file
-            .bind(py)
-            .getattr("header_values")?
-            .downcast_into()?;
+        let header: Bound<'py, PyDict> =
+            native_field(model_file.bind(py), "header_values")?.downcast_into()?;
         let Some(names) = header.get_item(AUDIT_FACTORIES_KEY)? else {
             continue;
         };
@@ -251,13 +253,10 @@ fn missing_descriptions<'py>(
     let py: Python<'py> = diagnostics.py;
     let mut found: Vec<Option<Bound<'py, PyAny>>> = Vec::new();
     for record in project.inputs() {
-        let model_file: &Bound<'py, PyAny> = record.model_file.bind(py);
-        let name: String = model_file
-            .getattr("file_path")?
-            .getattr("stem")?
-            .extract()?;
-        let path: String = model_file.getattr("relative_path")?.str()?.extract()?;
-        let contents: String = model_file.getattr("contents")?.extract()?;
+        let model_file: &NativeModelFile = record.model_file.get();
+        let name: String = record.name.clone();
+        let path: String = model_file.relative_text(py)?;
+        let contents: &str = model_file.contents_text();
         let entry: String = format!("description \"What one row of {name} represents\"");
         let help: String = header_help(&HeaderHelp {
             kind: "model",
@@ -274,7 +273,7 @@ fn missing_descriptions<'py>(
         found.push(diagnostics.described(
             ("model", &name, Some("model")),
             description,
-            || diagnostics.header_location(&path, &contents),
+            || diagnostics.header_location(&path, contents),
             &help,
         )?);
     }
@@ -305,10 +304,12 @@ fn missing_descriptions<'py>(
         let (_, _, entry, schema_file) = seed.parts();
         let entry: &Bound<'py, PyAny> = entry.bind(py);
         let schema_file: &Bound<'py, PyAny> = schema_file.bind(py);
-        let name: String = entry.getattr("name")?.extract()?;
-        let description: Option<String> = entry.getattr("description")?.extract()?;
-        let path: String = schema_file.getattr("relative_path")?.str()?.extract()?;
-        let contents_value = schema_file.getattr("contents")?;
+        let name: String = native_field(entry, "name")?.extract()?;
+        let description: Option<String> = native_field(entry, "description")?.extract()?;
+        let path: String = native_field(schema_file, "relative_path")?
+            .str()?
+            .extract()?;
+        let contents_value = native_field(schema_file, "contents")?;
         let contents = contents_value.downcast::<PyString>()?.to_str()?;
         found.push(diagnostics.described(
             ("seed", &name, Some("seed")),
@@ -368,10 +369,12 @@ fn source_description<'py>(
     let attached = source.attached();
     let name: &str = &attached.name;
     let source_file: &Bound<'py, PyAny> = attached.source_file.bind(py);
-    let path: String = source_file.getattr("relative_path")?.str()?.extract()?;
-    let contents_value = source_file.getattr("contents")?;
+    let path: String = native_field(source_file, "relative_path")?
+        .str()?
+        .extract()?;
+    let contents_value = native_field(source_file, "contents")?;
     let contents = contents_value.downcast::<PyString>()?.to_str()?;
-    let loader_name: Option<String> = attached.entry.bind(py).getattr("loader")?.extract()?;
+    let loader_name: Option<String> = native_field(attached.entry.bind(py), "loader")?.extract()?;
     let loader: Option<(&String, &LoaderRow)> = loader_name
         .as_ref()
         .and_then(|loader| diagnostics.settings.loaders.get_key_value(loader));
@@ -412,8 +415,10 @@ fn function_description<'py>(
     let attached = &function.attached;
     let name: &str = &attached.name;
     let function_file: &Bound<'py, PyAny> = attached.function_file.bind(py);
-    let path: String = function_file.getattr("relative_path")?.str()?.extract()?;
-    let contents: String = function_file.getattr("contents")?.extract()?;
+    let path: String = native_field(function_file, "relative_path")?
+        .str()?
+        .extract()?;
+    let contents: String = native_field(function_file, "contents")?.extract()?;
     let resource_type: &str = if attached.return_columns.is_empty() {
         "udf"
     } else {
@@ -432,16 +437,13 @@ fn function_description<'py>(
             ("function", name, Some(resource_type)),
             attached.description.as_deref(),
             || {
-                let arguments: Bound<'py, PyDict> = PyDict::new(py);
-                arguments.set_item("contents", &contents)?;
-                arguments.set_item("decorator", PYTHON_UDF_DECORATOR)?;
-                let (line, column): (usize, usize) = diagnostics
-                    .settings
-                    .locators
-                    .bind(py)
-                    .call_method("decorator_location", (), Some(&arguments))?
-                    .extract()?;
-                diagnostics.location(&path, (line, column), None)
+                let version = py.version_info();
+                let position: (usize, usize) = decorator_location(
+                    &contents,
+                    PYTHON_UDF_DECORATOR,
+                    (version.major, version.minor),
+                );
+                diagnostics.location(&path, position, None)
             },
             &help,
         );
@@ -478,7 +480,7 @@ fn cursor_without_inputs<'py>(
     let mut errors: Vec<Bound<'py, PyAny>> = Vec::new();
     for record in project.inputs() {
         let values: Bound<'py, PyDict> =
-            record.config.bind(py).getattr("values")?.downcast_into()?;
+            native_field(record.config.bind(py), "values")?.downcast_into()?;
         let kinds: Vec<&str> = record
             .references
             .iter()
@@ -487,11 +489,8 @@ fn cursor_without_inputs<'py>(
         let materialized: Option<String> = config_text(&values, "materialized")?;
         let cursor: Option<String> = config_text(&values, CURSOR_KEY)?;
         let strategy: Option<String> = config_text(&values, "microbatch_strategy")?;
-        let model_file: &Bound<'py, PyAny> = record.model_file.bind(py);
-        let name: String = model_file
-            .getattr("file_path")?
-            .getattr("stem")?
-            .extract()?;
+        let model_file: &NativeModelFile = record.model_file.get();
+        let name: String = record.name.clone();
         let Some((message, help)) = cursor_lacks_inputs(
             &name,
             &CursorModel {
@@ -506,11 +505,11 @@ fn cursor_without_inputs<'py>(
         ) else {
             continue;
         };
-        let path: String = model_file.getattr("relative_path")?.str()?.extract()?;
-        let contents: String = model_file.getattr("contents")?.extract()?;
+        let path: String = model_file.relative_text(py)?;
+        let contents: &str = model_file.contents_text();
         let span: Option<(usize, usize)> =
-            model_header_entry_span(&contents, CURSOR_KEY).map_err(PyValueError::new_err)?;
-        let start: TextPosition = text_position(&contents, span.map_or(0, |span| span.0));
+            model_header_entry_span(contents, CURSOR_KEY).map_err(PyValueError::new_err)?;
+        let start: TextPosition = text_position(contents, span.map_or(0, |span| span.0));
         let location: Bound<'py, PyAny> = diagnostics.location(
             &path,
             (start.line, start.column),

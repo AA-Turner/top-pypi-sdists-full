@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: janitor-rs
-Version: 0.6.4
+Version: 0.6.5
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -43,9 +43,6 @@ cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings
 ```
 
-The per-endpoint test and operation coverage is tracked in
-[`AGGREGATION_MIGRATION_MATRIX.md`](https://github.com/pyjanitor-devs/janitor-rs/blob/main/AGGREGATION_MIGRATION_MATRIX.md).
-
 ## Building
 
 Build a wheel locally with [maturin](https://www.maturin.rs/):
@@ -74,4 +71,11 @@ is the canonical reference for implementation-level
 detail that doesn't belong in a contributor quickstart: the range-first
 Python/Rust ABI contract, the cross-boundary benchmarking methodology, and
 other non-obvious conventions and gotchas.
+
+The multi-predicate range-join rewrite is inspired by Reif and Neumann,
+[*A Scalable and Generic Approach to Range Joins*](https://db.in.tum.de/~reif/papers/p2535-reif.pdf),
+which describes a generic kd-tree-based multidimensional range join. The
+paper is useful context for the candidate-generation design and for future
+parallel build/probe work; this implementation adapts the idea to janitor-rs'
+rank-region representation and Python-facing aggregation contracts.
 

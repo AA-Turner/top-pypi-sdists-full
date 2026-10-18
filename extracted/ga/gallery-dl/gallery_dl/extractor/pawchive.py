@@ -70,9 +70,9 @@ class PawchiveExtractor(Extractor):
         exts_thmb = util.EXTS_IMAGE
 
         if duplicates := self.config("duplicates"):
-            if isinstance(duplicates, str):
+            if duplicates.__class__ is str:
                 duplicates = set(duplicates.split(","))
-            elif isinstance(duplicates, (list, tuple)):
+            elif duplicates.__class__ is list:
                 duplicates = set(duplicates)
             else:
                 duplicates = {"file", "attachment", "inline"}
@@ -127,12 +127,12 @@ class PawchiveExtractor(Extractor):
             if comments:
                 post["comments"] = cmts = self.api.creator_post_comments(
                     service, creator_id, post["id"])
-                if not isinstance(cmts, list):
+                if cmts.__class__ is not list:
                     self.log.debug("%s/%s: %s", creator_id, post["id"], cmts)
                     post["comments"] = ()
 
             if tags := post.get("tags"):
-                if isinstance(tags, str):
+                if tags.__class__ is str:
                     post["tags"] = tags[1:-1].replace('"', '').split(",")
             else:
                 post["tags"] = ()
@@ -299,7 +299,7 @@ class PawchiveExtractor(Extractor):
             "attachments": self._extract_attachments,
             "inline"     : self._extract_inline,
         }
-        if isinstance(filetypes, str):
+        if filetypes.__class__ is str:
             filetypes = filetypes.split(",")
         return [genmap[ft] for ft in filetypes]
 

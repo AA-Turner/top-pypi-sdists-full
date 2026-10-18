@@ -23,6 +23,7 @@ def test_sg03ad_ex1c():
         Y = A.T.dot(Xref).dot(E) + E.T.dot(Xref).dot(A)
         Q = np.zeros((n, n))
         Z = np.zeros((n, n))
+        # ruff: disable[RUF059]
         A, E, Q, Z, X, scale, sep, ferr, alphar, alphai, beta = \
             synthesis.sg03ad('C', 'B', 'N', 'N', 'L', n, A, E, Q, Z, Y)
         assert_almost_equal(X, Xref)
@@ -38,6 +39,7 @@ def test_sg03ad_ex1d():
         Y = A.T.dot(Xref).dot(A) - E.T.dot(Xref).dot(E)
         Q = np.zeros((n, n))
         Z = np.zeros((n, n))
+        # ruff: disable[RUF059]
         A, E, Q, Z, X, scale, sep, ferr, alphar, alphai, beta = \
             synthesis.sg03ad('D', 'B', 'N', 'N', 'L', n, A, E, Q, Z, Y)
         assert_almost_equal(X, Xref)
@@ -59,6 +61,7 @@ def test_sg03ad_b1():
                         [0.0000, -1.0000, -3.0000]])
     Q = np.zeros((3, 3))
     Z = np.zeros((3, 3))
+    # ruff: disable[RUF059]
     A, E, Q, Z, X, scale, sep, ferr, alphar, alphai, beta = \
         synthesis.sg03ad('C', 'B', 'N', 'N', 'L', n, A, E, Q, Z, -Y)
     # print(A, E, Q, Z, X, scale, sep)

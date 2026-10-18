@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: fastapi_guard
-Version: 8.1.1
+Version: 8.1.2
 Summary: Production-ready security middleware for FastAPI — IP filtering, rate limiting, penetration detection, and 20+ per-route security decorators.
 Project-URL: Homepage, https://guard-core.com
 Project-URL: Documentation, https://guard-core.github.io/fastapi-guard/latest/

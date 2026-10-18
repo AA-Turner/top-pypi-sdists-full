@@ -31,12 +31,11 @@ __all__ = [
 # the ordinal index from a small pre-computed table.  This avoids the O(m
 # log m) sort and replaces it with O(m) bitwise operations.
 #
-# Note: equal values (ties) are encoded as False by '<', which may assign
-# them to a different ordinal pattern than argsort would.  For the typical
-# case of continuous data this never occurs in practice.
+# Comparisons use '<=' because the left column always has the earlier
+# position. This breaks ties by position, matching stable argsort.
 # ---------------------------------------------------------------------------
 
-# order=3 — key bits: bit2=(a<b), bit1=(a<c), bit0=(b<c)
+# order=3 — key bits: bit2=(a<=b), bit1=(a<=c), bit0=(b<=c)
 # The 8-entry _PE3_LOOKUP maps the 3-bit key to the hashmult hash value
 # (sum of argsort * [1,3,9]) used by the general path; _PE3_REMAP then
 # compresses those 6 sparse hash values to the dense range 0..5.
@@ -52,8 +51,8 @@ for _i, _v in enumerate([5, 7, 11, 15, 19, 21]):
     _PE3_REMAP[_v] = _i
 del _i, _v
 
-# order=4 — key bits: bit5=(a<b), bit4=(a<c), bit3=(a<d), bit2=(b<c),
-#                     bit1=(b<d), bit0=(c<d)
+# order=4 — key bits: bit5=(a<=b), bit4=(a<=c), bit3=(a<=d), bit2=(b<=c),
+#                     bit1=(b<=d), bit0=(c<=d)
 # The 64-entry table directly maps each valid 6-bit key to ordinal 0..23.
 # Invalid keys (impossible comparison patterns) keep the sentinel value -1.
 _PE4_LOOKUP = np.full(64, -1, dtype=np.int64)
@@ -87,24 +86,26 @@ def _perm_entropy_fast(x, order, delay, normalize):
     n, m = x.shape
     n_embed = m - (order - 1) * delay
 
-    # Apply a positional epsilon jitter — adding i*eps to column i — so that
-    # any tied values are broken by column index, exactly matching argsort's
-    # behaviour.  This handles integer signals, quantized data, zero-padded
-    # epochs, and any other input with exact duplicate values.
-    # eps is scaled to the signal magnitude so the jitter never affects the
-    # ordering of distinct values.
-    eps = np.finfo(np.float64).eps * (float(np.abs(x).max()) + 1)
-    cols = [
-        x[:, i * delay : i * delay + n_embed].astype(np.float64) + i * eps for i in range(order)
-    ]
+    # NaN comparisons do not define an ordering and can produce invalid keys.
+    # Process valid epochs separately so a missing sample cannot affect them.
+    # Self-comparison detects NaN without requiring a float dtype.
+    valid_epochs = (x == x).all(axis=1)
+    if not valid_epochs.all():
+        result = np.full(n, np.nan)
+        result[valid_epochs] = _perm_entropy_fast(x[valid_epochs], order, delay, normalize)
+        return float(result[0]) if is_1d else result
+
+    # Keep the original values: a numeric jitter can reorder close values,
+    # and conversion to float64 can lose differences between large integers.
+    cols = [x[:, i * delay : i * delay + n_embed] for i in range(order)]
 
     if order == 3:
         col0, col1, col2 = cols
         # Encode the 3 pairwise comparisons as bits of an integer key
         bit_key = (
-            ((col0 < col1).astype(np.uint8) << 2)
-            | ((col0 < col2).astype(np.uint8) << 1)
-            | (col1 < col2).astype(np.uint8)
+            ((col0 <= col1).astype(np.uint8) << 2)
+            | ((col0 <= col2).astype(np.uint8) << 1)
+            | (col1 <= col2).astype(np.uint8)
         )
         keys = _PE3_REMAP[_PE3_LOOKUP[bit_key]]  # ordinal indices 0..5
         n_perms = 6
@@ -113,12 +114,12 @@ def _perm_entropy_fast(x, order, delay, normalize):
         col0, col1, col2, col3 = cols
         # Encode the 6 pairwise comparisons as bits of an integer key
         bit_key = (
-            ((col0 < col1).astype(np.uint8) << 5)
-            | ((col0 < col2).astype(np.uint8) << 4)
-            | ((col0 < col3).astype(np.uint8) << 3)
-            | ((col1 < col2).astype(np.uint8) << 2)
-            | ((col1 < col3).astype(np.uint8) << 1)
-            | (col2 < col3).astype(np.uint8)
+            ((col0 <= col1).astype(np.uint8) << 5)
+            | ((col0 <= col2).astype(np.uint8) << 4)
+            | ((col0 <= col3).astype(np.uint8) << 3)
+            | ((col1 <= col2).astype(np.uint8) << 2)
+            | ((col1 <= col3).astype(np.uint8) << 1)
+            | (col2 <= col3).astype(np.uint8)
         )
         keys = _PE4_LOOKUP[bit_key]  # ordinal indices 0..23
         n_perms = 24
@@ -150,10 +151,11 @@ def perm_entropy(x, order=3, delay=1, normalize=False):
         2D input is only supported for ``order=3`` or ``order=4``.
     order : int
         Order of permutation entropy. Default is 3.
-    delay : int, list, np.ndarray or range
+    delay : int, list, tuple, np.ndarray or range
         Time delay (lag). Default is 1. If multiple values are passed
         (e.g. ``[1, 2, 3]``), AntroPy will calculate the average permutation
-        entropy across all these delays.
+        entropy across all these delays. For 2D input, the average is taken
+        separately for each epoch. Delay sequences must be nonempty and 1D.
     normalize : bool
         If True, divide by log2(order!) to normalize the entropy between 0
         and 1. Otherwise, return the permutation entropy in bits.
@@ -162,7 +164,8 @@ def perm_entropy(x, order=3, delay=1, normalize=False):
     -------
     pe : float or np.array
         Permutation entropy. Returns a scalar for 1D input, or an array of
-        shape ``(n_epochs,)`` for 2D input.
+        shape ``(n_epochs,)`` for 2D input. For orders 3 and 4, an epoch
+        containing NaN returns NaN without affecting other epochs.
 
     Notes
     -----
@@ -245,15 +248,32 @@ def perm_entropy(x, order=3, delay=1, normalize=False):
     (4,)
     >>> print(np.round(pe, 4))
     [0.9997 0.9991 0.9988 0.9988]
+
+    Multiple delays retain one average per epoch:
+
+    >>> pe_delays = ant.perm_entropy(x2d, delay=(1, 2, 3), normalize=True)
+    >>> pe_delays.shape
+    (4,)
+    >>> single_delays = [ant.perm_entropy(x2d, delay=d, normalize=True) for d in (1, 2, 3)]
+    >>> np.allclose(pe_delays, np.mean(single_delays, axis=0))
+    True
     """
-    # If multiple delays are passed, return the average across all of them
-    if isinstance(delay, (list, np.ndarray, range)):
-        return np.mean([perm_entropy(x, order=order, delay=d, normalize=normalize) for d in delay])
     x = np.asarray(x)
     if x.ndim not in (1, 2):
         raise ValueError("x must be 1D or 2D.")
     if order < 2:
         raise ValueError("Order has to be at least 2.")
+    # If multiple delays are passed, return the average across all of them
+    delays = np.asarray(delay)
+    if delays.ndim > 1:
+        raise ValueError("delay must be a scalar or a 1D sequence.")
+    if delays.ndim == 1:
+        if not delays.size:
+            raise ValueError("delay sequence must not be empty.")
+        return np.mean(
+            [perm_entropy(x, order=order, delay=d, normalize=normalize) for d in delays], axis=0
+        )
+    delay = delays.item()
     if delay < 1:
         raise ValueError("delay must be greater than zero.")
     delay = int(delay)

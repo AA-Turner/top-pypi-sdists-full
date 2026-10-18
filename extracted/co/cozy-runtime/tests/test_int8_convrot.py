@@ -196,6 +196,7 @@ def test_native_op_is_built_by_the_compile_manager_and_keeps_the_law(tmp_path: P
             x = torch.randn(1, rows + 1, in_features, generator=generator).to("cuda", dtype)[:, 1:]
             bias = torch.randn(out_features, generator=generator).to("cuda", dtype)
             got = int8_linear.linear(torch, x, data, scale, bias, dtype)
+            assert int8_linear.serving(0) == int8_linear.OP
             want = int8_linear.eager(torch, x, data, scale, torch.float32) + bias.float()
             assert got.shape == (1, rows, out_features) and got.dtype == dtype
             error = float((got.float() - want).norm() / want.norm())

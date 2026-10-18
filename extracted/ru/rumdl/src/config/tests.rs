@@ -4653,3 +4653,206 @@ mod in_memory_chain {
         );
     }
 }
+
+/// On Unix `\` escapes the next character in a per-file glob, the way
+/// the walker's `ignore` overrides read it. `globset` alone reads it as a path
+/// separator on Windows, which would turn `\[x\].md` into `/[x/].md`.
+#[test]
+#[cfg(not(windows))]
+fn per_file_ignores_read_a_backslash_as_an_escape() {
+    let ignores = |pattern: &str| Config {
+        per_file_ignores: std::collections::BTreeMap::from([(pattern.to_string(), vec!["MD013".to_string()])]),
+        ..Config::default()
+    };
+    let hit = |config: &Config, name: &str| {
+        config
+            .get_ignored_rules_for_file(std::path::Path::new(name))
+            .contains("MD013")
+    };
+
+    let escaped = ignores(r"\[x\].md");
+    assert!(hit(&escaped, "[x].md"), "the escaped pattern names the literal file");
+    assert!(!hit(&escaped, "x.md"), "an escaped bracket is not a character class");
+
+    let class = ignores("[x].md");
+    assert!(hit(&class, "x.md"), "control: the unescaped pattern is a class");
+    assert!(!hit(&class, "[x].md"));
+
+    let bang = ignores(r"\!bang.md");
+    assert!(hit(&bang, "!bang.md"));
+    assert!(!hit(&bang, "bang.md"));
+
+    // Without `literal_separator`, `*` still crosses a `/` in per-file-ignores.
+    assert!(hit(&ignores("*.md"), "docs/deep/x.md"));
+}
+
+#[test]
+#[cfg(not(windows))]
+fn per_file_flavor_reads_a_backslash_as_an_escape() {
+    let flavors = |pattern: &str| Config {
+        per_file_flavor: indexmap::IndexMap::from([(pattern.to_string(), MarkdownFlavor::MkDocs)]),
+        ..Config::default()
+    };
+    let flavor = |config: &Config, name: &str| config.get_flavor_for_file(std::path::Path::new(name));
+
+    let escaped = flavors(r"\[x\].md");
+    assert_eq!(flavor(&escaped, "[x].md"), MarkdownFlavor::MkDocs);
+    assert_eq!(flavor(&escaped, "x.md"), MarkdownFlavor::Standard);
+
+    let class = flavors("[x].md");
+    assert_eq!(flavor(&class, "x.md"), MarkdownFlavor::MkDocs, "control: a class");
+    assert_eq!(flavor(&class, "[x].md"), MarkdownFlavor::Standard);
+
+    let bang = flavors(r"\!bang.md");
+    assert_eq!(flavor(&bang, "!bang.md"), MarkdownFlavor::MkDocs);
+
+    // `*` stays within one component in per-file-flavor.
+    assert_eq!(flavor(&flavors("*.md"), "docs/x.md"), MarkdownFlavor::Standard);
+}
+
+/// A config loaded from disk validates each per-file key with the construction
+/// the caches use, so an escaped key must neither be withheld nor read
+/// differently there.
+#[test]
+#[cfg(not(windows))]
+fn escaped_per_file_keys_survive_config_loading() {
+    let temp_dir = tempdir().unwrap();
+    let config_path = temp_dir.path().join(".rumdl.toml");
+    fs::write(
+        &config_path,
+        "[per-file-ignores]\n'\\[x\\].md' = [\"MD013\"]\n\n[per-file-flavor]\n'\\[x\\].md' = \"mkdocs\"\n",
+    )
+    .unwrap();
+    let sourced = SourcedConfig::load_with_discovery(Some(config_path.to_str().unwrap()), None, true).unwrap();
+    let config: Config = sourced.into_validated_unchecked().into();
+    assert!(config.per_file_ignores.contains_key(r"\[x\].md"));
+    assert!(config.per_file_flavor.contains_key(r"\[x\].md"));
+    assert!(
+        config
+            .get_ignored_rules_for_file(std::path::Path::new("[x].md"))
+            .contains("MD013")
+    );
+    assert_eq!(
+        config.get_flavor_for_file(std::path::Path::new("[x].md")),
+        MarkdownFlavor::MkDocs
+    );
+}
+
+/// Discovery from `start` with the given home and profile boundaries, returning the
+/// selected project config (if any) and the rendered trace.
+fn discover_bounded(
+    start: &std::path::Path,
+    home: &std::path::Path,
+    profile: &std::path::Path,
+) -> (Option<std::path::PathBuf>, String) {
+    let mut trace = crate::config::discovery_trace::DiscoveryTrace::default();
+    let found = SourcedConfig::discover_config_upward_bounded(
+        Some(start),
+        Some(home.to_path_buf()),
+        Some(profile.to_path_buf()),
+        &mut trace,
+    )
+    .map(|(path, _, _)| path);
+    (found, trace.render_text())
+}
+
+#[test]
+fn a_walk_under_a_distinct_profile_does_not_take_its_dotfile_as_a_project_config() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("home");
+    let profile = temp.path().join("profile");
+    let start = profile.join("notes");
+    fs::create_dir_all(&home).unwrap();
+    fs::create_dir_all(&start).unwrap();
+    fs::write(profile.join(".rumdl.toml"), "[global]\ndisable = [\"MD013\"]\n").unwrap();
+
+    let (found, trace) = discover_bounded(&start, &home, &profile);
+
+    assert_eq!(
+        found, None,
+        "a profile dotfile is user-level, not a project config: {trace}"
+    );
+    assert!(
+        trace.contains("reached the profile directory (fallback home)"),
+        "{trace}"
+    );
+    assert!(!trace.contains("reached the home directory"), "{trace}");
+}
+
+#[test]
+fn a_walk_under_the_resolved_home_stops_there_with_the_home_reason() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("home");
+    let profile = temp.path().join("profile");
+    let start = home.join("notes");
+    fs::create_dir_all(&start).unwrap();
+    fs::create_dir_all(&profile).unwrap();
+    fs::write(home.join(".rumdl.toml"), "[global]\ndisable = [\"MD013\"]\n").unwrap();
+
+    let (found, trace) = discover_bounded(&start, &home, &profile);
+
+    assert_eq!(found, None, "{trace}");
+    assert!(trace.contains("reached the home directory"), "{trace}");
+    assert!(!trace.contains("profile directory (fallback home)"), "{trace}");
+}
+
+#[test]
+fn a_project_config_below_the_profile_is_still_a_project_config() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("home");
+    let profile = temp.path().join("profile");
+    let project = profile.join("proj");
+    let start = project.join("docs");
+    fs::create_dir_all(&home).unwrap();
+    fs::create_dir_all(&start).unwrap();
+    fs::write(project.join(".rumdl.toml"), "[global]\ndisable = [\"MD013\"]\n").unwrap();
+    fs::write(profile.join(".rumdl.toml"), "[global]\ndisable = [\"MD041\"]\n").unwrap();
+
+    let (found, trace) = discover_bounded(&start, &home, &profile);
+
+    assert_eq!(found, Some(project.join(".rumdl.toml")), "{trace}");
+}
+
+#[test]
+fn a_start_directory_that_is_the_profile_keeps_its_own_config() {
+    let temp = tempdir().unwrap();
+    let home = temp.path().join("home");
+    let profile = temp.path().join("profile");
+    fs::create_dir_all(&home).unwrap();
+    fs::create_dir_all(&profile).unwrap();
+    fs::write(profile.join(".rumdl.toml"), "[global]\ndisable = [\"MD013\"]\n").unwrap();
+
+    let (found, trace) = discover_bounded(&profile, &home, &profile);
+
+    assert_eq!(found, Some(profile.join(".rumdl.toml")), "{trace}");
+}
+
+#[test]
+#[cfg(windows)]
+fn per_file_keys_read_windows_separators_after_config_loading() {
+    let temp = tempdir().unwrap();
+    let path = temp.path().join(".rumdl.toml");
+    fs::write(
+        &path,
+        r#"[per-file-ignores]
+'docs\*.md' = ["MD013"]
+[per-file-flavor]
+'docs\*.md' = "mkdocs"
+"#,
+    )
+    .unwrap();
+    let sourced = SourcedConfig::load_with_discovery(Some(path.to_str().unwrap()), None, true).unwrap();
+    let config: Config = sourced.into_validated_unchecked().into();
+    let file = std::path::Path::new("docs/x.md");
+    assert!(config.get_ignored_rules_for_file(file).contains("MD013"));
+    assert_eq!(config.get_flavor_for_file(file), MarkdownFlavor::MkDocs);
+    assert!(
+        !config
+            .get_ignored_rules_for_file(std::path::Path::new("other/x.md"))
+            .contains("MD013")
+    );
+    assert_eq!(
+        config.get_flavor_for_file(std::path::Path::new("docs/sub/x.md")),
+        MarkdownFlavor::Standard
+    );
+}

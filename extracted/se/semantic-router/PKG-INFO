@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: semantic-router
-Version: 1.0.1
+Version: 1.0.2
 Summary: Super fast semantic router for AI decision making
 Author-email: Aurelio AI <hello@aurelio.ai>
 License-Expression: MIT
@@ -25,6 +25,7 @@ Provides-Extra: all
 Requires-Dist: boto3<2,>=1.34.98; extra == 'all'
 Requires-Dist: botocore<2,>=1.34.110; extra == 'all'
 Requires-Dist: fastembed<1,>=0.7.0; extra == 'all'
+Requires-Dist: gliner2[local]>=2.1.0; (python_version < '3.13') and extra == 'all'
 Requires-Dist: google-cloud-aiplatform<2,>=1.45.0; extra == 'all'
 Requires-Dist: litellm>=1.84.0; extra == 'all'
 Requires-Dist: ollama>=0.1.7; extra == 'all'
@@ -47,6 +48,7 @@ Requires-Dist: google-cloud-aiplatform<2,>=1.45.0; extra == 'google'
 Provides-Extra: litellm
 Requires-Dist: litellm>=1.84.0; extra == 'litellm'
 Provides-Extra: local
+Requires-Dist: gliner2[local]>=2.1.0; (python_version < '3.13') and extra == 'local'
 Requires-Dist: sentence-transformers>=5.0.0; (python_version < '3.13') and extra == 'local'
 Requires-Dist: tokenizers>=0.19; (python_version < '3.13') and extra == 'local'
 Requires-Dist: torch>=2.6.0; (python_version < '3.13') and extra == 'local'
@@ -202,7 +204,7 @@ No route cleared the bar, so the router returned `None`!
 
 ## Beyond embeddings
 
-- **`DecisionRouter`** asks a decision model (TypeSafe's Jev, Laya or Von) which route applies, and can answer several yes/no, choice and score questions about one message in a single call.
+- **`DecisionRouter`** asks a decision model (TypeSafe's Jev, Laya or Von) which route applies, and can answer several yes/no, choice and score questions about one message in a single call. New to decision models? Read [Understanding Jev](https://jamesbriggs.io/understanding-jev) or watch [the video](https://youtu.be/P-t4F_UlxkI).
 - **`Chain`** answers easy queries from a fast router and falls through to a slower one only when it isn't sure. **`Merge`** averages several routers.
 - **Hybrid search**: give `IndexedRouter` a `sparse_encoder` to weigh exact keywords alongside meaning.
 - **Production indexes**: keep your routes in [Pinecone](https://github.com/aurelio-labs/semantic-router/blob/main/docs/indexes/pinecone.ipynb), [Qdrant](https://github.com/aurelio-labs/semantic-router/blob/main/docs/indexes/qdrant.ipynb) or Postgres.

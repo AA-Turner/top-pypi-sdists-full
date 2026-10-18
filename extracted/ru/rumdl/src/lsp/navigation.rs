@@ -177,7 +177,16 @@ fn detect_full_link_target(text: &str, position: Position) -> Option<FullLinkTar
 /// `LintWarning` does; LSP counts 0-indexed lines and UTF-16 code units.
 fn reference_location(source_uri: &Url, source_lines: &[&str], link: &CrossFileLinkIndex) -> Location {
     let line = link.line.saturating_sub(1);
-    let character = char_column_to_utf16(source_lines.get(line).copied(), link.column);
+    // These locations are read from disk. An encoding marker is not a column
+    // of the editor buffer opened for this location. Later lines stay unchanged.
+    let text_line = source_lines.get(line).copied().map(|text| {
+        if line == 0 {
+            crate::utils::bom::strip_bom(text)
+        } else {
+            text
+        }
+    });
+    let character = char_column_to_utf16(text_line, link.column);
     let position = Position {
         line: line as u32,
         character,
@@ -195,10 +204,14 @@ fn reference_location(source_uri: &Url, source_lines: &[&str], link: &CrossFileL
 ///
 /// Uses pulldown-cmark to parse the document, which natively skips code blocks
 /// and code spans, eliminating false positives from literal `](#...)` text.
-fn find_same_file_fragment_links(content: &str, uri: &Url, anchor: &str) -> Vec<Location> {
+fn find_same_file_fragment_links(carrier: &str, uri: &Url, anchor: &str) -> Vec<Location> {
     use pulldown_cmark::{Event, Parser, Tag};
 
-    let options = crate::utils::rumdl_parser_options();
+    // Parsed after the byte order mark; the editor's first line starts with it.
+    let content = crate::utils::bom::strip_bom(carrier);
+    let mark_units = crate::utils::bom::utf16_len(carrier);
+
+    let options = crate::utils::parser_options::rumdl_parser_options_for(content);
 
     let parser = Parser::new_ext(content, options).into_offset_iter();
 
@@ -217,7 +230,8 @@ fn find_same_file_fragment_links(content: &str, uri: &Url, anchor: &str) -> Vec<
                 let line_idx = content[..byte_start].matches('\n').count();
                 let line_start = content[..byte_start].rfind('\n').map_or(0, |p| p + 1);
                 let line_text = content[line_start..].split('\n').next().unwrap_or("");
-                let character = byte_to_utf16_offset(line_text, byte_start - line_start);
+                let character = byte_to_utf16_offset(line_text, byte_start - line_start)
+                    + if line_idx == 0 { mark_units } else { 0 };
 
                 locations.push(Location {
                     uri: uri.clone(),
@@ -261,7 +275,13 @@ fn detect_ref_link_target(text: &str, position: Position, flavor: MarkdownFlavor
     let byte_cursor = utf16_to_byte_offset(line, utf16_cursor)?;
 
     // First, check if cursor is on a reference definition line: `[ref-id]: target`
-    if let Some(target) = detect_ref_definition(line, flavor) {
+    // Only the document's first line can hold the byte order mark.
+    let definition_line = if line_num == 0 {
+        crate::utils::bom::strip_bom(line)
+    } else {
+        line
+    };
+    if let Some(target) = detect_ref_definition(definition_line, flavor) {
         return Some(target);
     }
 
@@ -365,7 +385,7 @@ fn detect_ref_definition(line: &str, flavor: MarkdownFlavor) -> Option<FullLinkT
 /// Definitions inside fenced code blocks and code spans are skipped,
 /// matching CommonMark semantics.
 fn resolve_reference_to_target(text: &str, ref_id: &str, flavor: MarkdownFlavor) -> Option<FullLinkTarget> {
-    let context = crate::lint_context::LintContext::new(text, flavor, None);
+    let context = crate::lint_context::LintContext::new(crate::utils::bom::strip_bom(text), flavor, None);
     context.get_reference_url(ref_id).map(FullLinkTarget::from_destination)
 }
 
@@ -414,14 +434,18 @@ fn markdown_excerpt(
     checks_from: usize,
 ) -> (String, bool) {
     let lines = ctx.raw_lines();
-    let ends_section = |line: usize| {
-        line >= checks_from
-            && stop_level.is_some_and(|stop| {
-                ctx.line_info(line + 1)
-                    .and_then(|info| info.heading.as_ref())
-                    .is_some_and(|heading| heading.level <= stop)
-            })
-    };
+    // The 1-indexed first text lines of the headings that end the section. A
+    // heading is recorded on its last line, so a multi-line Setext heading is
+    // keyed by the line its text starts on.
+    let section_ends: std::collections::HashSet<usize> = stop_level
+        .map(|stop| {
+            ctx.headings()
+                .filter(|parsed| parsed.heading.level <= stop)
+                .map(|parsed| parsed.first_line_num())
+                .collect()
+        })
+        .unwrap_or_default();
+    let ends_section = |line: usize| line >= checks_from && section_ends.contains(&(line + 1));
     let mut end = begin;
     while end < lines.len() && !ends_section(end) && end - begin < max_lines {
         end += 1;
@@ -607,7 +631,8 @@ impl RumdlLanguageServer {
             return not_found();
         };
 
-        let ctx = crate::lint_context::LintContext::new(content, flavor, None);
+        // Structure and line numbers are those of the text after a byte order mark.
+        let ctx = crate::lint_context::LintContext::new(crate::utils::bom::strip_bom(content), flavor, None);
         let lines = ctx.raw_lines();
         // The preview opens with the heading's own text, which a Setext
         // underline can stretch across several lines.
@@ -616,20 +641,16 @@ impl RumdlLanguageServer {
             return not_found();
         }
 
-        // Determine the heading level of the target heading. A Setext heading
-        // takes it from the underline that follows its text.
-        let heading_level = if heading.is_setext {
-            match lines.get(heading.line).map(|line| line.trim_start()) {
-                Some(underline) if underline.starts_with('=') => 1,
-                _ => 2,
-            }
-        } else {
-            lines[start].trim_start().chars().take_while(|&c| c == '#').count() as u8
-        };
+        // The level is the one the parser recorded for the heading, which the
+        // source line alone does not give: a heading inside a list item or a
+        // blockquote starts with a marker, and a quoted setext underline starts
+        // with `>`. With no heading on the indexed line (the index is out of
+        // date) the section has no end to look for.
+        let heading_level = ctx.heading_on_line(heading.line).map(|parsed| parsed.heading.level);
 
         // `heading.line` (1-indexed) is the heading's last text line, so the
         // section's own lines end at index `heading.line`, its Setext underline.
-        let (excerpt, truncated) = markdown_excerpt(&ctx, start, MAX_LINES + 1, Some(heading_level), heading.line);
+        let (excerpt, truncated) = markdown_excerpt(&ctx, start, MAX_LINES + 1, heading_level, heading.line);
         let mut preview = format!("**{display}**\n\n{excerpt}");
         if truncated {
             preview.push_str("\n\n...");
@@ -654,7 +675,7 @@ impl RumdlLanguageServer {
                 (fence_code(&lines[..shown].join("\n"), &lang), lines.len() > MAX_LINES)
             }
             None => {
-                let ctx = crate::lint_context::LintContext::new(content, flavor, None);
+                let ctx = crate::lint_context::LintContext::new(crate::utils::bom::strip_bom(content), flavor, None);
                 let begin = (1..=ctx.raw_lines().len())
                     .find(|&n| {
                         ctx.line_info(n)
@@ -681,7 +702,8 @@ impl RumdlLanguageServer {
         const CONTEXT: usize = 5;
         const MAX_RANGE_LINES: usize = 15;
 
-        let lines: Vec<&str> = content.lines().collect();
+        // The mark is an encoding marker: quoted as text it would become content.
+        let lines: Vec<&str> = crate::utils::bom::strip_bom(content).lines().collect();
         let total = lines.len();
         let display = file_path.file_name().unwrap_or(file_path.as_os_str()).to_string_lossy();
 
@@ -983,8 +1005,14 @@ impl RumdlLanguageServer {
             })
         }?;
 
+        let flavor = self.resolve_flavor_for_uri(uri).await;
         let lines: Vec<&str> = text.lines().collect();
-        Some(PrepareRenameResponse::Range(heading_text_range(&lines, &heading_info)?))
+        let prefix_len = heading_prefix_len(&text, flavor, &heading_info)?;
+        Some(PrepareRenameResponse::Range(heading_text_range(
+            &lines,
+            &heading_info,
+            prefix_len,
+        )?))
     }
 
     /// Handle `textDocument/rename` requests.
@@ -1024,10 +1052,12 @@ impl RumdlLanguageServer {
             .as_deref()
             .unwrap_or(&heading_info.auto_anchor);
 
+        let flavor = self.resolve_flavor_for_uri(uri).await;
         let lines: Vec<&str> = text.lines().collect();
         // The edit covers the whole heading text, so renaming a Setext heading
         // whose paragraph spans several lines leaves the new name on one line.
-        let text_range = heading_text_range(&lines, &heading_info)?;
+        let prefix_len = heading_prefix_len(&text, flavor, &heading_info)?;
+        let text_range = heading_text_range(&lines, &heading_info, prefix_len)?;
 
         let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
 
@@ -1081,11 +1111,12 @@ impl RumdlLanguageServer {
             };
 
             // Try editor buffer first, fall back to disk
-            let source_content = if let Some(content) = self.get_document_content(&source_uri).await {
+            let source_content = if let Some(content) = self.get_open_document_content(&source_uri).await {
                 content
             } else {
                 match crate::lsp::read_markdown_lossy(source_path).await {
-                    Ok(c) => c,
+                    // Closed files open in an editor without the encoding BOM.
+                    Ok(c) => crate::utils::bom::strip_bom(&c).to_string(),
                     Err(_) => continue,
                 }
             };
@@ -1162,7 +1193,7 @@ impl RumdlLanguageServer {
 
 /// Find the byte offset where ATX heading text starts (after `#` markers and space).
 fn find_heading_text_start(line: &str) -> Option<usize> {
-    let trimmed = line.trim_start();
+    let trimmed = line.trim_start_matches([' ', '\t']);
     if !trimmed.starts_with('#') {
         return None;
     }
@@ -1172,8 +1203,8 @@ fn find_heading_text_start(line: &str) -> Option<usize> {
         return None;
     }
     let after_hashes = leading_ws + hash_count;
-    // ATX headings require a space after #
-    if line.as_bytes().get(after_hashes) == Some(&b' ') {
+    // ATX headings require a space or tab after #
+    if matches!(line.as_bytes().get(after_hashes), Some(b' ' | b'\t')) {
         Some(after_hashes + 1)
     } else if after_hashes == line.len() {
         // Empty heading: just "##"
@@ -1198,39 +1229,71 @@ fn find_heading_text_end(line: &str, text_start: usize) -> usize {
 
 /// `text` without a trailing closing ATX sequence (` ###`).
 ///
-/// The hash run must be preceded by a space to count as a closing sequence, so a
-/// heading whose text legitimately ends in `#` (e.g. `C#`) is preserved.
+/// The hash run must be preceded by a space or tab, and followed only by spaces
+/// and tabs, to count as a closing sequence (CommonMark 4.2), so a heading whose
+/// text legitimately ends in `#` (e.g. `C#`) or in `#` and another kind of
+/// whitespace is preserved. What is left is trimmed of trailing whitespace the
+/// way the heading's display text is.
 fn strip_closing_atx(text: &str) -> &str {
-    let trimmed = text.trim_end();
+    let trimmed = text.trim_end_matches([' ', '\t']);
     if let Some(last_non_hash) = trimmed.rfind(|c: char| c != '#') {
         let tail = &trimmed[last_non_hash..];
-        if tail.starts_with(' ') && tail.len() > 1 {
-            return &trimmed[..last_non_hash];
+        if tail.starts_with([' ', '\t']) && tail.len() > 1 {
+            return trimmed[..last_non_hash].trim_end();
         }
     }
-    trimmed
+    trimmed.trim_end()
+}
+
+/// Length of everything before the heading's own syntax on its first line:
+/// the list markers and quote markers of the containers it is written in.
+/// `None` when the document no longer holds a heading where the index says.
+fn heading_prefix_len(text: &str, flavor: MarkdownFlavor, heading: &HeadingIndex) -> Option<usize> {
+    // The heading is parsed from the text after the byte order mark, and the
+    // prefix is returned as a length into the first line of `text` itself.
+    let ctx = crate::lint_context::LintContext::new(crate::utils::bom::strip_bom(text), flavor, None);
+    let parsed = ctx.heading_on_line(heading.line)?;
+    // The index can lag the buffer by its debounce window. A heading of another
+    // shape on the indexed line would make the range cut into unrelated text.
+    let same_shape = parsed.is_setext() == heading.is_setext
+        && parsed.heading.text_lines == heading.text_lines.max(1)
+        && parsed.heading.text == heading.text;
+    let mark_bytes = if parsed.first_line_num() == 1 {
+        crate::utils::bom::bom_len(text)
+    } else {
+        0
+    };
+    same_shape.then(|| parsed.heading.first_line_prefix_len() + mark_bytes)
 }
 
 /// LSP range of an indexed heading's *text* within `lines`.
+///
+/// `prefix_len` is the length of the container markers (`- `, `> `) that
+/// precede the heading's own syntax on its first line; the range starts after
+/// them, so a rename leaves the list item or quote in place.
 ///
 /// For ATX headings the markers, any closing `###` sequence, and a trailing
 /// `{#custom-id}` are excluded. The text of a Setext heading is the whole
 /// paragraph its underline ends, so the range starts on the paragraph's first
 /// line and ends on its last. Returns `None` when the heading's lines are
 /// missing or an ATX heading like `##` holds no text.
-fn heading_text_range(lines: &[&str], heading: &HeadingIndex) -> Option<Range> {
+fn heading_text_range(lines: &[&str], heading: &HeadingIndex, prefix_len: usize) -> Option<Range> {
     let first_idx = heading.first_line().checked_sub(1)?;
     let last_idx = heading.line.checked_sub(1)?;
     let first_line = *lines.get(first_idx)?;
     let last_line = *lines.get(last_idx)?;
 
-    let start = if heading.is_setext {
-        first_line.len() - first_line.trim_start().len()
-    } else {
-        find_heading_text_start(first_line)?
-    };
+    let own_syntax = first_line.get(prefix_len..)?;
+    let start = prefix_len
+        + if heading.is_setext {
+            own_syntax.len() - own_syntax.trim_start().len()
+        } else {
+            find_heading_text_start(own_syntax)?
+        };
     let end = if heading.is_setext {
-        strip_trailing_custom_id(&last_line[..last_line.trim_end().len()]).len()
+        strip_trailing_custom_id(&last_line[..last_line.trim_end().len()])
+            .trim_end()
+            .len()
     } else {
         find_heading_text_end(last_line, start)
     };
@@ -1250,14 +1313,14 @@ fn heading_text_range(lines: &[&str], heading: &HeadingIndex) -> Option<Range> {
     })
 }
 
-/// `text` with a trailing `{#custom-id}` removed (and the whitespace before it
-/// trimmed). Returns `text` unchanged when there is no such suffix.
+/// `text` with a trailing `{#custom-id}` removed (and the spaces and tabs before
+/// it trimmed). Returns `text` unchanged when there is no such suffix.
 fn strip_trailing_custom_id(text: &str) -> &str {
     if let Some(brace_pos) = text.rfind("{#")
         && let Some(close_rel) = text[brace_pos..].find('}')
         && text[brace_pos + close_rel + 1..].trim().is_empty()
     {
-        return text[..brace_pos].trim_end();
+        return text[..brace_pos].trim_end_matches([' ', '\t']);
     }
     text
 }
@@ -1347,14 +1410,18 @@ fn find_all_anchor_edits_in_link(line: &str, line_num: u32, old_anchor: &str, ne
 /// for the fragment to replace.
 fn collect_same_file_anchor_edits(
     uri: &Url,
-    content: &str,
+    carrier: &str,
     old_anchor: &str,
     new_anchor: &str,
     changes: &mut HashMap<Url, Vec<TextEdit>>,
 ) {
     use pulldown_cmark::{Event, Parser, Tag};
 
-    let options = crate::utils::rumdl_parser_options();
+    // Parsed after the byte order mark; the editor's first line starts with it.
+    let content = crate::utils::bom::strip_bom(carrier);
+    let mark_units = crate::utils::bom::utf16_len(carrier);
+
+    let options = crate::utils::parser_options::rumdl_parser_options_for(content);
 
     let parser = Parser::new_ext(content, options).into_offset_iter();
 
@@ -1376,8 +1443,9 @@ fn collect_same_file_anchor_edits(
                     .map_or(content.len(), |p| line_start + p);
                 let line_text = &content[line_start..line_end];
 
-                let start_char = byte_to_utf16_offset(line_text, anchor_start_byte - line_start);
-                let end_char = byte_to_utf16_offset(line_text, anchor_end_byte - line_start);
+                let shift = if line_idx == 0 { mark_units } else { 0 };
+                let start_char = byte_to_utf16_offset(line_text, anchor_start_byte - line_start) + shift;
+                let end_char = byte_to_utf16_offset(line_text, anchor_end_byte - line_start) + shift;
 
                 changes.entry(uri.clone()).or_default().push(TextEdit {
                     range: Range {
@@ -1439,7 +1507,12 @@ fn collect_same_file_ref_def_edits(
 
     for (line_idx, line) in content.lines().enumerate() {
         // Match reference definition pattern: [ref]: #anchor
-        let trimmed = line.trim_start();
+        let trimmed = if line_idx == 0 {
+            crate::utils::bom::strip_bom(line)
+        } else {
+            line
+        }
+        .trim_start();
         if !trimmed.starts_with('[') {
             continue;
         }
@@ -1481,6 +1554,111 @@ fn collect_same_file_ref_def_edits(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_reference_definition_behind_a_mark_resolves_and_renames() {
+        let text = "\u{feff}[ref]: guide.md#old\n\n[x][ref]\n";
+        let target = resolve_reference_to_target(text, "ref", MarkdownFlavor::Standard).expect("definition resolves");
+        assert_eq!(target.file_path, "guide.md");
+        assert_eq!(target.anchor, "old");
+        let cursor = Position { line: 0, character: 3 };
+        let found = detect_ref_link_target(text, cursor, MarkdownFlavor::Standard).expect("definition line");
+        assert_eq!(found.file_path, "guide.md");
+        // A mark that is not at the start of the document is ordinary text.
+        let later = "# T\n\n\u{feff}[ref]: guide.md\n";
+        let cursor = Position { line: 2, character: 3 };
+        assert!(detect_ref_link_target(later, cursor, MarkdownFlavor::Standard).is_none());
+
+        let uri = Url::parse("file:///t.md").unwrap();
+        let mut changes = HashMap::new();
+        let text = "\u{feff}[ref]: #old\n\n[x][ref]\n";
+        collect_same_file_ref_def_edits(&uri, text, "old", "new", &mut changes);
+        let edit = &changes.get(&uri).expect("an edit for the definition")[0];
+        // "#" is at char 7 of "[ref]: #old" and the editor line holds the mark first.
+        assert_eq!((edit.range.start.line, edit.range.start.character), (0, 9));
+    }
+
+    #[test]
+    fn same_file_fragment_links_behind_a_mark_are_found_and_shifted() {
+        let uri = Url::parse("file:///t.md").unwrap();
+        let text = "\u{feff}[ref]: #old\n\n# Old\n\n[x][ref] and [y](#old)\n";
+        let found = find_same_file_fragment_links(text, &uri, "old");
+        // The shortcut-style use and the inline link; the definition itself is not a link.
+        assert_eq!(found.len(), 2, "{found:?}");
+        let first_line = find_same_file_fragment_links("\u{feff}[a](#old)\n", &uri, "old");
+        assert_eq!(first_line.len(), 1);
+        assert_eq!(first_line[0].range.start.character, 1);
+        let mut changes = HashMap::new();
+        collect_same_file_anchor_edits(&uri, "\u{feff}[a](#old)\n", "old", "new", &mut changes);
+        let edit = &changes[&uri][0];
+        // "[a](#" is five characters, the mark one more.
+        assert_eq!((edit.range.start.line, edit.range.start.character), (0, 6));
+    }
+
+    #[tokio::test]
+    async fn a_line_preview_does_not_quote_the_mark_of_the_first_line() {
+        let (service, _socket) = tower_lsp::LspService::new(|client| RumdlLanguageServer::new(client, None));
+        let preview = service.inner().build_line_anchor_preview(
+            Path::new("a.md"),
+            &LineAnchor::Single(1),
+            "\u{feff}# Title\nbody\n",
+        );
+        assert!(!preview.contains('\u{feff}'), "{preview:?}");
+        assert!(preview.contains("# Title"), "{preview:?}");
+    }
+
+    #[tokio::test]
+    async fn previews_skip_front_matter_behind_a_mark() {
+        let (service, _socket) = tower_lsp::LspService::new(|client| RumdlLanguageServer::new(client, None));
+        let preview = service.inner().build_file_preview(
+            Path::new("a.md"),
+            "\u{feff}---\ntitle: secret\n---\n\nBody text\n",
+            MarkdownFlavor::Standard,
+        );
+        assert!(preview.contains("Body text"), "{preview}");
+        assert!(!preview.contains("secret"), "{preview}");
+    }
+
+    #[test]
+    fn a_disk_reference_location_omits_its_encoding_mark() {
+        let uri = Url::parse("file:///t.md").unwrap();
+        let link = CrossFileLinkIndex {
+            target_path: "a.md".to_string(),
+            fragment: String::new(),
+            line: 1,
+            column: 2,
+            origin: crate::workspace_index::LinkOrigin::Body,
+        };
+        let marked = reference_location(&uri, &["\u{feff}😀[a](b.md)"], &link);
+        let plain = reference_location(&uri, &["😀[a](b.md)"], &link);
+        assert_eq!(plain.range.start.character, 2);
+        assert_eq!(marked.range.start.character, plain.range.start.character);
+    }
+
+    #[test]
+    fn the_heading_prefix_on_a_marked_first_line_includes_the_mark() {
+        let index = |text: &str| {
+            let ctx = crate::lint_context::LintContext::new(
+                crate::utils::bom::strip_bom(text),
+                MarkdownFlavor::Standard,
+                None,
+            );
+            let heading = ctx.heading_on_line(1).expect("heading on line 1");
+            HeadingIndex {
+                text: heading.heading.text.clone(),
+                auto_anchor: String::new(),
+                custom_anchor: None,
+                line: 1,
+                text_lines: heading.heading.text_lines,
+                is_setext: heading.is_setext(),
+            }
+        };
+        let marked = "\u{feff}- # Title\n";
+        let plain = "- # Title\n";
+        let marked_prefix = heading_prefix_len(marked, MarkdownFlavor::Standard, &index(marked)).unwrap();
+        let plain_prefix = heading_prefix_len(plain, MarkdownFlavor::Standard, &index(plain)).unwrap();
+        assert_eq!(marked_prefix, plain_prefix + 3);
+    }
 
     #[tokio::test]
     async fn a_line_anchor_past_a_one_line_file_counts_one_line() {

@@ -8,14 +8,13 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
 
+from sqlbuild._native import CostContext, DiscoveredAssetFunction
 from sqlbuild.adapter.contract.classes.statement_recorder import StatementRecorder
-from sqlbuild.compiler.discovery.models import DiscoveredAssetFunction
 from sqlbuild.compiler.python_nodes.types import (
     PythonNodeFanInAction,
     PythonNodeKind,
     PythonNodeStatus,
 )
-from sqlbuild.cost.classes.cost_context import CostContext
 from sqlbuild.errors.contracts.exceptions import ExecutorInputError
 from sqlbuild.executor.node_results.main._direct_store import build_direct_node_result_store
 from sqlbuild.executor.node_results.models import NodeResultRecord

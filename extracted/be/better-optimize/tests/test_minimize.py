@@ -1,4 +1,6 @@
+import logging
 import sys
+import warnings
 
 from functools import partial
 from typing import get_args
@@ -8,9 +10,18 @@ import pytest
 
 from numpy.testing import assert_allclose
 from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, OptimizeResult
+from scipy.optimize import minimize as scipy_minimize
 from scipy.sparse.linalg import LinearOperator
 
 from better_optimize import StopOptimization
+from better_optimize.configuration import (
+    MINIMIZE_CONFIGS,
+    BasinHoppingConfig,
+    BFGSConfig,
+    COBYQAConfig,
+    HybrConfig,
+    config_for_method,
+)
 from better_optimize.constants import minimize_method
 from better_optimize.minimize import minimize
 from better_optimize.utilities import LRUCache1, ToggleableProgress
@@ -19,7 +30,7 @@ all_methods = list(get_args(minimize_method))
 no_grad_methods = ["nelder-mead", "powell", "CG", "BFGS", "L-BFGS-B"]
 grad_methods = ["CG", "BFGS", "L-BFGS-B", "TNC", "SLSQP"]
 hess_methods = ["trust-krylov", "trust-ncg", "trust-exact", "trust-constr", "Newton-CG"]
-hessp_methods = ["trust-krylov", "trust-ncg", "trust-constr", "Newton-CG"]
+hessp_methods = sorted(name for name, config in MINIMIZE_CONFIGS.items() if config.uses_hessp)
 
 
 def rosen(x, a, b) -> float:
@@ -100,6 +111,18 @@ def test_rosen(method: minimize_method):
     assert isinstance(res, OptimizeResult)
     assert_allclose(res.x, np.ones(5), atol=1e-5, rtol=1e-5)
     assert_allclose(res.fun, 0.0, atol=1e-8, rtol=1e-8)
+
+
+@pytest.mark.parametrize("method", ["TNC", "SLSQP"])
+def test_an_estimated_gradient_converges_within_the_default_budget(method: minimize_method):
+    objective = partial(rosen, a=100, b=0)
+    x0 = np.array([-1.2, 1.0])
+
+    res = minimize(objective, x0, method=method, progressbar=False)
+    reference = scipy_minimize(objective, x0, method=method)
+
+    assert res.success
+    assert_allclose(res.fun, reference.fun)
 
 
 @pytest.mark.parametrize("method", no_grad_methods, ids=no_grad_methods)
@@ -428,3 +451,152 @@ def test_minimize_with_external_progressbar():
 
     assert task1 == 0
     assert task2 > 0
+
+
+@pytest.mark.parametrize("method", all_methods, ids=all_methods)
+def test_a_config_and_its_method_name_agree(method: minimize_method):
+    """The string form builds a config, so both call forms must reach the same solver."""
+    x0 = np.array([0.5, 0.5])
+    kwargs = {"jac": rosen_grad, "args": (1, 0), "progressbar": False}
+    if method in hess_methods:
+        kwargs["hess"] = rosen_hess
+
+    by_name = minimize(rosen, x0, method=method, **kwargs)
+    by_config = minimize(rosen, x0, method=config_for_method(method), **kwargs)
+
+    assert_allclose(by_name.x, by_config.x)
+
+
+def test_an_option_reaches_the_solver_through_either_call_form():
+    x0 = np.array([0.5, 0.5])
+    kwargs = {"jac": rosen_grad, "args": (1, 0), "progressbar": False}
+
+    by_name = minimize(rosen, x0, method="BFGS", gtol=1e-12, **kwargs)
+    by_config = minimize(rosen, x0, method=BFGSConfig(gtol=1e-12), **kwargs)
+
+    assert_allclose(by_name.x, by_config.x)
+    assert_allclose(by_name.x, np.ones(2), atol=1e-6)
+
+
+def test_a_misspelled_option_raises_instead_of_reaching_scipy():
+    with pytest.raises(TypeError, match="gtoll"):
+        minimize(rosen, np.array([0.5, 0.5]), method="BFGS", args=(1, 0), gtoll=1e-6)
+
+
+def test_a_config_cannot_be_combined_with_options():
+    with pytest.raises(TypeError, match=r"BFGSConfig and the option\(s\) \['gtol'\]"):
+        minimize(rosen, np.array([0.5, 0.5]), method=BFGSConfig(), args=(1, 0), gtol=1e-6)
+
+
+def test_a_root_configuration_names_the_driver_that_runs_it():
+    """Both bases share the option machinery, so nothing stops one reaching `minimize`
+    except the check that names where it belongs."""
+    with pytest.raises(TypeError, match="configures hybr, which minimize does not run"):
+        minimize(rosen, np.full(5, 0.5), args=(100, 0), method=HybrConfig(), progressbar=False)
+
+
+def test_a_global_optimizer_configuration_is_still_accepted():
+    """It dispatches before the check, so the check must not be reachable for one."""
+
+    def quadratic(x):
+        return float(np.sum((x - 1.0) ** 2))
+
+    result = minimize(
+        quadratic, np.zeros(3), method=BasinHoppingConfig(niter=2, rng=0), progressbar=False
+    )
+
+    assert_allclose(result.x, np.ones(3), atol=1e-6, rtol=1e-6)
+
+
+@pytest.mark.parametrize(
+    "method, derivative",
+    [
+        ("nelder-mead", "jac"),
+        ("powell", "jac"),
+        ("COBYLA", "jac"),
+        ("nelder-mead", "hess"),
+        ("BFGS", "hess"),
+        ("L-BFGS-B", "hess"),
+    ],
+)
+def test_a_derivative_the_method_cannot_use_is_withheld_from_scipy(method, derivative, caplog):
+    """scipy warns about a derivative it was handed and will not use, repeating what this
+    package already said in plainer terms. It is still evaluated, for the readout."""
+    evaluated = {"count": 0}
+    supplied = rosen_grad if derivative == "jac" else rosen_hess
+
+    def counted(x, a, b):
+        evaluated["count"] += 1
+        return supplied(x, a, b)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with caplog.at_level(logging.WARNING, logger="better_optimize.utilities"):
+            result = minimize(
+                rosen,
+                np.array([0.5, 0.5]),
+                args=(100, 0),
+                method=method,
+                progressbar=False,
+                verbose=True,
+                **{derivative: counted},
+            )
+
+    without_it = minimize(
+        rosen, np.array([0.5, 0.5]), args=(100, 0), method=method, progressbar=False
+    )
+
+    assert [str(w.message) for w in caught if "does not use" in str(w.message)] == []
+    assert any("not used by method" in record.message for record in caplog.records)
+    assert evaluated["count"] > 0
+    # Withholding it changes what is reported, never what is solved.
+    assert_allclose(result.x, without_it.x, atol=0, rtol=0)
+
+
+@pytest.mark.parametrize(
+    "method, derivatives",
+    [("BFGS", ("jac",)), ("trust-ncg", ("jac", "hess"))],
+    ids=["BFGS", "trust-ncg"],
+)
+def test_a_derivative_the_method_does_use_reaches_scipy_quietly(method, derivatives):
+    """The control for withholding: a legitimate pairing warns from neither source, so a
+    fix that silenced every warning would not pass here."""
+    available = {"jac": rosen_grad, "hess": rosen_hess}
+    given = {name: available[name] for name in derivatives}
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = minimize(
+            rosen, np.array([0.5, 0.5]), args=(100, 0), method=method, progressbar=False, **given
+        )
+
+    assert [str(w.message) for w in caught if "does not use" in str(w.message)] == []
+    assert_allclose(result.x, np.ones(2), atol=1e-5)
+
+
+def test_cobyqa_honors_a_constraint_from_either_call_form():
+    # The unconstrained optimum is (3, 3), so the constraint is what the test rests on.
+    constraint = NonlinearConstraint(lambda x: x[0] + x[1], -np.inf, 2.0)
+
+    def quadratic(x, a, b):
+        return float((x[0] - a) ** 2 + (x[1] - b) ** 2)
+
+    by_name = minimize(
+        quadratic,
+        np.zeros(2),
+        args=(3.0, 3.0),
+        method="COBYQA",
+        constraints=constraint,
+        progressbar=False,
+    )
+    by_config = minimize(
+        quadratic,
+        np.zeros(2),
+        args=(3.0, 3.0),
+        method=COBYQAConfig(),
+        constraints=constraint,
+        progressbar=False,
+    )
+
+    assert_allclose(by_name.x, [1.0, 1.0], atol=1e-5)
+    assert_allclose(by_config.x, by_name.x, atol=0, rtol=0)

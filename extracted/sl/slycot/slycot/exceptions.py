@@ -27,6 +27,7 @@ class SlycotError(RuntimeError):
     """Slycot exception base class"""
 
     def __init__(self, message, info):
+        # ruff: disable[UP008]
         super(SlycotError, self).__init__(message)
         self.info = info
 
@@ -37,13 +38,13 @@ class SlycotParameterError(SlycotError, ValueError):
     In case of a wrong input value, the SLICOT routines return a negative
     info parameter indicating which parameter was illegal.
     """
-
+    # ruff: disable[PIE790]
     pass
 
 
 class SlycotArithmeticError(SlycotError, ArithmeticError):
     """A Slycot computation failed"""
-
+    # ruff: disable[PIE790]
     pass
 
 
@@ -51,6 +52,7 @@ class SlycotWarning(UserWarning):
     """Slycot Warning"""
 
     def __init__(self, message, iwarn, info):
+        # ruff: disable[UP008]
         super(SlycotWarning, self).__init__(message)
         self.info = info
         self.iwarn = iwarn
@@ -62,7 +64,7 @@ class SlycotResultWarning(SlycotWarning):
     A Slycot routine returned a nonzero info parameter that warns about the
     returned results, but the results might still be usable.
     """
-
+    # ruff: disable[PIE790]
     pass
 
 
@@ -101,7 +103,9 @@ def _parse_docsection(section_name, docstring, checkvars):
                     infospec_indent = len(imatch.group(1))
                     infospec = imatch.group(2)
                     # Don't handle the standard case unless we have i
+                    # ruff: disable[SIM102]
                     if infospec == "info = -i":
+                        # ruff: disable[SIM118]
                         if 'i' not in checkvars.keys():
                             continue
                     infospec_ = infospec.replace(" = ", " == ")
@@ -242,18 +246,21 @@ def raise_if_slycot_error(info, arg_list=None, docstring=None, checkvars=None):
             return
 
     if info < 0 and arg_list:
+        # ruff: disable[UP032]
         message = ("The following argument had an illegal value: {}"
                    "".format(arg_list[-info-1]))
         raise SlycotParameterError(message, info)
 
     # catch all
     if info > 0:
+        # ruff: disable[UP032]
         raise SlycotError("Caught unhandled nonzero INFO value {}"
                           "".format(info),
                           info)
     if iwarn is None and 'iwarn' in checkvars:
         iwarn = checkvars['iwarn']
     if iwarn:
+        # ruff: disable[UP032]
         warn(SlycotWarning("Caught unhandled nonzero IWARN value {}"
                            "".format(iwarn),
                            iwarn, info))

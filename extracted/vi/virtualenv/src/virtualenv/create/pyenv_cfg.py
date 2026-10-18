@@ -5,6 +5,7 @@ import os
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Final
 
+from virtualenv.util.path import write_file
 from virtualenv.util.text import collapse_line_boundaries
 
 if TYPE_CHECKING:
@@ -39,6 +40,7 @@ class PyEnvCfg:
 
     @staticmethod
     def _read_values(path: Path) -> OrderedDict[str, str]:
+        _validate_path(path)
         content = OrderedDict()
         for line in path.read_text(encoding="utf-8").splitlines():
             key, separator, value = line.partition("=")
@@ -51,6 +53,7 @@ class PyEnvCfg:
         return content
 
     def write(self) -> None:
+        _validate_path(self.path)
         LOGGER.debug("write %s", self.path)
         text = ""
         for key, value in self.content.items():
@@ -62,10 +65,10 @@ class PyEnvCfg:
             else:
                 normalized_value = value
             line = f"{collapse_line_boundaries(key)} = {collapse_line_boundaries(normalized_value)}"
-            LOGGER.debug("\t%s", line)
+            LOGGER.debug("\t%r", line)
             text += line
             text += "\n"
-        self.path.write_text(text, encoding="utf-8")
+        write_file(self.path, text.encode("utf-8"))
 
     def refresh(self) -> OrderedDict[str, str]:
         self.content = self._read_values(self.path)
@@ -86,6 +89,12 @@ class PyEnvCfg:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(path={self.path})"
+
+
+def _validate_path(path: Path) -> None:
+    if path.exists() and not path.is_file():
+        msg = f"configuration path is not a regular file: {path}"
+        raise ValueError(msg)
 
 
 __all__ = [

@@ -40,6 +40,7 @@ def test_tb05ad_ng():
     Test that tb05ad with job 'NG' computes the correct
     frequency response.
     """
+    # ruff: disable[PLC0206]
     for key in CASES:
         sys = CASES[key]
         check_tb05ad_AG_NG(sys, 10*1j, 'NG')
@@ -50,6 +51,7 @@ def test_tb05ad_ag():
     Test that tb05ad with job 'AG' computes the correct
     frequency response.
     """
+    # ruff: disable[PLC0206]
     for key in CASES:
         sys = CASES[key]
         check_tb05ad_AG_NG(sys, 10*1j, 'AG')
@@ -64,6 +66,7 @@ def test_tb05ad_nh():
     Subsequently, call tb05ad with job='NH' using this transformed system.
     """
     jomega = 10*1j
+    # ruff: disable[PLC0206]
     for key in CASES:
         sys = CASES[key]
         sys_transformed = check_tb05ad_AG_NG(sys, jomega, 'NG')
@@ -212,6 +215,7 @@ def test_tb05ad_balance():
 
         Aeig = eig(A)[0]
         neig0 = np.sum(np.abs(Aeig) == 0)
+        # ruff: disable[RUF059]
         As, T = matrix_balance(A)
         nperm = np.sum(np.diag(T == 0))
         nscale = n - np.sum(T == 1.0)
@@ -224,6 +228,7 @@ def test_tb05ad_balance():
 
     # do a run
     jomega = 1.0
+    # ruff: disable[RUF059]
     At, Bt, Ct, rcond, g_jw, ev, hinvb, info = transform.tb05ad(
         8, 4, 3, jomega, A, B, C, job='AG')
 

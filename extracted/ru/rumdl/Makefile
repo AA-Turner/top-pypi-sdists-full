@@ -287,6 +287,11 @@ test-push:
 test-ci:
 	cargo nextest run --profile ci
 
+.PHONY: check-test-selection
+check-test-selection:
+	python3 scripts/test_check_test_selection.py
+	python3 scripts/check-test-selection.py
+
 # Run documentation tests. nextest cannot run doctests, so they are a separate
 # gate; without this they compile-rot silently (the crate has runnable `///`
 # examples with assertions).
@@ -473,11 +478,11 @@ fmt-check:
 	cargo fmt --check
 
 lint-actions:
-	actionlint
+	bash scripts/lint-actions.sh
 	uvx zizmor --min-severity=medium .github/workflows/
 
 lint-actions-all:
-	actionlint
+	bash scripts/lint-actions.sh
 	uvx zizmor .github/workflows/
 
 lint:
@@ -511,10 +516,10 @@ check-code-block-tools:
 	cargo run --bin rumdl -- code-block-tools-docs check
 
 # Run the built-in code-block tools through rumdl against the real binaries. Each test
-# skips when its tool is absent, so this verifies whatever is installed; install more
-# tools to widen coverage (the CI code-block-tools job installs the fast ones).
+# skips when its tool is absent unless RUMDL_REQUIRE_CODE_BLOCK_TOOLS requires it.
+# CI lists its provisioned tools; optional tools still skip.
 test-code-block-tools:
-	cargo nextest run --profile ci -E 'test(code_block_tools_execution)'
+	cargo nextest run --locked --profile ci --test lib --no-tests fail -E 'test(code_block_tools_execution)'
 
 # Verify version references in vership-tracked files are in sync with Cargo.toml.
 # Guards against vership's text-mode version_files silently no-op'ing when the
@@ -539,6 +544,7 @@ check-rule-docs:
 # released.
 test-release-scripts:
 	python3 scripts/release_assets_test.py
+	python3 scripts/artifact_sizes_test.py
 
 doc:
 	cargo doc --no-deps

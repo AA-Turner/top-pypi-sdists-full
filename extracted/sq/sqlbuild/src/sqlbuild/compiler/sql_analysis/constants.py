@@ -2,25 +2,6 @@
 
 from __future__ import annotations
 
-SQL_ESCAPABLE_QUOTE_CHARACTERS: frozenset[str] = frozenset({"'", '"'})
-SQL_QUOTE_CHARACTERS: frozenset[str] = frozenset({*SQL_ESCAPABLE_QUOTE_CHARACTERS, "`"})
-SQL_TEXT_START_CHARACTERS: frozenset[str] = frozenset({*SQL_QUOTE_CHARACTERS, "$"})
-SQL_OPEN_PARENTHESIS: str = "("
-SQL_CLOSE_PARENTHESIS: str = ")"
-SQL_STRING_QUOTE_CHARACTER: str = "'"
-SQL_ESCAPE_CHARACTER: str = "\\"
-SQL_ESCAPE_STRING_PREFIX: str = "e"
-SQL_RAW_STRING_PREFIX: str = "r"
-SQL_STRING_PREFIX_CHARACTERS: frozenset[str] = frozenset("bBeErR")
-SQL_STRING_PREFIX_MAX_LENGTH: int = 2
-SQL_TRIPLE_QUOTE_LENGTH: int = 3
-SQL_LINE_COMMENT_PREFIX: str = "--"
-SUPPORTED_SQL_LINE_COMMENT_PREFIXES: frozenset[str] = frozenset({"--", "//", "#"})
-SQL_BLOCK_COMMENT_OPEN: str = "/*"
-SQL_BLOCK_COMMENT_CLOSE: str = "*/"
-SQL_DOLLAR_QUOTE_CHARACTER: str = "$"
-SQL_IDENTIFIER_PREFIX: str = "_"
-SNOWFLAKE_DIALECT_NAME: str = "snowflake"
 POLYGLOT_ANALYZE_QUERY_ENTRY_POINT: str = "analyze_query"
 POLYGLOT_ANALYZE_QUERY_OPTIONS_ARGUMENT_COUNT: int = 2
 POLYGLOT_ANALYZE_QUERY_OPTIONS_ARGUMENT_INDEX: int = 1
@@ -28,46 +9,3 @@ POLYGLOT_COMPLEXITY_GUARD_PARAMETER: str = "complexity_guard"
 POLYGLOT_COMPLEXITY_GUARD_OPTION: str = "complexityGuard"
 POLYGLOT_MAX_FUNCTION_CALL_DEPTH_OPTION: str = "maxFunctionCallDepth"
 POLYGLOT_MAX_FUNCTION_CALL_DEPTH: int = 512
-BINDING_UNKNOWN_TABLE_INTERNAL_CODE: str = "B000"
-
-POLYGLOT_KIND_ANNOTATED: str = "annotated"
-POLYGLOT_KIND_COLUMN: str = "column"
-POLYGLOT_KIND_EXCEPT: str = "except"
-POLYGLOT_KIND_INTERSECT: str = "intersect"
-POLYGLOT_KIND_SELECT: str = "select"
-POLYGLOT_KIND_TABLE: str = "table"
-POLYGLOT_KIND_UNION: str = "union"
-POLYGLOT_SET_OPERATION_KINDS: frozenset[str] = frozenset(
-    {POLYGLOT_KIND_UNION, POLYGLOT_KIND_INTERSECT, POLYGLOT_KIND_EXCEPT}
-)
-POLYGLOT_PAYLOAD_COLUMN: str = "column"
-POLYGLOT_PAYLOAD_NAME: str = "name"
-POLYGLOT_ANALYSIS_IS_STAR: str = "isStar"
-POLYGLOT_ANALYSIS_NAME: str = "name"
-POLYGLOT_ANALYSIS_NULLABILITY: str = "nullability"
-POLYGLOT_ANALYSIS_NULLABILITY_NON_NULL: str = "non_null"
-POLYGLOT_ANALYSIS_NULLABILITY_NULLABLE: str = "nullable"
-POLYGLOT_ANALYSIS_PROJECTIONS: str = "projections"
-POLYGLOT_ANALYSIS_SOURCE_ALIAS: str = "sourceAlias"
-POLYGLOT_ANALYSIS_SOURCE_CONFIDENCE: str = "confidence"
-POLYGLOT_ANALYSIS_SOURCE_NAME: str = "sourceName"
-POLYGLOT_ANALYSIS_TABLE: str = "table"
-POLYGLOT_ANALYSIS_TRANSFORM_KIND: str = "transformKind"
-POLYGLOT_ANALYSIS_STAR_PROJECTIONS: str = "starProjections"
-POLYGLOT_ANALYSIS_UPSTREAM: str = "upstream"
-POLYGLOT_ANALYSIS_TRANSFORM_AGGREGATION: str = "aggregation"
-POLYGLOT_ANALYSIS_TRANSFORM_CAST: str = "cast"
-POLYGLOT_ANALYSIS_TRANSFORM_CONSTANT: str = "constant"
-POLYGLOT_ANALYSIS_TRANSFORM_DIRECT: str = "direct"
-TYPE_CHECKED_DIALECTS: frozenset[str] = frozenset({"duckdb", "snowflake", "postgresql", "bigquery"})
-SQL_QUOTED_IDENTIFIER_DELIMITER: str = '"'
-CASE_SENSITIVE_BINDING_DIALECTS: frozenset[str] = frozenset({"snowflake", "postgresql"})
-BINDING_SEVERITIES: frozenset[str] = frozenset({"error", "warning"})
-NATIVE_DIALECT_ALIASES: dict[str, str] = {
-    "postgres": "postgresql",
-    "motherduck": "duckdb",
-    "sqlserver": "tsql",
-}
-ANALYSIS_NORMALIZATION_CHUNK_SIZE: int = 256
-TABLE_FUNCTION_ANALYSIS_PREFIX: str = "__sqlbuild_table_function_"
-NATIVE_FAILURE_PREFIX: str = "NativeCompilerError: "

@@ -1,7 +1,117 @@
+# One workspace for the `cozy` binary (xs-043). The Go tree stays at the root until the cutover.
 [workspace]
-resolver = "2"
-members = ["crates/tensorfs-core", "crates/tensorfs-plane", "crates/tensorfs-py"]
+resolver = "3"
+# Listed, not globbed: crates/tensorfs is TensorFS's own tree (its wheel's pyproject.toml,
+# python/, conformance/) holding its three crates, and has no manifest of its own.
+members = ["crates/cozy-platform", "crates/tensorfs/crates/tensorfs-core", "crates/tensorfs/crates/tensorfs-plane", "crates/tensorfs/crates/tensorfs-py"]
 
 [workspace.package]
-version = "0.10.0"
-edition = "2021"
+version = "0.9.6"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+repository = "https://github.com/cozy-creator/cozy-creator"
+homepage = "https://github.com/cozy-creator/cozy-creator"
+publish = false
+
+[workspace.dependencies]
+calcifer = { path = "crates/calcifer" }
+cozy-cli = { path = "crates/cozy-cli" }
+cozy-platform = { path = "crates/cozy-platform" }
+cozy-proto = { path = "crates/cozy-proto" }
+hub-client = { path = "crates/hub-client" }
+migrate = { path = "crates/migrate" }
+portable-pty = "0.9.0"
+tensord = { path = "crates/tensord" }
+tensorfs-core = { path = "crates/tensorfs/crates/tensorfs-core", default-features = false }
+tensorfs-plane = { path = "crates/tensorfs/crates/tensorfs-plane", default-features = false }
+
+anstream = "1.0.0"
+anstyle = "1.0.14"
+aws-lc-rs = "1.18"
+axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "query", "tokio", "tracing"] }
+base64 = "0.22"
+bytes = "1.12"
+clap = { version = "4.6", features = ["derive"] }
+clap_complete = { version = "4.6.11", features = ["unstable-dynamic"] }
+comfy-table = "8.0.1"
+crossterm = { version = "0.29", features = ["event-stream"] }
+ed25519-dalek = "2"
+figment = { version = "0.10.19", features = ["env", "toml"] }
+flate2 = "1.1"
+fs2 = "0.4"
+futures-util = { version = "0.3.34", default-features = false }
+getrandom = "0.3"
+hex = "0.4"
+http = "1"
+http-body-util = "0.1.5"
+hyper = { version = "1.11", default-features = false }
+hyper-util = { version = "0.1.21", default-features = false, features = ["tokio"] }
+indicatif = "0.18"
+infer = { version = "0.22", default-features = false }
+jiff = { version = "0.2.38", default-features = false, features = ["std"] }
+libc = "0.2"
+libloading = "0.9"
+nix = { version = "0.31.3", default-features = false }
+nvml-wrapper = "0.13"
+openapiv3 = "2"
+prettyplease = "0.2"
+progenitor = { version = "0.15.1", default-features = false }
+pep508_rs = "0.9"
+progenitor-client = "0.15.1"
+prost = "0.14"
+protoc-bin-vendored = "3"
+quote = "1"
+rcgen = { version = "0.14", default-features = false, features = ["aws_lc_rs", "pem"] }
+ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
+reqwest = { version = "0.13", default-features = false, features = ["form", "http2", "json", "query", "rustls", "stream"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite_migration = "2.6"
+rustls = { version = "0.23.46", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
+self-replace = "1.5"
+semver = "1"
+serde = { version = "1", features = ["derive"] }
+serde_ignored = "0.1.14"
+serde_json = "1"
+serde_json_canonicalizer = "0.3"
+serde_yaml = "0.9"
+sha2 = "0.10"
+sigstore-verify = { version = "0.15", default-features = false, features = ["aws-lc-rs"] }
+supports-hyperlinks = "3.2.0"
+syn = "2"
+tar = "0.4"
+tempfile = "3"
+thiserror = "2"
+time = { version = "0.3.55", features = ["parsing"] }
+tokio = { version = "1.53", features = ["fs", "io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["aws_lc_rs", "tls12"] }
+tokio-stream = "0.1.19"
+tokio-util = { version = "0.7", features = ["io"] }
+# figment's toml 0.8 already builds this one.
+toml = "0.8"
+toml_edit = "0.22.27"
+tonic = { version = "0.14.6", default-features = false, features = ["codegen"] }
+tonic-prost = "0.14.6"
+tonic-prost-build = "0.14.6"
+tower = { version = "0.5", default-features = false, features = ["util"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "std"] }
+url = { version = "2.5.8", features = ["serde"] }
+vt100 = "0.16.2"
+webpki-roots = "1"
+windows-sys = "0.61"
+x509-cert = { version = "0.2.5", default-features = false }
+zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+
+[workspace.lints.clippy]
+# Every verb returns the one typed refusal; it is not on a hot path.
+result_large_err = "allow"
+
+# What dist builds releases with.
+[profile.dist]
+inherits = "release"

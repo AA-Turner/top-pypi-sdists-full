@@ -40,6 +40,7 @@ def test_cached_inputoutput():
     m = len(nblock)
     mr = np.count_nonzero(1==itype)
 
+    # ruff: disable[RUF059]
     mu0, d0, g0, x0 = ab13md(Z, nblock, itype)
     assert m+mr-1 == len(x0)
 
@@ -112,6 +113,7 @@ class TestReference:
 
         Z, nblock, itype = slicot_example()
 
+        # ruff: disable[RUF059]
         mu, d, g, x = ab13md(Z, nblock, itype)
 
         assert_allclose(mu, muref)

@@ -871,7 +871,11 @@ mod goto_type_definition_tests {
                 SchemaPath(fixture_path().join("schema.json")),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(true),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(true),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
             ) -> Ok(fixture_path().join("schema.json"));
         );

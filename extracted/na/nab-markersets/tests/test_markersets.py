@@ -18,7 +18,7 @@ import pytest
 
 from nab_markersets import _markersets as engine
 from nab_markersets._packaging import Marker
-from nab_markersets.errors import IntractableMarkerSet
+from nab_markersets.errors import IntractableMarkerSet, UnserializableMarkerSet
 from nab_markersets.markersets import _MAX_CELLS, _MAX_WORK, DecisionStore, MarkerSet
 
 if TYPE_CHECKING:
@@ -620,6 +620,52 @@ def _row_universe() -> MarkerSet:
     )
 
 
+def _row_preparation_counter(monkeypatch: pytest.MonkeyPatch) -> Callable[[], int]:
+    """Count universe disjuncts whose pins are prepared rather than reused."""
+    calls = 0
+    original = engine._row_pins
+
+    def counting(node: engine.Formula) -> dict[str, str]:
+        nonlocal calls
+        calls += 1
+        return original(node)
+
+    monkeypatch.setattr(engine, "_row_pins", counting)
+    return lambda: calls
+
+
+def test_shared_rows_serve_simplification_and_its_equivalence_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    marker = ms('python_version < "3.12"')
+    universe = _row_universe()
+    store = DecisionStore()
+    prepared = _row_preparation_counter(monkeypatch)
+
+    result = marker.simplify(within=universe, store=store)
+    assert prepared() == 6
+    assert marker.equivalent_within(result, universe, store=store)
+    assert prepared() == 6
+
+    text = universe.to_marker_string()
+    assert text is not None
+    rebuilt = ms(text)
+    assert rebuilt is not universe
+    assert marker.equivalent_within(result, rebuilt, store=store)
+    assert prepared() == 6
+
+    assert marker.equivalent_within(result, rebuilt)
+    assert prepared() == 12
+
+
+def test_shared_rows_keep_distinct_universes_separate() -> None:
+    marker = ms('sys_platform == "linux"')
+    store = DecisionStore()
+
+    assert marker.simplify(within=marker, store=store).is_full()
+    assert marker.simplify(within=ms('sys_platform == "win32"'), store=store).is_empty()
+
+
 # Operands reaching all three axis kinds: a version axis, a set axis through
 # ``extra``, and an opaque contains axis. A universe row pins ``sys_platform`` away,
 # so a scenario without the last two would exercise the value axis alone.
@@ -668,18 +714,14 @@ def test_simplify_keeps_its_partitions_to_one_call(
 def test_one_operation_reads_each_atom_truth_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """An atom's truth on one point is evaluated once per operation.
-
-    Partitions of one axis over overlapping atom sets re-read the same atom on the
-    same point.
-    """
+    """Partitioning and row restriction share scalar truths within a decision."""
     left = ms('python_version < "3.12"' + _SPREAD)
     right = ms('python_version < "3.12" and sys_platform != "aix"' + _SPREAD)
 
     truths = _truth_counter(monkeypatch)
     assert left.equivalent_within(right, _row_universe()) is True
 
-    assert truths() == 132
+    assert truths() == 124
 
 
 def test_atoms_keep_no_truths_between_operations(
@@ -796,11 +838,7 @@ def test_a_shared_store_serves_the_next_decision(
 def test_a_shared_store_serves_the_next_decision_its_truths(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A decision handed the previous one's store re-reads no stored atom truth.
-
-    Only restriction repeats, one read for each of the six rows' two operands,
-    against 132 for the decision itself.
-    """
+    """A warm store avoids new predicate evaluations for this decision."""
     universe = _row_universe()
     left = ms('python_version < "3.12"' + _SPREAD)
     right = ms('python_version < "3.12" and sys_platform != "aix"' + _SPREAD)
@@ -811,8 +849,8 @@ def test_a_shared_store_serves_the_next_decision_its_truths(
     first = truths()
     left.equivalent_within(right, universe, store=store)
 
-    assert first == 132
-    assert truths() - first == 12
+    assert first == 124
+    assert truths() == first
 
 
 def test_a_shared_store_serves_a_repeated_simplify(
@@ -858,15 +896,10 @@ def test_the_store_reaches_the_engine_from_simplify(
     assert partitions() == first
 
 
-def test_the_store_reaches_both_emptiness_decisions_under_serialisation(
+def test_the_store_reaches_every_decision_under_serialisation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The store :meth:`MarkerSet.to_marker_string` is handed reaches its two decisions.
-
-    Warmed by an :meth:`MarkerSet.is_full` over the same three axes, the pair
-    partitions none of them again; the three left are the round-trip check's, which
-    keeps a memo of its own.
-    """
+    """Serialization and its round-trip check reuse the supplied partitions."""
     marker = ms('python_version < "3.12"' + _SPREAD)
     text = marker.to_marker_string()
 
@@ -879,8 +912,21 @@ def test_the_store_reaches_both_emptiness_decisions_under_serialisation(
     before = partitions()
     assert marker.to_marker_string(store=warm) == text
 
-    assert cold == 6
-    assert partitions() - before == 3
+    assert cold == 3
+    assert partitions() == before
+
+
+@pytest.mark.parametrize("shared", [False, True])
+def test_serialisation_rejects_an_inequivalent_round_trip(
+    monkeypatch: pytest.MonkeyPatch, *, shared: bool
+) -> None:
+    marker = ms('os_name == "posix"')
+    store = DecisionStore() if shared else None
+    assert marker.to_marker_string(store=store) == 'os_name == "posix"'
+    monkeypatch.setattr(engine, "serialize", lambda _node: 'os_name == "nt"')
+
+    with pytest.raises(UnserializableMarkerSet, match="not round-trip sound"):
+        marker.to_marker_string(store=store)
 
 
 def test_a_shared_store_answers_what_fresh_stores_answer() -> None:

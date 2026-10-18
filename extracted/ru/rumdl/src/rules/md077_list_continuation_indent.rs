@@ -7,9 +7,9 @@ use std::ops::ControlFlow;
 
 use serde::{Deserialize, Serialize};
 
-use crate::lint_context::{LineInfo, LintContext};
+use crate::lint_context::{CommonMarkItem, LineInfo, LintContext, NativeListSource};
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
-use crate::utils::list_indent_shift::is_lazy_continuation;
+use crate::utils::list_indent_shift::is_lazy_continuation_source as is_lazy_continuation;
 
 mod md077_config;
 use md077_config::MD077Config;
@@ -39,8 +39,8 @@ pub enum ContinuationStyle {
 /// alone. Content indented to the content column + 4 or more is an indented code
 /// block, not continuation, and is not flagged.
 ///
-/// Under the MkDocs flavor, a minimum of 4 spaces is enforced for ordered list
-/// items to satisfy Python-Markdown.
+/// Under the MkDocs flavor, a minimum of 4 spaces per nesting level is enforced
+/// to satisfy Python-Markdown: a top-level item needs 4, an item nested in it 8.
 ///
 /// With `style = "aligned"`, tight under-indented continuation is additionally
 /// flagged and aligned to the content column (mdformat parity).
@@ -89,6 +89,45 @@ impl MD077ListContinuationIndent {
             .is_some_and(|window| matches!(window, b"[ ] " | b"[x] " | b"[X] "))
     }
 
+    /// Whether the list marker written at visual column `marker_column` is an
+    /// ordered marker closed by `)`, which Python-Markdown does not read as a
+    /// list marker. Tabs advance to the next multiple of four.
+    fn is_paren_marker(line: &str, marker_column: usize) -> bool {
+        let mut column = 0;
+        for (byte, c) in line.char_indices() {
+            if column >= marker_column {
+                let rest = &line[byte..];
+                return rest.trim_start_matches(|c: char| c.is_ascii_digit()).starts_with(')');
+            }
+            column = if c == '\t' { (column / 4 + 1) * 4 } else { column + 1 };
+        }
+        false
+    }
+
+    /// Whether the text at visual column `content_col` of `line` is a GFM
+    /// checkbox. The column is where CommonMark starts the item's content, so
+    /// an item whose first content is indented code (five or more columns after
+    /// the marker) or an item that starts with a blank line reads no checkbox.
+    fn is_task_at_column(line: &str, content_col: usize) -> bool {
+        let mut column = 0;
+        for (byte, ch) in line.char_indices() {
+            if column == content_col {
+                return Self::is_task_list_item(line, byte);
+            }
+            if column > content_col {
+                return false;
+            }
+            column = crate::lint_context::column_after(column, ch);
+        }
+        false
+    }
+
+    /// Whether `text` holds nothing but spaces and tabs, the only whitespace
+    /// CommonMark's block structure counts as blank.
+    fn is_cm_blank(text: &str) -> bool {
+        text.trim_matches([' ', '\t']).is_empty()
+    }
+
     /// Check if a trimmed line is a block-level construct (not list continuation).
     fn is_block_level_construct(trimmed: &str) -> bool {
         // Footnote definition: [^label]:
@@ -119,7 +158,7 @@ impl MD077ListContinuationIndent {
 
     /// Whether a line is the delimiter of a fenced code block. Inside an
     /// indented code block, fence-like text is code content.
-    fn is_fence_delimiter(ctx: &LintContext, info: &LineInfo, trimmed: &str) -> bool {
+    fn is_fence_delimiter(ctx: &NativeListSource<'_, '_>, info: &LineInfo, trimmed: &str) -> bool {
         let line_end = info.byte_offset + info.byte_len;
         Self::is_code_fence(trimmed)
             && ctx
@@ -130,7 +169,7 @@ impl MD077ListContinuationIndent {
 
     /// Column of the `>` that opens a blockquote deeper than `depth`, if the
     /// line has one.
-    fn deeper_quote_column(ctx: &LintContext, info: &LineInfo, depth: usize) -> Option<usize> {
+    fn deeper_quote_column(ctx: &NativeListSource<'_, '_>, info: &LineInfo, depth: usize) -> Option<usize> {
         if info.blockquote.as_ref()?.nesting_level <= depth {
             return None;
         }
@@ -143,8 +182,8 @@ impl MD077ListContinuationIndent {
     /// the start of a block.
     ///
     /// Four or more columns past the content column a line cannot interrupt the
-    /// paragraph, so a fence, blockquote marker, setext underline, thematic break
-    /// or table row there is paragraph text. Moved closer than that, the same
+    /// paragraph, so a fence, blockquote marker, setext underline, thematic break,
+    /// table row or ATX heading there is paragraph text. Moved closer than that, the same
     /// text opens the block and swallows or splits what follows. Closer in, the
     /// parser already reads such a line as its block, so only this crossing
     /// changes what the line is.
@@ -156,7 +195,15 @@ impl MD077ListContinuationIndent {
                 || trimmed.starts_with('>')
                 || crate::lint_context::is_setext_underline_content(trimmed)
                 || crate::lint_context::is_horizontal_rule_content(trimmed)
-                || crate::utils::skip_context::is_table_line(trimmed))
+                || crate::utils::skip_context::is_table_line(trimmed)
+                || Self::is_atx_heading_start(trimmed))
+    }
+
+    /// CommonMark 4.2: one to six `#` followed by a space, a tab or the end of
+    /// the line.
+    fn is_atx_heading_start(trimmed: &str) -> bool {
+        let hashes = trimmed.bytes().take_while(|&b| b == b'#').count();
+        (1..=6).contains(&hashes) && matches!(trimmed.as_bytes().get(hashes), None | Some(b' ' | b'\t'))
     }
 
     /// Check if a trimmed line starts with a list marker (*, -, +, or ordered).
@@ -178,7 +225,7 @@ impl MD077ListContinuationIndent {
     /// last line (its closer, or the last line of an unclosed block). The
     /// block's own byte range decides both, so an adjacent indented code block
     /// on either side is never mistaken for part of it.
-    fn fenced_block_last_line(ctx: &LintContext, info: &LineInfo, trimmed: &str) -> Option<usize> {
+    fn fenced_block_last_line(ctx: &NativeListSource<'_, '_>, info: &LineInfo, trimmed: &str) -> Option<usize> {
         if !Self::is_code_fence(trimmed) {
             return None;
         }
@@ -227,7 +274,7 @@ impl MD077ListContinuationIndent {
     /// before a tab would let the tab snap back and cancel the shift. We
     /// replace the whole leading-whitespace byte range with spaces.
     fn build_compound_fence_fix(
-        ctx: &LintContext,
+        ctx: &NativeListSource<'_, '_>,
         opener_line: usize,
         closer_line: usize,
         opener_actual: usize,
@@ -293,30 +340,35 @@ impl MD077ListContinuationIndent {
     /// - Reference/footnote/abbreviation definitions and similar block
     ///   constructs that aren't list continuation.
     /// - Lines that `should_skip_line` rejects (code-block interior etc.).
-    fn walk_item_continuation<F>(
-        ctx: &LintContext,
-        item_line: usize,
-        range_end: usize,
-        marker_col: usize,
-        mut per_line: F,
-    ) where
+    fn walk_item_continuation<F>(ctx: &NativeListSource<'_, '_>, scope: &ItemScope, mut per_line: F)
+    where
         F: FnMut(&ContinuationLine<'_>) -> ControlFlow<()>,
     {
+        let item_line = scope.item_line;
+        let range_end = scope.range_end;
+        let marker_col = scope.marker_col;
+        let content_col = scope.content_col;
         let mut saw_blank = false;
-        let mut saw_nested = false;
-        // Stack of open nested items as (marker_column, content_column),
-        // outermost first. A single scalar is not enough: with 3+ levels a
-        // continuation of a middle level sits below the innermost content
-        // column but at-or-past its own level's, and must still be skipped
-        // here so the owning level's walk evaluates it.
-        let mut nested_stack: Vec<(usize, usize)> = Vec::new();
+        // Stack of open nested items as (marker_column, content_column,
+        // awaiting_first_content), outermost first. A single scalar is not
+        // enough: with 3+ levels a continuation of a middle level sits below the
+        // innermost content column but at-or-past its own level's, and must
+        // still be skipped here so the owning level's walk evaluates it. The
+        // items written on this item's own line start out on the stack.
+        let mut nested_stack: Vec<(usize, usize, bool)> = scope
+            .same_line
+            .iter()
+            .map(|item| (item.marker_col, item.content_col, item.is_empty))
+            .collect();
+        let mut saw_nested = !nested_stack.is_empty();
+        // CommonMark 5.2: an item can begin with at most one blank line, so
+        // while an item that started empty has no content yet, a blank line or
+        // a line left of its content column closes it.
+        let mut awaiting_content = scope.starts_empty;
         let item_info = ctx.line_info(item_line);
         let item_quotes = item_info
             .and_then(|i| i.blockquote.as_ref())
             .map_or(0, |q| q.nesting_level);
-        let content_col = item_info
-            .and_then(|i| i.list_item.as_ref())
-            .map_or(marker_col + 1, |li| li.content_column);
 
         for line_num in (item_line + 1)..=range_end {
             let Some(info) = ctx.line_info(line_num) else {
@@ -330,31 +382,78 @@ impl MD077ListContinuationIndent {
                 break;
             }
 
-            let trimmed = info.content(ctx.content).trim_start();
+            let raw_line = info.content(ctx.content);
+            let trimmed = raw_line.trim_start();
+            let blank = Self::is_cm_blank(raw_line);
+
+            // An item that started empty and is still waiting for its content.
+            if awaiting_content {
+                if blank || info.visual_indent < content_col {
+                    break;
+                }
+                awaiting_content = false;
+            }
+            // The same for the nested items written on the item's line.
+            if blank {
+                while nested_stack.last().is_some_and(|&(_, _, awaiting)| awaiting) {
+                    nested_stack.pop();
+                }
+            } else {
+                while nested_stack
+                    .last()
+                    .is_some_and(|&(_, content, awaiting)| awaiting && content > info.visual_indent)
+                {
+                    nested_stack.pop();
+                }
+                if let Some(top) = nested_stack.last_mut() {
+                    top.2 = false;
+                }
+            }
 
             if Self::should_skip_line(ctx, info, trimmed) {
                 continue;
             }
 
-            if info.is_blank {
+            if blank {
                 saw_blank = true;
                 continue;
             }
 
+            // Whitespace that is not CommonMark's is text, which the rule has
+            // no indentation to judge.
+            if trimmed.is_empty() {
+                continue;
+            }
+
             if let Some(ref li) = info.list_item {
+                // The items CommonMark opens on this line; the byte columns are
+                // the fallback for a line the container pass did not read.
+                let fallback = [CommonMarkItem {
+                    marker_column: li.marker_column,
+                    content_column: li.content_column,
+                    is_empty: false,
+                }];
+                let chain: &[CommonMarkItem] = if li.commonmark_items.is_empty() {
+                    &fallback
+                } else {
+                    &li.commonmark_items
+                };
+                let first = chain[0];
                 // A marker left of the content column cannot nest inside this
                 // item: it closes the item and starts a list of its own, which
                 // then owns every line below it.
-                if li.marker_column > marker_col && li.marker_column < content_col {
+                if first.marker_column > marker_col && first.marker_column < content_col {
                     break;
                 }
-                if li.marker_column > marker_col {
+                if first.marker_column > marker_col {
                     // A sibling-or-shallower marker closes every nested item at
                     // or past its column before this one opens.
-                    while nested_stack.last().is_some_and(|&(m, _)| m >= li.marker_column) {
+                    while nested_stack.last().is_some_and(|&(m, _, _)| m >= first.marker_column) {
                         nested_stack.pop();
                     }
-                    nested_stack.push((li.marker_column, li.content_column));
+                    for item in chain {
+                        nested_stack.push((item.marker_column, item.content_column, item.is_empty));
+                    }
                     // Sticky: once a nested child appears, every later line is a
                     // (lazy) continuation of the deeper item, which owns it under
                     // CommonMark. Ancestors must defer so the deepest item claims
@@ -380,6 +479,17 @@ impl MD077ListContinuationIndent {
 
             let col = info.visual_indent;
 
+            // Straight below a line, left of the content column, and not
+            // continuing the paragraph above it: the line opens a block of its
+            // own (a fence at the margin) or follows one that closed (text under
+            // a closing fence), and either way the item has ended. What follows
+            // is top-level content that no indentation of ours should claim;
+            // moving it can make it an indented code block, which changes the
+            // lines below it too.
+            if !saw_blank && col < content_col && !is_lazy_continuation(ctx, line_num - 1) {
+                break;
+            }
+
             // A lazy continuation line continues the open paragraph of the
             // innermost nested item without closing it, whatever its indent, so
             // that item keeps owning the lines after it.
@@ -390,7 +500,7 @@ impl MD077ListContinuationIndent {
             // Any other line escapes every nested item whose content column it
             // sits below; if any nested item stays open, the line is that item's
             // continuation and its own walk owns the judgement.
-            while nested_stack.last().is_some_and(|&(_, c)| c > col) {
+            while nested_stack.last().is_some_and(|&(_, c, _)| c > col) {
                 nested_stack.pop();
             }
             if !nested_stack.is_empty() {
@@ -434,7 +544,7 @@ impl MD077ListContinuationIndent {
     /// heading would hide that marker from this check and let the reindent break
     /// idempotency. Lines already parsed as list items are real nested children,
     /// not latent, and are handled by the walk's `saw_nested` logic instead.
-    fn item_range_has_latent_structure(ctx: &LintContext, item_line: usize, range_end: usize) -> bool {
+    fn item_range_has_latent_structure(ctx: &NativeListSource<'_, '_>, item_line: usize, range_end: usize) -> bool {
         (item_line + 1..=range_end).any(|line_num| {
             ctx.line_info(line_num).is_some_and(|info| {
                 if info.is_blank || info.list_item.is_some() {
@@ -462,7 +572,7 @@ impl MD077ListContinuationIndent {
     /// tells an empty list item from the text it holds none of. A blank line
     /// needs no test of its own: blank means it holds nothing once its markers
     /// are stripped, which is the first thing the text predicate rejects.
-    fn is_latent_setext_underline(ctx: &LintContext, line_num: usize, trimmed: &str) -> bool {
+    fn is_latent_setext_underline(ctx: &NativeListSource<'_, '_>, line_num: usize, trimmed: &str) -> bool {
         crate::lint_context::is_setext_underline_content(trimmed)
             && ctx.line_info(line_num - 1).is_some_and(|prev| {
                 prev.is_paragraph_context() && crate::lint_context::is_paragraph_text_line(prev.content(ctx.content))
@@ -478,18 +588,12 @@ impl MD077ListContinuationIndent {
     /// snap to whichever valid column *they're already using* elsewhere in
     /// the same item. When neither or both columns are in use, the caller
     /// falls back to a canonical default.
-    fn sibling_column_usage(
-        ctx: &LintContext,
-        item_line: usize,
-        range_end: usize,
-        marker_col: usize,
-        content_col: usize,
-        task_col: usize,
-    ) -> (bool, bool) {
+    fn sibling_column_usage(ctx: &NativeListSource<'_, '_>, scope: &ItemScope, task_col: usize) -> (bool, bool) {
+        let content_col = scope.content_col;
         let mut uses_content = false;
         let mut uses_task = false;
 
-        Self::walk_item_continuation(ctx, item_line, range_end, marker_col, |line| {
+        Self::walk_item_continuation(ctx, scope, |line| {
             if line.actual == content_col {
                 uses_content = true;
             }
@@ -529,6 +633,225 @@ impl MD077ListContinuationIndent {
         }
     }
 
+    /// The opening line of every fenced block, and the other lines inside one.
+    fn fence_lines(
+        ctx: &NativeListSource<'_, '_>,
+        line_count: usize,
+    ) -> (std::collections::BTreeSet<usize>, std::collections::BTreeSet<usize>) {
+        let last_line = line_count.saturating_sub(1);
+        let line_of = |offset: usize| ctx.offset_to_line_col(offset).0.saturating_sub(1).min(last_line);
+        let mut openers = std::collections::BTreeSet::new();
+        let mut inside = std::collections::BTreeSet::new();
+        for block in ctx.code_block_details.iter().filter(|b| b.is_fenced) {
+            let first = line_of(block.start);
+            let last = line_of(block.end.saturating_sub(1).max(block.start));
+            openers.insert(first);
+            inside.extend(first + 1..=last);
+        }
+        (openers, inside)
+    }
+
+    /// Per line, whether Python-Markdown reads it as the start of a list item.
+    fn parser_marker_lines(ctx: &NativeListSource<'_, '_>) -> Option<Vec<bool>> {
+        use crate::utils::python_markdown_lists::{Source, marker_lines};
+        let lines: Vec<&str> = ctx.content.split('\n').collect();
+        let (openers, inside) = Self::fence_lines(ctx, lines.len());
+        let mut markers = marker_lines(&Source {
+            lines: &lines,
+            fence_openers: &openers,
+            fence_inside: &inside,
+        })?;
+        // The model knows lists, code and headings only. A line it reads as
+        // text counts as text only when the line above is plain prose it can
+        // judge; quotes, admonitions, tables, rules and the like are left to
+        // the indentation rules.
+        for (idx, marker) in markers.iter_mut().enumerate() {
+            if !*marker && idx > 0 && !Self::is_plain_prose(lines[idx - 1]) {
+                *marker = true;
+            }
+        }
+        let admonition = lines.iter().any(|l| {
+            let t = l.trim_start();
+            t.starts_with("!!! ") || t.starts_with("??? ") || t.starts_with("???+ ")
+        });
+        (!admonition).then_some(markers)
+    }
+
+    /// A line the list model reads the same way Python-Markdown does when it
+    /// is the line above a possible list marker.
+    fn is_plain_prose(line: &str) -> bool {
+        let t = line.trim();
+        if t.is_empty() {
+            return false;
+        }
+        let first = t.chars().next().unwrap_or(' ');
+        if matches!(first, '>' | '#' | ':' | '|' | '<' | '[' | '=' | '-' | '*' | '_' | '+') {
+            return false;
+        }
+        !t.contains('|') && !t.chars().next().is_some_and(|c| c.is_ascii_digit())
+    }
+
+    /// Withhold every fix that Python-Markdown would read as a different
+    /// document.
+    ///
+    /// The indentation rules above approximate how Python-Markdown nests list
+    /// items. This check does not rely on them: it applies the fixes, parses
+    /// the original and the fixed text with a model of Python-Markdown's list
+    /// parser, and keeps a fix only if every line stays the same kind of thing
+    /// (item marker, paragraph, code) and every paragraph and code block keeps
+    /// its lines. A paragraph moving under a different item is the intended
+    /// effect and passes; prose becoming code, a marker becoming text, or two
+    /// paragraphs merging does not. A region whose result differs keeps its
+    /// warnings and loses its fixes.
+    fn drop_unsafe_fixes(
+        ctx: &NativeListSource<'_, '_>,
+        warnings: &mut [LintWarning],
+        owners: &std::collections::HashMap<usize, usize>,
+    ) {
+        use crate::utils::python_markdown_lists::{Source, differing_regions, line_regions};
+        use std::collections::BTreeSet;
+
+        // A warning that inline configuration suppresses never reaches the fixer,
+        // so only the fixes that survive it are simulated.
+        let mut live: Vec<usize> = (0..warnings.len())
+            .filter(|&i| warnings[i].fix.is_some() && !ctx.is_rule_disabled("MD077", warnings[i].line))
+            .collect();
+        if live.is_empty() {
+            return;
+        }
+        // MkDocs removes the front matter before Python-Markdown sees the page.
+        let blank_front_matter = |lines: &mut Vec<&str>| {
+            for line in lines.iter_mut().take(ctx.front_matter_end_line()) {
+                *line = "";
+            }
+        };
+        let mut lines: Vec<&str> = ctx.content.split('\n').collect();
+        blank_front_matter(&mut lines);
+        let line_of = |offset: usize| {
+            ctx.offset_to_line_col(offset)
+                .0
+                .saturating_sub(1)
+                .min(lines.len().saturating_sub(1))
+        };
+        let (openers, inside) = Self::fence_lines(ctx, lines.len());
+        let before = Source {
+            lines: &lines,
+            fence_openers: &openers,
+            fence_inside: &inside,
+        };
+        let region_of = line_regions(&before);
+        let touched = |fix: &Fix| -> BTreeSet<usize> {
+            (line_of(fix.range.start)..=line_of(fix.range.end.max(fix.range.start)))
+                .map(|l| region_of[l])
+                .collect()
+        };
+
+        const MAX_ROUNDS: usize = 4;
+        for _ in 0..MAX_ROUNDS {
+            let mut ranges: Vec<(usize, &Fix)> = live
+                .iter()
+                .filter_map(|&i| warnings[i].fix.as_ref().map(|f| (i, f)))
+                .collect();
+            ranges.sort_by_key(|(_, f)| std::cmp::Reverse(f.range.start));
+            let mut fixed = ctx.content.to_string();
+            let mut floor = usize::MAX;
+            let mut overlapping = Vec::new();
+            for (i, fix) in ranges {
+                if fix.range.end <= floor && fix.range.end <= fixed.len() {
+                    fixed.replace_range(fix.range.clone(), &fix.replacement);
+                    floor = fix.range.start;
+                } else {
+                    overlapping.push(i);
+                }
+            }
+            // Fixes that overlap an applied one cannot be applied together
+            // with it, so they are withheld rather than simulated away.
+            if !overlapping.is_empty() {
+                for &i in &overlapping {
+                    warnings[i].fix = None;
+                }
+                live.retain(|i| !overlapping.contains(i));
+                if live.is_empty() {
+                    return;
+                }
+                continue;
+            }
+            let mut after_lines: Vec<&str> = fixed.split('\n').collect();
+            blank_front_matter(&mut after_lines);
+            let after = Source {
+                lines: &after_lines,
+                fence_openers: &openers,
+                fence_inside: &inside,
+            };
+            // The line each fixed line is meant to belong to, as a zero-based
+            // item marker line.
+            let mut owner_of_line: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+            for &i in &live {
+                let (Some(fix), Some(&owner)) = (warnings[i].fix.as_ref(), owners.get(&warnings[i].line)) else {
+                    continue;
+                };
+                for l in line_of(fix.range.start)..=line_of(fix.range.end.max(fix.range.start)) {
+                    owner_of_line.insert(l, owner.saturating_sub(1));
+                }
+            }
+            let bad = match differing_regions(&before, &after, &owner_of_line) {
+                Some(bad) if bad.is_empty() => return,
+                Some(bad) => bad,
+                None => break,
+            };
+            let kept: Vec<usize> = live
+                .iter()
+                .copied()
+                .filter(|&i| warnings[i].fix.as_ref().is_some_and(|f| touched(f).is_disjoint(&bad)))
+                .collect();
+            if kept.len() == live.len() {
+                break;
+            }
+            for &i in live.iter().filter(|i| !kept.contains(i)) {
+                warnings[i].fix = None;
+            }
+            live = kept;
+            if live.is_empty() {
+                return;
+            }
+        }
+        for i in live {
+            warnings[i].fix = None;
+        }
+    }
+
+    /// Whether Python-Markdown reads the line as an indented code block of the
+    /// item: after a blank line, four columns past the item's paragraph column.
+    /// Its levels differ from the parser's for an item whose marker sits less
+    /// than four columns past its parent's, so the parser's own code-block
+    /// classification does not cover every such line, and moving one would turn
+    /// code into a paragraph (or the reverse).
+    fn is_python_markdown_code(ctx: &NativeListSource<'_, '_>, scope: &ItemScope, line: &ContinuationLine<'_>) -> bool {
+        // Only the line right after a blank can open the code block; a deeper
+        // line further into a paragraph is that paragraph's continuation.
+        (scope.code_column.is_some_and(|column| line.actual >= column)
+            && ctx
+                .line_info(line.line_num - 1)
+                .is_some_and(|prev| Self::is_cm_blank(prev.content(ctx.content))))
+            || Self::is_python_markdown_nested_content(scope, line)
+    }
+
+    /// Whether Python-Markdown reads the line as content of the deeper item
+    /// written most recently above it: a line at that item's paragraph column or
+    /// past it, with no line between that fell back below the column and so
+    /// closed the item. The parser can leave such a line to the outer item when
+    /// the deeper item's content column lies past it (a wide marker, or a marker
+    /// sharing its line with another).
+    fn is_python_markdown_nested_content(scope: &ItemScope, line: &ContinuationLine<'_>) -> bool {
+        let above = scope
+            .nested
+            .partition_point(|&(item_line, ..)| item_line < line.line_num);
+        above
+            .checked_sub(1)
+            .and_then(|last| scope.nested.get(last))
+            .is_some_and(|&(_, column, closed_at)| line.actual >= column && line.line_num < closed_at)
+    }
+
     /// Check if a line should be skipped (inside code, HTML, frontmatter, etc.)
     ///
     /// Code block *content* is skipped, but fence opener/closer lines are not —
@@ -539,24 +862,36 @@ impl MD077ListContinuationIndent {
     /// list continuation, so its indentation is MD068's concern, not MD077's.
     /// Treating it as continuation produced false over-indent warnings and a
     /// damaging auto-fix that reindented the body and then tripped MD068.
-    fn should_skip_line(ctx: &LintContext, info: &LineInfo, trimmed: &str) -> bool {
+    fn should_skip_line(ctx: &NativeListSource<'_, '_>, info: &LineInfo, trimmed: &str) -> bool {
         if info.in_code_block && !Self::is_fence_delimiter(ctx, info, trimmed) {
             return true;
         }
-        info.in_front_matter
-            || info.in_footnote_definition
-            || info.in_html_block
-            || info.in_html_comment
-            || info.in_mdx_comment
-            || info.in_mkdocstrings
-            || info.in_esm_block
-            || info.in_math_block
-            || info.in_admonition
-            || info.in_content_tab
-            || info.in_pymdown_block
-            || info.in_definition_list
-            || info.in_mkdocs_html_markdown
-            || info.in_kramdown_extension_block
+        let structural = || {
+            info.in_front_matter
+                || info.in_footnote_definition
+                || info.in_html_block
+                || info.in_html_comment
+                || info.in_mdx_comment
+                || info.in_mkdocstrings
+                || info.in_esm_block
+                || info.in_math_block
+                || info.in_admonition
+                || info.in_content_tab
+                || info.in_pymdown_block
+                || info.in_definition_list
+                || info.in_mkdocs_html_markdown
+                || info.in_kramdown_extension_block
+        };
+        let protected = || {
+            ctx.is_byte_offset_in_code_span(info.byte_offset)
+                || ctx.is_in_code_span_byte_with_or_without_math(info.byte_offset)
+        };
+        // The structural flags settle opaque lines without source-range queries.
+        // The alternate reading remains mandatory for every eligible line.
+
+        // A line beginning inside a code span retains its literal whitespace:
+        // re-indenting it would change rendered code in either parser reading.
+        structural() || protected()
     }
 
     /// Build the warning for an over-indented continuation line. The fix is a
@@ -568,7 +903,7 @@ impl MD077ListContinuationIndent {
     /// over-indented fence's delimiters without its body would corrupt the code
     /// content, so over-indented fenced blocks are deliberately left as-is.
     fn build_over_indent_warning(
-        ctx: &LintContext,
+        ctx: &NativeListSource<'_, '_>,
         line: &ContinuationLine<'_>,
         fix_target: usize,
         message: String,
@@ -600,7 +935,7 @@ impl MD077ListContinuationIndent {
     /// this function pure — it reads from `ctx` only and returns a
     /// plain value.
     fn build_under_indent_warning(
-        ctx: &LintContext,
+        ctx: &NativeListSource<'_, '_>,
         line: &ContinuationLine<'_>,
         required: usize,
         message: String,
@@ -640,6 +975,44 @@ impl MD077ListContinuationIndent {
     }
 }
 
+/// A list item written on the same line as the item that holds it (`- 1. x`),
+/// as the columns a continuation has to reach to belong to it.
+#[derive(Clone, Copy)]
+struct SameLineItem {
+    marker_col: usize,
+    content_col: usize,
+    /// Nothing follows its marker on the line.
+    is_empty: bool,
+}
+
+/// One list item as MD077 scopes it, in visual columns.
+struct ItemScope {
+    item_line: usize,
+    marker_col: usize,
+    content_col: usize,
+    /// The post-checkbox column of a GFM task item.
+    task_col: Option<usize>,
+    /// The indent a continuation line has to reach.
+    required: usize,
+    /// Only lines without a blank line before them are enforced, because the
+    /// required column is one where Python-Markdown reads code after a blank.
+    tight_only: bool,
+    /// First column at which Python-Markdown reads the item's content as an
+    /// indented code block, or `None` outside the strict-indent flavors.
+    code_column: Option<usize>,
+    /// The items inside this one that Python-Markdown reads as items, as
+    /// (line, paragraph column, first line past the item's content), in line order; empty outside the strict-indent
+    /// flavors.
+    nested: Vec<(usize, usize, usize)>,
+    /// The last line the item can own.
+    range_end: usize,
+    /// Nothing follows the marker on its line, so the item holds at most one
+    /// blank line before its content.
+    starts_empty: bool,
+    /// The items written on this item's line inside it, outermost first.
+    same_line: Vec<SameLineItem>,
+}
+
 /// A continuation line yielded by `walk_item_continuation`. Bundles the
 /// per-line facts both checker branches need so helper functions don't
 /// balloon their argument lists.
@@ -664,23 +1037,30 @@ struct UnderIndentOutcome {
     also_flag_line: Option<usize>,
 }
 
-impl Rule for MD077ListContinuationIndent {
-    fn name(&self) -> &'static str {
-        "MD077"
+impl MD077ListContinuationIndent {
+    // Keep the native fixer authoritative: its stable descending replacements
+    // intentionally retain their existing overlap and line-ending semantics.
+    pub(crate) fn apply_native_fixes(content: &str, mut fixes: Vec<Fix>) -> String {
+        fixes.sort_by_key(|fix| std::cmp::Reverse(fix.range.start));
+        let mut content = content.to_string();
+        for fix in fixes {
+            if fix.range.start <= content.len() && fix.range.end <= content.len() {
+                content.replace_range(fix.range, &fix.replacement);
+            }
+        }
+        content
     }
 
-    fn description(&self) -> &'static str {
-        "List continuation content indentation"
-    }
-
-    fn check(&self, ctx: &LintContext) -> LintResult {
+    pub(crate) fn check_native_source(&self, ctx: &NativeListSource<'_, '_>) -> Vec<LintWarning> {
         if ctx.content.is_empty() {
-            return Ok(Vec::new());
+            return Vec::new();
         }
 
         let strict_indent = ctx.flavor.requires_strict_list_indent();
         let total_lines = ctx.lines.len();
         let mut warnings = Vec::new();
+        // The item whose scope produced the warning on each line.
+        let mut owners: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
         let mut flagged_lines = std::collections::HashSet::new();
 
         // Collect all list item lines sorted, with their content_column,
@@ -691,9 +1071,16 @@ impl Rule for MD077ListContinuationIndent {
         // We need the owned range to extend past block.end_line because the
         // parser excludes under-indented continuation from the block, and
         // MD077 specifically has to evaluate those escaped lines.
-        let mut items: Vec<(usize, usize, usize, Option<usize>)> = Vec::new();
-        for block in &ctx.list_blocks {
+        let mut items: Vec<(usize, CommonMarkItem, Option<usize>)> = Vec::new();
+        // The items each list item line opens, to find the ones written on the
+        // same line as another.
+        let mut chains: Vec<(usize, Vec<CommonMarkItem>)> = Vec::new();
+        // The list block each item line belongs to, so that nesting is only read
+        // between items of one block.
+        let mut block_of_line: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        for (block_idx, block) in ctx.list_blocks.iter().enumerate() {
             for &item_line in &block.item_lines {
+                block_of_line.insert(item_line, block_idx);
                 if let Some(info) = ctx.line_info(item_line)
                     && let Some(ref li) = info.list_item
                 {
@@ -706,15 +1093,32 @@ impl Rule for MD077ListContinuationIndent {
                     if info.blockquote.is_some() {
                         continue;
                     }
+                    // The container pass did not read this line as opening an
+                    // item, so its columns are unknown and nothing is judged
+                    // against a guess.
+                    if li.commonmark_items.is_empty() {
+                        continue;
+                    }
                     let line = info.content(ctx.content);
-                    let task_col = Self::is_task_list_item(line, li.content_column)
-                        .then_some(li.content_column + Self::TASK_CHECKBOX_PREFIX_LEN);
-                    items.push((item_line, li.marker_column, li.content_column, task_col));
+                    chains.push((item_line, li.commonmark_items.clone()));
+                    for item in &li.commonmark_items {
+                        let task_col = Self::is_task_at_column(line, item.content_column)
+                            .then_some(item.content_column + Self::TASK_CHECKBOX_PREFIX_LEN);
+                        items.push((item_line, *item, task_col));
+                    }
                 }
             }
         }
-        items.sort_unstable();
-        items.dedup_by_key(|&mut (ln, _, _, _)| ln);
+
+        // Every warning below belongs to a collected item or its continuation.
+        if items.is_empty() {
+            return warnings;
+        }
+
+        chains.sort_by_key(|&(line, _)| line);
+        chains.dedup_by_key(|&mut (line, _)| line);
+        items.sort_unstable_by_key(|&(line, item, _)| (line, item.marker_column));
+        items.dedup_by_key(|&mut (line, item, _)| (line, item.marker_column));
 
         // Precompute each item's owned-range end. The range ends at the line
         // before the next item whose marker column is <= this item's (its next
@@ -731,9 +1135,9 @@ impl Rule for MD077ListContinuationIndent {
         let mut range_ends = vec![total_lines; items.len()];
         let mut stack: Vec<usize> = Vec::new();
         for i in (0..items.len()).rev() {
-            let marker_col = items[i].1;
+            let marker_col = items[i].1.marker_column;
             while let Some(&top) = stack.last() {
-                if items[top].1 > marker_col {
+                if items[top].1.marker_column > marker_col {
                     stack.pop();
                 } else {
                     break;
@@ -743,35 +1147,84 @@ impl Rule for MD077ListContinuationIndent {
             stack.push(i);
         }
 
-        // Precompute each item's required indent and owned line range so both
-        // passes below scope identically.
-        let scoped: Vec<(usize, usize, usize, Option<usize>, usize, usize)> = items
-            .iter()
-            .enumerate()
-            .map(|(item_idx, &(item_line, marker_col, content_col, task_col))| {
-                // A configured indent replaces the content column, but under a
-                // flavor that requires strict list indentation it may only raise
-                // the 4-space minimum. That minimum is a compatibility floor
-                // rather than a style default: below it the renderer stops
-                // treating the line as continuation, so honoring a smaller
-                // configured value would make `fix` rewrite documents into a
-                // form the flavor's renderer no longer reads as part of the item.
-                let required = match self.config.indent {
-                    Some(indent) if strict_indent => (marker_col + indent).max(4),
-                    Some(indent) => marker_col + indent,
-                    None if strict_indent => content_col.max(4),
-                    None => content_col,
-                };
-                (
-                    item_line,
-                    marker_col,
-                    content_col,
-                    task_col,
-                    required,
-                    range_ends[item_idx],
-                )
-            })
-            .collect();
+        // Python-Markdown's nesting level of every item, and whether it reads the
+        // item as a list item at all. It reads a line's level as its indent
+        // divided by four, so an item that opens its line sits at `marker
+        // column / 4`, and each item written after another on the same line
+        // (`- - a`) one level deeper than the one before it. A level more than
+        // one below its parent's is no item for it, only text of the parent's
+        // paragraph, and neither is a marker with nothing after it; the items
+        // written directly under either are text too. The parent is the
+        // nearest earlier item of the same list block with a marker further left.
+        let mut pm_levels: Vec<usize> = Vec::with_capacity(items.len());
+        let mut pm_items: Vec<bool> = Vec::with_capacity(items.len());
+        let mut shared_line: Vec<bool> = Vec::with_capacity(items.len());
+        // Which lines Python-Markdown reads as an item marker: a list never
+        // starts in the middle of a paragraph, and an item's text can follow
+        // lines of the item above in the same block.
+        let parser_markers: Option<Vec<bool>> = strict_indent.then(|| Self::parser_marker_lines(ctx)).flatten();
+        // The level of the first item written on each item's line.
+        let mut head_levels: Vec<usize> = Vec::with_capacity(items.len());
+        let mut open: Vec<usize> = Vec::new();
+        for (i, &(item_line, item, _)) in items.iter().enumerate() {
+            let block = block_of_line.get(&item_line);
+            while open.last().is_some_and(|&top| {
+                items[top].1.marker_column >= item.marker_column || block_of_line.get(&items[top].0) != block
+            }) {
+                open.pop();
+            }
+            let (level, is_item) = match open.last() {
+                Some(&parent) if items[parent].0 == item_line => (pm_levels[parent] + 1, pm_items[parent]),
+                Some(&parent) => {
+                    let level = item.marker_column / 4;
+                    let after_blank = ctx
+                        .line_info(item_line - 1)
+                        .is_some_and(|prev| Self::is_cm_blank(prev.content(ctx.content)));
+                    // Text opens no list for what follows it directly, but a blank
+                    // line ends its paragraph, and the marker is then read against
+                    // the nearest item above it that is one.
+                    let anchor = if pm_items[parent] {
+                        Some(Some(parent))
+                    } else if after_blank {
+                        Some(open.iter().rev().copied().find(|&above| pm_items[above]))
+                    } else {
+                        None
+                    };
+                    let is_item = match anchor {
+                        None => false,
+                        // No item above: a list of its own, whose items sit at
+                        // the first level or are code.
+                        Some(None) => level <= items[parent].1.marker_column / 4,
+                        // An item written on its parent's line holds the text
+                        // after it in one paragraph: a deeper marker on the next
+                        // line only opens a list after a blank line.
+                        Some(Some(above)) if shared_line[above] => {
+                            level <= head_levels[above] + 1 || (after_blank && level <= pm_levels[above] + 1)
+                        }
+                        Some(Some(above)) => level <= items[above].1.marker_column / 4 + 1,
+                    };
+                    (level, is_item)
+                }
+                None => (item.marker_column / 4, true),
+            };
+            // A marker with nothing after it, not even a space, is text there,
+            // and so is a `)` ordered marker, which it does not know.
+            let raw = ctx.line_info(item_line).map(|info| info.content(ctx.content));
+            let bare = item.is_empty && raw.is_some_and(|line| !line.ends_with([' ', '\t']));
+            let paren = raw.is_some_and(|line| Self::is_paren_marker(line, item.marker_column));
+            let shared = open.last().filter(|&&parent| items[parent].0 == item_line);
+            shared_line.push(shared.is_some());
+            head_levels.push(shared.map_or(level, |&parent| head_levels[parent]));
+            let in_quote = ctx.line_info(item_line).is_some_and(|info| info.blockquote.is_some());
+            let read_as_marker = in_quote
+                || parser_markers
+                    .as_ref()
+                    .is_none_or(|markers| markers.get(item_line - 1).copied().unwrap_or(false));
+            let is_pm_item = is_item && read_as_marker && !bare && !paren;
+            pm_levels.push(level);
+            pm_items.push(is_pm_item);
+            open.push(i);
+        }
 
         // Precompute which lines can ever reach the per-line continuation
         // callback. `walk_item_continuation` unconditionally skips (regardless of
@@ -808,6 +1261,100 @@ impl Rule for MD077ListContinuationIndent {
             prose_candidate_lines.get(start).is_some_and(|&l| l <= range_end)
         };
 
+        // Precompute each item's required indent and owned line range so both
+        // passes below scope identically.
+        // The first line past each item that Python-Markdown still reads as the
+        // item's own content: the first non-blank line indented less than the
+        // item's paragraph column.
+        // Evaluated on demand: only the scopes that can produce a warning ask.
+        let closes: Vec<std::cell::OnceCell<usize>> = items.iter().map(|_| std::cell::OnceCell::new()).collect();
+        let close_of = |idx: usize| -> usize {
+            *closes[idx].get_or_init(|| {
+                let item_line = items[idx].0;
+                let column = 4 * (pm_levels[idx] + 1);
+                (item_line + 1..=total_lines)
+                    .find(|&line_num| {
+                        ctx.line_info(line_num).is_some_and(|info| {
+                            info.visual_indent < column && !Self::is_cm_blank(info.content(ctx.content))
+                        })
+                    })
+                    .unwrap_or(total_lines + 1)
+            })
+        };
+        let scoped: Vec<ItemScope> = items
+            .iter()
+            .enumerate()
+            .filter(|&(item_idx, _)| !strict_indent || pm_items[item_idx])
+            .map(|(item_idx, &(item_line, item, task_col))| {
+                let marker_col = item.marker_column;
+                let content_col = item.content_column;
+                // A configured indent replaces the content column, but under a
+                // flavor that requires strict list indentation it may only raise
+                // the 4-space minimum. That minimum is a compatibility floor
+                // rather than a style default: below it the renderer stops
+                // treating the line as continuation, so honoring a smaller
+                // configured value would make `fix` rewrite documents into a
+                // form the flavor's renderer no longer reads as part of the item.
+                // The minimum is four columns per nesting level: Python-Markdown
+                // reads an item's paragraphs at four columns past the item's own
+                // level, whatever the marker width.
+                let level_column = 4 * (pm_levels[item_idx] + 1);
+                let required = match self.config.indent {
+                    Some(indent) if strict_indent => (marker_col + indent).max(level_column),
+                    Some(indent) => marker_col + indent,
+                    None if strict_indent => content_col.max(level_column),
+                    None => content_col,
+                };
+                // No column is both inside the item for the parser and a paragraph
+                // for Python-Markdown when the required column is already where
+                // it starts reading code, so only the item's tight continuation
+                // lines can be enforced: after a blank line the column would
+                // turn the paragraph into code.
+                let tight_only = strict_indent && required >= level_column + 4;
+                // `chains` is sorted by line with one entry per item line.
+                let same_line = chains
+                    .binary_search_by_key(&item_line, |(line, _)| *line)
+                    .ok()
+                    .map(|at| &chains[at].1)
+                    .map(|chain| {
+                        chain
+                            .iter()
+                            .filter(|inner| inner.marker_column > marker_col)
+                            .map(|inner| SameLineItem {
+                                marker_col: inner.marker_column,
+                                content_col: inner.content_column,
+                                is_empty: inner.is_empty,
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                ItemScope {
+                    item_line,
+                    marker_col,
+                    content_col,
+                    task_col,
+                    required,
+                    tight_only,
+                    code_column: strict_indent.then_some(level_column + 4),
+                    nested: if strict_indent && range_has_prose_candidate(item_line, range_ends[item_idx]) {
+                        items[item_idx + 1..]
+                            .iter()
+                            .enumerate()
+                            .take_while(|&(_, &(line, _, _))| line <= range_ends[item_idx])
+                            .map(|(offset, &(line, _, _))| (line, item_idx + 1 + offset))
+                            .filter(|&(_, other)| pm_items[other])
+                            .map(|(line, other)| (line, 4 * (pm_levels[other] + 1), close_of(other)))
+                            .collect()
+                    } else {
+                        Vec::new()
+                    },
+                    range_end: range_ends[item_idx],
+                    starts_empty: item.is_empty,
+                    same_line,
+                }
+            })
+            .collect();
+
         // Pass 1 - under-indented continuation.
         //
         // Loose under-indent (after a blank line) sits below the content column
@@ -835,7 +1382,9 @@ impl Rule for MD077ListContinuationIndent {
         // shallower ancestor - before pass 2 can mis-attribute it to the
         // ancestor as an over-indent and snap it the wrong way.
         let aligned = self.config.style == ContinuationStyle::Aligned;
-        for &(item_line, marker_col, _content_col, _task_col, required, range_end) in &scoped {
+        for scope in &scoped {
+            let (item_line, marker_col, required, range_end) =
+                (scope.item_line, scope.marker_col, scope.required, scope.range_end);
             // No continuation candidate in this item's range: it cannot produce a
             // warning, so skip the walk (and the latent-structure scan) entirely.
             if !range_has_prose_candidate(item_line, range_end) {
@@ -862,8 +1411,11 @@ impl Rule for MD077ListContinuationIndent {
             // carries a renderer requirement, but a configured indent above
             // both is a house style, so it is reported as one.
             let from_configured_indent = self.config.indent.is_some_and(|indent| marker_col + indent == required);
-            Self::walk_item_continuation(ctx, item_line, range_end, marker_col, |line| {
+            Self::walk_item_continuation(ctx, scope, |line| {
                 let actual = line.actual;
+                if Self::is_python_markdown_code(ctx, scope, line) || (scope.tight_only && line.saw_blank) {
+                    return ControlFlow::Continue(());
+                }
                 let under_indented = actual < required;
                 let loose_escape = line.saw_blank && under_indented;
                 // Don't reindent a line the parser classified in place as a code
@@ -904,6 +1456,7 @@ impl Rule for MD077ListContinuationIndent {
                     if let Some(closer_line) = outcome.also_flag_line {
                         flagged_lines.insert(closer_line);
                     }
+                    owners.insert(outcome.warning.line, item_line);
                     warnings.push(outcome.warning);
                 }
                 ControlFlow::Continue(())
@@ -918,7 +1471,14 @@ impl Rule for MD077ListContinuationIndent {
         // content. Indented code blocks (content column + 4 or more) are also
         // `in_code_block`, so a blank line before such a body does not exempt
         // it from being recognized as code rather than over-indented prose.
-        for &(item_line, marker_col, content_col, task_col, required, range_end) in &scoped {
+        for scope in &scoped {
+            let (item_line, content_col, task_col, required, range_end) = (
+                scope.item_line,
+                scope.content_col,
+                scope.task_col,
+                scope.required,
+                scope.range_end,
+            );
             // No continuation candidate in this item's range: nothing to flag.
             if !range_has_prose_candidate(item_line, range_end) {
                 continue;
@@ -927,12 +1487,15 @@ impl Rule for MD077ListContinuationIndent {
             // can tie-break equidistant over-indents toward whichever valid
             // column the author is already using.
             let (uses_content_col, uses_task_col) = match task_col {
-                Some(t) => Self::sibling_column_usage(ctx, item_line, range_end, marker_col, content_col, t),
+                Some(t) => Self::sibling_column_usage(ctx, scope, t),
                 None => (false, false),
             };
 
-            Self::walk_item_continuation(ctx, item_line, range_end, marker_col, |line| {
+            Self::walk_item_continuation(ctx, scope, |line| {
                 let actual = line.actual;
+                if Self::is_python_markdown_code(ctx, scope, line) || (scope.tight_only && line.saw_blank) {
+                    return ControlFlow::Continue(());
+                }
                 if actual <= required {
                     return ControlFlow::Continue(());
                 }
@@ -952,7 +1515,9 @@ impl Rule for MD077ListContinuationIndent {
                             format!("Continuation line over-indented (expected {required}, found {actual})")
                         }
                     };
-                    warnings.push(Self::build_over_indent_warning(ctx, line, fix_target, message));
+                    let warning = Self::build_over_indent_warning(ctx, line, fix_target, message);
+                    owners.insert(warning.line, item_line);
+                    warnings.push(warning);
                 }
                 ControlFlow::Continue(())
             });
@@ -962,7 +1527,29 @@ impl Rule for MD077ListContinuationIndent {
         // returning - callers and tests expect document order.
         warnings.sort_by_key(|w| (w.line, w.column));
 
-        Ok(warnings)
+        if strict_indent {
+            Self::drop_unsafe_fixes(ctx, &mut warnings, &owners);
+        }
+
+        warnings
+    }
+}
+
+impl Rule for MD077ListContinuationIndent {
+    fn native_format_policy(&self) -> Option<crate::format_proof::NativeFormatPolicy> {
+        (self.config == Default::default()).then_some(crate::format_proof::NativeFormatPolicy::for_rule::<Self>(77))
+    }
+
+    fn name(&self) -> &'static str {
+        "MD077"
+    }
+
+    fn description(&self) -> &'static str {
+        "List continuation content indentation"
+    }
+
+    fn check(&self, ctx: &LintContext) -> LintResult {
+        Ok(self.check_native_source(&ctx.native_list_source()))
     }
 
     fn fix(&self, ctx: &LintContext) -> Result<String, LintError> {
@@ -973,18 +1560,17 @@ impl Rule for MD077ListContinuationIndent {
             return Ok(ctx.content.to_string());
         }
 
-        // Sort fixes by byte position descending to apply from end to start
-        let mut fixes: Vec<Fix> = warnings.into_iter().filter_map(|w| w.fix).collect();
-        fixes.sort_by_key(|f| std::cmp::Reverse(f.range.start));
+        let fixes: Vec<Fix> = warnings.into_iter().filter_map(|w| w.fix).collect();
+        Ok(Self::apply_native_fixes(ctx.content, fixes))
+    }
 
-        let mut content = ctx.content.to_string();
-        for fix in fixes {
-            if fix.range.start <= content.len() && fix.range.end <= content.len() {
-                content.replace_range(fix.range, &fix.replacement);
-            }
-        }
-
-        Ok(content)
+    fn fix_with_diagnostics(&self, ctx: &LintContext, warnings: &[LintWarning]) -> Result<String, LintError> {
+        let fixes = warnings
+            .iter()
+            .filter(|warning| crate::utils::fix_utils::warning_is_enabled(warning, ctx.inline_config(), self.name()))
+            .filter_map(|warning| warning.fix.clone())
+            .collect();
+        Ok(Self::apply_native_fixes(ctx.content, fixes))
     }
 
     fn category(&self) -> RuleCategory {
@@ -1150,7 +1736,7 @@ mod tests {
         // Four or more columns past the content column these lines cannot
         // interrupt the paragraph, so they are its text. At the content column
         // each would open a block instead: a fence, a blockquote, a setext
-        // heading, a thematic break or a table.
+        // heading, a thematic break, a table or an ATX heading.
         for construct in [
             "```",
             "```rust",
@@ -1161,10 +1747,24 @@ mod tests {
             "***",
             "_ _ _",
             "| x | y |\n      | - | - |",
+            "# A",
+            "###### A",
+            "## A ##",
+            "#\tA",
+            "#",
         ] {
             let content = format!("- a\n      {construct}\n");
             assert!(check(&content).is_empty(), "{content:?}: {:?}", check(&content));
             assert_eq!(fix(&content), content);
+        }
+    }
+
+    #[test]
+    fn hash_text_that_is_no_atx_heading_is_still_snapped_back() {
+        for text in ["#A", "####### A", "#5"] {
+            let content = format!("- a\n      {text}\n");
+            assert_eq!(check(&content).len(), 1, "{content:?}");
+            assert_eq!(fix(&content), format!("- a\n  {text}\n"));
         }
     }
 
@@ -1238,12 +1838,16 @@ mod tests {
 
         // A closing code fence is the case only the block flag can answer: its
         // text is indistinguishable from prose, and nothing but the block it
-        // sits in says the line cannot be a setext heading's text.
+        // sits in says the line cannot be a setext heading's text. The fence at
+        // the margin ends the item, so the underline below it is not the item's
+        // to move; only the lazy line above the fence is reported.
+        let warnings = check_aligned("- item\nwrap\n```\ncode\n```\n===\n");
         assert_eq!(
-            check_aligned("- item\nwrap\n```\ncode\n```\n===\n").len(),
-            2,
-            "a closing fence is not paragraph text, so both under-indents are reportable"
+            warnings.len(),
+            1,
+            "a closing fence is not paragraph text, so it holds nothing back: {warnings:?}"
         );
+        assert_eq!(warnings[0].line, 2);
 
         // An empty list item is the case only the line's own markers can answer:
         // it is written inside a paragraph context and holds no text at all, and
@@ -1299,6 +1903,78 @@ mod tests {
         let once = fix_aligned(input);
         let twice = fix_aligned(&once);
         assert_eq!(once, twice, "MD077 aligned fix must be idempotent");
+    }
+
+    fn fix_aligned_flavor(content: &str, flavor: MarkdownFlavor) -> String {
+        let ctx = LintContext::new(content, flavor, None);
+        aligned_rule().fix(&ctx).unwrap()
+    }
+
+    #[test]
+    fn aligned_text_after_a_margin_fence_is_not_the_items() {
+        // A fence at the margin cannot continue the item's paragraph, so it
+        // closes the item. The paragraph below it is top level: moving it four
+        // columns (the MkDocs requirement) would make it an indented code
+        // block, and the second pass would then read the line below it
+        // differently.
+        for input in [
+            "- A\n```\n\n```\n![`]()\n`",
+            "- \u{1d400}\n```\n\n```\n*`*\n**`**",
+            "- A\n```\nx\n```\ntext\nmore\n",
+        ] {
+            for flavor in [
+                MarkdownFlavor::Standard,
+                MarkdownFlavor::MkDocs,
+                MarkdownFlavor::Quarto,
+                MarkdownFlavor::MDX,
+            ] {
+                let ctx = LintContext::new(input, flavor, None);
+                let warnings = aligned_rule().check(&ctx).unwrap();
+                assert!(warnings.is_empty(), "{flavor:?} {input:?}: {warnings:?}");
+                assert_eq!(fix_aligned_flavor(input, flavor), input, "{flavor:?} {input:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn aligned_text_after_an_in_item_fence_is_not_the_items() {
+        // The fence closes inside the item, but the line below it sits left of
+        // the content column and no paragraph is open for it to continue.
+        let input = "- A\n  ```\n  x\n  ```\ntext\n";
+        for flavor in [MarkdownFlavor::Standard, MarkdownFlavor::MkDocs] {
+            assert_eq!(fix_aligned_flavor(input, flavor), input, "{flavor:?}");
+        }
+    }
+
+    #[test]
+    fn aligned_still_aligns_the_paragraph_before_a_margin_fence() {
+        // Positive control for the two tests above: the lazy lines before the
+        // fence are the item's paragraph and are still aligned, in each flavor's
+        // own column.
+        let input = "- A\nb\nc\n```\nx\n```\ntext\n";
+        assert_eq!(
+            fix_aligned_flavor(input, MarkdownFlavor::Standard),
+            "- A\n  b\n  c\n```\nx\n```\ntext\n"
+        );
+        assert_eq!(
+            fix_aligned_flavor(input, MarkdownFlavor::MkDocs),
+            "- A\n    b\n    c\n```\nx\n```\ntext\n"
+        );
+    }
+
+    #[test]
+    fn aligned_one_application_is_a_fixed_point_after_a_margin_fence() {
+        for flavor in [MarkdownFlavor::Standard, MarkdownFlavor::MkDocs, MarkdownFlavor::Quarto] {
+            for input in [
+                "- A\n```\n\n```\n![`]()\n`",
+                "- \u{1d400}\n```\n\n```\n*`*\n**`**",
+                "- A\nb\n```\n\n```\n![`]()\n`",
+            ] {
+                let once = fix_aligned_flavor(input, flavor);
+                let twice = fix_aligned_flavor(&once, flavor);
+                assert_eq!(once, twice, "{flavor:?} {input:?}");
+            }
+        }
     }
 
     // ── Tight continuation (no blank line) ─────────────────────────────
@@ -1578,6 +2254,502 @@ mod tests {
         let content = "1. Item\n\n   continuation\n";
         let fixed = fix_mkdocs(content);
         assert_eq!(fixed, "1. Item\n\n    continuation\n");
+        assert_eq!(fix_mkdocs(&fixed), fixed);
+    }
+
+    // ── MkDocs flavor: the 4-column rule applies per nesting level ────
+    //
+    // Python-Markdown reads a line's level as indent / 4 (at most one deeper
+    // than the open list), so an item at level L holds its paragraphs at
+    // 4 * (L + 1). Each document below was rendered with Python-Markdown 3.11
+    // and the layout it reads as continuation of the innermost item is
+    // asserted clean.
+
+    #[test]
+    fn mkdocs_nested_continuation_at_the_level_column_is_clean() {
+        for content in [
+            // <li>a<ul><li><p>b</p><p>text</p></li></ul></li>
+            "- a\n    - b\n\n        text\n",
+            // three levels
+            "- a\n    - b\n        - c\n\n            text\n",
+            // ordered, mixed ordered and bullet in both directions
+            "1. a\n    1. b\n\n        text\n",
+            "1. a\n    - b\n\n        text\n",
+            "- a\n    1. b\n\n        text\n",
+            // a sibling after a nested item holds its text at the same column
+            "- a\n    - b\n\n    - c\n\n        text\n",
+            // the item written on its parent's line is one level deeper
+            "- - a\n\n        text\n",
+            // and a sibling of that inner item shares its level
+            "- - a\n    - b\n\n        text\n",
+            // a fenced block at the level column
+            "- a\n    - b\n\n        ```\n        code\n        ```\n",
+        ] {
+            assert!(
+                check_mkdocs(content).is_empty(),
+                "{content:?}: {:?}",
+                check_mkdocs(content)
+            );
+            assert_eq!(fix_mkdocs(content), content);
+        }
+    }
+
+    #[test]
+    fn mkdocs_nested_continuation_below_the_level_column_moves_to_it() {
+        // Text at the CommonMark column of the nested item reads as a paragraph
+        // of the parent in Python-Markdown; the item's own column is 8.
+        for (content, fixed) in [
+            ("- a\n    - b\n\n      text\n", "- a\n    - b\n\n        text\n"),
+            (
+                "- a\n    - b\n        - c\n\n          text\n",
+                "- a\n    - b\n        - c\n\n            text\n",
+            ),
+            ("1. a\n    1. b\n\n       text\n", "1. a\n    1. b\n\n        text\n"),
+            ("- - a\n\n      text\n", "- - a\n\n        text\n"),
+        ] {
+            let warnings = check_mkdocs(content);
+            assert_eq!(warnings.len(), 1, "{content:?}: {warnings:?}");
+            assert!(warnings[0].message.contains("MkDocs"), "{}", warnings[0].message);
+            assert_eq!(fix_mkdocs(content), fixed);
+            assert!(check_mkdocs(fixed).is_empty(), "{fixed:?}");
+        }
+    }
+
+    #[test]
+    fn mkdocs_nested_over_indent_snaps_to_the_level_column() {
+        assert_eq!(
+            fix_mkdocs("- a\n    - b\n\n         text\n"),
+            "- a\n    - b\n\n        text\n"
+        );
+        let warnings = check_mkdocs("- a\n    - b\n\n         text\n");
+        assert_eq!(warnings.len(), 1);
+        assert!(
+            warnings[0].message.contains("expected 8, found 9"),
+            "{}",
+            warnings[0].message
+        );
+    }
+
+    #[test]
+    fn mkdocs_text_left_of_the_nested_marker_stays_with_the_parent() {
+        // Python-Markdown: a paragraph of `a`. Text at the nested marker's
+        // column is not the nested item's to claim.
+        let content = "- a\n    - b\n\n    text\n";
+        assert!(check_mkdocs(content).is_empty());
+        assert_eq!(fix_mkdocs(content), content);
+    }
+
+    #[test]
+    fn mkdocs_code_at_the_python_markdown_threshold_is_not_reindented() {
+        // `b` is a sibling of `a` for Python-Markdown (its marker is under four
+        // columns past `a`'s), so text at 8 is an indented code block there.
+        let content = "1. a\n   - b\n\n        text\n";
+        assert!(check_mkdocs(content).is_empty(), "{:?}", check_mkdocs(content));
+        assert_eq!(fix_mkdocs(content), content);
+        // The same under a configured indent that raises the requirement above
+        // the code column.
+        let rule = MD077ListContinuationIndent::from_config_struct(MD077Config {
+            indent: Some(6),
+            ..Default::default()
+        });
+        let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+        assert!(rule.check(&ctx).unwrap().is_empty());
+        assert_eq!(rule.fix(&ctx).unwrap(), content);
+    }
+
+    #[test]
+    fn mkdocs_over_indented_paragraph_continuation_is_not_code() {
+        // Only the first line after a blank can open Python-Markdown's code
+        // block; `text` continues the `para` paragraph (<p>para text</p>).
+        let content = "- a\n\n    para\n        text\n";
+        assert_eq!(check_mkdocs(content).len(), 1);
+        assert_eq!(fix_mkdocs(content), "- a\n\n    para\n    text\n");
+        let nested = "- a\n    - b\n\n        para\n            text\n";
+        assert_eq!(fix_mkdocs(nested), "- a\n    - b\n\n        para\n        text\n");
+    }
+
+    #[test]
+    fn mkdocs_item_python_markdown_does_not_read_is_not_judged() {
+        // `- b` sits two levels below `123456. a`, which Python-Markdown reads
+        // as text of the paragraph, so the line below is a code block whose
+        // literal indentation must stay.
+        for content in [
+            "123456. a\n        - b\n\n          text\n",
+            "-    a\n        - b\n\n            text\n",
+        ] {
+            assert!(
+                check_mkdocs(content).is_empty(),
+                "{content:?}: {:?}",
+                check_mkdocs(content)
+            );
+            assert_eq!(fix_mkdocs(content), content);
+        }
+    }
+
+    #[test]
+    fn mkdocs_bare_marker_is_not_an_item_for_python_markdown() {
+        // A marker with nothing after it is paragraph text, so the lines below
+        // are indented code (`<p>-    - b</p><pre><code>  text`) whose literal
+        // indentation must stay; the same marker followed by a space is an item.
+        for content in [
+            "-\n    - b\n\n      text\n",
+            "1.\n    - b\n\n      text\n",
+            "- a\n    -\n\n      text\n",
+            "-\n    -\n\n        text\n",
+        ] {
+            assert!(
+                check_mkdocs(content).is_empty(),
+                "{content:?}: {:?}",
+                check_mkdocs(content)
+            );
+            assert_eq!(fix_mkdocs(content), content);
+        }
+        for content in ["- \n    - b\n\n      text\n", "1. \n    - b\n\n      text\n"] {
+            assert_eq!(check_mkdocs(content).len(), 1, "{content:?}");
+        }
+    }
+
+    #[test]
+    fn mkdocs_bare_marker_does_not_unscope_a_later_list() {
+        // The list after the heading is a list of its own; the bare marker
+        // above it is not its parent.
+        let content = "-\n\n# Heading\n\n  - b\n\n     text\n";
+        assert_eq!(check_mkdocs(content).len(), 1, "{:?}", check_mkdocs(content));
+        assert_eq!(fix_mkdocs(content), "-\n\n# Heading\n\n  - b\n\n    text\n");
+    }
+
+    #[test]
+    fn mkdocs_paren_marker_is_not_an_item_for_python_markdown() {
+        // Python-Markdown renders `1) b` as text of `a`, so text at column 7 is
+        // a paragraph of `a` and text at column 8 is its code.
+        let paragraph = "- a\n    1) b\n\n       text\n";
+        assert!(check_mkdocs(paragraph).is_empty(), "{:?}", check_mkdocs(paragraph));
+        let code = "- a\n    1) b\n\n        text\n";
+        assert!(check_mkdocs(code).is_empty(), "{:?}", check_mkdocs(code));
+    }
+
+    #[test]
+    fn mkdocs_item_below_a_same_line_item_needs_the_written_marker_column() {
+        // Python-Markdown reads `- b` as text of `- a`: it is two levels past
+        // where the outer marker is written. The text at column 10 is a
+        // paragraph of that item.
+        let content = "1. - a\n        - b\n\n          text\n";
+        assert!(check_mkdocs(content).is_empty(), "{:?}", check_mkdocs(content));
+    }
+
+    #[test]
+    fn mkdocs_list_after_a_blank_line_below_a_text_marker_is_an_item() {
+        // `1) a` is a paragraph; after the blank line `  - b` opens a list of its
+        // own (<p>1) a</p><ul><li>b</li></ul><p>text</p>), so the three-column
+        // text escapes it and needs four. Its owner `- b` is a real item, so the
+        // fix re-parents the paragraph under it, as for any item.
+        for (content, fixed) in [
+            ("1) a\n\n  - b\n\n   text\n", "1) a\n\n  - b\n\n    text\n"),
+            ("-\n\n  - b\n\n   text\n", "-\n\n  - b\n\n    text\n"),
+        ] {
+            assert_eq!(check_mkdocs(content).len(), 1, "{content:?}");
+            assert_eq!(fix_mkdocs(content), fixed);
+            assert_eq!(fix_mkdocs(fixed), fixed);
+        }
+        // Without the blank line the marker line continues the paragraph, so
+        // nothing below it belongs to an item.
+        for content in ["1) a\n  - b\n\n   text\n", "-\n  - b\n\n   text\n"] {
+            assert!(check_mkdocs(content).is_empty(), "{content:?}");
+        }
+    }
+
+    #[test]
+    fn mkdocs_marker_under_a_padded_same_line_item_is_text_until_a_blank_line() {
+        // Python-Markdown: the inner item holds `- b` as text, whatever padding
+        // the outer marker has, so the 10-column text is a paragraph of it.
+        for content in [
+            "-   - a\n        - b\n\n          text\n",
+            "- - a\n        - b\n\n          text\n",
+        ] {
+            assert!(check_mkdocs(content).is_empty(), "{content:?}");
+        }
+        // After a blank line the same marker opens a list of its own, whose
+        // text sits at 12.
+        let content = "-   - a\n\n        - b\n\n            text\n";
+        assert!(check_mkdocs(content).is_empty(), "{content:?}");
+        assert_eq!(check_mkdocs("-   - a\n\n        - b\n\n          text\n").len(), 1);
+    }
+
+    #[test]
+    fn mkdocs_markers_under_a_same_line_chain_are_text_until_a_blank_line() {
+        // Python-Markdown: `- - b` is text of the innermost `a`, so the 12-column
+        // text is its paragraph and must stay.
+        let content = "- - - a\n        - - b\n\n            text\n";
+        assert!(check_mkdocs(content).is_empty(), "{:?}", check_mkdocs(content));
+        // After a blank line the marker is a sibling of the innermost item.
+        let content = "- - - a\n\n        - b\n\n            text\n";
+        assert!(check_mkdocs(content).is_empty(), "{:?}", check_mkdocs(content));
+    }
+
+    #[test]
+    fn mkdocs_list_after_an_unsupported_marker_nests_in_the_enclosing_item() {
+        // `1) b` is text of `a`; after the blank line `c` opens a list inside `a`
+        // (<li><p>a  1) b</p><ul><li><p>c</p><p>text</p></li></ul></li>), so the
+        // nine-column text moves to eight.
+        let content = "- a\n  1) b\n\n    - c\n\n         text\n";
+        assert_eq!(check_mkdocs(content).len(), 1);
+        assert_eq!(fix_mkdocs(content), "- a\n  1) b\n\n    - c\n\n        text\n");
+        // Two levels below `a` is code, which stays.
+        let code = "- a\n    1) b\n\n        - c\n\n            text\n";
+        assert!(check_mkdocs(code).is_empty(), "{:?}", check_mkdocs(code));
+    }
+
+    #[test]
+    fn mkdocs_text_at_a_deeper_item_paragraph_column_is_not_claimed_by_the_outer_item() {
+        // Python-Markdown: `text` is a paragraph of `b` (level 1), though the
+        // parser leaves it to `a`, whose content column lies below `b`'s. It
+        // stays a paragraph of `b`; only `b`'s own content column (9) is asked
+        // of it, never the 12 columns of `a`'s level.
+        let content = "- - - a\n      1. b\n\n        text\n";
+        let warnings = check_mkdocs(content);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(warnings[0].message.contains("needs 9"), "{}", warnings[0].message);
+        let fixed = fix_mkdocs(content);
+        assert_eq!(fixed, "- - - a\n      1. b\n\n         text\n");
+        assert!(check_mkdocs(&fixed).is_empty());
+    }
+
+    #[test]
+    fn mkdocs_nested_item_closed_by_a_shallower_line_no_longer_owns_later_text() {
+        // Python-Markdown: `para` at four columns closes `b`, so `para` and the
+        // over-indented `text` below it are one paragraph of `a`.
+        let content = "- a\n    - b\n\n    para\n        text\n";
+        let warnings = check_mkdocs(content);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(fix_mkdocs(content), "- a\n    - b\n\n    para\n    text\n");
+    }
+
+    /// Documents whose naive fix changes what Python-Markdown makes of a line:
+    /// the warning stays, the fix is withheld.
+    fn assert_mkdocs_warns_without_fix(content: &str) {
+        let warnings = check_mkdocs(content);
+        assert!(!warnings.is_empty(), "expected a warning for {content:?}");
+        assert!(
+            warnings.iter().all(|w| w.fix.is_none()),
+            "fix must be withheld for {content:?}: {warnings:?}"
+        );
+        assert_eq!(fix_mkdocs(content), content);
+    }
+
+    #[test]
+    fn mkdocs_fix_does_not_turn_prose_after_a_text_marker_into_code() {
+        // `1)` is text, so `text` is already a paragraph of the outer item;
+        // moving it to the inner item's column would make it indented code.
+        assert_mkdocs_warns_without_fix("- - a\n\n    1) b\n\n    text\n");
+        // Control: with no text line between, the same move only re-parents.
+        assert_eq!(fix_mkdocs("- - a\n\n    text\n"), "- - a\n\n        text\n");
+    }
+
+    #[test]
+    fn mkdocs_item_after_the_continuation_lines_of_the_item_above_is_an_item() {
+        // Python-Markdown splits the block at `- b`, so `text` (two columns in)
+        // falls out of that item and needs four; the owner `- b` is a real item,
+        // so the paragraph is re-parented under it.
+        assert_eq!(
+            fix_mkdocs("- a\n  continuation\n- b\n\n  text\n"),
+            "- a\n  continuation\n- b\n\n    text\n"
+        );
+        // Control: a marker line under plain paragraph text starts no list.
+        assert_eq!(check_mkdocs("para\n- b\n\n  text\n").len(), 0);
+        // A heading above is not paragraph text: the list
+        // after it is a list.
+        assert_eq!(check_mkdocs("# Heading\n- a\n\n  text\n").len(), 1);
+    }
+
+    #[test]
+    fn mkdocs_fix_is_withheld_when_it_would_change_how_later_lines_read() {
+        // Moving `a` one column makes the item own the indented line after it,
+        // which turns that code line into a nested list item.
+        assert_mkdocs_warns_without_fix("10. word two\n\n     1.\n\n   a\n\n      - word two\n");
+        assert_mkdocs_warns_without_fix(" - - word two\n\n    a\n          text\n\n           para\n");
+    }
+
+    #[test]
+    fn mkdocs_fix_is_withheld_when_it_would_change_code_text_or_a_quote() {
+        // Moving `text` lets the item own the code block after it, which
+        // loses four columns of the code's own indentation.
+        assert_mkdocs_warns_without_fix("- a\n    - b\n\n      text\n\n            code\n");
+        // The quote after `text` would become part of its paragraph.
+        assert_mkdocs_warns_without_fix("- a\n    - b\n\n      text\n    > quote\n");
+    }
+
+    #[test]
+    fn mkdocs_fix_is_withheld_around_a_single_hyphen_underline_and_a_split_code_span() {
+        // A lone `-` under `text` underlines it into a heading.
+        assert_mkdocs_warns_without_fix("- a\n    - b\n\n      text\n    - \n");
+        // The code span's second line keeps its own indentation, so moving only
+        // the lines around it changes the span's text.
+        assert_mkdocs_warns_without_fix("- a\n    - b\n\n      para\n         `one\n      two`\n");
+        // Backtick runs of different lengths on one line can nest, so the span
+        // that continues onto the next line cannot be told apart.
+        assert_mkdocs_warns_without_fix("- a\n    - b\n\n      `a `` b` c ``x\n      d`` e `f `` g`\n");
+        // Control: a span that closes on its own line moves with the paragraph.
+        assert_eq!(
+            fix_mkdocs("- a\n    - b\n\n      para `one`\n"),
+            "- a\n    - b\n\n        para `one`\n"
+        );
+    }
+
+    #[test]
+    fn mkdocs_fix_is_withheld_when_it_would_change_list_kind_or_tab_expansion() {
+        // At eight columns `text` ends the nested list differently: the ordered
+        // list below it would be absorbed into the bullet list and lose its numbers.
+        assert_mkdocs_warns_without_fix("- a\n    - b\n\n      text\n\n    1. ordered\n");
+        // A tab after the text expands to the next multiple of four columns, so
+        // re-indenting the fence changes the spaces the tab stands for.
+        assert_mkdocs_warns_without_fix("- a\n    - b\n\n      ```\n      a\tb\n      ```\n");
+    }
+
+    #[test]
+    fn mkdocs_fix_is_withheld_for_a_quote_after_an_earlier_quote_and_for_exotic_space() {
+        // The quote at the top of the document does not make the quote below the
+        // list safe to move text across: at eight columns it joins `text`.
+        assert_mkdocs_warns_without_fix("> intro\n\n- a\n    - b\n\n      text\n    > quote\n");
+        // A code block holding only a no-break space is a block for
+        // Python-Markdown; moving `text` would absorb it.
+        assert_mkdocs_warns_without_fix("- a\n    - b\n\n      text\n\n        \u{a0}\n");
+    }
+
+    #[test]
+    fn mkdocs_fix_is_withheld_below_a_whitespace_only_first_line() {
+        // The first line keeps its spaces, so `- - a` is text of a paragraph
+        // and `text` below it is code that a move would indent further.
+        assert_mkdocs_warns_without_fix("   \n- - a\n\n    text\n");
+        // Control: a whitespace-only line later in the document is blank.
+        assert_eq!(
+            fix_mkdocs("para\n\n   \n- - a\n\n    text\n"),
+            "para\n\n   \n- - a\n\n        text\n"
+        );
+    }
+
+    #[test]
+    fn mkdocs_fix_ignores_front_matter_and_is_withheld_around_abbreviation_definitions() {
+        // The front matter is removed before Python-Markdown reads the page, so
+        // its delimiters do not make the list below it unmodeled.
+        assert_eq!(
+            fix_mkdocs("---\ntitle: Example\n---\n\n- a\n\n  text\n"),
+            "---\ntitle: Example\n---\n\n- a\n\n    text\n"
+        );
+        // An abbreviation definition swallows the line below it, so moving that
+        // line turns it into code.
+        assert_mkdocs_warns_without_fix("- a\n    - b\n\n    *[X]: abbreviation\n      ## H\n");
+    }
+
+    #[test]
+    fn mkdocs_fix_is_judged_on_the_fixes_inline_configuration_leaves() {
+        // `one` is exempt, so only `two` would move, and that turns it into code.
+        let content = "- a\n    - b\n\n      one <!-- rumdl-disable-line MD077 -->\n\n      two\n";
+        let fixed = fix_mkdocs(content);
+        assert_eq!(fixed, content);
+    }
+
+    #[test]
+    fn mkdocs_fix_does_not_pull_a_fence_outside_the_list_into_it() {
+        // The two-column fence sits after the list; moving it under its item is
+        // the documented re-parenting, and the interior moves with it.
+        assert_eq!(
+            fix_mkdocs("- a\n\n  ```\n  code\n  ```\n"),
+            "- a\n\n    ```\n    code\n    ```\n"
+        );
+        // Inside the list the fence and its interior move together.
+        assert_eq!(
+            fix_mkdocs("- a\n    - b\n\n      ```\n      code\n      ```\n"),
+            "- a\n    - b\n\n        ```\n        code\n        ```\n"
+        );
+    }
+
+    #[test]
+    fn mkdocs_fix_is_withheld_around_constructs_the_model_does_not_read() {
+        // Each fix would change how Python-Markdown reads a later line: a
+        // reference definition is dropped from the text, a thematic break ends
+        // the paragraph before indented code, and an indented fence is plain
+        // text to it, so the list marker inside is a list.
+        for content in [
+            "- a\n    - b\n\n      more\n        [id]: url\n",
+            "- a\n    - b\n\n      ---\n          - c\n",
+            "- a\n    - b\n\n      ```\n\n        - c\n      ```\n",
+            "- a\n    - b\n\n     text\n      ===\n",
+            "- a\n    - b\n\n      text\n  <!-- x -->\n            code\n",
+            "- a\n    - b\n\n      ```\n        ***\n      ```\n",
+        ] {
+            assert_eq!(fix_mkdocs(content), content, "{content:?}");
+        }
+    }
+
+    #[test]
+    fn mkdocs_fix_is_withheld_for_a_fence_whose_lines_do_not_share_a_column() {
+        // Python-Markdown reads the indented fence as a paragraph and keeps
+        // each line's leading spaces inside the inline code span.
+        let content = "- a\n    - b\n\n      ```\n        code\n      code\n```\n";
+        assert_eq!(fix_mkdocs(content), content);
+        assert!(check_mkdocs(content).iter().all(|w| w.fix.is_none()));
+    }
+
+    #[test]
+    fn mkdocs_warnings_never_carry_overlapping_fixes() {
+        // The caller applies every fix it is given by its original offsets, so
+        // two fixes over the same bytes would duplicate text.
+        let content = "- a\n    - b\n\n     ```\n       ```\n         ```\n";
+        let mut ranges: Vec<_> = check_mkdocs(content)
+            .iter()
+            .filter_map(|w| w.fix.as_ref().map(|f| f.range.clone()))
+            .collect();
+        ranges.sort_by_key(|r| r.start);
+        for pair in ranges.windows(2) {
+            assert!(pair[0].end <= pair[1].start, "{ranges:?}");
+        }
+    }
+
+    #[test]
+    fn mkdocs_fence_on_the_items_own_line_keeps_the_item() {
+        // Python-Markdown reads the marker line as an item whose text is
+        // inline code, so the five-column paragraph below still needs four.
+        let content = "- ```\n  code\n  ```\n\n     text\n";
+        assert_eq!(check_mkdocs(content).len(), 1, "{:?}", check_mkdocs(content));
+    }
+
+    #[test]
+    fn mkdocs_wide_marker_still_enforces_tight_continuation() {
+        // The column a loose paragraph would need is where code starts, but a
+        // tight continuation line has no such constraint.
+        assert_eq!(
+            fix_mkdocs("123456. a\n         continuation\n"),
+            "123456. a\n        continuation\n"
+        );
+    }
+
+    #[test]
+    fn mkdocs_paren_marker_after_a_tab_is_found_by_column() {
+        // The tab puts `x)` at column 4; byte offsets would read `x)` as `)`.
+        let content = "- a\n\t- x) b\n\n         text\n";
+        assert_eq!(check_mkdocs(content).len(), 1, "{:?}", check_mkdocs(content));
+    }
+
+    #[test]
+    fn mkdocs_configured_indent_cannot_go_below_the_level_column() {
+        let rule = MD077ListContinuationIndent::from_config_struct(MD077Config {
+            indent: Some(2),
+            ..Default::default()
+        });
+        let content = "- a\n    - b\n\n      text\n";
+        let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+        assert_eq!(rule.fix(&ctx).unwrap(), "- a\n    - b\n\n        text\n");
+        let clean = "- a\n    - b\n\n        text\n";
+        let ctx = LintContext::new(clean, MarkdownFlavor::MkDocs, None);
+        assert!(rule.check(&ctx).unwrap().is_empty());
+    }
+
+    #[test]
+    fn standard_flavor_keeps_the_content_column_for_nested_items() {
+        // Control: the per-level rule is Python-Markdown's only.
+        let content = "- a\n    - b\n\n      text\n";
+        assert!(check(content).is_empty());
+        assert_eq!(fix("- a\n    - b\n\n        text\n"), "- a\n    - b\n\n      text\n");
     }
 
     // ── Nested lists: only flag continuation, not sub-items ───────────
@@ -2021,6 +3193,7 @@ mod tests {
         let content = "- Item\n\n  continuation\n";
         let fixed = fix_mkdocs(content);
         assert_eq!(fixed, "- Item\n\n    continuation\n");
+        assert_eq!(fix_mkdocs(&fixed), fixed);
     }
 
     #[test]
@@ -2038,6 +3211,7 @@ mod tests {
         let content = "1. Item\n\n   ```toml\n   key = \"val\"\n   ```\n";
         let fixed = fix_mkdocs(content);
         assert_eq!(fixed, "1. Item\n\n    ```toml\n    key = \"val\"\n    ```\n");
+        assert_eq!(fix_mkdocs(&fixed), fixed);
     }
 
     // ── Empty document / whitespace-only ──────────────────────────────
@@ -3490,5 +4664,164 @@ mod tests {
         // The over-indent direction deliberately leaves fenced blocks alone.
         let content = "1. Configure:\n\n       ```json\n       {\n        \"a\": 1\n       }\n       ```\n";
         assert_eq!(fix(content), content);
+    }
+
+    /// Documents MD077 has nothing to say about, with the same result under both
+    /// styles: every continuation sits where CommonMark puts the item's content.
+    fn assert_untouched(content: &str) {
+        assert!(check(content).is_empty(), "{content:?}: {:?}", check(content));
+        assert_eq!(fix(content), content, "{content:?}");
+        assert!(
+            check_aligned(content).is_empty(),
+            "{content:?}: {:?}",
+            check_aligned(content)
+        );
+        assert_eq!(fix_aligned(content), content, "{content:?} (aligned)");
+    }
+
+    #[test]
+    fn mkdocs_aligned_fix_settles_when_a_number_follows_re_indented_prose() {
+        // `29.` continues the paragraph; indenting the line above it must not
+        // turn it into a list item on the second pass.
+        let content = "# \n`?`\n<span>x</span>\n- X\n![t](u)\n29. y\n*z*";
+        let once = fix_aligned_flavor(content, MarkdownFlavor::MkDocs);
+        assert_eq!(
+            fix_aligned_flavor(&once, MarkdownFlavor::MkDocs),
+            once,
+            "{content:?} -> {once:?}"
+        );
+    }
+
+    /// An exact re-indent that settles: fixing the result changes nothing.
+    fn assert_fixed(content: &str, expected: &str) {
+        assert_eq!(fix(content), expected, "{content:?}");
+        assert_eq!(fix(expected), expected, "{content:?} is not idempotent");
+    }
+
+    #[test]
+    fn bare_marker_content_sits_one_column_past_the_marker() {
+        for content in [
+            "-\n  a\n",
+            "+\n  a\n",
+            "*\n  a\n  b\n",
+            "1.\n   a\n",
+            "10.\n    a\n",
+            "1)\n   a\n",
+            "- x\n\n  -\n    a\n",
+            "-\n  foo\n-\n  ```\n  bar\n  ```\n-\n      baz\n",
+            "-\n  a\n\n  b\n",
+        ] {
+            assert_untouched(content);
+        }
+    }
+
+    #[test]
+    fn bare_marker_item_followed_by_a_fence_keeps_the_text_after_it() {
+        // The fence is the first content, so the blank line after it no longer
+        // ends the item, and `after` belongs to it.
+        assert_untouched("-\n  ```\n  x\n  ```\n\n  after\n");
+        assert_untouched("1.\n   ```\n   x\n   ```\n\n   after\n");
+    }
+
+    #[test]
+    fn bare_marker_over_indent_still_snaps_back() {
+        assert_fixed("-\n    a\n", "-\n  a\n");
+        assert_fixed("1.\n     a\n", "1.\n   a\n");
+        // Four columns past the content column is indented code.
+        assert_untouched("-\n      a\n");
+    }
+
+    #[test]
+    fn bare_marker_item_holds_at_most_one_blank_line_before_its_content() {
+        // The item is empty, so whatever follows is outside it and is not
+        // pulled in.
+        for content in ["-\n\n  a\n", "-\n\n a\n", "1.\n\n   a\n", "-\n a\n"] {
+            assert_untouched(content);
+        }
+        // Once the item has content, a blank line no longer closes it.
+        assert_fixed("-\n  a\n\n b\n", "-\n  a\n\n  b\n");
+    }
+
+    #[test]
+    fn tab_after_the_marker_is_measured_in_columns() {
+        assert_untouched("-\tx\n\n\ty\n");
+        assert_untouched("1.\tx\n\n\ty\n");
+        assert_untouched("-\tx\n\n    y\n");
+        assert_fixed("-\tx\n\n  y\n", "-\tx\n\n    y\n");
+        assert_fixed("-\tx\n\n\t y\n", "-\tx\n\n    y\n");
+    }
+
+    #[test]
+    fn indented_code_first_puts_the_content_one_column_past_the_marker() {
+        assert_untouched("-     t\n\n  y\n");
+        assert_untouched("-     t\n\n      y\n");
+        assert_untouched("1.     t\n\n   y\n");
+        assert_fixed("-     t\n\n y\n", "-     t\n\n  y\n");
+        assert_fixed("1.     t\n\n  y\n", "1.     t\n\n   y\n");
+    }
+
+    #[test]
+    fn checkbox_text_in_indented_code_is_not_a_task() {
+        // `[ ] task` is the code, so there is no post-checkbox column.
+        assert_fixed("-     [ ] task\n\n     y\n", "-     [ ] task\n\n  y\n");
+    }
+
+    #[test]
+    fn items_written_on_one_line_each_own_their_continuation() {
+        for content in [
+            "- 1. x\n\n     y\n",
+            "1. -\n     f\n",
+            "- 1. ```\n     ```\n     b\n",
+            "- - a\n    ---\n",
+            "- - a\n\n    b\n",
+            "- 1. x\n\n  y\n",
+        ] {
+            assert_untouched(content);
+        }
+        assert_fixed("- 1. x\n\n      y\n", "- 1. x\n\n     y\n");
+    }
+
+    #[test]
+    fn items_written_on_one_line_keep_their_task_columns() {
+        for content in ["- - [ ] task\n        wrap\n", "- - [ ] task\n    wrap\n"] {
+            assert_untouched(content);
+        }
+        assert_untouched("- [ ] t\n\n      w\n");
+    }
+
+    #[test]
+    fn an_empty_inner_item_closes_at_the_blank_line() {
+        // The inner item has no content, so `a` belongs to the outer one.
+        assert_fixed("- -\n\n    a\n", "- -\n\n  a\n");
+        // Once the inner item has content, a blank line keeps it open.
+        assert_untouched("- -\n    a\n\n    b\n");
+    }
+
+    #[test]
+    fn text_that_commonmark_does_not_treat_as_a_marker_or_blank_is_content() {
+        // Only the outer item opens, so `y` is judged against column 2.
+        assert_fixed(
+            "- \u{661}\u{662}\u{663}\u{664}. x\n\n   y\n",
+            "- \u{661}\u{662}\u{663}\u{664}. x\n\n  y\n",
+        );
+        assert_untouched("-  \u{a0}\n   a\n\n   y\n");
+        assert_untouched("- -\n    \u{a0}\n\n    b\n");
+    }
+
+    #[test]
+    fn intended_reindents_still_happen() {
+        assert_fixed("- e\n\n t\n", "- e\n\n  t\n");
+        assert_fixed("1. a\n\n  b\n", "1. a\n\n   b\n");
+        assert_fixed("- a\n\n    b\n", "- a\n\n  b\n");
+        assert_eq!(fix_aligned("- a\n b\n"), "- a\n  b\n");
+        assert_eq!(check("- e\n\n t\n").len(), 1);
+    }
+
+    #[test]
+    fn whitespace_at_the_start_of_a_line_inside_a_code_span_is_kept() {
+        assert_untouched("- > para\n  `a\n  \tb`\n");
+        assert_untouched("- x\n\n  `a\n      b`\n");
+        // A span closed on the previous line does not shield the next line.
+        assert_fixed("- x\n\n  `a`\n     b\n", "- x\n\n  `a`\n  b\n");
     }
 }

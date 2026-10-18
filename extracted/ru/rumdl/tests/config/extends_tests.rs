@@ -1265,6 +1265,44 @@ fn test_extends_valid_glob_pattern_survives_a_withheld_one() {
     );
 }
 
+/// The load-time validity check reads a key the way the caches do, with `\` as
+/// an escape: a dangling escape does not compile and is withheld, while an
+/// escaped bracket is a valid key and stays.
+#[test]
+#[serial_test::serial]
+#[cfg(not(windows))]
+fn test_extends_per_file_keys_are_validated_with_the_escape_reading() {
+    let dir = tempdir().unwrap();
+    let target_dir = dir.path().join("secrets");
+    fs::create_dir(&target_dir).unwrap();
+    let _guard = EnvVarGuard::set("RUMDL_TEST_EXTENDS_ESCAPE_DIR", &target_dir);
+
+    let base = target_dir.join("base.rumdl.toml");
+    fs::write(
+        &base,
+        "[per-file-ignores]\n'docs\\' = [\"MD013\"]\n'\\[x\\].md' = [\"MD041\"]\n\n\
+         [per-file-flavor]\n'docs\\' = \"mkdocs\"\n'\\[x\\].md' = \"mkdocs\"\n",
+    )
+    .unwrap();
+
+    let child = dir.path().join("child.rumdl.toml");
+    fs::write(&child, "extends = '$RUMDL_TEST_EXTENDS_ESCAPE_DIR/base.rumdl.toml'\n").unwrap();
+
+    let config = load_config(&child).unwrap();
+    assert_eq!(
+        config.per_file_ignores.keys().map(String::as_str).collect::<Vec<_>>(),
+        vec![r"\[x\].md"],
+        "{:?}",
+        config.per_file_ignores
+    );
+    assert_eq!(
+        config.per_file_flavor.keys().map(String::as_str).collect::<Vec<_>>(),
+        vec![r"\[x\].md"],
+        "{:?}",
+        config.per_file_flavor
+    );
+}
+
 /// The file walk prints an `include`/`exclude` pattern it cannot compile, on a
 /// channel no logging level gates. A pattern out of an extends target has to
 /// reach neither.
@@ -1317,6 +1355,62 @@ fn test_extends_invalid_walk_patterns_are_withheld() {
             "a directly named config should still name the invalid {setting} pattern, got: {directly}"
         );
     }
+}
+
+/// A negated `exclude` pattern out of an extends target is reported withheld like
+/// any other pattern text, and exactly once.
+#[test]
+fn test_extends_negated_exclude_pattern_is_reported_without_its_text() {
+    let dir = tempdir().unwrap();
+    let target_dir = dir.path().join("secrets");
+    fs::create_dir(&target_dir).unwrap();
+
+    let negated = format!("!{SECRET}");
+    let base = target_dir.join("base.rumdl.toml");
+    fs::write(&base, format!("[global]\nexclude = [\"{negated}\"]\n")).unwrap();
+
+    let child = dir.path().join("child.rumdl.toml");
+    fs::write(&child, "extends = '$RUMDL_TEST_EXTENDS_NEGATED_DIR/base.rumdl.toml'\n").unwrap();
+    fs::write(dir.path().join("doc.md"), "# Title\n").unwrap();
+
+    let run = |config: &std::path::Path| -> String {
+        let output = std::process::Command::new(env!("CARGO_BIN_EXE_rumdl"))
+            .args(["check", "--no-cache", "--config"])
+            .arg(config)
+            .current_dir(dir.path())
+            .env("RUMDL_TEST_EXTENDS_NEGATED_DIR", &target_dir)
+            .output()
+            .expect("failed to run the rumdl binary");
+        String::from_utf8_lossy(&output.stderr).into_owned()
+    };
+
+    let through_extends = run(&child);
+    assert!(
+        !through_extends.contains(SECRET),
+        "the warning echoed a pattern read out of the extends target: {through_extends}"
+    );
+    assert_eq!(
+        through_extends.matches("Invalid exclude pattern in").count(),
+        1,
+        "reported once, got: {through_extends}"
+    );
+    assert!(
+        through_extends.contains("Invalid exclude pattern in") && through_extends.contains("<withheld>"),
+        "the reason has to be withheld like any other pattern text, got: {through_extends}"
+    );
+    assert!(
+        !through_extends.contains("does not negate") && !through_extends.contains(".markdownlintignore"),
+        "nothing about the pattern, not even that it starts with a bang, may be said, got: {through_extends}"
+    );
+
+    // Positive control, and proof this harness can see the pattern at all: the
+    // same file named directly has its pattern quoted back, once.
+    let directly = run(&base);
+    assert!(
+        directly.contains(&negated) && directly.contains("does not negate") && directly.contains(".markdownlintignore"),
+        "a directly named config should quote the pattern and give the migration, got: {directly}"
+    );
+    assert_eq!(directly.matches("Invalid exclude pattern").count(), 1, "{directly}");
 }
 
 /// Dropping an invalid walk pattern must not drop the valid ones beside it, and
@@ -1815,7 +1909,7 @@ fn test_extends_unknown_code_block_tool_is_withheld() {
         "the warning echoed a tool id read out of the extends target: {through_extends}"
     );
     assert!(
-        through_extends.contains("Unknown tool <withheld> configured for language <withheld>"),
+        through_extends.contains("Unknown tool in code-block-tools.languages.<withheld>.lint: <withheld>"),
         "the problem still has to be reported: {through_extends}"
     );
 

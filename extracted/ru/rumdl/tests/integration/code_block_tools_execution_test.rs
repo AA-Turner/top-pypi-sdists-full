@@ -2,11 +2,18 @@
 //!
 //! These run the real external tool through the real `rumdl` binary and assert the
 //! tool actually lints/formats a fenced code block as expected, rather than only
-//! checking the registry command string. Each test is gated on the tool being
-//! installed (`tool_available`), so it runs wherever the tool exists (locally, or any
-//! CI that installs it) and skips otherwise. This is what would have caught the
+//! checking the registry command string. External-tool compatibility tests are gated
+//! on the tool being installed (`tool_available`), so they run wherever the tool
+//! exists and skip otherwise. This is what would have caught the
 //! shuck (no stdin), eslint (needs a config), and shellcheck (missing `--shell`)
 //! problems before they shipped.
+//! Safety regressions using native fixtures run unconditionally, including the Bun
+//! script-collision guard; separate real-Bun tests retain installed-tool gating.
+//!
+//! Set `RUMDL_REQUIRE_CODE_BLOCK_TOOLS=1` when selecting provisioned tools in CI:
+//! their tests must fail rather than return early if executable discovery fails.
+//! A comma-separated list instead requires only those executable names, allowing
+//! the full harness to retain skips for tools the job intentionally omits.
 //!
 //! ## Adding a built-in tool
 //!
@@ -26,6 +33,9 @@ use std::path::Path;
 use std::process::Command;
 use tempfile::TempDir;
 
+#[path = "../support/native_tool.rs"]
+mod native_tool;
+
 /// True if `tool` is on PATH and can be executed (not broken).
 fn tool_available(tool: &str) -> bool {
     let finder = if cfg!(windows) { "where" } else { "which" };
@@ -41,6 +51,11 @@ fn tool_available(tool: &str) -> bool {
 
     // Tool-specific verification to handle wrappers or broken installations
     match tool {
+        "bun" => Command::new("bun")
+            .args(["fmt", "--help"])
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false),
         "terraform" => {
             // terraform version returns success and contains "Terraform"
             Command::new("terraform")
@@ -148,9 +163,29 @@ fn format(config_lang: &str, tool: &str, lang_tag: &str, code: &str) -> String {
     fs::read_to_string(dir.path().join("t.md")).unwrap()
 }
 
+fn tool_is_required(tool: &str, required: Option<&str>) -> bool {
+    required.is_some_and(|required| required == "1" || required.split(',').any(|name| name.trim() == tool))
+}
+
+#[test]
+fn required_tools_distinguish_provisioned_and_optional_executables() {
+    assert!(tool_is_required("black", Some("1")));
+    assert!(tool_is_required("black", Some("ruff, black,clang-format")));
+    assert!(tool_is_required("clang-format", Some("ruff, black,clang-format")));
+    assert!(!tool_is_required("bun", Some("ruff,black")));
+    assert!(!tool_is_required("ruff", Some("ruff-format")));
+    assert!(!tool_is_required("black", Some("")));
+    assert!(!tool_is_required("black", None));
+}
+
 macro_rules! require_tool {
     ($tool:expr) => {
         if !tool_available($tool) {
+            assert!(
+                !tool_is_required($tool, std::env::var("RUMDL_REQUIRE_CODE_BLOCK_TOOLS").ok().as_deref()),
+                "required code-block tool `{}` is missing or cannot be executed",
+                $tool
+            );
             eprintln!("skipping: `{}` not installed", $tool);
             return;
         }
@@ -795,6 +830,126 @@ fn builtin_linter_in_format_slot_leaves_the_block_alone() {
     );
 }
 
+const BUN_SCRIPT_COLLISIONS: &[(&str, &str)] = &[
+    ("package.json", r#"{"scripts":{"fmt":"echo incorrect output"}}"#),
+    ("fmt.ts", "console.log('incorrect output')"),
+    ("node_modules/.bin/fmt", "console.log('incorrect output')"),
+];
+
+fn assert_bun_script_guard(dir: &Path, path: &str, source: &str) {
+    let markdown = dir.join("t.md");
+    let original = fs::read_to_string(&markdown).unwrap();
+    let entry = dir.join(path);
+    fs::create_dir_all(entry.parent().unwrap()).unwrap();
+    fs::write(entry, source).unwrap();
+    let result = run(dir, &["fmt", "--no-cache", "t.md"]);
+    assert!(result.contains("instead of the built-in formatter"), "{path}: {result}");
+    assert_eq!(fs::read_to_string(markdown).unwrap(), original, "{path}");
+}
+
+fn install_recording_bun(dir: &Path) -> std::path::PathBuf {
+    let tool = native_tool::install(dir, "quiet");
+    let bun = tool.with_file_name(format!("bun{}", std::env::consts::EXE_SUFFIX));
+    fs::rename(&tool, &bun).unwrap();
+    fs::rename(tool.with_extension("mode"), bun.with_extension("mode")).unwrap();
+    fs::write(bun.with_extension("record"), "").unwrap();
+    bun
+}
+
+#[test]
+fn bun_fmt_does_not_run_a_project_script_or_replace_code_with_its_output() {
+    // Availability is checked before the executor's guard. Project-only lookup
+    // makes this regression unconditional even when system Bun is installed.
+    for &(path, source) in BUN_SCRIPT_COLLISIONS {
+        let dir = setup("javascript", "format", "bun-fmt", "javascript", "const x=1");
+        let bun = install_recording_bun(dir.path());
+        let config_path = dir.path().join(".rumdl.toml");
+        let config = fs::read_to_string(&config_path).unwrap();
+        assert!(
+            config.starts_with("[code-block-tools]\n"),
+            "setup must start with the code-block-tools table so project-only lookup is applied"
+        );
+        let config = config.replacen(
+            "[code-block-tools]\n",
+            "[code-block-tools]\nbinary-preferences = { bun = \"only-project\" }\n",
+            1,
+        );
+        fs::write(config_path, config).unwrap();
+        assert_bun_script_guard(dir.path(), path, source);
+        assert!(!bun.with_extension("calls").exists(), "{path}: Bun was launched");
+    }
+}
+
+#[test]
+fn bun_fixture_records_an_invocation_before_processing_fmt() {
+    let dir = tempfile::tempdir().unwrap();
+    let bun = install_recording_bun(dir.path());
+    assert!(!bun.with_extension("calls").exists());
+    let output = Command::new(&bun)
+        .arg("fmt")
+        .stdin(std::process::Stdio::null())
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    assert_eq!(output.stdout, b"incorrect output\n");
+    assert_eq!(fs::read_to_string(bun.with_extension("calls")).unwrap(), "ran\n");
+}
+
+#[test]
+fn real_bun_fmt_does_not_run_a_project_script_or_replace_code_with_its_output() {
+    // Any Bun version suffices: older versions can resolve `fmt` to a project script.
+    let bun_runs = Command::new("bun")
+        .arg("--version")
+        .output()
+        .is_ok_and(|output| output.status.success());
+    if !bun_runs {
+        eprintln!("skipping: `bun` not installed");
+        return;
+    }
+    for &(path, source) in BUN_SCRIPT_COLLISIONS {
+        let dir = setup("javascript", "format", "bun-fmt", "javascript", "const x=1");
+        assert_bun_script_guard(dir.path(), path, source);
+    }
+}
+
+/// Each parser variant exercises both formatting and lint-by-comparison.
+const BUN_FORMAT_SAMPLES: &[(&str, &str, &str)] = &[
+    ("bun-fmt", "javascript", "const x=1"),
+    ("bun-fmt:js", "javascript", "const x=1"),
+    ("bun-fmt:ts", "typescript", "const x:number=1"),
+    ("bun-fmt:jsx", "jsx", "const x=<div a={1+2}/>"),
+    ("bun-fmt:tsx", "tsx", "const x=<div a={1+2}/>"),
+    ("bun-fmt:json", "json", "{\"x\":1}"),
+    ("bun-fmt:jsonc", "jsonc", "{\"x\":1}"),
+    ("bun-fmt:json5", "json5", "{x:1}"),
+    ("bun-fmt:css", "css", "a{color:red}"),
+    ("bun-fmt:scss", "scss", "a{color:red}"),
+    ("bun-fmt:less", "less", "a{color:red}"),
+    ("bun-fmt:html", "html", "<div  class = \"x\"><span>x</span></div>"),
+    ("bun-fmt:vue", "vue", "<template><div  class = \"x\">x</div></template>"),
+    ("bun-fmt:yaml", "yaml", "a: [1,2]"),
+    ("bun-fmt:toml", "toml", "a=1"),
+    ("bun-fmt:graphql", "graphql", "query{user{id}}"),
+    ("bun-fmt:markdown", "markdown", "*italic*"),
+    ("bun-fmt:mdx", "mdx", "<Card value={1+2}/>"),
+];
+
+#[test]
+fn bun_formats_and_checks_fenced_code_in_each_supported_language() {
+    require_tool!("bun");
+    for &(tool, language, source) in BUN_FORMAT_SAMPLES {
+        let findings = lint(language, tool, language, source);
+        assert!(findings.contains(NOT_FORMATTED), "{tool}: {findings}");
+        let formatted_document = format(language, tool, language, source);
+        let formatted = fenced_block(&formatted_document);
+        assert_ne!(formatted, source, "{tool} did not format the sample");
+        assert!(formatted_document.starts_with("# T\n\n"));
+        let findings = lint(language, tool, language, &formatted);
+        assert!(!findings.contains(NOT_FORMATTED), "{tool}: {findings}");
+        assert!(!findings.contains("Tool '"), "{tool}: {findings}");
+    }
+}
+
 // ---- coverage gate --------------------------------------------------------
 
 /// Built-in tool ids with a dedicated `lint`-slot execution test above.
@@ -927,8 +1082,16 @@ fn every_builtin_tool_is_verified_or_exempt() {
     use std::collections::BTreeSet;
 
     let registry: BTreeSet<&str> = rumdl_lib::code_block_tools::builtin_tool_ids().into_iter().collect();
-    let verified_lint: BTreeSet<&str> = VERIFIED_LINT.iter().copied().collect();
-    let verified_format: BTreeSet<&str> = VERIFIED_FORMAT.iter().copied().collect();
+    let verified_lint: BTreeSet<&str> = VERIFIED_LINT
+        .iter()
+        .copied()
+        .chain(BUN_FORMAT_SAMPLES.iter().map(|sample| sample.0))
+        .collect();
+    let verified_format: BTreeSet<&str> = VERIFIED_FORMAT
+        .iter()
+        .copied()
+        .chain(BUN_FORMAT_SAMPLES.iter().map(|sample| sample.0))
+        .collect();
     let exempt: BTreeSet<&str> = EXEMPT.iter().map(|(id, _)| *id).collect();
 
     let verified: BTreeSet<&str> = verified_lint.union(&verified_format).copied().collect();

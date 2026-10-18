@@ -6,10 +6,19 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from sqlbuild.compiler.compile.models import CompiledSqlTest, InferredColumn
+from sqlbuild._native import (
+    CompiledSqlTest,
+    ConstantDeclaration,
+    EnumDeclaration,
+    InferredColumn,
+    Model,
+    ModelSql,
+    ProjectPath,
+    RuleFactViews,
+    fact_error_digest,
+    fact_value_digest,
+)
 from sqlbuild.compiler.compile.types import CompiledAuditView
-from sqlbuild.compiler.discovery.models import ConstantDeclaration, EnumDeclaration
-from sqlbuild.rule_engine._helpers.engine.fact_replay import fact_error_digest, fact_value_digest
 from sqlbuild.rule_engine.classes.fact_reads import FactReads
 from sqlbuild.rule_engine.constants import (
     FACT_AUDITS_ALL,
@@ -42,8 +51,6 @@ from sqlbuild.rule_engine.constants import (
     FACT_TREE_RELATIVE_PARTS,
     FACT_TREE_RESOURCES_UNDER,
 )
-from sqlbuild.rule_engine.exceptions import FactDigestError
-from sqlbuild.rule_engine.models import Model, ModelSql, ProjectPath, RuleFactViews
 
 
 class _TrackedView:
@@ -130,10 +137,7 @@ class _TrackedProjectTree(_TrackedView):
 
 
 def _digest_or_none(*, value: object = None, error: Exception | None = None) -> str | None:
-    try:
-        return fact_value_digest(value) if error is None else fact_error_digest(error)
-    except FactDigestError:
-        return None
+    return fact_value_digest(value) if error is None else fact_error_digest(error)
 
 
 class _TrackedProjectFacts(_TrackedView):

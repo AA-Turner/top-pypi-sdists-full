@@ -28,6 +28,7 @@ from nab_index.client import SdistHashMismatchError, extract_sdist_archive
 from nab_index.httpx_async_transport import HttpxAsyncTransport
 from nab_index.multi_index import IndexConfig
 from nab_index.transport import HttpError
+from nab_markersets._compat import get_int_max_str_digits
 from nab_project import _sources as sources
 from nab_project._sources import _fetch_archive_bytes, _SourceCopyError
 from nab_project._testing.coordinator_fake import make_coordinator
@@ -53,6 +54,10 @@ from nab_provider.provider import (
     UnsupportedSdistError,
 )
 from nab_provider.target import ResolveTarget
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -105,7 +110,7 @@ def _half(data: bytes) -> bytes:
 
 
 # A digit run just past CPython's int-from-string limit.
-_OVERSIZED_DIGITS = "1" * sys.get_int_max_str_digits() + "1"
+_OVERSIZED_DIGITS = "1" * (get_int_max_str_digits() or 4300) + "1"
 
 
 def _pax_sparse_map_sdist(sparse_map: str) -> bytes:
@@ -1450,7 +1455,10 @@ class TestExtractArchive:
             gzip.compress(b"not a tar"),
             _half(_make_sdist("foo", "1.0.0", _PYPROJECT)),
             _corrupt_deflate_sdist(),
-            _pax_sparse_map_sdist(_OVERSIZED_DIGITS + ",1"),
+            pytest.param(
+                _pax_sparse_map_sdist(_OVERSIZED_DIGITS + ",1"),
+                marks=requires_int_limit,
+            ),
             _pax_sparse_map_sdist("nope,1"),
         ],
         ids=[

@@ -71,9 +71,9 @@ class KemonoExtractor(Extractor):
             root_thmb = self.root.replace("://", "://img.") + "/thumbnail/data"
 
         if duplicates := self.config("duplicates"):
-            if isinstance(duplicates, str):
+            if duplicates.__class__ is str:
                 duplicates = set(duplicates.split(","))
-            elif isinstance(duplicates, (list, tuple)):
+            elif duplicates.__class__ is list:
                 duplicates = set(duplicates)
             else:
                 duplicates = {"file", "attachment", "inline"}
@@ -119,7 +119,7 @@ class KemonoExtractor(Extractor):
             if comments:
                 post["comments"] = cmts = self.api.creator_post_comments(
                     service, creator_id, post["id"])
-                if not isinstance(cmts, list):
+                if cmts.__class__ is not list:
                     self.log.debug("%s/%s: %s", creator_id, post["id"], cmts)
                     post["comments"] = ()
             if dms is not None:
@@ -264,7 +264,7 @@ class KemonoExtractor(Extractor):
             "attachments": self._attachments,
             "inline"     : self._inline,
         }
-        if isinstance(filetypes, str):
+        if filetypes.__class__ is str:
             filetypes = filetypes.split(",")
         return [genmap[ft] for ft in filetypes]
 
@@ -340,7 +340,7 @@ class KemonoExtractor(Extractor):
         return revs
 
     def _revision_hash(self, revision):
-        if isinstance(revision["file"], str):
+        if revision["file"].__class__ is str:
             revision["file"] = util.json_loads(revision["file"])
             revision["attachments"] = [
                 util.json_loads(a) for a in revision["attachments"]]

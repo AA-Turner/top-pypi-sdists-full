@@ -28,6 +28,7 @@ from .crypt import (
     StandardSecurityHandler,
 )
 from .crypt.api import PdfMacStatus
+from .decode_limits import DecodeContext, DecodeLimits, DecodePurpose
 from .metadata.info import view_from_info_dict
 from .metadata.model import DocumentMetadata
 from .misc import PdfReadError, PdfStrictReadError
@@ -178,7 +179,12 @@ class PdfFileReader(PdfHandler):
     has_xref_stream = False
     xrefs: XRefCache
 
-    def __init__(self, stream, strict: bool = True):
+    def __init__(
+        self,
+        stream,
+        strict: bool = True,
+        decode_limits: DecodeLimits | None = None,
+    ):
         """
         Initializes a PdfFileReader object.  This operation can take some time,
         as the PDF stream's cross-reference tables are read into memory.
@@ -188,9 +194,20 @@ class PdfFileReader(PdfHandler):
         :param bool strict: Determines whether user should be warned of all
             problems and also causes some correctable problems to be fatal.
             Defaults to ``True``.
+        :param decode_limits:
+            Limits to apply when decoding streams in this document.
+            If not specified, the defaults in :class:`.DecodeLimits` apply,
+            which are intended for documents from untrusted sources.
+            Pass :meth:`.DecodeLimits.for_trusted_input` to disable all limits.
+
+            .. versionadded:: 0.38.0
         """
         self._security_handler: SecurityHandler | None = None
         self.strict = strict
+        stream.seek(0, os.SEEK_END)
+        self._decode_context = DecodeContext(
+            decode_limits or DecodeLimits(), input_size=stream.tell()
+        )
         self.resolved_objects: dict[tuple[int, int], generic.PdfObject] = {}
         self._header_version = None
         self._input_version = None
@@ -205,6 +222,10 @@ class PdfFileReader(PdfHandler):
         self.has_xref_stream = xref_builder.has_xref_stream
 
         self._embedded_signatures = None
+
+    @property
+    def decode_context(self) -> DecodeContext:
+        return self._decode_context
 
     @property
     def security_handler(self):
@@ -267,7 +288,7 @@ class PdfFileReader(PdfHandler):
                 raise PdfStrictReadError("Object stream does not contain index")
             else:
                 return generic.NullObject()
-        stream_data = BytesIO(stream.data)
+        stream_data = BytesIO(stream.read_data(DecodePurpose.OBJECT_STREAM))
         first_object = stream['/First']
         for i in range(stream['/N']):
             try:
@@ -871,10 +892,18 @@ class HistoricalResolver(PdfHandler):
         id_arr = self._trailer['/ID']
         return id_arr[0].original_bytes, id_arr[1].original_bytes
 
+    @property
+    def decode_context(self) -> DecodeContext:
+        return self._decode_context
+
     def __init__(self, reader: PdfFileReader, revision):
         self.cache: dict[generic.Reference, generic.PdfObject] = {}
         self.reader = reader
         self.revision = revision
+        # A historical revision re-decodes streams that the current revision
+        # may already have decoded, so charging those to the reader's budget
+        # would make validating multi-revision documents fail spuriously.
+        self._decode_context = reader.decode_context.fresh()
         self._trailer = self.reader.trailer.flatten(self.revision)
         self._trailer.container_ref = generic.TrailerReference(self)
         self._indirect_object_access_cache: (
@@ -1095,7 +1124,6 @@ class HistoricalResolver(PdfHandler):
             cur_path: misc.ConsList[str | int],
             seen_in_path: misc.ConsList[generic.Reference],
             *,
-            is_page_tree,
             page_tree_objs,
             is_struct_tree,
             struct_tree_objs,
@@ -1119,7 +1147,15 @@ class HistoricalResolver(PdfHandler):
                 collected[obj_ref].add(cur_path)
                 seen_in_path = seen_in_path.cons(obj_ref)
                 obj = self(obj_ref)
-                if not is_page_tree and obj_ref in page_tree_objs:
+                # Only enter a page tree node via its canonical path through
+                # the tree. Following any other reference into it (e.g. link
+                # destinations pointing to other pages, or a /Kids array that
+                # is not part of the page tree) blows up the number of paths
+                # combinatorially in documents with many cross-page links.
+                # Checking the path structurally is not enough, since
+                # anything can contain a /Kids entry.
+                canonical_path = page_tree_objs.get(obj_ref, cur_path)
+                if cur_path != canonical_path:
                     return
                 if not is_struct_tree and obj_ref in struct_tree_objs:
                     return
@@ -1134,12 +1170,6 @@ class HistoricalResolver(PdfHandler):
                         v,
                         cur_path.cons(k),
                         seen_in_path,
-                        is_page_tree=is_page_tree
-                        or (
-                            cur_path.head == '/Root'
-                            and k == '/Pages'
-                            and cur_path.tail == misc.ConsList.empty()
-                        ),
                         page_tree_objs=page_tree_objs,
                         # for the struct tree: we definitely want to
                         # consider the /ParentTree as an "external" feature
@@ -1162,20 +1192,20 @@ class HistoricalResolver(PdfHandler):
                         v,
                         cur_path.cons(ix),
                         seen_in_path,
-                        is_page_tree=is_page_tree,
                         page_tree_objs=page_tree_objs,
                         is_struct_tree=is_struct_tree,
                         struct_tree_objs=struct_tree_objs,
                     )
 
-        def _collect_page_tree_refs(pages_obj):
-            for kid in pages_obj['/Kids']:
+        def _collect_page_tree_refs(pages_obj, path):
+            for ix, kid in enumerate(pages_obj['/Kids']):
+                kid_path = path.cons('/Kids').cons(ix)
                 # should always be true, but hey
                 if isinstance(kid, generic.IndirectObject):
-                    yield kid.reference
+                    yield kid.reference, kid_path
                 kid = kid.get_object()
                 if kid.get('/Type', None) == '/Pages':
-                    yield from _collect_page_tree_refs(kid)
+                    yield from _collect_page_tree_refs(kid, kid_path)
 
         def _collect_struct_tree_refs(struct_elem):
             try:
@@ -1211,13 +1241,18 @@ class HistoricalResolver(PdfHandler):
                 yield from _collect_struct_tree_refs(child)
 
         pages_ref = self.root.raw_get('/Pages')
-        page_tree_nodes = set()
-        for ref in _collect_page_tree_refs(pages_obj=pages_ref.get_object()):
+        pages_path = misc.ConsList.sing('/Root').cons('/Pages')
+        page_tree_nodes = {}
+        if isinstance(pages_ref, generic.IndirectObject):
+            page_tree_nodes[pages_ref.reference] = pages_path
+        for ref, path in _collect_page_tree_refs(
+            pages_ref.get_object(), pages_path
+        ):
             if ref in page_tree_nodes:
                 raise misc.PdfReadError(
                     "Circular reference in page tree in mapping stage"
                 )
-            page_tree_nodes.add(ref)
+            page_tree_nodes[ref] = path
         struct_tree_nodes = set()
         try:
             struct_tree_root_ref = self.root.raw_get('/StructTreeRoot')
@@ -1234,7 +1269,6 @@ class HistoricalResolver(PdfHandler):
             self.trailer_view,
             misc.ConsList.empty(),
             misc.ConsList.empty(),
-            is_page_tree=False,
             page_tree_objs=page_tree_nodes,
             is_struct_tree=False,
             struct_tree_objs=struct_tree_nodes,

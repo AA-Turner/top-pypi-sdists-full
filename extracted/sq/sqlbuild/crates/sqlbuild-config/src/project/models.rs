@@ -25,7 +25,7 @@ pub struct ConfigPaths {
 pub enum Built {
     /// A plain value, including `None`, booleans, integers and raw authored mappings.
     Value(ConfigValue),
-    /// A dataclass from `sqlbuild.spec.contracts.models`; omitted fields keep their defaults.
+    /// A native project configuration record; omitted fields keep their defaults.
     Object(&'static str, Vec<(&'static str, Built)>),
     /// A member of a named `StrEnum`, by value.
     Enum(&'static str, String),
@@ -37,4 +37,21 @@ pub enum Built {
     FrozenSet(Vec<String>),
     /// `Decimal(str(value))` of an integer or float.
     Decimal(ConfigValue),
+}
+
+/// A setting value as help text shows it in TOML.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SettingText {
+    Bool(bool),
+    /// An integer, as its decimal text.
+    Integer(String),
+    Text(String),
+}
+
+/// Where a setting lives: its file name, TOML section and key.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SettingSite<'a> {
+    pub file_name: &'a str,
+    pub section: &'a str,
+    pub key: &'a str,
 }

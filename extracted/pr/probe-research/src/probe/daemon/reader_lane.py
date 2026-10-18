@@ -618,9 +618,10 @@ class ReaderLane:
                 return run.result
 
         message, saved, outcome, stopped = "", None, Outcome.NOTHING, None
-        cursor_to, stop_exc = last_seq, None
+        cursor_to, stop_exc, ended = last_seq, None, False
         try:
             result = await asyncio.wait_for(go(), timeout=wall + READ_GRACE_S)
+            ended = True  # the model ended the turn with final_result
             message = (result.output.message or "").strip()
             saved = worker_mod._dump_messages(result.all_messages())
         except UnexpectedModelBehavior as exc:
@@ -644,6 +645,11 @@ class ReaderLane:
                 # only as far as the first try reached; anything newer gets its own.
                 stopped, outcome, stop_exc = agent_mod.ANSWERED_NOTHING, Outcome.STOPPED, exc
                 cursor_to = min(last_seq, int(tried.get("last_seq") or last_seq))
+            elif agent_mod.tool_retries_spent(exc):
+                # A tool kept failing (the Probe MCP down or over a quota): a failed
+                # turn -- the cursor stays and the next try backs off -- never prose
+                # that would pass the events over as read.
+                return self._turn_failed(turn_id, exc, state, spent)
             else:
                 # Prose instead of final_result, past the library's retries: for an ask the
                 # prose is the answer; a turn on its own drops it (counted).
@@ -700,6 +706,12 @@ class ReaderLane:
         # reader bench, recall equal).
         too_big = _too_big(seen.get("run"), state.context_tokens)
         why = stopped or state.limit_why or state.detector.tripped
+        if why and ended and state.limit_kind is agent_mod.TurnLimit.SIZE and state.detector.tripped is None:
+            # The size guard's planned end, and the model ended the turn itself: not
+            # a stuck reader (strand-ai 2026-10-17: 18 rounds of lookups, then its
+            # answer, pinged as "reader turn stopped: 180,000 tokens").
+            log.info("reader: turn wrapped up at %s", why)
+            why = None
         write_status(self.sid, Status.TURN_STOPPED if why else Status.OK, why or "")
         if why:
             alerts.report(alerts.Kind.READER_STOPPED, session_id=self.sid, lane=LANE_READ, exc=stop_exc,

@@ -11,6 +11,7 @@ except ImportError as e:
     ) from e
 
 from dataclasses import dataclass
+from math import prod
 from typing import Any, Dict, List, Optional
 
 from ..common import SingleGroup
@@ -44,6 +45,12 @@ if hasattr(paddle, "float8_e5m2"):
 if hasattr(paddle, "float8_e4m3fn"):
     dtype_convert[DType.F8_E4M3] = paddle.float8_e4m3fn
 
+_fst_dtypes = {
+    native: dtype
+    for dtype, native in dtype_convert.items()
+    if dtype not in (DType.U16, DType.U32, DType.U64)
+}
+
 
 @dataclass
 class PaddleTensor(TensorBase):
@@ -51,6 +58,28 @@ class PaddleTensor(TensorBase):
 
     def get_raw(self) -> paddle.Tensor:
         return self.real_tensor
+
+    def get_shape(self) -> List[int]:
+        return list(self.real_tensor.shape)
+
+    def get_nbytes(self) -> int:
+        return prod(self.get_shape()) * paddle_core.size_of_dtype(
+            self.real_tensor.dtype
+        )
+
+    def copy_to_buffer(self, buf: memoryview) -> None:
+        if self.get_nbytes() == 0:
+            return
+        raw = (
+            self.real_tensor.detach()
+            .contiguous()
+            .reshape([-1])
+            .view(paddle.uint8)
+            .cpu()
+            .numpy()
+        )
+        with memoryview(raw) as view:
+            buf[:] = view.cast("B")
 
     def contiguous(self) -> "PaddleTensor":
         return PaddleTensor(self.device, self.dtype, self.real_tensor.contiguous())
@@ -103,9 +132,17 @@ class PaddleProcessGroup(ProcessGroupBase[PaddleTensor]):
     def rank(self) -> int:
         return self.real_pg.process_group.rank() if self.real_pg else 0
 
+    def _to_global(self, rank: int) -> int:
+        # Callers pass ranks within the group; pdist takes global ranks.
+        assert self.real_pg is not None
+        ranks = self.real_pg.ranks
+        if not 0 <= rank < len(ranks):
+            raise ValueError(f"rank {rank} is not in the process group")
+        return ranks[rank]
+
     def broadcast(self, dst: PaddleTensor, rank: int) -> None:
         if self.real_pg:
-            pdist.broadcast(dst.real_tensor, rank, group=self.real_pg)
+            pdist.broadcast(dst.real_tensor, self._to_global(rank), group=self.real_pg)
             # Synchronize to ensure the NCCL broadcast (which runs on
             # the NCCL internal stream) is fully visible on the default
             # compute stream before callers read the tensor data.
@@ -123,7 +160,7 @@ class PaddleProcessGroup(ProcessGroupBase[PaddleTensor]):
             pdist.scatter(
                 dst.real_tensor,
                 tensor_list=sl,
-                src=src,
+                src=self._to_global(src),
                 group=self.real_pg,
             )
             # Synchronize to ensure the NCCL scatter (which runs on
@@ -139,7 +176,7 @@ class PaddleProcessGroup(ProcessGroupBase[PaddleTensor]):
         tag: int,
     ) -> None:
         if self.real_pg:
-            pdist.send(t.real_tensor, dst_rank, group=self.real_pg)
+            pdist.send(t.real_tensor, self._to_global(dst_rank), group=self.real_pg)
             # Synchronize to ensure the NCCL recv (which runs on
             # the NCCL internal stream) is fully visible on the default
             # compute stream before callers read the tensor data.
@@ -153,7 +190,7 @@ class PaddleProcessGroup(ProcessGroupBase[PaddleTensor]):
         tag: int,
     ) -> None:
         if self.real_pg:
-            pdist.recv(t.real_tensor, src_rank, group=self.real_pg)
+            pdist.recv(t.real_tensor, self._to_global(src_rank), group=self.real_pg)
             # Synchronize to ensure the NCCL recv (which runs on
             # the NCCL internal stream) is fully visible on the default
             # compute stream before callers read the tensor data.
@@ -234,6 +271,15 @@ class PaddleOp(FrameworkOpBase[PaddleTensor, PaddleProcessGroup]):
         paddle.assign(src.real_tensor, output=dst.real_tensor)
         dst.dtype = src.dtype
         dst.device = src.device
+
+    def wrap_tensor(self, tensor: paddle.Tensor) -> PaddleTensor:
+        if tensor.place.is_cpu_place():
+            device = Device(DeviceType.CPU)
+        elif tensor.place.is_gpu_place():
+            device = Device(DeviceType.GPU, tensor.place.gpu_device_id())
+        else:
+            raise ValueError(f"unsupported tensor place: {tensor.place}")
+        return PaddleTensor(device, _fst_dtypes[tensor.dtype], tensor)
 
     def get_cuda_ver(self) -> str:
         """Get GPU runtime version with platform indicator.

@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from functools import partial
+from typing import TYPE_CHECKING
 
 import pytest
 
 from nab_project._testing.yanking import ReleaseRow, graph_port
+from nab_project.inputs import ResolveInputs
+from nab_project.lockfile import IndexPin
+from nab_project.resolve import resolve_with_coordinator
 from nab_provider._provider.listing import parse_prefetched_metadata
 from nab_provider._provider.metadata_resolver import fetch_sdist_metadata
 from nab_provider._vendor.packaging.ranges import VersionRange
@@ -16,8 +20,12 @@ from nab_provider.errors import YankAdmissionRequiredError
 from nab_provider.policy import DistPolicy, ExtrasMode
 from nab_provider.provider import Provider, ResolutionStrategy
 from nab_provider.records import SdistFile
+from nab_provider.target import ResolveTarget
 from nab_provider.yank_candidates import Candidate, YankCandidates, add_range, is_pin
 from nab_provider.yanking import mark_yanked
+
+if TYPE_CHECKING:
+    from nab_provider.testing import FakeFetchPort
 
 
 def catalogue(releases: list[ReleaseRow]) -> YankCandidates:
@@ -218,6 +226,91 @@ def test_sdist_install_requires_a_source_in_the_selected_file_class() -> None:
     )
 
 
+def test_sdist_install_accepts_unordered_files() -> None:
+    facts = catalogue([("dep", "2", False, [])])
+    facts.provider.dist_policy = DistPolicy.SDIST_INSTALL
+    files = [
+        (Version("1"), withdrawn_sdist("1")),
+        (Version("2"), withdrawn_sdist()),
+        (Version("3"), withdrawn_sdist("3")),
+    ]
+    assert facts.installable(Candidate("dep", Version("2"), withdrawn=True), files)
+
+
+def sdist_install_port(release_count: int) -> FakeFetchPort:
+    """Serve wheel/sdist pairs with only the newest release withdrawn."""
+    port = graph_port(
+        [
+            ("dep", str(version), version == release_count, [])
+            for version in range(1, release_count + 1)
+        ]
+    )
+    files = list(port.index.get_listing("dep") or [])
+    for version in range(1, release_count + 1):
+        source = SdistFile(
+            filename=f"dep-{version}.tar.gz",
+            url=f"https://example.test/dep-{version}.tar.gz",
+            version=str(version),
+            requires_python=None,
+            upload_time=None,
+            hashes=(("sha256", "a" * 64),),
+        )
+        files.append(
+            mark_yanked(source, reason="withdrawn")
+            if version == release_count
+            else source
+        )
+    port.index.store_listing("dep", files)
+    port.index.store_sdist_metadata(
+        "dep",
+        str(release_count),
+        f"Metadata-Version: 2.2\nName: dep\nVersion: {release_count}\n\n",
+    )
+    return port
+
+
+def test_yanked_sdist_resolution_bounds_version_comparisons(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    release_count = 64
+    port = sdist_install_port(release_count)
+    comparisons = 0
+    original_equal = Version.__eq__
+    original_less = Version.__lt__
+
+    def counted_equal(self: Version, other: object) -> bool:
+        nonlocal comparisons
+        comparisons += 1
+        return original_equal(self, other)
+
+    def counted_less(self: Version, other: Version) -> bool:
+        nonlocal comparisons
+        comparisons += 1
+        return original_less(self, other)
+
+    monkeypatch.setattr(Version, "__eq__", counted_equal)
+    monkeypatch.setattr(Version, "__lt__", counted_less)
+
+    result = resolve_with_coordinator(
+        port,
+        [ResolveTarget.for_host()],
+        [Requirement(f"dep=={release_count}")],
+        inputs=ResolveInputs(dist_policy=DistPolicy.SDIST_INSTALL),
+    )
+    assert result.success
+    outcome = result.target_results[0]
+    assert outcome.pins == {"dep": Version(str(release_count))}
+
+    assert outcome.lock is not None
+    pin = outcome.lock.pins["dep"]
+    assert isinstance(pin, IndexPin)
+    assert pin.sdist is not None
+    assert pin.sdist.url == f"https://example.test/dep-{release_count}.tar.gz"
+    assert not pin.wheels
+
+    assert comparisons < 2048
+
+
 def test_prepared_live_metadata_reports_a_withdrawn_alternative() -> None:
     facts = catalogue([("dep", "2", False, []), ("dep", "2", True, [])])
     choices = facts.choices("dep")
@@ -231,13 +324,13 @@ def test_prepared_live_metadata_reports_a_withdrawn_alternative() -> None:
     assert facts.provider.has_withdrawn_alternative()
 
 
-def withdrawn_sdist() -> SdistFile:
+def withdrawn_sdist(version: str = "2") -> SdistFile:
     """Return the withdrawn archive used to test preparation and install policy."""
     file = mark_yanked(
         SdistFile(
-            filename="dep-2.tar.gz",
-            url="https://example.test/dep-2.tar.gz",
-            version="2",
+            filename=f"dep-{version}.tar.gz",
+            url=f"https://example.test/dep-{version}.tar.gz",
+            version=version,
             requires_python=None,
             upload_time=None,
             hashes=(("sha256", "a" * 64),),

@@ -236,7 +236,14 @@ def oversized_integer() -> str:
     ``sys.get_int_max_str_digits()`` digits, so a literal this long fails the
     parse without being a syntax error.
     """
-    return "1" * (sys.get_int_max_str_digits() + 1)
+    get_limit = getattr(sys, "get_int_max_str_digits", None)
+    if get_limit is None:
+        pytest.skip("requires an interpreter integer conversion limit")
+    limit = get_limit()
+    assert isinstance(limit, int)
+    if not limit:
+        pytest.skip("requires an enabled interpreter integer conversion limit")
+    return "1" * (limit + 1)
 
 
 @pytest.fixture

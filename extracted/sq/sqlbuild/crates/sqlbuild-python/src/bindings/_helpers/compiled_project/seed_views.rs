@@ -4,7 +4,7 @@ use pyo3::exceptions::{PyIndexError, PyRuntimeError};
 use pyo3::prelude::{Bound, Py, PyAny, PyAnyMethods, PyErr, PyResult, Python};
 use pyo3::sync::PyOnceLock;
 use pyo3::types::PyTuple;
-use pyo3::{pyclass, pymethods};
+use pyo3::{IntoPyObjectExt, pyclass, pymethods};
 use sqlbuild_attachments::seeds::main::pair_seed_declarations::pair_seed_declarations;
 
 use crate::bindings::_helpers::compiled_project::compiled_model_view::{
@@ -14,8 +14,11 @@ use crate::bindings::_helpers::compiled_project::model_input_view::{
     InputViewClasses, view_classes,
 };
 use crate::bindings::_helpers::compiled_project::project::NativeCompiledProject;
+use crate::bindings::_helpers::graph::project_graph::ResourceRow;
+use crate::bindings::_helpers::records::fields::field as native_field;
 
 const SEED_RESOURCE: &str = "seed";
+const TAGS_ATTRIBUTE: &str = "tags";
 const NAME_ATTRIBUTE: &str = "name";
 const FILE_PATH_ATTRIBUTE: &str = "file_path";
 const STEM_ATTRIBUTE: &str = "stem";
@@ -52,27 +55,26 @@ pub(crate) fn paired_seeds(
     let py: Python<'_> = compile_error.py();
     let mut names: Vec<String> = Vec::with_capacity(declarations.len());
     for (entry, _) in &declarations {
-        names.push(entry.bind(py).getattr(NAME_ATTRIBUTE)?.extract()?);
+        names.push(native_field(entry.bind(py), NAME_ATTRIBUTE)?.extract()?);
     }
     let mut stems: Vec<String> = Vec::with_capacity(seed_files.len());
     for seed_file in seed_files {
         stems.push(
-            seed_file
-                .bind(py)
-                .getattr(FILE_PATH_ATTRIBUTE)?
-                .getattr(STEM_ATTRIBUTE)?
-                .extract()?,
+            native_field(
+                &native_field(seed_file.bind(py), FILE_PATH_ATTRIBUTE)?,
+                STEM_ATTRIBUTE,
+            )?
+            .extract()?,
         );
     }
     let pairs: Vec<usize> = match pair_seed_declarations(&names, &stems) {
         Ok(pairs) => pairs,
         Err(missing) => {
             let schema_file: &Py<PyAny> = &declarations[missing].1;
-            let relative_path: String = schema_file
-                .bind(py)
-                .getattr(RELATIVE_PATH_ATTRIBUTE)?
-                .str()?
-                .extract()?;
+            let relative_path: String =
+                native_field(schema_file.bind(py), RELATIVE_PATH_ATTRIBUTE)?
+                    .str()?
+                    .extract()?;
             let message: String = format!(
                 "Seed declaration '{}' in {relative_path} has no matching CSV file under seeds/",
                 names[missing]
@@ -151,21 +153,21 @@ impl NativeSeedInput {
 #[pymethods]
 impl NativeSeedInput {
     #[getter]
-    fn seed_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn seed_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         read_seed(&self.owner, self.index, py, |seed, py| {
             Ok(seed.seed_file.clone_ref(py))
         })
     }
 
     #[getter]
-    fn schema_entry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn schema_entry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         read_seed(&self.owner, self.index, py, |seed, py| {
             Ok(seed.schema_entry.clone_ref(py))
         })
     }
 
     #[getter]
-    fn schema_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn schema_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         read_seed(&self.owner, self.index, py, |seed, py| {
             Ok(seed.schema_file.clone_ref(py))
         })
@@ -192,6 +194,22 @@ impl NativeCompiledSeed {
         }
     }
 
+    /// The seed's project graph row: its key and its declared tags.
+    pub(crate) fn graph_row(&self, py: Python<'_>) -> PyResult<ResourceRow> {
+        read_seed(&self.owner, self.index, py, |seed, py| {
+            let mut tags: Vec<String> = Vec::new();
+            for tag in native_field(seed.schema_entry.bind(py), TAGS_ATTRIBUTE)?.try_iter()? {
+                tags.push(tag?.str()?.extract()?);
+            }
+            Ok((
+                (SEED_RESOURCE.to_owned(), seed.name.clone()),
+                Vec::new(),
+                tags,
+                None,
+            ))
+        })
+    }
+
     fn current_destination(&self, py: Python<'_>) -> PyResult<DestinationFact> {
         if let Some(defaulted) = &self.defaulted {
             return Ok(defaulted.clone());
@@ -208,7 +226,7 @@ impl NativeCompiledSeed {
 impl NativeCompiledSeed {
     /// The seed's planner-facing `CompiledObjectKey`.
     #[getter]
-    fn key(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn key(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let classes: InputViewClasses<'_> = view_classes(&self.owner, py)?;
         read_seed(&self.owner, self.index, py, |seed, py| {
             seed.key
@@ -220,31 +238,31 @@ impl NativeCompiledSeed {
     }
 
     #[getter]
-    fn deps<'py>(&self, py: Python<'py>) -> Bound<'py, PyTuple> {
+    pub(crate) fn deps<'py>(&self, py: Python<'py>) -> Bound<'py, PyTuple> {
         PyTuple::empty(py)
     }
 
     #[getter]
-    fn name(&self, py: Python<'_>) -> PyResult<String> {
+    pub(crate) fn name(&self, py: Python<'_>) -> PyResult<String> {
         read_seed(&self.owner, self.index, py, |seed, _| Ok(seed.name.clone()))
     }
 
     #[getter]
-    fn seed_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn seed_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         read_seed(&self.owner, self.index, py, |seed, py| {
             Ok(seed.seed_file.clone_ref(py))
         })
     }
 
     #[getter]
-    fn schema_entry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn schema_entry(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         read_seed(&self.owner, self.index, py, |seed, py| {
             Ok(seed.schema_entry.clone_ref(py))
         })
     }
 
     #[getter]
-    fn schema_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn schema_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         read_seed(&self.owner, self.index, py, |seed, py| {
             Ok(seed.schema_file.clone_ref(py))
         })
@@ -252,7 +270,7 @@ impl NativeCompiledSeed {
 
     /// The seed's planner-facing `CompiledRelationLocation`.
     #[getter]
-    fn destination(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn destination(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let classes: InputViewClasses<'_> = view_classes(&self.owner, py)?;
         self.destination
             .get_or_try_init(py, || {
@@ -262,7 +280,7 @@ impl NativeCompiledSeed {
     }
 
     /// This seed with the adapter's default schema and database filled into its destination.
-    fn with_target_defaults(
+    pub(crate) fn with_target_defaults(
         &self,
         py: Python<'_>,
         defaults: (Option<String>, Option<String>),
@@ -279,7 +297,25 @@ impl NativeCompiledSeed {
     }
 
     #[getter(external)]
-    fn is_external(&self) -> bool {
+    pub(crate) fn is_external(&self) -> bool {
         false
+    }
+}
+
+impl NativeCompiledSeed {
+    /// The `CompiledSeed` field values, in field order, without building the record.
+    pub(crate) fn record_values<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
+        Ok(vec![
+            self.key(py)?.into_bound(py),
+            self.deps(py).into_any(),
+            self.name(py)?.into_bound_py_any(py)?,
+            self.seed_file(py)?.into_bound(py),
+            self.schema_entry(py)?.into_bound(py),
+            self.schema_file(py)?.into_bound(py),
+            self.destination(py)?.into_bound(py),
+            pyo3::types::PyBool::new(py, self.is_external())
+                .to_owned()
+                .into_any(),
+        ])
     }
 }

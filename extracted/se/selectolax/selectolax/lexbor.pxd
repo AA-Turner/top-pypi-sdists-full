@@ -36,6 +36,11 @@ cdef extern from "lexbor/core/core.h" nogil:
                                    const lxb_char_t *data, size_t length)
     void * lexbor_mraw_free(lexbor_mraw_t *mraw, void *data)
 
+cdef extern from "lexbor/core/base.h" nogil:
+    int _LEXBOR_VERSION_MAJOR "LEXBOR_VERSION_MAJOR"
+    int _LEXBOR_VERSION_MINOR "LEXBOR_VERSION_MINOR"
+
+
 cdef extern from "lexbor/core/lexbor.h" nogil:
     ctypedef void *(*lexbor_memory_malloc_f)(size_t size) nogil
     ctypedef void *(*lexbor_memory_realloc_f)(void *dst, size_t size) nogil
@@ -248,6 +253,8 @@ cdef extern from "lexbor/html/html.h" nogil:
     lxb_html_document_t * lxb_html_document_create()
     void lxb_html_document_dom_opt_set(lxb_html_document_t *document, lxb_dom_document_opt_t opt)
     lxb_dom_document_opt_t lxb_html_document_dom_opt(const lxb_html_document_t *document)
+    void lxb_html_document_scripting_set(lxb_html_document_t *document, bint scripting)
+    bint lxb_html_document_scripting(lxb_html_document_t *document)
     lxb_html_element_t * lxb_html_document_create_element(lxb_html_document_t *document,
                                                           const lxb_char_t *local_name, size_t lname_len,
                                                           void *reserved_for_opt)
@@ -284,6 +291,7 @@ cdef class LexborNode:
         lxb_dom_node_t *node
         public LexborHTMLParser parser
         cdef bint _is_fragment_root
+        cdef bint _is_template_content
 
     @staticmethod
     cdef LexborNode new(lxb_dom_node_t *node, LexborHTMLParser parser)
@@ -295,6 +303,7 @@ cdef class LexborNode:
 
 cdef bint is_empty_text_node(lxb_dom_node_t *node) noexcept
 cdef bint _is_whitespace_only(const lxb_char_t *buffer, size_t buffer_length) noexcept nogil
+cdef LexborNode _template_content_node(LexborNode template_node)
 
 
 cdef class LexborCSSSelector:
@@ -322,8 +331,12 @@ cdef class LexborHTMLParser:
     cdef inline lxb_dom_node_t* _fragment_root_node(self)
     cdef inline lxb_dom_node_t* _tag_search_root(self)
     cdef inline lxb_status_t _parse_html_document(self, char *html, size_t html_len) noexcept nogil
+    cdef lxb_dom_node_t* _parse_fragment_wrapper_noi(self, char *html, size_t html_len,
+                                                     lxb_status_t *out_status) noexcept nogil
     cdef inline lxb_status_t _parse_html_fragment(self, char *html, size_t html_len) noexcept nogil
     cdef int _parse_html(self, char *html, size_t html_len) except -1
+    cdef inline LexborNode _fragment_content_node(self)
+    cdef void _replace_fragment_children(self, const lxb_char_t *html, size_t html_len) except *
     cdef inline void _mark_mutated(self) noexcept
     cdef unsigned long _mutation_count
     cdef object cached_script_texts
@@ -337,6 +350,7 @@ cdef extern from "lexbor/html/encoding.h" nogil:
         pass
 
     lxb_html_encoding_t *lxb_html_encoding_create()
+    lxb_status_t lxb_html_encoding_init(lxb_html_encoding_t *em)
     lxb_html_encoding_t *lxb_html_encoding_destroy(lxb_html_encoding_t *em, bint self_destroy)
     const lxb_char_t *lxb_html_encoding_prescan(
         lxb_html_encoding_t *em,
@@ -423,6 +437,44 @@ cdef extern from "lexbor/dom/dom.h" nogil:
 cdef extern from "lexbor/dom/dom.h":
     ctypedef lexbor_action_t (*lxb_dom_node_simple_walker_f)(lxb_dom_node_t *node, void *ctx)
     void lxb_dom_node_simple_walk(lxb_dom_node_t *root, lxb_dom_node_simple_walker_f walker_cb, void *ctx)
+
+
+# The content of a <template> is parsed into a document fragment the element
+# owns, not into its child list, so it is not part of the document tree and
+# Lexbor's selector engine never walks into it. The fragment is reachable only
+# through the element's private interface, which has no accessor, so it is read
+# here where the real headers and struct layout are available.
+cdef extern from *:
+    """
+    #include "lexbor/html/interfaces/template_element.h"
+
+    static inline lxb_dom_node_t *
+    selectolax_template_content(lxb_dom_node_t *node)
+    {
+        lxb_dom_document_fragment_t *content;
+
+        /* Only the HTML namespace gets the template interface; in SVG and
+         * MathML a <template> is an ordinary element. */
+        if (node->type != LXB_DOM_NODE_TYPE_ELEMENT
+            || node->local_name != LXB_TAG_TEMPLATE
+            || node->ns != LXB_NS_HTML) {
+            return NULL;
+        }
+
+        content = lxb_html_interface_template(node)->content;
+
+        return content == NULL ? NULL : lxb_dom_interface_node(content);
+    }
+
+    static inline lxb_dom_node_t *
+    selectolax_template_content_host(lxb_dom_node_t *content)
+    {
+        return lxb_dom_interface_node(
+                   ((lxb_dom_document_fragment_t *) content)->host);
+    }
+    """
+    lxb_dom_node_t *selectolax_template_content(lxb_dom_node_t *node) nogil
+    lxb_dom_node_t *selectolax_template_content_host(lxb_dom_node_t *content) nogil
 
 
 cdef extern from "lexbor/dom/interfaces/element.h" nogil:

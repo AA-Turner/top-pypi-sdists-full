@@ -128,6 +128,32 @@ def test_image_prompt_across_a_window_boundary() -> None:
     _same(model, inputs, 30)
 
 
+def test_a_batch_of_images_left_padded() -> None:
+    """Images of different sizes in one call, as a describer batches them: one prefill over the
+    left-padded rows, each row's own mrope positions, decoded together."""
+    torch.manual_seed(2)
+    model = _qwen3_5()
+    vision = model.config.vision_config
+    patch = vision.in_channels * vision.temporal_patch_size * vision.patch_size**2
+    rows, grids = [], [[1, 4, 4], [1, 4, 8]]
+    for (_, h, w), words in zip(grids, (21, 9), strict=True):
+        image = [301, *[300] * (h * w // vision.spatial_merge_size**2), 302]
+        text = torch.randint(10, 290, (words,)).tolist()
+        rows.append(text[:3] + image + text[3:])
+    width = max(map(len, rows))
+    ids = torch.tensor([[0] * (width - len(r)) + r for r in rows], device=DEVICE)
+    mask = torch.tensor([[0] * (width - len(r)) + [1] * len(r) for r in rows], device=DEVICE)
+    inputs = {
+        "input_ids": ids,
+        "attention_mask": mask,
+        "pixel_values": torch.randn(sum(h * w for _, h, w in grids), patch).to(DEVICE),
+        "image_grid_thw": torch.tensor(grids, device=DEVICE),
+        "mm_token_type_ids": (ids == 300).int(),
+    }
+    assert int((mask == 0).sum()) > 0
+    _same(model, inputs, 30)
+
+
 def test_windows_double_up_to_the_capacity() -> None:
     assert [lm.window(n, 5000) for n in (1, 256, 257, 1500, 4097)] == [256, 256, 512, 2048, 5000]
 
@@ -173,6 +199,25 @@ def test_running_out_of_memory_decodes_through_transformers() -> None:
     WARNINGS.clear()
     assert not _three_calls(_qwen3_5(), 40, 24, capturing=False)[0]
     assert [message for message, _ in WARNINGS] == ["decode ran through Transformers' loop"]
+
+
+@pytest.mark.skipif(DEVICE != "cuda", reason="CUDA graphs need a GPU")
+def test_a_kernel_building_at_capture_leaves_the_decode_eager() -> None:
+    """A kernel still building raises `Building` inside a capture (int8_linear on a fresh
+    machine): the steps run eagerly and the call gives Transformers' tokens."""
+    from cozy_runtime.author._model import Building
+
+    torch.manual_seed(6)
+    model = _qwen3_5()
+    layer = [m for m in model.modules() if type(m).__name__.endswith("DecoderLayer")][1]
+
+    def hook(*_: Any) -> None:
+        if torch.cuda.is_current_stream_capturing():
+            raise Building("cozy-int8")
+
+    layer.register_forward_pre_hook(hook)
+    ids = torch.randint(10, 290, (1, 60), device=DEVICE)
+    _same(model, {"input_ids": ids, "attention_mask": torch.ones_like(ids)}, 40)
 
 
 @pytest.mark.skipif(DEVICE != "cuda", reason="CUDA graphs need a GPU")

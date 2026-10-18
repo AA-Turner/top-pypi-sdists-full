@@ -15,6 +15,7 @@ use crate::bindings::_helpers::compiled_project::model_loop::{
 };
 use crate::bindings::_helpers::compiled_project::model_loop_host::ReferenceRow;
 use crate::bindings::_helpers::compiled_project::model_loop_inputs::reference_row;
+use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::render::macro_expansion::{
     ExpansionOutput, NativeMacroExpansion, expanded,
 };
@@ -79,7 +80,7 @@ pub(crate) fn expanded_macros<'py>(
     let declarations: Bound<'py, PyAny> = if classes.scoped {
         let fields: Bound<'py, PyDict> = PyDict::new(py);
         for field in CONTEXT_FIELDS {
-            fields.set_item(field, visible.declarations.getattr(field)?)?;
+            fields.set_item(field, native_field(&visible.declarations, field)?)?;
         }
         fields.set_item("consumer", &visible.consumer)?;
         classes.declaration_context.call((), Some(&fields))?
@@ -118,10 +119,7 @@ pub(crate) fn expanded_with<'py>(
             declarations.clone().unbind(),
             consumer.clone().unbind(),
         ),
-        classes
-            .macro_context
-            .getattr(ENFORCE_ATTRIBUTE)?
-            .is_truthy()?,
+        native_field(&classes.macro_context, ENFORCE_ATTRIBUTE)?.is_truthy()?,
         classes.expansion.clone_ref(py),
     )?;
     let expansion: Bound<'py, NativeMacroExpansion> = Bound::new(py, expansion)?;
@@ -192,7 +190,7 @@ fn located(
     }
     let relocated = (|| -> PyResult<Option<PyErr>> {
         let value: Bound<'_, PyAny> = error.value(py).clone().into_any();
-        let offset: usize = value.getattr("offset")?.extract()?;
+        let offset: usize = native_field(&value, "offset")?.extract()?;
         let passes: Vec<Vec<SplicedSpan>> = vec![model.declaration_spans.to_vec()];
         let Some(authored) =
             authored_model_offset(model.contents, model.authored_query, (sql, offset), &passes)

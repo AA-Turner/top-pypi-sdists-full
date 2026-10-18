@@ -4894,15 +4894,19 @@ class DoclingDocument(BaseModel):
                                     ]
                                 )
                                 # legacy annotations:
-                                pic.annotations.append(
-                                    PictureClassificationData(
-                                        provenance="load_from_doctags",
-                                        predicted_classes=[
-                                            # chart_type
-                                            PictureClassificationClass(class_name=image_classification, confidence=1.0)
-                                        ],
+                                with warnings.catch_warnings():
+                                    warnings.simplefilter("ignore", category=DeprecationWarning)
+                                    pic.annotations.append(
+                                        PictureClassificationData(
+                                            provenance="load_from_doctags",
+                                            predicted_classes=[
+                                                # chart_type
+                                                PictureClassificationClass(
+                                                    class_name=image_classification, confidence=1.0
+                                                )
+                                            ],
+                                        )
                                     )
-                                )
                             if table_data is not None:
                                 if pic.meta is None:
                                     pic.meta = PictureMeta()
@@ -4910,7 +4914,9 @@ class DoclingDocument(BaseModel):
                                 # legacy annotations:
                                 # Add chart data as PictureTabularChartData
                                 pd = PictureTabularChartData(chart_data=table_data, title=pic_title)
-                                pic.annotations.append(pd)
+                                with warnings.catch_warnings():
+                                    warnings.simplefilter("ignore", category=DeprecationWarning)
+                                    pic.annotations.append(pd)
 
                 elif tag_name == DocItemLabel.KEY_VALUE_REGION:
                     key_value_data, kv_item_prov = parse_key_value_item(full_chunk, image)
@@ -5563,6 +5569,15 @@ class DoclingDocument(BaseModel):
 
         self._clamp_provenance_bboxes_to_pages()
 
+        return self
+
+    @model_validator(mode="after")
+    def _validate_field_items(self) -> Self:
+        """A field item has at most one key (it can have several values)."""
+        for item in self.field_items:
+            num_keys = sum(1 for ref in item.children if ref.resolve(self).label == DocItemLabel.FIELD_KEY)
+            if num_keys > 1:
+                raise ValueError(f"Field item {item.self_ref} has {num_keys} keys, at most one is allowed")
         return self
 
     @model_validator(mode="after")

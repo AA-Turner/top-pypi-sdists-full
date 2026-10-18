@@ -171,6 +171,10 @@ async def test_wireguard_processing_and_updates() -> None:
         ("openvpn", "servers", [{"changed": True}, {"result": "ok"}], True),
         ("wireguard", "clients", [{"changed": True}, {"result": "ok"}], True),
         ("wireguard", "servers", {"changed": False}, False),
+        ("ipsec", "connections", [{"changed": True}, {"status": "ok"}], True),
+        ("ipsec", "connections", [{"changed": True}, {"status": "failed"}], False),
+        ("ipsec", "connections", {"changed": False}, False),
+        ("ipsec", "servers", {"changed": True}, False),
     ],
 )
 async def test_toggle_vpn_instance_variants(
@@ -180,7 +184,7 @@ async def test_toggle_vpn_instance_variants(
     post_resp: dict[str, Any] | list[dict[str, Any]],
     expected: bool,
 ) -> None:
-    """Parametrized toggle_vpn_instance covering OpenVPN and WireGuard variants.
+    """Parametrized toggle_vpn_instance covering OpenVPN, WireGuard, and IPsec variants.
 
     Args:
         make_client (ClientType): Client fixture configured for VPN toggle requests.
@@ -629,9 +633,9 @@ async def test_get_wireguard_success_and_invalid(make_client: ClientType) -> Non
     # client peer should reflect disconnected (old handshake)
     assert wg["clients"]["c1"].get("connected_servers") == 0
 
-    # invalid structure (summary not list) -> empty wireguard structure
+    # Invalid summary must not report configured peers as disconnected.
     client._safe_dict_get = AsyncMock(return_value={"rows": {}})
-    assert await client.get_wireguard() == {"servers": {}, "clients": {}}
+    assert await client.get_wireguard() is None
     await client.async_close()
 
 
@@ -652,7 +656,7 @@ async def test_version_switched_vpn_endpoints_fail_closed(make_client: ClientTyp
         client._safe_dict_get = AsyncMock()
 
         openvpn = await client.get_openvpn()
-        assert openvpn == {"servers": {}, "clients": {}}
+        assert openvpn is None
         client._is_get_endpoint_available.assert_awaited()
         client._safe_dict_get.assert_not_awaited()
     finally:
@@ -700,7 +704,7 @@ async def test_vpn_switched_endpoints_follow_selected_case(
     try:
         client._use_snake_case = use_snake_case
         client._is_get_endpoint_available = AsyncMock(return_value=True)
-        client._safe_dict_get = AsyncMock(return_value={})
+        client._safe_dict_get = AsyncMock(return_value={"rows": []})
         client._safe_dict_post = AsyncMock(side_effect=[{"changed": True}, {"result": "ok"}])
 
         await client.get_openvpn()
@@ -759,6 +763,31 @@ async def test_update_wireguard_peer_details_latest_handshake() -> None:
     assert peer.get("connected") is True
 
 
+def _ipsec_get_response(
+    path: str,
+    sessions: dict[str, Any],
+    connections: dict[str, Any],
+    children: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Route a mocked IPsec GET request to its canned payload.
+
+    Args:
+        path (str): API endpoint path requested by the client.
+        sessions (dict[str, Any]): Payload for the phase 1 sessions endpoint.
+        connections (dict[str, Any]): Payload for the connections configuration endpoint.
+        children (dict[str, Any] | None): Payload for the child configuration endpoint;
+            defaults to an empty row list.
+
+    Returns:
+        dict[str, Any]: Canned payload for the requested endpoint.
+    """
+    if "search_child" in path or "searchChild" in path:
+        return children if children is not None else {"rows": []}
+    if "connection" in path:
+        return connections
+    return sessions
+
+
 @pytest.mark.asyncio
 async def test_get_ipsec_success_normalizes_rows(make_client: ClientType) -> None:
     """Normalize connected, disconnected, and malformed IPsec phase 1 rows.
@@ -770,44 +799,47 @@ async def test_get_ipsec_success_normalizes_rows(make_client: ClientType) -> Non
     try:
         client._use_snake_case = True
         client._is_get_endpoint_available = AsyncMock(return_value=True)
+        sessions = {
+            "rows": [
+                {
+                    "ikeid": "uuid-up",
+                    "name": "uuid-up",
+                    "phase1desc": "Site A",
+                    "version": "IKEv2",
+                    "local-addrs": "198.51.100.1",
+                    "remote-addrs": "203.0.113.5",
+                    "local-id": "198.51.100.1",
+                    "remote-id": "203.0.113.5",
+                    "connected": True,
+                    "routed": True,
+                    "install-time": 1234,
+                    "bytes-in": 100,
+                    "bytes-out": "200",
+                    "packets-in": 3,
+                    "packets-out": "4",
+                },
+                {
+                    "ikeid": "uuid-down",
+                    "phase1desc": "",
+                    "version": "IKEv1",
+                    "connected": "0",
+                    "routed": "0",
+                    "install-time": 99,
+                    "bytes-in": "bad",
+                },
+                {"phase1desc": "no identifier"},
+                "not-a-mapping",
+            ]
+        }
+        configured = {"rows": [{"uuid": "uuid-up", "description": "Site A", "enabled": "1"}]}
         client._safe_dict_get = AsyncMock(
-            return_value={
-                "rows": [
-                    {
-                        "ikeid": "uuid-up",
-                        "name": "uuid-up",
-                        "phase1desc": "Site A",
-                        "version": "IKEv2",
-                        "local-addrs": "198.51.100.1",
-                        "remote-addrs": "203.0.113.5",
-                        "local-id": "198.51.100.1",
-                        "remote-id": "203.0.113.5",
-                        "connected": True,
-                        "routed": True,
-                        "install-time": 1234,
-                        "bytes-in": 100,
-                        "bytes-out": "200",
-                        "packets-in": 3,
-                        "packets-out": "4",
-                    },
-                    {
-                        "ikeid": "uuid-down",
-                        "phase1desc": "",
-                        "version": "IKEv1",
-                        "connected": "0",
-                        "routed": "0",
-                        "install-time": 99,
-                        "bytes-in": "bad",
-                    },
-                    {"phase1desc": "no identifier"},
-                    "not-a-mapping",
-                ]
-            }
+            side_effect=lambda path: _ipsec_get_response(path, sessions, configured)
         )
+        client._safe_dict_post = AsyncMock(return_value={"rows": []})
 
         ipsec = await client.get_ipsec()
 
-        assert set(ipsec) == {"connections"}
+        assert set(ipsec) == {"connections", "children"}
         assert set(ipsec["connections"]) == {"uuid-up", "uuid-down"}
         up = ipsec["connections"]["uuid-up"]
         assert up == {
@@ -815,6 +847,7 @@ async def test_get_ipsec_success_normalizes_rows(make_client: ClientType) -> Non
             "name": "Site A",
             "connected": True,
             "status": "connected",
+            "enabled": True,
             "version": "IKEv2",
             "local_addrs": "198.51.100.1",
             "remote_addrs": "203.0.113.5",
@@ -835,9 +868,470 @@ async def test_get_ipsec_success_normalizes_rows(make_client: ClientType) -> Non
         assert down["install_time"] is None
         assert down["total_bytes_recv"] == 0
         assert down["total_packets_sent"] == 0
-        client._is_get_endpoint_available.assert_awaited_once_with(
+        assert down["enabled"] is None
+        client._is_get_endpoint_available.assert_any_await(
             aiopnsense_vpn.IPSEC_PHASE1_SESSIONS_SNAKE_ENDPOINT
         )
+        client._is_get_endpoint_available.assert_any_await(
+            aiopnsense_vpn.IPSEC_CONNECTIONS_SNAKE_ENDPOINT
+        )
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_get_ipsec_reports_configured_connections_without_session(
+    make_client: ClientType,
+) -> None:
+    """Report configured connections without a session, including disabled ones.
+
+    Args:
+        make_client (ClientType): Fixture factory returning ``OPNsenseClient`` instances.
+    """
+    client, _session = make_mock_session_client(make_client)
+    try:
+        client._use_snake_case = True
+        client._is_get_endpoint_available = AsyncMock(return_value=True)
+        sessions = {"rows": [{"ikeid": "uuid-up", "name": "uuid-up", "connected": True}]}
+        configured = {
+            "rows": [
+                {"uuid": "uuid-up", "description": "Site A", "enabled": "1"},
+                {
+                    "uuid": "uuid-off",
+                    "description": "Site B",
+                    "enabled": "0",
+                    "version": "2",
+                    "local_addrs": "198.51.100.1",
+                    "remote_addrs": "203.0.113.9",
+                },
+                {"uuid": "", "description": "no uuid"},
+                "not-a-mapping",
+            ]
+        }
+        client._safe_dict_get = AsyncMock(
+            side_effect=lambda path: _ipsec_get_response(path, sessions, configured)
+        )
+        client._safe_dict_post = AsyncMock(return_value={"rows": []})
+
+        ipsec = await client.get_ipsec()
+
+        assert set(ipsec["connections"]) == {"uuid-up", "uuid-off"}
+        assert ipsec["connections"]["uuid-up"]["enabled"] is True
+        assert ipsec["connections"]["uuid-off"] == {
+            "uuid": "uuid-off",
+            "name": "Site B",
+            "connected": False,
+            "status": "disconnected",
+            "enabled": False,
+            "version": "IKEv2",
+            "local_addrs": "198.51.100.1",
+            "remote_addrs": "203.0.113.9",
+            "local_id": None,
+            "remote_id": None,
+            "routed": False,
+            "install_time": None,
+            "total_bytes_recv": 0,
+            "total_bytes_sent": 0,
+            "total_packets_recv": 0,
+            "total_packets_sent": 0,
+        }
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("enabled", "version", "expected_enabled", "expected_version"),
+    [
+        ("1", "1", True, "IKEv1"),
+        (0, "2", False, "IKEv2"),
+        (True, "0", True, None),
+        (None, "2", "missing", "IKEv2"),
+        ("", "2", "missing", "IKEv2"),
+        ("yes", "9", "missing", None),
+    ],
+)
+async def test_get_ipsec_configured_enabled_and_version_normalization(
+    make_client: ClientType,
+    enabled: Any,
+    version: str,
+    expected_enabled: bool | str,
+    expected_version: str | None,
+) -> None:
+    """Normalize configured IKE versions and omit unrecognized enabled values.
+
+    Args:
+        make_client (ClientType): Fixture factory returning ``OPNsenseClient`` instances.
+        enabled (Any): Raw ``enabled`` value of the configuration rows.
+        version (str): Raw ``version`` value of the configuration rows.
+        expected_enabled (bool | str): Expected ``enabled`` value, or ``"missing"``
+            when the key must be omitted.
+        expected_version (str | None): Expected ``version`` of a configured-only row.
+    """
+    client, _session = make_mock_session_client(make_client)
+    try:
+        client._use_snake_case = True
+        client._is_get_endpoint_available = AsyncMock(return_value=True)
+        sessions = {"rows": [{"ikeid": "uuid-up", "name": "uuid-up", "connected": True}]}
+        configured = {
+            "rows": [
+                {"uuid": "uuid-up", "enabled": enabled, "version": version},
+                {"uuid": "uuid-off", "enabled": enabled, "version": version},
+            ]
+        }
+        client._safe_dict_get = AsyncMock(
+            side_effect=lambda path: _ipsec_get_response(path, sessions, configured)
+        )
+        client._safe_dict_post = AsyncMock(return_value={"rows": []})
+
+        ipsec = await client.get_ipsec()
+
+        for uuid in ("uuid-up", "uuid-off"):
+            row = ipsec["connections"][uuid]
+            if expected_enabled == "missing":
+                assert "enabled" not in row
+            else:
+                assert row["enabled"] is expected_enabled
+        assert ipsec["connections"]["uuid-off"]["version"] == expected_version
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("connections_available", "configured"),
+    [
+        (False, {"rows": [{"uuid": "uuid-off", "enabled": "0"}]}),
+        (True, {"rows": "nope"}),
+        (True, {}),
+    ],
+)
+async def test_get_ipsec_without_connection_inventory_keeps_sessions_only(
+    make_client: ClientType,
+    connections_available: bool,
+    configured: dict[str, Any],
+) -> None:
+    """Omit the enabled state when the connections inventory cannot be read this time.
+
+    Args:
+        make_client (ClientType): Fixture factory returning ``OPNsenseClient`` instances.
+        connections_available (bool): Whether the connections endpoint is reported available.
+        configured (dict[str, Any]): Connections payload returned by the API.
+    """
+    client, _session = make_mock_session_client(make_client)
+    try:
+        client._use_snake_case = True
+        client._is_get_endpoint_available = AsyncMock(
+            side_effect=lambda path: connections_available or "connection" not in path
+        )
+        sessions = {"rows": [{"ikeid": "uuid-up", "name": "uuid-up", "connected": True}]}
+        client._safe_dict_get = AsyncMock(
+            side_effect=lambda path: configured if "connection" in path else sessions
+        )
+
+        ipsec = await client.get_ipsec()
+
+        assert set(ipsec["connections"]) == {"uuid-up"}
+        assert "enabled" not in ipsec["connections"]["uuid-up"]
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_get_ipsec_known_unavailable_connection_inventory_reports_no_toggle(
+    make_client: ClientType,
+) -> None:
+    """Report ``enabled=None`` when the connections endpoint is cached as missing or forbidden.
+
+    Args:
+        make_client (ClientType): Fixture factory returning ``OPNsenseClient`` instances.
+    """
+    client, _session = make_mock_session_client(make_client)
+    try:
+        client._use_snake_case = True
+        client._endpoint_availability[aiopnsense_vpn.IPSEC_CONNECTIONS_SNAKE_ENDPOINT] = False
+        client._is_get_endpoint_available = AsyncMock(
+            side_effect=lambda path: "connection" not in path
+        )
+        sessions = {"rows": [{"ikeid": "uuid-up", "name": "uuid-up", "connected": True}]}
+        client._safe_dict_get = AsyncMock(return_value=sessions)
+
+        ipsec = await client.get_ipsec()
+
+        assert set(ipsec["connections"]) == {"uuid-up"}
+        assert ipsec["connections"]["uuid-up"]["enabled"] is None
+        client._safe_dict_get.assert_awaited_once_with(
+            aiopnsense_vpn.IPSEC_PHASE1_SESSIONS_SNAKE_ENDPOINT
+        )
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_get_ipsec_children_aggregate_phase2_sessions(make_client: ClientType) -> None:
+    """Aggregate phase 2 SAs per child and keep configured children without SAs.
+
+    Args:
+        make_client (ClientType): Fixture factory returning ``OPNsenseClient`` instances.
+    """
+    client, _session = make_mock_session_client(make_client)
+    try:
+        client._use_snake_case = True
+        client._is_get_endpoint_available = AsyncMock(return_value=True)
+        sessions = {
+            "rows": [
+                {"ikeid": "ike-1", "name": "ike-1", "connected": True},
+                {"ikeid": "1", "name": "con1", "connected": True},
+                {"ikeid": "ike-down", "name": "ike-down", "connected": False},
+            ]
+        }
+        children_config = {
+            "rows": [
+                {
+                    "uuid": "child-a",
+                    "description": "Site A nets",
+                    "enabled": "1",
+                    "connection": "ike-1",
+                    "local_ts": "10.0.2.0/24,10.111.111.0/24",
+                    "remote_ts": "10.50.0.0/16",
+                },
+                {
+                    "uuid": "child-off",
+                    "description": "Disabled",
+                    "enabled": "0",
+                    "connection": "ike-down",
+                },
+                "not-a-mapping",
+            ]
+        }
+        phase2: dict[str, dict[str, Any]] = {
+            "ike-1": {
+                "rows": [
+                    {
+                        "name": "child-a",
+                        "state": "INSTALLED",
+                        "local-ts": "10.111.111.0/24",
+                        "remote-ts": "10.50.0.0/16",
+                        "install-time": "155",
+                        "bytes-in": "10",
+                        "bytes-out": 20,
+                        "packets-in": "1",
+                        "packets-out": "2",
+                    },
+                    {
+                        "name": "child-a",
+                        "state": "INSTALLED",
+                        "local-ts": "10.0.2.0/24",
+                        "remote-ts": "10.50.0.0/16",
+                        "install-time": "2430",
+                        "bytes-in": "100",
+                        "bytes-out": "200",
+                        "packets-in": 3,
+                        "packets-out": 4,
+                    },
+                    {
+                        "name": "child-a",
+                        "state": "REKEYED",
+                        "local-ts": "192.0.2.0/24",
+                        "install-time": "9999",
+                        "bytes-in": "1",
+                    },
+                    {"state": "INSTALLED"},
+                    "not-a-mapping",
+                ]
+            },
+            "con1": {
+                "rows": [
+                    {
+                        "name": "con1-legacy",
+                        "phase2desc": "Legacy P2",
+                        "ikeid": "1",
+                        "state": "INSTALLED",
+                        "local-ts": "10.0.0.0/8",
+                        "remote-ts": "172.16.1.0/24",
+                        "install-time": "20",
+                    }
+                ]
+            },
+        }
+
+        async def fake_post(path: str, payload: dict[str, Any]) -> dict[str, Any]:
+            """Return the phase 2 SA rows for the requested phase 1 session.
+
+            Args:
+                path (str): API endpoint path requested by the client.
+                payload (dict[str, Any]): Request body naming the phase 1 session.
+
+            Returns:
+                dict[str, Any]: Canned phase 2 sessions payload.
+            """
+            assert path == aiopnsense_vpn.IPSEC_PHASE2_SESSIONS_SNAKE_ENDPOINT
+            return phase2[payload["id"]]
+
+        client._safe_dict_get = AsyncMock(
+            side_effect=lambda path: _ipsec_get_response(
+                path, sessions, {"rows": []}, children_config
+            )
+        )
+        client._safe_dict_post = AsyncMock(side_effect=fake_post)
+
+        ipsec = await client.get_ipsec()
+
+        assert [call.args[1] for call in client._safe_dict_post.await_args_list] == [
+            {"id": "ike-1"},
+            {"id": "con1"},
+        ]
+        children = ipsec["children"]
+        assert set(children) == {"child-a", "child-off", "con1-legacy"}
+        assert children["child-a"] == {
+            "uuid": "child-a",
+            "name": "Site A nets",
+            "connection": "ike-1",
+            "enabled": True,
+            "connected": True,
+            "status": "connected",
+            "installed_sas": 2,
+            "local_ts": "10.0.2.0/24,10.111.111.0/24",
+            "remote_ts": "10.50.0.0/16",
+            "active_local_ts": ["10.0.2.0/24", "10.111.111.0/24"],
+            "active_remote_ts": ["10.50.0.0/16"],
+            "install_time": 2430,
+            "total_bytes_recv": 111,
+            "total_bytes_sent": 220,
+            "total_packets_recv": 4,
+            "total_packets_sent": 6,
+        }
+        off = children["child-off"]
+        assert off["enabled"] is False
+        assert off["status"] == "disconnected"
+        assert off["installed_sas"] == 0
+        assert off["install_time"] is None
+        legacy = children["con1-legacy"]
+        assert legacy["name"] == "Legacy P2"
+        assert legacy["connection"] == "1"
+        assert legacy["enabled"] is None
+        assert legacy["status"] == "connected"
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("children_cached_unavailable", "phase2_payload", "expected_children"),
+    [
+        (False, {"rows": []}, None),
+        (True, {"rows": [{"name": "child-x", "state": "INSTALLED"}]}, {"child-x"}),
+        (True, {}, None),
+        (True, {"rows": "nope"}, None),
+    ],
+)
+async def test_get_ipsec_children_fail_closed(
+    make_client: ClientType,
+    children_cached_unavailable: bool,
+    phase2_payload: dict[str, Any],
+    expected_children: set[str] | None,
+) -> None:
+    """Omit ``children`` when phase 2 data cannot be read completely.
+
+    A transient child configuration failure or a malformed phase 2 reply omits the
+    key; a child configuration endpoint cached as missing or forbidden falls back
+    to the children seen in the sessions API.
+
+    Args:
+        make_client (ClientType): Fixture factory returning ``OPNsenseClient`` instances.
+        children_cached_unavailable (bool): Whether the child configuration endpoint is
+            cached as missing or forbidden (otherwise it fails transiently).
+        phase2_payload (dict[str, Any]): Phase 2 sessions payload returned by the API.
+        expected_children (set[str] | None): Expected child keys, or ``None`` when
+            ``children`` must be omitted.
+    """
+    client, _session = make_mock_session_client(make_client)
+    try:
+        client._use_snake_case = True
+        if children_cached_unavailable:
+            client._endpoint_availability[aiopnsense_vpn.IPSEC_CHILDREN_SNAKE_ENDPOINT] = False
+        client._is_get_endpoint_available = AsyncMock(
+            side_effect=lambda path: "search_child" not in path
+        )
+        sessions = {"rows": [{"ikeid": "ike-1", "name": "ike-1", "connected": True}]}
+        client._safe_dict_get = AsyncMock(
+            side_effect=lambda path: _ipsec_get_response(path, sessions, {"rows": []})
+        )
+        client._safe_dict_post = AsyncMock(return_value=phase2_payload)
+
+        ipsec = await client.get_ipsec()
+
+        assert set(ipsec["connections"]) == {"ike-1"}
+        if expected_children is None:
+            assert "children" not in ipsec
+        else:
+            assert set(ipsec["children"]) == expected_children
+            assert ipsec["children"]["child-x"]["enabled"] is None
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_get_ipsec_children_skip_phase2_without_connected_sessions(
+    make_client: ClientType,
+) -> None:
+    """Report configured children as disconnected without querying phase 2.
+
+    Args:
+        make_client (ClientType): Fixture factory returning ``OPNsenseClient`` instances.
+    """
+    client, _session = make_mock_session_client(make_client)
+    try:
+        client._use_snake_case = True
+        client._is_get_endpoint_available = AsyncMock(return_value=True)
+        sessions = {"rows": [{"ikeid": "ike-1", "name": "ike-1", "connected": False}]}
+        children_config = {"rows": [{"uuid": "child-a", "enabled": "1", "connection": "ike-1"}]}
+        client._safe_dict_get = AsyncMock(
+            side_effect=lambda path: _ipsec_get_response(
+                path, sessions, {"rows": []}, children_config
+            )
+        )
+        client._safe_dict_post = AsyncMock()
+
+        ipsec = await client.get_ipsec()
+
+        assert ipsec["children"]["child-a"]["status"] == "disconnected"
+        assert ipsec["children"]["child-a"]["name"] == "child-a"
+        client._safe_dict_post.assert_not_awaited()
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("use_snake_case", "expected_prefix"),
+    [
+        (True, aiopnsense_vpn.IPSEC_CONNECTION_TOGGLE_SNAKE_ENDPOINT_PREFIX),
+        (False, aiopnsense_vpn.IPSEC_CONNECTION_TOGGLE_CAMELCASE_ENDPOINT_PREFIX),
+    ],
+)
+async def test_toggle_vpn_instance_ipsec_posts_toggle_then_reconfigure(
+    make_client: ClientType,
+    use_snake_case: bool,
+    expected_prefix: str,
+) -> None:
+    """Toggle an IPsec connection and reconfigure the IPsec service.
+
+    Args:
+        make_client (ClientType): Fixture factory returning ``OPNsenseClient`` instances.
+        use_snake_case (bool): Whether the firmware uses snake_case endpoint names.
+        expected_prefix (str): Toggle endpoint prefix expected for that firmware.
+    """
+    client, _session = make_mock_session_client(make_client)
+    try:
+        client._use_snake_case = use_snake_case
+        client._safe_dict_post = AsyncMock(side_effect=[{"changed": True}, {"status": "ok"}])
+
+        assert await client.toggle_vpn_instance("ipsec", "connections", "uuid-1") is True
+        assert [call.args[0] for call in client._safe_dict_post.await_args_list] == [
+            f"{expected_prefix}uuid-1",
+            aiopnsense_vpn.IPSEC_SERVICE_RECONFIGURE_ENDPOINT,
+        ]
     finally:
         await client.async_close()
 
@@ -848,13 +1342,12 @@ async def test_get_ipsec_success_normalizes_rows(make_client: ClientType) -> Non
     [
         {"rows": {"not": "a list"}},
         {"rows": "nope"},
-        {},
     ],
 )
-async def test_get_ipsec_malformed_payload_returns_empty(
+async def test_get_ipsec_malformed_payload_returns_none(
     make_client: ClientType, payload: dict[str, Any]
 ) -> None:
-    """Return an empty connections mapping when the sessions payload is malformed.
+    """Return None when the sessions rows are not a list.
 
     Args:
         make_client (ClientType): Fixture factory returning ``OPNsenseClient`` instances.
@@ -866,7 +1359,29 @@ async def test_get_ipsec_malformed_payload_returns_empty(
         client._is_get_endpoint_available = AsyncMock(return_value=True)
         client._safe_dict_get = AsyncMock(return_value=payload)
 
-        assert await client.get_ipsec() == {"connections": {}}
+        ipsec = await client.get_ipsec()
+
+        assert ipsec is None
+    finally:
+        await client.async_close()
+
+
+@pytest.mark.asyncio
+async def test_get_ipsec_without_rows_returns_none(make_client: ClientType) -> None:
+    """Treat a sessions payload without rows as unavailable.
+
+    Args:
+        make_client (ClientType): Fixture factory returning ``OPNsenseClient`` instances.
+    """
+    client, _session = make_mock_session_client(make_client)
+    try:
+        client._use_snake_case = True
+        client._is_get_endpoint_available = AsyncMock(return_value=True)
+        client._safe_dict_get = AsyncMock(return_value={})
+
+        ipsec = await client.get_ipsec()
+
+        assert ipsec is None
     finally:
         await client.async_close()
 
@@ -884,7 +1399,7 @@ async def test_get_ipsec_endpoint_unavailable_fails_closed(make_client: ClientTy
         client._is_get_endpoint_available = AsyncMock(return_value=False)
         client._safe_dict_get = AsyncMock()
 
-        assert await client.get_ipsec() == {"connections": {}}
+        assert await client.get_ipsec() is None
         client._is_get_endpoint_available.assert_awaited_once_with(
             aiopnsense_vpn.IPSEC_PHASE1_SESSIONS_CAMELCASE_ENDPOINT
         )
@@ -916,3 +1431,43 @@ def test_ipsec_flag_variants(value: Any, expected: bool) -> None:
         expected (bool): Expected normalized boolean.
     """
     assert aiopnsense_vpn.VPNMixin._ipsec_flag(value) is expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("routes", [None, {}, {"rows": None}, {"rows": []}])
+async def test_openvpn_unavailable_routes_omit_client_counts(
+    make_client: ClientType, routes: dict[str, Any] | None
+) -> None:
+    """Keep session status while distinguishing unknown routes from no clients.
+
+    Args:
+        make_client (ClientType): Client factory fixture.
+        routes (dict[str, Any] | None): Routes payload, or unavailable endpoint.
+    """
+    client, _session = make_mock_session_client(make_client)
+    client._use_snake_case = True
+    client._is_get_endpoint_available = AsyncMock(
+        side_effect=lambda path: (
+            routes is not None or path != aiopnsense_vpn.OPENVPN_ROUTES_SNAKE_ENDPOINT
+        )
+    )
+    client._safe_dict_get = AsyncMock(
+        side_effect=lambda path: (
+            routes
+            if path == aiopnsense_vpn.OPENVPN_ROUTES_SNAKE_ENDPOINT
+            else {"rows": [{"type": "server", "id": "server", "status": "connected"}]}
+        )
+    )
+    try:
+        result = await client.get_openvpn()
+        assert result is not None
+        server = result["servers"]["server"]
+        assert server["status"] == "up"
+        if routes == {"rows": []}:
+            assert server["clients"] == []
+            assert server["connected_clients"] == 0
+        else:
+            assert "clients" not in server
+            assert "connected_clients" not in server
+    finally:
+        await client.async_close()

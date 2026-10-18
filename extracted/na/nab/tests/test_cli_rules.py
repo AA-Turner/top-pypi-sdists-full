@@ -36,6 +36,11 @@ from nab._cli.dispatch import dispatch
 from nab._cli.parse import Parsed, UsageError, build, parse
 from nab._cli.render import page, terminal_width, wrap
 from nab.cli import run
+from nab_markersets._compat import get_int_max_str_digits
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
 
 _HELP = ("what it does", "what the other one does")
 
@@ -1267,19 +1272,26 @@ class TestTheWrapper:
 
         assert terminal_width({"COLUMNS": "wide"}) == 99
 
+    @pytest.mark.parametrize(
+        "columns",
+        [
+            "\N{SUPERSCRIPT TWO}",
+            pytest.param(
+                "9" * ((get_int_max_str_digits() or 4300) + 1),
+                marks=requires_int_limit,
+                id="digits-past-int-limit",
+            ),
+        ],
+    )
     def test_a_columns_that_int_refuses_is_ignored(
-        self, monkeypatch: pytest.MonkeyPatch
+        self, monkeypatch: pytest.MonkeyPatch, columns: str
     ) -> None:
-        """A superscript digit, and a decimal run past CPython's limit."""
         monkeypatch.setattr(
             "nab._cli.render.os.get_terminal_size",
             lambda: types.SimpleNamespace(columns=99),
         )
 
-        past_the_limit = "9" * (sys.get_int_max_str_digits() + 1)
-
-        assert terminal_width({"COLUMNS": "\N{SUPERSCRIPT TWO}"}) == 99
-        assert terminal_width({"COLUMNS": past_the_limit}) == 99
+        assert terminal_width({"COLUMNS": columns}) == 99
 
     def test_no_terminal_falls_back_to_eighty(
         self, monkeypatch: pytest.MonkeyPatch

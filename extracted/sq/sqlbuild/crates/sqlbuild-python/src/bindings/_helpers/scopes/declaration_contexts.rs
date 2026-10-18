@@ -7,6 +7,7 @@ use pyo3::types::{PyDict, PyDictMethods, PyTuple};
 use pyo3::{FromPyObject, intern, pyclass, pymethods};
 
 use crate::bindings::_helpers::boundary::panics::{compiler_error, compiler_guard};
+use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::scopes::declaration_resolution::ResolutionInputs;
 use sqlbuild_scopes::scope_index::main::classify_resource::classify_resource;
 use sqlbuild_scopes::scope_index::models::{
@@ -17,7 +18,7 @@ const ENUM_KIND: u8 = 0;
 const CONSTANT_KIND: u8 = 1;
 const MACRO_KIND: u8 = 2;
 
-type TableRow = (
+pub(crate) type TableRow = (
     Vec<usize>,
     HashMap<String, Vec<usize>>,
     HashMap<String, Vec<usize>>,
@@ -26,7 +27,7 @@ type VisibleRow<'py> = (Bound<'py, PyAny>, VisibleEntry, Option<Bound<'py, PyAny
 
 /// One declaration position: identity, first record, name, kinds, runtime value and key.
 #[derive(FromPyObject)]
-struct PositionRow(Py<PyAny>, Py<PyAny>, Py<PyAny>, u8, Py<PyAny>, u8, u32);
+pub(crate) struct PositionRow(Py<PyAny>, Py<PyAny>, Py<PyAny>, u8, Py<PyAny>, u8, u32);
 
 /// The Python classes and enum members the contexts are built from.
 #[derive(FromPyObject)]
@@ -34,7 +35,6 @@ struct PositionRow(Py<PyAny>, Py<PyAny>, Py<PyAny>, u8, Py<PyAny>, u8, u32);
 pub(crate) struct ContextClasses {
     visibility_record: Py<PyAny>,
     pub(crate) resolution_context: Py<PyAny>,
-    allocate: Py<PyAny>,
     reasons: Py<PyDict>,
 }
 
@@ -51,7 +51,7 @@ pub(crate) struct NativeDeclarationContexts {
 /// The Python lookup mappings a matching resource's private positions and grants come from.
 #[derive(FromPyObject)]
 #[pyo3(from_item_all)]
-struct LookupMappings {
+pub(crate) struct LookupMappings {
     identity_keys: Py<PyDict>,
     private_positions: Py<PyAny>,
     grants_by_resource: Py<PyAny>,
@@ -70,7 +70,7 @@ struct ContextParts<'py> {
 #[pymethods]
 impl NativeDeclarationContexts {
     #[new]
-    fn new(
+    pub(crate) fn new(
         positions: Vec<PositionRow>,
         table: TableRow,
         classes: ContextClasses,
@@ -118,8 +118,8 @@ impl NativeDeclarationContexts {
         let mut visible: Vec<VisibleRow<'py>> = Vec::new();
         let mut inaccessible: Vec<usize> = Vec::new();
         for record in matches {
-            let identity: Bound<'py, PyAny> = record.getattr(intern!(py, "identity"))?;
-            let path: String = record.getattr(intern!(py, "path"))?.extract()?;
+            let identity: Bound<'py, PyAny> = native_field(&record, "identity")?;
+            let path: String = native_field(&record, "path")?.extract()?;
             let private: Vec<usize> = self
                 .lookup
                 .private_positions
@@ -171,12 +171,11 @@ impl NativeDeclarationContexts {
         for grant in records.try_iter()? {
             let grant: Bound<'py, PyAny> = grant?;
             let Some(identity_key) =
-                identity_keys.get_item(grant.getattr(intern!(py, "declaration"))?)?
+                identity_keys.get_item(native_field(&grant, "declaration")?)?
             else {
                 continue;
             };
-            let kind: String = grant
-                .getattr(intern!(py, "kind"))?
+            let kind: String = native_field(&grant, "kind")?
                 .getattr(intern!(py, "value"))?
                 .extract()?;
             grants.push(GrantEntry {
@@ -188,7 +187,7 @@ impl NativeDeclarationContexts {
                 },
                 through: throughs.len(),
             });
-            throughs.push(grant.getattr(intern!(py, "through"))?);
+            throughs.push(native_field(&grant, "through")?);
         }
         Ok((grants, throughs))
     }
@@ -293,7 +292,7 @@ impl NativeDeclarationContexts {
         )
     }
 
-    /// A `VisibilityRecord` built without running its dataclass initializer.
+    /// A `VisibilityRecord` of `resource`, `declaration`, `reason` and `through`.
     pub(crate) fn visibility_record_for<'py>(
         &self,
         resource: &Bound<'py, PyAny>,
@@ -303,13 +302,7 @@ impl NativeDeclarationContexts {
     ) -> PyResult<Bound<'py, PyAny>> {
         let py: Python<'py> = resource.py();
         let class: &Bound<'py, PyAny> = self.classes.visibility_record.bind(py);
-        let record: Bound<'py, PyAny> = self.classes.allocate.bind(py).call1((class,))?;
-        let attributes: Bound<'py, PyDict> =
-            record.getattr("__dict__")?.downcast_into::<PyDict>()?;
-        attributes.set_item("resource", resource)?;
-        attributes.set_item("declaration", declaration)?;
-        attributes.set_item("reason", reason)?;
-        attributes.set_item("through", through)?;
+        let record: Bound<'py, PyAny> = class.call1((resource, declaration, reason, through))?;
         Ok(record)
     }
 }

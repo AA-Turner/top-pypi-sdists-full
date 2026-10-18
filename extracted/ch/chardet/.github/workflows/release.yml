@@ -5,6 +5,18 @@ on:
     tags:
       - "[0-9]+.[0-9]*"
   workflow_dispatch:
+    inputs:
+      version-override:
+        description: >-
+          Build wheels for an already-tagged version from current main
+          (sets SETUPTOOLS_SCM_PRETEND_VERSION).  Use only when main's
+          src/ is identical to that tag; publish skips existing files,
+          so only new wheels upload.
+        required: false
+        default: ""
+
+env:
+  SETUPTOOLS_SCM_PRETEND_VERSION: ${{ inputs.version-override || '' }}
 
 permissions:
   contents: read
@@ -54,6 +66,7 @@ jobs:
           - { os: ubuntu-24.04-riscv, name: linux-riscv64-312,  cibw_archs_linux: riscv64, cibw_build: "cp312-*" }
           - { os: ubuntu-24.04-riscv, name: linux-riscv64-313,  cibw_archs_linux: riscv64, cibw_build: "cp313-*" }
           - { os: ubuntu-24.04-riscv, name: linux-riscv64-314,  cibw_archs_linux: riscv64, cibw_build: "cp314-*" }
+          - { os: ubuntu-24.04-riscv, name: linux-riscv64-315,  cibw_archs_linux: riscv64, cibw_build: "cp315-*" }
           - { os: macos-latest,       name: macos,              cibw_archs_linux: auto    }
     steps:
       - uses: actions/checkout@v4
@@ -64,11 +77,11 @@ jobs:
       # which has no riscv64 binaries. On native riscv64 runners, invoke
       # cibuildwheel directly with the system Python instead.
       - if: "!startsWith(matrix.name, 'linux-riscv64')"
-        uses: pypa/cibuildwheel@v3.3
+        uses: pypa/cibuildwheel@v4.2.0
         env:
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}
           CIBW_BUILD: ${{ matrix.cibw_build || '*' }}
-          CIBW_ENVIRONMENT_PASS_LINUX: HATCH_BUILD_HOOK_ENABLE_MYPYC HATCH_BUILD_HOOK_ENABLE_CUSTOM
+          CIBW_ENVIRONMENT_PASS_LINUX: HATCH_BUILD_HOOK_ENABLE_MYPYC HATCH_BUILD_HOOK_ENABLE_CUSTOM SETUPTOOLS_SCM_PRETEND_VERSION
           HATCH_BUILD_HOOK_ENABLE_MYPYC: "true"
           # Cython scoring kernel; without it the wheel is ~1.4x slower.
           HATCH_BUILD_HOOK_ENABLE_CUSTOM: "true"
@@ -82,7 +95,7 @@ jobs:
         env:
           CIBW_ARCHS_LINUX: riscv64
           CIBW_BUILD: ${{ matrix.cibw_build }}
-          CIBW_ENVIRONMENT_PASS_LINUX: HATCH_BUILD_HOOK_ENABLE_MYPYC HATCH_BUILD_HOOK_ENABLE_CUSTOM
+          CIBW_ENVIRONMENT_PASS_LINUX: HATCH_BUILD_HOOK_ENABLE_MYPYC HATCH_BUILD_HOOK_ENABLE_CUSTOM SETUPTOOLS_SCM_PRETEND_VERSION
           HATCH_BUILD_HOOK_ENABLE_MYPYC: "true"
           # Cython scoring kernel; without it the wheel is ~1.4x slower.
           HATCH_BUILD_HOOK_ENABLE_CUSTOM: "true"
@@ -99,7 +112,7 @@ jobs:
         with:
           fetch-depth: 0
       # MSVC has a 16,380-char string literal limit (C2026). mypyc generates
-      # a single C file with an encoded source map that exceeds this with 11
+      # a single C file with an encoded source map that exceeds this with 15
       # modules. Use separate=true on Windows so each module gets its own
       # extension, avoiding the limit. This is ~50% slower than the
       # single-library build used on Linux/macOS.
@@ -119,7 +132,7 @@ jobs:
       - name: Restore clean git state for version derivation
         run: git update-index --assume-unchanged pyproject.toml
       - uses: astral-sh/setup-uv@v7
-      - uses: pypa/cibuildwheel@v3.3
+      - uses: pypa/cibuildwheel@v4.2.0
         env:
           HATCH_BUILD_HOOK_ENABLE_MYPYC: "true"
           # Cython scoring kernel; without it the wheel is ~1.4x slower.
@@ -131,6 +144,11 @@ jobs:
 
   publish:
     name: Publish to PyPI
+    # Tag pushes and explicit version-override dispatches only: a bare
+    # "Run workflow" click on main would otherwise build for ~30 minutes
+    # and then try to publish dev-versioned artifacts (PyPI rejects local
+    # versions with a 400, or skip-existing silently no-ops on a tag).
+    if: github.ref_type == 'tag' || inputs.version-override != ''
     needs: [build-sdist, build-pure-wheel, build-mypyc-wheels, build-mypyc-wheels-windows]
     runs-on: ubuntu-latest
     environment: pypi

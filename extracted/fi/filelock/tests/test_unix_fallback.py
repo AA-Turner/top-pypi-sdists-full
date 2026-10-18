@@ -3,7 +3,8 @@ from __future__ import annotations
 import os
 import subprocess  # ruff:ignore[suspicious-subprocess-import]  # a clean interpreter isolates the blocked fcntl import
 import sys
-from errno import EIO, ENOSYS
+import warnings
+from errno import EACCES, EIO, ENOSYS, EWOULDBLOCK
 from textwrap import dedent
 from typing import TYPE_CHECKING, Final
 
@@ -73,6 +74,20 @@ def test_fallback_emits_warning(tmp_path: Path) -> None:  # pragma: needs fcntl
     with pytest.warns(UserWarning, match="flock not supported on this filesystem, falling back to SoftFileLock"):
         lock.acquire()
     lock.release()
+
+
+@NEEDS_FCNTL
+def test_fchmod_enosys_is_not_a_missing_flock(tmp_path: Path, mocker: MockerFixture) -> None:  # pragma: needs fcntl
+    mocker.patch("os.fchmod", side_effect=OSError(ENOSYS, "Function not implemented"))
+    lock = UnixFileLock(tmp_path / "test.lock", mode=0o644)
+
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        with pytest.raises(OSError, match="Function not implemented"):
+            lock.acquire()
+
+    assert not recorded
+    assert not isinstance(lock, SoftFileLock)
 
 
 @NEEDS_FCNTL
@@ -164,6 +179,118 @@ def test_fallback_keeps_peer_soft_marker(tmp_path: Path) -> None:  # pragma: nee
         UnixFileLock(lock_path).acquire(timeout=0)
     assert (lock_path.stat().st_ino, lock_path.read_bytes()) == marker
     holder.release()
+
+
+@NEEDS_FCNTL
+@pytest.mark.filterwarnings("ignore:flock not supported on this filesystem:UserWarning")
+def test_fallback_spares_a_peer_marker_that_replaced_its_placeholder(  # pragma: needs fcntl
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    lock_path: Final = tmp_path / "test.lock"
+    peer_marker: Final = f"{os.getpid()}\n{host_name()}\n"
+    lstat: Final = os.lstat
+    stalled: list[bool] = []
+
+    def flock_missing(fd: int, operation: int) -> None:
+        stalled.append(False)
+        raise OSError(ENOSYS, f"Function not implemented for {fd} with {operation}")
+
+    def lstat_then_peer_replaces_placeholder(path: str, *, dir_fd: int | None = None) -> os.stat_result:
+        found: Final = lstat(path, dir_fd=dir_fd)
+        if stalled == [False] and os.fspath(path) == os.fspath(lock_path):
+            # The cleanup stalls past the grace a waiting soft lock gives an empty file, which evicts the placeholder
+            # and publishes its own marker.
+            stalled[0] = True
+            lock_path.unlink()
+            lock_path.write_text(peer_marker, encoding="utf-8")
+        return found
+
+    mocker.patch("filelock._unix.fcntl.flock", side_effect=flock_missing)
+    mocker.patch("os.lstat", side_effect=lstat_then_peer_replaces_placeholder)
+    with pytest.raises(Timeout):
+        UnixFileLock(lock_path).acquire(timeout=0)
+    mocker.stopall()
+
+    # Where os.link cannot restore it, the peer's marker waits under a break name, but it is never deleted.
+    assert peer_marker in [path.read_text(encoding="utf-8") for path in tmp_path.glob("test.lock*")]
+
+
+@NEEDS_FCNTL
+@pytest.mark.filterwarnings("ignore:flock not supported on this filesystem:UserWarning")
+@pytest.mark.usefixtures("unsupported_flock", "write_denied_lock_file")
+def test_fallback_waits_on_a_peer_marker_it_cannot_write(tmp_path: Path) -> None:  # pragma: needs fcntl
+    lock_path = tmp_path / "test.lock"
+    holder = UnixFileLock(lock_path)
+    holder.acquire()
+
+    with pytest.raises(Timeout):
+        UnixFileLock(lock_path).acquire(timeout=0)
+    holder.release()
+    with (contender := UnixFileLock(lock_path)).acquire(timeout=0):
+        assert contender.is_locked
+
+
+@NEEDS_FCNTL
+@pytest.mark.usefixtures("write_denied_lock_file")
+def test_lock_file_it_cannot_write_stays_denied_where_flock_works(tmp_path: Path) -> None:  # pragma: needs fcntl
+    (lock_path := tmp_path / "test.lock").touch()
+
+    with pytest.raises(PermissionError):
+        UnixFileLock(lock_path).acquire(timeout=0)
+
+
+@NEEDS_FCNTL
+@pytest.mark.parametrize("write_denied_lock_file", ["leased"], indirect=True)
+@pytest.mark.usefixtures("write_denied_lock_file")
+def test_leased_lock_file_it_cannot_write_is_contention_where_flock_works(
+    tmp_path: Path,
+) -> None:  # pragma: needs fcntl
+    (lock_path := tmp_path / "test.lock").touch()
+
+    with pytest.raises(Timeout):
+        UnixFileLock(lock_path).acquire(timeout=0)
+
+
+@NEEDS_FCNTL
+@pytest.mark.filterwarnings("ignore:flock not supported on this filesystem:UserWarning")
+@pytest.mark.parametrize("write_denied_lock_file", ["leased"], indirect=True)
+@pytest.mark.usefixtures("unsupported_flock", "write_denied_lock_file")
+def test_fallback_treats_a_leased_marker_it_cannot_write_as_contention(tmp_path: Path) -> None:  # pragma: needs fcntl
+    (lock_path := tmp_path / "test.lock").touch()
+
+    with pytest.raises(Timeout):
+        UnixFileLock(lock_path).acquire(timeout=0)
+
+
+@NEEDS_FCNTL
+@pytest.mark.parametrize("write_denied_lock_file", ["unlink"], ids=["unlinked-under-the-denial"], indirect=True)
+@pytest.mark.usefixtures("write_denied_lock_file")
+def test_lock_file_unlinked_under_a_denied_open_is_retried(tmp_path: Path) -> None:  # pragma: needs fcntl
+    (lock_path := tmp_path / "test.lock").touch()
+
+    with (lock := UnixFileLock(lock_path)).acquire(timeout=1):
+        assert lock.is_locked
+
+
+@pytest.fixture
+def write_denied_lock_file(
+    request: pytest.FixtureRequest, tmp_path: Path, mocker: MockerFixture
+) -> None:  # pragma: needs fcntl
+    # Stand in for a marker another account owns: an O_RDWR open is refused, a read works unless the file is leased.
+    behavior = getattr(request, "param", "deny")
+    real_open = os.open
+
+    def deny_write(path: str, flags: int, mode: int = 0o777, *, dir_fd: int | None = None) -> int:
+        if not flags & os.O_CREAT and str(tmp_path / "test.lock") == path:
+            if flags & os.O_RDWR:
+                if behavior == "unlink":
+                    (tmp_path / "test.lock").unlink()
+                raise PermissionError(EACCES, "Permission denied", path)
+            if behavior == "leased":
+                raise BlockingIOError(EWOULDBLOCK, "Resource temporarily unavailable", path)
+        return real_open(path, flags, mode, dir_fd=dir_fd)
+
+    mocker.patch("os.open", side_effect=deny_write)
 
 
 @NEEDS_FCNTL  # pragma: needs fcntl

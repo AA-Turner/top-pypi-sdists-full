@@ -1,0 +1,41 @@
+//! A model's fixture relation metadata from its inferred and declared columns.
+
+use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult};
+use sqlbuild_analysis::planner_fixtures::main::merge_metadata::merge_metadata;
+use sqlbuild_analysis::planner_fixtures::models::FixtureColumn;
+use sqlbuild_core::text::main::python_casefold::python_casefold;
+
+use crate::bindings::_helpers::analysis::model_reads::{inferred_rows, star_flags};
+use crate::bindings::_helpers::compiled_project::compiled_model_view::InferredRow;
+use crate::bindings::_helpers::planner_strategy::fixture_values::columns;
+use crate::bindings::_helpers::planner_strategy::models::FixtureRelation;
+use crate::bindings::_helpers::records::fields::field as native_field;
+
+/// The model's merged inferred and declared columns, authoritative unless its analysis saw a star.
+pub(crate) fn model_fixture_relation(model: &Bound<'_, PyAny>) -> PyResult<FixtureRelation> {
+    let inferred: Option<Vec<InferredRow>> = inferred_rows(model)?;
+    let schema = native_field(model, "schema_entry")?;
+    let declared: Vec<FixtureColumn> = if schema.is_none() {
+        Vec::new()
+    } else {
+        columns(&native_field(&schema, "columns")?, false)?
+    };
+    let mut inferred_columns: Vec<FixtureColumn> = Vec::new();
+    for (name, sql_type, _) in inferred.iter().flatten() {
+        inferred_columns.push(FixtureColumn {
+            name: name.clone(),
+            folded_name: python_casefold(name),
+            sql_type: sql_type.clone(),
+            nullable: None,
+        });
+    }
+    let authoritative = !star_flags(model)?.0
+        && (native_field(&native_field(model, "config")?, "values")?
+            .call_method1("get", ("contract",))?
+            .eq("enforced")?
+            || inferred.is_some());
+    Ok(FixtureRelation {
+        columns: merge_metadata(inferred_columns, declared),
+        authoritative,
+    })
+}

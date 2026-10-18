@@ -71,7 +71,7 @@ class DeviantartExtractor(Extractor):
             self.intermediary_subn = text.re(r"(/f/[^/]+/[^/]+)/v\d+/.*").subn
         self.blur_sub = text.re(r",blur_\d+").sub
 
-        if isinstance(self.original, str) and \
+        if self.original.__class__ is str and \
                 self.original.lower().startswith("image"):
             self.original = True
             self._update_content = self._update_content_image
@@ -181,7 +181,7 @@ class DeviantartExtractor(Extractor):
                     self.group = True
 
         for deviation in self.deviations():
-            if isinstance(deviation, tuple):
+            if deviation.__class__ is tuple:
                 url, data = deviation
                 yield Message.Queue, url, data
                 continue
@@ -733,7 +733,7 @@ class DeviantartAvatarExtractor(DeviantartExtractor):
             url = icon.replace("/avatars/", "/avatars-big/", 1)
             return (self._make_deviation(url, user, index, ""),)
 
-        if isinstance(formats, str):
+        if formats.__class__ is str:
             formats = formats.replace(" ", "").split(",")
 
         results = []
@@ -1284,7 +1284,7 @@ class DeviantartOAuthAPI():
         self.delay_min = max(2, self.delay)
 
         self.mature = extractor.config("mature", "true")
-        if not isinstance(self.mature, str):
+        if self.mature.__class__ is not str:
             self.mature = "true" if self.mature else "false"
 
         self.strategy = extractor.config("pagination")
@@ -1311,13 +1311,13 @@ class DeviantartOAuthAPI():
         if metadata:
             self.metadata = True
 
-            if isinstance(metadata, str):
+            if metadata.__class__ is str:
                 if metadata == "all":
                     metadata = ("submission", "camera", "stats",
                                 "collection", "gallery")
                 else:
                     metadata = metadata.replace(" ", "").split(",")
-            elif not isinstance(metadata, (list, tuple)):
+            elif metadata.__class__ is not list:
                 metadata = ()
 
             self._metadata_params = {"mature_content": self.mature}
@@ -1455,7 +1455,7 @@ class DeviantartOAuthAPI():
             return self._call(
                 endpoint, params=params, public=public, log=False)
         except self.exc.AuthorizationError as exc:
-            if isinstance(exc.message, dict):
+            if exc.message.__class__ is dict:
                 self.log.error("%s: '%s'", deviation["index"],
                                exc.message.get("error_description"))
             if not public or not self.refresh_token_key:

@@ -79,6 +79,52 @@ class TraceAssertion(ApprovalFields):
     updatedAt: str
 
 
+AssertionRewriteStatus = Literal[
+    "pending", "rewritten", "unchanged", "not_checked", "check_failed"
+]
+
+
+class AssertionRewrite(TypedDict):
+    """What the guided rewrite did to one entry sent to a save.
+
+    The check runs on Bitfab in the background after the text is saved as
+    sent. ``status`` is ``pending`` while the check runs, usually under a
+    minute, and its lists stay empty until it finishes. It then reads
+    ``rewritten`` when the sent text broke the writing rules and the rewritten
+    text replaced it in place, ``unchanged`` when it passed as sent, or
+    ``check_failed`` when the check could not run or had not finished 15
+    minutes after the save, in which case the text stays as sent and ``error``
+    says why. ``not_checked`` means the rewrite was skipped or the entry
+    carried no assertion text. A save returns ``pending`` for every checked
+    entry, and ``get_assertions`` returns the result once the check finishes.
+    ``sentAssertion`` is the text the caller sent, or None when the entry sent
+    none. ``changes``
+    has one sentence per change saying what changed and why.
+    ``separateAssertions`` holds other claims the sent text bundled together.
+    Save each one as its own assertion. ``unresolved`` lists problems that
+    rewording could not fix, and what to do about each.
+    """
+
+    status: AssertionRewriteStatus
+    sentAssertion: str | None
+    changes: list[str]
+    separateAssertions: list[str]
+    unresolved: list[str]
+    error: str | None
+
+
+class SavedTraceAssertion(TraceAssertion):
+    """An assertion returned by a save, with what the guided rewrite did to the entry sent for it."""
+
+    rewrite: AssertionRewrite
+
+
+class ReadTraceAssertion(TraceAssertion):
+    """An assertion returned by ``get_assertions``, with its latest guided rewrite, or None when no check ever ran on it."""
+
+    rewrite: AssertionRewrite | None
+
+
 class AssertionEvidenceParameter(TypedDict):
     name: str
     type: AssertionEvidenceParameterType
@@ -271,7 +317,7 @@ class AssertionGeneration(TypedDict):
 
 
 class TraceAssertionsResult(TypedDict):
-    assertions: list[TraceAssertion]
+    assertions: list[ReadTraceAssertion]
     inheritedFrom: str | None
     generation: AssertionGeneration | None
 
@@ -392,6 +438,18 @@ def _wire_updates(updates: list[TraceAssertionsUpdate]) -> list[dict[str, Any]]:
     ]
 
 
+def _save_assertions_payload(
+    updates: list[TraceAssertionsUpdate],
+    source: TraceAssertionSource,
+    skip_guided_rewrite: bool,
+) -> dict[str, Any]:
+    return {
+        "updates": _wire_updates(updates),
+        "source": source,
+        "guidedRewrite": not skip_guided_rewrite,
+    }
+
+
 def _trace_assertions_path(trace_id: str, suffix: str = "") -> str:
     return f"/api/sdk/traces/{quote(trace_id, safe='')}/assertions{suffix}"
 
@@ -490,24 +548,58 @@ class TracesClient:
         trace_id: str,
         assertions: list[SaveAssertion],
         source: TraceAssertionSource = "agent",
-    ) -> list[TraceAssertion]:
+        *,
+        skip_guided_rewrite: bool = False,
+    ) -> list[SavedTraceAssertion]:
+        """Save assertions on one trace. Works like ``save_assertions_all`` for a single trace.
+
+        Returns once the text is saved. Each entry with assertion text comes
+        back with ``rewrite["status"] == "pending"`` while Bitfab checks it
+        against the trace in the background and, when it breaks the writing
+        rules, rewrites it in place, usually within a minute. Read the result
+        later with ``get_assertions``, whose rows carry ``rewrite``. Pass
+        ``skip_guided_rewrite=True`` to save the text exactly as sent with no
+        check.
+        """
         return self.save_assertions_all(
-            [{"traceId": trace_id, "assertions": assertions}], source=source
+            [{"traceId": trace_id, "assertions": assertions}],
+            source=source,
+            skip_guided_rewrite=skip_guided_rewrite,
         )
 
     def save_assertions_all(
         self,
         updates: list[TraceAssertionsUpdate],
         source: TraceAssertionSource = "agent",
-    ) -> list[TraceAssertion]:
+        *,
+        skip_guided_rewrite: bool = False,
+    ) -> list[SavedTraceAssertion]:
+        """Save assertions on several traces in one request.
+
+        Returns once the text is saved as sent. Bitfab then checks each entry's
+        assertion text against its trace in the background and, when it breaks
+        the writing rules (two claims in one, a condition, a value pointed at
+        instead of stated, an id from the recorded run, or wording that cannot
+        be measured), rewrites it in place into one well-formed assertion,
+        usually within a minute.
+
+        The returned assertions line up one to one with the entries sent. Each
+        one's ``rewrite`` reads ``pending`` when its text is being checked, and
+        ``not_checked`` when the rewrite was skipped or the entry sent no text.
+        Read the result later with ``get_assertions``: each row's ``rewrite``
+        says whether the text was rewritten, left unchanged, or could not be
+        checked. Save every text in ``rewrite["separateAssertions"]`` as its
+        own assertion, and act on anything in ``rewrite["unresolved"]``. Pass
+        ``skip_guided_rewrite=True`` to save the text exactly as sent with no
+        check.
+        """
         if not updates:
             return []
-        payload: dict[str, Any] = {
-            "updates": _wire_updates(updates),
-            "source": source,
-        }
-        result = self._http_client.request(ASSERTIONS_PATH, payload)
-        return result["assertions"]
+        result = self._http_client.request(
+            ASSERTIONS_PATH,
+            _save_assertions_payload(updates, source, skip_guided_rewrite),
+        )
+        return list(result["assertions"])
 
     def generate_assertions(
         self,

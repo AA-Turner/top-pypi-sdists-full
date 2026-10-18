@@ -6,8 +6,7 @@ payload build both run here. When no rung preserves the request verbatim,
 this module applies the capability-preservation policy's minimal disclosed
 coercion exactly once per layer and re-selects; when nothing coercible
 remains, the first rung's own field-scoped rejection stays the answer. A
-coercion is never
-silent: every substitution is disclosed through ``ignored_parameters`` in
+coercion is never silent: every substitution is disclosed through ``ignored_parameters`` in
 ``path->effective`` form, warn-logged for operators, and counted in the
 admission metrics.
 """
@@ -18,11 +17,13 @@ import logging
 from collections.abc import Sequence
 
 from exp.common.models.catalog import GatewayDeploymentCapabilities
+from exp.runtime.gateway import prompt_size
 from exp.runtime.gateway.affinity import (
     affinity_fingerprint,
     affinity_seed_material,
     rendezvous_order,
 )
+from exp.runtime.gateway.capability_rungs import narrow_to_capable_rungs
 from exp.runtime.gateway.contracts import AuthorizationSnapshot, DirectTarget, GatewayRequest
 from exp.runtime.gateway.native_accounting import NativeAttemptAccounting
 from exp.runtime.gateway.native_components import NativeGatewayComponents
@@ -47,7 +48,6 @@ from exp.runtime.gateway.prompt_caching import (
     with_cache_affinity,
     without_prompt_caching,
 )
-from exp.runtime.gateway.prompt_size import context_window_compatible_indexes
 from exp.runtime.gateway.recovery_binding import bind_recovery_profiles
 from exp.runtime.gateway.routing import GatewayRoute, GatewayRoutingError
 from exp.runtime.gateway.sticky_affinity import AffinityPlacement, sticky_first_order
@@ -76,9 +76,7 @@ from exp.runtime.models.providers.generation_route_compat import (
     compatible_generation_parameter_profile_indexes,
 )
 from exp.runtime.models.providers.protocol import NativeWireClient
-from exp.runtime.models.providers.streaming_requests import (
-    route_generation_parameter_requests,
-)
+from exp.runtime.models.providers.streaming_requests import route_generation_parameter_requests
 from exp.runtime.openai_protocol.state import ProtocolNamespace, episode_namespace
 
 _logger = logging.getLogger(__name__)
@@ -262,12 +260,13 @@ def prepare_route_requests(
     if len(chat_indexes) != len(route.deployments):
         route = select_route_deployments(route, chat_indexes)
         resolved_wires = tuple(resolved_wires[index] for index in chat_indexes)
-    window_indexes = context_window_compatible_indexes(route, request)
+    request, admission_disclosures = prompt_size.clamp_output_to_context_window(route, request)
+    window_indexes = prompt_size.context_window_compatible_indexes(route, request)
     if len(window_indexes) != len(route.deployments):
         route = select_route_deployments(route, window_indexes)
         resolved_wires = tuple(resolved_wires[index] for index in window_indexes)
-
-    tier_disclosures: tuple[str, ...] = ()
+    route, resolved_wires, capable = narrow_to_capable_rungs(route, resolved_wires, request)
+    admission_disclosures = (*admission_disclosures, *capable)
     if request.service_tier in ("flex", "priority"):
         tier = request.service_tier
         tier_indexes = tuple(
@@ -283,7 +282,7 @@ def prepare_route_requests(
             # tier: serving it at the standard price would bill more than the
             # caller chose, so flex keeps the typed refusal below.
             request = request.model_copy(update={"service_tier": None})
-            tier_disclosures = (PRIORITY_TIER_UNAVAILABLE_DISCLOSURE,)
+            admission_disclosures = (*admission_disclosures, PRIORITY_TIER_UNAVAILABLE_DISCLOSURE)
         elif not tier_indexes:
             raise ProviderCapabilityError(
                 capability="service_tier",
@@ -301,7 +300,7 @@ def prepare_route_requests(
             resolved_wires = tuple(resolved_wires[index] for index in tier_indexes)
 
     admitted_request = request
-    coercion_disclosures: tuple[str, ...] = tier_disclosures
+    coercion_disclosures: tuple[str, ...] = admission_disclosures
     full_route = route
     full_wires = resolved_wires
 
@@ -365,7 +364,7 @@ def prepare_route_requests(
     )
     # Re-check after semantic shaping. Output ceilings stay caller-owned;
     # omitted wire-required caps are resolved independently at payload build.
-    shaped_indexes = context_window_compatible_indexes(route, provider_request)
+    shaped_indexes = prompt_size.context_window_compatible_indexes(route, provider_request)
     if len(shaped_indexes) != len(route.deployments):
         route = select_route_deployments(route, shaped_indexes)
         resolved_wires = tuple(resolved_wires[index] for index in shaped_indexes)

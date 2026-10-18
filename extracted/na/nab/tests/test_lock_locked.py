@@ -9,17 +9,20 @@ reports when the tier defers.
 
 from __future__ import annotations
 
-import sys
 from collections.abc import Callable
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 import tomli
 
+from nab import _resolve
 from nab._lock import _join_command, _join_for_cmd, _quote_for_cmd
 from nab.cli import run
+from nab_index.client import WheelFile
+from nab_markersets._compat import get_int_max_str_digits
+from nab_project._testing.coordinator_fake import make_coordinator
 from nab_project.lockfile import (
     IndexPin,
     SdistArtifact,
@@ -29,6 +32,10 @@ from nab_project.lockfile import (
 from nab_project.resolve import ResolveResult, TargetResult
 from nab_provider._vendor.packaging.version import Version
 from nab_provider.target import ResolveTarget
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
 
 V = Version
 
@@ -617,17 +624,68 @@ def test_the_base_group_named_in_default_groups_falls_through(
 
 
 def test_non_sticky_stale_falls_through_out_of_date(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    hermetic_roots: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    pyproject = _write_pyproject(tmp_path, '[project]\ndependencies = ["foo>=1.0"]\n')
-    out = tmp_path / "pylock.toml"
-    _write_lock(pyproject, out, _result({"foo": "1.0"}))
-    capsys.readouterr()
+    pyproject = _write_pyproject(
+        hermetic_roots, '[project]\ndependencies = ["foo>=1.0"]\n'
+    )
+    out = hermetic_roots / "pylock.toml"
+    arguments = (
+        str(pyproject),
+        "--output",
+        str(out),
+        "--offline",
+        "True",
+        "--no-cache",
+    )
+    files = [
+        WheelFile(
+            filename=f"foo-{version}-py3-none-any.whl",
+            url=f"https://example.com/foo-{version}-py3-none-any.whl",
+            hashes=(("sha256", "a" * 64),),
+            has_metadata=True,
+            version=version,
+            requires_python=None,
+            upload_time=None,
+        )
+        for version in ("1.0", "2.0")
+    ]
 
-    mock = _locked_mock(_result({"foo": "2.0"}))
-    _run_locked(pyproject, out, mock, status=1)
+    coordinator = make_coordinator(
+        files[:1], package="foo", auto_metadata=True, offline=True
+    )
+    with patch(
+        "nab_project.resolve.FetchCoordinator", return_value=nullcontext(coordinator)
+    ):
+        _lock_cli(*arguments)
+        lock = tomli.loads(out.read_text())
+        assert [
+            (package["name"], package["version"]) for package in lock["packages"]
+        ] == [("foo", "1.0")]
+        before = out.read_bytes()
+        capsys.readouterr()
+
+        _lock_cli(*arguments, "--locked")
+        assert "is up to date" in capsys.readouterr().err
+        assert out.read_bytes() == before
+
+    coordinator = make_coordinator(
+        files, package="foo", auto_metadata=True, offline=True
+    )
+    with (
+        patch(
+            "nab_project.resolve.FetchCoordinator",
+            return_value=nullcontext(coordinator),
+        ),
+        patch(
+            "nab._resolve.resolve_for_targets", wraps=_resolve.resolve_for_targets
+        ) as resolve_spy,
+    ):
+        _lock_cli(*arguments, "--locked", status=1)
+
     assert "out of date" in capsys.readouterr().err
-    mock.assert_called_once()
+    resolve_spy.assert_called_once()
+    assert out.read_bytes() == before
 
 
 def test_a_deeply_nested_extra_table_falls_through_out_of_date(
@@ -1012,6 +1070,7 @@ def test_unreadable_requirement_with_changed_envelope_reports_the_parse_error(
     assert "is out of date" not in err
 
 
+@requires_int_limit
 def test_intractable_requirement_marker_reports_the_marker_error(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1020,7 +1079,7 @@ def test_intractable_requirement_marker_reports_the_marker_error(
     Whether the requirement is active cannot be read here, so the validity
     check treats it as indeterminate rather than as a missing pin.
     """
-    literal = "1" * (sys.get_int_max_str_digits() + 1)
+    literal = "1" * ((get_int_max_str_digits() or 4300) + 1)
     pyproject = _write_pyproject(
         tmp_path,
         '[project]\nname = "proj"\nversion = "0"\ndependencies = ["foo"]\n',
@@ -1040,6 +1099,7 @@ def test_intractable_requirement_marker_reports_the_marker_error(
     assert "is out of date" not in err
 
 
+@requires_int_limit
 def test_intractable_self_ref_marker_reports_the_marker_error(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1048,7 +1108,7 @@ def test_intractable_self_ref_marker_reports_the_marker_error(
     The refusal stops the pre-resolve read of the project's own requirements,
     so no validity check runs and the resolve reports the marker.
     """
-    literal = "1" * (sys.get_int_max_str_digits() + 1)
+    literal = "1" * ((get_int_max_str_digits() or 4300) + 1)
     body = (
         '[project]\nname = "proj"\nversion = "0"\ndependencies = []\n'
         "[project.optional-dependencies]\n"
@@ -1185,6 +1245,7 @@ def test_non_pep751_precondition(
     mock.assert_not_called()
 
 
+@requires_int_limit
 def test_oversized_requires_python_precondition(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1194,7 +1255,7 @@ def test_oversized_requires_python_precondition(
         '[project]\ndependencies = ["foo"]\n[tool.nab]\nrequires-python = ">=3.10"\n',
     )
     out = tmp_path / "pylock.toml"
-    oversized = "9" * (sys.get_int_max_str_digits() + 1)
+    oversized = "9" * ((get_int_max_str_digits() or 4300) + 1)
     out.write_text(
         'lock-version = "1.0"\n'
         f'requires-python = ">={oversized}"\n'

@@ -1,6 +1,6 @@
 use crate::discovery::PathAliases;
 use crate::types::LineLength;
-use globset::{Glob, GlobBuilder, GlobMatcher, GlobSet, GlobSetBuilder};
+use globset::{GlobMatcher, GlobSet, GlobSetBuilder};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
@@ -48,6 +48,11 @@ pub struct Config {
     /// Global configuration options
     #[serde(default)]
     pub global: GlobalConfig,
+
+    /// Resolved CLI2 file-selection options; not native rumdl configuration.
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub cli2_ignores: Vec<super::Cli2Ignore>,
 
     /// Per-file rule ignores: maps file patterns to lists of rules to ignore.
     /// Patterns are relative to the project root; a leading `~/` expands to the
@@ -146,6 +151,7 @@ pub struct Config {
 impl PartialEq for Config {
     fn eq(&self, other: &Self) -> bool {
         self.global == other.global
+            && self.cli2_ignores == other.cli2_ignores
             && self.per_file_ignores == other.per_file_ignores
             && self.per_file_flavor == other.per_file_flavor
             && self.code_block_tools == other.code_block_tools
@@ -196,6 +202,11 @@ fn alias_match_paths(aliases: &PathAliases, absolute: Option<&Path>) -> Vec<Stri
 }
 
 impl Config {
+    /// Whether CLI2 excludes this file before linting or formatting.
+    pub fn is_cli2_ignored(&self, path: &Path) -> bool {
+        self.cli2_ignores.iter().any(|scope| scope.matches(path))
+    }
+
     /// Check if the Markdown flavor is set to MkDocs
     pub fn is_mkdocs_flavor(&self) -> bool {
         self.global.flavor == MarkdownFlavor::MkDocs
@@ -572,9 +583,9 @@ impl PerFileIgnoreCache {
 
         let mut has_absolute = false;
         for (pattern, rules_list) in per_file_ignores {
-            let pattern = crate::discovery::expand_home_prefix(pattern);
+            let pattern = crate::discovery::prepare_pattern(pattern);
             has_absolute |= crate::discovery::has_absolute_spelling(&pattern);
-            if let Ok(glob) = Glob::new(&pattern) {
+            if let Ok(glob) = crate::discovery::path_glob(&pattern, false) {
                 builder.add(glob);
                 // Canonicalize defensively: callers should have run
                 // Config::canonicalize_rule_lists already, but per-file-ignores
@@ -612,9 +623,9 @@ impl PerFileFlavorCache {
 
         let mut has_absolute = false;
         for (pattern, flavor) in per_file_flavor {
-            let pattern = crate::discovery::expand_home_prefix(pattern);
+            let pattern = crate::discovery::prepare_pattern(pattern);
             has_absolute |= crate::discovery::has_absolute_spelling(&pattern);
-            if let Ok(glob) = GlobBuilder::new(&pattern).literal_separator(true).build() {
+            if let Ok(glob) = crate::discovery::path_glob(&pattern, true) {
                 matchers.push((glob.compile_matcher(), *flavor));
             } else {
                 log::warn!("Invalid glob pattern in per-file-flavor: {pattern}");
@@ -806,14 +817,19 @@ impl GlobalConfig {
 /// several directory layouts.
 pub const RUMDL_CONFIG_FILES: &[&str] = &[".rumdl.toml", "rumdl.toml", ".config/rumdl.toml", "pyproject.toml"];
 
+/// Names of markdownlint config files, in precedence order within one directory.
+///
+/// `.markdownlint.*` files come first because markdownlint-cli2 lints with a
+/// directory's `.markdownlint.*` file in preference to the `config` of its
+/// `.markdownlint-cli2.*` file.
 pub const MARKDOWNLINT_CONFIG_FILES: &[&str] = &[
+    ".markdownlint.jsonc",
+    ".markdownlint.json",
+    ".markdownlint.yaml",
+    ".markdownlint.yml",
     ".markdownlint-cli2.jsonc",
     ".markdownlint-cli2.yaml",
     ".markdownlint-cli2.yml",
-    ".markdownlint.json",
-    ".markdownlint.jsonc",
-    ".markdownlint.yaml",
-    ".markdownlint.yml",
     "markdownlint.json",
     "markdownlint.jsonc",
     "markdownlint.yaml",

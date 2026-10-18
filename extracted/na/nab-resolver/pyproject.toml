@@ -1,6 +1,6 @@
 [project]
 name = "nab-resolver"
-version = "0.0.21"
+version = "0.0.22"
 description = "Generic PubGrub dependency-resolver core"
 readme = "README.md"
 license = "MIT"
@@ -17,6 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Typing :: Typed",
 ]
 # Empty on purpose. The solver core is standard library only, so a host

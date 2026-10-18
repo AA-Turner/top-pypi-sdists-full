@@ -14,6 +14,7 @@ use sqlbuild_render::macro_calls::main::macro_call_names::macro_call_names as sc
 use sqlbuild_render::macro_calls::main::scan_macro_call_sites::scan_macro_call_sites as scan_sites;
 use sqlbuild_render::macro_calls::models::{MacroCallScan, MacroCallSite};
 
+use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::render::macro_arguments::parsed_arguments;
 use crate::bindings::_helpers::render::macro_expansion::{
     ExpansionClasses, NativeMacroExpansion, raised,
@@ -127,9 +128,7 @@ fn called_macro<'py>(
         .invocation_context
         .call((), Some(&context_arguments))?;
     expansion.facts.borrow_mut().begin_rendering(approved);
-    let token: PyResult<Bound<'py, PyAny>> = run
-        .handle
-        .getattr("render_relation")
+    let token: PyResult<Bound<'py, PyAny>> = native_field(run.handle, "render_relation")
         .and_then(|renderer| classes.relation_renderer.call_method1("set", (renderer,)));
     let result: PyResult<Bound<'py, PyAny>> = token
         .as_ref()
@@ -157,8 +156,8 @@ fn invoke<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let (name, loaded_macro) = called;
     let (args, kwargs) = arguments;
-    let function: Bound<'py, PyAny> = loaded_macro.getattr("function")?;
-    if !loaded_macro.getattr("injects_context")?.is_truthy()? {
+    let function: Bound<'py, PyAny> = native_field(loaded_macro, "function")?;
+    if !native_field(loaded_macro, "injects_context")?.is_truthy()? {
         return function.call(args, Some(kwargs));
     }
     if kwargs.contains(CONTEXT_PARAMETER)? {
@@ -211,7 +210,7 @@ fn final_sql(run: &Evaluation<'_, '_>, name: &str, value: &Bound<'_, PyAny>) -> 
         if !error.is_instance_of::<PyUnicodeEncodeError>(py) {
             return Err(error);
         }
-        let start: Bound<'_, PyAny> = error.value(py).getattr("start")?;
+        let start: Bound<'_, PyAny> = native_field(error.value(py), "start")?;
         let surrogate: String = value.get_item(start)?.repr()?.to_string();
         let message: String = format!(
             "Macro '@{name}' in '{}' returned text with the lone surrogate {surrogate}, which is \
@@ -290,13 +289,14 @@ fn call_arguments<'py>(
     }
     let mut references: Vec<ResourceRef> = Vec::with_capacity(arguments.typed_references.len());
     for (function, reference_name) in &arguments.typed_references {
-        let kind: String = run
-            .classes
-            .ref_kinds
-            .get_item(function)?
-            .ok_or_else(|| PyValueError::new_err(function.clone()))?
-            .getattr("value")?
-            .extract()?;
+        let kind: String = native_field(
+            &run.classes
+                .ref_kinds
+                .get_item(function)?
+                .ok_or_else(|| PyValueError::new_err(function.clone()))?,
+            "value",
+        )?
+        .extract()?;
         references.push((kind, reference_name.clone()));
     }
     run.expansion

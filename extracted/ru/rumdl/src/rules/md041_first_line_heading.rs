@@ -240,17 +240,23 @@ impl MD041FirstLineHeading {
         idx: usize,
     ) -> Option<(usize, &'a crate::lint_context::HeadingInfo)> {
         let line_info = ctx.lines.get(idx)?;
-        if let Some(heading) = line_info.heading.as_deref() {
-            return Some((idx, heading));
-        }
-        if !line_info.is_setext_heading_text {
-            return None;
-        }
-        ctx.lines[idx..]
-            .iter()
-            .enumerate()
-            .take_while(|(_, li)| li.is_setext_heading_text)
-            .find_map(|(offset, li)| li.heading.as_deref().map(|heading| (idx + offset, heading)))
+        let found = if let Some(heading) = line_info.heading.as_deref() {
+            Some((idx, heading))
+        } else if line_info.is_setext_heading_text {
+            ctx.lines[idx..]
+                .iter()
+                .enumerate()
+                .take_while(|(_, li)| li.is_setext_heading_text)
+                .find_map(|(offset, li)| li.heading.as_deref().map(|heading| (idx + offset, heading)))
+        } else {
+            None
+        };
+        // A heading that opens a list item (`- # Title`) is that item's content,
+        // not a top-level heading, the same as one further into a list.
+        found.filter(|(last_idx, heading)| {
+            let first_idx = last_idx + 1 - heading.text_lines;
+            heading.first_line_prefix_len() <= ctx.lines[first_idx].indent
+        })
     }
 
     fn line_starts_in_literal_code(ctx: &crate::lint_context::LintContext, idx: usize) -> bool {
@@ -407,7 +413,10 @@ impl MD041FirstLineHeading {
 
     /// Fix a heading line to use the specified level
     fn fix_heading_level(&self, line: &str, _current_level: usize, target_level: usize) -> String {
-        let trimmed = line.trim_start();
+        // CommonMark strips only spaces and tabs around a heading's content;
+        // any other whitespace is part of the text.
+        const BLANK: [char; 2] = [' ', '\t'];
+        let trimmed = line.trim_start_matches(BLANK);
 
         // ATX-style heading (# Heading)
         if trimmed.starts_with('#') {
@@ -415,16 +424,16 @@ impl MD041FirstLineHeading {
             // Find where the content starts (after # and optional space)
             let content_start = trimmed.chars().position(|c| c != '#').unwrap_or(trimmed.len());
             let after_hashes = &trimmed[content_start..];
-            let content = after_hashes.trim_start();
+            let content = after_hashes.trim_start_matches(BLANK);
 
             // Preserve leading whitespace from original line
-            let leading_ws: String = line.chars().take_while(|c| c.is_whitespace()).collect();
+            let leading_ws: String = line.chars().take_while(|c| BLANK.contains(c)).collect();
             format!("{leading_ws}{hashes} {content}")
         } else {
             // Setext-style heading - convert to ATX
             // The underline would be on the next line, so we just convert the text line
             let hashes = "#".repeat(target_level);
-            let leading_ws: String = line.chars().take_while(|c| c.is_whitespace()).collect();
+            let leading_ws: String = line.chars().take_while(|c| BLANK.contains(c)).collect();
             format!("{leading_ws}{hashes} {trimmed}")
         }
     }
@@ -3188,5 +3197,21 @@ mod tests {
             assert_eq!(preamble.check(&ctx).unwrap().len(), 1);
             assert_eq!(preamble.fix(&ctx).unwrap(), source.replacen("## ", "# ", 1));
         }
+    }
+
+    #[test]
+    fn test_quoted_heading_is_not_the_first_heading() {
+        let rule = MD041FirstLineHeading::default();
+        let check = |source: &str| {
+            let ctx = crate::lint_context::LintContext::new(source, crate::config::MarkdownFlavor::Standard, None);
+            rule.check(&ctx).unwrap().len()
+        };
+        assert_eq!(check("> # Title\n\ntext\n"), 1, "a quoted title does not count");
+        assert_eq!(
+            check("# Title\n\n> # Quoted\n"),
+            0,
+            "later quoted headings are not checked"
+        );
+        assert_eq!(check("# Title\n\n> ## Quoted\n\n> # Again\n"), 0);
     }
 }

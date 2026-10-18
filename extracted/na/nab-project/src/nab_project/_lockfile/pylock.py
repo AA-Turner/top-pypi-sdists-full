@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, TypeAlias
 import tomli_w
 
 from nab_index.atomic import atomic_write_text
+from nab_markersets.conversions import PreparedMarkerSets
 from nab_markersets.errors import IntractableMarkerSet, UnserializableMarkerSet
 from nab_markersets.markersets import DecisionStore, MarkerSet
 from nab_provider._vendor.packaging.markers import (
@@ -46,7 +47,7 @@ from nab_provider.conflict_kind import KIND_GROUP, MARKER_VARIABLE_FOR_KIND
 from nab_provider.marker_holds import intractable_as_error
 
 from ..conflicts import conflict_exclusion_groups, conflict_member_groups
-from .builder import require_artifact_hashes
+from .builder import require_artifact_hashes, validate_artifact_hashes
 from .coverage import validate_marker_coverage
 from .disjointness import validate_marker_disjointness
 from .groups import BASE_MEMBER
@@ -81,8 +82,14 @@ __all__ = [
 _EnvSignature: TypeAlias = "tuple[tuple[str, str], ...]"
 _Members: TypeAlias = "frozenset[tuple[str, str]]"
 _ForkKey: TypeAlias = "tuple[_EnvSignature, _Members]"
+_PeerLookupKey: TypeAlias = "tuple[_EnvSignature, _Members, tuple[int, ...]]"
 
 _NO_MEMBERS: _Members = frozenset()
+_PROJECTION_CACHE_MIN_UNITS = 1_024
+_PROJECTION_CACHE_UNITS_PER_FORK = 8
+# Table entries, tuple keys and record fields receive conservative reference allowances.
+_PEER_CACHE_FIXED_UNITS = 12
+_CONDITION_CACHE_FIXED_UNITS = 6
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,6 +155,92 @@ class _Projection:
 
     dropped: _Members
     gate: _Members
+
+
+class _ProjectionPeers:
+    """Fork labels and the conflict members varied by one projection candidate."""
+
+    __slots__ = ("erased", "labels", "retained")
+
+    def __init__(self, erased: _Members, labels: tuple[str, ...]) -> None:
+        self.erased = erased
+        self.labels = labels
+        self.retained = False
+
+
+class _ProjectionMemo:
+    """Reuse peer lookups and conditions within a bound on retained references."""
+
+    __slots__ = ("axes", "conditions", "member_axes", "peer_cache", "remaining")
+
+    def __init__(self, axes: _ForkAxes, budget: int) -> None:
+        self.axes = axes
+        self.remaining = budget
+        self.peer_cache: dict[_PeerLookupKey, _ProjectionPeers | None] = {}
+        self.conditions: dict[tuple[str, _ProjectionPeers], _Members | None] = {}
+        self.member_axes: tuple[tuple[tuple[str, str], ...], ...] | None = None
+
+        units = len(axes.exclusion_groups) + sum(
+            len(group) for group in axes.exclusion_groups
+        )
+        if self._reserve(units):
+            self.member_axes = tuple(
+                tuple(sorted(group)) for group in axes.exclusion_groups
+            )
+
+    def _reserve(self, units: int) -> bool:
+        """Account for retained containers and their member or peer references."""
+        if units > self.remaining:
+            return False
+        self.remaining -= units
+        return True
+
+    def peers(
+        self,
+        signature: _EnvSignature,
+        held: _Members,
+        groups: tuple[int, ...],
+        erased: _Members,
+    ) -> _ProjectionPeers | None:
+        """Return all candidate peers, or None if any point lacks a fork."""
+        key = (signature, held, groups)
+        if key in self.peer_cache:
+            return self.peer_cache[key]
+
+        members = self.member_axes
+        choices = (
+            (tuple(sorted(self.axes.exclusion_groups[index])) for index in groups)
+            if members is None
+            else (members[index] for index in groups)
+        )
+        units = _PEER_CACHE_FIXED_UNITS + len(held) + len(groups) + len(erased)
+        labels = []
+        for swap in product(*choices):
+            label = self.axes.forks.get((signature, held | frozenset(swap)))
+            if label is None:
+                if self._reserve(units):
+                    self.peer_cache[key] = None
+                return None
+            labels.append(label)
+
+        peers = _ProjectionPeers(erased, tuple(labels))
+        if self._reserve(units + len(labels)):
+            peers.retained = True
+            self.peer_cache[key] = peers
+        return peers
+
+    def condition(self, name: str, peers: _ProjectionPeers) -> _Members | None:
+        """Return the package's common condition across these peer forks."""
+        key = (name, peers)
+        if peers.retained and key in self.conditions:
+            return self.conditions[key]
+        result = _merged_fork_gate(self.axes, name, peers.labels, peers.erased)
+        # Condition keys retain this record, so its payload must already be counted.
+        if peers.retained and self._reserve(
+            _CONDITION_CACHE_FIXED_UNITS + len(result or ())
+        ):
+            self.conditions[key] = result
+        return result
 
 
 def _fork_index(
@@ -287,6 +380,22 @@ def _check_extra_names(extras: Sequence[str]) -> None:
             raise LockValidationError(msg)
 
 
+def _prepare_environment_rows(
+    environments: Sequence[Marker],
+) -> tuple[list[MarkerSet], bool]:
+    """Build rows and report whether their raw syntax names implementation_version."""
+    rows: list[MarkerSet] = []
+    uses_implementation_version = False
+    for marker in environments:
+        if uses_implementation_version:
+            converted = MarkerSet.from_marker(marker)
+        else:
+            converted, names = MarkerSet.from_marker_with_variables(marker)
+            uses_implementation_version = "implementation_version" in names
+        rows.append(converted)
+    return rows, uses_implementation_version
+
+
 def build_pylock(lock_input: LockInput, *, lock_dir: Path | None = None) -> Pylock:
     """Build a :class:`Pylock` from the input shape.
 
@@ -308,12 +417,19 @@ def build_pylock(lock_input: LockInput, *, lock_dir: Path | None = None) -> Pylo
     exclusion_groups = conflict_exclusion_groups(lock_input.conflicts)
     store = DecisionStore()
     # Build once for the universe and coverage check.
-    environment_rows = [
-        MarkerSet.from_marker(marker) for marker in lock_input.environments
-    ]
+    environment_rows, uses_implementation_version = _prepare_environment_rows(
+        lock_input.environments
+    )
     universe, env_rows = _emission_scope(lock_input, store, rows=environment_rows)
+    prepared_sets = PreparedMarkerSets()
     package_records = _build_packages(
-        lock_input, base, exclusion_groups, universe, env_rows, store
+        lock_input,
+        base,
+        exclusion_groups,
+        universe,
+        env_rows,
+        store,
+        prepared_sets=prepared_sets,
     )
     package_records.sort(key=_package_sort_key)
     validate_marker_disjointness(
@@ -323,12 +439,14 @@ def build_pylock(lock_input: LockInput, *, lock_dir: Path | None = None) -> Pylo
         groups=lock_input.active_groups,
         exclusive_groups=exclusion_groups,
         declared_groups=conflict_member_groups(lock_input.conflicts),
+        prepared_sets=prepared_sets,
     )
     validate_marker_coverage(
         [lock.target for lock in lock_input.targets.values()],
         environments=lock_input.environments,
         store=store,
         environment_sets=environment_rows,
+        uses_implementation_version=uses_implementation_version,
     )
     tool: dict[str, Any] | None = (
         {"nab": lock_input.provenance.to_block()}
@@ -511,6 +629,7 @@ def _pin_to_package(
             ),
         )
     if isinstance(pin, ArchivePin):
+        validate_artifact_hashes(pin.name, pin.hashes)
         # An archive is content-pinned by its hash, so the version is
         # stable and recorded (unlike the directory/VCS cases above).
         return Package(
@@ -558,6 +677,7 @@ def _wheel_to_package(wheel: WheelArtifact, *, lock_dir: Path) -> PackageWheel:
     ``url`` verbatim.
     """
     size = _validate_artifact_size(wheel.size)
+    validate_artifact_hashes(wheel.filename, wheel.hashes)
     if wheel.local_path is not None:
         return PackageWheel(
             name=wheel.filename,
@@ -581,6 +701,7 @@ def _sdist_to_package(sdist: SdistArtifact, *, lock_dir: Path) -> PackageSdist:
     See :func:`_wheel_to_package` for the ``local_path`` handling.
     """
     size = _validate_artifact_size(sdist.size)
+    validate_artifact_hashes(sdist.filename, sdist.hashes)
     if sdist.local_path is not None:
         return PackageSdist(
             name=sdist.filename,
@@ -655,6 +776,8 @@ def _finalize_marker(
     within: MarkerSet,
     name: str = "",
     store: DecisionStore | None = None,
+    *,
+    prepared_sets: PreparedMarkerSets | None = None,
 ) -> Marker | None:
     """Return ``raw`` in its shortest form equivalent over ``within``.
 
@@ -672,14 +795,13 @@ def _finalize_marker(
     """
     if raw is None:
         return None
+    convert = MarkerSet.from_marker if prepared_sets is None else prepared_sets.prepare
     try:
-        source = MarkerSet.from_marker(raw)
+        source = convert(raw)
         simplified = source.simplify(within=within, store=store)
         text = simplified.to_marker_string(store=store)
         rebuilt = None if text is None else _parsed_marker(text)
-        emitted = (
-            MarkerSet.full() if rebuilt is None else MarkerSet.from_marker(rebuilt)
-        )
+        emitted = MarkerSet.full() if rebuilt is None else convert(rebuilt)
         shown = "no marker" if rebuilt is None else str(rebuilt)
         sound = source.equivalent_within(emitted, within, store=store)
     except (IntractableMarkerSet, UnserializableMarkerSet):
@@ -699,6 +821,8 @@ def _finalize_cached(
     name: str,
     memo: dict[str, Marker | None],
     store: DecisionStore,
+    *,
+    prepared_sets: PreparedMarkerSets | None = None,
 ) -> Marker | None:
     """:func:`_finalize_marker` memoised for the span of one lock.
 
@@ -710,7 +834,9 @@ def _finalize_cached(
         return None
     key = str(raw)
     if key not in memo:
-        memo[key] = _finalize_marker(raw, within, name, store)
+        memo[key] = _finalize_marker(
+            raw, within, name, store, prepared_sets=prepared_sets
+        )
     return memo[key]
 
 
@@ -721,6 +847,8 @@ def _build_packages(
     universe: MarkerSet,
     env_rows: tuple[Mapping[str, str], ...] | None,
     store: DecisionStore,
+    *,
+    prepared_sets: PreparedMarkerSets | None = None,
 ) -> list[Package]:
     """Collapse the per-target pins into Package entries with markers.
 
@@ -811,7 +939,14 @@ def _build_packages(
                 axes,
                 projections,
             )
-            marker = _finalize_parts(parts, universe, canonical_name, shortened, store)
+            marker = _finalize_parts(
+                parts,
+                universe,
+                canonical_name,
+                shortened,
+                store,
+                prepared_sets=prepared_sets if len(groups) > 1 else None,
+            )
             out.append(
                 _pin_to_package(
                     _merge_pins_in_group(pins),
@@ -1215,27 +1350,64 @@ def _fork_projections(
 
     limits = {key: frozenset(axes.targets[key[1]].target.selection) for key in same_pin}
     projections: dict[tuple[str, str], _Projection] = {}
+    memo = _ProjectionMemo(
+        axes,
+        max(
+            _PROJECTION_CACHE_MIN_UNITS,
+            _PROJECTION_CACHE_UNITS_PER_FORK * len(axes.targets),
+        ),
+    )
+    dependents: dict[tuple[str, str], set[tuple[str, str]]] | None = None
     stale = set(same_pin)
     while stale:
+        changed: set[tuple[str, str]] = set()
         for name, label in stale:
-            projections[name, label] = _project_fork(
+            key = (name, label)
+            previous = projections[key] if dependents is not None else None
+            current = _project_fork(
                 axes,
                 name,
                 label,
                 limits[name, label],
                 same_pin[name, label],
+                memo,
                 is_base=_is_base(
                     name, axes.env_signatures[label], env_fork_counts, env_base_names
                 ),
             )
-        narrowed = {
-            (name, label): limit
-            & _dependency_drops(axes, projections, label, edges[name, label])
-            for (name, label), limit in limits.items()
-        }
-        stale = {key for key, limit in narrowed.items() if limit != limits[key]}
-        limits = narrowed
+            projections[key] = current
+            if previous is not None and previous.dropped != current.dropped:
+                changed.add(key)
+
+        # Unchanged dependency drops are already reflected in the current limits.
+        affected = (
+            limits.keys()
+            if dependents is None
+            else {parent for child in changed for parent in dependents.get(child, ())}
+        )
+        stale = set()
+        for name, label in affected:
+            key = (name, label)
+            narrowed = limits[key] & _dependency_drops(
+                axes, projections, label, edges[key]
+            )
+            if narrowed != limits[key]:
+                stale.add(key)
+                limits[key] = narrowed
+        if stale and dependents is None:
+            dependents = _fork_dependents(edges)
     return projections
+
+
+def _fork_dependents(
+    edges: Mapping[tuple[str, str], AbstractSet[str]],
+) -> dict[tuple[str, str], set[tuple[str, str]]]:
+    """Index parents by dependency and fork for later synchronous rounds."""
+    parents: dict[tuple[str, str], set[tuple[str, str]]] = defaultdict(set)
+    for key, dependencies in edges.items():
+        for dependency in dependencies:
+            parents[dependency, key[1]].add(key)
+    return parents
 
 
 def _dependency_drops(
@@ -1263,6 +1435,7 @@ def _project_fork(
     label: str,
     limit: _Members,
     same_pin: frozenset[str],
+    memo: _ProjectionMemo,
     *,
     is_base: bool,
 ) -> _Projection:
@@ -1276,12 +1449,9 @@ def _project_fork(
     a member of one set alone matches no entry and the package silently
     does not install.
 
-    Sets are folded in one at a time and each candidate is checked over
-    the whole sub-cube of the sets folded in so far rather than one axis
-    at a time.  Two axes that are each flat through this fork can still
-    meet at a fork with a different pin; dropping both would leave two
-    entries of one package overlapping, and the forks have to stay
-    mutually exclusive in the marker itself.
+    Each candidate checks every fork combination for the sets considered so far.
+    Two sets can each preserve this fork's pin but select a different pin together.
+    Dropping both would leave two entries of one package overlapping.
     """
     own_gate = axes.gates.get((name, label), _NO_MEMBERS)
     selection = frozenset(axes.targets[label].target.selection)
@@ -1289,27 +1459,26 @@ def _project_fork(
 
     dropped: _Members = frozenset()
     gate = own_gate
-    varying: list[AbstractSet[tuple[str, str]]] = []
-    for group in axes.exclusion_groups:
+    varying: tuple[int, ...] = ()
+    erased = _NO_MEMBERS
+    for index, group in enumerate(axes.exclusion_groups):
         member = group & selection & limit
         if len(member) != 1:
             continue
 
-        candidate = [*varying, group]
-        erased = _NO_MEMBERS.union(*candidate)
-        held = selection - erased
-        keys = [
-            (signature, held | frozenset(swap))
-            for swap in product(*(sorted(members) for members in candidate))
-        ]
-        peers = [axes.forks[key] for key in keys if key in axes.forks]
-        if len(peers) != len(keys) or not same_pin.issuperset(peers):
+        candidate = (*varying, index)
+        candidate_erased = frozenset(group) if not varying else erased | group
+        peers = memo.peers(
+            signature, selection - candidate_erased, candidate, candidate_erased
+        )
+        if peers is None or not same_pin.issuperset(peers.labels):
             continue
 
-        merged = _merged_fork_gate(axes, name, peers, erased)
+        merged = memo.condition(name, peers)
         if merged is None:
             continue
         varying = candidate
+        erased = candidate_erased
         dropped |= member
         gate = merged
 
@@ -1330,7 +1499,7 @@ def _merged_fork_gate(
     """Return the shared selector set, or ``None`` when forks disagree.
 
     Dropping a set replaces the fork's own condition with one holding at
-    every point of the sub-cube: the part naming nothing in the dropped
+    every peer fork: the part naming nothing in the dropped
     sets, plus every dropped member that reaches the package in the forks
     that select it. Forks share it only when each carries exactly that
     set, so a member that reaches the package under one fork of
@@ -1341,7 +1510,7 @@ def _merged_fork_gate(
 
     # An empty condition installs the package whichever of its
     # members are selected (:func:`_merge_gates`), which no clause stands
-    # in for, so a sub-cube mixing the two does not project.
+    # in for, so peer forks mixing the two cannot project.
     if len({bool(gate) for gate in gates.values()}) != 1:
         return None
 
@@ -1485,6 +1654,8 @@ def _finalize_parts(
     name: str,
     memo: dict[str, Marker | None],
     store: DecisionStore,
+    *,
+    prepared_sets: PreparedMarkerSets | None = None,
 ) -> Marker | None:
     """Simplify each condition's environments, then assemble the marker.
 
@@ -1495,7 +1666,9 @@ def _finalize_parts(
     """
     assembled: list[Marker] = []
     for part in parts:
-        simplified = _finalize_cached(part.marker, universe, name, memo, store)
+        simplified = _finalize_cached(
+            part.marker, universe, name, memo, store, prepared_sets=prepared_sets
+        )
         if not part.gate:
             if simplified is None:
                 return None
@@ -1506,7 +1679,9 @@ def _finalize_parts(
     # One ungated part is already what the second pass would return.
     if len(parts) == 1 and not parts[0].gate:
         return assembled[0]
-    return _finalize_cached(_or_markers(assembled), universe, name, memo, store)
+    return _finalize_cached(
+        _or_markers(assembled), universe, name, memo, store, prepared_sets=prepared_sets
+    )
 
 
 def _gated_marker(marker: Marker | None, gate: Sequence[tuple[str, str]]) -> Marker:

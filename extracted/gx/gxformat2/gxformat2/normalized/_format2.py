@@ -11,12 +11,12 @@ from __future__ import annotations
 import copy
 import json
 import os
+from collections.abc import Iterable
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Literal, NamedTuple, Union
+from typing import Any, Literal, NamedTuple, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, SerializeAsAny
-from typing_extensions import TypeAlias
 
 from gxformat2.schema._input_parameter import input_parameter_class
 from gxformat2.schema.gxformat2 import (
@@ -77,7 +77,7 @@ class SourceReference(NamedTuple):
     output_name: str
 
 
-def resolve_source_reference(value: str, known_labels: set | dict) -> SourceReference:
+def resolve_source_reference(value: str, known_labels: Iterable[str]) -> SourceReference:
     """Parse a source reference into (step_label_or_id, output_name).
 
     Tries matching known labels first to handle labels containing '/'.
@@ -174,9 +174,7 @@ class NormalizedWorkflowStep(_DictMixin, BaseModel):
         """
         if isinstance(self.run, GalaxyUserToolStub):
             return True
-        if isinstance(self.run, dict) and self.run.get("class") in INLINE_TOOL_CLASSES:
-            return True
-        return False
+        return isinstance(self.run, dict) and self.run.get("class") in INLINE_TOOL_CLASSES
 
     @property
     def inline_tool_representation(self) -> dict[str, Any] | None:
@@ -231,6 +229,25 @@ class NormalizedFormat2(_DictMixin, BaseModel):
     def resolve_source(self, source: str) -> SourceReference:
         """Parse a source reference string (e.g. ``step/output``) against this workflow's labels."""
         return resolve_source_reference(source, self.known_labels)
+
+    @cached_property
+    def _render_identity_by_key(self) -> dict[str, str]:
+        identities: dict[str, str] = {}
+        for step in self.steps:
+            identity = step.label or step.id
+            identities[step.id] = identity
+            identities[identity] = identity
+        return identities
+
+    def resolve_render_source(self, source: str) -> SourceReference:
+        """Resolve a source to the step render identity (``label or id``) visualizers key nodes by.
+
+        Unlike :meth:`resolve_source`, a step addressed by its ``id`` while carrying a
+        distinct ``label`` resolves to that label. Input refs pass through unchanged.
+        """
+        identities = self._render_identity_by_key
+        ref = resolve_source_reference(source, self.known_labels | identities.keys())
+        return SourceReference(identities.get(ref.step_label, ref.step_label), ref.output_name)
 
     @property
     def unique_tools(self) -> frozenset[ToolReference]:
@@ -615,6 +632,14 @@ def _normalize_post_job_actions(
     return {key: NativePostJobAction.model_validate(value) for key, value in raw.items()}
 
 
+def _link_source(link: dict[str, Any]) -> str:
+    """Return a ``$link`` source reference, stringifying numeric step ids."""
+    source = link["$link"]
+    if type(source) is int:
+        return str(source)
+    return source
+
+
 def _resolve_links(
     value: Any,
     key: str = "",
@@ -629,10 +654,7 @@ def _resolve_links(
         connections = {}
 
     if isinstance(value, dict) and "$link" in value:
-        link_value = value["$link"]
-        if isinstance(link_value, int) and not isinstance(link_value, bool):
-            link_value = str(link_value)
-        connections.setdefault(key, []).append(link_value)
+        connections.setdefault(key, []).append(_link_source(value))
         return dict(_CONNECTED_VALUE), connections
 
     if isinstance(value, dict):
@@ -646,10 +668,7 @@ def _resolve_links(
         new_list: list[Any] = []
         for i, v in enumerate(value):
             if isinstance(v, dict) and "$link" in v:
-                link_value = v["$link"]
-                if isinstance(link_value, int) and not isinstance(link_value, bool):
-                    link_value = str(link_value)
-                connections.setdefault(key, []).append(link_value)
+                connections.setdefault(key, []).append(_link_source(v))
                 new_list.append(None)
             else:
                 child_key = f"{key}_{i}"
@@ -732,7 +751,7 @@ _COMMENT_TYPE_MAP = {
 }
 
 
-Format2Comment: TypeAlias = Union[TextComment, MarkdownComment, FrameComment, FreehandComment]
+Format2Comment: TypeAlias = TextComment | MarkdownComment | FrameComment | FreehandComment
 
 
 def _normalize_comments(
@@ -773,7 +792,7 @@ def _resolve_graph(raw: dict[str, Any]) -> dict[str, Any]:
     main: dict[str, Any] | None = None
     for entry in graph:
         if not isinstance(entry, dict):
-            raise Exception("Malformed workflow content in $graph")
+            raise TypeError("Malformed workflow content in $graph")
         if "id" not in entry:
             raise Exception("No subworkflow ID found for entry in $graph.")
         graph_id = entry["id"]

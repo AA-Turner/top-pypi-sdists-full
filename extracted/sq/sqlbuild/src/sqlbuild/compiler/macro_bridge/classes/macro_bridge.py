@@ -1,21 +1,29 @@
-"""Per-compile state of the native macro bridge: call-site scans, call classes and the memo."""
+"""The native macro bridge over loaded user modules, and the render stage run through it."""
 
 from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import Callable
+from contextvars import Token
 from pathlib import Path
 
 import sqlbuild._native as _native
-from sqlbuild.compiler.macro_bridge._helpers.store_environment import (
+from sqlbuild._native import (
     digest_module_files,
     module_digests_metadata,
+    unchanged_module_digests,
+)
+from sqlbuild.compiler.macro_bridge._helpers.store_environment import (
     module_sources,
     project_fingerprint,
     store_environment,
-    unchanged_module_digests,
 )
-from sqlbuild.compiler.macro_bridge.constants import MACRO_CALL_STORE_FILE_NAME
+from sqlbuild.compiler.macro_bridge.constants import (
+    ACTIVE_MACRO_BRIDGE,
+    MACRO_CALL_STORE_FILE_NAME,
+    STORE_MODULE_PATHS,
+)
 from sqlbuild.compiler.macro_bridge.models import (
     ModuleSources,
 )
@@ -72,19 +80,21 @@ class MacroBridge:
             return
         project_dir, model_paths, fingerprint = self._project_inputs
         try:
-            if (
-                not self.observe_modules()
-                or digest_module_files(self._module_digests) != self._module_digests
-                or project_fingerprint(project_dir=project_dir, model_paths=model_paths)
-                != fingerprint
-            ):
+            observed: bool = self.observe_modules()
+        except (OSError, RuntimeError) as error:
+            logging.getLogger(__name__).debug("Macro call store not saved: %s", error)
+            return
+        if not observed or digest_module_files(self._module_digests) != self._module_digests:
+            logging.getLogger(__name__).debug("Macro call store not saved: code or files changed")
+            return
+        metadata: bytes = module_digests_metadata(self._module_digests)
+        try:
+            if project_fingerprint(project_dir=project_dir, model_paths=model_paths) != fingerprint:
                 logging.getLogger(__name__).debug(
                     "Macro call store not saved: code or files changed"
                 )
                 return
-            _ = self.memo.save_store(
-                str(self._store_path), module_digests_metadata(self._module_digests)
-            )
+            _ = self.memo.save_store(str(self._store_path), metadata)
         except (OSError, RuntimeError) as error:
             logging.getLogger(__name__).debug("Macro call store not saved: %s", error)
 
@@ -131,3 +141,28 @@ class MacroBridge:
         """Calls found in the store and calls recorded into it."""
 
         return self.memo.store_stats()
+
+
+def run_with_macro_bridge[T](*, stage: Callable[[], T]) -> T:
+    """Run `stage` once with the bridge; its errors are the Python stage's, raised as they occur."""
+
+    bridge: MacroBridge = MacroBridge()
+    token: Token[object | None] = ACTIVE_MACRO_BRIDGE.set(bridge)
+    try:
+        result: T = stage()
+    finally:
+        ACTIVE_MACRO_BRIDGE.reset(token)
+    bridge.save_store()
+    STORE_MODULE_PATHS.update(bridge.store_module_paths())
+    hits, misses, recorded = bridge.stats()
+    store_hits, store_records = bridge.store_stats()
+    logging.getLogger(__name__).debug(
+        "Native macro bridge: %d memo hits, %d store hits, %d misses, %d recorded calls, "
+        "%d stored calls",
+        hits,
+        store_hits,
+        misses,
+        recorded,
+        store_records,
+    )
+    return result

@@ -88,9 +88,26 @@ pub fn report_missing_tool_binaries(groups: &[ConfigGroup], args: &crate::CheckA
             continue;
         }
 
-        // Nothing is executed here, only looked up on PATH, so the timeout the
-        // executor carries never applies.
-        let executor = ToolExecutor::new(config.timeout);
+        // The same configuration can cover documents in several projects.
+        let project_lookup = config
+            .binary_preferences
+            .values()
+            .any(|preference| *preference != rumdl_lib::code_block_tools::BinaryPreference::OnlySystem);
+        let roots: BTreeSet<_> = if project_lookup {
+            group
+                .files
+                .iter()
+                .map(|file| rumdl_lib::code_block_tools::binary::project_root(Path::new(file)))
+                .collect()
+        } else {
+            BTreeSet::from([std::env::current_dir().unwrap_or_default()])
+        };
+        let executors: Vec<_> = roots
+            .into_iter()
+            .map(|root| {
+                ToolExecutor::new(config.timeout).with_binary_resolution(config.binary_preferences.clone(), root)
+            })
+            .collect();
 
         let registry = ToolRegistry::new(config.tools.clone());
         for language in config.languages.values() {
@@ -102,7 +119,7 @@ pub fn report_missing_tool_binaries(groups: &[ConfigGroup], args: &crate::CheckA
                 ToolSlot::Format => &language.format,
             };
             for tool_id in tool_ids {
-                if is_rumdl_builtin(tool_id) {
+                if is_rumdl_builtin(tool_id) || registry.definition_problem(tool_id, slot).is_some() {
                     continue;
                 }
                 let Some(tool_def) = registry.resolve(tool_id, slot) else {
@@ -113,7 +130,7 @@ pub fn report_missing_tool_binaries(groups: &[ConfigGroup], args: &crate::CheckA
                 let Some(binary) = tool_def.command.first() else {
                     continue;
                 };
-                if !executor.is_tool_available(binary) {
+                if executors.iter().any(|executor| !executor.is_tool_available(binary)) {
                     missing.insert(binary.clone());
                 }
             }
@@ -233,14 +250,58 @@ pub fn resolve_config_groups(
     bypass_discovery: bool,
 ) -> ResolvedGroups {
     let mut grouping = Grouping::default();
-
+    // Root CLI2 ignores select files for the whole invocation, including
+    // groups whose native rumdl config replaces the root rule settings.
+    let selected_files: Vec<String>;
+    let file_paths = if args.no_exclude || !root.config.cli2_ignores.iter().any(|scope| scope.root) {
+        file_paths
+    } else {
+        selected_files = file_paths
+            .iter()
+            .filter(|file| {
+                !root
+                    .config
+                    .cli2_ignores
+                    .iter()
+                    .any(|scope| scope.root && scope.matches(Path::new(file)))
+            })
+            .cloned()
+            .collect();
+        &selected_files
+    };
+    // CLI2's invocation directory bounds nested configuration even outside a
+    // repository. Markdownlint discovery does not set rumdl's project root.
+    let markdownlint_root = root
+        .sourced
+        .loaded_files
+        .iter()
+        .any(|file| {
+            Path::new(file)
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with(".markdownlint") || name == "markdownlint.json")
+        })
+        .then(|| std::env::current_dir().ok())
+        .flatten();
+    let grouping_root = roots.grouping_root.or(markdownlint_root.as_deref());
     // Fast path: discovery bypassed or no grouping root; all files use the root config
-    if bypass_discovery || roots.grouping_root.is_none() {
+    if bypass_discovery || grouping_root.is_none() {
         grouping.push_groups(root.sourced, root.config.clone(), file_paths.to_vec(), args, cache);
         return grouping.finish();
     }
 
-    let grouping_root = roots.grouping_root.unwrap();
+    // The root warnings were already surfaced by the command. Deduplicate
+    // inherited messages while still recording warnings in every nested config.
+    grouping
+        .reported
+        .extend(root.sourced.discovery_warnings.iter().cloned());
+    grouping.reported.extend(
+        rumdl_config::validate_config_sourced_validated(root.sourced, rumdl_config::default_registry())
+            .into_iter()
+            .map(|warning| warning.message),
+    );
+
+    let grouping_root = grouping_root.unwrap();
 
     // Cache: directory → Option<config file path>
     // None means "no subdirectory config found, use root"
@@ -251,7 +312,8 @@ pub fn resolve_config_groups(
     let mut file_config_map: BTreeMap<Option<PathBuf>, Vec<String>> = BTreeMap::new();
 
     for file_path in file_paths {
-        let path = Path::new(file_path);
+        let path = rumdl_lib::workspace_index::absolute_selection_path(Path::new(file_path))
+            .unwrap_or_else(|_| PathBuf::from(file_path));
         let parent_dir = match path.parent() {
             Some(dir) if dir.is_dir() => dir.to_path_buf(),
             _ => grouping_root.to_path_buf(),
@@ -270,6 +332,10 @@ pub fn resolve_config_groups(
     }
 
     for (config_path, files) in file_config_map {
+        // A directory holding only source code has nothing rumdl lints (the files
+        // are skipped or refused), so its configuration is read to decide which
+        // of them an ignore covers but any problem with it is not worth raising.
+        let reports_problems = files.iter().any(|file| is_lintable_target(file));
         match config_path {
             None => {
                 // Root config group
@@ -289,6 +355,19 @@ pub fn resolve_config_groups(
                         // (as the global config does), then convert and apply the
                         // flavor / gitignore overrides that take effect everywhere.
                         crate::cli_config_override::apply_inline_overrides(&mut sourced, inline_overrides);
+                        let validation =
+                            rumdl_config::validate_config_sourced(&sourced, rumdl_config::default_registry());
+                        let messages = sourced
+                            .discovery_warnings
+                            .iter()
+                            .cloned()
+                            .chain(validation.into_iter().map(|warning| warning.message));
+                        for message in messages.filter(|_| reports_problems) {
+                            grouping.config_warning = true;
+                            if !args.silent && grouping.reported.insert(message.clone()) {
+                                eprintln!("{} {message}", rumdl_lib::utils::warning_label("config warning"));
+                            }
+                        }
                         let sourced = sourced.into_validated_unchecked();
                         let mut subdir_config: rumdl_config::Config = sourced.clone().into();
                         crate::apply_runtime_cli_overrides(&mut subdir_config, args);
@@ -300,8 +379,8 @@ pub fn resolve_config_groups(
                         // problem, so it counts whether or not it is printed: the files it
                         // governs are linted under settings their author did not write.
                         // Suppressed by --silent like every other config warning.
-                        grouping.config_warning = true;
-                        if !args.silent {
+                        grouping.config_warning |= reports_problems;
+                        if !args.silent && reports_problems {
                             eprintln!(
                                 "{} Failed to load config {}: {}. Using root config for affected files.",
                                 rumdl_lib::utils::warning_label("config warning"),
@@ -365,6 +444,14 @@ impl Grouping {
         args: &crate::CheckArgs,
         cache: &Option<Arc<LintCache>>,
     ) {
+        let files: Vec<String> = files
+            .into_iter()
+            .filter(|file| args.no_exclude || !base_config.is_cli2_ignored(Path::new(file)))
+            .collect();
+        if files.is_empty() {
+            return;
+        }
+
         if !base_config.global.editorconfig {
             self.groups.push(build_group(base_config, files, args, cache));
             return;
@@ -377,9 +464,13 @@ impl Grouping {
         for file in files {
             let resolution = editorconfig::resolve(Path::new(&file));
             let group = by_settings.entry((resolution.settings, resolution.origin)).or_default();
-            group
-                .warnings
-                .extend(resolution.warnings.into_iter().map(|warning| (file.clone(), warning)));
+            // A source-code file never reaches a rule: it is skipped or refused,
+            // so what `.editorconfig` says about it is not a configuration problem.
+            if is_lintable_target(&file) {
+                group
+                    .warnings
+                    .extend(resolution.warnings.into_iter().map(|warning| (file.clone(), warning)));
+            }
             group.files.push(file);
         }
 
@@ -609,6 +700,13 @@ pub fn enclosing_repository_root(start: Option<&std::path::Path>) -> Option<std:
         .ancestors()
         .find(|dir| dir.join(".git").exists() || dir.join(".jj").exists())
         .map(std::path::Path::to_path_buf)
+}
+
+/// Whether a file handed to resolution is one rumdl will lint rather than skip or
+/// refuse as source code. A symlink is classified by its target, as discovery does.
+fn is_lintable_target(file: &str) -> bool {
+    let target = std::fs::canonicalize(file).unwrap_or_else(|_| PathBuf::from(file));
+    rumdl_lib::discovery::classify_file(&target) != rumdl_lib::discovery::FileKind::SourceCode
 }
 
 #[cfg(test)]

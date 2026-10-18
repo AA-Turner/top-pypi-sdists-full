@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: laya
-Version: 0.4.9
+Version: 0.4.11
 Summary: Fast, non-autoregressive System 1 decision engine with calibrated probabilities
 Author: Convai Innovations
 License: Apache-2.0
@@ -49,6 +49,8 @@ Provides-Extra: llamaindex
 Requires-Dist: llama-index-core>=0.10.0; extra == "llamaindex"
 Provides-Extra: crewai
 Requires-Dist: crewai>=0.28.0; extra == "crewai"
+Provides-Extra: agno
+Requires-Dist: agno<2,>=1.1.14; extra == "agno"
 Dynamic: license-file
 
 <p align="center">
@@ -147,33 +149,29 @@ The shipped checkpoints work zero-shot, but fine-tuning on decisions from your o
 
 **[nandhakishorm.github.io/laya](https://nandhakishorm.github.io/laya/)**: guides for [prediction hooks](https://nandhakishorm.github.io/laya/hooks/), [schema-driven decisions](https://nandhakishorm.github.io/laya/structured/), [Docker](https://nandhakishorm.github.io/laya/docker/) and [LangChain and LangGraph](https://nandhakishorm.github.io/laya/langchain/), plus a full [API reference](https://nandhakishorm.github.io/laya/reference/).
 
-## What's new in 0.4.9
+## What's new in 0.4.11
 
-* **A standalone Python HTTP client.** `sdk/python` holds `laya-client`: synchronous `predict()`
-  and `health()` against a self-hosted `laya-serve`, written on the standard library with zero
-  dependencies, so an application server no longer installs torch to call one (#1264, issue
-  #1176). It refuses redirects so a bearer token is never forwarded, rejects a `base_url`
-  carrying credentials or whitespace, and blocks non-finite JSON in both directions. Install it
-  from this checkout with `python -m pip install ./sdk/python`; it is not on PyPI yet.
-* **`laya-go` gains the confidence gate, hooks and digest verification.** `WithMinConfidence`
-  applies the same abstention gate as the Python runtime, `OnPredictStart`/`End`/`Error` dispatch
-  with timeouts and panic isolation, per-language temperatures are read from the checkpoint, and
-  `laya-go/internal/digest` checks a checkpoint's SHA-256 before loading it, streamed, with path
-  traversal refused (#1247, #1260).
-* **`LAYA_DEVICE=cuda:258` is refused rather than silently asking for GPU 2.** torch keeps a CUDA
-  index in its low 8 bits, so it parses that string and builds `cuda:2`, and `cuda:128` builds
-  `cuda:-128`. A value whose parsed device is not the device it names now raises, naming the
-  variable (#1242).
-* **Three more gate parameters that could not fail.** A tolerance of `Infinity` accepts a drift of
-  any size while the run still exits 0 (#1250), `--revision` naming two different commits for one
-  checkpoint is refused instead of resolved to whichever came last (#1248), and a slice label
-  containing `|` is escaped so a tag like `risk|high` cannot shift every number in its row of a
-  `--markdown` report (#1241). A `Dataset` row built in Python now gets the checks a JSONL row
-  already had, before a single inference call rather than after (#1253).
-* **`LAYA_CPU_AMP=bf16` is documented as a hardware requirement, not a preference.** On a CPU
-  without native BF16 instructions the forward dies with an illegal instruction rather than
-  raising, so `_infer`'s autocast retry cannot catch it. `docs/reference/agent.md` now carries the
-  capability reading to check and a child-process probe to qualify a host.
+* **A Rust SDK.** `laya-rust` is an ONNX Runtime port of the Python SDK: typed questions, the
+  sequence builder and collator, calibration and typed answers, language detection, email
+  cleaning, the embedding shortlist and the checkpoint router, with 210 offline tests checked
+  against goldens generated from the Python implementation (#672, issue #674).
+* **The ONNX exporter proves its graph is batch-dynamic instead of asserting it.** Exporting now
+  runs the written graph at batches 1, 2 and 3 and compares each against PyTorch, so a graph that
+  silently specialised to one row fails the export rather than failing at inference. On this
+  machine the probabilities agree to 1.2e-06 (#688).
+* **Two new MCP tools and a batched TypeScript decide.** `laya_predict_long` scans a state past
+  the context window and reports which window decided, with token offsets (#738); `LayaToolSelector`
+  routes tools and functions for LangChain, CrewAI, LlamaIndex and plain agent loops (#977); and
+  `decideBatch` lands in the TypeScript SDK alongside `answerConfidence` (#750).
+* **`task` and `lang_guess` reach every framework wrapper.** The per-call control rules now live
+  in one module that the LangChain, CrewAI, LlamaIndex and Agno wrappers share, and a routing hint
+  passed to a runner that cannot read it is refused by name instead of dropped silently (#804, and
+  #970 adds the Agno integration behind `pip install laya[agno]`).
+* **An ONNX agent's calibration file can match its own checkpoint again.** `ONNXAgent` never stored
+  the identity `apply_calibration_payload` compares against, so every versioned calibration file
+  warned about a checkpoint mismatch, including for the checkpoint that agent had just loaded
+  (#731). The ONNX batch path also collates straight into NumPy now (#1271), and a `hooks_timeout`
+  of `True` is refused rather than read as 1.0 second (#1203).
 
 Earlier releases are in the [GitHub releases](https://github.com/NandhaKishorM/laya/releases).
 
@@ -446,6 +444,10 @@ JSON API (`/predict`, `/predict/batch`) for scripting against.
 pip install "laya[serve]"
 python examples/server.py               # http://127.0.0.1:8000
 ```
+
+On Windows, `start.bat` does the same from a clone: it creates `.venv` with whichever supported
+Python is installed, installs CPU torch and the `serve` extra on first run, then starts the server
+and opens the browser. `start.bat 8080` picks a different port.
 
 Open `http://127.0.0.1:8000` in a browser for the playground, or hit it directly:
 
@@ -1254,7 +1256,7 @@ email = agent.predict({"body": "Your account is locked, verify now"}, laya.email
 
 ## LangChain and LangGraph Integration
 
-Fast System 1 routing and guardrails directly inside LangGraph workflows and LCEL chains. Every node also takes core's per-call prediction hooks (`hooks`, `on_predict_start`, `on_predict_end`, `hooks_raise`, `hooks_timeout`):
+Fast System 1 routing and guardrails directly inside LangGraph workflows and LCEL chains. Every node also takes core's per-call prediction hooks (`hooks`, `on_predict_start`, `on_predict_end`, `hooks_raise`, `hooks_timeout`) and the two routing hints that pick the checkpoint answering (`task`, `lang_guess`) — see [Which checkpoint answers](https://github.com/NandhaKishorM/laya/blob/main/docs/langchain.md#9-which-checkpoint-answers):
 
 ```python
 from laya.integrations.langchain import LayaDecision, LayaGuardrail, LayaRouter
@@ -1417,7 +1419,7 @@ TileLang fast path and `compile=True` refuse such a checkpoint, and `backend="au
 
 Laya can be exposed as an [MCP](https://modelcontextprotocol.io) stdio server, so any MCP
 client (OpenClaw, Claude Desktop, Cursor, ...) can call typed decisions as tools
-(`laya_predict`, `laya_predict_batch`, `laya_route`, `laya_route_batch`, `laya_decide`, `laya_shortlist`, `laya_tournament`, `laya_preset`, `laya_status`) without writing glue code.
+(`laya_predict`, `laya_predict_batch`, `laya_predict_long`, `laya_route`, `laya_route_batch`, `laya_decide`, `laya_shortlist`, `laya_tournament`, `laya_preset`, `laya_status`) without writing glue code.
 This is an **optional extra**: the core package has no `mcp` dependency.
 
 ```bash
@@ -1487,7 +1489,9 @@ values under `option_order_dropped`. Routing uses the original request; language
 confidence controls reach every round. The guardrails shown on every decision
 tool point clients to `laya_shortlist` or `laya_tournament` for >20-option choices. As with the SDK, use it for structured
 decisions only; not for open Q&A or
-text generation. Tests: `tests/test_mcp.py` (CI, no weights) and
+text generation. `laya_predict_long` is the MCP form of [`predict_long`](#long-documents-predict_long): it
+scans a state past the context window in overlapping windows and answers with per-answer
+window attribution plus the window count. Tests: `tests/test_mcp.py` (CI, no weights) and
 `tests/test_mcp_local_e2e.py` (local, real weights and a real stdio handshake).
 
 ---

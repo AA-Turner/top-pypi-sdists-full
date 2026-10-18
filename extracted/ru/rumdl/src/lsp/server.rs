@@ -326,7 +326,7 @@ impl RumdlLanguageServer {
     /// We intentionally do not read from disk here because diagnostics should be
     /// scoped to open documents. This avoids lingering diagnostics after a file
     /// is closed when clients use pull diagnostics.
-    async fn get_open_document_content(&self, uri: &Url) -> Option<String> {
+    pub(super) async fn get_open_document_content(&self, uri: &Url) -> Option<String> {
         let uri = self.store_uri(uri).await;
         let docs = self.documents.read().await;
         docs.get(&uri)
@@ -1497,13 +1497,17 @@ impl LanguageServer for RumdlLanguageServer {
         };
 
         let flavor = self.resolve_flavor_for_uri(&uri).await;
-        let ctx = crate::lint_context::LintContext::new(&text, flavor, None);
+        // Headings are read from the text after the byte order mark; the client
+        // counts the mark as a character of the first line.
+        let analysis = crate::utils::bom::strip_bom(&text);
+        let mark_units = crate::utils::bom::utf16_len(&text);
+        let ctx = crate::lint_context::LintContext::new(analysis, flavor, None);
 
         if *self.client_supports_hierarchical_symbols.read().await {
-            let symbols = super::symbols::document_symbols(&ctx);
+            let symbols = super::symbols::document_symbols(&ctx, mark_units);
             Ok((!symbols.is_empty()).then_some(DocumentSymbolResponse::Nested(symbols)))
         } else {
-            let symbols = super::symbols::document_symbols_flat(&ctx, &uri);
+            let symbols = super::symbols::document_symbols_flat(&ctx, &uri, mark_units);
             Ok((!symbols.is_empty()).then_some(DocumentSymbolResponse::Flat(symbols)))
         }
     }

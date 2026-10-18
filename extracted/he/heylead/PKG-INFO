@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: heylead
-Version: 0.10.462
+Version: 0.10.463
 Summary: AI agent for LinkedIn outreach: finds the right people, writes in your voice, follows up and handles replies. From Claude Code, Cursor, any MCP client or a web dashboard.
 Project-URL: Homepage, https://heylead.dev
 Project-URL: Repository, https://github.com/D4umak/linkedin-outreach-mcp
@@ -28,6 +28,7 @@ Requires-Dist: cryptography>=50.0.0
 Requires-Dist: httpx>=0.24.0
 Requires-Dist: keyring>=24.0.0
 Requires-Dist: mcp<2.0.0,>=1.30.0
+Requires-Dist: tzdata>=2024.1
 Provides-Extra: all
 Requires-Dist: browser-use>=0.12.0; extra == 'all'
 Requires-Dist: firecrawl-py>=0.0.1; extra == 'all'
@@ -197,7 +198,7 @@ HeyLead gives your AI 22 tools:
 | `engage_prospect` | Comments on, reacts to, follows, or endorses a prospect to build trust |
 | `inbox` | Browses and reads LinkedIn inbox messages directly |
 | `backfill_inbox` | Processes unreplied inbox messages through the inbound pipeline |
-| `create_post` | Generates and publishes a voice-matched post to LinkedIn |
+| `create_post` | Generates and publishes a voice-matched post to LinkedIn, or publishes your approved words with a photo or a short video |
 
 ### Campaign Management
 

@@ -19,20 +19,25 @@ extension-module = ["pyo3/extension-module"]
 fensu-policy.workspace = true
 mimalloc.workspace = true
 pyo3.workspace = true
+rayon.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sqlbuild-analysis.workspace = true
 sqlbuild-attachments.workspace = true
 sqlbuild-cache.workspace = true
+sqlbuild-cli.workspace = true
 sqlbuild-config.workspace = true
 sqlbuild-core.workspace = true
+sqlbuild-cursor.workspace = true
 sqlbuild-discovery.workspace = true
 sqlbuild-model-config.workspace = true
+sqlbuild-pysource.workspace = true
 sqlbuild-refactor.workspace = true
 sqlbuild-render.workspace = true
 sqlbuild-rules.workspace = true
 sqlbuild-scopes.workspace = true
 sqlbuild-sqltext.workspace = true
+sqlbuild-state.workspace = true
 
 [lints]
 workspace = true

@@ -48,7 +48,9 @@ import pytest
 from pytest_gremlins import node_id_args
 from pytest_gremlins.cache.hasher import ContentHasher
 from pytest_gremlins.cache.incremental import (
+    NO_RERUNS,
     IncrementalCache,
+    RerunBudget,
     subprocess_optimize_level,
 )
 from pytest_gremlins.cache.types import CachedGremlinResult
@@ -121,6 +123,18 @@ from pytest_gremlins.reporting.results import (
     GremlinResultStatus,
 )
 from pytest_gremlins.reporting.score import MutationScore
+from pytest_gremlins.rerun_options import (
+    baseline_rerun_warning,
+    expand_argument_files,
+    rerun_ini_overrides,
+    rerun_keys_set_in,
+    rerun_options_in,
+    rerun_resets,
+    scaled_mutant_timeout,
+    session_rerun_budget,
+    unforwardable_rerun_keys,
+    unforwarded_rerun_key_warning,
+)
 from pytest_gremlins.xdist_options import (
     addopts_without_xdist,
     env_without_xdist_addopts,
@@ -280,7 +294,9 @@ class GremlinSession:
         coverage_timeout: Seconds the coverage pre-scan may run before it is
             abandoned and coverage-guided test selection is disabled (issue #503).
         mutant_timeout: Seconds one gremlin's test run may take before the gremlin
-            is reported as a timeout.
+            is reported as a timeout.  This is the configured limit already scaled by the
+            session's pytest-rerunfailures budget (issue #655), so the timeout warning and the
+            cache key see the effective value.
         terminal_notices: Lines for the terminal summary, written directly rather than through
             ``logging`` (which pytest captures) or ``warnings.warn`` (which ``filterwarnings = error``
             turns into a crash).  Add one with :func:`_queue_terminal_notice`.
@@ -341,8 +357,12 @@ class GremlinSession:
     unrunnable_gremlin_ids: set[str] = field(default_factory=set)
     explain_gremlin_id: str | None = None
     preserved_addopts: str = ''
+    rerun_options: list[str] = field(default_factory=list)
+    rerun_ini_warnings: list[str] = field(default_factory=list)
+    baseline_rerun_test_ids: set[str] = field(default_factory=set)
     coverage_timeout: int = DEFAULT_COVERAGE_TIMEOUT_SECONDS
     mutant_timeout: int = DEFAULT_MUTANT_TIMEOUT_SECONDS
+    rerun_budget: RerunBudget = NO_RERUNS
     collection_errors: int = 0
     baseline_aborted: bool = False
     baseline_failed_test_ids: set[str] = field(default_factory=set)
@@ -515,8 +535,12 @@ class _BaselineRecorder:
         phase (for example call and teardown) and must still count once.
         """
         gremlin_session = self._enabled_session()
-        if gremlin_session is not None and report.failed:
+        if gremlin_session is None:
+            return
+        if report.failed:
             gremlin_session.baseline_failed_test_ids.add(report.nodeid)
+        elif str(report.outcome) == 'rerun':  # pytest-rerunfailures' outcome is not in pytest's Literal
+            gremlin_session.baseline_rerun_test_ids.add(report.nodeid)
 
     def pytest_keyboard_interrupt(self, excinfo: pytest.ExceptionInfo[BaseException]) -> None:  # noqa: ARG002
         """Record that the baseline session was cut short (``pytest.exit`` or Ctrl-C).
@@ -694,8 +718,10 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         dest='gremlin_mutant_timeout',
         help=(
-            "Seconds one gremlin's test run may take before the gremlin is reported as a timeout "
-            f'(default: {DEFAULT_MUTANT_TIMEOUT_SECONDS}, max: {MAX_TIMEOUT_SECONDS})'
+            "Seconds one attempt of a gremlin's test run may take before the gremlin is reported as a timeout "
+            f'(default: {DEFAULT_MUTANT_TIMEOUT_SECONDS}, max: {MAX_TIMEOUT_SECONDS}). '
+            'With pytest-rerunfailures active, each rerun adds another attempt plus the --reruns-delay wait: '
+            f'limit * (reruns + 1) + ceil(reruns * delay) seconds, capped at {MAX_TIMEOUT_SECONDS}'
         ),
     )
     group.addoption(
@@ -1052,8 +1078,13 @@ def pytest_configure(config: pytest.Config) -> None:
             xdist_loaded=config.pluginmanager.hasplugin('xdist'),
             xdist_workers=xdist_worker_int if xdist_active else None,
             preserved_addopts=_addopts_without_cov(config.getini('addopts')),
+            rerun_options=_rerun_options_for(config),
+            rerun_ini_warnings=_rerun_ini_warnings_for(config),
             coverage_timeout=coverage_timeout,
-            mutant_timeout=merged_config.mutant_timeout or DEFAULT_MUTANT_TIMEOUT_SECONDS,
+            mutant_timeout=_rerun_scaled_mutant_timeout(
+                config, merged_config.mutant_timeout or DEFAULT_MUTANT_TIMEOUT_SECONDS
+            ),
+            rerun_budget=_gremlin_run_rerun_budget(config),
         ),
     )
 
@@ -1700,6 +1731,7 @@ instrumented code with mutation switching logic, then runs pytest.
 import json
 import os
 import sys
+import traceback
 
 __ORIGIN_FINDER_SOURCE__
 
@@ -1710,7 +1742,7 @@ def main():
     sources_file = os.environ.get('PYTEST_GREMLINS_SOURCES_FILE')
     if not sources_file:
         print('Error: PYTEST_GREMLINS_SOURCES_FILE not set', file=sys.stderr)
-        sys.exit(1)
+        sys.exit(__USAGE_ERROR_EXIT_CODE__)
 
     with open(sources_file, encoding='utf-8') as f:
         instrumented_sources = json.load(f)
@@ -1718,7 +1750,9 @@ def main():
     # Serve each instrumented file under whatever name the import system resolves it to.
     finder = install(instrumented_sources)
 
-    # Now run pytest with remaining arguments
+    # Now run pytest with remaining arguments. pytest is imported only now: its own imports (pluggy,
+    # iniconfig, pygments) must be served by the finder installed above, or a project mutating one of
+    # them would run unmutated.
     import pytest
     from _pytest.config import ConftestImportFailure
 
@@ -1786,10 +1820,29 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # An exception that escapes main (a plugin that cannot register, a corrupt sources file, a hook that raises
+    # after the tests ran) would end the interpreter with exit 1, the code for a failing test, and score the
+    # mutant as caught although no test failed. Exit with pytest's internal-error code instead; SystemExit and
+    # KeyboardInterrupt pass through.
+    # pytest.fail and pytest.skip raise BaseException subclasses, so the guard catches BaseException. The
+    # parent keeps only the first 2000 characters of stderr, so a one-line cause comes before the traceback.
+    try:
+        main()
+    except (SystemExit, KeyboardInterrupt):
+        raise
+    except BaseException as error:
+        cause = ''.join(traceback.format_exception_only(type(error), error)).strip()
+        print(
+            f'pytest-gremlins: the gremlin subprocess crashed outside a test, so pytest did not finish: {cause[:500]}',
+            file=sys.stderr,
+        )
+        traceback.print_exc()
+        sys.exit(__INTERNAL_ERROR_EXIT_CODE__)
 """
     return (
         script.replace('__COLLECTION_FAILED_EXIT_CODE__', str(GREMLIN_COLLECTION_FAILED_EXIT_CODE))
+        .replace('__USAGE_ERROR_EXIT_CODE__', str(int(pytest.ExitCode.USAGE_ERROR)))
+        .replace('__INTERNAL_ERROR_EXIT_CODE__', str(int(pytest.ExitCode.INTERNAL_ERROR)))
         .replace('__UNATTRIBUTABLE_MARKER__', UNATTRIBUTABLE_MARKER)
         .replace('__ORIGIN_FINDER_SOURCE__', inspect.getsource(origin_finder))
         .replace('__NODE_ID_ARGS_SOURCE__', inspect.getsource(node_id_args))
@@ -2127,6 +2180,7 @@ def _unmutated_command_and_env(gremlin_session: GremlinSession, rootdir: Path) -
         instrumented_dir,
         gremlin_session.preserved_addopts,
         xdist_loaded=gremlin_session.xdist_loaded,
+        rerun_options=gremlin_session.rerun_options,
     )
     env = env_without_xdist_addopts(os.environ)
     env.pop(ACTIVE_GREMLIN_ENV_VAR, None)
@@ -2423,6 +2477,11 @@ def _skip_mutation_unless_baseline_is_green(gremlin_session: GremlinSession, exi
     if _is_green_baseline(gremlin_session, exitstatus):
         if exitstatus == pytest.ExitCode.TESTS_FAILED:
             print(_NON_TEST_CHECK_NOTE, file=sys.stderr)
+        for ini_warning in gremlin_session.rerun_ini_warnings:
+            print(ini_warning, file=sys.stderr)
+        rerun_warning = baseline_rerun_warning(gremlin_session.baseline_rerun_test_ids)
+        if rerun_warning is not None:
+            print(rerun_warning, file=sys.stderr)
         return False
     reason = _baseline_skip_reason(gremlin_session, exitstatus)
     print(f'pytest-gremlins: skipping mutation testing because {reason}', file=sys.stderr)
@@ -2552,6 +2611,7 @@ def _run_prescan_reporting_problems(
             name_to_node_ids=gremlin_session.test_name_to_node_ids,
             coverage_include=coverage_include,
             preserved_addopts=gremlin_session.preserved_addopts,
+            rerun_options=gremlin_session.rerun_options,
             timeout=gremlin_session.coverage_timeout,
         )
     except CoveragePrescanTimeoutError as timeout_error:
@@ -2695,6 +2755,172 @@ def _is_cov_addopt(token: str) -> bool:
     return name in ('--cov', '--no-cov') or name.startswith(('--cov-', '--no-cov-'))
 
 
+# Registered as ``rerunfailures`` when found through its entry point (autoload, or ``-p rerunfailures``, which
+# pytest resolves even with autoload disabled), as ``pytest_rerunfailures`` when loaded by module name
+# (``-p pytest_rerunfailures``, ``pytest_plugins`` or ``PYTEST_PLUGINS``).
+_RERUNFAILURES_PLUGIN_NAMES = ('rerunfailures', 'pytest_rerunfailures')
+# Blocking by the entry-point name also blocks the plugin when it is loaded by module name.
+_BLOCK_RERUNFAILURES_OPTION = ('-p', 'no:rerunfailures')
+_DISABLE_PLUGIN_AUTOLOAD_ENV_VAR = 'PYTEST_DISABLE_PLUGIN_AUTOLOAD'
+_DISABLE_PLUGIN_AUTOLOAD_FLAG = '--disable-plugin-autoload'
+
+
+def _arguments_gremlin_runs_inherit(config: pytest.Config) -> list[str]:
+    """Return the arguments gremlin runs get from the project's ``addopts`` and from ``PYTEST_ADDOPTS``.
+
+    The session's own command line is not among them: gremlin runs are given neither its flags nor its ``-p``.
+    ``@file`` arguments are expanded, as pytest does, against the directory gremlin runs start in, which is the
+    rootdir (not the directory the session was started from).  One that cannot be read contributes nothing
+    (pytest rejects an unreadable one as a usage error before this runs), which errs toward a missed loader and
+    so toward a missed kill rather than a false one.
+    """
+    try:
+        pytest_addopts_args = shlex.split(os.environ.get('PYTEST_ADDOPTS', ''))
+    except ValueError:
+        pytest_addopts_args = []
+    return expand_argument_files([*config.getini('addopts'), *pytest_addopts_args], base_dir=_get_rootdir(config))
+
+
+def _gremlin_runs_have_autoload_disabled(config: pytest.Config) -> bool:
+    """Return whether gremlin runs start with pytest's plugin autoload disabled.
+
+    They do when the environment they inherit sets the variable (pytest tests it for truthiness of the string),
+    or when the flag reaches them through ``addopts`` or ``PYTEST_ADDOPTS``.  A flag typed on the session's command
+    line does not reach them, so such a session's gremlin runs autoload their plugins.
+    """
+    return bool(os.environ.get(_DISABLE_PLUGIN_AUTOLOAD_ENV_VAR)) or (
+        _DISABLE_PLUGIN_AUTOLOAD_FLAG in _arguments_gremlin_runs_inherit(config)
+    )
+
+
+def _loader_options_for_gremlin_runs(config: pytest.Config, plugin_names: tuple[str, ...]) -> list[str]:
+    """Return the ``-p`` option that makes gremlin runs load the plugin this session registered.
+
+    Only for gremlin runs that start with autoload disabled (see :func:`_gremlin_runs_have_autoload_disabled`);
+    with autoload on they load the plugin through its entry point, and a loader of another name would register
+    the same module twice, which pluggy rejects.  The option repeats the name the session registered, so it is
+    skipped when ``addopts``, ``PYTEST_ADDOPTS``, ``PYTEST_PLUGINS`` or a conftest loads the plugin as well:
+    those reach the session too, which would have failed already had they used a different name.  The module
+    is registered under exactly one of ``plugin_names``: as the entry-point name for ``-p <entry point>``, which
+    pytest resolves even with autoload disabled, or as the module name for ``-p <module>``, ``pytest_plugins`` and
+    ``PYTEST_PLUGINS``.  Other plugins (pytest-cov, issue #657) can share this helper with their own names.
+    """
+    if not _gremlin_runs_have_autoload_disabled(config):
+        return []
+    registered_name = next((name for name in plugin_names if config.pluginmanager.hasplugin(name)), None)
+    return [] if registered_name is None else ['-p', registered_name]
+
+
+def _rerun_ini_settings_are_forwarded(config: pytest.Config) -> bool:
+    """Return whether the rerun ini settings are passed to gremlin runs: only when a ``-c`` file holds them.
+
+    Without ``-c``/``--config-file`` a gremlin run finds the same project config file as this session, so it
+    reads the settings itself and nothing is lost.  ``config.option.inifilename`` is the value of ``-c``
+    wherever it came from (command line, ``PYTEST_ADDOPTS`` or an ``@file``), because pytest parses them all
+    into one namespace.
+    """
+    return bool(getattr(config.option, 'inifilename', None))
+
+
+def _command_line_rerun_options(config: pytest.Config) -> list[str]:
+    """Return the rerun options in the session's invocation arguments, ``@file`` arguments expanded."""
+    return rerun_options_in(config.invocation_params.args, base_dir=config.invocation_params.dir)
+
+
+def _rerun_options_for(config: pytest.Config) -> list[str]:
+    """Return the rerun settings of ``config`` for gremlin runs, or none if pytest-rerunfailures is not active.
+
+    That is the rerun options typed on the command line, preceded, only when the session was started with
+    ``-c``/``--config-file`` (which gremlin runs are not given, so they do not read that file), by the rerun
+    ini settings the main session resolved; the command line wins over them.  Without ``-c`` the gremlin
+    runs read the project config themselves, and forwarding its values through ``--override-ini`` would only
+    risk pytest altering them (issue #658).  Under ``-c`` a gremlin run finds the project's own config file
+    instead, so every rerun key the ``-c`` file leaves unset, or whose items ``--override-ini`` would change,
+    is reset to empty (the baseline's defaults) rather than left to that file; see
+    :func:`_rerun_ini_warnings_for`.  A key whose parsed option is set, from the command line, ``addopts`` or
+    ``PYTEST_ADDOPTS``, is neither forwarded nor reset: gremlin runs get those options themselves, and
+    pytest-rerunfailures reads an option before its ini key.
+    Settings are only forwarded when the plugin is loaded in this session, so a project without it
+    never receives a flag its gremlin runs would reject as unrecognized (exit code 4).
+    A session without the plugin loaded forwards a block (``-p no:rerunfailures``), so gremlin runs, which do not
+    get the session's own ``-p no:rerunfailures`` or ``--disable-plugin-autoload``, do not autoload it and rerun
+    with ini settings the session's budget never assumed (issue #670).  Blocking a plugin that is not installed
+    is harmless.  A plugin that is loaded wins: ``-p no:pytest_rerunfailures`` blocks only the module name, the
+    entry-point plugin loads anyway, and the session's budget assumes reruns.
+    A session that loaded the plugin forwards a loader (``-p`` and the name it registered) first when gremlin
+    runs start with autoload disabled, by the environment or by a flag in ``addopts`` or ``PYTEST_ADDOPTS``
+    (see :func:`_loader_options_for_gremlin_runs`): without it they would not load a plugin the session got from its
+    command line, and would not rerun while the budget assumes they do (issue #679).
+    """
+    if not _rerunfailures_is_loaded(config):
+        return list(_BLOCK_RERUNFAILURES_OPTION)
+    loader_options = _loader_options_for_gremlin_runs(config, _RERUNFAILURES_PLUGIN_NAMES)
+    return [*loader_options, *_rerun_settings_for(config)]
+
+
+def _rerun_settings_for(config: pytest.Config) -> list[str]:
+    """Return the rerun options and ini settings of a session that loaded pytest-rerunfailures."""
+    command_line_options = _command_line_rerun_options(config)
+    if not _rerun_ini_settings_are_forwarded(config):
+        return command_line_options
+    option_keys_set = rerun_keys_set_in(config.option)
+    ini_overrides = rerun_ini_overrides(
+        config.getini, overridden_by=command_line_options, option_keys_set=option_keys_set
+    )
+    resets = rerun_resets(config.getini, overridden_by=command_line_options, option_keys_set=option_keys_set)
+    return [*ini_overrides, *resets, *command_line_options]
+
+
+def _gremlin_run_rerun_budget(config: pytest.Config) -> RerunBudget:
+    """Return the ``(reruns, reruns_delay)`` gremlin runs may use, or no reruns without pytest-rerunfailures.
+
+    The incremental cache keys verdicts on it (issue #671): the scaled timeout alone cannot tell
+    ``--gremlin-mutant-timeout 60`` from ``--gremlin-mutant-timeout 30 --reruns 1``.
+    """
+    if not _rerunfailures_is_loaded(config):
+        return NO_RERUNS
+    return session_rerun_budget(config.option, config.getini)
+
+
+def _rerun_scaled_mutant_timeout(config: pytest.Config, per_run_timeout: int) -> int:
+    """Return ``per_run_timeout`` widened to the rerun budget of the session (issue #655).
+
+    A gremlin run inherits the session's pytest-rerunfailures settings, so a killed mutant's test is rerun
+    and, with ``--reruns-delay``, waits between attempts.  Without scaling, that alone would outlast the
+    timeout and the kill would be reported as a timeout or error.  The configured timeout is the budget of
+    one attempt; see :func:`~pytest_gremlins.rerun_options.scaled_mutant_timeout`.  Nothing is scaled when
+    pytest-rerunfailures is not loaded.
+    """
+    if not _rerunfailures_is_loaded(config):
+        return per_run_timeout
+    reruns, reruns_delay = session_rerun_budget(config.option, config.getini)
+    scaled_timeout = scaled_mutant_timeout(per_run_timeout, reruns=reruns, reruns_delay=reruns_delay)
+    logger.debug(
+        'Mutant timeout scaled for pytest-rerunfailures: %ds per attempt, reruns=%d, reruns_delay=%.1fs -> %ds',
+        per_run_timeout,
+        reruns,
+        reruns_delay,
+        scaled_timeout,
+    )
+    return scaled_timeout
+
+
+def _rerun_ini_warnings_for(config: pytest.Config) -> list[str]:
+    """Return one warning per rerun ini setting that ``-c`` holds and gremlin runs cannot be given."""
+    if not _rerunfailures_is_loaded(config) or not _rerun_ini_settings_are_forwarded(config):
+        return []
+    command_line_options = _command_line_rerun_options(config)
+    skipped_keys = unforwardable_rerun_keys(
+        config.getini, overridden_by=command_line_options, option_keys_set=rerun_keys_set_in(config.option)
+    )
+    return [unforwarded_rerun_key_warning(key) for key in skipped_keys]
+
+
+def _rerunfailures_is_loaded(config: pytest.Config) -> bool:
+    """Return whether pytest-rerunfailures is registered in this session under either of its plugin names."""
+    return any(config.pluginmanager.hasplugin(name) for name in _RERUNFAILURES_PLUGIN_NAMES)
+
+
 def _addopts_without_cov(raw_addopts: list[str]) -> str:
     """Return the project's pytest ``addopts`` with pytest-cov options removed.
 
@@ -2797,6 +3023,7 @@ def _run_tests_with_coverage(
     name_to_node_ids: dict[str, list[str]] | None = None,
     coverage_include: list[str] | None = None,
     preserved_addopts: str = '',
+    rerun_options: Sequence[str] = (),
     timeout: int = DEFAULT_COVERAGE_TIMEOUT_SECONDS,
 ) -> dict[str, dict[str, list[int]]]:
     """Run all tests with coverage collection using dynamic contexts.
@@ -2831,6 +3058,10 @@ def _run_tests_with_coverage(
             and the pre-scan would otherwise record nothing (issue #502).  The xdist
             plugin itself stays loaded: without ``-n`` it runs in-process, so its
             fixtures and hooks still work.
+        rerun_options: pytest-rerunfailures options from the command line (see
+            :func:`~pytest_gremlins.rerun_options.rerun_options_in`), appended so a test that flakes
+            before reaching the code under test is rerun, as in the baseline, and still lands in the
+            coverage map.
         timeout: Seconds the pre-scan subprocess may run (default 120).
 
     Returns:
@@ -2873,6 +3104,7 @@ def _run_tests_with_coverage(
         f'addopts={addopts_without_gremlins(addopts_without_xdist(preserved_addopts))}',
         '--tb=no',
         '-q',
+        *rerun_options,
     ]
 
     try:
@@ -2962,6 +3194,7 @@ def _run_batch_mutation_testing(  # pragma: no cover
         gremlin_session.instrumented_dir,
         gremlin_session.preserved_addopts,
         xdist_loaded=gremlin_session.xdist_loaded,
+        rerun_options=gremlin_session.rerun_options,
     )
     gremlins = gremlin_session.gremlins
 
@@ -3079,6 +3312,7 @@ def _run_parallel_mutation_testing(  # pragma: no cover
         gremlin_session.instrumented_dir,
         gremlin_session.preserved_addopts,
         xdist_loaded=gremlin_session.xdist_loaded,
+        rerun_options=gremlin_session.rerun_options,
     )
     gremlins = gremlin_session.gremlins
 
@@ -3415,6 +3649,7 @@ def _run_mutation_testing(
         gremlin_session.instrumented_dir,
         gremlin_session.preserved_addopts,
         xdist_loaded=gremlin_session.xdist_loaded,
+        rerun_options=gremlin_session.rerun_options,
     )
 
     for i, gremlin in enumerate(gremlin_session.gremlins, 1):
@@ -3543,6 +3778,7 @@ def _check_cache_for_gremlin(
         test_hashes=test_hashes,
         mutant_timeout=gremlin_session.mutant_timeout,
         optimize_level=subprocess_optimize_level(os.environ),
+        rerun_budget=gremlin_session.rerun_budget,
     )
 
     if cached is None:
@@ -3608,6 +3844,7 @@ def _cache_gremlin_result(
         ),
         mutant_timeout=gremlin_session.mutant_timeout,
         optimize_level=subprocess_optimize_level(os.environ),
+        rerun_budget=gremlin_session.rerun_budget,
     )
 
 
@@ -3836,6 +4073,7 @@ def _build_test_command(
     preserved_addopts: str = '',
     *,
     xdist_loaded: bool = False,
+    rerun_options: Sequence[str] = (),
 ) -> list[str]:
     """Build the command to run tests.
 
@@ -3861,6 +4099,10 @@ def _build_test_command(
             token stripper does not recognise) can distribute the run.  xdist itself stays
             loaded, so ``worker_id`` still works.  Without xdist the flag would be rejected as
             unrecognized, so it is omitted.
+        rerun_options: pytest-rerunfailures options typed on the command line (see
+            :func:`~pytest_gremlins.rerun_options.rerun_options_in`), appended last so they win over
+            ``addopts`` as they do in the baseline run.  A flaky test then has to fail on every
+            attempt before it can zap a gremlin (issue #546).
 
     Returns:
         Command list to run tests.
@@ -3894,6 +4136,8 @@ def _build_test_command(
 
     if xdist_loaded:
         command.extend(['-n', '0'])
+
+    command.extend(rerun_options)
 
     return command
 

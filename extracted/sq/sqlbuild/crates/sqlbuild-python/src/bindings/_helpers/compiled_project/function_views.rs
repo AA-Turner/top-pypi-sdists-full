@@ -4,7 +4,7 @@ use pyo3::exceptions::{PyIndexError, PyRuntimeError};
 use pyo3::prelude::{Bound, Py, PyAny, PyAnyMethods, PyResult, Python};
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyDict, PyDictMethods, PyTuple};
-use pyo3::{FromPyObject, pyclass, pymethods};
+use pyo3::{FromPyObject, IntoPyObjectExt, pyclass, pymethods};
 
 use crate::bindings::_helpers::compiled_project::compiled_model_view::{
     DestinationFact, defaulted_destination, object_key, relation_location,
@@ -14,6 +14,8 @@ use crate::bindings::_helpers::compiled_project::model_input_view::{
 };
 use crate::bindings::_helpers::compiled_project::model_loop_host::ReferenceRow;
 use crate::bindings::_helpers::compiled_project::project::NativeCompiledProject;
+use crate::bindings::_helpers::graph::project_graph::ResourceRow;
+use crate::bindings::_helpers::records::fields::field as native_field;
 
 const TABLE_FUNCTION_TYPE: &str = "table_fn";
 const SCALAR_FUNCTION_TYPE: &str = "udf";
@@ -182,14 +184,14 @@ macro_rules! function_getters {
             $($extra)*
 
             #[getter]
-            fn name(&self, py: Python<'_>) -> PyResult<String> {
+            pub(crate) fn name(&self, py: Python<'_>) -> PyResult<String> {
                 read_function(&self.owner, self.index, py, |function, _| {
                     Ok(function.attached.name.clone())
                 })
             }
 
             #[getter]
-            fn arguments(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+            pub(crate) fn arguments(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
                 let classes: FunctionClasses<'_> = function_classes(&self.owner, py)?;
                 read_function(&self.owner, self.index, py, |function, _| {
                     FunctionRecord::named_types(
@@ -201,21 +203,21 @@ macro_rules! function_getters {
             }
 
             #[getter]
-            fn returns(&self, py: Python<'_>) -> PyResult<String> {
+            pub(crate) fn returns(&self, py: Python<'_>) -> PyResult<String> {
                 read_function(&self.owner, self.index, py, |function, _| {
                     Ok(function.attached.returns.clone())
                 })
             }
 
             #[getter]
-            fn body_sql(&self, py: Python<'_>) -> PyResult<String> {
+            pub(crate) fn body_sql(&self, py: Python<'_>) -> PyResult<String> {
                 read_function(&self.owner, self.index, py, |function, _| {
                     Ok(function.attached.body.clone())
                 })
             }
 
             #[getter]
-            fn return_columns(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+            pub(crate) fn return_columns(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
                 let classes: FunctionClasses<'_> = function_classes(&self.owner, py)?;
                 read_function(&self.owner, self.index, py, |function, _| {
                     FunctionRecord::named_types(
@@ -227,7 +229,7 @@ macro_rules! function_getters {
             }
 
             #[getter]
-            fn references(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+            pub(crate) fn references(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
                 let classes: InputViewClasses<'_> = view_classes(&self.owner, py)?;
                 read_function(&self.owner, self.index, py, |function, _| {
                     reference_tuple(
@@ -239,7 +241,7 @@ macro_rules! function_getters {
             }
 
             #[getter]
-            fn language<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+            pub(crate) fn language<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
                 let classes: FunctionClasses<'py> = function_classes(&self.owner, py)?;
                 read_function(&self.owner, self.index, py, |function, _| {
                     function.language(&classes)
@@ -247,7 +249,7 @@ macro_rules! function_getters {
             }
 
             #[getter]
-            fn runtime_version(&self, py: Python<'_>) -> PyResult<Option<String>> {
+            pub(crate) fn runtime_version(&self, py: Python<'_>) -> PyResult<Option<String>> {
                 read_function(&self.owner, self.index, py, |function, _| {
                     Ok(function
                         .attached
@@ -258,7 +260,7 @@ macro_rules! function_getters {
             }
 
             #[getter]
-            fn entry_point(&self, py: Python<'_>) -> PyResult<Option<String>> {
+            pub(crate) fn entry_point(&self, py: Python<'_>) -> PyResult<Option<String>> {
                 read_function(&self.owner, self.index, py, |function, _| {
                     Ok(function
                         .attached
@@ -269,7 +271,7 @@ macro_rules! function_getters {
             }
 
             #[getter]
-            fn packages<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+            pub(crate) fn packages<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
                 read_function(&self.owner, self.index, py, |function, py| {
                     let packages: &[String] = function
                         .attached
@@ -281,14 +283,14 @@ macro_rules! function_getters {
             }
 
             #[getter]
-            fn tags<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+            pub(crate) fn tags<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
                 read_function(&self.owner, self.index, py, |function, py| {
                     PyTuple::new(py, &function.attached.tags)
                 })
             }
 
             #[getter]
-            fn description(&self, py: Python<'_>) -> PyResult<Option<String>> {
+            pub(crate) fn description(&self, py: Python<'_>) -> PyResult<Option<String>> {
                 read_function(&self.owner, self.index, py, |function, _| {
                     Ok(function.attached.description.clone())
                 })
@@ -312,56 +314,56 @@ impl NativeFunctionInput {
 
 function_getters!(NativeFunctionInput, {
     #[getter]
-    fn function_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn function_file(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         read_function(&self.owner, self.index, py, |function, py| {
             Ok(function.attached.function_file.clone_ref(py))
         })
     }
 
     #[getter]
-    fn database(&self, py: Python<'_>) -> PyResult<Option<String>> {
+    pub(crate) fn database(&self, py: Python<'_>) -> PyResult<Option<String>> {
         read_function(&self.owner, self.index, py, |function, _| {
             Ok(function.attached.destination.database.clone())
         })
     }
 
     #[getter]
-    fn schema(&self, py: Python<'_>) -> PyResult<Option<String>> {
+    pub(crate) fn schema(&self, py: Python<'_>) -> PyResult<Option<String>> {
         read_function(&self.owner, self.index, py, |function, _| {
             Ok(function.attached.destination.schema.clone())
         })
     }
 
     #[getter]
-    fn logical_database(&self, py: Python<'_>) -> PyResult<Option<String>> {
+    pub(crate) fn logical_database(&self, py: Python<'_>) -> PyResult<Option<String>> {
         read_function(&self.owner, self.index, py, |function, _| {
             Ok(function.attached.destination.logical_database.clone())
         })
     }
 
     #[getter]
-    fn logical_schema(&self, py: Python<'_>) -> PyResult<Option<String>> {
+    pub(crate) fn logical_schema(&self, py: Python<'_>) -> PyResult<Option<String>> {
         read_function(&self.owner, self.index, py, |function, _| {
             Ok(function.attached.destination.logical_schema.clone())
         })
     }
 
     #[getter]
-    fn fingerprint_database(&self, py: Python<'_>) -> PyResult<Option<String>> {
+    pub(crate) fn fingerprint_database(&self, py: Python<'_>) -> PyResult<Option<String>> {
         read_function(&self.owner, self.index, py, |function, _| {
             Ok(function.attached.fingerprint_destination.database.clone())
         })
     }
 
     #[getter]
-    fn fingerprint_schema(&self, py: Python<'_>) -> PyResult<Option<String>> {
+    pub(crate) fn fingerprint_schema(&self, py: Python<'_>) -> PyResult<Option<String>> {
         read_function(&self.owner, self.index, py, |function, _| {
             Ok(function.attached.fingerprint_destination.schema.clone())
         })
     }
 
     #[getter]
-    fn fingerprint_logical_database(&self, py: Python<'_>) -> PyResult<Option<String>> {
+    pub(crate) fn fingerprint_logical_database(&self, py: Python<'_>) -> PyResult<Option<String>> {
         read_function(&self.owner, self.index, py, |function, _| {
             Ok(function
                 .attached
@@ -372,7 +374,7 @@ function_getters!(NativeFunctionInput, {
     }
 
     #[getter]
-    fn fingerprint_logical_schema(&self, py: Python<'_>) -> PyResult<Option<String>> {
+    pub(crate) fn fingerprint_logical_schema(&self, py: Python<'_>) -> PyResult<Option<String>> {
         read_function(&self.owner, self.index, py, |function, _| {
             Ok(function
                 .attached
@@ -383,7 +385,7 @@ function_getters!(NativeFunctionInput, {
     }
 
     #[getter]
-    fn declaration_usages(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
+    pub(crate) fn declaration_usages(&self, py: Python<'_>) -> PyResult<Py<PyTuple>> {
         read_function(&self.owner, self.index, py, |function, py| {
             Ok(function.attached.usages.clone_ref(py))
         })
@@ -391,7 +393,7 @@ function_getters!(NativeFunctionInput, {
 
     /// `(node type, name, tags, references)`, what project assembly resolves dependencies from.
     #[getter]
-    fn assembly_row(&self, py: Python<'_>) -> PyResult<FunctionAssemblyRow> {
+    pub(crate) fn assembly_row(&self, py: Python<'_>) -> PyResult<FunctionAssemblyRow> {
         read_function(&self.owner, self.index, py, |function, _| {
             let attached: &AttachedFunction = &function.attached;
             Ok((
@@ -422,6 +424,25 @@ pub(crate) struct NativeCompiledFunction {
 impl NativeCompiledFunction {
     pub(crate) fn new(owner: Py<NativeCompiledProject>, index: usize) -> Self {
         Self::defaulted(owner, index, None)
+    }
+
+    /// The function's project graph row: its key, the resources it reads and its tags.
+    pub(crate) fn graph_row(&self, py: Python<'_>) -> PyResult<ResourceRow> {
+        read_function(&self.owner, self.index, py, |function, _| {
+            let deps: &[ObjectKeyRow] = function
+                .deps
+                .as_deref()
+                .ok_or_else(|| PyRuntimeError::new_err(NOT_ASSEMBLED))?;
+            Ok((
+                (
+                    function.attached.node_type().to_owned(),
+                    function.attached.name.clone(),
+                ),
+                deps.to_vec(),
+                function.attached.tags.clone(),
+                None,
+            ))
+        })
     }
 
     fn defaulted(
@@ -455,7 +476,7 @@ impl NativeCompiledFunction {
 function_getters!(NativeCompiledFunction, {
     /// The function's planner-facing `CompiledObjectKey`.
     #[getter]
-    fn key(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn key(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let classes: InputViewClasses<'_> = view_classes(&self.owner, py)?;
         read_function(&self.owner, self.index, py, |function, py| {
             function
@@ -473,7 +494,7 @@ function_getters!(NativeCompiledFunction, {
 
     /// The planner-facing keys of the resources the function reads.
     #[getter]
-    fn deps<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+    pub(crate) fn deps<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
         let classes: InputViewClasses<'_> = view_classes(&self.owner, py)?;
         read_function(&self.owner, self.index, py, |function, py| {
             let deps: &[ObjectKeyRow] = function
@@ -489,32 +510,30 @@ function_getters!(NativeCompiledFunction, {
     }
 
     #[getter]
-    fn relative_path(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn relative_path(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         read_function(&self.owner, self.index, py, |function, py| {
-            Ok(function
-                .attached
-                .function_file
-                .bind(py)
-                .getattr(FUNCTION_FILE_ATTRIBUTE)?
-                .unbind())
+            Ok(native_field(
+                function.attached.function_file.bind(py),
+                FUNCTION_FILE_ATTRIBUTE,
+            )?
+            .unbind())
         })
     }
 
     #[getter]
-    fn source_file_path(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn source_file_path(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         read_function(&self.owner, self.index, py, |function, py| {
-            Ok(function
-                .attached
-                .function_file
-                .bind(py)
-                .getattr(FILE_PATH_ATTRIBUTE)?
-                .unbind())
+            Ok(native_field(
+                function.attached.function_file.bind(py),
+                FILE_PATH_ATTRIBUTE,
+            )?
+            .unbind())
         })
     }
 
     /// The function's planner-facing `CompiledRelationLocation`.
     #[getter]
-    fn destination(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn destination(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let classes: InputViewClasses<'_> = view_classes(&self.owner, py)?;
         self.destination
             .get_or_try_init(py, || {
@@ -525,7 +544,7 @@ function_getters!(NativeCompiledFunction, {
 
     /// The destination the function's fingerprint reads.
     #[getter]
-    fn fingerprint_destination(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    pub(crate) fn fingerprint_destination(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let classes: InputViewClasses<'_> = view_classes(&self.owner, py)?;
         self.fingerprint_destination
             .get_or_try_init(py, || {
@@ -535,7 +554,7 @@ function_getters!(NativeCompiledFunction, {
     }
 
     /// This function with target defaults; a non-inheriting Python function is name-qualified.
-    fn with_target_defaults(
+    pub(crate) fn with_target_defaults(
         &self,
         py: Python<'_>,
         defaults: (Option<String>, Option<String>),
@@ -562,3 +581,29 @@ function_getters!(NativeCompiledFunction, {
         ))
     }
 });
+
+impl NativeCompiledFunction {
+    /// The `CompiledFunction` field values, in field order, without building the record.
+    pub(crate) fn record_values<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
+        Ok(vec![
+            self.key(py)?.into_bound(py),
+            self.deps(py)?.into_any(),
+            self.name(py)?.into_bound_py_any(py)?,
+            self.relative_path(py)?.into_bound(py),
+            self.arguments(py)?.into_bound(py).into_any(),
+            self.returns(py)?.into_bound_py_any(py)?,
+            self.body_sql(py)?.into_bound_py_any(py)?,
+            self.destination(py)?.into_bound(py),
+            self.fingerprint_destination(py)?.into_bound(py),
+            self.return_columns(py)?.into_bound(py).into_any(),
+            self.references(py)?.into_bound(py).into_any(),
+            self.language(py)?,
+            self.source_file_path(py)?.into_bound(py),
+            self.runtime_version(py)?.into_bound_py_any(py)?,
+            self.entry_point(py)?.into_bound_py_any(py)?,
+            self.packages(py)?.into_any(),
+            self.tags(py)?.into_any(),
+            self.description(py)?.into_bound_py_any(py)?,
+        ])
+    }
+}

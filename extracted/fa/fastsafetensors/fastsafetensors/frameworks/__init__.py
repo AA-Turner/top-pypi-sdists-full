@@ -2,10 +2,23 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Generic, List, Optional, Tuple, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+)
 
 from ..cpp import gds_device_buffer
 from ..st_types import Device, DType
+
+if TYPE_CHECKING:
+    from ..common import SafeTensorsMetadata
 
 
 @dataclass
@@ -15,6 +28,20 @@ class TensorBase:
 
     @abstractmethod
     def get_raw(self) -> Any:
+        pass
+
+    @abstractmethod
+    def get_shape(self) -> List[int]:
+        """Return the logical safetensors shape, including sub-byte elements."""
+        pass
+
+    @abstractmethod
+    def get_nbytes(self) -> int:
+        pass
+
+    @abstractmethod
+    def copy_to_buffer(self, buf: memoryview) -> None:
+        """Copy tensor bytes in logical C order into the supplied buffer."""
         pass
 
     @abstractmethod
@@ -109,6 +136,22 @@ K = TypeVar("K", bound=ProcessGroupBase)
 
 
 class FrameworkOpBase(ABC, Generic[T, K]):
+    def broadcast_contiguous_run(
+        self,
+        pg: K,
+        source_tensors: List[T],
+        frames: List[Any],
+        src_rank: int,
+        device: Device,
+    ) -> Optional[List[T]]:
+        """Optionally broadcast adjacent tensors using an owned byte buffer.
+
+        Return None for the portable per-tensor path. Returned views must own
+        their storage independently of the loader buffer. CUDA implementations
+        must establish a dependency on the consumer's current stream.
+        """
+        return None
+
     @abstractmethod
     def get_name(self) -> str:
         pass
@@ -140,6 +183,10 @@ class FrameworkOpBase(ABC, Generic[T, K]):
     @abstractmethod
     def copy_tensor(self, dst: T, src: T) -> None:
         pass
+
+    def wrap_tensor(self, tensor: Any) -> T:
+        """Wrap a framework-native tensor without copying its storage."""
+        raise NotImplementedError(f"{self.get_name()}: wrap_tensor")
 
     @abstractmethod
     def get_dtype_size(self, dtype: DType) -> float:
@@ -205,6 +252,24 @@ class FrameworkOpBase(ABC, Generic[T, K]):
         """
         return slices
 
+    def iter_buffer_views(
+        self,
+        metadata: "SafeTensorsMetadata",
+        gbuf: gds_device_buffer,
+        device: Device,
+        copy_start_offset: int,
+        names: Optional[Set[str]],
+        owner=None,
+    ) -> Optional[Iterator[Tuple[str, T]]]:
+        """Optionally create views sharing storage within a loader buffer.
+
+        Return None to use per-tensor DLPack conversion. Without an owner,
+        views borrow the allocation and must not outlive the loader buffer.
+        With an owner, attach it to the shared storage so every exported tensor
+        and derived view keeps the backing allocation alive.
+        """
+        return None
+
     def synchronize(self, device: Device) -> None:
         """Block until pending asynchronous device copies are complete.
 
@@ -212,6 +277,10 @@ class FrameworkOpBase(ABC, Generic[T, K]):
         (e.g. cudaMemcpyAsync) must override this.
         """
         return None
+
+    def synchronize_current_stream(self, device: Device) -> None:
+        """Finish consumer work before releasing raw loader storage."""
+        self.synchronize(device)
 
     def get_global_rank(self) -> int:
         """Return this process's rank in the framework's global distributed

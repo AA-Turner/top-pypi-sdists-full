@@ -1,0 +1,113 @@
+//! Convert project views into pure scenario dependency facts.
+
+use crate::bindings::_helpers::analysis::model_reads;
+use crate::bindings::_helpers::graph::keys::{KeyCache, native_key};
+use crate::bindings::_helpers::planner_scenario::constants::SCENARIO_PLAN_GRAPH_VALIDATION;
+use crate::bindings::_helpers::planner_scenario::values::string;
+use crate::bindings::_helpers::records::construct::{enum_member, new_record_with};
+use crate::bindings::_helpers::records::fields::field as native_field;
+use crate::bindings::_helpers::records::ids::RecordId;
+use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, pyfunction};
+use pyo3::types::PyTuple;
+use sqlbuild_analysis::planner_scenario::main::graph::graph;
+use sqlbuild_analysis::planner_scenario::models::ScenarioGraphInput;
+
+#[pyfunction]
+#[pyo3(signature = (*, scenario, project, sql_analysis_enabled=true, sql_analysis_dialect=None))]
+pub(crate) fn plan_scenario_graph<'py>(
+    scenario: &Bound<'py, PyAny>,
+    project: &Bound<'py, PyAny>,
+    sql_analysis_enabled: bool,
+    sql_analysis_dialect: Option<&str>,
+) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyTuple>)> {
+    let _ = (sql_analysis_enabled, sql_analysis_dialect);
+    let py = scenario.py();
+    let mut input = ScenarioGraphInput {
+        name: native_field(scenario, "name")?.extract()?,
+        expected: native_field(scenario, "expected_model_names")?.extract()?,
+        assertions: native_field(scenario, "assertion_target_model_names")?.extract()?,
+        targets: native_field(scenario, "target_model_names")?.extract()?,
+        refs: native_field(scenario, "ref_fixture_names")?.extract()?,
+        sources: native_field(scenario, "source_fixture_names")?.extract()?,
+        seeds: native_field(scenario, "seed_fixture_names")?.extract()?,
+        dbt_refs: native_field(scenario, "dbt_ref_fixture_names")?.extract()?,
+        ..ScenarioGraphInput::default()
+    };
+    for model in native_field(project, "models")?.try_iter()? {
+        let model = model?;
+        let deps = native_field(&model, "deps")?
+            .try_iter()?
+            .map(|dep| native_key(&dep?))
+            .collect::<PyResult<_>>()?;
+        input
+            .models
+            .insert(model_reads::name_object(&model)?.extract()?, deps);
+    }
+    for source in native_field(project, "sources")?.try_iter()? {
+        input
+            .project_sources
+            .insert(native_field(&source?, "name")?.extract()?);
+    }
+    for seed in native_field(project, "seeds")?.try_iter()? {
+        input
+            .project_seeds
+            .insert(native_field(&seed?, "name")?.extract()?);
+    }
+    let output = graph(&input);
+    input.targets.sort();
+    input.assertions.sort();
+    let plan = new_record_with(
+        py,
+        RecordId::ScenarioGraphPlan,
+        &[
+            ("key", native_field(scenario, "key")?),
+            ("name", native_field(scenario, "name")?),
+            (
+                "target_model_names",
+                PyTuple::new(py, input.targets)?.into_any(),
+            ),
+            (
+                "assertion_target_model_names",
+                PyTuple::new(py, input.assertions)?.into_any(),
+            ),
+            ("model_names", PyTuple::new(py, output.models)?.into_any()),
+            (
+                "source_fixture_names",
+                PyTuple::new(py, output.sources)?.into_any(),
+            ),
+            (
+                "ref_fixture_names",
+                PyTuple::new(py, output.refs)?.into_any(),
+            ),
+            ("seed_names", PyTuple::new(py, output.seeds)?.into_any()),
+            (
+                "seed_fixture_names",
+                PyTuple::new(py, output.seed_fixtures)?.into_any(),
+            ),
+            (
+                "dbt_ref_fixture_names",
+                PyTuple::new(py, output.dbt_refs)?.into_any(),
+            ),
+            (
+                "function_deps",
+                PyTuple::new(py, KeyCache::new(py)?.keys(&output.functions)?)?.into_any(),
+            ),
+        ],
+    )?;
+    let mut warnings: Vec<Bound<'py, PyAny>> = Vec::new();
+    for (message, coded) in output.warnings {
+        let mut values = vec![
+            ("model_name", py.None().into_bound(py)),
+            (
+                "severity",
+                enum_member(py, RecordId::WarningSeverity, "ERROR")?,
+            ),
+            ("message", string(py, &message)),
+        ];
+        if coded {
+            values.push(("code", string(py, SCENARIO_PLAN_GRAPH_VALIDATION)));
+        }
+        warnings.push(new_record_with(py, RecordId::PlanWarning, &values)?);
+    }
+    Ok((plan, PyTuple::new(py, warnings)?))
+}

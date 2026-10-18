@@ -84,6 +84,100 @@ requirements:
           workflow, a job that calls a reusable workflow, a step change inside an existing job and a removal.
           -- falsifier: uv run pytest tests/unit/handlers/test_handler_ci_repository_jobs.py tests/unit/handlers/test_handler_ci_inheritance_cli.py
           -q"
+  - id: req-omn17427-pr-title-check-core-reusable
+    statement: The PR title check runs from one reusable workflow in omnibase_core that each repository
+      of the same type calls with only its omnimarket version, under the unchanged required context.
+    acceptance:
+      - id: AC13
+        statement: "AC13: pr-title-check.yml is a workflow_call workflow whose one job check-title runs
+          the pinned title node, omnibase_core's pr-title-check-caller.yml job pr-title calls it with
+          only omnimarket-version, the call composes pr-title / check-title and a merge_group call accepts
+          without the node. -- falsifier: uv run pytest tests/ci/test_pr_title_check_omnimarket_node.py
+          -q"
+  - id: req-omn17427-receipt-gate-states-caller-mode
+    statement: The receipt-gate reusable states in its own header that evidence-source caller is the only
+      accepted mode, so omnibase_core carries no live use of the change-control repository.
+    acceptance:
+      - id: AC14
+        statement: "AC14: receipt-gate.yml sets `evidence-source: caller` as its only accepted value in
+          its own header, and the pattern that reads that line does not match the old wording. -- falsifier:
+          uv run pytest tests/ci/test_receipt_gate_occ_mode_removed_omn20074.py -q -k test_receipt_gate_states_its_single_mode_as_evidence_source_caller"
+  - id: req-omn17427-occ-contract-checks-in-core
+    statement: omnibase_core must ship the check-value lint, the substance floor and the compliance-check
+      primitives that omnimarket's parity tests import from onex_change_control, answering as the originals
+      do.
+    acceptance:
+      - id: AC15
+        statement: "AC15: The core ports of lint_contract_check_values, check_contract_substance_floor
+          and the contract_compliance_check primitives return the onex_change_control originals' recorded
+          verdicts on every case of the parity corpus. -- falsifier: uv run pytest tests/unit/handlers/test_occ_contract_checks_parity.py
+          -q"
+  - id: req-omn17427-hook-push-rehearsal
+    statement: A pull request that changes a hook, hook script, preflight or push path rehearses the repository's
+      pre-push set as a controller worker pushes, before a worker push is refused.
+    acceptance:
+      - id: AC16
+        statement: "AC16: hook-push-rehearsal.yml pushes a sample commit through the installed pre-push
+          hook to a local bare remote on a matching pull request only, and fails when the push is refused,
+          runs past the timeout or a hook leaves a file in the work tree. -- falsifier: uv run pytest
+          tests/unit/scripts/ci/test_hook_push_rehearsal_workflow_omn17427.py -q"
+  - id: req-omn17427-mac-migration-ledger-schema-alias
+    statement: The deployment-topology migration-ledger model imports without the pydantic field-shadow
+      warning and without a process-global warning filter, while a contract key `schema` still validates
+      and serializes by alias.
+    acceptance:
+      - id: AC17
+        statement: "AC17: Importing the migration-ledger module in a fresh interpreter under -W error::UserWarning
+          succeeds with empty stderr and without the module calling warnings.filterwarnings, and a payload
+          keyed `schema` validates to schema_name and dumps back to `schema`. -- falsifier: uv run pytest
+          tests/unit/models/core/test_model_deployment_topology_database.py -q -k migration_ledger"
+  - id: req-omn17427-coderabbit-gate-removed
+    statement: CodeRabbit is retired, so omnibase_core must carry no CodeRabbit review-thread gate, no
+      required-check row for its context and no CI Summary anchor for it.
+    acceptance:
+      - id: AC18
+        statement: "AC18: cr-thread-gate.yml and the ci.yml gate caller are absent, the required-checks
+          manifest carries the context gate / CodeRabbit Thread Check only as a RETIRED row, and the CI
+          Summary gate does not anchor it. -- falsifier: uv run pytest tests/ci/test_coderabbit_gate_removed_omn17427.py
+          -q"
+  - id: req-omn17427-brief-drafting-wire
+    statement: The delegation wire request admits the brief_drafting task class, so a request for lane
+      brief drafting is deliverable once the Market task-class contract declares it.
+    acceptance:
+      - id: AC19
+        statement: "AC19: ModelDelegationRequest accepts task_type brief_drafting and its JSON schema
+          enum is exactly the canonical sixteen classes. -- falsifier: uv run pytest tests/unit/models/delegation/wire/test_delegation_wire_models.py
+          -q -k canonical"
+  - id: req-omn17427-no-legacy-landed-flip
+    statement: The canonical handler-shape ratchet accepts a no-legacy flip that already landed on the
+      live merge base, so a merged flip and the change that drops it from the baseline are not refused
+      by the flip's own handler.
+    acceptance:
+      - id: AC20
+        statement: "AC20: A no-legacy receipt whose flip landed with no handler before it passes after
+          merge and drops from the baseline as a proven flip, while a handler on the base before the receipt
+          landed, a node changed after it landed and a receipt that never landed are refused. -- falsifier:
+          uv run pytest tests/unit/scripts/ci/test_canonical_handler_shape_no_legacy.py -q -k landed"
+  - id: req-omn17427-ledger-row-required-cells
+    statement: The typed work-ledger renderer writes the cells the ledger row grammar requires, so a rendered
+      CLAIM carries worktree= and a rendered RULING carries question=.
+    acceptance:
+      - id: AC21
+        statement: "AC21: A rendered CLAIM carries a worktree= cell (the claim's own worktree, else none),
+          a rendered RULING carries a question= cell (its own question, else the question it answers),
+          and a ruling naming neither is refused. -- falsifier: uv run pytest tests/unit/models/events/work/test_work_ledger_render.py
+          -q -k \"golden_row_per_kind or worktree or question\""
+  - id: req-omn17427-external-default-deny
+    statement: CI Summary fails on any external check-run on the head that no other layer accounts for
+      unless it carries a dated, ticketed, expiring exclusion, so an unregistered context cannot go red
+      while the umbrella reads green.
+    acceptance:
+      - id: AC22
+        statement: "AC22: CI Summary judges every pull-request-event check-run outside this run and the
+          registered contexts and passes only success, holds a running row pending, exempts only a row
+          whose run event is a known non-pull-request event, and refuses a malformed or spent exclusion
+          registry. -- falsifier: uv run pytest tests/unit/scripts/ci/test_ci_summary_gate.py -q -k \"ExternalDefaultDenySweep
+          or ExternalSweepExclusions or SweepIsWired\""
 evidence_requirements:
   - kind: tests
     description: "The caller-evidence job exempts an OCC writer app version bump using the pinned producer
@@ -125,6 +219,34 @@ evidence_requirements:
       and passes a host reusable job, a reusable call, a step change and a removal."
     command: "uv run pytest tests/unit/handlers/test_handler_ci_repository_jobs.py tests/unit/handlers/test_handler_ci_inheritance_cli.py
       -q"
+  - kind: tests
+    description: "The PR title check runs from the core reusable workflow that each caller calls with
+      only its omnimarket version, under the unchanged required context."
+    command: "uv run pytest tests/ci/test_pr_title_check_omnimarket_node.py -q"
+  - kind: tests
+    description: "receipt-gate.yml sets evidence-source caller as its only accepted value in its own header."
+    command: "uv run pytest tests/ci/test_receipt_gate_occ_mode_removed_omn20074.py -q -k test_receipt_gate_states_its_single_mode_as_evidence_source_caller"
+  - kind: tests
+    description: "The hook push rehearsal pushes a sample commit through the pre-push set on a matching
+      pull request only and fails a refused, timed-out or tree-dirtying push."
+    command: "uv run pytest tests/unit/scripts/ci/test_hook_push_rehearsal_workflow_omn17427.py -q"
+  - kind: tests
+    description: "The CodeRabbit review-thread gate workflow, its ci.yml caller, its required-checks row
+      and its CI Summary anchors are removed."
+    command: "uv run pytest tests/ci/test_coderabbit_gate_removed_omn17427.py -q"
+  - kind: tests
+    description: "A landed no-legacy flip passes after merge; a pre-existing base handler, a later node
+      change and an unlanded receipt are refused."
+    command: "uv run pytest tests/unit/scripts/ci/test_canonical_handler_shape_no_legacy.py -q -k landed"
+  - kind: tests
+    description: "A rendered CLAIM carries worktree=, a rendered RULING carries question=, and a ruling
+      with no question is refused."
+    command: "uv run pytest tests/unit/models/events/work/test_work_ledger_render.py -q"
+  - kind: tests
+    description: "CI Summary sweeps every unregistered external check-run default-deny with a strict success
+      bar, event scoping and an expiring exclusion registry."
+    command: "uv run pytest tests/unit/scripts/ci/test_ci_summary_gate.py -q -k \"ExternalDefaultDenySweep
+      or ExternalSweepExclusions or SweepIsWired\""
 emergency_bypass:
   enabled: false
   justification: ''
@@ -295,3 +417,122 @@ dod_evidence:
         cwd: ${OMNI_HOME}/omnibase_core
     binds_ac:
       - AC12
+  - id: dod-omn-17427-pr-title-check-core-reusable
+    description: "pr-title-check.yml is a workflow_call workflow whose one job check-title runs the pinned
+      title node, omnibase_core's pr-title-check-caller.yml job pr-title calls it with only omnimarket-version,
+      the call composes pr-title / check-title and a merge_group call accepts without the node."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC13
+  - id: dod-omn-17427-receipt-gate-states-caller-mode
+    description: "receipt-gate.yml sets `evidence-source: caller` as its only accepted value in its own
+      header, and the pattern that reads that line does not match the old wording."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: "uv run pytest tests/ci/test_receipt_gate_occ_mode_removed_omn20074.py -q -k test_receipt_gate_states_its_single_mode_as_evidence_source_caller
+          -o addopts=''"
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC14
+  - id: dod-omn-17427-occ-contract-checks-parity
+    description: "The core ports of the three onex_change_control contract checks return the originals'
+      recorded verdicts on the parity corpus."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/handlers/test_occ_contract_checks_parity.py -q -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC15
+  - id: dod-omn-17427-hook-push-rehearsal
+    description: "hook-push-rehearsal.yml pushes a sample commit through the installed pre-push hook to
+      a local bare remote on a pull request whose changed paths match path-regex, and fails a refused
+      push, a push past the timeout and a hook that leaves a file in the work tree."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/scripts/ci/test_hook_push_rehearsal_workflow_omn17427.py
+          -q -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC16
+  - id: dod-omn-17427-mac-migration-ledger-schema-alias
+    description: "The migration-ledger model imports with no field-shadow warning and no module-level
+      warning filter, and a contract key `schema` round-trips by alias."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/models/core/test_model_deployment_topology_database.py -q
+          -k migration_ledger -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC17
+  - id: dod-omn-17427-coderabbit-gate-removed
+    description: "The CodeRabbit review-thread gate workflow, its ci.yml caller, its required-checks row
+      and its CI Summary anchors are removed."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_coderabbit_gate_removed_omn17427.py -q -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC18
+  - id: dod-omn-17427-brief-drafting-wire
+    description: "The delegation wire request admits the brief_drafting task class and its schema enum
+      is the canonical sixteen."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/models/delegation/wire/test_delegation_wire_models.py -q
+          -k canonical -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC19
+  - id: dod-omn-17427-no-legacy-landed-flip
+    description: "A landed no-legacy flip passes after merge; a pre-existing base handler, a later node
+      change and an unlanded receipt are refused."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/scripts/ci/test_canonical_handler_shape_no_legacy.py -q
+          -k landed -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC20
+  - id: dod-omn-17427-ledger-row-required-cells
+    description: "A rendered CLAIM carries worktree=, a rendered RULING carries question=, and a ruling
+      with no question is refused."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/models/events/work/test_work_ledger_render.py -q -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC21
+  - id: dod-omn-17427-external-default-deny
+    description: "CI Summary layer 5 sweeps every unregistered external check-run default-deny: only success
+      passes, a running row holds the verdict, known non-pull-request events are exempt, and the exclusion
+      registry is validated and expires. The tests fail at the merge base, where the layer does not exist."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/scripts/ci/test_ci_summary_gate.py -q -k "ExternalDefaultDenySweep
+          or ExternalSweepExclusions or SweepIsWired" -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC22

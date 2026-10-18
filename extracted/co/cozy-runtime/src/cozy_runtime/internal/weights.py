@@ -21,13 +21,14 @@ the executor.
 from __future__ import annotations
 
 import functools
+import gc
 import mmap
 import os
 import re
 import time
 import weakref
 import zlib
-from collections import deque
+from collections import Counter, deque
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager, nullcontext, suppress
 from dataclasses import dataclass, field, replace
@@ -66,6 +67,7 @@ from cozy_runtime.internal.encoding import (
     measure_device,
     measure_runtime,
 )
+from cozy_runtime.internal.encoding.leaves import sites as leaf_sites
 from cozy_runtime.internal.executor_replies import PlaneFacts, Streamed
 from cozy_runtime.internal.fetch_plan import Fetches, Group, Ref, region_objects, stage_components
 from cozy_runtime.internal.fill import (
@@ -395,8 +397,12 @@ class Weights:
         #: weights), innermost last; and the component whose block ran last
         self.running: list[str] = []
         self.last = ""
-        #: a read outside a module's forward is being mapped (`reading`)
-        self.mapping = False
+        #: how deep reads outside a module's forward are being mapped (`reading`): a LoRA bake
+        #: in a region such a read binds reads its overlay's factors, and a placement that read
+        #: makes can bind and bake more, so reads nest; the regions they are mapping
+        self.mapping = 0
+        self.mapped: set[int] = set()
+        self.mapping_ops: list[str] = []
         #: the plane is placing or giving room: an allocator refusal inside is its own to answer
         self.placing = False
         #: the bytes of the last allocator refusal `refused` unmapped weights for
@@ -1109,35 +1115,68 @@ class Weights:
         else the read is refused, and no kernel is ever handed its empty pointer."""
         opened = self.opened()
         held: list[tuple[Component, Region, Lease]] = []
-        if self.mapping:  # a read from inside the mapping of another: never a second one
-            raise _unbound_read(op)
-        self.mapping = True
+        mine = {id(o[2]) for s in standins if (o := getattr(s, "origin", None)) is not None}
+        if mine & self.mapped:  # a mapping that maps its own weights again (run 2793)
+            names = [
+                f"{o[1].name}.{o[2].path}:{o[4]}"
+                for s in standins
+                if (o := getattr(s, "origin", None)) is not None and id(o[2]) in self.mapped
+            ]
+            raise _unbound_read(
+                op,
+                f"a weight read re-entered its own mapping ({', '.join(names)}; inside "
+                f"{' > '.join(self.mapping_ops)})",
+            )
+        self.mapping += 1
+        self.mapped |= mine
+        self.mapping_ops.append(op)
+        mapping = True
         try:
+            bound_at_entry: set[int] = set()
             for standin in standins:
                 origin: Origin | None = getattr(standin, "origin", None)
                 if origin is None or origin[0] is not self:
-                    raise _unbound_read(op)
-                _, component, region, _, _ = origin
+                    raise _unbound_read(op, "the weight belongs to no plane of this process")
+                _, component, region, _, name = origin
                 row = opened.get(component.key)
                 if row is None or row[2] is not component:
-                    raise _unbound_read(op)
+                    stages = sorted(c.name for _, _, c in opened.values())
+                    raise _unbound_read(
+                        op,
+                        f"{component.name}.{region.path}:{name} is in no open stage "
+                        f"(open: {', '.join(stages) or 'none'})",
+                    )
+                if region.bound is not None:
+                    bound_at_entry.add(id(region))
                 if region.bound is None and all(region is not other for _, other, _ in held):
                     held.append((component, region, row[0]._lease(component, region, op)))
             for _, region, lease in held:  # a re-plan for a later lease unbound earlier ones
                 bind(self.torch, region, lease)
             real: dict[int, Tensor] = {}
             for standin in standins:
-                _, _, _, table, name = getattr(standin, "origin")  # noqa: B009
+                _, component, region, table, name = getattr(standin, "origin")  # noqa: B009
                 value = table[name]
                 if value is None or type(value) is type(standin):
-                    raise _unbound_read(op)
+                    leased = any(region is other for _, other, _ in held)
+                    raise _unbound_read(
+                        op,
+                        f"{component.name}.{region.path}:{name} lost its bytes before the op ran "
+                        f"(region {region.index}, bound at entry {id(region) in bound_at_entry}, "
+                        f"leased {leased}, {len(standins)} weight operands, "
+                        f"{len(held)} regions leased)",
+                    )
                 real[id(standin)] = value.to(dtype=standin.dtype, device=standin.device)
-            self.mapping = False
+            self.mapping, mapping = self.mapping - 1, False
+            self.mapped -= mine
+            self.mapping_ops.pop()
             yield Read(
                 real, tuple((r.bound, r.bound + r.span) for _, r, _ in held if r.bound is not None)
             )
         finally:
-            self.mapping = False
+            if mapping:
+                self.mapping -= 1
+                self.mapped -= mine
+                self.mapping_ops.pop()
             for component, region, lease in reversed(held):
                 if region.index not in component.resident:
                     unbind(region)
@@ -1727,7 +1766,7 @@ def _unbound_type(torch: ModuleType) -> type:
             origins = (getattr(standin, "origin", None) for standin in standins)
             origin: Origin | None = next((found for found in origins if found is not None), None)
             if origin is None:
-                raise _unbound_read(op)
+                raise _unbound_read(op, "no weight operand carries its plane origin")
             with origin[0].reading(standins, op) as read:
                 yield read
 
@@ -1755,7 +1794,8 @@ def _unbound_type(torch: ModuleType) -> type:
             if func._schema.is_mutable and any(
                 isinstance(v, cls) for v in _tensor_operands(tuple(_written(func, args, kwargs)))
             ):
-                raise _unbound_read(str(func))  # a write would be lost with the mapping
+                # a write would be lost with the mapping
+                raise _unbound_read(str(func), "the op writes into the weight")
             with cls.reading(standins, str(func)) as read:
                 return read.kept(
                     func(
@@ -1767,11 +1807,9 @@ def _unbound_type(torch: ModuleType) -> type:
     return Unbound
 
 
-def _unbound_read(op: str) -> ResidencyRefusal:
-    return ResidencyRefusal(
-        "weight_unbound",
-        f"{op}: a weight is read while no plane bytes are bound to it (outside its stage)",
-    )
+def _unbound_read(op: str, why: str = "") -> ResidencyRefusal:
+    detail = f"{op}: a weight is read while no plane bytes are bound to it (outside its stage)"
+    return ResidencyRefusal("weight_unbound", f"{detail}: {why}" if why else detail)
 
 
 @dataclass(frozen=True, slots=True)
@@ -2159,14 +2197,19 @@ def close_cursor(component: Component) -> None:
         for address in [a for a in region.views if a in ring]:
             del region.views[address]
     component.cursor = None
-    try:
-        cursor.close()
-    except plane.error("Poisoned"):
-        raise
-    except plane.error("PlaneError"):
-        # A view into the ring outlives the stage (a failed block's frames hold one): the
-        # dropped cursor closes itself when the last of them goes.
-        pass
+    for collect in (False, True):
+        try:
+            cursor.close()
+            return
+        except plane.error("Poisoned"):
+            raise
+        except plane.error("PlaneError"):
+            # A view into the ring outlives the stage: a failed block's frames, in a cycle,
+            # hold one (run 10562: the next stage's ring found the budget still taken). Once
+            # they are collected the ring goes; a view still in use closes it when it goes.
+            if collect:
+                return
+        gc.collect()
 
 
 def _bake_key(bake: Bake) -> tuple[object, ...]:
@@ -2202,6 +2245,16 @@ def _bake(
         BAKED[2] += len(region.bakes)
     if home and refill and _stale(region, keys):
         raise _Stale(region.index)
+    bakes_now = some and (not home or not region.baked)
+    if bakes_now and _factors_mapping(region, keys):
+        # Placed inside the read that is mapping its overlay's factors (run 10549): they cannot
+        # be read again from here. The region serves unbaked, its hooks adding the delta per call.
+        for bake in region.bakes:
+            if bake.layer is not None:
+                bake.layer._cozy_baked = False
+            for hook in bake.hooks:
+                hook._cozy_baked = False
+        return False
     now = home and some and not region.baked
     if now:
         region.dirty = True  # until every weight is baked
@@ -2218,6 +2271,19 @@ def _bake(
         for hook, key in zip(bake.hooks, hooks, strict=True):
             hook._cozy_baked = baked and key is not None
     return now
+
+
+def _factors_mapping(region: Region, keys: list[tuple[object, ...]]) -> bool:
+    """Whether a factor some hook of the region would bake is a stand-in whose region a weight
+    read in flight is mapping now."""
+    for bake, row in zip(region.bakes, keys, strict=True):
+        for hook, key in zip(bake.hooks, row[1:], strict=True):
+            got = hook.lora_factors() if key is not None else None
+            for factor in (got[1], got[2]) if got is not None else ():
+                origin = getattr(factor, "origin", None)
+                if origin is not None and id(origin[2]) in origin[0].mapped:
+                    return True
+    return False
 
 
 def _stale(region: Region, keys: list[tuple[object, ...]]) -> bool:
@@ -2473,6 +2539,8 @@ class PlaneBackend:
         self.encoded_leaves = "refuse"
         #: contract key -> (installed leaf, replaced module, derived roles)
         self.leaves: dict[str, tuple[Any, Any, tuple[str, ...]]] = {}
+        #: (component, provider) -> installed leaves, counted when they install (`gemm.selected`)
+        self.gemm_sites: Counter[tuple[str, str]] = Counter()
 
     @classmethod
     def for_script(
@@ -2737,6 +2805,7 @@ class PlaneBackend:
         self.leaves = {
             key: self._install_leaf(key) for key in order if self._route(key) == "encoded_gemm"
         }
+        self.gemm_sites = leaf_sites(self.leaves)
         prepared = {
             name: self._prepare_layout(name, root, keys)
             for name, root in self.roots.items()
@@ -3291,7 +3360,8 @@ class WeightResidency:
         #: its common leases and cursors live, the cursor already copying the next pass), and
         #: TensorD's budget it was planned in
         self.parked: tuple[str, tuple[str, ...], int] | None = None
-        self._shortfall_error = (plane.error("Shortfall"), plane.error("BelowFloor"))
+        self._device_short, self._below_floor = plane.error("Shortfall"), plane.error("BelowFloor")
+        self._shortfall_error = (self._device_short, self._below_floor)
         self._budget_error = plane.error("BudgetExceeded")
         self._capacity = (*self._shortfall_error, self._budget_error)
         self._poisoned_error = plane.error("Poisoned")
@@ -3506,16 +3576,23 @@ class WeightResidency:
         weights = self.weights
         method = weights.open[-1][1]
         weights.quiesce()  # a plan unmaps: other components' sets, this one's stale regions
-        asked = False
+        asked, outside = False, 0
         while True:
             oom: tuple[int, str] | None = None
             refused: tuple[int, str] | None = None
             try:
-                self._plan(budget, resume)
+                self._plan(budget, resume, outside=outside)
                 weights.limit_torch()
                 return budget
             except self._budget_error as exc:
                 refused = (int(getattr(exc, "requested", 0)), str(exc))
+            except self._device_short as exc:
+                # The plane's budget holds more than the plan placed: a ring a view still keeps
+                # mapped (run 10562, H3's second segment on 32 GB). The sets plan again in what
+                # it leaves, finer, until their floor does not fit.
+                outside += max(int(getattr(exc, "need", 0)) - int(getattr(exc, "available", 0)), 1)
+                weights.modes["held outside the plan"] = f"{outside} B"
+                continue
             except ResidencyRefusal as exc:
                 # Short when the plane placed the plan: the owner makes room once (its idle
                 # tenants leave), then this process's own tensors move to host memory, and the
@@ -4055,12 +4132,15 @@ class WeightResidency:
 
     # -- the stage
 
-    def _plan(self, budget: int, resume: Mapping[str, int] = {}, asked: bool = False) -> None:
+    def _plan(
+        self, budget: int, resume: Mapping[str, int] = {}, asked: bool = False, outside: int = 0
+    ) -> None:
         """Place every open stage's components inside `budget`: each resident set wanted, the
         rest streamed by a cursor in the blocks' execution order (from `resume[weight set]`
         when a block boundary re-plans mid-pass). Before a component's order is observed its
         blocks are acquired on demand. A component whose block floor does not fit moves to
-        the sub-block grain first."""
+        the sub-block grain first. `outside`: what the plane holds beyond any plan (a ring a
+        view still keeps mapped), which the sets leave room for."""
         weights = self.weights
         opened = {key: row for key, row in weights.opened().items() if not row[2].spared}
         components = {key: component for key, (_, _, component) in opened.items()}
@@ -4075,9 +4155,9 @@ class WeightResidency:
         def stage(
             layouts: Mapping[str, weight_policy.Layout],
         ) -> dict[str, weight_policy.Residence]:
-            room = budget
+            room = budget - outside
             if weights.growing:  # a group's first pass: the budget past its window keeps hot
-                room = min(budget, sum(o.common + 2 * o.largest for o in layouts.values()))
+                room = min(room, sum(o.common + 2 * o.largest for o in layouts.values()))
             return weight_policy.stage(
                 layouts,
                 room,
@@ -4117,13 +4197,18 @@ class WeightResidency:
                 }
                 paid = stage(layouts)
         except weight_policy.BelowFloor as exc:
-            if exc.component in opened and opened[exc.component][0]._refine(exc.component):
-                return self._plan(budget, resume, asked)
+            # Refining closes the weight set, which a ring held outside the plan keeps open.
+            if (
+                not outside
+                and exc.component in opened
+                and opened[exc.component][0]._refine(exc.component)
+            ):
+                return self._plan(budget, resume, asked, outside)
             if not asked and weights.room is not None and weights.cap >= 0:
                 # Never refused for size while the GPU has room to give: the owner makes it
                 # (idle tenants leave, held weights nobody reads are revoked) and raises the cap.
                 weights.room(max(exc.needed - exc.available, 0) + weight_policy.MARGIN)
-                return self._plan(max(budget, weights.driver_budget(method)), resume, True)
+                return self._plan(max(budget, weights.driver_budget(method)), resume, True, outside)
             raise self._shortfall(method, exc.needed, exc.available, str(exc)) from None
         # A budget that only fits one block at a time streams with no overlap: regions of at
         # most 16 MiB let it hold a window of several. (Window 1 chosen when two fit stays.)
@@ -4132,13 +4217,14 @@ class WeightResidency:
             if (
                 residence.streamed
                 and residence.window == 1
-                and layout.common + 2 * layout.largest > budget
+                and layout.common + 2 * layout.largest > budget - outside
+                and not outside
                 and opened[key][0]._refine(key)
             ):
-                return self._plan(budget, resume)
+                return self._plan(budget, resume, outside=outside)
         need = sum(r.vram_bytes(layouts[key]) for key, r in paid.items())
         placed = {key: _unpaid(components[key], kept[key], r) for key, r in paid.items()}
-        if self.spare and need > budget:
+        if self.spare and need > budget - outside:
             raise ResidencyRefusal("device_spared", f"{method}() declined: needs {need} B")
         clock = weights.tick()
         for component in components.values():
@@ -4192,7 +4278,7 @@ class WeightResidency:
                         priority=plane.PREFIX + clock,
                     )
                 )
-            except self._shortfall_error as exc:
+            except self._below_floor as exc:
                 raise self._shortfall(method, need, budget, str(exc)) from None
             if streams:
                 _stage_stream(weights, component, residence, clock)
@@ -4245,7 +4331,7 @@ class WeightResidency:
                             residence.window,
                         ),
                     )
-                except self._shortfall_error as exc:
+                except self._below_floor as exc:
                     raise self._shortfall(method, need, budget, str(exc)) from None
 
     def _derived(self) -> int:

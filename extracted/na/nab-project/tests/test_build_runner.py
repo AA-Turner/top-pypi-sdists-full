@@ -51,6 +51,7 @@ from nab_index.httpx_async_transport import HttpxAsyncTransport
 from nab_index.multi_index import IndexConfig
 from nab_index.transport import AsyncHttpTransport, HttpResponse
 from nab_index.urllib3_async_transport import Urllib3AsyncTransport
+from nab_markersets._compat import get_int_max_str_digits
 from nab_project._build import env as env_mod
 from nab_project._build import runner as runner_mod
 from nab_project._build.env import (
@@ -98,6 +99,10 @@ from nab_provider.tags import PlatformSpec, TagSet
 from nab_provider.target import ResolveTarget
 from nab_provider.testing import pkg_override
 from nab_resolver.errors import ResolutionError
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
 
 
 def _unpack_fixture_sdist(data: bytes, target_dir: Path) -> Path:
@@ -1219,11 +1224,12 @@ class TestParseMetadata:
         with pytest.raises(BuildBackendError, match="invalid Version"):
             _parse_metadata(path)
 
+    @requires_int_limit
     def test_oversized_version_raises(self, tmp_path: Path) -> None:
         """A release segment past the int-from-string limit is corrupt too."""
         from nab_project._build.runner import _parse_metadata
 
-        oversized = "1" * (sys.get_int_max_str_digits() + 1)
+        oversized = "1" * ((get_int_max_str_digits() or 4300) + 1)
         path = tmp_path / "METADATA"
         path.write_text(
             f"Metadata-Version: 2.1\nName: foo\nVersion: {oversized}\n",
@@ -1273,11 +1279,12 @@ class TestParseMetadata:
         with pytest.raises(BuildBackendError, match="invalid Requires-Dist"):
             _parse_metadata(path)
 
+    @requires_int_limit
     def test_oversized_requires_python_raises(self, tmp_path: Path) -> None:
         """A specifier parses fine and only fails when something compares it."""
         from nab_project._build.runner import _parse_metadata
 
-        oversized = "1" * (sys.get_int_max_str_digits() + 1)
+        oversized = "1" * ((get_int_max_str_digits() or 4300) + 1)
         path = tmp_path / "METADATA"
         path.write_text(
             f"Metadata-Version: 2.1\nName: foo\nVersion: 1.0\n"
@@ -1287,11 +1294,12 @@ class TestParseMetadata:
         with pytest.raises(BuildBackendError, match="invalid Requires-Python"):
             _parse_metadata(path)
 
+    @requires_int_limit
     def test_oversized_requires_dist_version_raises(self, tmp_path: Path) -> None:
         """The same deferred conversion applies to a Requires-Dist specifier."""
         from nab_project._build.runner import _parse_metadata
 
-        oversized = "1" * (sys.get_int_max_str_digits() + 1)
+        oversized = "1" * ((get_int_max_str_digits() or 4300) + 1)
         path = tmp_path / "METADATA"
         path.write_text(
             f"Metadata-Version: 2.1\nName: foo\nVersion: 1.0\n"

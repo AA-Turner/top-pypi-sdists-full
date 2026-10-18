@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import atexit
 import logging
 import queue
+import sys
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -15,21 +17,22 @@ from functools import partial
 from pathlib import Path
 from typing import Any, ClassVar, Protocol
 
+from sqlbuild._native import (
+    CompiledSqlScenario,
+    CompilePipelineResult,
+    NativeProgressProjector,
+    ScenarioExecutionPlan,
+    SqlLexicalSyntax,
+    current_native_progress_projector,
+    error_code,
+    error_help,
+    error_message,
+    scenario_local_type_overrides_for_dialect,
+)
+from sqlbuild._native import build_cli_scenario_plan as build_scenario_plan
 from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
 from sqlbuild.adapter.contract.types import TablePromotionMode
-from sqlbuild.cli.progress.classes.native_progress_projector import (
-    NativeProgressProjector,
-    current_native_progress_projector,
-)
-from sqlbuild.compiler.compile.models import CompiledSqlScenario
-from sqlbuild.compiler.pipeline.models import CompilePipelineResult
-from sqlbuild.compiler.planner.main.scenarios.scenario import build_scenario_plan
-from sqlbuild.compiler.planner.models import ScenarioExecutionPlan
-from sqlbuild.compiler.sql_analysis.models import SqlLexicalSyntax
 from sqlbuild.diagnostics.main.log_debug_event import log_debug_event
-from sqlbuild.errors.contracts.main.error_code import error_code
-from sqlbuild.errors.contracts.main.error_help import error_help
-from sqlbuild.errors.contracts.main.error_message import error_message
 from sqlbuild.executor.pipeline._helpers.connections import (
     close_connections,
     open_worker_connections,
@@ -64,12 +67,12 @@ from sqlbuild.runtime.observability.classes.operation_lifecycle import Operation
 from sqlbuild.runtime.observability.classes.resource_attempt_lifecycle import (
     ResourceAttemptLifecycle,
 )
-from sqlbuild.spec.contracts.main.scenario_local_type_overrides_for_dialect import (
-    scenario_local_type_overrides_for_dialect,
-)
 
 _DEBUG_LOGGER: logging.Logger = logging.getLogger("sqlbuild.execution")
 _STOP_POLL_SECONDS: float = 0.05
+_WORKER_EXIT_JOIN_SECONDS: float = 5.0
+_WORKER_EXIT_NOTICE: str = "Waiting up to 5s for running scenario statements to stop...\n"
+_WORKER_NAME_PREFIX: str = "sqlbuild-scenario-"
 _SCENARIO_INTERNAL_ERROR_HELP: str = (
     "This is likely a SQLBuild bug. Please file an issue with the scenario name."
 )
@@ -560,15 +563,38 @@ def _start_scenario_workers[OutcomeT](
             except BaseException as exc:  # noqa: BLE001 - delivered through the future
                 future.set_exception(exc)
 
+    atexit.unregister(_join_scenario_workers)
+    _ = atexit.register(_join_scenario_workers)
     context: Context = copy_context()
     worker: int
     for worker in range(worker_count):
         threading.Thread(
             target=context.copy().run,
             args=(work,),
-            name=f"sqlbuild-scenario-{worker}",
+            name=f"{_WORKER_NAME_PREFIX}{worker}",
             daemon=True,
         ).start()
+
+
+def _join_scenario_workers() -> None:
+    """Wait a bounded time at exit for abandoned workers, so none is ended inside native code."""
+
+    workers: list[threading.Thread] = [
+        thread
+        for thread in threading.enumerate()
+        if thread.name.startswith(_WORKER_NAME_PREFIX) and thread.is_alive()
+    ]
+    if not workers:
+        return
+    _ = sys.stderr.write(_WORKER_EXIT_NOTICE)
+    _ = sys.stderr.flush()
+    deadline: float = time.monotonic() + _WORKER_EXIT_JOIN_SECONDS
+    thread: threading.Thread
+    try:
+        for thread in workers:
+            thread.join(timeout=max(0.0, deadline - time.monotonic()))
+    except KeyboardInterrupt:
+        return
 
 
 def _stop_scenarios[OutcomeT](

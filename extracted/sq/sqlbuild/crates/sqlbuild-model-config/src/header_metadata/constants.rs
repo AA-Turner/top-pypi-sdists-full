@@ -3,6 +3,8 @@
 /// Keys one MODEL column mapping may declare.
 pub const MODEL_COLUMN_KEYS: [&str; 5] =
     ["type", "nullable", "description", "audits", "migrate_from"];
+/// The column key a MODEL header may declare and a SCHEMA declaration may not.
+pub const MIGRATE_FROM_KEY: &str = "migrate_from";
 /// Audit options that are not passed to the audit as arguments.
 pub const AUDIT_OPTION_KEYS: [&str; 8] = [
     "name",
@@ -18,7 +20,9 @@ pub const AUDIT_OPTION_KEYS: [&str; 8] = [
 pub const THRESHOLD_WARN_KEY: &str = "warn";
 pub const THRESHOLD_ERROR_KEY: &str = "error";
 /// Threshold operators, as `ThresholdOperator` values.
-pub const THRESHOLD_OPERATORS: [&str; 3] = ["below", "above", "outside"];
+pub const THRESHOLD_OPERATORS: [&str; 3] = [BELOW_OPERATOR, ABOVE_OPERATOR, "outside"];
+pub const BELOW_OPERATOR: &str = "below";
+pub const ABOVE_OPERATOR: &str = "above";
 /// Audit severities a header may name.
 pub const AUDIT_SEVERITIES: [&str; 2] = ["warn", "error"];
 /// The audit that contradicts `nullable = true`.

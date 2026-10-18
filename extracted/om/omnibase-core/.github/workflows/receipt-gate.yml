@@ -15,8 +15,9 @@
 # branch protection still names `<job> / verify` keeps a concluded context.
 #
 # Inputs:
-#   evidence-source: must be "caller" (the default). Any other value fails
-#                   dod-verify; callers still pass it explicitly.
+#   evidence-source: caller is the only accepted value, and the default. Any
+#                   other value fails dod-verify; callers still pass it
+#                   explicitly.
 #   verifier-version: pinned omnimarket PyPI release (default: 0.4.305; must be
 #                   numeric MAJOR.MINOR.PATCH and at or above the install
 #                   step's VERIFIER_FLOOR, OMN-20032).
@@ -74,7 +75,7 @@ jobs:
         (github.event_name == 'pull_request' &&
          github.event.pull_request.head.repo.full_name != github.repository)
         && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || (github.event.repository.private && '["self-hosted","omnibase-ci"]' || '["ubuntu-latest"]'))
       }}
     timeout-minutes: 5
     steps:
@@ -89,7 +90,7 @@ jobs:
         (github.event_name == 'pull_request' &&
          github.event.pull_request.head.repo.full_name != github.repository)
         && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || (github.event.repository.private && '["self-hosted","omnibase-ci"]' || '["ubuntu-latest"]'))
       }}
     timeout-minutes: 40
     env:

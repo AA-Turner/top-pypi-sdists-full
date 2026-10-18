@@ -2,7 +2,7 @@
 
 use pyo3::prelude::{Bound, Py, PyAny, PyErr, PyModule, PyModuleMethods, PyRef, PyResult, Python};
 use pyo3::types::PyDict;
-use pyo3::{pyclass, pyfunction, pymethods, wrap_pyfunction};
+use pyo3::{pyclass, pyfunction, pymethods};
 use sqlbuild_analysis::assembly::analysis_session::main::attach_analysis_cache::attach_analysis_cache;
 use sqlbuild_analysis::assembly::analysis_session::main::expression_shapes::expression_shapes;
 use sqlbuild_analysis::assembly::analysis_session::main::finish_analysis_session::finish_analysis_session;
@@ -46,7 +46,7 @@ type ColumnRow = (String, Option<String>, String);
 /// `(output column, transform code, confidence code, [(resource type, resource, column)])`.
 type LineageItem = (String, u8, u8, Vec<(String, String, String)>);
 /// `(name, pivot column, value column, aggregate, type, name pattern)`.
-type FamilyRow = (String, String, String, String, String, Option<String>);
+pub(crate) type FamilyRow = (String, String, String, String, String, Option<String>);
 /// A model's name, SQL, placeholders, references, lineage, required names, flags and pivot.
 type ModelRow = (
     String,
@@ -58,7 +58,7 @@ type ModelRow = (
     Vec<FamilyRow>,
 );
 /// The profile settings, relation shapes and models one session analyses.
-type RequestRow = (
+pub(crate) type RequestRow = (
     String,
     bool,
     Pairs,
@@ -72,7 +72,7 @@ type RequestRow = (
     Vec<ModelRow>,
 );
 /// `(publications, failures)`.
-type StepRow = (Shapes, Vec<String>);
+pub(crate) type StepRow = (Shapes, Vec<String>);
 /// One model's analysis, lineage source and cleaned SQL.
 type OutcomeRow = (
     bool,
@@ -95,7 +95,7 @@ type ProofRow = (
     bool,
 );
 /// One model's pivot SQL and declared families.
-type PivotModelRow = (String, Vec<FamilyRow>);
+pub(crate) type PivotModelRow = (String, Vec<FamilyRow>);
 /// The dialect, relation facts and families by table every proof reads, and the models.
 type PivotRequestRow = (
     String,
@@ -106,11 +106,11 @@ type PivotRequestRow = (
     Vec<PivotModelRow>,
 );
 /// `("absent" | "deferred" | "proof", proof)`.
-type ContractRow = (&'static str, Option<ProofRow>);
+pub(crate) type ContractRow = (&'static str, Option<ProofRow>);
 /// `(hits, misses, stored, why the store was not read or saved)`.
-type CacheStatsRow = (usize, usize, usize, Option<String>);
+pub(crate) type CacheStatsRow = (usize, usize, usize, Option<String>);
 /// `(catalog schema additions, analysis-shape names, whether each model's analysis succeeded)`.
-type FinishRow = (Shapes, Vec<String>, Vec<bool>);
+pub(crate) type FinishRow = (Shapes, Vec<String>, Vec<bool>);
 
 /// One compile's native model analysis; an internal failure raises `NativeCompilerError`.
 #[pyclass(module = "sqlbuild._native")]
@@ -160,19 +160,9 @@ fn internal_error(reason: &str) -> PyErr {
     compiler_error(native_failure(SESSION_CONTEXT, reason))
 }
 
-#[pymethods]
 impl NativeModelAnalysisSession {
-    /// Models whose output names and lineage the finished session keeps for later stages.
-    #[getter]
-    fn fact_models(&self) -> Vec<String> {
-        self.finished
-            .as_ref()
-            .map(finished_fact_models)
-            .unwrap_or_default()
-    }
-
     /// Analyse every model.
-    fn run(&mut self, py: Python<'_>) -> PyResult<StepRow> {
+    pub(crate) fn run(&mut self, py: Python<'_>) -> PyResult<StepRow> {
         let mut session: AnalysisSession = self.running()?;
         let result: Result<(AnalysisSession, SessionStep), String> =
             py.compiler_detach(move || {
@@ -188,7 +178,7 @@ impl NativeModelAnalysisSession {
     }
 
     /// Every model's outcome; saves the cache best-effort.
-    fn finish(&mut self, py: Python<'_>) -> PyResult<FinishRow> {
+    pub(crate) fn finish(&mut self, py: Python<'_>) -> PyResult<FinishRow> {
         let mut session: AnalysisSession = self.running()?;
         let cache: Option<(NativeStore, AnalysisCacheStats)> = take_analysis_cache(&mut session);
         let (outcome, finished) = catch_compiler_panic(|| finish_analysis_session(session))
@@ -213,9 +203,21 @@ impl NativeModelAnalysisSession {
         self.outcomes = models.into_iter().zip(dynamic_contracts).collect();
         Ok((schema_additions, analysis_names, succeeded))
     }
+}
+
+#[pymethods]
+impl NativeModelAnalysisSession {
+    /// Models whose output names and lineage the finished session keeps for later stages.
+    #[getter]
+    pub(crate) fn fact_models(&self) -> Vec<String> {
+        self.finished
+            .as_ref()
+            .map(finished_fact_models)
+            .unwrap_or_default()
+    }
 
     /// Each requested model's raw binding diagnostic rows, in request order.
-    fn binding_rows(&self) -> Vec<Vec<DiagnosticRow>> {
+    pub(crate) fn binding_rows(&self) -> Vec<Vec<DiagnosticRow>> {
         self.outcomes
             .iter()
             .map(|(outcome, _)| outcome.analysis.binding_diagnostics.clone())
@@ -236,12 +238,12 @@ impl NativeModelAnalysisSession {
 
     /// The analysis cache's `(hits, misses, stored, failure)`; None without a cache.
     #[getter]
-    fn cache_stats(&self) -> Option<CacheStatsRow> {
+    pub(crate) fn cache_stats(&self) -> Option<CacheStatsRow> {
         self.cache_stats.clone()
     }
 
     /// Each model's dynamic pivot proof from the finished session's tables.
-    fn prove_dynamic_contracts(
+    pub(crate) fn prove_dynamic_contracts(
         &self,
         py: Python<'_>,
         models: Vec<PivotModelRow>,
@@ -259,15 +261,13 @@ impl NativeModelAnalysisSession {
 
     /// `(shared members, shared members re-analysed alone)` as of the last step.
     #[getter]
-    fn sharing(&self) -> (usize, usize) {
+    pub(crate) fn sharing(&self) -> (usize, usize) {
         self.sharing
     }
 }
 
 /// Start a session on `catalog`.
-#[pyfunction]
-#[pyo3(signature = (catalog, request, cache=None, adapter_rules=None))]
-fn start_model_analysis_session(
+pub(crate) fn start_model_analysis_session(
     catalog: PyRef<'_, ProjectCatalog>,
     request: RequestRow,
     cache: Option<(PathBuf, String)>,
@@ -307,7 +307,7 @@ fn start_model_analysis_session(
 /// Each expression's shape, `None` where it has none; adapter rules run as in the session.
 #[pyfunction]
 #[pyo3(signature = (catalog, request, adapter_rules=None))]
-fn infer_expression_source_shapes(
+pub(crate) fn infer_expression_source_shapes(
     py: Python<'_>,
     catalog: PyRef<'_, ProjectCatalog>,
     request: (String, bool, Pairs, Option<Pairs>, Vec<String>),
@@ -482,7 +482,7 @@ fn outcome_row(outcome: ModelOutcome, cleaned_sql: String) -> OutcomeRow {
 
 /// Each model's dynamic pivot proof outside any session.
 #[pyfunction]
-fn prove_dynamic_column_contracts(
+pub(crate) fn prove_dynamic_column_contracts(
     py: Python<'_>,
     request: PivotRequestRow,
 ) -> PyResult<Vec<ContractRow>> {
@@ -514,8 +514,5 @@ fn pivot_model(row: PivotModelRow) -> PivotModel {
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<NativeModelAnalysisSession>()?;
-    module.add_function(wrap_pyfunction!(start_model_analysis_session, module)?)?;
-    module.add_function(wrap_pyfunction!(infer_expression_source_shapes, module)?)?;
-    module.add_function(wrap_pyfunction!(prove_dynamic_column_contracts, module)?)?;
     Ok(())
 }

@@ -360,21 +360,22 @@ def _render_team_note(facts: dict, header: str) -> Question:
 FEEDBACK = "feedback.send"
 #: Who wrote the feedback, as the question names them (`probe.feedback.Source`).
 FEEDBACK_AUTHORS = {
-    "agent": "your coding agent",
-    "daemon_writer": "the Probe daemon",
-    "daemon_reader": "the Probe daemon's reader",
+    "agent": "Your coding agent",
+    "daemon_writer": "The Probe daemon",
+    "daemon_reader": "The Probe daemon's reader",
 }
 
 
 def _render_feedback(facts: dict, header: str) -> Question:
-    who = FEEDBACK_AUTHORS.get(str(facts.get("source")), "an agent")
+    """The ask first, then the feedback, then what goes with it: one blank line
+    between each, so the person sees the decision before the text it is about."""
+    who = FEEDBACK_AUTHORS.get(str(facts.get("source")), "An agent")
     version = facts.get("client_version")
     also = ["your name and team", facts.get("harness"), f"CLI {version}" if version else None,
             "this session's id" if facts.get("session_id") else None]
-    text = (f"Feedback about Probe from {who}:\n{facts.get('text') or ''}\n"
-            f"Also sent: {', '.join(part for part in also if part)}.\n")
-    return Question(header=header, question=text + "Send it to the Probe team?", yes_label="Send it",
-                    no_label="Don't send")
+    text = (f"Send this feedback to the Probe team?\n\n{who} wrote:\n{facts.get('text') or ''}\n\n"
+            f"Also sent: {', '.join(part for part in also if part)}.")
+    return Question(header=header, question=text, yes_label="Send it", no_label="Don't send")
 
 
 POLICIES: dict[str, Policy] = {

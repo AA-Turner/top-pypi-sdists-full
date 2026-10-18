@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: antropy
-Version: 0.2.2
+Version: 0.2.3
 Summary: AntroPy: entropy and complexity of time-series in Python
 Author-email: Raphael Vallat <raphaelvallat9@gmail.com>
 Maintainer-email: Raphael Vallat <raphaelvallat9@gmail.com>

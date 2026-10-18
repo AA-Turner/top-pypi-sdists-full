@@ -780,10 +780,9 @@
     is operation_match — or absent, which RuntimeLocal._validate_routing defaults into the same branch.
     A missing 'operation' makes the whole contract fail closed at runtime startup with 'handlers[i].operation
     is missing' / result=failed, which is exactly the 0.46.0 regression that took down the headless automation
-    fleet (merge_sweep, ci_watch, auto_merge, build_loop, coderabbit_triage, create_ticket). This gate
-    blocks that regression from re-landing. Scope: checks ONLY the operation field, not the nested handler
-    block. Consumers reference this hook by id; it scans staged contract.yaml files (or src/ when none
-    are supplied).
+    fleet (merge_sweep, ci_watch, auto_merge, build_loop, create_ticket). This gate blocks that regression
+    from re-landing. Scope: checks ONLY the operation field, not the nested handler block. Consumers reference
+    this hook by id; it scans staged contract.yaml files (or src/ when none are supplied).
   language: python
   entry: python -m omnibase_core.validators.operation_match_requires_operation
   files: (^|/)contract\.yaml$
@@ -1189,6 +1188,49 @@
   language: python
   entry: python -m omnibase_core.handlers.handler_merge_queue_parity_cli
   files: ^\.github/workflows/[^/]+\.ya?ml$
+  pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
+- id: check-public-runner-placement
+  name: Public repositories add no self-hosted CI job (OMN-19998)
+  description: >
+    CI runners are for private repositories only (RULING 2026-10-16T07:07:09Z). Refuse a job whose runs-on
+    is, or can resolve to, anything but a GitHub-hosted label (a literal such as self-hosted or omnibase-ci,
+    or an expression that names one or reads vars, needs, matrix, inputs, env, secrets or steps) unless
+    omnibase_core's shrink-only baseline, shipped in the package, records it for the repository. Pass
+    --repo <name> when the checkout directory is not the repository name; a private repository passes
+    --visibility private. The base comparison and the baseline ratchet run in CI through .github/workflows/version-drift.yml.
+  language: python
+  entry: python -m omnibase_core.handlers.handler_public_runner_placement_cli
+  files: ^\.github/workflows/[^/]+\.ya?ml$
+  pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
+- id: lint-contract-check-values
+  name: Contract check_value lint (OMN-17427)
+  description: >
+    The onex_change_control check-value linter, ported into core (OMN-17427). Refuses fail-open guards,
+    legacy gh pr invocations, PR-binding mis-binds, tautological self-comparisons, fail-open absence controls,
+    predicates pinned to mutable state and inert token prefixes in a ticket contract's dod_evidence check_value
+    fields; reports SIGPIPE-fragile pipelines as a warning.
+  language: python
+  entry: python -m omnibase_core.handlers.handler_contract_check_values_lint
+  files: ^contracts/OMN-[0-9]+\.ya?ml$
+  pass_filenames: true
+  require_serial: true
+  stages: [pre-commit]
+
+- id: check-contract-substance-floor
+  name: Contract substance floor (OMN-17427)
+  description: >
+    The onex_change_control substance floor, ported into core (OMN-17427). A ticket contract with dod_evidence
+    checks must carry at least one check at proof tier L1 or above; existence probes derive L0 and do
+    not count.
+  language: python
+  entry: python -m omnibase_core.handlers.handler_contract_substance_floor
+  files: ^contracts/OMN-[0-9]+\.ya?ml$
   pass_filenames: true
   require_serial: true
   stages: [pre-commit]

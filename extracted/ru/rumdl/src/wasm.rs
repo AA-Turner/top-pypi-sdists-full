@@ -88,7 +88,9 @@ struct JsRange {
     end: usize,
 }
 
-/// Convert a LintWarning to a JsWarning with character offsets
+/// Convert a LintWarning to a JsWarning with character offsets.
+///
+/// Fix byte ranges already address the supplied string, including its BOM.
 fn convert_warning_for_js(warning: &LintWarning, content: &str) -> JsWarning {
     fn fix_to_js(fix: &crate::rule::Fix, content: &str) -> JsFix {
         JsFix {
@@ -1368,6 +1370,27 @@ mod tests {
             45,
             "Fix end should be character offset 45"
         );
+    }
+
+    #[test]
+    fn fix_ranges_address_the_string_the_caller_passed_behind_a_byte_order_mark() {
+        let config = LinterConfig::default();
+        let linter = Linter {
+            config: config.to_config(),
+            flavor: config.markdown_flavor(),
+            config_warnings: Vec::new(),
+        };
+        let plain = "# T\n\næ text";
+        let marked = format!("\u{feff}{plain}");
+        let fix_of = |content: &str| {
+            let warnings: Vec<serde_json::Value> = serde_json::from_str(&linter.check(content, None)).unwrap();
+            let md047 = warnings.into_iter().find(|w| w["rule_name"] == "MD047").unwrap();
+            let range = &md047["fix"]["range"];
+            (range["start"].as_u64().unwrap(), range["end"].as_u64().unwrap())
+        };
+        let (start, end) = fix_of(plain);
+        assert_eq!(fix_of(&marked), (start + 1, end + 1));
+        assert_eq!(start as usize, plain.chars().count());
     }
 
     #[test]

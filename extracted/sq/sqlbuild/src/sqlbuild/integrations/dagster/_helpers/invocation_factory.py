@@ -7,20 +7,21 @@ import os
 import subprocess
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-from sqlbuild.cli.output.constants import INTEGRATION_RESULT_PATH_ENV
+from sqlbuild._native import (
+    INTEGRATION_RESULT_PATH_ENV,
+    INVOCATION_CONTEXT_ENV,
+    dagster_cli_arguments,
+)
 from sqlbuild.integrations.dagster._helpers.invocation import (
-    _caller_json_output_path,
-    _with_event_output_args,
-    _with_json_output_args,
-    _with_selected_asset_args,
+    _selected_asset_check_keys,
+    _selected_asset_paths,
 )
 from sqlbuild.integrations.dagster._helpers.invocation_context import (
     dagster_invocation_context,
 )
 from sqlbuild.integrations.dagster.classes.sqlbuild_cli_invocation import SqlBuildCliInvocation
-from sqlbuild.runtime.output_capture.constants import INVOCATION_CONTEXT_ENV
 
 
 def start_sqlbuild_cli_invocation(
@@ -34,30 +35,21 @@ def start_sqlbuild_cli_invocation(
 ) -> SqlBuildCliInvocation:
     """Start a SQLBuild CLI subprocess and return its invocation wrapper."""
 
-    selection: tuple[str, ...]
-    selector_file: Path | None
-    resolved_args: tuple[str, ...]
-    selected_args: tuple[str, ...]
-    selected_args, selection, selector_file = _with_selected_asset_args(
-        args=tuple(args),
-        context=context,
+    planned: dict[str, Any] = dagster_cli_arguments(
+        args=_cli_arguments(args),
         dag=dag,
+        has_context=context is not None,
+        read_selection=lambda: (
+            _selected_asset_paths(context=context),
+            _selected_asset_check_keys(context=context),
+        ),
     )
-    execution_json_path: Path | None
-    resolved_args, execution_json_path = _with_json_output_args(
-        args=selected_args,
-        context=context,
-        dag=dag,
-    )
-    execution_json_owned: bool = execution_json_path is not None
-    if execution_json_path is None:
-        execution_json_path = _caller_json_output_path(args=resolved_args)
-    event_args: tuple[str, ...]
-    event_args, event_jsonl_path = _with_event_output_args(
-        args=resolved_args,
-        context=context,
-        dag=dag,
-    )
+    event_args: tuple[str, ...] = planned["args"]
+    selection: tuple[str, ...] = planned["selection"]
+    selector_file: Path | None = planned["selector_file"]
+    execution_json_path: Path | None = planned["execution_json_path"]
+    execution_json_owned: bool = planned["execution_json_owned"]
+    event_jsonl_path: Path | None = planned["event_jsonl_path"]
     command: tuple[str, ...] = (*tuple(sqb_command), *event_args)
     process_environment: dict[str, str] = dict(os.environ)
     process_environment["PYTHONUNBUFFERED"] = "1"
@@ -93,3 +85,19 @@ def start_sqlbuild_cli_invocation(
     )
     invocation.execution_json_owned = execution_json_owned
     return invocation
+
+
+def _cli_arguments(args: Sequence[object]) -> list[str]:
+    """Arguments as strings: path-like values pass through, others fail as `str` methods would."""
+
+    arguments: list[str] = []
+    for argument in args:
+        if isinstance(argument, os.PathLike):
+            arguments.append(os.fsdecode(cast("os.PathLike[str]", argument)))
+        elif isinstance(argument, str):
+            arguments.append(argument)
+        else:
+            raise AttributeError(
+                f"{type(argument).__name__!r} object has no attribute 'startswith'"
+            )
+    return arguments

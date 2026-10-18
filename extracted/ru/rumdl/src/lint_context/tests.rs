@@ -1,5 +1,129 @@
 use super::*;
 
+mod secondary_parse_plan {
+    use super::*;
+
+    const FLAVORS: [MarkdownFlavor; 12] = crate::format_proof::ALL_FLAVORS;
+
+    fn verify_context(ctx: &LintContext<'_>) {
+        // The oracle always performs the independent no-math parse when the
+        // old query did, regardless of the primary parser's recorded facts.
+        let legacy = if ctx.content.contains('$') {
+            crate::utils::parser_options::code_span_ranges_without_math(ctx.content)
+        } else {
+            Vec::new()
+        };
+        for byte in 0..=ctx.content.len() + 1 {
+            let expected =
+                ctx.is_in_code_span_byte(byte) || legacy.iter().any(|&(start, end)| start <= byte && byte < end);
+            assert_eq!(
+                ctx.is_in_code_span_byte_with_or_without_math(byte),
+                expected,
+                "{:?} at {byte}: {:?}",
+                ctx.flavor,
+                ctx.content
+            );
+        }
+        if !ctx.parser_has_math && ctx.flavor != MarkdownFlavor::MDX {
+            assert!(ctx.code_spans_without_math_cache.get().is_none());
+        }
+    }
+
+    #[test]
+    fn secondary_parse_plan_preserves_every_reading_and_flavor() {
+        for content in [
+            "$a`b\n",
+            "`$`$`\n",
+            "$$unclosed\n",
+            "| left | right |\n| --- | --- |\n| $x ` y | z` |\n",
+            "Costs $10 and `code` with é.\n",
+            "A $x `y$ and z` end.\n\nThen `w` code.\n",
+            "$$a `b`$$ and `c`\n",
+            "`$` and `$unclosed`, and escaped \\$ text\n",
+            "<!-- $ -->\n\n<div title=\"$\">`x`</div>\n",
+            "[link $ `x`](dest/$) and ![$](image)\n\n[ref]: /$\n",
+            "```sh\necho $x `expr`\n```\n",
+            "!!! note\n\n    `$x` and `y`\n",
+            "<Card title={\"$\"}>\n`x` and $12\n</Card>\n",
+            "<span>\n    `$a`\n</span>\n",
+            "> $ no math\r\n> `a`\r\n\r\n- `$b`\r",
+            "Term\n: $x and `y`\n",
+        ] {
+            for flavor in FLAVORS {
+                for ending in ["\n", "\r\n", "\r"] {
+                    let source = content.replace('\n', ending);
+                    verify_context(&LintContext::new(&source, flavor, None));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn secondary_parse_plan_carries_math_facts_through_handoff() {
+        for content in ["- costs $10 and `x`\n", "- $a `b$ and c`\n", "- plain `x`\n"] {
+            for flavor in FLAVORS {
+                let (parsed, _) = document_parser::ParsedDocument::parse_for_guard(content);
+                let actual = LintContext::new_with_handoff(content, flavor, None, Some(parsed.into_handoff()));
+                let fresh = LintContext::new(content, flavor, None);
+                assert_eq!(actual.parser_has_math, fresh.parser_has_math);
+                verify_context(&actual);
+            }
+        }
+    }
+
+    proptest::proptest! {
+        #![proptest_config(proptest::test_runner::Config::with_cases(64))]
+        #[test]
+        fn secondary_parse_plan_matches_generated_legacy_queries(
+            pieces in proptest::collection::vec(
+                proptest::sample::select(vec![
+                    "$", "$$", "`", "``", "```", "{", "}", "[", "]", "(", ")", "<", ">", "\\",
+                    "*", "_", "&", "a", " ", "\n", "\r", "\t", "é", "!!! note\n", "1. ", ": x\n",
+                    "[a]: x\n", "<!--", "-->", "\"", "\n- ", "+ ",
+                ]),
+                0..55,
+            ),
+        ) {
+            let content = pieces.concat();
+            for flavor in FLAVORS {
+                for ending in ["\n", "\r\n", "\r"] {
+                    let source = content.replace('\n', ending);
+                    verify_context(&LintContext::new(&source, flavor, None));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn cached_tag_queries_match_owned_public_views() {
+    let source = "# Heading\n\n<span title=\"é\">text</span>\n\n<Card\n title=\"value\">body</Card>\n\n`<tag>`\n\n<!-- <hidden> -->\n\n{::comment}\n<span>hidden</span>\n{:/comment}\n";
+    for flavor in [MarkdownFlavor::Standard, MarkdownFlavor::MDX, MarkdownFlavor::Kramdown] {
+        // Exercise both first-access orders of the shared lazy parse.
+        for jsx_first in [false, true] {
+            let ctx = LintContext::new(source, flavor, None);
+            if jsx_first {
+                let _ = ctx.is_in_jsx_component_tag(0);
+            } else {
+                let _ = ctx.is_in_html_tag(0);
+            }
+            let html = ctx.html_tags();
+            let jsx = ctx.jsx_component_tags();
+            for byte in 0..=source.len() + 1 {
+                let contains = |tags: &[HtmlTag]| tags.iter().any(|t| t.byte_offset <= byte && byte < t.byte_end);
+                assert_eq!(ctx.is_in_html_tag(byte), contains(&html), "{flavor:?} HTML {byte}");
+                assert_eq!(
+                    ctx.is_in_jsx_component_tag(byte),
+                    contains(&jsx),
+                    "{flavor:?} JSX {byte}"
+                );
+            }
+            assert!(Arc::ptr_eq(&html, &ctx.html_tags()));
+            assert!(Arc::ptr_eq(&jsx, &ctx.jsx_component_tags()));
+        }
+    }
+}
+
 #[test]
 fn link_target_policy_accepts_canonical_working_directory_paths() {
     let base = std::env::current_dir().expect("test process should have a working directory");
@@ -329,6 +453,30 @@ fn parsed_blockquote_headings_exclude_opaque_bodies_and_comments() {
     // Paired control: the same quoted line outside those blocks is a heading.
     let ctx = LintContext::new("> # Shown\n", MarkdownFlavor::Standard, None);
     assert_eq!(ctx.headings().count(), 1);
+}
+
+/// Indented four columns past the quote's edge under a running paragraph, a
+/// marker line is text that paragraph continues, as it is at the top level.
+#[test]
+fn parsed_blockquote_headings_exclude_indented_paragraph_continuations() {
+    for content in [
+        "> paragraph\n>     ## B\n",
+        ">> paragraph\n>>     ## B\n",
+        "- item\n\n  > paragraph\n  >     ## B\n",
+        "> o\n>     > # x\n",
+        "> > o\n> >     > # x\n",
+    ] {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert_eq!(ctx.headings().count(), 0, "{content:?}");
+    }
+    // Controls: one column less is a heading, and without a paragraph the
+    // indented line is code, not a heading either way.
+    for content in ["> paragraph\n>    ## B\n", "> paragraph\n>\n> ## B\n"] {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert_eq!(ctx.headings().count(), 1, "{content:?}");
+    }
+    let ctx = LintContext::new("> paragraph\n>\n>     ## B\n", MarkdownFlavor::Standard, None);
+    assert_eq!(ctx.headings().count(), 0);
 }
 
 /// Every setext heading `ctx.headings()` reports, as `(line, text, level,
@@ -1059,6 +1207,16 @@ fn setext_headings_inside_blockquotes() {
         "a quoted heading is reported through headings(), not per line"
     );
 
+    // A heading whose first line carries a list marker is recorded at the
+    // depth its text sits at.
+    assert_eq!(
+        setext_headings("> - item\n>   ---\n", MarkdownFlavor::Standard),
+        vec![(1, "item".to_string(), 2, 1)]
+    );
+    assert_eq!(
+        setext_headings("- First\n  second\n  ===\n", MarkdownFlavor::Standard),
+        vec![(2, "First second".to_string(), 1, 0)]
+    );
     assert_eq!(
         setext_headings("> > Deep\n> > ---\n", MarkdownFlavor::Standard),
         vec![(1, "Deep".to_string(), 2, 2)]
@@ -1099,12 +1257,11 @@ fn setext_headings_inside_blockquotes() {
         ">     Foo\n> ===\n",
         // These are headings in CommonMark, and none is modeled: a lazy text
         // line carries fewer `>` than the paragraph it continues, so its own
-        // depth is not the heading's, and a heading whose first line carries
-        // a list marker is not recorded at any depth.
+        // depth is not the heading's.
         "> First\nsecond\n> ===\n",
         "> > First\n> second\n> > ===\n",
-        "> - item\n>   ---\n",
-        "- First\n  second\n  ===\n",
+        "> - a\nb\n>   ---\n",
+        "- > a\n  b\n  > ---\n",
     ] {
         assert!(
             setext_headings(content, MarkdownFlavor::Standard).is_empty(),
@@ -1225,6 +1382,15 @@ fn test_multi_line() {
     assert_eq!(ctx.offset_to_line_col(9), (3, 1)); // start of 'Second line'
     assert_eq!(ctx.offset_to_line_col(15), (3, 7)); // middle of 'Second line'
     assert_eq!(ctx.offset_to_line_col(21), (4, 1)); // start of 'Third line'
+}
+
+#[test]
+fn test_is_blank_follows_commonmark_blank_line() {
+    // A blank line holds only spaces and tabs. Unicode spaces are paragraph text.
+    let content = "a\n \t \n\u{a0}\n\u{2003}\n> \n> \u{a0}\n\u{3000}b\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let blank: Vec<bool> = ctx.lines.iter().map(|l| l.is_blank).collect();
+    assert_eq!(blank[..7], [false, true, false, false, true, false, false]);
 }
 
 #[test]
@@ -2583,7 +2749,7 @@ fn test_various_footnote_formats_excluded() {
     assert!(!ids.iter().any(|id| id.starts_with('^')));
 }
 
-// =========================================================================
+// ==================================================================
 // Tests for has_char and char_count methods
 // =========================================================================
 
@@ -4730,6 +4896,32 @@ fn a_code_span_only_a_reader_without_math_sees_is_in_a_code_span_under_either_re
 }
 
 #[test]
+fn is_code_span_text_byte_covers_every_reading_of_the_spans() {
+    // A span the parser lists, and the text around it.
+    let content = "pre `a\tb` post\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert!(ctx.is_code_span_text_byte(content.find('\t').unwrap()));
+    assert!(!ctx.is_code_span_text_byte(content.find("pre").unwrap()));
+    assert!(!ctx.is_code_span_text_byte(content.find("post").unwrap()));
+
+    // A span only a reader without math sees.
+    let content = "A $x `y$\tand z` end.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert!(!ctx.is_in_code_span_byte(content.find('\t').unwrap()));
+    assert!(ctx.is_code_span_text_byte(content.find('\t').unwrap()));
+    assert!(!ctx.is_code_span_text_byte(content.find("end").unwrap()));
+
+    // A span only the MkDocs container supplement lists: the admonition body is
+    // indented code to the parser.
+    let content = "!!! note\n\n    `a\tb`\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::MkDocs, None);
+    let tab = content.find('\t').unwrap();
+    assert!(!ctx.is_in_code_span_byte(tab));
+    assert!(ctx.is_byte_offset_in_code_span(tab));
+    assert!(ctx.is_code_span_text_byte(tab));
+}
+
+#[test]
 fn mdx_inline_comments_do_not_hide_visible_heading_metadata() {
     for (source, raw, depth) in [
         ("# hello {/* c */} world\n", "hello {/* c */} world", 0),
@@ -4942,4 +5134,1582 @@ fn mdx_self_closing_tags_leave_following_prose_outside_their_range() {
     assert!(tags[0].is_self_closing);
     assert_eq!(tags[0].byte_end, content.find(" after").unwrap());
     assert!(!ctx.is_in_jsx_component_tag(content.find("after").unwrap()));
+}
+
+#[test]
+fn link_target_policy_declared_targets_join_files_and_directories_separately() {
+    let base = std::env::current_dir().expect("test process should have a working directory");
+    let root = base.join("workspace");
+    let policy = LinkTargetPolicy::build(
+        ["a.md"],
+        [PathBuf::from("files/report.pdf")],
+        [PathBuf::from("empty/inner"), PathBuf::from("guide")],
+        false,
+        [root.as_path()],
+    );
+
+    assert!(policy.contains(Path::new("files/report.pdf")));
+    assert_eq!(
+        policy.resolve_supplied(Path::new("files")),
+        Some(PathBuf::from("files")),
+        "a declared file implies its directory"
+    );
+    for dir in ["empty/inner", "empty", "guide"] {
+        assert_eq!(
+            policy.resolve_supplied(Path::new(dir)),
+            Some(PathBuf::from(dir)),
+            "{dir} is a declared or implied directory"
+        );
+    }
+    assert!(
+        !policy.contains(Path::new("empty/inner")) && !policy.contains(Path::new("guide")),
+        "a declared directory is not a file"
+    );
+    assert_eq!(
+        policy.resolve_supplied(&root.join("empty")),
+        Some(root.join("empty")),
+        "the root-joined spelling resolves too"
+    );
+    assert_eq!(policy.resolve_supplied(Path::new("nope")), None);
+}
+
+/// A marker with nothing after it, not even a space, opens an empty list item
+/// just like `- ` does, so the next line cannot underline it. Each row's
+/// expectation is pulldown-cmark's: an empty item and no heading.
+#[test]
+fn bare_list_marker_opens_an_empty_item() {
+    for content in [
+        "-\n-\n",
+        "-\n-\n-\n",
+        "-\n--\n",
+        "-\n---\n",
+        "-\n===\n",
+        "+\n-\n",
+        "1.\n-\n",
+        "1.\n---\n",
+        "1.\n=\n",
+        "1)\n-\n",
+        "Intro\n\n-\n-\n",
+        "> -\n> -\n",
+        "> 1.\n> -\n",
+        "# T\n\nList three outcomes:\n\n-\n-\n-\n",
+        // An item starting with a blank line has its content one column past
+        // the marker, so a line indented one column is outside the item.
+        "# T\n\n-\n foo\n    ===\n",
+        "-  \n foo\n    ===\n",
+    ] {
+        assert!(
+            setext_headings(content, MarkdownFlavor::Standard).is_empty(),
+            "{content:?}: {:?}",
+            setext_headings(content, MarkdownFlavor::Standard)
+        );
+    }
+}
+
+/// Prose followed by a lone `-` or an underline is still a heading: a bare
+/// marker opens no item under a paragraph.
+#[test]
+fn bare_list_marker_controls_stay_headings() {
+    for (content, line, text, level, depth) in [
+        ("Title\n-\n", 1, "Title", 2, 0),
+        ("Title\n---\n", 1, "Title", 2, 0),
+        ("Title\n===\n", 1, "Title", 1, 0),
+        ("Title\n  -\n", 1, "Title", 2, 0),
+        ("foo\nbar\n-\n", 2, "foo bar", 2, 0),
+        ("> Title\n> -\n", 1, "Title", 2, 1),
+        ("- a\n-\n\nTitle\n-\n", 4, "Title", 2, 0),
+    ] {
+        let found = setext_headings(content, MarkdownFlavor::Standard);
+        assert_eq!(found.len(), 1, "{content:?}: {found:?}");
+        assert_eq!((found[0].0, found[0].1.as_str()), (line, text), "{content:?}");
+        assert_eq!((found[0].2, found[0].3), (level, depth), "{content:?}");
+    }
+}
+
+/// The setext headings pulldown-cmark finds, as (level, text) pairs.
+fn parser_setext_headings(content: &str) -> Vec<(u8, String)> {
+    use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
+    let mut found = Vec::new();
+    let mut current: Option<(u8, String)> = None;
+    for (event, range) in Parser::new_ext(content, Options::empty()).into_offset_iter() {
+        match event {
+            Event::Start(Tag::Heading { level, .. }) => current = Some((level as u8, String::new())),
+            Event::Text(text) | Event::Code(text) => {
+                if let Some(heading) = current.as_mut() {
+                    heading.1.push_str(&text);
+                }
+            }
+            Event::SoftBreak => {
+                if let Some(heading) = current.as_mut() {
+                    heading.1.push(' ');
+                }
+            }
+            Event::End(TagEnd::Heading(_)) => {
+                let heading = current.take().expect("heading start precedes its end");
+                if !content[range].starts_with('#') {
+                    found.push(heading);
+                }
+            }
+            _ => {}
+        }
+    }
+    found
+}
+
+/// Heading detection agrees with the parser on empty list items and the lines
+/// that follow them, whether the following line is an underline, a marker, or
+/// text.
+#[test]
+fn setext_headings_match_the_parser_around_empty_list_items() {
+    for content in [
+        "-\n-\n",
+        "-\n-\n-\n",
+        "-\n--\n",
+        "-\n---\n",
+        "-\n===\n",
+        "+\n-\n",
+        "*\n-\n",
+        "1.\n-\n",
+        "1.\n---\n",
+        "1)\n-\n",
+        "- \n-\n",
+        "-\n- \n",
+        "-  \n-  \n",
+        "# T\n\n-\n foo\n    ===\n",
+        "-\n foo\n ---\n",
+        "-\n  foo\n  ---\n",
+        "-\n  foo\n  ===\n",
+        "Title\n-\n",
+        "Title\n---\n",
+        "Title\n===\n",
+        "foo\nbar\n-\n",
+        "Title\n  -\n",
+        "Title\n1.\n",
+        "Title\n2.\n===\n",
+        "- a\n-\n\nTitle\n-\n",
+        "> -\n> -\n",
+        "> Title\n> -\n",
+        "> -\n>   foo\n>   ---\n",
+        "- a\n  -\n  -\n",
+    ] {
+        let mut ours: Vec<(u8, String)> = setext_headings(content, MarkdownFlavor::Standard)
+            .into_iter()
+            .map(|(_, text, level, _)| (level, text))
+            .collect();
+        let mut theirs = parser_setext_headings(content);
+        ours.sort();
+        theirs.sort();
+        assert_eq!(ours, theirs, "{content:?}");
+    }
+}
+
+/// The container each heading sits in according to pulldown-cmark, keyed by the
+/// line the heading starts on: `Outside` when no list item holds it, the
+/// innermost item's content column otherwise, and `Unknown` when a blockquote or
+/// a footnote definition is open around it.
+fn parser_heading_containers(content: &str) -> Vec<(usize, HeadingContainer)> {
+    use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
+    let line_of = |offset: usize| content[..offset].matches('\n').count();
+    // The absolute visual column the content of the item starting at `offset`
+    // begins at. Five or more columns of whitespace after the marker, or none
+    // before the end of the line, put it one column past the marker.
+    let item_content_col = |offset: usize| {
+        let line_start = content[..offset].rfind('\n').map_or(0, |at| at + 1);
+        let line = content[line_start..].split('\n').next().unwrap_or("");
+        let start = offset - line_start;
+        let marker_len = line[start..]
+            .find(|c: char| !c.is_ascii_digit())
+            .map_or(1, |digits| digits + 1);
+        let marker_end = start + marker_len;
+        let marker_end_col = column_at(line, marker_end);
+        let text = line[marker_end..].trim_start_matches([' ', '\t']);
+        if text.is_empty() {
+            return marker_end_col + 1;
+        }
+        let text_col = column_at(line, line.len() - text.len());
+        if text_col - marker_end_col > 4 {
+            marker_end_col + 1
+        } else {
+            text_col
+        }
+    };
+    let mut stack: Vec<Option<usize>> = Vec::new();
+    let mut found = Vec::new();
+    for (event, range) in Parser::new_ext(content, Options::empty()).into_offset_iter() {
+        match event {
+            Event::Start(Tag::Item) => stack.push(Some(item_content_col(range.start))),
+            Event::Start(Tag::BlockQuote(_) | Tag::FootnoteDefinition(_)) => stack.push(None),
+            Event::End(TagEnd::Item | TagEnd::BlockQuote(_) | TagEnd::FootnoteDefinition) => {
+                stack.pop();
+            }
+            Event::Start(Tag::Heading { .. }) => {
+                let container = if stack.iter().any(Option::is_none) {
+                    HeadingContainer::Unknown
+                } else {
+                    match stack.last() {
+                        Some(Some(content_col)) => HeadingContainer::Item {
+                            content_col: *content_col,
+                        },
+                        _ => HeadingContainer::Outside,
+                    }
+                };
+                found.push((line_of(range.start), container));
+            }
+            _ => {}
+        }
+    }
+    found
+}
+
+/// The container recorded for every line of each heading rumdl found, as
+/// (first line, last line, container), 0-indexed.
+fn recorded_heading_containers(ctx: &LintContext) -> Vec<(usize, usize, HeadingContainer)> {
+    ctx.lines
+        .iter()
+        .enumerate()
+        .filter_map(|(last, line)| {
+            let heading = line.heading.as_deref()?;
+            let first = last + 1 - heading.text_lines;
+            let spans_underline = usize::from(heading.style != HeadingStyle::ATX);
+            let container = ctx.heading_container(first + 1);
+            for covered in first..=last + spans_underline {
+                assert_eq!(
+                    ctx.heading_container(covered + 1),
+                    container,
+                    "line {covered} of the heading on line {first} records another container"
+                );
+            }
+            Some((first, last, container))
+        })
+        .collect()
+}
+
+/// Where the heading container pass may only decline: containers it does not
+/// model.
+const CONTAINER_ROWS_THE_PASS_MAY_DECLINE: &[&str] =
+    &["> - x\n>\n>   ## a\n", "- x\n\n  > ## a\n", "[^a]: note\n\n    ## a\n"];
+
+const CONTAINER_ROWS: &[&str] = &[
+    // A marker written on the line of an empty item opens an item inside it.
+    "- -\n    ## a\n",
+    "- -\n    a\n    ---\n",
+    // Indented four columns, a thematic break or a marker continues the paragraph.
+    "text\n    ---\n    - z\n===\n",
+    "- x\n\n  text\n      ---\n      - z\n  ===\n",
+    "1. -\n     ## a\n",
+    "- - x\n\n    ## a\n",
+    // Four columns past a container's edge a marker is paragraph text.
+    "- x\n      - y\n        ## a\n",
+    "- x\n      > y\n      ## a\n",
+    "- x\n      1. y\n         ## a\n",
+    "> x\n      > y\n    ## a\n",
+    // A line without the quote's `>` that is not a heading continues its paragraph.
+    "> x\n    ## a\n",
+    "> > x\n    ## a\n",
+    "> - x\n    ## a\n",
+    "- > x\n      ## a\n",
+    "- > x\n  ## a\n",
+    "para\n    ## a\n",
+    "> x\n   ## a\n",
+    "> x\n    a\n    ===\n",
+    "- x\n      a\n      ===\n",
+    "> - x\n>   y\n    ## a\n",
+    // Four columns past the content column is paragraph text or code, not a heading.
+    "- x\n      ## A\n",
+    "- x\n\n      ## a\n",
+    "-\n        ## a\n",
+    "1. x\n\n       ## a\n",
+    // The three shapes an earlier owner scan got wrong.
+    "- x\n\n  a\nlazy\n  ---\n",
+    "-\n  -\n\n    ## a\n",
+    "- x\n  - y\n\n  paragraph\n\n    ## a\n",
+    // Text, lazy lines and tabs between the item and the heading.
+    "- x\n  text\n    ## a\n",
+    "- x\nlazy\n  ## a\n",
+    "- x\n  - y\n\n    ## a\n",
+    "-\tx\n\n    ## a\n",
+    "-     code\n\n  ## a\n",
+    "- x\n\n\t## a\n\n\ttext\n",
+    "1. x\n\n  ## a\n",
+    // The corpus of headings an item holds, or does not.
+    "-\n  ## a\n  text\n",
+    "- x\n\n  ## a\n\n  text\n",
+    "- x\n  ## a\n  text\n",
+    "1. x\n\n   ## a\n\n   text\n",
+    "- x\n  - y\n\n    ## a\n\n    text\n",
+    "- x\n\n  ## a ##\n",
+    "- x\n\n  ##  a\n",
+    "# T\n\n- x\n\n  ### a\n",
+    "- x\n\n  ---\n\n  ## a\n",
+    "-\n  a\n  ---\n  text\n",
+    "- x\n\n  a\n  ===\n",
+    "1. x\n\n   a\n   ---\n",
+    "- x\n  - y\n\n    a\n    ---\n\n    text\n",
+    "-\n  a\n  b\n  ---\n  text\n",
+    "10. x\n\n    ## a\n\n    text\n",
+    "-\n\n  ## a\n",
+    "-\n ## a\n",
+    "-\n  -\n    ## a\n",
+    "-\n  -\n    -\n\n      ## a\n",
+    "1.\n   ## a\n",
+    "-   \n  ## a\n",
+    "- x\n\n    ## a\n",
+    "- x\n  - y\n\n  ## a\n",
+    "- x\n  - y\n\n## a\n",
+    "- x\n- y\n\n  ## a\n",
+    "- x\n\nplain\n\n  ## a\n",
+    "* a\n\n  b\n\n  ## c\n\n* d\n\n  ## e\n",
+    "- a\n  - b\n    - c\n\n      ## d\n",
+    "- x\n  - y\n\n    a\nlazy\n    ---\n",
+    "1. a\n   1. b\n\n      x\n      ---\n",
+    "- x\n\n  a\n\n  b\n  ---\n",
+    "- x\n \n  ## a\n",
+    "-\n  \n  ## a\n",
+    // Controls outside any item.
+    "## a\n",
+    "  ## a\n",
+    "a\n---\n",
+    "- x\n\n## a\n",
+    "- x\n\n## a\n\n  text\n",
+    "1. x\n\n## a\n",
+];
+
+fn assert_heading_containers_match_the_parser(content: &str, may_decline: bool) {
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let ours = recorded_heading_containers(&ctx);
+    let theirs = parser_heading_containers(content);
+    if may_decline {
+        // Headings in a container the pass does not model are not recorded as
+        // headings at all, and answer `Unknown` by default; any it does record
+        // must agree or decline.
+        for (first, _, ours) in &ours {
+            let expected = theirs
+                .iter()
+                .find(|(line, _)| line == first)
+                .map(|(_, container)| container);
+            assert!(
+                expected == Some(ours) || *ours == HeadingContainer::Unknown,
+                "{content:?}: heading on line {first}: {ours:?}, the parser says {expected:?}"
+            );
+        }
+        for (first, _) in &theirs {
+            assert_eq!(
+                ctx.heading_container(first + 1),
+                HeadingContainer::Unknown,
+                "{content:?}"
+            );
+        }
+        return;
+    }
+    assert_eq!(
+        ours.iter().map(|(first, ..)| *first).collect::<Vec<_>>(),
+        theirs.iter().map(|(first, _)| *first).collect::<Vec<_>>(),
+        "{content:?}: the headings found differ from the parser's"
+    );
+    for ((first, _, ours), (_, theirs)) in ours.iter().zip(&theirs) {
+        assert_eq!(ours, theirs, "{content:?}: heading on line {first}");
+    }
+}
+
+/// Every heading's recorded container is the parser's, for the whole span of the
+/// heading.
+#[test]
+fn heading_containers_match_the_parser() {
+    for content in CONTAINER_ROWS {
+        assert_heading_containers_match_the_parser(content, false);
+    }
+}
+
+/// Where the pass does not model the container it answers `Unknown`, never a
+/// wrong column.
+#[test]
+fn heading_containers_decline_what_the_pass_does_not_model() {
+    for content in CONTAINER_ROWS_THE_PASS_MAY_DECLINE {
+        assert_heading_containers_match_the_parser(content, true);
+    }
+}
+
+/// The helper reads the 1-indexed line and answers for every line of a setext
+/// heading, lazy text and underline included; a line that is no heading is
+/// `Unknown`.
+#[test]
+fn heading_container_covers_every_line_of_the_heading() {
+    let item = HeadingContainer::Item { content_col: 2 };
+    let ctx = LintContext::new("- x\n\n  a\nlazy\n  ---\n\n  text\n", MarkdownFlavor::Standard, None);
+    for line_num in 3..=5 {
+        assert_eq!(ctx.heading_container(line_num), item, "line {line_num}");
+    }
+    assert_eq!(ctx.heading_container(1), HeadingContainer::Unknown);
+    assert_eq!(ctx.heading_container(7), HeadingContainer::Unknown);
+    assert_eq!(ctx.heading_container(0), HeadingContainer::Unknown);
+    assert_eq!(ctx.heading_container(99), HeadingContainer::Unknown);
+
+    let ctx = LintContext::new("- x\n\n  ## a\n\n## b\n", MarkdownFlavor::Standard, None);
+    assert_eq!(ctx.heading_container(3), item);
+    assert_eq!(ctx.heading_container(5), HeadingContainer::Outside);
+}
+
+/// The list items the parser opens outside any blockquote, as
+/// (line, marker column, content column, starts empty), 0-indexed lines and
+/// visual columns, sorted by position.
+fn parser_item_columns(content: &str) -> Vec<(usize, usize, usize, bool)> {
+    use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
+    let mut quote_depth = 0;
+    let mut found = Vec::new();
+    for (event, range) in Parser::new_ext(content, Options::empty()).into_offset_iter() {
+        match event {
+            Event::Start(Tag::BlockQuote(_)) => quote_depth += 1,
+            Event::End(TagEnd::BlockQuote(_)) => quote_depth -= 1,
+            Event::Start(Tag::Item) if quote_depth == 0 => {
+                let line_start = content[..range.start].rfind('\n').map_or(0, |at| at + 1);
+                let line = content[line_start..].split('\n').next().unwrap_or("");
+                let start = range.start - line_start;
+                let start = start + (line[start..].len() - line[start..].trim_start_matches([' ', '\t']).len());
+                let marker_len = match line[start..].chars().next() {
+                    Some(c) if c.is_ascii_digit() => line[start..].find(|c: char| !c.is_ascii_digit()).unwrap_or(1) + 1,
+                    _ => 1,
+                };
+                let marker_end = start + marker_len;
+                let after = &line[marker_end..];
+                let text = after.trim_start_matches([' ', '\t']);
+                let marker_end_col = column_at(line, marker_end);
+                let text_col = column_at(line, line.len() - text.len());
+                let empty = text.is_empty();
+                let content_col = if empty || text_col - marker_end_col > 4 {
+                    marker_end_col + 1
+                } else {
+                    text_col
+                };
+                found.push((
+                    content[..range.start].matches('\n').count(),
+                    column_at(line, start),
+                    content_col,
+                    empty,
+                ));
+            }
+            _ => {}
+        }
+    }
+    found.sort_unstable();
+    found
+}
+
+/// The items the line computation records on each line, in the same shape.
+fn recorded_item_columns(ctx: &LintContext) -> Vec<(usize, usize, usize, bool)> {
+    let mut found = Vec::new();
+    for (index, line) in ctx.lines.iter().enumerate() {
+        if let Some(item) = line.list_item.as_deref() {
+            for chain in &item.commonmark_items {
+                found.push((index, chain.marker_column, chain.content_column, chain.is_empty));
+            }
+        }
+    }
+    found.sort_unstable();
+    found
+}
+
+const ITEM_COLUMN_ROWS: &[&str] = &[
+    "- a\n",
+    "* a\n",
+    "+ a\n",
+    "1. a\n",
+    "10. a\n",
+    "999999999. a\n",
+    "1) a\n",
+    "-\n  a\n",
+    "1.\n   a\n",
+    "10.\n    a\n",
+    "-   \n  a\n",
+    "-\tx\n",
+    "1.\tx\n",
+    "- \tx\n",
+    "-  \tx\n",
+    "-     t\n",
+    "1.     t\n",
+    "-    t\n",
+    "- 1. x\n",
+    "1. - x\n",
+    "- - a\n",
+    "- -\n",
+    "1. -\n",
+    "- 1. -\n",
+    "-\t1. x\n",
+    "  - a\n",
+    "   - a\n",
+    "- a\n  - b\n    - c\n",
+    "- a\n\n  - b\n",
+    "1. a\n   1. b\n",
+    "- a\n\n      code\n",
+    "-\n  -\n    a\n",
+    "- a\n- b\n",
+    "text\n- a\n",
+    "text\n2. a\n",
+    "- ```\n  x\n  ```\n",
+    "- - ```\n    x\n    ```\n",
+    "- \u{661}\u{662}. x\n",
+    "-\u{a0}x\n",
+    "- \u{a0}\n  a\n",
+    "-  \u{a0}\n  a\n",
+    "1234567890. x\n",
+];
+
+/// Every item the parser opens outside a blockquote is recorded with the
+/// parser's marker column, content column and emptiness, and nothing else is.
+#[test]
+fn recorded_item_columns_match_the_parser() {
+    for content in ITEM_COLUMN_ROWS {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert_eq!(recorded_item_columns(&ctx), parser_item_columns(content), "{content:?}");
+    }
+}
+
+/// Where the pass does not model the container, no columns are recorded rather
+/// than guessed.
+#[test]
+fn item_columns_are_not_recorded_inside_a_blockquote() {
+    for content in ["> - a\n", "> - a\n>   b\n"] {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert!(recorded_item_columns(&ctx).is_empty(), "{content:?}");
+    }
+}
+
+/// Positive control: the comparison sees a difference when the columns differ,
+/// and the parser's side is not empty for the rows above.
+#[test]
+fn the_item_column_comparison_can_fail() {
+    let ctx = LintContext::new("-\n  a\n", MarkdownFlavor::Standard, None);
+    assert_eq!(recorded_item_columns(&ctx), vec![(0, 0, 2, true)]);
+    assert_ne!(recorded_item_columns(&ctx), vec![(0, 0, 1, true)]);
+    assert_eq!(
+        parser_item_columns("- 1. x\n"),
+        vec![(0, 0, 2, false), (0, 2, 5, false)]
+    );
+    assert_eq!(parser_item_columns("text\n"), vec![]);
+}
+
+/// Every heading pulldown-cmark finds, as `(first line index, level, text)`.
+fn parser_headings(content: &str) -> Vec<(usize, u8, String)> {
+    use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
+    let mut found = Vec::new();
+    let mut current: Option<(usize, u8, String)> = None;
+    for (event, range) in Parser::new_ext(content, Options::empty()).into_offset_iter() {
+        match event {
+            Event::Start(Tag::Heading { level, .. }) => {
+                current = Some((content[..range.start].matches('\n').count(), level as u8, String::new()));
+            }
+            Event::Text(text) | Event::Code(text) => {
+                if let Some(heading) = current.as_mut() {
+                    heading.2.push_str(&text);
+                }
+            }
+            Event::SoftBreak => {
+                if let Some(heading) = current.as_mut() {
+                    heading.2.push(' ');
+                }
+            }
+            Event::End(TagEnd::Heading(_)) => found.push(current.take().expect("heading start precedes its end")),
+            _ => {}
+        }
+    }
+    found
+}
+
+/// Documents whose heading shares its first line with a list marker, and the
+/// controls next to them that are not headings.
+const MARKER_LINE_ROWS: &[&str] = &[
+    "- a\n  ---\n",
+    "- a\n  ===\n",
+    "* a\n  ---\n",
+    "+ a\n  ===\n",
+    "1. a\n   ---\n",
+    "1) a\n   ===\n",
+    "10. a\n    ---\n",
+    "- - a\n    ---\n",
+    "- - a\n    ===\n",
+    "- a\n  b\n  ---\n",
+    "- a\n  b\n  c\n  ===\n",
+    "- > a\n  > ---\n",
+    "> - a\n>   ---\n",
+    "> - a\n>   ===\n",
+    "> > - a\n> >   ---\n",
+    "> - > a\n>   > ---\n",
+    "> - > a\n>   > b\n>   > ===\n",
+    "> > - > a\n> >   > ---\n",
+    "- a\n  ---\n- b\n  ---\n",
+    "- a\n  ---\n\n  text\n",
+    "text\n\n- a\n  ---\n",
+    "- ## a\n",
+    "1. # a\n",
+    "1) ### a\n",
+    "- - ## a\n",
+    "* ## a\n",
+    "+ # a\n",
+    "- > ## a\n",
+    "> - ## a\n",
+    "> 1. # a\n",
+    "- ## a ##\n",
+    "-   ## a\n",
+    "- ## a\n  text\n",
+    "# T\n\n- ## a\n\n  - ### b\n",
+    "- a\n  ---\n  - b\n    ===\n",
+    "-   a\n    ---\n",
+    "- ##\ta\n",
+    "- #\ta\n",
+    "- a\n   ---\n",
+    // Not headings: the underline is not inside the item, the hashes are not
+    // an opening sequence, or the text is indented code.
+    "- a\n---\n",
+    "- a\n===\n",
+    "- ##a\n",
+    "-     ## a\n",
+    "- x\n  -      ## a\n",
+    "1.      ## a\n",
+    "- -     ## a\n",
+    "> -     ## a\n",
+    "- a\n\n  ---\n",
+    "1. a\n  ---\n",
+    "- a\n   ---\n    b\n",
+    "-\n  ## a\n",
+    "-\n  a\n  ---\n",
+    // Indentation written before a repeated `>` is not indentation inside the
+    // quote, so it does not carry the underline into the item.
+    "> - a\n  > ---\n",
+    "> - a\n   > ---\n",
+    "> 1. a\n   > ---\n",
+    "> - a\n  > ===\n",
+    "> - a\n >   ---\n",
+    "> - a\n  >   ---\n",
+    "> - a\n>  ---\n",
+    // A numeral outside ASCII is not an ordered list marker.
+    "# T\n\n\u{661}. a\n    ---\n",
+    "# T\n\n\u{661}. a\n    ===\n",
+];
+
+/// A heading whose first line opens a list item is found where the parser finds
+/// it, with the same level, text and first line.
+#[test]
+fn marker_line_headings_match_the_parser() {
+    for content in MARKER_LINE_ROWS {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let mut ours: Vec<(usize, u8, String)> = ctx
+            .headings()
+            .map(|h| (h.first_line_num() - 1, h.heading.level, h.heading.text.clone()))
+            .collect();
+        let mut theirs = parser_headings(content);
+        ours.sort();
+        theirs.sort();
+        assert_eq!(ours, theirs, "{content:?}");
+    }
+}
+
+/// `first_line_prefix_len` is everything before the heading's own syntax on its
+/// first line, and the text a rule reads excludes the marker.
+#[test]
+fn marker_line_headings_report_where_their_syntax_starts() {
+    for (content, text, prefix) in [
+        ("- a\n  ---\n", "a", 2),
+        // The underline sits further in than the text, so the two columns differ.
+        ("- a\n   ---\n", "a", 2),
+        ("1. a\n   ===\n", "a", 3),
+        ("> - > a\n>   > ---\n", "a", 6),
+        ("- - a\n    ---\n", "a", 4),
+        ("- a\n  b\n  ---\n", "a b", 2),
+        ("- > a\n  > ---\n", "a", 4),
+        ("> - a\n>   ---\n", "a", 4),
+        ("- ## a\n", "a", 2),
+        ("1. # a\n", "a", 3),
+        ("- - ## a\n", "a", 4),
+        ("> - ## a\n", "a", 4),
+        // Whitespace other than a space or tab belongs to the text.
+        ("- \u{3000}a\n  ---\n", "a", 2),
+        ("- \u{a0}a\n   ===\n", "a", 2),
+        ("- \u{3000}Title\n    ---\n", "Title", 2),
+        // Controls: no marker.
+        ("a\n---\n", "a", 0),
+        ("## a\n", "a", 0),
+        ("  ## a\n", "a", 2),
+        ("> ## a\n", "a", 2),
+    ] {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let headings: Vec<_> = ctx.headings().collect();
+        assert_eq!(headings.len(), 1, "{content:?}");
+        assert_eq!(headings[0].heading.text, text, "{content:?}");
+        assert_eq!(headings[0].heading.first_line_prefix_len(), prefix, "{content:?}");
+    }
+}
+
+/// A heading below another still starts its text after the list marker only,
+/// whatever whitespace the text begins with.
+#[test]
+fn marker_line_heading_prefix_excludes_unicode_whitespace() {
+    let content = "# T\n\n- \u{3000}Title\n    ---\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let heading = &ctx.headings().last().unwrap().heading;
+    assert_eq!(heading.first_line_prefix_len(), 2);
+    assert_eq!(heading.raw_text, "\u{3000}Title");
+}
+
+/// The underline of a setext heading whose container interleaves quotes and
+/// items (`> - > a`) is located after every container marker on its line.
+#[test]
+fn marker_line_setext_underline_column_follows_every_container_marker() {
+    let content = "> - > a\n>   > ---\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let heading = ctx.heading_on_line(1).expect("a heading");
+    assert_eq!(heading.heading.marker_column, 6, "the underline starts after `>   > `");
+}
+
+/// An ATX heading on a marker line is a top-level heading when no quote is
+/// open, and a quoted heading otherwise, like `> ## a`.
+#[test]
+fn marker_line_atx_headings_are_recorded_by_quote_depth() {
+    let ctx = LintContext::new("- ## a\n", MarkdownFlavor::Standard, None);
+    let heading = ctx.lines[0].heading.as_ref().expect("a heading on the marker line");
+    assert_eq!((heading.level, heading.marker_column), (2, 2));
+
+    for content in ["> - ## a\n", "- > ## a\n"] {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert!(ctx.lines[0].heading.is_none(), "{content:?}");
+        let headings: Vec<_> = ctx.headings().collect();
+        assert_eq!(headings.len(), 1, "{content:?}");
+        assert_eq!(headings[0].blockquote_depth, 1, "{content:?}");
+    }
+}
+
+/// A setext heading opened by a marker line is reported at its last text line
+/// with its text starting after the marker.
+#[test]
+fn marker_line_setext_headings_locate_their_text() {
+    let content = "- a\n  b\n  ---\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let heading = ctx.heading_on_line(2).expect("recorded on the last text line");
+    assert_eq!((heading.first_line_num(), heading.heading.text_lines), (1, 2));
+    assert_eq!(heading.heading.content_column, 2);
+    assert_eq!(heading.heading.text, "a b");
+    assert_eq!(&content[heading.text_byte_range(content)], "a\n  b");
+
+    let content = "> - a\n>   ---\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let heading = ctx.heading_on_line(1).expect("a quoted marker-line heading");
+    assert_eq!((heading.blockquote_depth, heading.heading.content_column), (1, 4));
+    assert_eq!(&content[heading.text_byte_range(content)], "a");
+}
+
+/// The text of the first heading the CommonMark reference parser finds in
+/// `content`.
+fn pulldown_heading_text(content: &str) -> Option<String> {
+    use pulldown_cmark::{Event, Parser, Tag, TagEnd};
+    let mut text: Option<String> = None;
+    for event in Parser::new(content) {
+        match event {
+            Event::Start(Tag::Heading { .. }) => text = Some(String::new()),
+            Event::Text(t) | Event::Code(t) => {
+                if let Some(text) = text.as_mut() {
+                    text.push_str(&t);
+                }
+            }
+            Event::End(TagEnd::Heading(_)) => return text,
+            _ => {}
+        }
+    }
+    None
+}
+
+/// CommonMark 4.2 strips only spaces and tabs from the content of an ATX heading
+/// and from around its closing sequence. Any other whitespace, such as an em
+/// space or a no-break space, is heading text, and a `#` run set off by one is
+/// not a closing sequence. Each row's expectation is pulldown-cmark's.
+#[test]
+fn atx_heading_text_is_stripped_of_spaces_and_tabs_only() {
+    for (content, raw, closing) in [
+        ("# a\u{2003}\n", "a\u{2003}", ""),
+        ("# \u{2003}a\n", "\u{2003}a", ""),
+        ("# \u{2003}\n", "\u{2003}", ""),
+        ("# a\u{a0}\n", "a\u{a0}", ""),
+        ("# a\u{3000}b\u{3000}\n", "a\u{3000}b\u{3000}", ""),
+        // A `#` run behind other whitespace, or followed by it, is text.
+        ("# a #\u{2003}\n", "a #\u{2003}", ""),
+        ("# a\u{2003}#\n", "a\u{2003}#", ""),
+        ("# a \u{2003}#\n", "a \u{2003}#", ""),
+        ("# a\u{a0}##\n", "a\u{a0}##", ""),
+        // Spaces and tabs around a real closing sequence are stripped, and other
+        // whitespace inside the content stays.
+        ("# a\u{2003} #\n", "a\u{2003}", "#"),
+        ("# a\u{2003}\t##\t\n", "a\u{2003}", "##"),
+        ("# a\t#\n", "a", "#"),
+        ("# a #\t\n", "a", "#"),
+        ("# a ####### \n", "a", "#######"),
+        ("#\ta\n", "a", ""),
+        ("# a  \n", "a", ""),
+        // The same inside a blockquote and a list item.
+        ("> # a\u{2003}\n", "a\u{2003}", ""),
+        ("> # a\u{2003}#\n", "a\u{2003}#", ""),
+        ("> # a\u{2003} #\n", "a\u{2003}", "#"),
+        ("> # a #\u{2003}\n", "a #\u{2003}", ""),
+        ("> # \u{2003}\n", "\u{2003}", ""),
+        ("- # a\u{2003}\n", "a\u{2003}", ""),
+        ("- # a\u{2003}#\n", "a\u{2003}#", ""),
+        ("- # a\u{2003} #\n", "a\u{2003}", "#"),
+    ] {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let headings: Vec<_> = ctx.headings().collect();
+        assert_eq!(headings.len(), 1, "{content:?}");
+        let heading = headings[0].heading;
+        assert_eq!(heading.raw_text, raw, "{content:?}: raw_text");
+        assert_eq!(heading.closing_sequence, closing, "{content:?}: closing sequence");
+        assert_eq!(heading.has_closing_sequence, !closing.is_empty(), "{content:?}");
+        // pulldown-cmark reads a tab beside a closing sequence as text, against
+        // CommonMark 4.2 and the C reference implementation, which both accept
+        // it (the expectations of those rows were taken from cmark).
+        if closing.is_empty() || !content.contains('\t') {
+            assert_eq!(
+                pulldown_heading_text(content).as_deref(),
+                Some(heading.raw_text.as_str()),
+                "{content:?}: the reference parser's heading text"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_indented_lazy_line_in_a_blockquote_is_not_a_horizontal_rule() {
+    // Four or more columns past the marker, a line after a paragraph is
+    // continuation text.
+    for content in [
+        "> o\n>     ---\n",
+        "> o\n>     ***\n",
+        "> o\n>     ___\n",
+        "> o\n>     - - -\n",
+        ">o\n>     ***\n",
+        "> o\n>\t\t***\n",
+        "> > o\n> >     ***\n",
+        "> - a\n>       ***\n",
+        "- > o\n  >     ***\n",
+        "> o\n>     |a|b|\n>     |-|-|\n>     ---\n",
+        // A delimiter row indented that far opens no table, so the paragraph
+        // holding the header row runs on through it.
+        "> |a|b|\n>     |-|-|\n>     ---\n",
+    ] {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert_eq!(horizontal_rule_line(&ctx), None, "{content:?}");
+    }
+}
+
+#[test]
+fn test_horizontal_rule_in_a_blockquote_is_still_found() {
+    for (content, line) in [
+        ("> ---\n", 1),
+        ("> o\n>\n> ---\n", 3),
+        ("> o\n>\n>   ---\n", 3),
+        ("> > o\n> >\n> > ***\n", 3),
+        ("> o\n>\n> ***\n> b\n", 3),
+        ("> - a\n>\n>   ***\n", 3),
+        ("> o\n> ***\n", 2),
+    ] {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert_eq!(horizontal_rule_line(&ctx), Some(line), "{content:?}");
+    }
+    // Indented code in a quote is not a break either.
+    let ctx = LintContext::new("> o\n>\n>     ---\n", MarkdownFlavor::Standard, None);
+    assert_eq!(horizontal_rule_line(&ctx), None);
+}
+
+fn table_header_lines(content: &str) -> Vec<usize> {
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    ctx.table_blocks.iter().map(|b| b.header_line + 1).collect()
+}
+
+#[test]
+fn test_indented_lazy_rows_in_a_blockquote_are_not_a_table() {
+    for content in [
+        "> o\n>     |a|b|\n>     |-|-|\n",
+        "> o\n>     |a|b|\n>     |-|-|\n>     |1|2|\n",
+        ">o\n>     |a|b|\n>     |-|-|\n",
+        "> o\n>\t\t|a|b|\n>\t\t|-|-|\n",
+        "> > o\n> >     |a|b|\n> >     |-|-|\n",
+        "> - a\n>       |a|b|\n>       |-|-|\n",
+        "- > o\n  >     |a|b|\n  >     |-|-|\n",
+        // A delimiter row that is lazy text completes no header row.
+        "> o\n> |a|b|\n>     |-|-|\n",
+    ] {
+        assert!(table_header_lines(content).is_empty(), "{content:?}");
+    }
+}
+
+#[test]
+fn test_tables_in_a_blockquote_are_still_found() {
+    assert_eq!(table_header_lines("> |a|b|\n> |-|-|\n"), vec![1]);
+    assert_eq!(table_header_lines("> intro\n> |a|b|\n> |-|-|\n> |1|2|\n"), vec![2]);
+    assert_eq!(table_header_lines("> > |a|b|\n> > |-|-|\n"), vec![1]);
+    assert_eq!(table_header_lines("> - |a|b|\n>   |-|-|\n"), vec![1]);
+    // A real table after lazy rows that looked like one.
+    assert_eq!(
+        table_header_lines("> o\n>     |a|b|\n>     |-|-|\n> |c|d|\n> |-|-|\n"),
+        vec![4]
+    );
+    // Written with a tab after the marker, the first row is two columns in.
+    assert_eq!(table_header_lines("> o\n>\t|a|b|\n>\t|-|-|\n"), vec![2]);
+}
+
+#[test]
+fn test_indented_header_row_after_a_link_definition_is_still_a_table() {
+    // The definitions a paragraph opens with are not its text, so a row indented
+    // after them starts the paragraph that follows and may head a table.
+    assert_eq!(
+        table_header_lines("> [a]: /url\n>     |a|b|\n> |-|-|\n> |x|y|\n"),
+        vec![2]
+    );
+    assert_eq!(table_header_lines("[a]: /url\n    |a|b|\n|-|-|\n|x|y|\n"), vec![2]);
+    assert_eq!(
+        table_header_lines("> [a]: /url\n> [b]: /url\n>     |a|b|\n> |-|-|\n"),
+        vec![3]
+    );
+    // Once a line of real text sits between, the row is that paragraph's text.
+    assert!(table_header_lines("> [a]: /url\n> o\n>     |a|b|\n>     |-|-|\n").is_empty());
+}
+
+#[test]
+fn test_indented_text_after_a_link_definition_is_still_text() {
+    // Only a table's header row starts the paragraph after the definitions; any
+    // other shape written that far in stays text the paragraph continues.
+    for content in ["[a]: /url\n    # foo\ntext\n", "> [a]: /url\n>     # foo\n> text\n"] {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert!(ctx.lines[1].heading.is_none(), "{content:?}");
+    }
+    for content in ["[a]: /url\n    ---\n", "> [a]: /url\n>     ---\n"] {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert!(!ctx.lines[1].is_horizontal_rule, "{content:?}");
+    }
+}
+
+#[test]
+fn test_indented_row_after_pipe_definitions_is_still_a_table() {
+    assert_eq!(
+        table_header_lines("> [a]: /url\n>     [b]: /u|rl\n>     |a|b|\n> |-|-|\n"),
+        vec![3]
+    );
+}
+
+#[test]
+fn test_indented_row_after_many_pipe_definitions_is_still_a_table() {
+    let content = format!("> [a]: /url\n{}>     |a|b|\n> |-|-|\n", ">     [b]: /u|rl\n".repeat(40));
+    assert_eq!(table_header_lines(&content), vec![42]);
+}
+
+#[test]
+fn test_indented_row_after_a_definition_title_line_is_still_a_table() {
+    for title in ["\"title|x\"", "'title|x'", "(title|x)"] {
+        for (quote, indent) in [("> ", "    "), ("", "    ")] {
+            let content =
+                format!("{quote}[a]: /url\n{quote}{indent}{title}\n{quote}{indent}|a|b|\n{quote}|-|-|\n{quote}|x|y|\n");
+            assert_eq!(table_header_lines(&content), vec![3], "{content:?}");
+        }
+    }
+}
+
+#[test]
+fn test_mdx_indented_delimiter_row_still_opens_a_table() {
+    // MDX has no indented code, so the delimiter row is a row however far in.
+    let ctx = LintContext::new("# Heading\n\n|a|b|\n    |-|-|\n===\n", MarkdownFlavor::MDX, None);
+    assert!(ctx.lines[2..].iter().all(|line| line.heading.is_none()));
+}
+
+#[test]
+fn test_indented_row_after_a_multiline_definition_title_is_still_a_table() {
+    for content in [
+        "> [a]: /url\n>     \"title|x\n>     end|x\"\n>     |a|b|\n> |-|-|\n> |x|y|\n",
+        "[a]: /url\n    'title|x\n    end|x'\n    |a|b|\n|-|-|\n|x|y|\n",
+    ] {
+        assert_eq!(table_header_lines(content), vec![4], "{content:?}");
+    }
+}
+
+#[test]
+fn test_mdx_indented_lines_open_the_blocks_they_read_as() {
+    // MDX has no indented code, so indentation does not make the line text.
+    let ctx = LintContext::new("> o\n>     ***\n> after\n", MarkdownFlavor::MDX, None);
+    assert!(ctx.lines[1].is_horizontal_rule);
+    let ctx = LintContext::new("> o\n>     |a|b|\n>     |-|-|\n", MarkdownFlavor::MDX, None);
+    assert_eq!(ctx.table_blocks.len(), 1);
+}
+
+#[test]
+fn test_mdg_pipe_rows_keep_their_gherkin_indentation() {
+    // Gherkin tables sit under a step line at any indentation, which markdown
+    // would take for the step's continuation text.
+    let source = "Feature: Tables\n  Scenario: Values\n    Given rows\n      | A | B |\n      | --- | --- |\n";
+    let ctx = LintContext::new(source, MarkdownFlavor::MDG, None);
+    assert_eq!(
+        ctx.table_blocks.iter().map(|b| b.header_line + 1).collect::<Vec<_>>(),
+        vec![4]
+    );
+    // A blockquote is plain markdown in every flavor.
+    let ctx = LintContext::new("> o\n>     |a|b|\n>     |-|-|\n", MarkdownFlavor::MDG, None);
+    assert!(ctx.table_blocks.is_empty());
+}
+
+/// Writes the lines at top level, inside a blockquote and inside a list item,
+/// each keeping its line number.
+fn container_variants(lines: &[String]) -> Vec<(&'static str, String)> {
+    let top = lines.join("\n") + "\n";
+    let mut quote = String::new();
+    let mut item = String::new();
+    for (i, line) in lines.iter().enumerate() {
+        quote.push_str(&format!("> {line}\n"));
+        item.push_str(&format!("{}{line}\n", if i == 0 { "- " } else { "  " }));
+    }
+    vec![("top", top), ("quote", quote), ("item", item)]
+}
+
+fn definition_then_table(definition: Vec<String>) -> Vec<String> {
+    let header = definition.len() + 1;
+    let mut lines = definition;
+    lines.extend(["    |a|b|", "|-|-|", "|x|y|"].map(String::from));
+    assert_eq!(lines.len(), header + 2);
+    lines
+}
+
+#[test]
+fn test_definition_with_a_very_long_title_does_not_hide_the_table_below_it() {
+    // The title runs over far more lines than any fixed read could cover, and
+    // every one of them holds a pipe.
+    for (open, close) in [("\"", "\""), ("'", "'"), ("(", ")")] {
+        let mut definition = vec!["[a]: /url".to_string(), format!("    {open}t|0")];
+        definition.extend((0..200).map(|i| format!("    x|{i}")));
+        definition.push(format!("    end{close}"));
+        let header = definition.len() + 1;
+        for (place, content) in container_variants(&definition_then_table(definition)) {
+            assert_eq!(
+                table_header_lines(&content),
+                vec![header],
+                "{place} {open}: a title of 200 lines"
+            );
+        }
+    }
+}
+
+/// `raw_text` keeps the whitespace around the content, but the display fields
+/// every comparison and anchor reads stay trimmed of it.
+#[test]
+fn atx_display_text_ignores_the_unicode_whitespace_raw_text_keeps() {
+    for content in [
+        "# a\u{2003}\n",
+        "# \u{2003}a\n",
+        "> # a\u{2003}\n",
+        "- # \u{2003}a\u{2003}\n",
+    ] {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let heading = ctx.headings().next().unwrap().heading;
+        assert_eq!(heading.text, "a", "{content:?}");
+        assert_eq!(heading.slug_text, "a", "{content:?}");
+    }
+    let ctx = LintContext::new("# a\u{a0}b\n", MarkdownFlavor::Standard, None);
+    assert_eq!(ctx.headings().next().unwrap().heading.text, "a\u{a0}b");
+}
+
+#[test]
+fn test_definition_title_on_its_own_line_does_not_hide_the_table_below_it() {
+    for (open, close) in [("\"", "\""), ("'", "'"), ("(", ")")] {
+        let definition = vec!["[a]: /url".to_string(), format!("    {open}title|x{close}")];
+        let header = definition.len() + 1;
+        for (place, content) in container_variants(&definition_then_table(definition)) {
+            assert_eq!(
+                table_header_lines(&content),
+                vec![header],
+                "{place} {open}: {content:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_indented_rows_after_a_definition_and_text_are_not_a_table() {
+    // The text between them is paragraph text, so the indented rows continue it.
+    let definition = ["[a]: /url", "    \"title|x\"", "foo", "    |a|b|", "    |-|-|"].map(String::from);
+    for (place, content) in container_variants(&definition) {
+        assert!(table_header_lines(&content).is_empty(), "{place}: {content:?}");
+    }
+    // A definition that has ended leaves the table below it a table.
+    for (place, content) in container_variants(&["[a]: /url".to_string(), "|a|b|".into(), "|-|-|".into()]) {
+        assert_eq!(table_header_lines(&content), vec![2], "{place}: {content:?}");
+    }
+}
+
+#[test]
+fn test_mdx_definition_extents_decide_indented_rows() {
+    // MDX reads its own definitions, whose long title holds pipes.
+    let mut definition = vec!["[a]: /url".to_string(), "    \"t|0".to_string()];
+    definition.extend((0..200).map(|i| format!("    x|{i}")));
+    definition.push("    end\"".to_string());
+    let header = definition.len() + 1;
+    for (place, content) in container_variants(&definition_then_table(definition)) {
+        let ctx = LintContext::new(&content, MarkdownFlavor::MDX, None);
+        let headers: Vec<usize> = ctx.table_blocks.iter().map(|b| b.header_line + 1).collect();
+        assert_eq!(headers, vec![header], "{place}: {content:?}");
+    }
+    // MDX has no indented code, so an indented delimiter row still completes
+    // the header row above it.
+    for (place, content) in container_variants(&["|a|b|".to_string(), "    |-|-|".into(), "|x|y|".into()]) {
+        let ctx = LintContext::new(&content, MarkdownFlavor::MDX, None);
+        assert_eq!(ctx.table_blocks.len(), 1, "{place}: {content:?}");
+    }
+}
+
+#[test]
+fn test_definition_extents_linear_complexity() {
+    fn document(definitions: usize) -> String {
+        let mut content = String::new();
+        for i in 0..definitions {
+            content.push_str(&format!("[d{i}]: /u\n    \"t|a\n    b|c\n    d|e\"\n"));
+        }
+        content + "    |a|b|\n|-|-|\n|x|y|\n"
+    }
+    let time = |definitions: usize| {
+        let content = document(definitions);
+        let start = std::time::Instant::now();
+        let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+        assert_eq!(ctx.table_blocks.len(), 1);
+        start.elapsed().as_secs_f64()
+    };
+    let small = (0..3).map(|_| time(1000)).fold(f64::MAX, f64::min);
+    let large = (0..3).map(|_| time(4000)).fold(f64::MAX, f64::min);
+    // Four times the input takes about four times as long; a quadratic read
+    // would take sixteen.
+    assert!(large < small * 10.0 + 0.05, "1000: {small:.3}s, 4000: {large:.3}s");
+}
+
+#[test]
+fn test_definitions_sharing_a_label_all_count_as_definitions() {
+    // Only the first definition of a label is kept as a reference, but every one
+    // of them is read out of the paragraph, however long its title.
+    let mut definition = vec![
+        "[a]: /first".to_string(),
+        "[a]: /url".to_string(),
+        "    \"t|0".to_string(),
+    ];
+    definition.extend((0..100).map(|i| format!("    x|{i}")));
+    definition.push("    end\"".to_string());
+    let header = definition.len() + 1;
+    for (place, content) in container_variants(&definition_then_table(definition)) {
+        assert_eq!(table_header_lines(&content), vec![header], "{place}: a repeated label");
+    }
+}
+
+#[test]
+fn rendered_link_range_index_matches_exhaustive_containment() {
+    let mut ctx = LintContext::new("[link](target.md)", MarkdownFlavor::Standard, None);
+    let template = ctx.links()[0].clone();
+    ctx.links = [(0, 40, false), (5, 20, false), (15, 50, true), (40, 60, false)]
+        .into_iter()
+        .map(|(start, end, undefined)| {
+            let mut link = template.clone();
+            link.byte_offset = start;
+            link.byte_end = end;
+            link.is_reference = undefined;
+            if undefined {
+                link.url = "".into();
+            }
+            link
+        })
+        .collect();
+    for start in 0..=65 {
+        for end in start..=65 {
+            let expected = ctx.links().iter().any(|link| {
+                !(link.is_reference && link.url.is_empty()) && start >= link.byte_offset && end <= link.byte_end
+            });
+            assert_eq!(ctx.is_range_in_rendered_link(&(start..end)), expected, "{start}..{end}");
+        }
+    }
+
+    let ctx = LintContext::new("[undefined][reference]", MarkdownFlavor::Standard, None);
+    assert!(!ctx.is_range_in_rendered_link(&(0..0)));
+    assert!(!ctx.is_range_in_rendered_link(&(0..5)));
+}
+
+/// CommonMark 4.3: a setext underline may be indented up to three spaces and
+/// followed by spaces or tabs, and nothing else. Any other whitespace character
+/// makes the line paragraph text.
+#[test]
+fn setext_underline_content_trims_only_ascii_space_and_tab() {
+    for ok in [
+        "---", "--- ", "---\t", " ---", "   ---", "===  ", "=", "-", "---\r", "\t===",
+    ] {
+        assert!(is_setext_underline_content(ok), "{ok:?} is an underline");
+    }
+    for bad in [
+        "---\u{2003}",
+        "\u{2003}---",
+        "===\u{a0}",
+        "\u{a0}===",
+        "---\u{3000}",
+        "---\u{2009}",
+        "---\u{c}",
+        "---\u{85}",
+        "\r---",
+        "--- -",
+        "= = =",
+        "-=",
+        "",
+        " ",
+    ] {
+        assert!(!is_setext_underline_content(bad), "{bad:?} is not an underline");
+    }
+}
+
+/// A Unicode-whitespace line under a paragraph does not turn it into a heading.
+#[test]
+fn unicode_whitespace_around_an_underline_makes_no_heading() {
+    for ws in ['\u{2003}', '\u{a0}', '\u{3000}', '\u{2009}'] {
+        for marker in ["---", "==="] {
+            for underline in [format!("{marker}{ws}"), format!("{ws}{marker}")] {
+                for prefix in ["", "- ", "> "] {
+                    let pad = if prefix == "- " { "  " } else { prefix };
+                    let content = format!("{prefix}Title\n{pad}{underline}\n");
+                    let ctx = LintContext::new(&content, crate::config::MarkdownFlavor::Standard, None);
+                    assert!(
+                        ctx.lines
+                            .iter()
+                            .all(|l| l.heading.is_none() && !l.is_setext_heading_text),
+                        "{content:?} must not contain a heading"
+                    );
+                }
+            }
+        }
+    }
+    // Controls: ASCII space and tab after the run keep the heading.
+    for underline in ["---  ", "---\t", "===  ", "   ==="] {
+        let content = format!("Title\n{underline}\n");
+        let ctx = LintContext::new(&content, crate::config::MarkdownFlavor::Standard, None);
+        assert!(ctx.lines[0].is_setext_heading_text, "{content:?} is a heading");
+    }
+}
+
+#[test]
+fn horizontal_rule_line_trims_only_ascii_space_tab_and_cr() {
+    assert!(is_horizontal_rule_line("---"));
+    assert!(is_horizontal_rule_line("--- \t\r"));
+    assert!(is_horizontal_rule_line("  ---"));
+    assert!(!is_horizontal_rule_line("---\u{2003}"));
+    assert!(!is_horizontal_rule_line("\u{a0}---"));
+    assert!(!is_horizontal_rule_line("***\u{3000}"));
+}
+
+/// The line of the only thematic break in `content`, read under the standard flavor.
+fn rule_line_of(content: &str) -> Option<usize> {
+    horizontal_rule_line(&LintContext::new(content, MarkdownFlavor::Standard, None))
+}
+
+#[test]
+fn test_tag_alone_on_a_line_does_not_end_the_paragraph_above_it() {
+    // A complete tag of an element outside CommonMark's type-6 list opens an HTML
+    // block only where no paragraph runs into it, so under one it is a line of
+    // that paragraph's text and the indented run below it is text as well.
+    for content in [
+        "> o\n> <audio>\n>     ***\n",
+        "> o\n> <video src=\"x\">\n>     ***\n",
+        "> o\n> </audio>\n>     ***\n",
+        "> o\n> <audio/>\n>     ***\n",
+        "> o\n> </pre>\n>     ***\n",
+        "> o\n> </script>\n>     ***\n",
+        "> o\n> </style>\n>     ***\n",
+        "> o\n> </textarea>\n>     ***\n",
+        "> o\n> <span>\n>     ***\n",
+        "> > o\n> > <audio>\n> >     ***\n",
+        "> - o\n>   <audio>\n>       ***\n",
+        "- > o\n  > <audio>\n  >     ***\n",
+        "- o\n  <audio>\n      ***\n",
+        "o\n<audio>\n    ***\n",
+    ] {
+        assert_eq!(rule_line_of(content), None, "{content:?}");
+    }
+}
+
+#[test]
+fn test_tag_alone_on_a_line_opens_a_block_where_no_paragraph_runs_into_it() {
+    // With no paragraph above it the same tag starts an HTML block, which holds
+    // the run below it as raw HTML up to the next blank line.
+    for content in [
+        "> <audio>\n>     ***\n",
+        "> <audio>\n> ***\n",
+        "> <span>\n>     ***\n",
+        "- <audio>\n  ***\n",
+        "> <audio>\n>\n> o\n> <audio>\n>     ***\n",
+    ] {
+        assert_eq!(rule_line_of(content), None, "{content:?}");
+    }
+    // The block ends at the blank line, so a run after it is a break again.
+    assert_eq!(rule_line_of("> <audio>\n>\n> ***\n"), Some(3));
+}
+
+#[test]
+fn test_break_below_a_block_level_tag_in_a_container_is_raw_html() {
+    // A type-6 tag interrupts the paragraph above it and starts a block whose
+    // lines are raw HTML, whatever container the tag sits in.
+    for content in [
+        "> <div>\n>     ***\n",
+        "> <div>\n> ***\n",
+        "> o\n> <div>\n>     ***\n",
+        "> o\n> <div>\n> ***\n",
+        "- <div>\n  ***\n",
+        "1. <div>\n   x\n   ***\n",
+        "> - <div>\n>   ***\n",
+        "> > <div>\n> > ***\n",
+        "> <pre>\n> ***\n> </pre>\n",
+        "> <pre>\n>\n> ***\n> </pre>\n",
+        "> <script>\n> ***\n",
+        "- o\n  <div>\n  ***\n",
+    ] {
+        assert_eq!(rule_line_of(content), None, "{content:?}");
+    }
+    // Controls: the block ends at a blank line, and a break after it is a break.
+    assert_eq!(rule_line_of("> <div>\n>\n> ***\n"), Some(3));
+    assert_eq!(rule_line_of("- <div>\n\n  ***\n"), Some(3));
+    assert_eq!(rule_line_of("> <div>\n> x\n>\n> ***\n"), Some(4));
+    // And so is a break that interrupts a paragraph holding a tag as inline text.
+    assert_eq!(rule_line_of("> o\n> <audio>\n> ***\n"), Some(3));
+    assert_eq!(rule_line_of("> o\n> <audio>\n>   ***\n"), Some(3));
+}
+
+#[test]
+fn test_indented_run_in_a_quoted_footnote_continues_its_paragraph() {
+    // The body of a footnote definition is indented four columns past its label,
+    // so a run indented four more under the paragraph it opens is paragraph text.
+    for content in [
+        "> [^a]: o\n>         ***\n\nref[^a]\n",
+        "> [^a]: o\n>          ***\n\nref[^a]\n",
+        "> > [^a]: o\n> >         ***\n\nref[^a]\n",
+        "> [^a]: o\n>         ---\n\nref[^a]\n",
+    ] {
+        assert_eq!(rule_line_of(content), None, "{content:?}");
+    }
+    // A marker that far in opens no item, so the run below it is still that paragraph.
+    for content in [
+        "> [^a]: o\n>         - x\n>           ***\n>           y\n\nref[^a]\n",
+        "> > [^a]: o\n> >         - x\n> >           ***\n\nref[^a]\n",
+    ] {
+        assert_eq!(rule_line_of(content), None, "{content:?}");
+    }
+    // An item opened beside the label has its edge two columns past the body's, however
+    // wide the label is, so text two columns further in is a continuation.
+    assert_eq!(rule_line_of("> [^a]: - o\n>           ***\n\nref[^a]\n"), None);
+    assert_eq!(rule_line_of("> [^a]:   - o\n>           ***\n\nref[^a]\n"), None);
+    assert_eq!(rule_line_of("> [^a]: 1. o\n>            ***\n\nref[^a]\n"), None);
+    assert_eq!(rule_line_of("> [^a]: - o\n>          ***\n\nref[^a]\n"), Some(2));
+    assert_eq!(rule_line_of("> [^a]: 1. o\n>           ***\n\nref[^a]\n"), Some(2));
+    // Leaving out the markers of the quotes around the footnote does not end its paragraph.
+    assert_eq!(rule_line_of("> > [^a]: o\n>     ***\n\nref[^a]\n"), None);
+    assert_eq!(rule_line_of("> [^a]:    > o\n>     >     ***\n\nref[^a]\n"), None);
+    assert_eq!(rule_line_of("> [^a]:    > o\n>     > ***\n\nref[^a]\n"), Some(2));
+    // Tab stops after the label count from the body's edge, not from the label's width.
+    assert_eq!(
+        rule_line_of("> [^abcd]: -\to\n>             ***\n>             tail\n\nref[^abcd]\n"),
+        None
+    );
+    assert_eq!(rule_line_of("> [^a]: 1.\to\n>             ***\n\nref[^a]\n"), None);
+    assert_eq!(
+        rule_line_of("> [^a\\]b]: o\n>         ***\n>         tail\n\nref[^a\\]b]\n"),
+        None
+    );
+    assert_eq!(rule_line_of("> [^a\\\\]: o\n>         ***\n\nref[^a\\\\]\n"), None);
+    // A lazy line indented with a tab (four or more columns) is text however it reads.
+    assert_eq!(rule_line_of("> [^a]: o\n \t***\n\nref[^a]\n"), None);
+    assert_eq!(rule_line_of("> o\n \t***\n"), None);
+    assert_eq!(rule_line_of("> o\n\n  ***\n"), Some(3));
+    // Control: four columns in, the marker opens an item and the run under it is a break.
+    assert_eq!(rule_line_of("> [^a]: o\n>     - x\n>       ***\n\nref[^a]\n"), Some(3));
+    // Controls: indented four columns it is a break inside the footnote, and with
+    // no paragraph above it, or a blank line, the indentation reads as code or a break.
+    assert_eq!(rule_line_of("> [^a]: o\n>     ***\n\nref[^a]\n"), Some(2));
+    assert_eq!(rule_line_of("> > [^a]: o\n> >     ***\n\nref[^a]\n"), Some(2));
+    assert_eq!(rule_line_of("> [^a]: o\n>\n>     ***\n\nref[^a]\n"), Some(3));
+    assert_eq!(rule_line_of("> [^a]: o\n> ***\n\nref[^a]\n"), Some(2));
+}
+
+#[test]
+fn test_indented_code_in_a_quoted_footnote_holds_no_rule() {
+    // After a blank line the footnote body goes on, and a run indented four
+    // columns past its edge is indented code with the line below it.
+    for content in [
+        "> [^a]: o\n>\n>         ***\n>         y\n\nref[^a]\n",
+        "> [^a]: o\n>\n>         ***\n\nref[^a]\n",
+        "> > [^a]: o\n> >\n> >         ---\n> >         y\n\nref[^a]\n",
+        "> [^a]: o\n>\n>         * * *\n\nref[^a]\n",
+    ] {
+        assert_eq!(rule_line_of(content), None, "{content:?}");
+    }
+    // Control: four columns past the label's edge is a break in the footnote.
+    assert_eq!(rule_line_of("> [^a]: o\n>\n>     ***\n\nref[^a]\n"), Some(3));
+}
+
+#[test]
+fn indented_code_in_a_quote_opened_on_a_list_item_line_is_code() {
+    // CommonMark: the quote holds the code, so the line is a code block line
+    // and no heading, whatever the text reads as.
+    for content in [
+        "- >     ## Code\n",
+        "- >     code\n",
+        "-   >     code\n",
+        "- - >     code\n",
+        "* >     code\n",
+        "+ >     code\n",
+        "> - >     code\n",
+    ] {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let last = ctx.lines.len() - 1;
+        assert!(ctx.lines[last].in_code_block, "{content:?}: not a code block line");
+        assert_eq!(
+            ctx.code_blocks.len(),
+            1,
+            "{content:?}: code blocks {:?}",
+            ctx.code_blocks
+        );
+        assert_eq!(ctx.headings().count(), 0, "{content:?}: read as a heading");
+    }
+}
+
+#[test]
+fn text_in_a_quote_opened_on_a_list_item_line_is_not_code() {
+    // Fewer than four columns past the quote's margin, or a continuation of the
+    // paragraph above, is not code.
+    for content in [
+        "- >    text\n",
+        "- > para\n  >     more\n",
+        "- > para\n  >     ## notcode\n",
+    ] {
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert!(
+            ctx.code_blocks.is_empty(),
+            "{content:?}: code blocks {:?}",
+            ctx.code_blocks
+        );
+    }
+}
+
+#[test]
+fn source_inline_facts_defer_owned_compatibility_views() {
+    let source = "é `code` **bold** and _italic_\n\n`two\nlines`\n";
+    let ctx = LintContext::new(source, MarkdownFlavor::Standard, None);
+    assert!(ctx.code_spans_cache.get().is_none());
+    assert!(ctx.emphasis_spans_cache.get().is_none());
+    assert!(ctx.is_byte_offset_in_code_span(source.find("code").unwrap()));
+    assert!(!ctx.is_byte_offset_in_code_span(source.find("bold").unwrap()));
+    assert_eq!(ctx.source_emphasis_spans().len(), 2);
+    assert!(ctx.code_spans_cache.get().is_none());
+    assert!(ctx.emphasis_spans_cache.get().is_none());
+    let code = ctx.code_spans();
+    assert_eq!(code[0].content, "code");
+    assert_eq!((code[0].line, code[0].start_col, code[0].end_col), (1, 2, 8));
+    assert_eq!(code[1].content, "two\nlines");
+    assert_eq!((code[1].line, code[1].end_line), (3, 4));
+    let emphasis = ctx.emphasis_spans();
+    assert_eq!(emphasis[0].content, "bold");
+    assert_eq!(emphasis[1].content, "italic");
+    assert!(std::sync::Arc::ptr_eq(&code, &ctx.code_spans()));
+    assert!(std::sync::Arc::ptr_eq(&emphasis, &ctx.emphasis_spans()));
+    for pos in 0..=source.len() {
+        assert_eq!(
+            ctx.is_byte_offset_in_code_span(pos),
+            code.iter().any(|span| span.byte_offset <= pos && pos < span.byte_end)
+        );
+    }
+}
+
+#[test]
+fn builtin_inline_rules_keep_owned_views_unmaterialized() {
+    let source = "# A ` heading ` with *emphasis*\n\n中文`code` _other_ and https://example.com\n";
+    let ctx = LintContext::new(source, MarkdownFlavor::Standard, None);
+    let names = [
+        "MD013", "MD034", "MD038", "MD044", "MD049", "MD052", "MD053", "MD064", "MD081", "MD087", "MD089", "MD093",
+    ];
+    let rules: Vec<_> = crate::rules::all_rules(&crate::config::Config::default())
+        .into_iter()
+        .filter(|rule| names.contains(&rule.name()))
+        .collect();
+    assert_eq!(rules.len(), names.len());
+    for rule in rules {
+        rule.check(&ctx).unwrap();
+        assert!(ctx.code_spans_cache.get().is_none(), "{} copied code text", rule.name());
+        assert!(
+            ctx.emphasis_spans_cache.get().is_none(),
+            "{} copied emphasis text",
+            rule.name()
+        );
+    }
+}
+
+#[test]
+fn source_code_ranges_preserve_continuation_and_supplement_metadata() {
+    for source in [
+        "`first\nlast`\n",
+        "`first\n`tail\n",
+        "é `first\nlast`\n",
+        "!!! note\n    `first\n    last`\n",
+        "=== \"Tab\"\n    `first\n    last`\n",
+        "<Panel>\n`first\nlast`\n</Panel>\n",
+        "{::comment}\n*hidden*\n{:/comment}\n*shown*\n",
+    ] {
+        for ending in ["\n", "\r\n", "\r"] {
+            let source = source.replace('\n', ending);
+            for flavor in [
+                MarkdownFlavor::Standard,
+                MarkdownFlavor::MkDocs,
+                MarkdownFlavor::MDX,
+                MarkdownFlavor::Kramdown,
+            ] {
+                let ctx = LintContext::new(&source, flavor, None);
+                let spans = ctx.code_spans();
+                let ranges: Vec<_> = spans.iter().map(|span| (span.byte_offset, span.byte_end)).collect();
+                assert_eq!(ctx.inline_code_ranges(), ranges);
+                for pos in 0..=source.len() + 1 {
+                    assert_eq!(
+                        ctx.is_byte_offset_in_code_span(pos),
+                        spans.iter().any(|span| span.byte_offset <= pos && pos < span.byte_end)
+                    );
+                }
+                for (index, line) in ctx.lines.iter().enumerate() {
+                    let expected = spans.iter().any(|span| span.line < index + 1 && index < span.end_line);
+                    assert_eq!(
+                        line.in_code_span_continuation, expected,
+                        "{flavor:?}: {source:?}, line {index}"
+                    );
+                }
+                for span in spans.iter() {
+                    assert_eq!(span.content, source[span.byte_offset..span.byte_end].trim_matches('`'));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn untracked_heading_punctuation_keeps_has_char_fallback() {
+    let source = "A heading with .,;:!?。！？—§ characters\n";
+    let ctx = LintContext::new(source, MarkdownFlavor::Standard, None);
+    for ch in ".,;:!?。！？—§x".chars() {
+        assert_eq!(ctx.has_char(ch), source.contains(ch));
+    }
+}
+
+#[test]
+fn rendered_link_membership_preserves_unresolved_reference_and_image_boundaries() {
+    let source =
+        "[ * spaced * ](url) [ * spaced * ][known] [ * spaced * ][unknown] ![ * spaced * ](image)\n\n[known]: /url\n";
+    for flavor in [
+        MarkdownFlavor::Standard,
+        MarkdownFlavor::MkDocs,
+        MarkdownFlavor::MDX,
+        MarkdownFlavor::Kramdown,
+    ] {
+        let ctx = LintContext::new(source, flavor, None);
+        for pos in 0..=source.len() {
+            let expected = ctx.links.iter().any(|link| {
+                !(link.is_reference && link.url.is_empty()) && link.byte_offset <= pos && pos < link.byte_end
+            });
+            assert_eq!(
+                ctx.is_range_in_rendered_link(&(pos..pos + 1)),
+                expected,
+                "{flavor:?}: {pos}"
+            );
+        }
+    }
 }

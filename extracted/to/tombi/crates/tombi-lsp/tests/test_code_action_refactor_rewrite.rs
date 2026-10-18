@@ -576,7 +576,11 @@ mod refactor_rewrite {
                 Select(CodeActionRefactorRewriteName::UpdateDependencyToLatestVersion),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(false),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(false),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
                 UseCacheResponses(vec![CachedResponseSpec::new(
                     "https://crates.io/api/v1/crates/serde",
@@ -605,7 +609,11 @@ mod refactor_rewrite {
                 project_root_path().join("crates/subcrate/Cargo.toml"),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(false),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(false),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
                 UseCacheResponses(vec![CachedResponseSpec::new(
                     "https://crates.io/api/v1/crates/serde",
@@ -641,7 +649,11 @@ mod refactor_rewrite {
                 project_root_path().join("pyproject.toml"),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(false),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(false),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
                 UseCacheResponses(vec![CachedResponseSpec::new(
                     "https://pypi.org/pypi/requests/json",
@@ -670,7 +682,11 @@ mod refactor_rewrite {
                 project_root_path().join("pyproject.toml"),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(false),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(false),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
                 UseCacheResponses(vec![CachedResponseSpec::new(
                     "https://pypi.org/pypi/requests/json",
@@ -702,7 +718,11 @@ mod refactor_rewrite {
                 project_root_path().join("pyproject.toml"),
                 tombi_lsp::backend::Options {
                     offline: Some(true),
-                    no_cache: Some(false),
+                    cache: tombi_cache::Options {
+                        no_cache: Some(false),
+                        ..Default::default()
+                    },
+                    ..Default::default()
                 },
                 UseCacheResponses(vec![CachedResponseSpec::new(
                     "https://pypi.org/pypi/requests/json",

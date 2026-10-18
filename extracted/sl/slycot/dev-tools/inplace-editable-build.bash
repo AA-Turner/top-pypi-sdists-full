@@ -20,12 +20,19 @@
 #      - BLAS and LAPACK libraries
 #
 #  Tested on Debian 13.
+#
+#  Select a BLAS/LAPACK provider with environment variable BLA_VENDOR; see
+#    https://cmake.org/cmake/help/latest/module/FindBLAS.html#blas-lapack-vendors
 
 set -euo pipefail
 
 if [ ! -f ./dev-tools/inplace-editable-build.bash ]; then
     echo "Run this from project root"
     exit 1;
+fi
+
+if [ ! -v BLA_VENDOR ]; then
+    echo "BLA_VENDOR is not set.  This is known to sometimes cause test failures";
 fi
 
 echo "--Build"

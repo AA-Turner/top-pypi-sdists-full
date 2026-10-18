@@ -25,13 +25,14 @@ import json
 import logging
 import os
 import uuid as uuid_mod
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Literal, overload, TypedDict
+from typing import Any, Literal, overload, TypedDict
 
 from pydantic import Field
 
 from .._comment_helpers import flatten_comment_data, unflatten_comment_data
-from .._labels import Labels, UNLABELED_INPUT_PREFIX, UNLABELED_STEP_PREFIX
+from .._labels import Labels, unlabeled_node_id
 from ..options import (
     ConversionOptions,
     default_url_resolver,
@@ -280,9 +281,9 @@ def ensure_format2(
         result = workflow
     elif isinstance(workflow, GalaxyWorkflow):
         result = normalized_format2(workflow, strict_structure=options.strict_structure)
-    elif isinstance(workflow, (NativeGalaxyWorkflow, NormalizedNativeWorkflow)):
-        result = to_format2(workflow, options=options, expand=False)
-    elif isinstance(workflow, dict) and workflow.get("a_galaxy_workflow") == "true":
+    elif isinstance(workflow, (NativeGalaxyWorkflow, NormalizedNativeWorkflow)) or (
+        isinstance(workflow, dict) and workflow.get("a_galaxy_workflow") == "true"
+    ):
         result = to_format2(workflow, options=options, expand=False)
     else:
         result = normalized_format2(workflow, strict_structure=options.strict_structure)
@@ -465,12 +466,7 @@ def _build_format2_workflow(
     # Build label map for source references
     label_map: dict[str, str] = {}
     for key, step in wf.steps.items():
-        if step.label is not None:
-            label_map[str(key)] = step.label
-        elif step.type_ in INPUT_STEP_TYPES:
-            label_map[str(key)] = f"{UNLABELED_INPUT_PREFIX}{step.id}"
-        else:
-            label_map[str(key)] = f"{UNLABELED_STEP_PREFIX}{step.id}"
+        label_map[key] = unlabeled_node_id(step.label, step.id, step.type_ in INPUT_STEP_TYPES)
 
     # Separate inputs from non-input steps
     input_params: list[BaseInputParameter] = []
@@ -521,8 +517,19 @@ def _build_format2_workflow(
     )
 
 
+def _native_text_validator_to_format2(validator: dict[str, Any]) -> dict[str, Any] | None:
+    if validator.get("type") != "regex":
+        return None
+    format2_validator = {"type": "regex", "expression": validator["expression"]}
+    if validator.get("message") is not None:
+        format2_validator["message"] = validator["message"]
+    if validator.get("negate"):
+        format2_validator["negate"] = True
+    return format2_validator
+
+
 def _build_input_param(step: NormalizedNativeStep) -> BaseInputParameter:
-    step_id = step.label if step.label is not None else f"{UNLABELED_INPUT_PREFIX}{step.id}"
+    step_id = unlabeled_node_id(step.label, step.id, is_input=True)
     tool_state = step.tool_state
     input_type = native_input_to_format2_type({"type": step.type_}, tool_state)
 
@@ -545,6 +552,19 @@ def _build_input_param(step: NormalizedNativeStep) -> BaseInputParameter:
                 kwargs["format"] = [fmt] if isinstance(fmt, str) else fmt
             else:
                 kwargs[key] = tool_state[key]
+
+    if input_type in ("int", "float"):
+        for validator in tool_state.get("validators") or []:
+            if validator.get("type") == "in_range" and not validator.get("negate", False):
+                for bound in ("min", "max"):
+                    if validator.get(bound) is not None:
+                        kwargs[bound] = validator[bound]
+                break
+    elif input_type in ("string", ["string"]):
+        text_validators = [_native_text_validator_to_format2(v) for v in tool_state.get("validators") or []]
+        text_validators = [v for v in text_validators if v is not None]
+        if text_validators:
+            kwargs["validators"] = text_validators
 
     if step.annotation:
         kwargs["doc"] = step.annotation
@@ -606,10 +626,7 @@ def _build_tool_format2_step(
     if converted_state is not None:
         state = converted_state
     else:
-        ts = dict(step.tool_state)
-        ts.pop("__page__", None)
-        ts.pop("__rerun_remap_job_id__", None)
-        tool_state = ts
+        tool_state = _passthrough_tool_state(step)
 
     raw_label = step.label or label_map.get(str(step.id))
     step_id = raw_label or str(step.id)
@@ -634,6 +651,15 @@ def _build_tool_format2_step(
     )
 
 
+def _passthrough_tool_state(step: NormalizedNativeStep) -> dict[str, Any]:
+    ts = dict(step.tool_state)
+    ts.pop("__page__", None)
+    ts.pop("__rerun_remap_job_id__", None)
+    return ts
+
+
+# state_encode_to_format2 resolves tools by tool_id, which a user-defined tool
+# step doesn't have, so its tool_state always passes through verbatim.
 def _build_user_tool_format2_step(
     step: NormalizedNativeStep,
     label_map: dict[str, str],
@@ -649,10 +675,14 @@ def _build_user_tool_format2_step(
         label=raw_label,
         doc=step.annotation or None,
         run=GalaxyUserToolStub.model_validate(step.tool_representation) if step.tool_representation else None,
+        tool_state=_passthrough_tool_state(step) or None,
         in_=in_list,
         out=out_list,
         post_job_actions=remaining_pjas,
         position=_convert_position(step.position) if not compact else None,
+        when=step.when,
+        uuid=step.uuid,
+        errors=step.errors,
     )
 
 
@@ -867,7 +897,7 @@ def _replace_anonymous_output_references(
     for step in fmt2_steps:
         label = step.label or step.id
         if isinstance(step.run, NormalizedFormat2):
-            runs_by_label[str(label)] = step.run
+            runs_by_label[label] = step.run
 
     for out in output_params:
         source = out.outputSource
@@ -895,7 +925,7 @@ def _replace_anonymous_output_references(
                     break
 
 
-_CREATOR_CLASS_MAP: dict[str, type[CreatorPerson] | type[CreatorOrganization]] = {
+_CREATOR_CLASS_MAP: dict[str, type[CreatorPerson | CreatorOrganization]] = {
     "Person": CreatorPerson,
     "Organization": CreatorOrganization,
 }
@@ -914,7 +944,7 @@ def _convert_creators(
     return result
 
 
-_COMMENT_TYPE_MAP: dict[str, type[TextComment] | type[MarkdownComment] | type[FrameComment] | type[FreehandComment]] = {
+_COMMENT_TYPE_MAP: dict[str, type[TextComment | MarkdownComment | FrameComment | FreehandComment]] = {
     "text": TextComment,
     "markdown": MarkdownComment,
     "frame": FrameComment,
@@ -1040,23 +1070,27 @@ def to_native(
 
     # Handle $graph + deduplicate_subworkflows before normalization
     deduplicated_subworkflows: dict[str, NormalizedNativeWorkflow] | None = None
-    if isinstance(workflow, dict) and "$graph" in workflow and "class" not in workflow:
-        if options.deduplicate_subworkflows:
-            deduplicated_subworkflows = {}
-            graph = workflow["$graph"]
-            main_dict = None
-            for entry in graph:
-                graph_id = entry.get("id")
-                if graph_id == "main":
-                    main_dict = entry
-                elif graph_id:
-                    sub_wf = normalized_format2(entry, strict_structure=options.strict_structure)
-                    sub_ctx = _ConversionContext(options)
-                    _register_labels(sub_wf, sub_ctx)
-                    deduplicated_subworkflows[graph_id] = _build_native_workflow(sub_wf, sub_ctx)
-            if main_dict is None:
-                raise Exception("$graph has no 'main' workflow")
-            workflow = main_dict
+    if (
+        isinstance(workflow, dict)
+        and "$graph" in workflow
+        and "class" not in workflow
+        and options.deduplicate_subworkflows
+    ):
+        deduplicated_subworkflows = {}
+        graph = workflow["$graph"]
+        main_dict = None
+        for entry in graph:
+            graph_id = entry.get("id")
+            if graph_id == "main":
+                main_dict = entry
+            elif graph_id:
+                sub_wf = normalized_format2(entry, strict_structure=options.strict_structure)
+                sub_ctx = _ConversionContext(options)
+                _register_labels(sub_wf, sub_ctx)
+                deduplicated_subworkflows[graph_id] = _build_native_workflow(sub_wf, sub_ctx)
+        if main_dict is None:
+            raise Exception("$graph has no 'main' workflow")
+        workflow = main_dict
 
     if not isinstance(workflow, NormalizedFormat2):
         workflow = normalized_format2(workflow, strict_structure=options.strict_structure)
@@ -1102,7 +1136,7 @@ class _ConversionContext:
         return int(label_or_id)
 
     def step_output(self, value: str) -> tuple[int, str]:
-        label_or_id, output_name = resolve_source_reference(str(value), self.labels)
+        label_or_id, output_name = resolve_source_reference(value, self.labels)
         return self.step_id(label_or_id), output_name
 
     def child_context(self) -> _ConversionContext:
@@ -1200,6 +1234,18 @@ def _build_input_step(
         tool_state["collection_type"] = collection_type
     if inp.default is not None:
         tool_state["default"] = inp.default
+
+    if step_type == NativeStepType.parameter_input and type_str in ("integer", "int", "float"):
+        minimum = getattr(inp, "min", None)
+        maximum = getattr(inp, "max", None)
+        if minimum is not None or maximum is not None:
+            tool_state["validators"] = [{"type": "in_range", "min": minimum, "max": maximum, "negate": False}]
+    elif step_type == NativeStepType.parameter_input and type_str in ("text", "string"):
+        text_validators = getattr(inp, "validators", None)
+        if text_validators:
+            tool_state["validators"] = [
+                {"negate": False, **v.model_dump(by_alias=True, exclude_none=True)} for v in text_validators
+            ]
 
     # Copy text-parameter / sample-sheet / record fields from the typed model.
     for key in ("restrictions", "suggestions", "restrictOnConnections", "column_definitions", "fields"):
@@ -1687,7 +1733,7 @@ def _default_position(position: Any, order_index: int) -> NativeStepPosition:
     return NativeStepPosition(left=10 * order_index, top=10 * order_index)
 
 
-_NATIVE_CREATOR_MAP: dict[str, type[NativeCreatorPerson] | type[NativeCreatorOrganization]] = {
+_NATIVE_CREATOR_MAP: dict[str, type[NativeCreatorPerson | NativeCreatorOrganization]] = {
     "Person": NativeCreatorPerson,
     "Organization": NativeCreatorOrganization,
 }

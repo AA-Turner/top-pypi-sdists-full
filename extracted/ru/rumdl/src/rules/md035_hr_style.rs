@@ -28,7 +28,7 @@ impl MD035HRStyle {
         Self { config }
     }
 
-    fn is_horizontal_rule(line: &str) -> bool {
+    pub(crate) fn is_horizontal_rule(line: &str) -> bool {
         crate::utils::thematic_break::is_thematic_break(line)
     }
 
@@ -47,6 +47,58 @@ impl MD035HRStyle {
         (is_dash_line || is_equals_line) && prev_line_has_content
     }
 
+    /// Whether `replacement` is a setext underline when it follows a paragraph line: only
+    /// `-` characters, ignoring surrounding spaces and tabs. A spaced run such as `- - -`
+    /// is not an underline, and neither is a run of `*` or `_`.
+    fn is_setext_underline_text(replacement: &str) -> bool {
+        let trimmed = replacement.trim_matches(|c| c == ' ' || c == '\t');
+        !trimmed.is_empty() && trimmed.chars().all(|c| c == '-')
+    }
+
+    /// Whether writing `replacement` on line `index` could turn the line above into a
+    /// setext heading. Any non-blank line above counts, whatever block it belongs to: the
+    /// rule cannot tell every paragraph continuation apart from other text, and a declined
+    /// fix is retried once a blank line separates the two.
+    fn would_form_setext_underline(lines: &[&str], index: usize, replacement: &str) -> bool {
+        Self::is_setext_underline_text(replacement)
+            && index > 0
+            && lines.get(index - 1).is_some_and(|prev| !prev.trim().is_empty())
+    }
+
+    /// Whether writing `replacement` on the first line would make the document open with
+    /// front matter. A `---` first line followed by another `---` line is a front matter
+    /// block, so the rewrite would turn two breaks into metadata and hide them from every
+    /// later pass.
+    fn would_open_front_matter(ctx: &crate::lint_context::LintContext, index: usize, replacement: &str) -> bool {
+        if index != 0 || ctx.front_matter_end_line() > 0 {
+            return false;
+        }
+        let rest = ctx.content.find('\n').map_or("", |end| &ctx.content[end..]);
+        let candidate = format!("{replacement}{rest}");
+        crate::lint_context::LintContext::new(&candidate, ctx.flavor, None).front_matter_end_line() > 0
+    }
+
+    /// Zero-based indices of the lines holding a thematic break that the parser places
+    /// inside a list item or block quote. Their indentation positions them in the
+    /// container and is not a style error.
+    fn container_break_lines(ctx: &crate::lint_context::LintContext) -> std::collections::HashSet<usize> {
+        use crate::lint_context::document_parser::blocks::BlockKind;
+        let mut depth = 0usize;
+        let mut result = std::collections::HashSet::new();
+        for (kind, range) in &ctx.parser_blocks().events {
+            match kind {
+                BlockKind::ItemStart | BlockKind::QuoteStart => depth += 1,
+                BlockKind::ItemEnd | BlockKind::QuoteEnd => depth = depth.saturating_sub(1),
+                BlockKind::Rule if depth > 0 => {
+                    let line = ctx.lines.partition_point(|l| l.byte_offset <= range.start);
+                    result.insert(line.saturating_sub(1));
+                }
+                _ => {}
+            }
+        }
+        result
+    }
+
     /// Exclude markers owned by literal syntax before checking or inferring style.
     fn should_skip_hr_line(ctx: &crate::lint_context::LintContext, index: usize) -> bool {
         let Some(line) = ctx.lines.get(index) else {
@@ -57,6 +109,7 @@ impl MD035HRStyle {
             || line.in_code_block
             || line.in_mkdocs_html_markdown
             || line.in_html_block
+            || ctx.line_holds_html_block(index)
             || line.in_html_comment
             || ctx.is_inside_template_code(marker_offset)
             || ctx.is_inside_mdx_code(marker_offset)
@@ -95,6 +148,10 @@ impl MD035HRStyle {
 }
 
 impl Rule for MD035HRStyle {
+    fn native_format_policy(&self) -> Option<crate::format_proof::NativeFormatPolicy> {
+        (self.config == Default::default()).then_some(crate::format_proof::NativeFormatPolicy::for_rule::<Self>(35))
+    }
+
     fn name(&self) -> &'static str {
         "MD035"
     }
@@ -118,6 +175,8 @@ impl Rule for MD035HRStyle {
             self.config.style.clone()
         };
 
+        let mut container_breaks: Option<std::collections::HashSet<usize>> = None;
+
         for (i, line) in lines.iter().enumerate() {
             if !Self::is_horizontal_rule(line) || Self::should_skip_hr_line(ctx, i) {
                 continue;
@@ -129,12 +188,35 @@ impl Rule for MD035HRStyle {
             }
 
             // Check if this HR matches the expected style
-            let has_indentation = line.len() > line.trim_start().len();
+            let leading = &line[..line.len() - line.trim_start().len()];
+            // Indentation is only an error for a break that sits in no list item or quote;
+            // inside one it is the break's membership in the container and is kept.
+            let in_container = !leading.is_empty()
+                && container_breaks
+                    .get_or_insert_with(|| Self::container_break_lines(ctx))
+                    .contains(&i);
+            let has_indentation = !leading.is_empty() && !in_container;
             let style_mismatch = line.trim() != expected_style;
 
             if style_mismatch || has_indentation {
                 // Calculate precise character range for the entire horizontal rule
                 let (start_line, start_col, end_line, end_col) = calculate_line_range(i + 1, line);
+
+                let replacement = if in_container {
+                    format!("{leading}{expected_style}")
+                } else {
+                    expected_style.clone()
+                };
+                let fix = if Self::would_form_setext_underline(lines, i, &replacement)
+                    || Self::would_open_front_matter(ctx, i, &replacement)
+                {
+                    None
+                } else {
+                    Some(Fix::new(
+                        ctx.line_column_byte_range_with_length(i + 1, 1, line.chars().count()),
+                        replacement,
+                    ))
+                };
 
                 warnings.push(LintWarning {
                     rule_name: Some(self.name().to_string()),
@@ -148,15 +230,16 @@ impl Rule for MD035HRStyle {
                         format!("Horizontal rule style should be \"{expected_style}\"")
                     },
                     severity: Severity::Warning,
-                    fix: Some(Fix::new(
-                        ctx.line_column_byte_range_with_length(i + 1, 1, line.chars().count()),
-                        expected_style.clone(),
-                    )),
+                    fix,
                 });
             }
         }
 
         Ok(warnings)
+    }
+
+    fn fixes_from_diagnostics(&self) -> bool {
+        true
     }
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
@@ -775,5 +858,184 @@ mod tests {
             assert_eq!(rule.check(&ctx).unwrap().len(), 2);
             assert_eq!(rule.fix(&ctx).unwrap(), source.replace("***", "---"));
         }
+    }
+
+    /// Parser events of a document with source offsets dropped, so two texts can be
+    /// compared for identical block structure.
+    fn structure(text: &str) -> Vec<String> {
+        pulldown_cmark::Parser::new_ext(text, crate::utils::parser_options::rumdl_parser_options_for(text))
+            .map(|event| format!("{event:?}"))
+            .collect()
+    }
+
+    fn fix_with_style(style: &str, content: &str) -> (String, Vec<crate::rule::LintWarning>) {
+        let rule = MD035HRStyle::new(style.to_string());
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        (rule.fix(&ctx).unwrap(), rule.check(&ctx).unwrap())
+    }
+
+    #[test]
+    fn test_fix_declined_when_dash_run_would_underline_paragraph() {
+        let cases: &[(&str, &str)] = &[
+            ("underscores", "Text\n___\nMore\n"),
+            ("asterisks", "Text\n***\nMore\n"),
+            ("spaced asterisks", "Text\n* * *\nMore\n"),
+            ("spaced underscores", "Text\n_ _ _\nMore\n"),
+            ("long underscores", "Text\n_____\nMore\n"),
+            ("indent 1", "Text\n ___\nMore\n"),
+            ("indent 3", "Text\n   ***\nMore\n"),
+            ("trailing whitespace", "Text\n***   \nMore\n"),
+            (
+                "two-line paragraph",
+                "First line.\nSecond line.\n___\nNext paragraph.\n",
+            ),
+            ("one-row table", "| a |\n***\n"),
+            ("div marker above", "Text\n:::\n***\n"),
+            ("reference definition above", "[a]: http://example.com\n***\n"),
+            ("heading above", "# H\n***\n\nB\n"),
+            ("fence close above", "```\ncode\n```\n***\n"),
+            ("list item paragraph", "- item\n  para\n  ___\n"),
+            ("ordered list item paragraph", "1. one\n   two\n   ***\n"),
+            ("list item at column 0", "- item\n___\n"),
+            ("lazy blockquote", "> quote\n___\n"),
+        ];
+        for (name, content) in cases {
+            let (fixed, warnings) = fix_with_style("---", content);
+            assert_eq!(&fixed, content, "{name}: the fix must leave the document unchanged");
+            assert_eq!(warnings.len(), 1, "{name}: the style warning must remain");
+            assert!(warnings[0].fix.is_none(), "{name}: the warning must carry no fix");
+        }
+    }
+
+    #[test]
+    fn test_fix_declined_on_issue_input_keeps_paragraph() {
+        let content = "# Doc\n\nIntro.\n\n---\n\nFirst line.\nSecond line.\n___\nNext paragraph.\n";
+        let rule = MD035HRStyle::new("consistent".to_string());
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].line, 9);
+        assert!(warnings[0].fix.is_none());
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(fixed, content);
+        assert!(
+            !structure(&fixed)
+                .iter()
+                .any(|e| e.contains("Heading") && e.contains("H2")),
+            "the paragraph must not become a heading"
+        );
+    }
+
+    #[test]
+    fn test_fix_declined_with_padded_dash_style() {
+        for style in ["--- ", " ---", "\t---\t"] {
+            let content = "Text\n***\nMore\n";
+            let (fixed, warnings) = fix_with_style(style, content);
+            assert_eq!(fixed, content, "style {style:?}");
+            assert!(warnings.iter().all(|w| w.fix.is_none()), "style {style:?}");
+        }
+    }
+
+    #[test]
+    fn test_fix_still_applies_when_replacement_is_not_an_underline() {
+        // Non-dash styles, and the spaced dash style, are thematic breaks under a paragraph.
+        for (style, content, expected) in [
+            ("***", "Text\n___\nMore\n", "Text\n***\nMore\n"),
+            ("___", "Text\n***\nMore\n", "Text\n___\nMore\n"),
+            ("- - -", "Text\n***\nMore\n", "Text\n- - -\nMore\n"),
+        ] {
+            let (fixed, _) = fix_with_style(style, content);
+            assert_eq!(fixed, expected, "style {style:?}");
+            assert_eq!(structure(&fixed), structure(content), "style {style:?}");
+        }
+    }
+
+    #[test]
+    fn test_fix_still_applies_after_blank_line() {
+        for (content, expected) in [
+            ("Text\n\n***\n\nMore\n", "Text\n\n---\n\nMore\n"),
+            ("***\n\n***\n", "---\n\n---\n"),
+        ] {
+            let (fixed, _) = fix_with_style("---", content);
+            assert_eq!(fixed, expected);
+            assert_eq!(structure(&fixed), structure(content));
+        }
+    }
+
+    #[test]
+    fn test_indentation_inside_list_item_is_kept() {
+        let content = "- a\n\n  ***\n\n  more\n";
+        let (fixed, warnings) = fix_with_style("---", content);
+        assert_eq!(fixed, "- a\n\n  ---\n\n  more\n");
+        assert_eq!(
+            structure(&fixed),
+            structure(content),
+            "the break must stay inside the item"
+        );
+        assert_eq!(warnings.len(), 1);
+        assert!(
+            warnings[0].message.contains("style should be"),
+            "{}",
+            warnings[0].message
+        );
+
+        let ordered = "1. one\n\n   ___\n\n   more\n";
+        let (fixed, _) = fix_with_style("---", ordered);
+        assert_eq!(fixed, "1. one\n\n   ---\n\n   more\n");
+        assert_eq!(structure(&fixed), structure(ordered));
+    }
+
+    #[test]
+    fn test_conforming_break_inside_list_item_is_not_indentation_error() {
+        let (_, warnings) = fix_with_style("---", "- a\n\n  ---\n\n  more\n");
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let (_, warnings) = fix_with_style("---", "1. one\n\n   ---\n\n   more\n");
+        assert!(warnings.is_empty(), "{warnings:?}");
+    }
+
+    #[test]
+    fn test_indentation_outside_list_item_is_still_stripped() {
+        // Indented less than the item's content column: the break ends the list.
+        let content = "- a\n\n ***\n\nmore\n";
+        let (fixed, _) = fix_with_style("---", content);
+        assert_eq!(fixed, "- a\n\n---\n\nmore\n");
+        assert_eq!(structure(&fixed), structure(content));
+
+        let content = "Text\n\n  ---\n\nMore\n";
+        let (fixed, _) = fix_with_style("---", content);
+        assert_eq!(fixed, "Text\n\n---\n\nMore\n");
+    }
+
+    #[test]
+    fn test_fix_is_idempotent_on_consecutive_breaks_with_declined_fix() {
+        let content = "___\n---\n***\n---\n";
+        let rule = MD035HRStyle::default();
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed1 = rule.fix(&ctx).unwrap();
+        let ctx = LintContext::new(&fixed1, crate::config::MarkdownFlavor::Standard, None);
+        let fixed2 = rule.fix(&ctx).unwrap();
+        assert_eq!(fixed1, fixed2, "first fix: {fixed1:?}");
+    }
+
+    #[test]
+    fn test_fix_declined_when_first_line_would_open_front_matter() {
+        for content in ["___\n---\n***\n---\n", "***\n---\ntext\n\n---\n"] {
+            let rule = MD035HRStyle::new("---".to_string());
+            let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+            let warnings = rule.check(&ctx).unwrap();
+            assert!(
+                warnings.iter().any(|w| w.line == 1 && w.fix.is_none()),
+                "{content:?}: {warnings:?}"
+            );
+            assert_eq!(rule.fix(&ctx).unwrap().lines().next(), content.lines().next());
+        }
+    }
+
+    #[test]
+    fn test_fix_applies_on_first_line_when_no_front_matter_results() {
+        let rule = MD035HRStyle::new("---".to_string());
+        let content = "***\n\ntext\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        assert_eq!(rule.fix(&ctx).unwrap(), "---\n\ntext\n");
     }
 }

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import sys
 
 import pytest
 from packaging.utils import parse_sdist_filename
@@ -20,9 +19,14 @@ from nab_index.client import (
     zip_sdist_version,
     zip_sdist_versions,
 )
+from nab_markersets._compat import get_int_max_str_digits
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
 
 # A version digit run past CPython's int-from-string limit.
-OVERSIZED = "1" * (sys.get_int_max_str_digits() + 1)
+OVERSIZED = "1" * ((get_int_max_str_digits() or 4300) + 1)
 
 INDEX_URL = "https://e.example/simple/"
 
@@ -43,13 +47,23 @@ def test_unreadable_filenames(filename: str) -> None:
     assert not is_readable_filename(filename)
 
 
+@requires_int_limit
 @pytest.mark.parametrize(
     "filename",
     [
-        pytest.param(f"foo-{OVERSIZED}-py3-none-any.whl", id="wheel"),
+        pytest.param(
+            f"foo-{OVERSIZED}-py3-none-any.whl",
+            id="wheel",
+        ),
         pytest.param(f"foo-{OVERSIZED}.tar.gz", id="sdist"),
-        pytest.param(f"foo-{OVERSIZED}!1.0-py3-none-any.whl", id="epoch"),
-        pytest.param(f"foo-1.0.dev{OVERSIZED}-py3-none-any.whl", id="dev"),
+        pytest.param(
+            f"foo-{OVERSIZED}!1.0-py3-none-any.whl",
+            id="epoch",
+        ),
+        pytest.param(
+            f"foo-1.0.dev{OVERSIZED}-py3-none-any.whl",
+            id="dev",
+        ),
     ],
 )
 def test_oversized_version_is_unreadable(filename: str) -> None:
@@ -111,6 +125,7 @@ def test_holds_unreadable_format_finds_zip_sdist() -> None:
     assert holds_unreadable_format(data)
 
 
+@requires_int_limit
 def test_holds_unreadable_format_finds_oversized_version() -> None:
     filename = f"foo-{OVERSIZED}-py3-none-any.whl"
     data = {"files": [{"filename": filename, "url": "https://e.example/f"}]}
@@ -302,7 +317,12 @@ def test_a_yanked_zip_sdist_is_yanked_rather_than_unreadable() -> None:
         pytest.param("foo.zip", None, id="no-version"),
         pytest.param("-1.0.zip", None, id="no-name"),
         pytest.param("foo-notaversion.zip", None, id="unparseable-version"),
-        pytest.param(f"foo-{OVERSIZED}.zip", None, id="oversized-version"),
+        pytest.param(
+            f"foo-{OVERSIZED}.zip",
+            None,
+            id="oversized-version",
+            marks=requires_int_limit,
+        ),
         pytest.param("foo\x00-1.0.zip", None, id="nul-does-not-name-the-package"),
     ],
 )
@@ -353,7 +373,7 @@ def test_zip_sdist_versions_empty(data: object) -> None:
         "foo-v1.0.tar.gz",
         "foo--1.0.tar.gz",
         "foo-1.0.TAR.GZ",
-        f"foo-{OVERSIZED}.tar.gz",
+        pytest.param(f"foo-{OVERSIZED}.tar.gz", marks=requires_int_limit),
     ],
 )
 def test_parse_sdist_filename_parity(filename: str) -> None:

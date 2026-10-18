@@ -1,29 +1,25 @@
 //! SQL `TEST(...)` blocks validated natively and built as discovery records.
 
-use pyo3::prelude::{
-    Bound, PyAny, PyAnyMethods, PyErr, PyModule, PyModuleMethods, PyResult, Python,
-};
+use pyo3::IntoPyObjectExt;
+use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyErr, PyResult, Python};
 use pyo3::types::{PyDict, PyDictMethods, PyTuple};
-use pyo3::{IntoPyObjectExt, pyfunction, wrap_pyfunction};
 use sqlbuild_model_config::sql_tests::main::sql_test_block::sql_test_block;
 use sqlbuild_model_config::sql_tests::main::sql_test_names_failure::sql_test_names_failure;
 use sqlbuild_model_config::sql_tests::models::{SqlTestBlock, SqlTestCase};
 use sqlbuild_model_config::sql_values::models::{RawKey, RawSqlValue};
 
 use crate::bindings::_helpers::contracts::sql_values::{SqlValueClasses, raw_value, sql_value};
+use crate::bindings::_helpers::native_host::facade::FacadeHost;
+use crate::bindings::_helpers::native_host::host;
+use crate::bindings::_helpers::records::construct::error_class;
+use crate::bindings::_helpers::records::construct::{enum_from_value, new_record};
+use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
 
-const MODELS_MODULE: &str = "sqlbuild.compiler.discovery.models";
-const ERRORS_MODULE: &str = "sqlbuild.compiler.discovery.exceptions";
-const TYPES_MODULE: &str = "sqlbuild.compiler.compile.types";
-const SQL_VALUE_TYPES_MODULE: &str = "sqlbuild.sql_values.types";
-
-type NativeBlock<'py> = (Bound<'py, PyDict>, String, Bound<'py, PyAny>);
+pub(crate) type NativeBlock<'py> = (Bound<'py, PyDict>, String, Bound<'py, PyAny>);
 
 fn parse_error(py: Python<'_>, message: String) -> PyResult<PyErr> {
     Ok(PyErr::from_value(
-        py.import(ERRORS_MODULE)?
-            .getattr("SqlTestParseError")?
-            .call1((message,))?,
+        error_class(py, ErrorId::SqlTestParse)?.call1((message,))?,
     ))
 }
 
@@ -49,9 +45,12 @@ fn case_record<'py>(
             [name.into_bound_py_any(py)?, sql_value(value, classes)?],
         )?);
     }
-    py.import(MODELS_MODULE)?
-        .getattr("DiscoveredSqlTestCase")?
-        .call1((case.name.as_str(), PyTuple::new(py, values)?, case_index))
+    new_record(
+        py,
+        RecordId::DiscoveredSqlTestCase,
+        (case.name.as_str(), PyTuple::new(py, values)?, case_index),
+        None,
+    )
 }
 
 fn block_record<'py>(
@@ -60,17 +59,20 @@ fn block_record<'py>(
     block: SqlTestBlock,
     classes: &SqlValueClasses<'py>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let models = py.import(MODELS_MODULE)?;
-    let kind = py.import(SQL_VALUE_TYPES_MODULE)?.getattr("SqlValueKind")?;
     let parameters = block
         .parameters
         .iter()
         .map(|parameter| {
-            models.getattr("SqlTestParameterDeclaration")?.call1((
-                parameter.name.as_str(),
-                kind.call1((parameter.value_type,))?,
-                parameter.nullable,
-            ))
+            new_record(
+                py,
+                RecordId::SqlTestParameterDeclaration,
+                (
+                    parameter.name.as_str(),
+                    enum_from_value(py, RecordId::SqlValueKind, parameter.value_type)?,
+                    parameter.nullable,
+                ),
+                None,
+            )
         })
         .collect::<PyResult<Vec<_>>>()?;
     let cases = block
@@ -86,23 +88,18 @@ fn block_record<'py>(
     keywords.set_item("name", block.name)?;
     keywords.set_item(
         "mode",
-        py.import(TYPES_MODULE)?
-            .getattr("SqlTestMode")?
-            .call1((block.mode,))?,
+        host::entry(py, FacadeHost::SqlTestMode)?.call1((block.mode,))?,
     )?;
     keywords.set_item("parameters", PyTuple::new(py, parameters)?)?;
     keywords.set_item("cases", PyTuple::new(py, cases)?)?;
     keywords.set_item("cursor_start", block.cursor_start)?;
     keywords.set_item("cursor_end", block.cursor_end)?;
     keywords.set_item("sql_body_span", &native.2)?;
-    models
-        .getattr("DiscoveredSqlTestBlock")?
-        .call((), Some(&keywords))
+    new_record(py, RecordId::DiscoveredSqlTestBlock, (), Some(&keywords))
 }
 
 /// Each `(header, sql_body, span)` block of a SQL test file as a `DiscoveredSqlTestBlock`.
-#[pyfunction]
-fn sql_test_blocks<'py>(
+pub(crate) fn sql_test_block_records<'py>(
     py: Python<'py>,
     file_path: &str,
     blocks: Vec<NativeBlock<'py>>,
@@ -120,19 +117,13 @@ fn sql_test_blocks<'py>(
 }
 
 /// `validate_sql_test_names` over each block's `(test_index, name)`.
-#[pyfunction]
-fn validate_sql_test_block_names(
+pub(crate) fn validate_block_names(
     py: Python<'_>,
     file_path: &str,
-    blocks: Vec<(usize, Option<String>)>,
+    blocks: &[(usize, Option<String>)],
 ) -> Result<(), PyErr> {
-    match sql_test_names_failure(file_path, &blocks) {
+    match sql_test_names_failure(file_path, blocks) {
         None => Ok(()),
         Some(message) => Err(parse_error(py, message)?),
     }
-}
-
-pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_function(wrap_pyfunction!(sql_test_blocks, module)?)?;
-    module.add_function(wrap_pyfunction!(validate_sql_test_block_names, module)?)
 }

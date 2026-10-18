@@ -18,15 +18,33 @@ use super::types::{IndexState, warning_to_code_actions_with_md013_config, warnin
 use crate::rules::md013_line_length::MD013Config;
 
 impl RumdlLanguageServer {
+    /// The configuration governing a document: the one discovered for its path,
+    /// or the server's own when the document names no file.
+    async fn config_for_match_path(&self, names_file: bool, path: &std::path::Path) -> crate::config::Config {
+        if names_file {
+            self.resolve_config_for_file(path).await
+        } else {
+            (*self.rumdl_config.read().await).clone()
+        }
+    }
+
     /// Check if a file URI should be excluded based on exclude patterns
     pub(super) async fn should_exclude_uri(&self, uri: &Url) -> bool {
-        // Try to convert URI to file path
-        let Some(file_path) = super::resolve_uri(uri) else {
+        // A document naming no file (an untitled buffer) is matched by its URI.
+        let Some(file_path) = super::match_path(uri) else {
             return false; // If we can't get a path, don't exclude
         };
+        let names_file = uri.scheme() == "file";
 
         // Resolve configuration for this specific file to get its exclude patterns
-        let rumdl_config = self.resolve_config_for_file(&file_path).await;
+        // CLI2 selection follows the supplied path, before document identity
+        // canonicalizes a symlinked directory for indexing and navigation.
+        let supplied_path = uri.to_file_path().ok().unwrap_or_else(|| file_path.clone());
+        let selection_config = self.config_for_match_path(names_file, &supplied_path).await;
+        if selection_config.is_cli2_ignored(&supplied_path) {
+            return true;
+        }
+        let rumdl_config = self.config_for_match_path(names_file, &file_path).await;
         let exclude_patterns = &rumdl_config.global.exclude;
 
         // If no exclude patterns, don't exclude
@@ -37,16 +55,21 @@ impl RumdlLanguageServer {
         // Relativize for pattern matching, like the CLI relativizes against
         // the project root: prefer the deepest workspace root containing the
         // file, fall back to the current directory, then to the path as-is.
-        let base = {
-            let roots = self.workspace_roots.read().await;
-            roots
-                .iter()
-                .filter(|r| file_path.starts_with(r))
-                .max_by_key(|r| r.components().count())
-                .cloned()
-                .or_else(|| std::env::current_dir().ok())
+        // A URI has no project root to be relative to; it is matched as written.
+        let path_to_check = if names_file {
+            let base = {
+                let roots = self.workspace_roots.read().await;
+                roots
+                    .iter()
+                    .filter(|r| file_path.starts_with(r))
+                    .max_by_key(|r| r.components().count())
+                    .cloned()
+                    .or_else(|| std::env::current_dir().ok())
+            };
+            base.and_then(|base| crate::discovery::path_relative_to(&file_path, &base))
+        } else {
+            Some(uri.as_str().to_string())
         };
-        let path_to_check = base.and_then(|base| crate::discovery::path_relative_to(&file_path, &base));
 
         let matchers = crate::discovery::ExcludeMatchers::new(exclude_patterns);
         if let Some(pattern) = matchers.matched_pattern_for_file(path_to_check.as_deref(), &file_path) {
@@ -105,9 +128,12 @@ impl RumdlLanguageServer {
         // Apply LSP config overrides (select_rules, ignore_rules from VSCode settings)
         filtered_rules = self.apply_lsp_config_overrides(filtered_rules, &lsp_config);
 
-        if let Some(conflict) =
-            crate::merge_conflict::detect_for_rules(text, &filtered_rules, &rumdl_config, file_path.as_deref())
-        {
+        if let Some(conflict) = crate::merge_conflict::detect_for_rules(
+            text,
+            &filtered_rules,
+            &rumdl_config,
+            super::match_path(uri).as_deref(),
+        ) {
             return Ok(warnings_to_diagnostics(&[conflict], text));
         }
 
@@ -119,8 +145,8 @@ impl RumdlLanguageServer {
             filtered_rules.iter().map(|rule| rule.name().to_string()).collect();
 
         // Apply per-file-ignores filtering
-        let ignored_for_file = match file_path {
-            Some(ref path) => rumdl_config.get_ignored_rules_for_file(path),
+        let ignored_for_file = match super::match_path(uri) {
+            Some(path) => rumdl_config.get_ignored_rules_for_file(&path),
             None => std::collections::HashSet::new(),
         };
         if !ignored_for_file.is_empty() {
@@ -190,14 +216,21 @@ impl RumdlLanguageServer {
 
         // Check embedded markdown blocks if configured in code-block-tools
         if should_lint_embedded_markdown(&rumdl_config.code_block_tools) {
-            let embedded_warnings = check_embedded_markdown_blocks(text, &filtered_rules, &rumdl_config);
+            let embedded_warnings =
+                check_embedded_markdown_blocks(crate::utils::bom::strip_bom(text), &filtered_rules, &rumdl_config);
             all_warnings.extend(embedded_warnings);
         }
 
         // Run external code-block-tools only when requested (skip on keystroke events)
         if run_external_tools && rumdl_config.code_block_tools.enabled {
-            let processor = CodeBlockToolProcessor::new(&rumdl_config.code_block_tools, flavor);
-            match processor.lint_output(text) {
+            let processor = CodeBlockToolProcessor::new(&rumdl_config.code_block_tools, flavor)
+                .with_document_config(&rumdl_config)
+                .with_builtin_checks(!filtered_rules.is_empty());
+            let processor = match file_path.as_deref() {
+                Some(path) => processor.for_path(path),
+                None => processor,
+            };
+            match processor.lint_output(crate::utils::bom::strip_bom(text)) {
                 Ok(output) => {
                     for message in &output.warnings {
                         log::warn!("Code block tool could not run: {message}");
@@ -213,6 +246,9 @@ impl RumdlLanguageServer {
                     log::warn!("Code block tools linting failed: {e}");
                     all_warnings.push(e.to_lint_warning());
                 }
+            }
+            for warning in processor.run_state().warnings() {
+                log::warn!("Code block tools: {warning}");
             }
         }
 
@@ -265,7 +301,7 @@ impl RumdlLanguageServer {
         let all_rules = rules::all_rules(&config);
         let selected = rules::filter_rules(&all_rules, &config.global);
         let selected = self.apply_lsp_config_overrides(selected, &lsp_config);
-        crate::merge_conflict::detect_for_rules(text, &selected, &config, file_path.as_deref()).is_some()
+        crate::merge_conflict::detect_for_rules(text, &selected, &config, super::match_path(uri).as_deref()).is_some()
     }
 
     /// Apply all available fixes to a document
@@ -299,14 +335,20 @@ impl RumdlLanguageServer {
         // Apply LSP config overrides (select_rules, ignore_rules from VSCode settings)
         filtered_rules = self.apply_lsp_config_overrides(filtered_rules, &lsp_config);
 
-        if crate::merge_conflict::detect_for_rules(text, &filtered_rules, &rumdl_config, file_path.as_deref()).is_some()
+        if crate::merge_conflict::detect_for_rules(
+            text,
+            &filtered_rules,
+            &rumdl_config,
+            super::match_path(uri).as_deref(),
+        )
+        .is_some()
         {
             return Ok(None);
         }
 
         // Apply per-file-ignores filtering
-        if let Some(ref path) = file_path {
-            let ignored = rumdl_config.get_ignored_rules_for_file(path);
+        if let Some(path) = super::match_path(uri) {
+            let ignored = rumdl_config.get_ignored_rules_for_file(&path);
             if !ignored.is_empty() {
                 filtered_rules.retain(|rule| !ignored.contains(rule.name()));
             }
@@ -348,7 +390,10 @@ impl RumdlLanguageServer {
     pub(super) async fn format_document(&self, uri: &Url, options: &FormattingOptions) -> Option<(String, String)> {
         let text = self.get_document_content(uri).await?;
         // FormattingOptions also mutate text, independently of the fix engine.
-        if !super::reads_as_markdown(uri) || self.has_unsuppressed_conflict(uri, &text).await {
+        if !super::reads_as_markdown(uri)
+            || self.should_exclude_uri(uri).await
+            || self.has_unsuppressed_conflict(uri, &text).await
+        {
             return Some((text.clone(), text));
         }
         // Lint fixes first, iterated to a fixpoint through the same
@@ -461,7 +506,8 @@ impl RumdlLanguageServer {
         // 1. Trim trailing whitespace from each line (if requested), except
         // where it renders: verbatim content and hard line breaks.
         if options.trim_trailing_whitespace.unwrap_or(false) {
-            let ctx = crate::lint_context::LintContext::new(&result, flavor, None);
+            // Structure is read after the byte order mark; line numbers agree.
+            let ctx = crate::lint_context::LintContext::new(crate::utils::bom::strip_bom(&result), flavor, None);
             result = result
                 .lines()
                 .enumerate()
@@ -512,7 +558,7 @@ impl RumdlLanguageServer {
 
     /// Get code actions for diagnostics at a position
     pub(super) async fn get_code_actions(&self, uri: &Url, text: &str, range: Range) -> Result<Vec<CodeAction>> {
-        if !super::reads_as_markdown(uri) {
+        if !super::reads_as_markdown(uri) || self.should_exclude_uri(uri).await {
             return Ok(Vec::new());
         }
         let config_guard = self.config.read().await;
@@ -538,21 +584,33 @@ impl RumdlLanguageServer {
         // Apply LSP config overrides (select_rules, ignore_rules from VSCode settings)
         filtered_rules = self.apply_lsp_config_overrides(filtered_rules, &lsp_config);
 
-        if crate::merge_conflict::detect_for_rules(text, &filtered_rules, &rumdl_config, file_path.as_deref()).is_some()
+        if crate::merge_conflict::detect_for_rules(
+            text,
+            &filtered_rules,
+            &rumdl_config,
+            super::match_path(uri).as_deref(),
+        )
+        .is_some()
         {
             return Ok(Vec::new());
         }
 
         // Apply per-file-ignores filtering
-        if let Some(ref path) = file_path {
-            let ignored = rumdl_config.get_ignored_rules_for_file(path);
+        if let Some(path) = super::match_path(uri) {
+            let ignored = rumdl_config.get_ignored_rules_for_file(&path);
             if !ignored.is_empty() {
                 filtered_rules.retain(|rule| !ignored.contains(rule.name()));
             }
         }
 
-        // Extract MD013 config once so the "Reflow paragraph" action respects user settings.
-        let md013_config = MD013Config::from_document_config(&rumdl_config);
+        // Extract MD013 config once so the "Reflow paragraph" action respects user settings,
+        // including the document's own `rumdl-configure-file` overrides.
+        let md013_config = if text.contains("configure-file") {
+            let inline_config = crate::inline_config::InlineConfig::from_content(text);
+            MD013Config::from_document_config(&rumdl_config.merge_with_inline_config(&inline_config))
+        } else {
+            MD013Config::from_document_config(&rumdl_config)
+        };
 
         let run = crate::document_run::DocumentRun::new(text, &filtered_rules, &rumdl_config);
         let run = match file_path.as_deref() {
@@ -588,7 +646,11 @@ impl RumdlLanguageServer {
                     // count when configuration lets it fix (`unfixable`, `fixable`) and
                     // the rule, as this document configures it, is not Unfixable. The
                     // quick fixes above stay available for every warning.
-                    let document_rules = rules::rules_reconfigured_by_document(&filtered_rules, &rumdl_config, text);
+                    let document_rules = rules::rules_reconfigured_by_document(
+                        &filtered_rules,
+                        &rumdl_config,
+                        crate::utils::bom::strip_bom(text),
+                    );
                     let fixable_warnings: Vec<_> = warnings
                         .iter()
                         .filter(|w| {
@@ -606,7 +668,9 @@ impl RumdlLanguageServer {
 
                     let total_fixable = fixable_warnings.len();
 
-                    if let Ok(fixed_content) = crate::utils::fix_utils::apply_warning_fixes(text, &fixable_warnings)
+                    // Public warning fixes address the supplied document, BOM included.
+                    let fixed = crate::utils::fix_utils::apply_warning_fixes(text, &fixable_warnings);
+                    if let Ok(fixed_content) = fixed
                         && fixed_content != text
                     {
                         let document_end = self.get_end_position(text);
@@ -666,12 +730,9 @@ fn inline_config_warnings(
     active_rules: &std::collections::HashSet<String>,
     ignored_for_file: &std::collections::HashSet<String>,
 ) -> Vec<crate::rule::LintWarning> {
-    let mut warnings = crate::inline_config::validate_inline_config_rules(text, flavor);
-    warnings.extend(crate::inline_config::validate_inline_enables_against_active_rules(
-        text,
-        flavor,
-        active_rules,
-        ignored_for_file,
-    ));
+    // Directives are validated in the text after the byte order mark, so the
+    // warnings' lines and columns agree with every other finding.
+    let text = crate::utils::bom::strip_bom(text);
+    let warnings = crate::inline_config::validate_inline_configuration(text, flavor, active_rules, ignored_for_file);
     warnings.iter().map(|w| w.to_lint_warning(text)).collect()
 }

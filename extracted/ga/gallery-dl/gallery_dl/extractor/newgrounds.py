@@ -41,11 +41,11 @@ class NewgroundsExtractor(Extractor):
         if not fmt or fmt == "original":
             self.format = ("mp4", "webm", "m4v", "mov", "mkv",
                            1080, 720, 360)
-        elif isinstance(fmt, (list, tuple)):
+        elif fmt.__class__ is list:
             self.format = fmt
         else:
             self._video_formats = self._video_formats_limit
-            self.format = (fmt if isinstance(fmt, int) else
+            self.format = (fmt if fmt.__class__ is int else
                            text.parse_int(fmt.rstrip("p")))
 
     def items(self):
@@ -324,7 +324,7 @@ class NewgroundsExtractor(Extractor):
 
         for fmt in self.format:
             try:
-                if isinstance(fmt, int):
+                if fmt.__class__ is int:
                     yield sources[str(fmt) + "p"][0]["src"]
                 elif fmt in sources:
                     yield sources[fmt][0]["src"]

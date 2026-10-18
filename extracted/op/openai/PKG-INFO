@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openai
-Version: 3.33.0
+Version: 3.35.1
 Summary: The official Python library for the openai API
 Project-URL: Homepage, https://github.com/openai/openai-python
 Project-URL: Repository, https://github.com/openai/openai-python
@@ -493,6 +493,8 @@ async with client.realtime.connect(model="gpt-realtime-2") as connection:
             print(event.error.event_id)
             print(event.error.message)
 ```
+
+Use the [Translation session helper](https://github.com/openai/openai-python/tree/main/docs/realtime-translation.md) to send audio, finish input, and receive final events.
 
 ## Using types
 

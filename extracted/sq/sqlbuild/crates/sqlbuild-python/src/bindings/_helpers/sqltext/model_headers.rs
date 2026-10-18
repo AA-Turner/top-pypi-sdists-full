@@ -7,14 +7,17 @@ use crate::bindings::_helpers::boundary::panics::{compiler_guard, value_error};
 use crate::bindings::_helpers::sqltext::authored_values::optional_authored_value_to_python;
 use crate::bindings::types::CompilerDetach;
 
-type ParsedModelHeader = (
+pub(crate) type ParsedModelHeader = (
     Option<Py<PyAny>>,
     Option<Vec<(String, usize, usize)>>,
     Option<String>,
 );
 
 #[pyfunction]
-fn parse_model_headers(py: Python<'_>, headers: Vec<String>) -> PyResult<Vec<ParsedModelHeader>> {
+pub(crate) fn parse_model_headers(
+    py: Python<'_>,
+    headers: Vec<String>,
+) -> PyResult<Vec<ParsedModelHeader>> {
     let parsed = py
         .compiler_detach(|| {
             sqlbuild_sqltext::compiler::main::model_header_parsing::parse_batch(&headers)
@@ -24,7 +27,7 @@ fn parse_model_headers(py: Python<'_>, headers: Vec<String>) -> PyResult<Vec<Par
         .into_iter()
         .map(|(value, offsets, error)| {
             Ok((
-                optional_authored_value_to_python(py, value)?,
+                optional_authored_value_to_python(py, value.as_ref())?,
                 offsets,
                 error,
             ))
@@ -51,9 +54,9 @@ fn tokenize_model_header(header: &str) -> PyResult<Vec<(u8, String, usize)>> {
     })
 }
 
-type ColumnLocation = (String, usize, usize, usize, usize);
+pub(crate) type ColumnLocation = (String, usize, usize, usize, usize);
 
-fn location_rows(
+pub(crate) fn location_rows(
     locations: Vec<(String, sqlbuild_sqltext::compiler::models::TextLocation)>,
 ) -> Vec<ColumnLocation> {
     locations
@@ -72,7 +75,10 @@ fn location_rows(
 
 /// Simple top-level SELECT output names and their authored locations.
 #[pyfunction]
-fn model_output_columns(contents: &str, implicit_aliases: bool) -> PyResult<Vec<ColumnLocation>> {
+pub(crate) fn model_output_columns(
+    contents: &str,
+    implicit_aliases: bool,
+) -> PyResult<Vec<ColumnLocation>> {
     compiler_guard(|| {
         Ok(location_rows(
             sqlbuild_sqltext::compiler::main::model_output_columns::model_output_columns(
@@ -105,9 +111,7 @@ fn model_header_column_locations(
 }
 
 /// A header syntax error's detail, help and file line (when `header_line` is known).
-#[pyfunction]
-#[pyo3(signature = (error, header, header_line))]
-fn model_header_failure(
+pub(crate) fn header_failure(
     error: &str,
     header: &str,
     header_line: Option<usize>,
@@ -122,6 +126,16 @@ fn model_header_failure(
         (Some(nesting), None) => (error.to_owned(), Some(nesting.help), None),
         (None, _) => (error.to_owned(), None, None),
     }
+}
+
+/// A header syntax error's detail, help and file line (when `header_line` is known).
+#[pyfunction]
+fn model_header_failure(
+    error: &str,
+    header: &str,
+    header_line: Option<usize>,
+) -> (String, Option<String>, Option<usize>) {
+    header_failure(error, header, header_line)
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {

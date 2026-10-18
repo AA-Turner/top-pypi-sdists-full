@@ -5,7 +5,6 @@
 
 use crate::inline_config::InlineConfig;
 use crate::rule::{Fix, LintWarning};
-use crate::utils::ensure_consistent_line_endings;
 use std::borrow::Cow;
 use std::ops::Range;
 
@@ -18,6 +17,14 @@ pub fn filter_warnings_by_inline_config(
     inline_config: &InlineConfig,
     rule_name: &str,
 ) -> Vec<LintWarning> {
+    warnings
+        .into_iter()
+        .filter(|warning| warning_is_enabled(warning, inline_config, rule_name))
+        .collect()
+}
+
+/// The fix engine's eligibility test, independent of diagnostic presentation.
+pub(crate) fn warning_is_enabled(warning: &LintWarning, inline_config: &InlineConfig, rule_name: &str) -> bool {
     let base_rule_name = if let Some(dash_pos) = rule_name.find('-') {
         // Handle sub-rules like "MD029-style" -> "MD029"
         // But only if the prefix looks like a rule ID (starts with "MD")
@@ -27,22 +34,25 @@ pub fn filter_warnings_by_inline_config(
         rule_name
     };
 
-    warnings
-        .into_iter()
-        .filter(|w| {
-            let end = if w.end_line >= w.line { w.end_line } else { w.line };
-            !(w.line..=end).any(|line| inline_config.is_rule_disabled(base_rule_name, line))
-        })
-        .collect()
+    let end = warning.end_line.max(warning.line);
+    !(warning.line..=end).any(|line| inline_config.is_rule_disabled(base_rule_name, line))
 }
 
 /// Apply a list of warning fixes to content, simulating how the LSP client would apply them
 /// This is used for testing consistency between CLI and LSP fix methods
 pub fn apply_warning_fixes(content: &str, warnings: &[LintWarning]) -> Result<String, String> {
-    let mut fixes: Vec<(usize, &Fix)> = warnings
-        .iter()
+    apply_edits(content, warnings.iter().filter_map(|warning| warning.fix.as_ref())).map(Cow::into_owned)
+}
+
+/// Apply source edits without requiring diagnostics or copying an unchanged
+/// document. Warning and engine callers share ordering, overlap, UTF-8 and EOL
+/// handling through this one implementation.
+pub(crate) fn apply_edits<'a, 'f>(
+    content: &'a str,
+    edits: impl Iterator<Item = &'f Fix>,
+) -> Result<Cow<'a, str>, String> {
+    let mut fixes: Vec<(usize, &Fix)> = edits
         .enumerate()
-        .filter_map(|(i, w)| w.fix.as_ref().map(|fix| (i, fix)))
         .flat_map(|(i, fix)| {
             // A logical fix may carry additional edits at separate ranges
             // (e.g. MD054 ref-emit fixes that rewrite a link in place AND
@@ -57,7 +67,7 @@ pub fn apply_warning_fixes(content: &str, warnings: &[LintWarning]) -> Result<St
     // when all warnings were filtered out (e.g., by inline config) or had
     // no fix attached.
     if fixes.is_empty() {
-        return Ok(content.to_string());
+        return Ok(Cow::Borrowed(content));
     }
 
     // Sort ascending so the dedup/coalesce pass sees fixes that share a range
@@ -201,7 +211,8 @@ pub fn apply_warning_fixes(content: &str, warnings: &[LintWarning]) -> Result<St
     result.push_str(&content[copied..]);
 
     // Ensure line endings are consistent with the original document
-    Ok(ensure_consistent_line_endings(content, &result))
+    let result = super::line_ending::LineEndingPolicy::new(content).apply_owned(result);
+    Ok(Cow::Owned(result))
 }
 
 /// One physical edit ready to apply. Either passes through a single `Fix`'s

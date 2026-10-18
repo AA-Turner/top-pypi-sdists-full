@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import email.parser
-import sys
 
 import pytest
 
+from nab_markersets._compat import get_int_max_str_digits
 from nab_provider._vendor.packaging.specifiers import SpecifierSet
 from nab_provider._vendor.packaging.version import Version
 from nab_provider.metadata import (
@@ -17,6 +17,10 @@ from nab_provider.metadata import (
     metadata_without_description,
     parse_metadata,
     validate_specifier_versions,
+)
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
 )
 
 
@@ -335,7 +339,7 @@ class TestMetadataDepsAreStatic:
         assert metadata_deps_are_static(md) is False
 
 
-_AT_LIMIT = "1" * sys.get_int_max_str_digits()
+_AT_LIMIT = "1" * (get_int_max_str_digits() or 4300)
 _OVERSIZED = _AT_LIMIT + "1"
 
 
@@ -363,13 +367,17 @@ class TestValidateSpecifierVersions:
         """Including a run of exactly the limit, which int() still converts."""
         assert validate_specifier_versions(SpecifierSet(spec)) is None
 
+    @requires_int_limit
     @pytest.mark.parametrize(
         "spec",
         [
             pytest.param(f">={_OVERSIZED}", id="release"),
             pytest.param(f">={_OVERSIZED}!1.0", id="epoch"),
             pytest.param(f">=1.0rc{_OVERSIZED}", id="pre"),
-            pytest.param(f">=1.0.post{_OVERSIZED}", id="post"),
+            pytest.param(
+                f">=1.0.post{_OVERSIZED}",
+                id="post",
+            ),
             pytest.param(f">=1.0.dev{_OVERSIZED}", id="dev"),
             pytest.param(f"==1.0+{_OVERSIZED}", id="local"),
             pytest.param(f"=={_OVERSIZED}.*", id="wildcard"),
@@ -390,6 +398,7 @@ class TestOversizedClauseVersions:
     conversion and the field fails where it is read.
     """
 
+    @requires_int_limit
     def test_oversized_requires_python_raises(self) -> None:
         """Requires-Python fails under its own guard, which names the field."""
         text = (
@@ -399,6 +408,7 @@ class TestOversizedClauseVersions:
         with pytest.raises(ValueError, match="invalid Requires-Python"):
             parse_metadata(text)
 
+    @requires_int_limit
     def test_oversized_requires_dist_raises(self) -> None:
         """A dep clause fails with the raw ``int()`` conversion error."""
         text = (

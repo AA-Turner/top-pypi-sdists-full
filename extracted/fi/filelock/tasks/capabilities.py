@@ -13,6 +13,7 @@ import gc
 import os
 import signal
 import socket
+import stat
 import sys
 import tempfile
 import time
@@ -256,6 +257,22 @@ def _refuses_to_open_a_symlink() -> bool:
         return False
 
 
+def _grants_a_file_lease() -> bool:
+    # Only Linux has F_SETLEASE, and a filesystem or fs.leases-enable=0 can still refuse it.
+    try:
+        fcntl = import_module("fcntl")
+    except ImportError:
+        return False
+    if not hasattr(fcntl, "F_SETLEASE"):
+        return False
+    with tempfile.TemporaryFile() as handle:
+        try:
+            fcntl.fcntl(handle.fileno(), fcntl.F_SETLEASE, fcntl.F_WRLCK)
+        except OSError:
+            return False
+        return True
+
+
 def _reports_object_tracebacks() -> bool:
     # pytest's thread and unraisable exception hooks ask tracemalloc where the offending object was allocated. GraalPy
     # raises NotImplementedError from that lookup; CPython answers None while not tracing, and PyPy, which ships no
@@ -298,17 +315,16 @@ def _unreadable_file() -> Generator[Path]:
             probe.chmod(0o600)
 
 
-def _fd_directory_names_the_file() -> bool:
-    # Mirrors the view ReadWriteLock connects through. SQLite reuses a descriptor it deferred closing only when stat of
-    # the name it opened reports the file itself; macOS's /dev/fd reports devfs instead.
-    view: Final = Path("/proc/self/fd" if sys.platform == "linux" else "/dev/fd")
-    if not view.is_dir():
+def _has_a_sticky_tmp_of_another_user() -> bool:
+    # A lock refuses a protocol directory of another account only under a sticky parent this account does not own.
+    # /tmp is that parent on Linux and macOS, unless the suite runs as the user who owns it.
+    if sys.platform == "win32":
         return False
-    with tempfile.TemporaryFile() as handle:
-        try:
-            return os.path.samestat((view / str(handle.fileno())).stat(), os.fstat(handle.fileno()))
-        except OSError:  # a static /dev/fd, like NetBSD's or FreeBSD's without fdescfs, lists only low numbers
-            return False
+    try:
+        tmp: Final = Path("/tmp").stat()  # ruff:ignore[hardcoded-temp-file]  # the shared directory is the subject
+    except OSError:
+        return False
+    return bool(tmp.st_mode & stat.S_ISVTX) and tmp.st_uid != os.geteuid()
 
 
 _LINK_FOLLOW_SYMLINKS: Final[bool] = _honors_link_follow_symlinks()
@@ -340,12 +356,14 @@ CAPABILITIES: Final[dict[str, bool]] = {
     "settrace-safe-audit-hooks": _survives_settrace_inside_audit_hook(),
     "profile-interrupted-generator-finishes": _finishes_a_generator_a_profile_hook_interrupts_on_resume(),
     "fd-directory": any(Path(view).is_dir() for view in ("/dev/fd", "/proc/self/fd")),
-    "fd-directory-names-file": _fd_directory_names_the_file(),
     "fifo": hasattr(os, "mkfifo"),
+    "foreign-sticky-tmp": _has_a_sticky_tmp_of_another_user(),
     "af-unix": hasattr(socket, "AF_UNIX"),
     # Distinct from "symlink": a runtime can create them yet still not refuse to follow one.
     "o-nofollow": _refuses_to_open_a_symlink(),
+    "file-lease": _grants_a_file_lease(),
     "utime-nofollow": os.utime in os.supports_follow_symlinks,
+    "access-nofollow": os.access in os.supports_follow_symlinks,
     "utime-fd": os.utime in os.supports_fd,
     "sqlite3": find_spec("sqlite3") is not None,
     "lazy-imports": hasattr(sys, "set_lazy_imports"),

@@ -9,7 +9,6 @@ import io
 import json
 import logging
 import re
-import sys
 import tarfile
 import threading
 import time
@@ -53,6 +52,7 @@ from nab_index.client import (
 from nab_index.lazy_wheel import RangeMetadataResult, RangeOutcome
 from nab_index.parsed_listing import encode as encode_parsed
 from nab_index.transport import HttpError
+from nab_markersets._compat import get_int_max_str_digits
 from nab_provider.metadata import parse_metadata
 from nab_provider.records import (
     parse_hash_table,
@@ -61,6 +61,10 @@ from nab_provider.records import (
 )
 from nab_provider.serialization import SimpleSerialization
 from nab_provider.store import sdist_artifact_key
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
+)
 
 LISTING = {
     "meta": {"api-version": "1.0"},
@@ -120,7 +124,7 @@ WHEEL_AND_ZIP_LISTING = {
 WHEEL_AND_ZIP_BYTES = json.dumps(WHEEL_AND_ZIP_LISTING).encode()
 
 # A digit run just past CPython's int-from-string limit.
-OVERSIZED_DIGITS = "9" * (sys.get_int_max_str_digits() + 1)
+OVERSIZED_DIGITS = "9" * ((get_int_max_str_digits() or 4300) + 1)
 
 # Stands in for a body nested past the decoder's guard (``refuse_over_nested``).
 OVER_NESTED = b"[[[]]]"
@@ -4971,6 +4975,7 @@ class TestCorruptCachedListing:
         assert policy.fetched_at == stale.fetched_at
 
 
+@requires_int_limit
 class TestOversizedListingInt:
     """A listing integer too long to convert reads as an undecodable body.
 

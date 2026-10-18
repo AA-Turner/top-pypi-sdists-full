@@ -330,6 +330,44 @@ pub(crate) fn holds_only_container_markers(text: &str) -> bool {
         })
 }
 
+/// Whether the text of a list item's marker line, once the blockquote and list
+/// markers it opens are taken off, is an ATX heading, a thematic break or a
+/// link reference definition. Those are blocks of their own, not the first
+/// line of a paragraph, so the lines under them never join them.
+///
+/// `content` is what follows the item's own marker. A task checkbox is not the
+/// start of a block: it makes the rest inline text. Text indented four columns
+/// past a marker is code, which is kept verbatim just like a heading would be.
+pub(crate) fn marker_line_opens_non_paragraph(content: &str) -> bool {
+    let mut rest = content.to_string();
+    loop {
+        rest = rest.trim_start_matches(MARKER_PADDING).to_string();
+        if crate::utils::thematic_break::is_thematic_break(&rest) {
+            return true;
+        }
+        // One to six `#` followed by a space, a tab or the end of the line.
+        let hashes = rest.bytes().take_while(|&b| b == b'#').count();
+        if (1..=6).contains(&hashes) && (rest.len() == hashes || rest[hashes..].starts_with([' ', '\t'])) {
+            return true;
+        }
+        if may_be_link_ref_def(&rest) && crate::utils::regex_cache::LINK_REF_PATTERN.is_match(rest.trim()) {
+            return true;
+        }
+        if is_list_item(&rest) {
+            let (marker, text) = extract_list_marker_and_content(&rest);
+            if marker.trim_end().ends_with(']') {
+                return false;
+            }
+            rest = text;
+        } else if let Some(quoted) = rest.strip_prefix('>') {
+            // One space after `>` belongs to the marker.
+            rest = quoted.strip_prefix(MARKER_PADDING).unwrap_or(quoted).to_string();
+        } else {
+            return false;
+        }
+    }
+}
+
 /// Whether a tab pads any of the container markers opening `line` (`-\t`,
 /// `- -\t`). CommonMark takes that tab to the next tab stop, while
 /// markdown-rs counts it as one space of padding, so the two disagree on
@@ -347,6 +385,43 @@ pub(crate) fn markers_padded_with_tab(line: &str) -> bool {
         }
     }
     false
+}
+
+/// Whether `line` ends in a list marker with nothing after it: `-`, `1.`,
+/// `> 1.`, `- 1.`, `> - *`. Blockquote markers and list markers (with their
+/// padding) are peeled off from the left until one bare marker is left.
+///
+/// `is_list_item` needs padding after the marker, so it never sees such a
+/// line. This only reads the text; whether the marker really opens an item is
+/// the parser's call (a lone `1.` inside a paragraph is text).
+pub(crate) fn ends_in_bare_list_marker(line: &str) -> bool {
+    let mut rest = line.trim_end();
+    loop {
+        rest = rest.trim_start_matches(MARKER_PADDING);
+        if let Some(inner) = rest.strip_prefix('>') {
+            rest = inner;
+            continue;
+        }
+        let marker_len = match rest.as_bytes().first() {
+            Some(b'-' | b'*' | b'+') => 1,
+            Some(b'0'..=b'9') => {
+                let digits = rest.bytes().take_while(u8::is_ascii_digit).count();
+                if digits > 9 || !rest[digits..].starts_with(['.', ')']) {
+                    return false;
+                }
+                digits + 1
+            }
+            _ => return false,
+        };
+        if marker_len == rest.len() {
+            return true;
+        }
+        // Another marker may follow on the same line, but only after padding.
+        if !rest[marker_len..].starts_with(MARKER_PADDING) {
+            return false;
+        }
+        rest = &rest[marker_len..];
+    }
 }
 
 pub(crate) fn is_list_item(line: &str) -> bool {
@@ -830,6 +905,50 @@ mod tests {
     fn check_standalone(content: &str) -> bool {
         let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
         is_standalone_link_or_image_line(&ctx, 1)
+    }
+
+    #[test]
+    fn ends_in_bare_list_marker_reads_a_marker_with_nothing_after_it() {
+        for line in [
+            "-",
+            "*",
+            "+",
+            "1.",
+            "10)",
+            "123456789.",
+            "> 1.",
+            ">1.",
+            "> > -",
+            "- 1.",
+            "- - *",
+            "> - 1.",
+            "1.  ",
+            "  1.",
+            "-\t",
+            "- \t1.",
+        ] {
+            assert!(ends_in_bare_list_marker(line), "{line:?}");
+        }
+        for line in [
+            "",
+            ">",
+            "> ",
+            "- a",
+            "1. a",
+            "1.5",
+            "1.a",
+            "1234567890.",
+            "-a",
+            "- > a",
+            "text 1.",
+            "- text -",
+            "1",
+            "--",
+            "- -a",
+            "> a.",
+        ] {
+            assert!(!ends_in_bare_list_marker(line), "{line:?}");
+        }
     }
 
     /// Test for issue #336: "2019." alone should NOT be treated as a list item

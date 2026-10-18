@@ -3,22 +3,30 @@
 from __future__ import annotations
 
 import contextlib
-import gc
 import io
 import json
 import os
-import pickle
 import sys
 import time
 from dataclasses import asdict
-from pathlib import Path
-from typing import Any, BinaryIO
+from pathlib import Path, PurePath
+from typing import Any
 
-from sqlbuild.compiler.compile.models import CompiledProject
-from sqlbuild.compiler.compile.types import CompiledProjectView
-from sqlbuild.rule_engine._helpers.engine.catalogue import build_catalogue
-from sqlbuild.rule_engine._helpers.engine.fact_replay import fact_key_payload
+from sqlbuild._native import (
+    CUSTOM_HOST_LAUNCH_MODULE,
+    CUSTOM_HOST_PROTOCOL_VERSION,
+    CUSTOM_HOST_RUNTIME_VERSION,
+    CustomHostPartition,
+    CustomRuleRun,
+    Finding,
+    HostCancelledError,
+    Rule,
+    RulesConfig,
+    RulesError,
+    build_rule_catalogue,
+)
 from sqlbuild.rule_engine._helpers.host.custom_evaluation import evaluate_custom_rules
+from sqlbuild.rule_engine._helpers.host.host_payload import decode_host_payload
 from sqlbuild.rule_engine.classes.runtime_guard import RuntimeGuard
 from sqlbuild.rule_engine.constants import (
     CUSTOM_HOST_CANCELLED_EXIT_CODE,
@@ -26,22 +34,10 @@ from sqlbuild.rule_engine.constants import (
     CUSTOM_HOST_EXEC_OS_NAME,
     CUSTOM_HOST_HASH_SEED,
     CUSTOM_HOST_INPUT_POLL_SECONDS,
-    CUSTOM_HOST_INPUT_TUPLE_SIZE,
     CUSTOM_HOST_INPUT_WAIT_SECONDS,
-    CUSTOM_HOST_LAUNCH_MODULE,
     CUSTOM_HOST_MAX_TRACKED_READS,
-    CUSTOM_HOST_PROTOCOL_VERSION,
-    CUSTOM_HOST_RUNTIME_VERSION,
 )
-from sqlbuild.rule_engine.exceptions import HostCancelledError, RulesError
-from sqlbuild.rule_engine.models import (
-    CustomHostPartition,
-    CustomRuleRun,
-    Finding,
-    Rule,
-    RulesConfig,
-)
-from sqlbuild.rule_engine.types import CustomRulePlan
+from sqlbuild.rule_engine.types import CustomRulePlan, RuleFactProject
 
 
 def main() -> int:
@@ -80,7 +76,9 @@ def main() -> int:
         guard.guard_filesystem_metadata()
         messages: io.StringIO = io.StringIO()
         with contextlib.redirect_stdout(messages):
-            catalogue: tuple[Rule, ...] = build_catalogue(config=config, project_dir=project_dir)
+            catalogue: tuple[Rule, ...] = build_rule_catalogue(
+                config=config, project_dir=project_dir, include_custom=True
+            )
             guard.raise_violation()
             by_code: dict[str, Rule] = {rule.code: rule for rule in catalogue}
             selected: tuple[Rule, ...] = tuple(by_code[code] for code in sorted(plan))
@@ -119,10 +117,10 @@ def main() -> int:
 
 def _decode_inputs(
     *, payload: dict[str, Any], cancel_marker: Path | None
-) -> tuple[CompiledProjectView, RulesConfig]:
+) -> tuple[RuleFactProject, RulesConfig]:
     project_dir: Path = Path(str(payload["project_dir"])).resolve()
     input_root: Path = (project_dir / "target" / "rules-cache" / "host-inputs").resolve()
-    input_path: Path = Path(str(payload["project_pickle_path"]))
+    input_path: Path = Path(str(payload["project_payload_path"]))
     if not input_path.is_absolute() or not input_path.parent.resolve().is_relative_to(input_root):
         raise RulesError("custom host project payload path is invalid")
     await_inputs(
@@ -136,16 +134,7 @@ def _decode_inputs(
     )
     if input_path.is_symlink() or not input_path.resolve().is_relative_to(input_root):
         raise RulesError("custom host project payload path is invalid")
-    with input_path.open("rb") as handle:
-        decoded: object = _load_long_lived(handle)
-    if (
-        not isinstance(decoded, tuple)
-        or len(decoded) != CUSTOM_HOST_INPUT_TUPLE_SIZE
-        or not isinstance(decoded[0], CompiledProject)
-        or not isinstance(decoded[1], RulesConfig)
-    ):
-        raise RulesError("custom host project payload has invalid types")
-    return decoded
+    return decode_host_payload(input_path.read_bytes())
 
 
 def await_inputs(*, path: Path, cancel_markers: tuple[Path, ...], parent_pid: int) -> None:
@@ -183,19 +172,6 @@ def _input_marker(*, payload: dict[str, Any], key: str) -> Path | None:
     if not marker.is_absolute() or not marker.parent.resolve().is_relative_to(input_root):
         raise RulesError(f"custom host {key} path is invalid")
     return marker
-
-
-def _load_long_lived(handle: BinaryIO) -> Any:
-    """Unpickle the host-lifetime project without cyclic collection, then freeze it."""
-
-    was_enabled: bool = gc.isenabled()
-    gc.disable()
-    try:
-        return pickle.load(handle)
-    finally:
-        gc.freeze()
-        if was_enabled:
-            gc.enable()
 
 
 def _cancel_marker(payload: dict[str, Any]) -> Path | None:
@@ -276,6 +252,12 @@ def _write_error(message: str) -> int:
     }
     sys.stdout.write(json.dumps(response, sort_keys=True))
     return 0
+
+
+def fact_key_payload(key: tuple[object, ...]) -> list[str]:
+    """Return the JSON form of one recorded fact key."""
+
+    return [value.as_posix() if isinstance(value, PurePath) else str(value) for value in key]
 
 
 if __name__ == "__main__":

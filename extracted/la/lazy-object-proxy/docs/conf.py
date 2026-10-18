@@ -12,18 +12,18 @@ extensions = [
 source_suffix = '.rst'
 master_doc = 'index'
 project = 'lazy-object-proxy'
-year = '2014-2025'
+year = '2014-2026'
 author = 'Ionel Cristian Mărieș'
 copyright = f'{year}, {author}'
 try:
     from importlib import metadata
 
-    version = release = metadata.version('hunter')
+    version = release = metadata.version('lazy-object-proxy')
 except Exception:
     import traceback
 
     traceback.print_exc()
-    version = release = '1.12.0'
+    version = release = '1.13.0'
 
 pygments_style = 'trac'
 templates_path = ['.']
@@ -34,7 +34,15 @@ extlinks = {
 
 html_theme = 'furo'
 html_theme_options = {
-    'githuburl': 'https://github.com/ionelmc/python-lazy-object-proxy/',
+    'source_repository': 'https://github.com/ionelmc/python-lazy-object-proxy/',
+    'source_branch': 'master',
+    'source_directory': 'docs/',
+    'footer_icons': [
+        {
+            'url': 'https://github.com/ionelmc/python-lazy-object-proxy/',
+            'html': 'github.com/ionelmc/python-lazy-object-proxy',
+        },
+    ],
 }
 
 html_use_smartypants = True

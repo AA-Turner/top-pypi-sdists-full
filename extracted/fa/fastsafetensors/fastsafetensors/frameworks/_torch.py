@@ -8,11 +8,11 @@ except ImportError as e:
 
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 
-from ..common import SingleGroup
+from ..common import SafeTensorsMetadata, SingleGroup
 from ..cpp import cpu_free, cpu_malloc, gds_device_buffer
-from ..st_types import Device, DeviceType, DType
+from ..st_types import DTYPE_SIZES, Device, DeviceType, DType
 from . import FrameworkOpBase, ProcessGroupBase, TensorBase
 
 dtype_convert: Dict[DType, Any] = {
@@ -49,6 +49,13 @@ if hasattr(torch, "uint32"):
 if hasattr(torch, "uint64"):
     dtype_convert[DType.U64] = torch.uint64
 
+_fst_dtypes = {dtype: fst for fst, dtype in dtype_convert.items()}
+
+
+def fst_dtype(dtype: torch.dtype) -> DType:
+    """Translate a PyTorch dtype to its safetensors representation."""
+    return _fst_dtypes[dtype]
+
 
 @dataclass
 class TorchTensor(TensorBase):
@@ -56,6 +63,23 @@ class TorchTensor(TensorBase):
 
     def get_raw(self) -> torch.Tensor:
         return self.real_tensor
+
+    def get_shape(self) -> List[int]:
+        shape = list(self.real_tensor.shape)
+        if self.dtype == DType.F4:
+            if not shape:
+                raise ValueError("F4 requires a packed last dimension")
+            shape[-1] *= 2
+        return shape
+
+    def get_nbytes(self) -> int:
+        return self.real_tensor.nbytes
+
+    def copy_to_buffer(self, buf: memoryview) -> None:
+        if self.real_tensor.numel() == 0:
+            return
+        flat = self.real_tensor.detach().contiguous().reshape(-1).view(torch.uint8)
+        torch.frombuffer(buf, dtype=torch.uint8, count=flat.numel()).copy_(flat)
 
     def contiguous(self) -> "TorchTensor":
         return TorchTensor(self.device, self.dtype, self.real_tensor.contiguous())
@@ -137,15 +161,17 @@ class TorchProcessGroup(ProcessGroupBase[TorchTensor]):
         if self.real_pg:
             if _needs_uint8_view(dst.dtype):
                 dist.broadcast(
-                    dst.real_tensor.view(torch.uint8), rank, group=self.real_pg
+                    dst.real_tensor.view(torch.uint8),
+                    group=self.real_pg,
+                    group_src=rank,
                 )
             elif _is_fp8(dst.dtype) and _needs_fp8_cast():
                 buf = dst.real_tensor.to(torch.bfloat16)
-                dist.broadcast(buf, rank, group=self.real_pg)
+                dist.broadcast(buf, group=self.real_pg, group_src=rank)
                 dst.real_tensor.copy_(buf.to(dst.real_tensor.dtype))
                 del buf
             else:
-                dist.broadcast(dst.real_tensor, rank, group=self.real_pg)
+                dist.broadcast(dst.real_tensor, group=self.real_pg, group_src=rank)
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
 
@@ -161,19 +187,19 @@ class TorchProcessGroup(ProcessGroupBase[TorchTensor]):
                 dist.scatter(
                     dst.real_tensor.view(torch.uint8),
                     scatter_list=sl,
-                    src=src,
                     group=self.real_pg,
+                    group_src=src,
                 )
             elif _is_fp8(dst.dtype) and _needs_fp8_cast():
                 sl = [t.real_tensor.to(torch.bfloat16) for t in scatter_list]
                 buf = dst.real_tensor.to(torch.bfloat16)
-                dist.scatter(buf, scatter_list=sl, src=src, group=self.real_pg)
+                dist.scatter(buf, scatter_list=sl, group=self.real_pg, group_src=src)
                 dst.real_tensor.copy_(buf.to(dst.real_tensor.dtype))
                 del buf, sl
             else:
                 sl = [t.real_tensor for t in scatter_list]
                 dist.scatter(
-                    dst.real_tensor, scatter_list=sl, src=src, group=self.real_pg
+                    dst.real_tensor, scatter_list=sl, group=self.real_pg, group_src=src
                 )
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
@@ -188,16 +214,18 @@ class TorchProcessGroup(ProcessGroupBase[TorchTensor]):
             if _needs_uint8_view(t.dtype):
                 dist.send(
                     t.real_tensor.view(torch.uint8),
-                    dst_rank,
                     group=self.real_pg,
+                    group_dst=dst_rank,
                     tag=tag,
                 )
             elif _is_fp8(t.dtype) and _needs_fp8_cast():
                 buf = t.real_tensor.to(torch.bfloat16)
-                dist.send(buf, dst_rank, group=self.real_pg, tag=tag)
+                dist.send(buf, group=self.real_pg, tag=tag, group_dst=dst_rank)
                 del buf
             else:
-                dist.send(t.real_tensor, dst_rank, group=self.real_pg, tag=tag)
+                dist.send(
+                    t.real_tensor, group=self.real_pg, tag=tag, group_dst=dst_rank
+                )
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
 
@@ -211,22 +239,74 @@ class TorchProcessGroup(ProcessGroupBase[TorchTensor]):
             if _needs_uint8_view(t.dtype):
                 dist.recv(
                     t.real_tensor.view(torch.uint8),
-                    src_rank,
                     group=self.real_pg,
+                    group_src=src_rank,
                     tag=tag,
                 )
             elif _is_fp8(t.dtype) and _needs_fp8_cast():
                 buf = t.real_tensor.to(torch.bfloat16)
-                dist.recv(buf, src_rank, group=self.real_pg, tag=tag)
+                dist.recv(buf, group=self.real_pg, tag=tag, group_src=src_rank)
                 t.real_tensor.copy_(buf.to(t.real_tensor.dtype))
                 del buf
             else:
-                dist.recv(t.real_tensor, src_rank, group=self.real_pg, tag=tag)
+                dist.recv(
+                    t.real_tensor, group=self.real_pg, tag=tag, group_src=src_rank
+                )
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
 
 
 class TorchOp(FrameworkOpBase[TorchTensor, TorchProcessGroup]):
+    def synchronize_current_stream(self, device: Device) -> None:
+        if device.type == DeviceType.CUDA:
+            torch.cuda.current_stream(device.as_str()).synchronize()
+
+    @staticmethod
+    def _flat_source_run(tensors: List[TorchTensor], sizes: List[int]) -> torch.Tensor:
+        """Describe adjacent loader views, including bounded DLPack storage."""
+        for previous, current, size in zip(tensors, tensors[1:], sizes):
+            if previous.data_ptr() + size != current.data_ptr():
+                raise ValueError("broadcast run is not contiguous in device memory")
+        from ..dlpack import from_cuda_buffer
+
+        # Each DLPack Storage may describe only one tensor even when the
+        # underlying loader allocation spans the entire validated run.
+        return torch.from_dlpack(
+            from_cuda_buffer(
+                tensors[0].data_ptr(), [sum(sizes)], [1], DType.U8, tensors[0].device
+            )
+        )
+
+    def broadcast_contiguous_run(
+        self,
+        pg: TorchProcessGroup,
+        source_tensors: List[TorchTensor],
+        frames: List[Any],
+        src_rank: int,
+        device: Device,
+    ) -> Optional[List[TorchTensor]]:
+        if pg.real_pg is None:
+            return None
+        sizes = [frame.data_offsets[1] - frame.data_offsets[0] for frame in frames]
+        if pg.rank() == src_rank:
+            # The iterator promises outputs survive buffer close, including
+            # on the source rank. Clone the span once, rather than borrowing it.
+            flat = self._flat_source_run(source_tensors, sizes).clone()
+        else:
+            flat = torch.empty(sum(sizes), dtype=torch.uint8, device=device.as_str())
+        work = dist.broadcast(flat, group=pg.real_pg, group_src=src_rank, async_op=True)
+        # NCCL wait orders this thread's current stream without synchronizing
+        # the whole device, allowing the producer's checkpoint reads to proceed.
+        work.wait()
+        outputs = []
+        offset = 0
+        for frame, size in zip(frames, sizes):
+            raw = flat.narrow(0, offset, size).view(dtype_convert[frame.dtype])
+            raw = raw.reshape(self.get_native_shape(frame.dtype, frame.shape))
+            outputs.append(TorchTensor(device, frame.dtype, raw))
+            offset += size
+        return outputs
+
     def __init__(self) -> None:
         self.mem_used = 0
 
@@ -276,19 +356,80 @@ class TorchOp(FrameworkOpBase[TorchTensor, TorchProcessGroup]):
         return TorchTensor(tensors[0].device, dtype, torch.cat(ts, dim=dim))
 
     def get_dtype_size(self, dtype: DType) -> float:
-        if dtype == DType.F4:
-            # float4_e2m1fn_x2 packs two 4-bit values into one byte.
-            # safetensors stores shape in FP4-element count, so the byte
-            # size per logical element is 0.5.
-            return 0.5
-        return float(dtype_convert[dtype].itemsize)
+        return float(DTYPE_SIZES[dtype])
 
     def from_dlpack(self, dl_tensor: Any, device: Device, dtype: DType) -> TorchTensor:
         t = torch.from_dlpack(dl_tensor)
         return TorchTensor(device, dtype, t)
 
+    def iter_buffer_views(
+        self,
+        metadata: SafeTensorsMetadata,
+        gbuf: gds_device_buffer,
+        device: Device,
+        copy_start_offset: int,
+        names: Optional[Set[str]],
+        owner=None,
+    ) -> Iterator[Tuple[str, TorchTensor]]:
+        """Amortize DLPack conversion over tensors with a common storage dtype."""
+        from ..dlpack import from_cuda_buffer
+
+        base_address = gbuf.get_base_address()
+        buffer_end = base_address + gbuf.get_length()
+        bases = {}
+        for name, frame in metadata.tensors.items():
+            if names is not None and name not in names:
+                continue
+            if frame.data_offsets[0] == frame.data_offsets[1]:
+                yield name, self.get_empty_tensor(frame.shape, frame.dtype, device)
+                continue
+            tensor_address = (
+                base_address
+                + metadata.header_length
+                + frame.data_offsets[0]
+                - copy_start_offset
+            )
+            nbytes = frame.data_offsets[1] - frame.data_offsets[0]
+            if tensor_address < base_address or tensor_address + nbytes > buffer_end:
+                raise ValueError(f"Tensor {name!r} is outside the loader buffer")
+            disk_dtype = self.as_workaround_dtype(frame.dtype)
+            itemsize = int(self.get_dtype_size(disk_dtype))
+            # Safetensors offsets need not be aligned. Separate residue classes
+            # so every view's offset is an integer number of storage elements.
+            residue = tensor_address % itemsize
+            key = (disk_dtype, residue)
+            if key not in bases:
+                shift = (residue - base_address % itemsize) % itemsize
+                typed_address = base_address + shift
+                elements = (buffer_end - typed_address) // itemsize
+                capsule = from_cuda_buffer(
+                    typed_address, [elements], [1], disk_dtype, device, owner
+                )
+                bases[key] = (typed_address, torch.from_dlpack(capsule))
+            typed_address, raw_base = bases[key]
+            shape, strides = self.get_storage_shape(
+                frame.dtype, frame.shape, frame.strides
+            )
+            raw = torch.as_strided(
+                raw_base, shape, strides, (tensor_address - typed_address) // itemsize
+            )
+            tensor = TorchTensor(device, disk_dtype, raw)
+            if disk_dtype != frame.dtype:
+                tensor = tensor.view(frame.dtype)
+            native_shape = self.get_native_shape(frame.dtype, frame.shape)
+            if native_shape != frame.shape:
+                tensor = tensor.reshape(native_shape)
+            yield name, tensor
+
     def copy_tensor(self, dst: TorchTensor, src: TorchTensor):
         dst.real_tensor.copy_(src.real_tensor)
+
+    def wrap_tensor(self, tensor: torch.Tensor) -> TorchTensor:
+        return TorchTensor(
+            Device(DeviceType(tensor.device.type), tensor.device.index),
+            fst_dtype(tensor.dtype),
+            tensor,
+        )
 
     def get_cuda_ver(self) -> str:
         """Get GPU runtime version with platform indicator.

@@ -52,6 +52,7 @@ def test_example(examplefun, capsys, recwarn):
         (check_warn(recwarn, examplefun), "Example {} produced a warning.\n")]
     for failed, msgfmt  in failconditions:
         if failed:
+            # ruff: disable[UP032]
             pytest.fail(msgfmt.format(examplefun.__name__) +
                         "Captured output:\n{}\n"
                         "Captured stderr:\n{}\n"

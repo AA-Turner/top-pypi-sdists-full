@@ -4,19 +4,17 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from sqlbuild.adapter.contract.classes.statement_recorder import StatementRecorder
-from sqlbuild.compiler.planner.main.cursor_window.waiting_on_empty_inputs_display import (
-    format_waiting_on_empty_inputs,
-)
-from sqlbuild.compiler.planner.models import (
+from sqlbuild._native import (
     CursorBounds,
     FutureCursorSafetyEvidence,
     MaximumStartSafetyEvidence,
     ModelPlanEntry,
+    error_code,
+    error_help,
+    error_message,
+    format_waiting_on_empty_inputs,
 )
-from sqlbuild.errors.contracts.main.error_code import error_code
-from sqlbuild.errors.contracts.main.error_help import error_help
-from sqlbuild.errors.contracts.main.error_message import error_message
+from sqlbuild.adapter.contract.classes.statement_recorder import StatementRecorder
 from sqlbuild.executor.auditing.models import AuditExecutionResult
 from sqlbuild.executor.run.constants import (
     RUN_AUDIT_FAILED_CODE,

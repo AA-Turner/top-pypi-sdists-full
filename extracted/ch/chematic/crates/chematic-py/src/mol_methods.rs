@@ -21,6 +21,8 @@ type PyExplicitHydrogenMmffResult = (Vec<[f64; 3]>, Vec<[f64; 3]>, f64, bool, us
 
 mod analysis;
 mod atom_environment;
+mod bond_fragment;
+mod core_replacement;
 mod descriptors;
 mod extended;
 mod fingerprints;
@@ -31,8 +33,10 @@ pub(crate) mod ogb;
 mod path_enumeration;
 mod properties;
 mod rooted;
+mod sasa_checked;
 mod stereo_cleanup;
 mod stereo_groups;
+mod tautomer_control;
 mod three_d;
 mod transformations;
 

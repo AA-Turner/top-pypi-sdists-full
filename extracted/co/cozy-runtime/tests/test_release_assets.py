@@ -20,6 +20,7 @@ def release_files(root: Path, version: str = "1.2.3") -> dict[str, str]:
     names = [
         f"cozy_runtime-{version}-py3-none-any.whl",
         f"cozy_runtime-{version}-cp312-abi3-manylinux_2_28_x86_64.whl",
+        f"cozy_runtime-{version}-cp312-abi3-manylinux_2_28_aarch64.whl",
         f"cozy_runtime-{version}.tar.gz",
     ]
     files = {}
@@ -70,7 +71,13 @@ def test_valid_hashes_of_another_version_cannot_publish_under_selected_tag(tmp_p
 
 
 @pytest.mark.parametrize(
-    "omit", ["py3-none-any.whl", "cp312-abi3-manylinux_2_28_x86_64.whl", "tar.gz"]
+    "omit",
+    [
+        "py3-none-any.whl",
+        "cp312-abi3-manylinux_2_28_x86_64.whl",
+        "cp312-abi3-manylinux_2_28_aarch64.whl",
+        "tar.gz",
+    ],
 )
 def test_hash_approval_cannot_omit_a_required_distribution(tmp_path: Path, omit: str) -> None:
     files = release_files(tmp_path)
@@ -95,3 +102,22 @@ def test_hash_approval_cannot_omit_a_required_distribution(tmp_path: Path, omit:
 def test_asset_selection_requires_unique_safe_names_and_hashes(sums: str) -> None:
     with pytest.raises(ValueError):
         assets.selected(sums)
+
+
+def test_a_named_waiver_omits_exactly_the_aarch64_wheel(tmp_path: Path) -> None:
+    files = release_files(tmp_path)
+    aarch64 = next(name for name in files if name.endswith("manylinux_2_28_aarch64.whl"))
+    (tmp_path / aarch64).unlink()
+    del files[aarch64]
+    sums = sums_for(files)
+    with pytest.raises(ValueError, match=r"not the complete 1\.2\.3 release"):
+        assets.verify(tmp_path, sums, "1.2.3")
+    assert assets.verify(tmp_path, sums, "1.2.3", assets.waivers("linux-aarch64")) == sums
+
+
+def test_a_waived_wheel_that_is_present_and_unknown_waivers_refuse(tmp_path: Path) -> None:
+    sums = sums_for(release_files(tmp_path))
+    with pytest.raises(ValueError, match=r"not the complete 1\.2\.3 release"):
+        assets.verify(tmp_path, sums, "1.2.3", assets.waivers("linux-aarch64"))
+    with pytest.raises(ValueError, match="unknown platform waiver"):
+        assets.waivers("linux-x86_64")

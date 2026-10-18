@@ -11,6 +11,7 @@ from collections.abc import Callable
 
 import pytest
 
+from nab_markersets._compat import get_int_max_str_digits
 from nab_provider._vendor.packaging.markers import (
     InvalidMarker,
     Marker,
@@ -40,6 +41,10 @@ from nab_provider.target import (
     python_axis_environment,
     slices_from_points,
     unboundable_variables,
+)
+
+requires_int_limit = pytest.mark.skipif(
+    get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
 )
 
 _HOST_ENV: dict[str, str] = {
@@ -410,6 +415,7 @@ class TestAdmitsRequiresPython:
         target = _a_bare_minor_target()
         assert target.admits_requires_python(SpecifierSet("!=3.13.7,!=3.9.2"))
 
+    @requires_int_limit
     @_EVERY_TARGET_KIND
     def test_an_uncomparable_version_raises(
         self, make_target: Callable[[], ResolveTarget]

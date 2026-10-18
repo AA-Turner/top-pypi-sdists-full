@@ -27,12 +27,12 @@ def lop_loader():
                         raise
             elif name == 'objproxies':
                 Proxy = pytest.importorskip('objproxies').LazyProxy
+            elif name == 'wrapt':
+                Proxy = pytest.importorskip('wrapt').LazyObjectProxy
             elif name == 'django':
                 Proxy = pytest.importorskip('django.utils.functional').SimpleLazyObject
             else:
                 raise RuntimeError(f'Unsupported param: {name!r}.')
-
-            Proxy  # noqa: B018
 
         return FakeModule
 

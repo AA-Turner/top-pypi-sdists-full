@@ -5,6 +5,8 @@ but cannot express cross-field rules (e.g. "column_definitions only on
 sample_sheet collection inputs"). These checks are run after structural
 validation and raise ``ValueError`` on violation - callers wrap them in
 ``pydantic.ValidationError`` where useful.
+Type mismatches also use ``ValueError`` so those callers collect diagnostics
+instead of propagating ``TypeError``.
 
 Mirrors the constraints enforced by Galaxy's runtime
 ``galaxy.model.dataset_collections.types.sample_sheet_util.SampleSheetColumnDefinitionModel``.
@@ -13,7 +15,8 @@ Mirrors the constraints enforced by Galaxy's runtime
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable, Mapping
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 _COLUMN_NAME_RE = re.compile(r"^[\w\-_ \?]*$")
 _RECORD_RANK_RE = re.compile(r"(?:^|:)record(?::|$)")
@@ -25,6 +28,8 @@ _COLLECTION_TYPE_VALUES = {"collection", "data_collection", "data_collection_inp
 def _as_dict(model_or_dict: Any) -> Mapping[str, Any]:
     if hasattr(model_or_dict, "model_dump"):
         return model_or_dict.model_dump(by_alias=True)
+    if not isinstance(model_or_dict, Mapping):
+        raise ValueError("Expected a mapping for semantic validation")  # noqa: TRY004
     return model_or_dict
 
 
@@ -64,6 +69,8 @@ def validate_column_definition(column: Any) -> None:
         values = column_dict.get(field)
         if not values:
             continue
+        if not isinstance(values, list):
+            raise ValueError(f"Sample sheet column {name!r} {field} must be a list")  # noqa: TRY004
         for v in values:
             if not _column_value_matches_type(column_type, v):
                 raise ValueError(
@@ -77,7 +84,7 @@ def validate_input_parameter(input_param: Any) -> None:
     Enforces:
     - column_definitions only on collection inputs whose collection_type
       starts with 'sample_sheet'.
-    - restrictions/suggestions/restrictOnConnections only on text/string
+    - restrictions/suggestions/restrictOnConnections/validators only on text/string
       inputs (or catch-all WorkflowInputParameter in text mode).
     - Each SampleSheetColumnDefinition is internally consistent.
     """
@@ -93,11 +100,17 @@ def validate_input_parameter(input_param: Any) -> None:
     is_text_only = bool(type_values) and all(t in _TEXT_TYPE_VALUES for t in type_values)
     is_collection_only = bool(type_values) and all(t in _COLLECTION_TYPE_VALUES for t in type_values)
 
+    collection_type = data.get("collection_type")
+    if collection_type is None:
+        collection_type = ""
+    if not isinstance(collection_type, str):
+        raise ValueError("collection_type must be a string")  # noqa: TRY004
     column_definitions = data.get("column_definitions")
     if column_definitions:
+        if not isinstance(column_definitions, list):
+            raise ValueError("column_definitions must be a list")
         if not is_collection_only and type_values:
             raise ValueError(f"column_definitions is only valid on collection inputs, got type={type_value!r}")
-        collection_type = data.get("collection_type") or ""
         if not collection_type.startswith("sample_sheet"):
             raise ValueError(
                 f"column_definitions requires collection_type starting with 'sample_sheet', got {collection_type!r}"
@@ -109,11 +122,10 @@ def validate_input_parameter(input_param: Any) -> None:
     if fields:
         if not is_collection_only and type_values:
             raise ValueError(f"fields is only valid on collection inputs, got type={type_value!r}")
-        collection_type = data.get("collection_type") or ""
         if not _RECORD_RANK_RE.search(collection_type):
             raise ValueError(f"fields requires collection_type containing 'record', got {collection_type!r}")
 
-    text_only_fields = ("restrictions", "suggestions", "restrictOnConnections")
+    text_only_fields = ("restrictions", "suggestions", "restrictOnConnections", "validators")
     for field in text_only_fields:
         if data.get(field) in (None, [], False):
             # restrictOnConnections=False is the schema default and harmless;
@@ -125,8 +137,37 @@ def validate_input_parameter(input_param: Any) -> None:
             raise ValueError(f"{field} is only valid on text/string inputs, got type={type_value!r}")
 
 
+def _state_is_specified(value: Any) -> bool:
+    """Report whether a step's ``state``/``tool_state`` field actually carries content.
+
+    Uses non-empty semantics: ``None``, an empty dict, and a blank or ``{}``
+    JSON string all count as unspecified. This matches the downstream notion of
+    an "empty" state, so an empty ``state: {}`` left by conversion does not
+    falsely conflict with a populated ``tool_state``.
+    """
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value.strip() not in ("", "{}")
+    if isinstance(value, Mapping):
+        return len(value) > 0
+    return bool(value)
+
+
+def validate_step(step: Mapping[str, Any]) -> None:
+    """Validate cross-field rules on a single workflow step.
+
+    Enforces:
+    - ``state`` and ``tool_state`` are mutually exclusive (the schema doc says
+      "Only one or the other should be specified"); they are two encodings of
+      the same tool state, so carrying both is ambiguous.
+    """
+    if _state_is_specified(step.get("state")) and _state_is_specified(step.get("tool_state")):
+        raise ValueError("Workflow step specifies both 'state' and 'tool_state'; only one may be set")
+
+
 def validate_workflow(workflow: Any) -> None:
-    """Walk a (lax or strict) GalaxyWorkflow model and validate cross-field rules.
+    """Validate cross-field rules on a (lax or strict) GalaxyWorkflow model.
 
     Handles both list and dict input forms.
     """
@@ -152,6 +193,7 @@ def validate_workflow(workflow: Any) -> None:
     for step in iter_steps:
         if not isinstance(step, Mapping):
             continue
+        validate_step(step)
         run = step.get("run")
-        if isinstance(run, Mapping) and run.get("class") == "GalaxyWorkflow":
+        if isinstance(run, Mapping) and run.get("class") in {"GalaxyWorkflow", "GalaxyWorkflowDraft"}:
             validate_workflow(run)

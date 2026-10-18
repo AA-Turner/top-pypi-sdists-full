@@ -119,8 +119,7 @@ impl Rule for MD087UnusedDisableComment {
 
     fn check_suppressions(&self, ctx: &LintContext, report: &SuppressionReport) -> LintResult {
         let mut warnings = Vec::new();
-        let code_spans = crate::lint_context::code_span_byte_ranges(&ctx.code_spans());
-        for site in collect_disable_sites(ctx.content, &ctx.code_blocks, &code_spans) {
+        for site in collect_disable_sites(ctx.content, &ctx.code_blocks, ctx.inline_code_ranges()) {
             let unused = self.unused_rules(&site, report);
             if unused.is_empty() {
                 continue;
@@ -186,6 +185,17 @@ mod tests {
         MD087UnusedDisableComment::new()
             .check_suppressions(&ctx, &report(suppressed, judged))
             .unwrap()
+    }
+
+    #[test]
+    fn reports_a_compact_disable_line_comment_that_suppressed_nothing() {
+        let content = "# Title\n\nA short line <!--rumdl-disable-line MD013-->\n";
+        let warnings = check(content, &[], &["MD013"]);
+        assert_eq!(warnings.len(), 1, "got: {warnings:?}");
+        assert_eq!(warnings[0].message, "Unused disable-line comment: MD013");
+        // A compact comment that did suppress something is not reported.
+        let used = check(content, &[("MD013", DisableLayer::Line, 3)], &["MD013"]);
+        assert!(used.is_empty(), "got: {used:?}");
     }
 
     #[test]

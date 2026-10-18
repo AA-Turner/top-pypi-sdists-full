@@ -86,3 +86,15 @@ pub(crate) struct EnvironmentNamesTestCase {
     pub(crate) values: &'static [Option<&'static str>],
     pub(crate) expected_names: &'static [&'static str],
 }
+
+pub(crate) struct ConfiguredNamespaceTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) value: &'static str,
+    pub(crate) expected_namespace: Option<&'static str>,
+}
+
+pub(crate) struct OptOutHelpTestCase {
+    pub(crate) description: &'static str,
+    pub(crate) model_owned: bool,
+    pub(crate) expected_help: &'static str,
+}

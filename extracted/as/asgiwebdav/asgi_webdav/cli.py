@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from logging import getLogger
 from typing import Any
 
@@ -14,8 +15,6 @@ logger = getLogger(__name__)
 def convert_click_kwargs_to_aep(kwargs: dict[str, Any]) -> AppEntryParameters:
     if kwargs.get("dev"):
         dev_mode = DevMode.DEV
-    elif kwargs.get("litmus"):
-        dev_mode = DevMode.LIMTUS
     else:
         dev_mode = None
 
@@ -93,18 +92,14 @@ def convert_click_kwargs_to_aep(kwargs: dict[str, Any]) -> AppEntryParameters:
     default=False,
     help="Enter Development(for coding) mode, DON'T use it in production!",
 )
-@click.option(
-    "--litmus",
-    is_flag=True,
-    default=False,
-    help="Enter Litmus(for test) mode, DON'T use it in production!",
-)
 def main(**kwargs: dict[str, Any]) -> None:
     if kwargs["version"]:
         from asgi_webdav import __version__
 
         print(__version__)
-        exit()
+        # bare exit() relies on the site builtin, missing in frozen
+        # (PyInstaller) environments
+        sys.exit(0)
 
     try:
         import uvicorn
@@ -113,7 +108,7 @@ def main(**kwargs: dict[str, Any]) -> None:
             "Please install ASGI web server implementation first.\n"
             "  eg: pip install -U ASGIWebDAV[standalone]"
         )
-        exit(1)
+        sys.exit(1)
 
     aep = convert_click_kwargs_to_aep(kwargs)
     kwargs = convert_aep_to_uvicorn_kwargs(aep)

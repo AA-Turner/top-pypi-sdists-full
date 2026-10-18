@@ -58,6 +58,11 @@ NEEDS_FILE_MODE: Final[pytest.MarkDecorator] = pytest.mark.skipif(
     reason="requires a filesystem that preserves POSIX mode bits",
 )
 
+NEEDS_FOREIGN_STICKY_TMP: Final[pytest.MarkDecorator] = pytest.mark.skipif(
+    not CAPABILITIES["foreign-sticky-tmp"],
+    reason="a protocol directory of another account is refused only under a sticky parent this account does not own",
+)
+
 NEEDS_FILE_PERMISSIONS: Final[pytest.MarkDecorator] = pytest.mark.skipif(
     not CAPABILITIES["file-permissions"],
     reason="requires enforced file permissions",
@@ -75,6 +80,11 @@ NEEDS_POSIX_SIGNALS: Final[pytest.MarkDecorator] = pytest.mark.skipif(
 NEEDS_PROMPT_FINALIZATION: Final[pytest.MarkDecorator] = pytest.mark.skipif(
     not CAPABILITIES["prompt-finalization"],
     reason="a dropped reference does not run __del__ on a deferred collector",
+)
+
+NEEDS_PROMPT_SIGNAL_DELIVERY: Final[pytest.MarkDecorator] = pytest.mark.skipif(
+    not CAPABILITIES["prompt-signal-delivery"],
+    reason="this runtime runs a signal handler after raise_signal returns, so the signal escapes the call",
 )
 
 NEEDS_COLLECTED_FINALIZATION: Final[pytest.MarkDecorator] = pytest.mark.skipif(
@@ -118,6 +128,7 @@ __all__ = [
     "NEEDS_PARENT_SYMLINK_COLLAPSE",
     "NEEDS_POSIX_SIGNALS",
     "NEEDS_PROMPT_FINALIZATION",
+    "NEEDS_PROMPT_SIGNAL_DELIVERY",
     "NEEDS_REGISTER_AT_FORK",
     "NEEDS_SYMLINK",
     "NEEDS_UNLINK_OPEN_FILE",

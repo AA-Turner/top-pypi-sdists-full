@@ -20,10 +20,12 @@ input; the search lives in :mod:`nab_project._resolve.engine`.
 
 from __future__ import annotations
 
+import asyncio
 import itertools
 import logging
 import tempfile
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -33,7 +35,7 @@ from nab_provider._vendor.packaging.markers import Marker
 from nab_provider._vendor.packaging.ranges import VersionRange
 from nab_provider._vendor.packaging.utils import canonicalize_name
 from nab_provider.errors import ConfigError
-from nab_provider.marker_holds import dependency_marker_holds
+from nab_provider.marker_holds import DependencyMarkerEvaluator, dependency_marker_holds
 from nab_provider.pep508 import parse_requirement
 from nab_provider.provider import ListingFilterCache
 from nab_provider.requirements_file import (
@@ -147,8 +149,8 @@ def resolve_for_targets(  # noqa: PLR0913 - the knobs of a project resolve
     """Resolve the project at ``path`` for each of ``targets``.
 
     ``targets`` are the environments the host chose to resolve for and
-    ``inputs`` the settings it read out of the project.  ``transport`` is
-    the caller's, so the HTTP library choice stays outside nab-project;
+    ``inputs`` the settings it read out of the project.
+    This call owns ``transport`` and closes it even when preparation fails.
     ``cache_dir`` and ``offline`` are runtime overrides from the CLI.
     ``build_transport_factory`` creates fresh clients for build dependencies;
     omitting it selects urllib3 for those fetches.
@@ -169,44 +171,48 @@ def resolve_for_targets(  # noqa: PLR0913 - the knobs of a project resolve
     the first.  Everything else (an unreadable pyproject, a conflicting
     selection, an unsupported source) raises.
     """
-    inputs = ResolveInputs() if inputs is None else inputs
-    if build_requirements:
-        if groups or extras:
-            msg = "a build-requirements resolve has no groups or extras to select"
-            raise ValueError(msg)
-        inputs = inputs_for_build_requirements(inputs)
+    try:
+        inputs = ResolveInputs() if inputs is None else inputs
+        if build_requirements:
+            _validate_build_selection(groups, extras)
+            inputs = inputs_for_build_requirements(inputs)
 
-    tables = _project_tables(
-        path, build_group=inputs.build_group, build_requirements=build_requirements
-    )
+        tables = _project_tables(
+            path, build_group=inputs.build_group, build_requirements=build_requirements
+        )
 
-    # ``default-groups`` is project policy: a default install activates
-    # them, so they join the CLI selection.
-    effective_groups = active_group_names(
-        groups, inputs.default_groups, inputs.base_group, inputs.build_group
-    )
+        effective_groups = active_group_names(
+            groups, inputs.default_groups, inputs.base_group, inputs.build_group
+        )
 
-    forks, base_requirements = _plan_forks(
-        path,
-        tables,
-        inputs,
-        targets,
-        extras=tuple(extras),
-        groups=effective_groups,
-    )
+        forks, base_requirements = _plan_forks(
+            path,
+            tables,
+            inputs,
+            targets,
+            extras=tuple(extras),
+            groups=effective_groups,
+        )
 
-    with FetchCoordinator(
-        transport,
-        indexes=list(inputs.indexes),
-        cache_dir=cache_dir,
-        offline=offline,
-        index_routes=index_routes(inputs),
-        index_cache_floors=index_cache_floors(inputs),
-        on_fetch=progress.on_fetch if progress is not None else None,
-        build_config=inputs,
-        build_transport_factory=build_transport_factory,
-        max_concurrency=max_concurrency,
-    ) as coordinator:
+        coordinator_context = FetchCoordinator(
+            transport,
+            indexes=list(inputs.indexes),
+            cache_dir=cache_dir,
+            offline=offline,
+            index_routes=index_routes(inputs),
+            index_cache_floors=index_cache_floors(inputs),
+            on_fetch=progress.on_fetch if progress is not None else None,
+            build_config=inputs,
+            build_transport_factory=build_transport_factory,
+            max_concurrency=max_concurrency,
+        )
+    except BaseException:
+        # The caller may already be running an event loop on this thread.
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            executor.submit(asyncio.run, transport.aclose()).result()
+        raise
+
+    with coordinator_context as coordinator:
         return resolve_with_coordinator(
             coordinator,
             targets,
@@ -219,6 +225,13 @@ def resolve_for_targets(  # noqa: PLR0913 - the knobs of a project resolve
             release_refused_wheels=True,
             include_dependency_requirements=include_dependency_requirements,
         )
+
+
+def _validate_build_selection(groups: Sequence[str], extras: Sequence[str]) -> None:
+    """Reject group or extra selection for build requirements."""
+    if groups or extras:
+        msg = "a build-requirements resolve has no groups or extras to select"
+        raise ValueError(msg)
 
 
 def resolve_with_coordinator(  # noqa: PLR0913 - the knobs of a bare resolve
@@ -257,9 +270,9 @@ def resolve_with_coordinator(  # noqa: PLR0913 - the knobs of a bare resolve
     pass resolves them per target; pass it only when conflict forks ran.
 
     ``marker_holds`` decides whether a root requirement's marker holds for
-    a target's environment, defaulting to
-    :func:`~nab_provider.marker_holds.dependency_marker_holds`.  A host
-    with its own marker machinery passes that instead and keeps
+    a target's environment. Without one, roots use
+    :func:`~nab_provider.marker_holds.dependency_marker_holds` semantics.
+    A host with its own marker machinery passes that instead and keeps
     ``nab_markersets`` off the engine's path.
 
     ``release_refused_wheels`` drops the URL, hashes and sidecar
@@ -281,7 +294,7 @@ def resolve_with_coordinator(  # noqa: PLR0913 - the knobs of a bare resolve
                 else inputs.resolution
             ),
             marker_holds=(
-                dependency_marker_holds if marker_holds is None else marker_holds
+                DependencyMarkerEvaluator() if marker_holds is None else marker_holds
             ),
             progress=progress,
             include_dependency_requirements=include_dependency_requirements,

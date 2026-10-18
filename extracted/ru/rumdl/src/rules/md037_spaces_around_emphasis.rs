@@ -1,11 +1,11 @@
 /// Rule MD037: No spaces around emphasis markers
 ///
 /// See [docs/md037.md](../../docs/md037.md) for full documentation, configuration, and examples.
-use crate::filtered_lines::FilteredLinesExt;
-use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
+use crate::config::MarkdownFlavor;
+use crate::rule::{FixCapability, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::utils::emphasis_utils::{
-    EmphasisSpan, find_emphasis_markers, find_emphasis_spans, find_valid_emphasis_ranges, has_doc_patterns,
-    replace_inline_code, replace_inline_math,
+    EmphasisEdges, EmphasisMarker, find_emphasis_edges, find_emphasis_markers, find_valid_emphasis_ranges,
+    has_doc_patterns, replace_inline_code_cow, replace_inline_math_cow,
 };
 use crate::utils::kramdown_utils::has_span_ial;
 use crate::utils::range_utils::byte_to_char_count;
@@ -16,27 +16,8 @@ use std::ops::Range;
 
 /// Check if an emphasis span has spacing issues that should be flagged
 #[inline]
-fn has_spacing_issues(span: &EmphasisSpan) -> bool {
+fn has_spacing_issues(span: &EmphasisEdges) -> bool {
     span.has_leading_space || span.has_trailing_space
-}
-
-/// Flags marking which lines belong to a GFM table, indexed by 0-based line number.
-/// Empty when the document contains no table.
-fn table_line_flags(ctx: &crate::lint_context::LintContext) -> Vec<bool> {
-    if ctx.table_blocks.is_empty() {
-        return Vec::new();
-    }
-
-    let mut flags = vec![false; ctx.lines.len()];
-    // TableBlock line numbers are 0-indexed, matching this vector.
-    for block in &ctx.table_blocks {
-        for idx in block.start_line..=block.end_line {
-            if let Some(flag) = flags.get_mut(idx) {
-                *flag = true;
-            }
-        }
-    }
-    flags
 }
 
 /// Byte ranges of the cells in a table row.
@@ -45,12 +26,12 @@ fn table_line_flags(ctx: &crate::lint_context::LintContext) -> Vec<bool> {
 /// every cell is parsed as its own inline context, so a marker in one cell can
 /// never pair with a marker in the next. Scanning cells separately gives the
 /// line-level emphasis finder the boundaries the parser already uses.
-fn table_cell_ranges(line: &str) -> Vec<Range<usize>> {
+fn table_cell_ranges(line: &str, flavor: MarkdownFlavor) -> Vec<Range<usize>> {
     // Only an escape or a code span can hide a pipe from the split, so a row
     // containing neither is scanned as it stands. Masking copies the row.
     let masked;
     let scan = if line.contains('\\') || line.contains('`') {
-        let escaped = TableUtils::mask_pipes_for_table_parsing(line);
+        let escaped = TableUtils::mask_escaped_pipes(line, flavor);
         masked = TableUtils::mask_pipes_in_inline_code(&escaped);
         debug_assert_eq!(
             masked.len(),
@@ -103,21 +84,13 @@ impl Default for MD037NoSpaceInEmphasis {
 impl MD037NoSpaceInEmphasis {
     /// Check if a byte position is within a link (inline links, reference links, or reference definitions)
     fn is_in_link(&self, ctx: &crate::lint_context::LintContext, byte_pos: usize) -> bool {
-        // Check inline and reference links
-        for link in ctx.links() {
-            if link.byte_offset <= byte_pos && byte_pos < link.byte_end {
-                if link.is_reference && link.url.is_empty() {
-                    continue;
-                }
-                return true;
-            }
-        }
-
-        // Check images (which use similar syntax)
-        for image in ctx.images() {
-            if image.byte_offset <= byte_pos && byte_pos < image.byte_end {
-                return true;
-            }
+        if ctx.is_range_in_rendered_link(&(byte_pos..byte_pos + 1))
+            || ctx
+                .images()
+                .iter()
+                .any(|image| image.byte_offset <= byte_pos && byte_pos < image.byte_end)
+        {
+            return true;
         }
 
         // Check reference definitions [ref]: url "title" using pre-computed data (O(1) vs O(n))
@@ -131,7 +104,7 @@ impl MD037NoSpaceInEmphasis {
     /// which is a handful, rather than every span in the document.
     fn emphasis_span_ends(ctx: &crate::lint_context::LintContext) -> Vec<(usize, usize)> {
         let mut ends: Vec<(usize, usize)> = ctx
-            .emphasis_spans()
+            .source_emphasis_spans()
             .iter()
             .map(|span| (span.byte_end, span.byte_offset))
             .collect();
@@ -169,50 +142,30 @@ impl Rule for MD037NoSpaceInEmphasis {
     }
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
-        let content = ctx.content;
         let _timer = crate::profiling::ScopedTimer::new("MD037_check");
-        let has_html = content.contains('<');
+        let has_html = ctx.has_char('<');
 
         // Early return: if no emphasis markers at all, skip processing
-        if !content.contains('*') && !content.contains('_') {
+        if !ctx.has_char('*') && !ctx.has_char('_') {
             return Ok(vec![]);
         }
 
         // Source-location queries preserve correct offsets across all line ending types.
 
         let mut warnings = Vec::new();
-        let table_lines = table_line_flags(ctx);
 
         // Process content lines, automatically skipping front matter, code blocks, math blocks,
         // and Obsidian comments (when in Obsidian flavor)
         // Math blocks contain LaTeX syntax where _ and * have special meaning
-        for line in ctx
-            .filtered_lines()
-            .skip_front_matter()
-            .skip_code_blocks()
-            .skip_math_blocks()
-            .skip_html_blocks()
-            .skip_esm_blocks()
-            .skip_obsidian_comments()
-            .skip_mkdocstrings()
-        {
-            if line.line_info.is_myst_comment {
-                continue;
-            }
-            // Skip if the line doesn't contain any emphasis markers
-            if !line.content.contains('*') && !line.content.contains('_') {
-                continue;
-            }
-
-            let masked =
-                crate::utils::skip_context::mask_mdx_inline_code(ctx, line.content, line.line_info.byte_offset);
-            let line_content = masked.as_ref();
-            if table_lines.get(line.line_num - 1).copied().unwrap_or(false) {
+        for syntax in ctx.lexical_emphasis() {
+            let line_num = syntax.line_num;
+            let line_content = syntax.source();
+            if ctx.lines[line_num - 1].in_table_block {
                 // Each table cell is its own inline context, so scan cells separately.
                 // A marker in one cell can never pair with a marker in the next, and a
                 // cell holds inline content only (never a list item), so the line-level
                 // list-marker handling does not apply here.
-                for cell in table_cell_ranges(line_content) {
+                for cell in table_cell_ranges(line_content, ctx.flavor) {
                     let Some(cell_content) = line_content.get(cell.clone()) else {
                         continue;
                     };
@@ -222,13 +175,13 @@ impl Rule for MD037NoSpaceInEmphasis {
                     if has_doc_patterns(cell_content) {
                         continue;
                     }
-                    self.check_line_content_for_emphasis_fast(cell_content, line.line_num, cell.start, &mut warnings);
+                    self.check_line_content_for_emphasis_fast(cell_content, line_num, cell.start, &mut warnings);
                 }
                 continue;
             }
 
             // Check for emphasis issues on the original line
-            self.check_line_for_emphasis_issues_fast(line_content, line.line_num, &mut warnings);
+            self.check_line_for_emphasis_issues_fast(syntax, &mut warnings);
         }
 
         // Filter out warnings for emphasis markers that are inside links, HTML comments, math, or MkDocs markup
@@ -240,69 +193,60 @@ impl Rule for MD037NoSpaceInEmphasis {
             Self::emphasis_span_ends(ctx)
         };
 
-        for (line_idx, line) in lines.iter().enumerate() {
-            let line_num = line_idx + 1;
+        for warning in &warnings {
+            let line_num = warning.line;
+            let Some(line) = line_num.checked_sub(1).and_then(|index| lines.get(index)) else {
+                continue;
+            };
             let line_start_pos = ctx.line_start_byte(line_num).unwrap_or(0);
+            // `warning.column` is a byte offset within the line at this stage.
+            // Derive the byte position (for byte-based skip checks) and the
+            // character column (for char-based checks and the emitted warning).
+            let byte_pos = line_start_pos + (warning.column - 1);
+            // Calculate byte position within the line (0-indexed)
+            let line_pos = warning.column - 1;
+            let char_col = byte_to_char_count(line, warning.column - 1);
 
-            // Find warnings for this line
-            for warning in &warnings {
-                if warning.line == line_num {
-                    // `warning.column` is a byte offset within the line at this stage.
-                    // Derive the byte position (for byte-based skip checks) and the
-                    // character column (for char-based checks and the emitted warning).
-                    let byte_pos = line_start_pos + (warning.column - 1);
-                    // Calculate byte position within the line (0-indexed)
-                    let line_pos = warning.column - 1;
-                    let char_col = byte_to_char_count(line, warning.column - 1);
-
-                    // Skip if inside links, HTML comments, math contexts, code spans, MDX constructs, or MkDocs markup
-                    // Note: is_in_code_span uses pulldown-cmark and correctly handles multi-line spans
-                    // Pandoc bracketed spans `[text]{.class}` may contain spaced
-                    // emphasis markers as literal content; suppress MD037 there.
-                    // Subscripts/superscripts cannot contain whitespace per the
-                    // detector grammar, so MD037's spaced-emphasis warnings can
-                    // never land inside one.
-                    // A shortcode tag is an argument list read by a template, so
-                    // `*` and `_` in it are literal characters the template sees;
-                    // closing the spaces around them changes what it receives.
-                    let in_pandoc_construct = ctx.flavor.is_pandoc_compatible() && ctx.is_in_bracketed_span(byte_pos);
-                    let byte_end = line_start_pos + (warning.end_column - 1);
-                    let closing_pos = byte_end.saturating_sub(1);
-                    let marker_in_html = has_html
-                        && [byte_pos, closing_pos].into_iter().any(|pos| {
-                            ctx.is_in_html_comment(pos) || ctx.is_in_html_tag(pos) || ctx.is_in_jsx_component_tag(pos)
-                        });
-                    if !in_pandoc_construct
-                        && !marker_in_html
-                        && !ctx.is_in_jinja_string(byte_pos)
-                        && !ctx.is_in_jinja_string(closing_pos)
-                        && !Self::closes_earlier_emphasis(&span_ends, byte_pos, byte_end)
-                        && !self.is_in_link(ctx, byte_pos)
-                        && !ctx.is_in_shortcode(byte_pos)
-                        && !ctx.is_in_shortcode(closing_pos)
-                        && !is_in_math_context(ctx, byte_pos)
-                        && !ctx.is_in_code_span(line_num, char_col)
-                        // A marker on the opening line of a multiline code span
-                        // can appear to close emphasis that started outside code.
-                        && !ctx.is_in_code_span_byte(closing_pos)
-                        && !is_in_inline_html_code(line, line_pos)
-                        && !ctx.overlaps_mdx_inline_code(byte_pos, byte_end)
-                        && !is_in_mkdocs_markup(line, line_pos, ctx.flavor)
-                        && !ctx.is_position_in_obsidian_comment(line_num, char_col)
-                    {
-                        let mut adjusted_warning = warning.clone();
-                        // Emit character-based columns (byte-based skip checks done above).
-                        adjusted_warning.column = char_col;
-                        adjusted_warning.end_column = byte_to_char_count(line, warning.end_column - 1);
-                        if let Some(fix) = &mut adjusted_warning.fix {
-                            // Convert line-relative range to absolute range
-                            let abs_start = line_start_pos + fix.range.start;
-                            let abs_end = line_start_pos + fix.range.end;
-                            fix.range = abs_start..abs_end;
-                        }
-                        filtered_warnings.push(adjusted_warning);
-                    }
-                }
+            // Skip if inside links, HTML comments, math contexts, code spans, MDX constructs, or MkDocs markup
+            // Note: is_in_code_span uses pulldown-cmark and correctly handles multi-line spans
+            // Pandoc bracketed spans `[text]{.class}` may contain spaced
+            // emphasis markers as literal content; suppress MD037 there.
+            // Subscripts/superscripts cannot contain whitespace per the
+            // detector grammar, so MD037's spaced-emphasis warnings can
+            // never land inside one.
+            // A shortcode tag is an argument list read by a template, so
+            // `*` and `_` in it are literal characters the template sees;
+            // closing the spaces around them changes what it receives.
+            let in_pandoc_construct = ctx.flavor.is_pandoc_compatible() && ctx.is_in_bracketed_span(byte_pos);
+            let byte_end = line_start_pos + (warning.end_column - 1);
+            let closing_pos = byte_end.saturating_sub(1);
+            let marker_in_html = has_html
+                && [byte_pos, closing_pos].into_iter().any(|pos| {
+                    ctx.is_in_html_comment(pos) || ctx.is_in_html_tag(pos) || ctx.is_in_jsx_component_tag(pos)
+                });
+            if !in_pandoc_construct
+                && !marker_in_html
+                && !ctx.is_in_jinja_string(byte_pos)
+                && !ctx.is_in_jinja_string(closing_pos)
+                && !Self::closes_earlier_emphasis(&span_ends, byte_pos, byte_end)
+                && !self.is_in_link(ctx, byte_pos)
+                && !ctx.is_in_shortcode(byte_pos)
+                && !ctx.is_in_shortcode(closing_pos)
+                && !is_in_math_context(ctx, byte_pos)
+                && !ctx.is_in_code_span(line_num, char_col)
+                // A marker on the opening line of a multiline code span
+                // can appear to close emphasis that started outside code.
+                && !ctx.is_in_code_span_byte(closing_pos)
+                && !is_in_inline_html_code(line, line_pos)
+                && !ctx.overlaps_mdx_inline_code(byte_pos, byte_end)
+                && !is_in_mkdocs_markup(line, line_pos, ctx.flavor)
+                && !ctx.is_position_in_obsidian_comment(line_num, char_col)
+            {
+                let mut adjusted_warning = warning.clone();
+                // Emit character-based columns (byte-based skip checks done above).
+                adjusted_warning.column = char_col;
+                adjusted_warning.end_column = byte_to_char_count(line, warning.end_column - 1);
+                filtered_warnings.push(adjusted_warning);
             }
         }
 
@@ -310,49 +254,13 @@ impl Rule for MD037NoSpaceInEmphasis {
     }
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
-        let content = ctx.content;
-        let _timer = crate::profiling::ScopedTimer::new("MD037_fix");
+        Ok(ctx.content.to_string())
+    }
 
-        // Fast path: if no emphasis markers, return unchanged
-        if !content.contains('*') && !content.contains('_') {
-            return Ok(content.to_string());
-        }
-
-        // First check for issues and get all warnings with fixes
-        let warnings = self.check(ctx)?;
-        let warnings =
-            crate::utils::fix_utils::filter_warnings_by_inline_config(warnings, ctx.inline_config(), self.name());
-
-        // If no warnings, return original content
-        if warnings.is_empty() {
-            return Ok(content.to_string());
-        }
-
-        // Apply fixes
-        let mut result = content.to_string();
-        let mut offset: isize = 0;
-
-        // Sort warnings by position to apply fixes in the correct order
-        let mut sorted_warnings: Vec<_> = warnings.iter().filter(|w| w.fix.is_some()).collect();
-        sorted_warnings.sort_by_key(|w| (w.line, w.column));
-
-        for warning in sorted_warnings {
-            if let Some(fix) = &warning.fix {
-                // Apply fix with offset adjustment
-                let actual_start = (fix.range.start as isize + offset) as usize;
-                let actual_end = (fix.range.end as isize + offset) as usize;
-
-                // Make sure we're not out of bounds
-                if actual_start < result.len() && actual_end <= result.len() {
-                    // Replace the text
-                    result.replace_range(actual_start..actual_end, &fix.replacement);
-                    // Update offset for future replacements
-                    offset += fix.replacement.len() as isize - (fix.range.end - fix.range.start) as isize;
-                }
-            }
-        }
-
-        Ok(result)
+    fn fix_capability(&self) -> FixCapability {
+        // Spaced delimiter pairs are literal text under CommonMark. Removing
+        // their whitespace creates emphasis and can change the author's meaning.
+        FixCapability::Unfixable
     }
 
     /// Get the category of this rule for selective processing
@@ -380,7 +288,13 @@ impl Rule for MD037NoSpaceInEmphasis {
 impl MD037NoSpaceInEmphasis {
     /// Optimized line checking for emphasis spacing issues
     #[inline]
-    fn check_line_for_emphasis_issues_fast(&self, line: &str, line_num: usize, warnings: &mut Vec<LintWarning>) {
+    fn check_line_for_emphasis_issues_fast(
+        &self,
+        syntax: crate::lint_context::EmphasisLine<'_>,
+        warnings: &mut Vec<LintWarning>,
+    ) {
+        let line = syntax.source();
+        let line_num = syntax.line_num;
         // Quick documentation pattern checks
         if has_doc_patterns(line) {
             return;
@@ -408,8 +322,17 @@ impl MD037NoSpaceInEmphasis {
             return;
         }
 
-        // Check the entire line
-        self.check_line_content_for_emphasis_fast(line, line_num, 0, warnings);
+        // Reuse the code mask and delimiter scan shared with MD049. Math is
+        // intentionally MD037-specific; rescan only when it changes the text.
+        let processed = replace_inline_math_cow(syntax.without_code());
+        let fresh_markers;
+        let markers = if matches!(processed, std::borrow::Cow::Borrowed(_)) {
+            syntax.markers
+        } else {
+            fresh_markers = find_emphasis_markers(&processed);
+            &fresh_markers
+        };
+        self.check_prepared_content(line, &processed, markers, line_num, 0, warnings);
     }
 
     /// Optimized line content checking for emphasis issues
@@ -422,23 +345,33 @@ impl MD037NoSpaceInEmphasis {
     ) {
         // Replace inline code and inline math to avoid false positives
         // with emphasis markers inside backticks or dollar signs
-        let processed_content = replace_inline_code(content);
-        let processed_content = replace_inline_math(&processed_content);
-
-        // Find all emphasis markers using optimized parsing
+        let code_masked = replace_inline_code_cow(content);
+        let processed_content = replace_inline_math_cow(&code_masked);
         let markers = find_emphasis_markers(&processed_content);
+        self.check_prepared_content(content, &processed_content, &markers, line_num, offset, warnings);
+    }
+
+    fn check_prepared_content(
+        &self,
+        content: &str,
+        processed_content: &str,
+        markers: &[EmphasisMarker],
+        line_num: usize,
+        offset: usize,
+        warnings: &mut Vec<LintWarning>,
+    ) {
         if markers.is_empty() {
             return;
         }
 
         // Find valid emphasis spans
-        let spans = find_emphasis_spans(&processed_content, &markers);
+        let spans = find_emphasis_edges(processed_content, markers);
 
         // Byte ranges that are genuine CommonMark emphasis. A spaced span that
         // falls entirely inside one of these is not "spaces inside emphasis
         // markers" but the interior of valid emphasis containing a literal
         // marker (e.g. `*foo * bar*`), which the greedy finder above mispairs.
-        let valid_ranges = find_valid_emphasis_ranges(&processed_content, &markers);
+        let valid_ranges = find_valid_emphasis_ranges(processed_content, markers);
 
         // Check each span for spacing issues
         for span in spans {
@@ -466,24 +399,6 @@ impl MD037NoSpaceInEmphasis {
                     }
                 }
 
-                // Create the marker string efficiently
-                let marker_char = span.opening.as_char();
-                let marker_str = if span.opening.count == 1 {
-                    marker_char.to_string()
-                } else {
-                    format!("{marker_char}{marker_char}")
-                };
-
-                // Create the fixed version by trimming spaces from content.
-                // Slice the content from the *original* line, not from the
-                // code/math-masked copy: `span.content` would contain the 'X'/'M'
-                // placeholders, which must never leak into the generated fix.
-                // Masking is length-preserving, so the span byte offsets are
-                // valid in `content`.
-                let original_content = &content[span.opening.end_pos()..span.closing.start_pos];
-                let trimmed_content = original_content.trim();
-                let fixed_text = format!("{marker_str}{trimmed_content}{marker_str}");
-
                 // Truncate long emphasis spans for readable warning messages
                 let display_text = truncate_for_display(full_text, 60);
 
@@ -498,7 +413,7 @@ impl MD037NoSpaceInEmphasis {
                     end_line: line_num,
                     end_column: offset + full_end + 1,
                     severity: Severity::Warning,
-                    fix: Some(Fix::new((offset + full_start)..(offset + full_end), fixed_text)),
+                    fix: None,
                 };
 
                 warnings.push(warning);
@@ -511,15 +426,15 @@ impl MD037NoSpaceInEmphasis {
 mod tests {
     use super::*;
     use crate::lint_context::LintContext;
+    use crate::utils::emphasis_utils::find_emphasis_spans;
 
     #[test]
     fn test_marker_inside_shortcode_cannot_close_spaced_emphasis() {
         let rule = MD037NoSpaceInEmphasis;
         let source = "Before * text {{< note title=\"*\" >}}\n\nBefore * visible *\n";
-        let expected = "Before * text {{< note title=\"*\" >}}\n\nBefore *visible*\n";
         let ctx = LintContext::new(source, crate::config::MarkdownFlavor::Hugo, None);
         assert_eq!(rule.check(&ctx).unwrap().len(), 1);
-        assert_eq!(rule.fix(&ctx).unwrap(), expected);
+        assert_eq!(rule.fix(&ctx).unwrap(), source);
     }
 
     #[test]
@@ -527,12 +442,11 @@ mod tests {
         let rule = MD037NoSpaceInEmphasis;
         for prefix in ["% ", "%", "  %\t", "   % "] {
             let source = format!("{prefix}* literal *\n\nBefore * visible *\n");
-            let expected = format!("{prefix}* literal *\n\nBefore *visible*\n");
             let ctx = crate::lint_context::LintContext::new(&source, crate::config::MarkdownFlavor::MyST, None);
             let warnings = rule.check(&ctx).unwrap();
             assert_eq!(warnings.len(), 1, "comments are not visible prose: {source}");
             assert_eq!(warnings[0].line, 3);
-            assert_eq!(rule.fix(&ctx).unwrap(), expected);
+            assert_eq!(rule.fix(&ctx).unwrap(), source);
         }
     }
 
@@ -547,14 +461,13 @@ mod tests {
             r#"* text {{ "*" }}"#,
         ] {
             let source = format!("Before {template}\n\nBefore * visible *\n");
-            let expected = format!("Before {template}\n\nBefore *visible*\n");
             let ctx = LintContext::new(&source, crate::config::MarkdownFlavor::Standard, None);
             assert_eq!(
                 rule.check(&ctx).unwrap().len(),
                 1,
                 "quoted markers are literal: {source}"
             );
-            assert_eq!(rule.fix(&ctx).unwrap(), expected);
+            assert_eq!(rule.fix(&ctx).unwrap(), source);
         }
     }
 
@@ -567,12 +480,11 @@ mod tests {
             "import text from \"./* literal *.js\"",
         ] {
             let source = format!("{module}\n\nBefore * visible *\n");
-            let expected = format!("{module}\n\nBefore *visible*\n");
             let ctx = LintContext::new(&source, crate::config::MarkdownFlavor::MDX, None);
             let warnings = rule.check(&ctx).unwrap();
             assert_eq!(warnings.len(), 1, "module strings must stay literal: {source}");
             assert!(warnings[0].line > module.lines().count());
-            assert_eq!(rule.fix(&ctx).unwrap(), expected);
+            assert_eq!(rule.fix(&ctx).unwrap(), source);
         }
     }
 
@@ -596,13 +508,13 @@ mod tests {
     }
 
     #[test]
-    fn test_spaced_emphasis_beside_html_attributes_still_gets_fixed() {
+    fn test_spaced_emphasis_beside_html_attributes_still_reported() {
         let rule = MD037NoSpaceInEmphasis;
         let source = "Before <span title=\"* literal *\">* visible *</span> <!-- * hidden * -->\n";
         let expected = "Before <span title=\"* literal *\">*visible*</span> <!-- * hidden * -->\n";
         let ctx = LintContext::new(source, crate::config::MarkdownFlavor::Standard, None);
         assert_eq!(rule.check(&ctx).unwrap().len(), 1);
-        assert_eq!(rule.fix(&ctx).unwrap(), expected);
+        assert_eq!(rule.fix(&ctx).unwrap(), source);
         let fixed_ctx = LintContext::new(expected, crate::config::MarkdownFlavor::Standard, None);
         assert!(rule.check(&fixed_ctx).unwrap().is_empty());
     }
@@ -627,7 +539,7 @@ mod tests {
     }
 
     #[test]
-    fn test_real_spaced_emphasis_beside_multiline_code_is_fixed() {
+    fn test_spaced_emphasis_beside_multiline_code_requires_manual_correction() {
         let rule = MD037NoSpaceInEmphasis;
         let source = "Before ** text `code **\nend` and * real *\n";
         let expected = "Before ** text `code **\nend` and *real*\n";
@@ -635,7 +547,7 @@ mod tests {
         let warnings = rule.check(&ctx).unwrap();
         assert_eq!(warnings.len(), 1);
         assert_eq!(warnings[0].line, 2);
-        assert_eq!(rule.fix(&ctx).unwrap(), expected);
+        assert_eq!(rule.fix(&ctx).unwrap(), source);
         let fixed_ctx = LintContext::new(expected, crate::config::MarkdownFlavor::Standard, None);
         assert!(rule.check(&fixed_ctx).unwrap().is_empty());
         assert_eq!(rule.fix(&fixed_ctx).unwrap(), expected);
@@ -655,8 +567,8 @@ mod tests {
     fn table_cell_ranges_unmasked_scan_matches_masked_scan() {
         // Rows without an escape or a code span skip the masking copy. Both
         // paths must split a row into the same cells.
-        fn always_masked(line: &str) -> Vec<Range<usize>> {
-            let escaped = TableUtils::mask_pipes_for_table_parsing(line);
+        fn always_masked(line: &str, flavor: MarkdownFlavor) -> Vec<Range<usize>> {
+            let escaped = TableUtils::mask_escaped_pipes(line, flavor);
             let masked = TableUtils::mask_pipes_in_inline_code(&escaped);
             let mut ranges = Vec::new();
             let mut start = 0;
@@ -680,9 +592,16 @@ mod tests {
             "| `a | b` | c |",
             r"| `a \| b` | c |",
             r"| a \\ | b |",
+            r"| a \\| b | c |",
             "> | a * x * | b |",
         ] {
-            assert_eq!(table_cell_ranges(line), always_masked(line), "line: {line:?}");
+            for flavor in [MarkdownFlavor::Standard, MarkdownFlavor::MkDocs] {
+                assert_eq!(
+                    table_cell_ranges(line, flavor),
+                    always_masked(line, flavor),
+                    "line: {line:?} flavor: {flavor:?}"
+                );
+            }
         }
     }
 
@@ -739,16 +658,26 @@ mod tests {
     }
 
     #[test]
-    fn test_inline_code_inside_spaced_emphasis_preserved_on_fix() {
-        // Regression test: inline code inside a spaced emphasis span must survive the
-        // space-trimming fix. Previously the 'X' masking placeholder leaked into
-        // the fix output, destroying the code span.
+    fn test_spaced_literal_markers_preserve_embedded_inline_code() {
+        // Ambiguous spacing must remain literal, including embedded inline code.
         let rule = MD037NoSpaceInEmphasis;
         let content = "Set * the `id` field * below.";
         let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
-        assert_eq!(fixed, "Set *the `id` field* below.");
-        assert!(!fixed.contains('X'), "masking placeholder leaked into fix: {fixed}");
+        assert_eq!(fixed, content);
+    }
+
+    #[test]
+    fn unresolved_spaced_reference_still_warns_while_rendered_links_do_not() {
+        let rule = MD037NoSpaceInEmphasis;
+        for (source, expected) in [
+            ("[ * spaced * ][unknown]\n", 1),
+            ("[ * spaced * ](url)\n", 0),
+            ("![ * spaced * ](url)\n", 0),
+        ] {
+            let ctx = LintContext::new(source, crate::config::MarkdownFlavor::Standard, None);
+            assert_eq!(rule.check(&ctx).unwrap().len(), expected, "{source:?}");
+        }
     }
 
     #[test]
@@ -1472,10 +1401,9 @@ mod mdx_adjacent_prose_tests {
         ] {
             for ending in ["\n", "\r\n"] {
                 let source = format!("内容 Before {code} after * visible *{ending}");
-                let expected = format!("内容 Before {code} after *visible*{ending}");
                 let ctx = crate::lint_context::LintContext::new(&source, crate::config::MarkdownFlavor::MDX, None);
                 assert_eq!(rule.check(&ctx).unwrap().len(), 1, "{source}");
-                assert_eq!(rule.fix(&ctx).unwrap(), expected);
+                assert_eq!(rule.fix(&ctx).unwrap(), source);
             }
         }
     }

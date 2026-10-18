@@ -16,6 +16,7 @@ from itertools import chain
 from typing import ClassVar
 
 from pyhanko.pdf_utils import generic, misc
+from pyhanko.pdf_utils.decode_limits import DecodePurpose
 from pyhanko.pdf_utils.generic import EncryptedObjAccess, pdf_name
 from pyhanko.pdf_utils.misc import PdfReadError, PdfStrictReadError, peek
 from pyhanko.pdf_utils.rw_common import PdfHandler
@@ -208,6 +209,16 @@ def parse_xref_table(stream, strict: bool) -> Iterator[XRefEntry]:
             stream.seek(-7, os.SEEK_CUR)
 
 
+def _expected_xref_stream_size(idx_pairs, entry_sizes) -> int | None:
+    try:
+        entry_count = sum(size for _, size in misc.pair_iter(idx_pairs))
+        # allow for a PNG predictor tag byte on every row
+        return entry_count * (sum(entry_sizes) + 1)
+    except (TypeError, ValueError):
+        # leave it to the parser to complain
+        return None
+
+
 def parse_xref_stream(
     xref_stream: generic.StreamObject, strict: bool = True
 ) -> Iterator[XRefEntry]:
@@ -224,11 +235,16 @@ def parse_xref_stream(
         A generator object yielding :class:`.XRefEntry` objects.
     """
 
-    stream_data = BytesIO(xref_stream.data)
     # Index pairs specify the subsections in the dictionary. If
     # none create one subsection that spans everything.
     idx_pairs = xref_stream.get("/Index", [0, xref_stream.get("/Size")])
     entry_sizes = xref_stream.get("/W")
+    stream_data = BytesIO(
+        xref_stream.read_data(
+            DecodePurpose.XREF_STREAM,
+            expected_size=_expected_xref_stream_size(idx_pairs, entry_sizes),
+        )
+    )
 
     def get_entry(ix):
         # Reads the correct number of bytes for each entry. See the
@@ -652,6 +668,17 @@ def _check_xref_consistency(all_sections: list[XRefSection]):
                 )
 
 
+def _prev(trailer: generic.DictionaryObject):
+    prev_startxref = trailer.get('/Prev')
+    if prev_startxref is not None and not isinstance(
+        prev_startxref, generic.NumberObject
+    ):
+        raise misc.PdfReadError(
+            f"Expected /Prev to be a number, not {prev_startxref!r}"
+        )
+    return prev_startxref
+
+
 class XRefBuilder:
     err_limit = 10
 
@@ -702,7 +729,7 @@ class XRefBuilder:
         self.sections.append(XRefSection(xref_meta_info, xref_section_data))
 
         self.trailer.add_trailer_revision(xrefstream)
-        return xrefstream.get('/Prev')
+        return _prev(xrefstream)
 
     def _read_xref_table(self, declared_startxref: int):
         stream = self.stream
@@ -771,7 +798,7 @@ class XRefBuilder:
         self.sections.append(XRefSection(xref_meta_info, xref_section_data))
 
         self.trailer.add_trailer_revision(new_trailer)
-        return new_trailer.get('/Prev')
+        return _prev(new_trailer)
 
     def read_xrefs(self):
         # read all cross reference tables and their trailers
@@ -780,7 +807,15 @@ class XRefBuilder:
         # Tracks the number of times we retried to read a particular xref
         # section
         err_count = 0
+        startxrefs_seen = set()
         while startxref is not None:
+            # Would be even better if we could just verify that
+            # /Prev always comes before the current startxref,
+            # but unfortunately Linearised PDF relies on being able to
+            # have forward-referencing /Prev pointers...
+            if startxref in startxrefs_seen:
+                raise PdfReadError(f"startxref loop detected at {startxref}")
+            startxrefs_seen.add(startxref)
             if (self.strict and err_count) or err_count > self.err_limit:
                 raise PdfStrictReadError("Failed to locate xref section")
             if not err_count:

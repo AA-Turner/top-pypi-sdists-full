@@ -18,7 +18,7 @@ from . import battlescreen  # noqa: F401
 from . import jogressscreen  # noqa: F401
 from . import menu  # noqa: F401
 from . import persistence  # noqa: F401
-from .net import ANNOUNCE, CHAT_CAP  # noqa: F401
+from .net import ANNOUNCE, CHAT_CAP, clean_remote, mentioned_names  # noqa: F401
 from .render import marquee  # noqa: F401
 from .theme import INK, INK_B, DIM, SEL  # noqa: F401  (theme.apply propagation)
 
@@ -62,14 +62,14 @@ HINTS_OPEN = "ENTER send/act · TAB ranks · ESC leave"
 
 def _fit(s, w):
     """Pad or truncate to exactly `w` DISPLAY CELLS (never characters)."""
-    return set_cell_size(str(s), w)
+    return set_cell_size(clean_remote(s), w)
 
 
 def _wrap(s, w):
     """Word-wrap `s` into lines of <= w CELLS, hard-splitting any over-long word.
     A wide glyph is never split down the middle -- chop_cells keeps it whole."""
     out, line = [], ""
-    for word in str(s).split(" "):
+    for word in clean_remote(s).split(" "):
         while cell_len(word) > w:
             if line:
                 out.append(line); line = ""
@@ -153,7 +153,7 @@ class ChatMixin:
         me = (s.me_name or "you") if s else "you"
         w = CHATW + ROSTW + 1
         t = Text()
-        t.append(_fit(f"✉ {peer}", w) + "\n", style=INK_B)
+        t.append(_fit("✉ " + menu.ellipsis(peer, w - 2), w) + "\n", style=INK_B)
         rows = []
         for frm, tx in (s.dms.get(peer, []) if s else []):
             mine = frm == me
@@ -177,7 +177,7 @@ class ChatMixin:
             view[body // 2] = ("— no messages yet — say hi —"[:w], DIM)
         for ln, sty in view:
             t.append(_fit(ln, w) + "\n", style=sty)
-        label = f"→{peer[:8]}: "
+        label = f"→{menu.ellipsis(peer, 8)}: "
         # CELLS, like the main composer 120 lines down -- this line was the one
         # input in the file still measuring characters, so the cell-width law
         # in the module header held everywhere except the DM box (2026-08-12)
@@ -230,7 +230,10 @@ class ChatMixin:
             else:
                 pm = str(nm).startswith("✉")
                 mine = bool(me) and (nm == me or str(nm).startswith("✉→"))
-                mention = bool(me) and me.lower() in str(tx).lower()
+                names = [p.get("name", "") for p in s.roster] + [me]
+                # a bare name still highlights (pre-@ behaviour); @name also pings
+                mention = bool(me) and (me.lower() in str(tx).lower()
+                                        or me.lower() in mentioned_names(str(tx), names))
                 # mine first: my own echo (chat or ✉→ PM) always reads dim
                 sty = DIM if mine else (INK_B if (pm or mention) else INK)
                 parts = _wrap(f"{nm}: {tx}", cw - 1)
@@ -274,14 +277,20 @@ class ChatMixin:
         for ln, sty in view:
             t.append(_fit(ln, w) + "\n", style=sty)
         if self.pm_to is not None:                           # the input line is a PM compose
-            label = f"✉{self.pm_to[1][:8]}: "
+            label = f"✉{menu.ellipsis(self.pm_to[1], 8)}: "
         else:
             label = "say: "
         t.append(label, style=INK_B)
         fw = w - cell_len(label)
         shown = self.buf if cell_len(self.buf) < fw else _tail_cells(self.buf, fw - 1)
         caret = "_" if (getattr(self, "_mq", 0) // 5) % 2 == 0 else " "
-        t.append(_fit(shown + caret, fw) + "\n", style=INK)
+        hint = self._mention_hint() if hasattr(self, "_mention_hint") else ""
+        if hint and cell_len(shown + hint) < fw:
+            # @g -> dim "abe": TAB or → accepts it (phones never find TAB alone)
+            t.append(shown, style=INK)
+            t.append(_fit(hint + caret, fw - cell_len(shown)) + "\n", style=DIM)
+        else:
+            t.append(_fit(shown + caret, fw) + "\n", style=INK)
         # THE LAST LINE HAS ONE JOB: say what just happened.  An invite is the
         # one thing allowed to take it -- it is a question the room is asking
         # you right now, and it expires.  (Text.append does not parse markup,
@@ -312,5 +321,5 @@ class ChatMixin:
                                        or "reconnecting" in line or "Retrying" in line):
                 # liveness: the static wait line read as a hang (QOL 2026-07-23)
                 line = line[:-1] + "." * (1 + (mq // 5) % 3)
-            t.append(line[:w], style=DIM)
+            t.append(_fit(line, w), style=DIM)
         return t

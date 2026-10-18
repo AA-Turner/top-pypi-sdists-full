@@ -27,10 +27,10 @@ classifiers =[
 
 dependencies = [
   'numpy',
-  'scipy>=1.15',
+  'scipy>=1.18',
   'rich',
   'threadpoolctl',
-  'joblib',
+  'joblib>=1.4',
   'pandas'
 ]
 

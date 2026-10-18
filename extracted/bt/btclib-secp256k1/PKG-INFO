@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: btclib-secp256k1
-Version: 0.8.0.11
+Version: 0.8.0.12
 Summary: Simple python bindings to libsecp256k1
 Project-URL: homepage, https://btclib-secp256k1.readthedocs.io
 Project-URL: documentation, https://btclib-secp256k1.readthedocs.io
@@ -449,17 +449,24 @@ these is past the boundary that proves things. The trailing one says
 which kind of private — `_verify_` takes a parsed key where `_parse_der`
 is an ordinary helper.
 
-**A private half does not read that callback**, and what it answers when
-libsecp256k1 refuses its object is therefore whatever the C call
+**Most private halves do not read that callback**, and what one answers
+when libsecp256k1 refuses its object is therefore whatever the C call
 answered: its own exception where a return code allowed one, and
-otherwise a value that means nothing — `False` from a verification, an
-ordering from a comparison, `None` from a sum, and, in `ecdh`, 32 bytes
-that are a shared secret with nobody. Nothing raises in those four.
+otherwise a value that means nothing — `False` from a verification, or
+an ordering from a comparison. Nothing raises in those two.
 `context.check()` immediately after the call is what says so, and
 proving the object once — `keys.parse` built it, or `keys.pubkey_verify`
 answered for the octets it came from — is what makes the question moot.
 The public half has no such case, having parsed its own octets, and that
 is the whole of what a caller gives up by reaching past it.
+
+**`keys._pubkey_sum_`, `keys._pubkey_combine_`, `keys._pubkey_sort_`,
+`ecdh._shared_secret_` and `ecdh._shared_point_` are the exception.**
+libsecp256k1 adds, multiplies or sorts a key it cannot read and answers
+what looks like a result, a point, 32 bytes or an ordering. These read
+the callback instead, and raise its
+message as `ValueError`, leaving nothing on the thread for
+`context.check()`.
 
 ```python
 >>> ecdsa_sig = dsa.sign(msg, prvkey)
@@ -1176,7 +1183,9 @@ it would do the opposite -- a python call per 64-byte block, in the
 innermost loop of every hash the library computes -- so what it is for is
 unreachable through these bindings and what it would be is a way to make
 them slow. It remains available through `lib` for a caller who has a C
-function pointer to give it.
+function pointer to give it. The function that pointer names processes
+secrets such as secret keys, so it must run in constant time with
+respect to its input and must not keep or log it.
 
 MuSig2 is wrapped, in `musig`. What its two-round protocol needs is a
 session whose secret nonce cannot be reused, and that is a property of
@@ -1216,9 +1225,10 @@ A call made through `lib` directly -- which `musig`'s own functions are,
 underneath, and which a caller reaching past them is free to make too --
 has no argument validation in front of it, so libsecp256k1 is the only
 thing checking its preconditions: it reports a violated one through a
-callback of the context and returns 0, leaving nothing in the return
-value to say what happened. `context.check()` raises what was reported,
-the failed precondition verbatim, and is meant to follow such a call:
+callback of the context and, in most calls, returns 0, leaving nothing
+in the return value to say what happened. `context.check()` raises what
+was reported, the failed precondition verbatim, and is meant to follow
+such a call:
 
 ```python
 if not lib.secp256k1_musig_partial_sign(ctx, psig, secnonce, ...):
@@ -1395,9 +1405,9 @@ is what its toolchain compiles the extension for, and not for the one of
 the host, which is what CMake would otherwise pick. The two differ
 whenever the interpreter is emulated, and on Windows arm64 that is the
 default case rather than an exotic one; the same holds for a universal2
-interpreter on macOS, which needs both architectures in the archive it
-links. The `win_arm64` wheels start at CPython 3.11, the first version
-with a Windows arm64 build.
+interpreter on macOS building a universal2 target, which needs both
+architectures in the archive it links. The `win_arm64` wheels start at
+CPython 3.11, the first version with a Windows arm64 build.
 The dynamic (ABI mode) Windows wheel is instead cross-compiled on Linux
 with mingw-w64, through the vendored CMake toolchain file, and is
 x86_64 only.

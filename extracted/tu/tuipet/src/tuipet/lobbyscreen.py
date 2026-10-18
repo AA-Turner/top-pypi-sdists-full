@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import random          # (hashlib left with the commit -- lobbybout owns it now)
 
-from rich.text import Text
 from rich.cells import cell_len, set_cell_size
 
 import time
@@ -106,6 +105,7 @@ class LobbyPanel(BoutMixin, ChatMixin):
         self.action_for = None
         self.pm_to = None              # (id, name): the input line is a PM compose
         self.invite_prompt = None
+        self._invite_times = {}
         self._sent_invites = set()     # (pid, kind) awaiting a response: an
         #                                invite_resp with no entry here is a
         #                                forgery and is dropped (a crafted
@@ -396,7 +396,7 @@ class LobbyPanel(BoutMixin, ChatMixin):
         s = self.state
         if not s:
             return
-        received = getattr(s, "pm_received", 0)
+        received = getattr(s, "pm_received", 0) + getattr(s, "mentions_received", 0)
         if received > getattr(self, "_pm_received", 0):
             self._feedback("menu")
         self._pm_received = received
@@ -405,7 +405,20 @@ class LobbyPanel(BoutMixin, ChatMixin):
             # it lands -- net.py badges every PM blind, and the badge used to
             # survive the very conversation you watched arrive (round 30)
             s.unread.discard(self.dm_peer[1])
+        now = time.monotonic()
+        peers = {p["id"] for p in s.roster}
+        for key in list(self._sent_invites):
+            if key[0] not in peers or now - self._invite_times.setdefault(key, now) >= 60:
+                self._sent_invites.discard(key)
+                self._invite_times.pop(key, None)
+        if self.invite_prompt and not self._invite_valid(self.invite_prompt):
+            self.invite_prompt = None
+            self.status = "Invite expired or player left."
         for m in list(s.inbox):
+            if m.get("t") == "invite" and not self._invite_valid(m):
+                self.client.respond(m.get("from_id"), m.get("kind"), False)
+                s.inbox.remove(m)
+                continue
             t = m.get("t")
             if t == "invite":
                 if m.get("kind") not in ("jogress", "battle"):
@@ -448,7 +461,7 @@ class LobbyPanel(BoutMixin, ChatMixin):
                     continue        # a response to an invite never sent: forged
                 self._sent_invites.discard(rk)
                 if m.get("accept"):
-                    if self.phase == "lobby":
+                    if self.phase == "lobby" and not self._session_gate(m.get("kind")):
                         self._enter_session(m.get("from_id"), m.get("from_name", "?"), m.get("kind"), host=True)
                     else:                                  # already busy -> free the accepter
                         self.client.relay(m.get("from_id"), {"kind": m.get("kind"), "abort": True})
@@ -602,9 +615,11 @@ class LobbyPanel(BoutMixin, ChatMixin):
         if had_partner and self.client:
             self.client.update_pet(self._card())
     def _on_relay(self, m):
-        if not self.partner or m.get("from_id") != self.partner[0]:
+        if not isinstance(m, dict) or not self.partner or m.get("from_id") != self.partner[0]:
             return
-        payload = m.get("payload") or {}
+        payload = m.get("payload")
+        if not isinstance(payload, dict) or ("card" in payload and not isinstance(payload["card"], dict)):
+            return
         kind = payload.get("kind")
         if payload.get("abort"):                       # partner cancelled / got busy
             if self.phase == "jogress" and self.jphase == "waiting":
@@ -740,21 +755,18 @@ class LobbyPanel(BoutMixin, ChatMixin):
         """The monthly rankings: online PvP wins, top ten, your rank, and the
         days left in the season.  Data is the server's ladder message; a page
         opened before the reply shows a fetching line and fills in live."""
-        t = Text()
         lad = getattr(self.client, "ladder", None) if self.client else None
+        t = menu.header("LADDER", "season " + str(lad.get("season", "?")) if lad else "")
         if not lad:
-            t.append("  LADDER\n\n", style=INK_B)
             if self._ladder_stalled():
-                t.append("  couldn't reach the ladder —\n", style=DIM)
-                t.append("  TAB retry · ESC back\n", style=DIM)
+                t.append("  couldn't reach the ladder —\n  TAB retry\n", style=DIM)
             else:
                 t.append("  fetching the rankings…\n", style=DIM)
-            return t
-        t.append(f"  LADDER  season {lad.get('season', '?')}\n", style=INK_B)
+            return menu.page(t)
+
         # no blank separator rows: header + tagline + top-8 + you + season is
         # EXACTLY the 12-row LCD -- the old blanks pushed "you: rank" and
         # "season resets" (the page's whole point) off the box (round 30)
-        t.append("  online wins set your ladder score\n", style=DIM)
         top = list(lad.get("top") or [])[:8]
         you_rank, you_wins = (lad.get("you") or [0, 0])[:2]
         if not top:
@@ -769,7 +781,7 @@ class LobbyPanel(BoutMixin, ChatMixin):
             prefix = f"  {'▸' if mine else ' '}{i:>2}. "
             tail = f" {int(wins):>3}W"
             budget = max(0, min(16, COLS - cell_len(prefix + tail)))
-            name = set_cell_size(menu._clip(str(who), budget), budget)
+            name = set_cell_size(menu.ellipsis(who, budget), budget)
             t.append(prefix + name + tail + "\n",
                      style=INK_B if mine else INK)
         if you_rank:
@@ -788,10 +800,21 @@ class LobbyPanel(BoutMixin, ChatMixin):
                 return ("done", None)            # Esc -> leave the lobby
             self._connect(*r[1])
         return None
+    def _invite_valid(self, inv):
+        received = inv.setdefault("_received", time.monotonic())
+        return (time.monotonic() - received < 60 and self.state is not None
+                and any(p["id"] == inv.get("from_id") for p in self.state.roster))
+
     def _key_lobby(self, k):
         if self.invite_prompt is not None:
             inv = self.invite_prompt
             if k in ("y", "Y"):
+                gate = self._session_gate(inv.get("kind"))
+                if not self._invite_valid(inv) or gate:
+                    self.client.respond(inv.get("from_id"), inv.get("kind"), False)
+                    self.invite_prompt = None
+                    self.status = gate or "Invite expired or player left."
+                    return None
                 self.client.respond(inv.get("from_id"), inv["kind"], True)
                 self.invite_prompt = None
                 self._enter_session(inv.get("from_id"), inv.get("from_name", "?"), inv["kind"], host=False)
@@ -818,14 +841,14 @@ class LobbyPanel(BoutMixin, ChatMixin):
                     self._feedback("refuse")
                     self.status, self.action_for = err, None
                     return None
-                self.client.invite(pid, "battle"); self._sent_invites.add((pid, "battle")); self.status = f"Battle invite → {pname}"; self.action_for = None
+                self.client.invite(pid, "battle"); self._sent_invites.add((pid, "battle")); self._invite_times[(pid, "battle")] = time.monotonic(); self.status = f"Battle invite → {pname}"; self.action_for = None
             elif k in ("j", "J") and plive:
                 err = jogress.can_jogress(self.pet)
                 if err:
                     self._feedback("refuse")
                     self.status, self.action_for = err, None
                     return None
-                self.client.invite(pid, "jogress"); self._sent_invites.add((pid, "jogress")); self.status = f"Jogress invite → {pname}"; self.action_for = None
+                self.client.invite(pid, "jogress"); self._sent_invites.add((pid, "jogress")); self._invite_times[(pid, "jogress")] = time.monotonic(); self.status = f"Jogress invite → {pname}"; self.action_for = None
             elif k in ("p", "P") and not plive and pid != OFFLINE_ID:
                 # ping is for GHOSTS only -- "come to the lobby" means nothing
                 # to someone whose app is shut, and ping() addresses by id
@@ -869,6 +892,10 @@ class LobbyPanel(BoutMixin, ChatMixin):
             elif k == "escape":
                 self.action_for = None
             return None
+        if k in ("tab", "right") and self.pm_to is None and self._complete_mention():
+            return None
+        if k != "tab":
+            self._mention_cycle = None
         if k == "tab":
             # the MONTHLY LADDER (2026-07-14): online wins, fresh race each
             # month.  TAB because every letter belongs to the chat input.
@@ -938,6 +965,45 @@ class LobbyPanel(BoutMixin, ChatMixin):
                     self.action_for = (p["id"], p["name"], p.get("live", True))
             return None
         return self._edit(k)
+    def _mention_hint(self):
+        """The dim rest-of-name shown after a typed @fragment (TAB/→ takes it)."""
+        if self.pm_to is not None or getattr(self, "_mention_cycle", None) or self.state is None:
+            return ""
+        import re
+        match = re.search(r"(?<!\w)@([^@]+)$", self.buf)
+        if not match:
+            return ""
+        fragment = match.group(1)
+        matches = sorted({p["name"] for p in self.state.roster
+                          if p.get("name", "").lower().startswith(fragment.lower())}, key=str.lower)
+        if not matches or len(matches[0]) == len(fragment):
+            return ""
+        return matches[0][len(fragment):]
+
+    def _complete_mention(self):
+        cycle = getattr(self, "_mention_cycle", None)
+        if cycle and self.buf == cycle[0]:
+            _, prefix, matches, index = cycle
+            index = (index + 1) % len(matches)
+        else:
+            import re
+            match = re.search(r"(?<!\w)@([^@]*)$", self.buf)
+            if not match:
+                return False
+            prefix = self.buf[:match.start()]
+            fragment = match.group(1).lower()
+            matches = sorted({p["name"] for p in self.state.roster
+                              if p.get("name", "").lower().startswith(fragment)}, key=str.lower)
+            if not matches:
+                return False
+            index = 0
+        value = prefix + "@" + matches[index]
+        if len(value) > CHAT_MAX:
+            return False
+        self.buf = value
+        self._mention_cycle = (value, prefix, matches, index)
+        return True
+
     def _edit(self, k):
         if k == "backspace":
             self.buf = self.buf[:-1]
@@ -1055,8 +1121,10 @@ class LobbyPanel(BoutMixin, ChatMixin):
         # the open room: a fresh ✉ pops its own nudge ahead of the key chrome
         unread = sorted(self.state.unread) if self.state else []
         if unread:
-            who = unread[0][:12] + ("…" if len(unread) > 1 else "")
-            return f"[b]✉ {who}[/][dim] unread — V on their name[/]"
+            # V alone types a 'v' into chat (hint sweep 2026-10-17): the real
+            # path is pick the name, ENTER, then V
+            who = unread[0][:11] + ("…" if len(unread) > 1 else "")
+            return f"[b]✉ {who}[/][dim] unread · pick, ENTER, V[/]"
         # ESC's word lives on the LCD's own footer (HINTS_OPEN); repeating it
         # here pushed the strip to 42 of its 40 columns
         return menu.hints(("↑↓", "pick"), ("ENTER", "act"), ("PgUp", "log"))

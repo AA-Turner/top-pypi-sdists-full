@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit-rf
-Version: 2.1.0
+Version: 2.2.0
 Summary: Object Oriented Microwave Engineering
 Author-email: Alex Arsenovic <alexanderarsenovic@gmail.com>
 License: LICENSE.txt
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: numpy>=1.21
@@ -38,11 +39,12 @@ Provides-Extra: visa
 Requires-Dist: PyVISA>=1.12; extra == "visa"
 Requires-Dist: pyvisa-py>=0.6; extra == "visa"
 
-[![Code Testing](https://github.com/scikit-rf/scikit-rf/workflows/Code%20linting%20and%20testing/badge.svg)](https://github.com/scikit-rf/scikit-rf/actions?query=workflow%3A%22Code+linting+and+testing%22)
+[![CodeQL](https://github.com/scikit-rf/scikit-rf/actions/workflows/codeql.yml/badge.svg?branch=master)](https://github.com/scikit-rf/scikit-rf/actions/workflows/codeql.yml)
 [![Documentation Status](https://readthedocs.org/projects/scikit-rf/badge/?version=latest)](https://readthedocs.org/projects/scikit-rf/?badge=latest)
 [![Coverage Status](https://coveralls.io/repos/scikit-rf/scikit-rf/badge.png)](https://coveralls.io/r/scikit-rf/scikit-rf)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](./LICENSE.md)
 
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/scikit-rf?period=total&units=INTERNATIONAL_SYSTEM&left_color=GREY&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/scikit-rf)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/scikit-rf)
 [![Conda Downloads](https://anaconda.org/conda-forge/scikit-rf/badges/downloads.svg)](https://anaconda.org/conda-forge/scikit-rf)
 

@@ -4,14 +4,28 @@ import pickle
 import threading
 import time
 
-from unittest.mock import MagicMock
+from dataclasses import dataclass
+from typing import ClassVar
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 
 from numpy.testing import assert_allclose
-from scipy.optimize import OptimizeResult
+from scipy.optimize import OptimizeResult, rosen, rosen_der
 
+from better_optimize import OptimizationInterrupted
+from better_optimize.basinhopping import basinhopping
+from better_optimize.configuration import (
+    BasinHoppingConfig,
+    BFGSConfig,
+    DifferentialEvolutionConfig,
+    HybrConfig,
+    KrylovConfig,
+    LBFGSBConfig,
+    NelderMeadConfig,
+    OptimizerConfig,
+)
 from better_optimize.minimize import minimize
 from better_optimize.multi_optimize import (
     MultiStartResult,
@@ -286,6 +300,30 @@ def test_run_single_catches_solver_exception():
     assert_allclose(result.x, x0)
 
 
+@pytest.mark.parametrize("backend", ["sequential", "threading"])
+def test_keyboard_interrupt_raises_with_the_finished_runs(backend):
+    def f(x):
+        # Only the run started at 1.0 is interrupted, once it has stepped away from its x0.
+        if x[0] > 1.01:
+            raise KeyboardInterrupt
+        return float(np.sum(x**2))
+
+    with pytest.raises(OptimizationInterrupted) as excinfo:
+        multi_optimize(
+            minimize,
+            x0=[np.array([0.0]), np.array([1.0]), np.array([0.2])],
+            solver_kwargs={"f": f, "method": "nelder-mead"},
+            backend=backend,
+            n_jobs=1,
+            progressbar=False,
+        )
+
+    results = excinfo.value.result.results
+    assert [result.run_index for result in results] == [0, 1]
+    assert results[0].success
+    assert not results[1].success
+
+
 class TestMultiStartResult:
     def test_best_selects_minimum_and_exposes_x_and_fun(self):
         msr = MultiStartResult(results=make_results(3.0, 1.0, 2.0))
@@ -470,3 +508,146 @@ def test_multistart_survives_crashing_solver():
         if not r.success:
             assert r.fun == np.inf
             assert "RuntimeError" in r.message
+
+
+@pytest.mark.parametrize(
+    ("method", "expected"),
+    [
+        ("BFGS", True),
+        ("bfgs", True),
+        (BFGSConfig(), True),
+        ("nelder-mead", False),
+        (NelderMeadConfig(), False),
+        (BasinHoppingConfig(minimizer_config=LBFGSBConfig()), True),
+        (BasinHoppingConfig(minimizer_config=NelderMeadConfig()), False),
+        (DifferentialEvolutionConfig(), False),
+    ],
+    ids=[
+        "string-grad",
+        "string-grad-lowercase",
+        "config-grad",
+        "string-no-grad",
+        "config-no-grad",
+        "basinhopping-grad",
+        "basinhopping-no-grad",
+        "differential-evolution",
+    ],
+)
+def test_the_gradient_column_follows_the_method_either_way(method, expected):
+    """A configuration carries the same capability the method name does. A basinhopping
+    run carries its inner minimizer's, and differential evolution carries none."""
+    runner = _MultiStart(
+        solver=minimize, x0=[np.zeros(1)], solver_kwargs={"method": method}, progressbar=False
+    )
+
+    with patch("better_optimize.multi_optimize.build_progress_bar") as build:
+        runner._build_progress()
+
+    assert build.call_args.kwargs["use_jac"] is expected
+
+
+@pytest.mark.parametrize("backend", ["sequential", "threading"])
+def test_basinhopping_runs_as_the_solver(backend):
+    result = multi_optimize(
+        solver=basinhopping,
+        x0=np.array([-1.2, 1.0]),
+        solver_kwargs={"func": rosen, "niter": 2, "rng": 0},
+        n_runs=2,
+        backend=backend,
+        n_jobs=2,
+        seed=0,
+        progressbar=False,
+    )
+
+    assert len(result.results) == 2
+    assert all(run.fun < 1e-8 for run in result.results)
+
+
+def test_a_basinhopping_config_draws_nothing_when_the_progressbar_is_off(capfd):
+    multi_optimize(
+        solver=minimize,
+        x0=np.array([-1.2, 1.0]),
+        solver_kwargs={"f": rosen, "method": BasinHoppingConfig(niter=2, rng=0)},
+        n_runs=2,
+        backend="sequential",
+        seed=0,
+        progressbar=False,
+    )
+
+    assert capfd.readouterr().err == ""
+
+
+@pytest.mark.parametrize(
+    "method, solver_kwargs",
+    [
+        (LBFGSBConfig(maxiter=50), {"jac": rosen_der}),
+        (BasinHoppingConfig(niter=2, rng=0), {"jac": rosen_der}),
+        (DifferentialEvolutionConfig(maxiter=20, rng=0), {"bounds": [(-2.0, 2.0)] * 2}),
+    ],
+    ids=["minimize", "basinhopping", "differential-evolution"],
+)
+def test_a_config_runs_through_every_start(method, solver_kwargs):
+    """``solver_kwargs`` reaches ``minimize`` untouched, so a configuration there has to
+    carry every optimizer family."""
+    result = multi_optimize(
+        solver=minimize,
+        x0=np.array([-1.2, 1.0]),
+        solver_kwargs={"f": rosen, "method": method, **solver_kwargs},
+        n_runs=3,
+        backend="sequential",
+        seed=0,
+        progressbar=False,
+    )
+
+    assert len(result.results) == 3
+    assert result.best.fun < 1e-4
+
+
+@pytest.mark.parametrize(
+    ("method", "expected"),
+    [
+        ("hybr", True),
+        ("HYBR", True),
+        (HybrConfig(), True),
+        ("krylov", False),
+        (KrylovConfig(), False),
+    ],
+    ids=["name", "name-uppercase", "config", "name-no-jac", "config-no-jac"],
+)
+def test_the_gradient_column_follows_the_root_method_either_way(method, expected):
+    """Only two root methods consume a jacobian, and a configuration has to answer that
+    the same way its name does."""
+    runner = _MultiStart(
+        solver=root, x0=[np.zeros(1)], solver_kwargs={"method": method}, progressbar=False
+    )
+
+    with patch("better_optimize.multi_optimize.build_progress_bar") as build:
+        runner._build_progress()
+
+    assert build.call_args.kwargs["use_jac"] is expected
+
+
+@dataclass(frozen=True, eq=False)
+class ExternalSolverConfig(OptimizerConfig):
+    uses_grad: ClassVar[bool] = True
+    uses_jac: ClassVar[bool] = True
+    _iteration_options: ClassVar[tuple[str, ...]] = ()
+
+    @property
+    def method_name(self) -> str:
+        return "external-solver"
+
+
+@pytest.mark.parametrize("solver", [minimize, root], ids=["minimize", "root"])
+def test_the_gradient_column_follows_a_configuration_defined_outside_the_package(solver):
+    runner = _MultiStart(
+        solver=solver,
+        x0=[np.zeros(1)],
+        solver_kwargs={"method": ExternalSolverConfig()},
+        progressbar=False,
+    )
+
+    with patch("better_optimize.multi_optimize.build_progress_bar") as build:
+        runner._build_progress()
+
+    assert build.call_args.kwargs["use_jac"] is True

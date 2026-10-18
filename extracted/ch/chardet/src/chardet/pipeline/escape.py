@@ -10,31 +10,44 @@ this module is compiled with mypyc, which does not support PEP 563 string
 annotations.
 """
 
-from chardet._utils import decodes_without_error
+from chardet._utils import EVIDENCE_CAP_BYTES, count_deleted, decodes_without_error
 from chardet.pipeline import DETERMINISTIC_CONFIDENCE, DetectionResult
 
+# Byte values legal inside an HZ-GB-2312 ``~{...~}`` region.
+_HZ_GB_BYTES: bytes = bytes(range(0x21, 0x7F))
 
-def _has_valid_hz_regions(data: bytes) -> bool:
+
+def _has_valid_hz_regions(data: bytes, max_start: int, max_end: int) -> bool:
     """Check that at least one ~{...~} region contains valid GB2312 byte pairs.
 
     In HZ-GB-2312 GB mode, characters are encoded as pairs of bytes in the
     0x21-0x7E range.  We require at least one region with a non-empty, even-
     length run of such bytes.
+
+    *max_start* bounds where a region may open and *max_end* where it may
+    close.  Keeping them separate is what lets a region that opens inside
+    the evidence window close beyond it: bounding both at the same offset
+    would cut a straddling region and hide the only escape evidence a
+    document has (ADR-0006).
     """
     start = 0
     while True:
         begin = data.find(b"~{", start)
-        if begin == -1:
+        if begin == -1 or begin >= max_start:
             return False
-        end = data.find(b"~}", begin + 2)
+        end = data.find(b"~}", begin + 2, max_end)
         if end == -1:
             return False
         region = data[begin + 2 : end]
-        # Must be non-empty, even length, and all bytes in GB2312 range
+        # Must be non-empty, even length, and all bytes in GB2312 range.
+        # The range test is a C-level scan rather than a Python loop: a
+        # region may now run past the evidence window, and per-byte Python
+        # work proportional to it is exactly what the window exists to
+        # prevent.
         if (
             len(region) >= 2
             and len(region) % 2 == 0
-            and all(0x21 <= b <= 0x7E for b in region)
+            and count_deleted(region, _HZ_GB_BYTES) == len(region)
         ):
             return True
         start = end + 2
@@ -49,6 +62,10 @@ _B64_UPPERCASE: frozenset[int] = frozenset(b"ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 # Lookup table mapping each Base64 byte to its 6-bit value (0-63).
 _B64_DECODE: dict[int, int] = {c: i for i, c in enumerate(_B64_CHARS)}
+
+# Consecutive base64 characters before a '+' that mark it as part of a
+# base64 stream rather than a UTF-7 shift.
+_EMBEDDED_B64_RUN: int = 4
 
 
 def _is_valid_utf7_b64(b64_bytes: bytes) -> bool:
@@ -119,6 +136,13 @@ def _is_embedded_in_base64(data: bytes, pos: int) -> bool:
     characters (including ``=`` for padding).  If 4 or more are found, the
     ``+`` is likely part of a PEM certificate, email attachment, or similar
     base64 blob rather than a real UTF-7 shift character.
+
+    The walk stops at the fourth character rather than running to the start
+    of the run.  Only the ``>= 4`` verdict is used, and newlines are
+    skipped rather than ending the walk, so without the early exit a
+    line-wrapped base64 blob — a PEM file, a MIME attachment, exactly what
+    this guard exists to recognize — makes each ``+`` rescan everything
+    before it, and the caller quadratic in the size of the blob.
     """
     b64_with_pad: frozenset[int] = _UTF7_BASE64 | frozenset(b"=")
     count = 0
@@ -130,10 +154,12 @@ def _is_embedded_in_base64(data: bytes, pos: int) -> bool:
             continue
         if b in b64_with_pad:
             count += 1
+            if count >= _EMBEDDED_B64_RUN:
+                return True
             i -= 1
         else:
             break
-    return count >= 4
+    return False
 
 
 def _single_unit(b64_data: bytes) -> int:
@@ -158,18 +184,26 @@ def _plausible_lone_unit(unit: int) -> bool:
     )
 
 
-def _has_valid_utf7_sequences(data: bytes) -> bool:
+def _has_valid_utf7_sequences(data: bytes, max_start: int, max_end: int) -> bool:
     """Check that *data* contains at least one valid UTF-7 shifted sequence.
 
     A valid shifted sequence is ``+<base64 chars>`` terminated by either an
     explicit ``-`` or any non-Base64 character (per RFC 2152).  The base64
     portion must decode to valid UTF-16BE with correct zero-padding bits.
     The sequence ``+-`` is a literal plus sign and is **not** counted.
+
+    *max_start* bounds where a shift may occur and *max_end* how far its
+    base64 run may reach, so a run that begins inside the evidence window
+    can finish beyond it (ADR-0006).  A run that outruns *max_end* is
+    skipped rather than judged on the part that fits: the padding and
+    surrogate checks read a cut run as a different run, and accepting on
+    evidence we did not see is the one direction this must never fail in.
     """
     start = 0
+    limit = min(len(data), max_end)
     while True:
         shift_pos = data.find(ord("+"), start)
-        if shift_pos == -1:
+        if shift_pos == -1 or shift_pos >= max_start:
             return False
         pos = shift_pos + 1  # skip the '+'
         # +- is a literal plus, not a shifted sequence
@@ -193,8 +227,12 @@ def _has_valid_utf7_sequences(data: bytes) -> bool:
             continue
         # Collect consecutive Base64 characters
         i = pos
-        while i < len(data) and data[i] in _UTF7_BASE64:
+        while i < limit and data[i] in _UTF7_BASE64:
             i += 1
+        if i == limit and limit < len(data) and data[i] in _UTF7_BASE64:
+            # The run outruns the bound — skip it (see the docstring).
+            start = i
+            continue
         b64_len = i - pos
         b64_data = data[pos:i]
         # Guard C: reject base64 blocks with no uppercase letters.
@@ -237,8 +275,52 @@ def _has_valid_utf7_sequences(data: bytes) -> bool:
         start = max(pos, i)
 
 
+def _iso2022_variant(data: bytes) -> tuple[str, str] | None:
+    """Name the ISO-2022 variant whose designations appear in *data*.
+
+    :returns: ``(encoding, language)`` or ``None`` when no designation is
+        present.
+    """
+    # ISO-2022-JP-2004: JIS X 0213 designations are unique to this variant.
+    # Python's codec reads the 2004 plane-1 (Q) and plane-2 (P) designations
+    # but not the 2000 plane-1 one (O), so an O stream fails the decode gate
+    # below and the other stages answer; naming it here would hand the
+    # caller an encoding that raises.
+    if b"\x1b$(O" in data or b"\x1b$(P" in data or b"\x1b$(Q" in data:
+        return "iso2022_jp_2004", "ja"
+
+    # ISO-2022-JP-EXT: JIS X 0201 Kana designation is unique to this variant.
+    if b"\x1b(I" in data:
+        return "iso2022_jp_ext", "ja"
+
+    # ISO-2022-JP base: JIS X 0208/0201/0212 designations.
+    if (
+        b"\x1b$B" in data
+        or b"\x1b$@" in data
+        or b"\x1b(J" in data
+        or b"\x1b$(D" in data  # JIS X 0212-1990 (JP-1/JP-2/JP-EXT)
+    ):
+        # SI/SO (0x0E / 0x0F) shift controls -> JP-EXT
+        if b"\x0e" in data and b"\x0f" in data:
+            return "iso2022_jp_ext", "ja"
+        # Default to JP-2: a strict superset of JP and JP-1 that
+        # decodes all base sequences correctly.
+        return "iso2022_jp_2", "ja"
+
+    # ISO-2022-KR: ESC sequence for KS C 5601
+    if b"\x1b$)C" in data:
+        return "iso2022_kr", "ko"
+
+    return None
+
+
 def detect_escape_encoding(data: bytes) -> DetectionResult | None:
     """Detect ISO-2022, HZ-GB-2312, and UTF-7 from escape/tilde/plus sequences.
+
+    Every answer this stage returns decodes the whole window: a designation
+    is three bytes that ordinary text can contain (``log: ESC $ B is the
+    escape``), and a genuine ISO-2022 or HZ stream can still carry a bad
+    byte past the header.  The gate costs one decode per hit only.
 
     :param data: The raw byte data to examine.
     :returns: A :class:`DetectionResult` if an escape encoding is found, or ``None``.
@@ -251,55 +333,37 @@ def detect_escape_encoding(data: bytes) -> DetectionResult | None:
         return None
 
     if has_esc:
-        # ISO-2022-JP-2004: JIS X 0213 designations are unique to this variant.
-        if b"\x1b$(O" in data or b"\x1b$(P" in data or b"\x1b$(Q" in data:
+        variant = _iso2022_variant(data)
+        if variant is not None and decodes_without_error(data, variant[0]):
             return DetectionResult(
-                encoding="iso2022_jp_2004",
+                encoding=variant[0],
                 confidence=DETERMINISTIC_CONFIDENCE,
-                language="ja",
+                language=variant[1],
             )
 
-        # ISO-2022-JP-EXT: JIS X 0201 Kana designation is unique to this variant.
-        if b"\x1b(I" in data:
-            return DetectionResult(
-                encoding="iso2022_jp_ext",
-                confidence=DETERMINISTIC_CONFIDENCE,
-                language="ja",
-            )
-
-        # ISO-2022-JP base: JIS X 0208/0201/0212 designations.
-        if (
-            b"\x1b$B" in data
-            or b"\x1b$@" in data
-            or b"\x1b(J" in data
-            or b"\x1b$(D" in data  # JIS X 0212-1990 (JP-1/JP-2/JP-EXT)
-        ):
-            # SI/SO (0x0E / 0x0F) shift controls -> JP-EXT
-            if b"\x0e" in data and b"\x0f" in data:
-                return DetectionResult(
-                    encoding="iso2022_jp_ext",
-                    confidence=DETERMINISTIC_CONFIDENCE,
-                    language="ja",
-                )
-            # Default to JP-2: a strict superset of JP and JP-1 that
-            # decodes all base sequences correctly.
-            return DetectionResult(
-                encoding="iso2022_jp_2",
-                confidence=DETERMINISTIC_CONFIDENCE,
-                language="ja",
-            )
-
-        # ISO-2022-KR: ESC sequence for KS C 5601
-        if b"\x1b$)C" in data:
-            return DetectionResult(
-                encoding="iso2022_kr",
-                confidence=DETERMINISTIC_CONFIDENCE,
-                language="ko",
-            )
+    # Bounds for the deep validators below.  They walk candidate sites in
+    # Python loops whose pathological case is *rejection* — a large tilde-
+    # or plus-heavy file that is neither HZ nor UTF-7 — so where a sequence
+    # may *begin* converges on the evidence cap (ADR-0006).  Where it may
+    # *end* is a separate bound, one further window on, so a sequence that
+    # opens just inside the evidence window is judged whole rather than cut
+    # by the boundary and read as malformed.  Nothing plausible sits
+    # between the two: a single escape run a quarter of a megabyte long is
+    # not text.  Gates that decide whether an answer is *true* stay
+    # exhaustive over the window.
+    max_start = min(len(data), EVIDENCE_CAP_BYTES)
+    max_end = min(len(data), 2 * EVIDENCE_CAP_BYTES)
 
     # HZ-GB-2312: tilde escapes for GB2312
-    # Require valid GB2312 byte pairs (0x21-0x7E range) between ~{ and ~} markers.
-    if has_tilde and b"~{" in data and b"~}" in data and _has_valid_hz_regions(data):
+    # Require valid GB2312 byte pairs (0x21-0x7E range) between ~{ and ~}
+    # markers.
+    if (
+        has_tilde
+        and b"~{" in data
+        and b"~}" in data
+        and _has_valid_hz_regions(data, max_start, max_end)
+        and decodes_without_error(data, "hz")
+    ):
         return DetectionResult(
             encoding="hz",
             confidence=DETERMINISTIC_CONFIDENCE,
@@ -307,18 +371,33 @@ def detect_escape_encoding(data: bytes) -> DetectionResult | None:
         )
 
     # UTF-7: plus-sign shifts into Base64-encoded Unicode.
-    # UTF-7 is a 7-bit encoding (RFC 2152): every byte must be in 0x00-0x7F.
-    # Data with any byte > 0x7F cannot be UTF-7.  The whole buffer must
-    # also *decode* as UTF-7: tabular ASCII like "|16847+|" contains "+|",
-    # which is illegal (a shift must be followed by base64 or "-"), so the
-    # decode gate kills the delimited-data false-positive class outright
-    # while genuine UTF-7 — which real encoders emit as valid streams —
-    # always passes.  The decoder fails fast on the first bad sequence.
+    # UTF-7 is a 7-bit encoding (RFC 2152): every byte must be in 0x00-0x7F,
+    # checked over the whole window (isascii is exactly that predicate, at C
+    # scan speed).  The buffer must also *decode* as UTF-7: tabular ASCII
+    # like "|16847+|" contains "+|", which is illegal (a shift must be
+    # followed by base64 or "-"), so the decode gate kills the
+    # delimited-data false-positive class outright while genuine UTF-7 —
+    # which real encoders emit as valid streams — always passes.  The
+    # decoder fails fast on the first bad sequence.
+    #
+    # The decode gate keeps the *whole* window: it is what makes a utf-7
+    # answer true, and this stage returns it at deterministic confidence.
+    # Capping it would let an illegal shift past the cap pass as utf-7 that
+    # the caller's own ``decode`` then rejects.
+    #
+    # It runs *after* the bounded sequence validator, which is the reverse
+    # of the obvious order.  A decode gate normally fails fast, but plain
+    # ASCII is valid UTF-7, so on the common case — a large ASCII file
+    # containing a '+' anywhere — it succeeds over every byte instead, at
+    # about a second per 272 MiB.  The validator settles the same files
+    # from bounded evidence, leaving the full decode for data that already
+    # looks like UTF-7.  Both are pure predicates, so the order changes
+    # only cost.
     if (
         has_plus
-        and max(data) < 0x80
+        and data.isascii()
+        and _has_valid_utf7_sequences(data, max_start, max_end)
         and decodes_without_error(data, "utf-7")
-        and _has_valid_utf7_sequences(data)
     ):
         return DetectionResult(
             encoding="utf-7",

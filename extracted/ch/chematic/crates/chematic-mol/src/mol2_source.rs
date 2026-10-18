@@ -180,7 +180,9 @@ fn strip_atom_type(sym: &str) -> &str {
 /// molecule's atom indices.
 /// Partial charges are validated but not rounded into formal charges. `N.4`
 /// supplies +1 when no explicit UNITY charge exists; general formal-charge
-/// perception is not performed. Use
+/// perception is not performed. If any H atom is present, its atom/bond
+/// inventory defines heavy-atom hydrogen counts; otherwise normal implicit-H
+/// inference applies. Mixed-H sources are ambiguous in MOL2. Use
 /// [`parse_mol2_source_record`] to retain charges, atom typing, and source metadata.
 #[allow(clippy::type_complexity)]
 pub fn parse_mol2_source(s: &str) -> Result<(Molecule, Vec<(f64, f64, f64)>), Mol2Error> {
@@ -335,6 +337,7 @@ fn parse_mol2_impl(
     // Map from MOL2 1-based atom_id → builder AtomIdx.
     let mut atom_id_map: HashMap<u32, AtomIdx> = HashMap::new();
     let mut atoms = Vec::new();
+    let mut co2_oxygen = Vec::with_capacity(atom_lines.len());
     let mut bonds = Vec::new();
 
     if atom_lines.len() > limits.max_atoms {
@@ -437,6 +440,7 @@ fn parse_mol2_impl(
         let builder_idx = builder.add_atom(atom);
         atom_id_map.insert(atom_id, builder_idx);
         coords.push((x, y, z));
+        co2_oxygen.push(atom_type_raw.eq_ignore_ascii_case("O.co2"));
         if retain_source {
             atoms.push(Mol2SourceAtomRecord {
                 source_id: atom_id,
@@ -552,6 +556,10 @@ fn parse_mol2_impl(
     }
 
     let mut molecule = builder.build();
+    crate::mol2_tripos::preserve_mol2_explicit_hydrogen_inventory(&mut molecule);
+    crate::mol2_tripos::restore_mol2_carboxylate_orders(&mut molecule, |idx| {
+        co2_oxygen[idx.0 as usize]
+    });
     crate::mol2_tripos::perceive_mol2_stereo_from_coordinates(&mut molecule, &coords);
     Ok(Mol2SourceRecord {
         source: if retain_source {

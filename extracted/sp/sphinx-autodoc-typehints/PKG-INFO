@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sphinx-autodoc-typehints
-Version: 3.17.1
+Version: 3.17.2
 Summary: Render Python type hints in Sphinx autodoc documentation
 Project-URL: Changelog, https://github.com/tox-dev/sphinx-autodoc-typehints/releases
 Project-URL: Documentation, https://sphinx-autodoc-typehints.readthedocs.io

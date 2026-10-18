@@ -12,9 +12,7 @@ from types import TracebackType
 from typing import Any
 from uuid import uuid4
 
-from sqlbuild.cost.classes.cost_context import CostContext
-from sqlbuild.cost.classes.statement_ledger import StatementLedger
-from sqlbuild.cost.constants import SQLBUILD_QUERY_TAG_APP
+from sqlbuild._native import SQLBUILD_QUERY_TAG_APP, CostContext, record_statement
 from sqlbuild.cost.models import CostResourceContext, StatementExecutionTelemetry
 from sqlbuild.runtime.execution_limits.main.current_execution_deadline import (
     current_execution_deadline,
@@ -224,7 +222,7 @@ class _SnowflakeCursor:
             cursor=self.raw_cursor, previous_query_id=previous_query_id
         )
         if context is not None:
-            StatementLedger.record(
+            record_statement(
                 context=context,
                 statement_id=statement_id,
                 sql=sql,
@@ -258,7 +256,7 @@ class _SnowflakeCursor:
             cursor=self.raw_cursor, previous_query_id=previous_query_id
         )
         if context is not None:
-            StatementLedger.record(
+            record_statement(
                 context=context,
                 statement_id=statement_id,
                 sql=sql,

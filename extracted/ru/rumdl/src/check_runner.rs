@@ -101,6 +101,48 @@ pub(crate) fn report_source_code_refused(args: &crate::CheckArgs, path: &str) {
     }
 }
 
+/// Most skipped names a warning spells out before it counts the rest.
+const SKIPPED_NAMES_SHOWN: usize = 10;
+
+/// Report the source-code files an `include` wildcard matched and rumdl passed
+/// over, as one line so a wildcard sweep over a large tree stays readable.
+///
+/// A diagnostic about the run rather than a finding, so it survives --quiet and
+/// only --silent suppresses it, like the other discovery warnings. With
+/// --stderr it goes to stdout, as [`report_empty_run`] does.
+pub(crate) fn report_source_code_skipped(args: &crate::CheckArgs, skipped: &[String]) {
+    if args.silent || skipped.is_empty() {
+        return;
+    }
+    let shown = skipped
+        .iter()
+        .take(SKIPPED_NAMES_SHOWN)
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join(", ");
+    let more = skipped.len().saturating_sub(SKIPPED_NAMES_SHOWN);
+    let tail = if more > 0 {
+        format!(", and {more} more")
+    } else {
+        String::new()
+    };
+    let count = skipped.len();
+    let noun = if count == 1 { "file" } else { "files" };
+    let message = format!(
+        "{}: skipped {count} {noun} matched by an include wildcard that {verb} not Markdown: {shown}{tail}",
+        "Warning".yellow().bold(),
+        verb = if count == 1 { "is" } else { "are" },
+    );
+
+    // --stderr gives the report stream to the selected output, so the notice
+    // moves to the other one rather than landing in front of a JSON document.
+    if args.stderr {
+        println!("{message}");
+    } else {
+        eprintln!("{message}");
+    }
+}
+
 /// Report a run that checked nothing, and return its outcome.
 ///
 /// A run that checked nothing must not read as a clean one. This is a
@@ -152,6 +194,57 @@ pub(crate) fn report_empty_run(
     }
 }
 
+const NO_TOOLS_MESSAGE: &str = "No tools executed and no valid cached tool results were used";
+
+fn report_no_tools_error(args: &crate::CheckArgs) {
+    if !args.silent {
+        if args.stderr {
+            println!("error: code-block-tools: {NO_TOOLS_MESSAGE}");
+        } else {
+            eprintln!("error: code-block-tools: {NO_TOOLS_MESSAGE}");
+        }
+    }
+}
+
+/// An empty selection must still honor the invocation's tool execution policy.
+fn report_empty_selection(
+    args: &crate::CheckArgs,
+    output_format: rumdl_lib::output::OutputFormat,
+    config: &rumdl_config::Config,
+    reason: &crate::file_processor::EmptyDiscovery,
+) -> CheckRunOutcome {
+    use rumdl_lib::code_block_tools::OnMissing;
+    use rumdl_lib::output::OutputWriter;
+    if config.code_block_tools.enabled {
+        match config.code_block_tools.on_no_tools_run {
+            OnMissing::Fail | OnMissing::FailFast => {
+                report_no_tools_error(args);
+                if let Some(output) = output_format.format_batch_with_invocation(&[], &[], 0, Some(NO_TOOLS_MESSAGE)) {
+                    OutputWriter::new(args.stderr, args.silent)
+                        .writeln(&output)
+                        .unwrap_or_else(|e| eprintln!("Error writing output: {e}"));
+                }
+                return CheckRunOutcome::tool_error();
+            }
+            OnMissing::Warn => {
+                let mut outcome = report_empty_run(args, output_format, reason, false);
+                outcome.config_warning = true;
+                if !args.silent {
+                    let message = "code-block-tools: no tools executed and no valid cached tool results were used";
+                    if args.stderr {
+                        println!("{} {message}", rumdl_lib::utils::warning_label("config warning"));
+                    } else {
+                        eprintln!("{} {message}", rumdl_lib::utils::warning_label("config warning"));
+                    }
+                }
+                return outcome;
+            }
+            OnMissing::Ignore => {}
+        }
+    }
+    report_empty_run(args, output_format, reason, false)
+}
+
 /// Perform a single check run.
 pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
     let CheckRunContext {
@@ -199,11 +292,24 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
             {
                 return crate::stdin_processor::process_excluded_stdin(args, output_format, name, pattern);
             }
-            if rumdl_lib::discovery::classify_file(Path::new(name)) == rumdl_lib::discovery::FileKind::SourceCode {
-                return crate::stdin_processor::process_source_code_stdin(args, name);
-            }
         }
         let stdin = crate::resolution::resolve_stdin_config(&crate::resolution::RootConfig { config, sourced }, args);
+        if !args.no_exclude
+            && let Some(name) = args.stdin_filename.as_deref()
+            && stdin.config.is_cli2_ignored(Path::new(name))
+        {
+            return crate::stdin_processor::process_excluded_stdin(
+                args,
+                output_format,
+                name,
+                "markdownlint-cli2 ignores",
+            );
+        }
+        if let Some(name) = args.stdin_filename.as_deref()
+            && rumdl_lib::discovery::classify_file(Path::new(name)) == rumdl_lib::discovery::FileKind::SourceCode
+        {
+            return crate::stdin_processor::process_source_code_stdin(args, name);
+        }
         crate::stdin_processor::process_stdin(
             &stdin.rules,
             args,
@@ -244,19 +350,25 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
             return CheckRunOutcome::tool_error();
         }
     };
-    if !discovered.refused.is_empty() {
-        for path in &discovered.refused {
-            report_source_code_refused(args, path);
-        }
-        return CheckRunOutcome::tool_error();
-    }
-    let file_paths = discovered.files;
-    if file_paths.is_empty() {
+    // CLI2 selection applies before source-code refusal, like native excludes.
+    #[cfg(unix)]
+    let mut canonical_walk_root = discovered.canonical_walk_root;
+    // Skipped wildcard matches take part in selection like any other file, so a
+    // CLI2 or per-directory ignore silences the warning for the files it covers.
+    // They are told apart again by the name they were supplied under, since two
+    // spellings of one file (a symlink and its target) can be ignored separately.
+    let skipped_names: std::collections::HashSet<String> = discovered.skipped.iter().cloned().collect();
+    let refused_names: std::collections::HashSet<String> = discovered.refused.iter().cloned().collect();
+    let mut file_paths = discovered.files;
+    file_paths.extend(discovered.refused);
+    let selected_file_count = file_paths.len();
+    if file_paths.is_empty() && discovered.skipped.is_empty() {
         let reason = discovered
             .empty_reason
             .unwrap_or(crate::file_processor::EmptyDiscovery::NoMarkdownFiles);
-        return report_empty_run(args, output_format, &reason, false);
+        return report_empty_selection(args, output_format, config, &reason);
     }
+    file_paths.extend(discovered.skipped);
 
     // Resolve files into config groups (per-directory config discovery)
     let resolved = rumdl_lib::time_function!(
@@ -275,9 +387,107 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
         )
     );
     let crate::resolution::ResolvedGroups {
-        groups: config_groups,
+        groups: mut config_groups,
         config_warning: resolution_config_warning,
     } = resolved;
+
+    // Configuration and CLI2 ignore globs refer to the supplied pathname,
+    // which may be a symlink. Canonicalize only the selected files, preserving
+    // one processing pass per physical file across all configuration groups.
+    let mut selected = std::collections::HashSet::new();
+    let mut canonical_sources = std::collections::HashSet::new();
+    let mut skipped = std::collections::BTreeSet::new();
+    for group in &mut config_groups {
+        group.files = group
+            .files
+            .iter()
+            .filter_map(|file| {
+                if skipped_names.contains(file) && !refused_names.contains(file) {
+                    skipped.insert(file.clone());
+                    return None;
+                }
+                #[cfg(unix)]
+                let canonical = canonical_walk_root
+                    .as_mut()
+                    .and_then(|root| root.resolve(file))
+                    .map_or_else(|| std::fs::canonicalize(file), Ok);
+                #[cfg(not(unix))]
+                let canonical = std::fs::canonicalize(file);
+                let path = match canonical {
+                    Ok(path) => {
+                        canonical_sources.insert(path.clone());
+                        path
+                    }
+                    Err(_) => Path::new(file).to_path_buf(),
+                };
+                let path = path.to_string_lossy().into_owned();
+                selected.insert(path.clone()).then_some(path)
+            })
+            .collect();
+    }
+    config_groups.retain(|group| !group.files.is_empty());
+    report_source_code_skipped(args, &skipped.into_iter().collect::<Vec<_>>());
+    let canonical_sources = rumdl_lib::source_paths::CanonicalSourcePaths::new(canonical_sources);
+    let _source_scope = canonical_sources.enter();
+
+    // CLI2 selection belongs to the resolved configuration. Filter before
+    // preflight reads the batch, so an ignored file cannot block formatting.
+    let file_paths: Vec<String> = config_groups
+        .iter()
+        .flat_map(|group| group.files.iter().cloned())
+        .collect();
+    let refused: Vec<_> = file_paths
+        .iter()
+        .filter(|file| {
+            rumdl_lib::discovery::classify_file(Path::new(file)) == rumdl_lib::discovery::FileKind::SourceCode
+        })
+        .collect();
+    if !refused.is_empty() {
+        for file in refused {
+            report_source_code_refused(args, file);
+        }
+        return CheckRunOutcome::tool_error();
+    }
+    if file_paths.is_empty() {
+        // Nothing but skipped source files was selected: that is a directory
+        // with no Markdown in it, not files lost to ignores.
+        let reason = if selected_file_count == 0 {
+            discovered
+                .empty_reason
+                .unwrap_or(crate::file_processor::EmptyDiscovery::NoMarkdownFiles)
+        } else {
+            crate::file_processor::EmptyDiscovery::all_named_files_excluded(selected_file_count)
+        };
+        return report_empty_selection(args, output_format, config, &reason);
+    }
+
+    // Read and decode the entire selected batch before running any formatter.
+    let preflight = if args.preflight {
+        match crate::file_processor::PreflightPlan::read(&file_paths) {
+            Ok(plan) => Some(plan),
+            Err(failure) => {
+                let path = failure.path.to_string_lossy().into_owned();
+                let warning = failure.warning();
+                let warnings = vec![(path.clone(), vec![warning.clone()])];
+                let output = output_format
+                    .format_batch(&warnings, std::slice::from_ref(&path), 0)
+                    .unwrap_or_else(|| output_format.create_formatter().format_warnings(&[warning], &path));
+                output_writer
+                    .writeln(&output)
+                    .unwrap_or_else(|e| eprintln!("Error writing output: {e}"));
+                report_preflight_notice(args, "Preflight failed; no files were written by rumdl.");
+                return CheckRunOutcome::tool_error();
+            }
+        }
+    } else {
+        None
+    };
+
+    // One invocation context across configuration groups, files, and phases.
+    let tool_run_state = Arc::new(rumdl_lib::code_block_tools::run_state::RunState::default());
+    for group in &mut config_groups {
+        group.config.code_block_tools.run_state = Some(Arc::clone(&tool_run_state));
+    }
 
     let resolution_config_warning = resolution_config_warning
         | crate::resolution::report_only_mode_without_tools(&config_groups, args)
@@ -297,13 +507,37 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
             .collect()
     );
 
+    // Only the CLI's built-in rule registry reaches this request. A silent
+    // formatter consumes rewritten bytes and tool/configuration status, whereas
+    // check, diagnostics, statistics and preflight consume full lint analysis.
+    // Auxiliary checks can have observable failures even when output is silent.
+    // Embedded Markdown formatting also requires code_block_tools.enabled,
+    // so this exclusion keeps every auxiliary formatter outside the fast path.
+    let format_only = args.fix_mode == crate::FixMode::Format
+        && args.silent
+        && !args.statistics
+        && !args.profile
+        && !args.preflight
+        && config_groups.iter().all(|group| {
+            !group.config.code_block_tools.enabled
+                // Preserve existing cache/index dependency validation for
+                // filesystem fixes and Kramdown's diagnostic-gated formatting.
+                && (cache.is_none()
+                    || (!group.files.iter().any(|path| group.config.get_flavor_for_file(Path::new(path)).supports_kramdown_syntax())
+                        && !group.rule_sets.document.iter().any(|rule| {
+                            rule.as_any().is::<rumdl_lib::rules::MD057ExistingRelativeLinks>()
+                                && rule.fix_capability() != rumdl_lib::rule::FixCapability::Unfixable
+                        })))
+        });
+
     // Check if any enabled rule across any group needs cross-file analysis
-    let needs_cross_file = config_groups.iter().any(|g| {
-        g.rule_sets
-            .document
-            .iter()
-            .any(|r| r.cross_file_scope() != CrossFileScope::None)
-    });
+    let needs_cross_file = !format_only
+        && config_groups.iter().any(|g| {
+            g.rule_sets
+                .document
+                .iter()
+                .any(|r| r.cross_file_scope() != CrossFileScope::None)
+        });
 
     // Load the workspace index before file processing so cache-hit files can reuse
     // their existing FileIndex when the content hash still matches.
@@ -319,7 +553,7 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
     };
 
     // Batch output formats need to collect all warnings before formatting
-    let needs_collection = output_format.is_batch();
+    let needs_collection = output_format.is_batch() || args.preflight;
 
     // Some batch formats report passing files too and need every checked
     // file's path, not just the ones with warnings.
@@ -338,7 +572,11 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
     let start_time = Instant::now();
 
     // Enable parallel processing for both check and fix modes when there are multiple files
-    let use_parallel = file_paths.len() > 1;
+    // A fail-fast policy must not speculatively execute tools in later files.
+    let use_parallel = file_paths.len() > 1
+        && !config_groups
+            .iter()
+            .any(|g| g.config.code_block_tools.requires_fail_fast());
 
     // Collect all warnings for statistics if requested
     let mut all_warnings_for_stats = Vec::new();
@@ -358,6 +596,45 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
             .flat_map(|(gi, g)| g.files.iter().map(move |f| (gi, f.as_str())))
             .collect()
     );
+
+    // The zero-tools fail-fast case can be determined without spawning tools.
+    // Include both auxiliary phases on fixing runs and existing embedded rules.
+    if config_groups.iter().any(|g| {
+        g.config.code_block_tools.enabled
+            && g.config.code_block_tools.on_no_tools_run == rumdl_lib::code_block_tools::OnMissing::FailFast
+    }) {
+        let can_check = file_tasks.iter().any(|(gi, file)| {
+            let group = &config_groups[*gi];
+            if !group.config.code_block_tools.enabled || Path::new(file).extension().is_some_and(|ext| ext == "rs") {
+                return false;
+            }
+            let Ok(Some(content)) = rumdl_lib::encoding::read_markdown_lossy(Path::new(file)) else {
+                // Preserve the file-read/encoding diagnostic rather than hide it
+                // behind a zero-tools preflight failure.
+                return true;
+            };
+            let processor = rumdl_lib::code_block_tools::CodeBlockToolProcessor::new(
+                &group.config.code_block_tools,
+                group.config.get_flavor_for_file(Path::new(file)),
+            )
+            .with_document_config(&group.config)
+            .for_path(Path::new(file))
+            .with_builtin_checks(
+                !group
+                    .rule_sets
+                    .for_file(&group.config.get_ignored_rules_for_file(Path::new(file)))
+                    .embedded_markdown
+                    .is_empty(),
+            );
+            // Blocks are found in the text after a leading byte order mark.
+            let content = rumdl_lib::utils::bom::strip_bom(&content);
+            (group.rule_sets.auxiliary.lint && processor.has_work(content, true))
+                || (group.rule_sets.auxiliary.format && processor.has_work(content, false))
+        });
+        if !can_check {
+            tool_run_state.abort();
+        }
+    }
 
     // For batch formats, collect (display_path, warnings) tuples
     let mut batch_file_warnings: Vec<(String, Vec<rumdl_lib::rule::LintWarning>)> = Vec::new();
@@ -381,9 +658,9 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
         mut has_warnings,
         mut has_errors,
         mut files_with_issues,
-        files_fixed,
+        mut files_fixed,
         mut total_issues,
-        summary_issues_fixed,
+        mut summary_issues_fixed,
         total_fixable_issues,
         total_files_processed,
     ) = if use_parallel {
@@ -393,6 +670,7 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
             file_tasks
                 .par_iter()
                 .map(|(gi, file_path)| {
+                    let _source_scope = canonical_sources.enter();
                     let group = &config_groups[*gi];
                     let result = crate::file_processor::process_file_with_formatter(
                         file_path,
@@ -410,6 +688,9 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
                         project_root,
                         args.show_full_path,
                         group.cache_hashes.as_deref(),
+                        preflight.as_ref(),
+                        format_only,
+                        args.check,
                     );
                     (file_path.to_string(), result)
                 })
@@ -443,6 +724,13 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
                 } = result;
 
                 if file_errored {
+                    had_tool_error = true;
+                }
+                if args.preflight
+                    && warnings
+                        .iter()
+                        .any(|w| w.severity == Severity::Error && w.rule_name.as_deref() == Some("code-block-tools"))
+                {
                     had_tool_error = true;
                 }
                 config_warning |= file_config_warning;
@@ -523,6 +811,9 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
 
         rumdl_lib::time_section!("check: process files sequential", {
             for &(gi, file_path) in &file_tasks {
+                if tool_run_state.aborted() {
+                    break;
+                }
                 let group = &config_groups[gi];
                 let crate::file_processor::FileProcessResult {
                     has_issues: file_has_issues,
@@ -551,9 +842,19 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
                     project_root,
                     args.show_full_path,
                     group.cache_hashes.as_deref(),
+                    preflight.as_ref(),
+                    format_only,
+                    args.check,
                 );
 
                 if file_errored {
+                    had_tool_error = true;
+                }
+                if args.preflight
+                    && warnings
+                        .iter()
+                        .any(|w| w.severity == Severity::Error && w.rule_name.as_deref() == Some("code-block-tools"))
+                {
                     had_tool_error = true;
                 }
                 config_warning |= file_config_warning;
@@ -762,15 +1063,112 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
         }
     }
 
+    // An aborted traversal is incomplete, irrespective of finding severity filters.
+    had_tool_error |= tool_run_state.aborted();
+
+    // Policy warnings are gathered from workers and emitted once per invocation.
+    let mut tool_policy_warnings = tool_run_state.warnings();
+    let mut invocation_error = None;
+    if !tool_run_state.checked_anything() {
+        use rumdl_lib::code_block_tools::OnMissing;
+        let policies: Vec<_> = config_groups
+            .iter()
+            .filter(|g| g.config.code_block_tools.enabled)
+            .map(|g| g.config.code_block_tools.on_no_tools_run)
+            .collect();
+        if policies
+            .iter()
+            .any(|p| matches!(p, OnMissing::Fail | OnMissing::FailFast))
+        {
+            had_tool_error = true;
+            invocation_error = Some(NO_TOOLS_MESSAGE);
+            report_no_tools_error(args);
+        } else if policies.contains(&OnMissing::Warn) {
+            tool_policy_warnings
+                .push("code-block-tools: no tools executed and no valid cached tool results were used".into());
+        }
+    }
+    config_warning |= !tool_policy_warnings.is_empty();
+    if !args.silent {
+        for message in tool_policy_warnings {
+            if args.stderr {
+                println!("{} {message}", rumdl_lib::utils::warning_label("config warning"));
+            } else {
+                eprintln!("{} {message}", rumdl_lib::utils::warning_label("config warning"));
+            }
+        }
+    }
+
+    if let Some(plan) = &preflight {
+        if had_tool_error
+            || tool_run_state.aborted()
+            || (args.deny_config_warnings && (config_warning || external_config_warning))
+        {
+            files_fixed = 0;
+            summary_issues_fixed = 0;
+            restore_preflight_diagnostics(plan, 0, &mut batch_file_warnings, args, project_root);
+            report_preflight_notice(
+                args,
+                "Preflight failed; no files were written by rumdl. Planned changes were discarded.",
+            );
+        } else {
+            match plan.apply() {
+                Ok(written) => files_fixed = written,
+                Err(failure) => {
+                    had_tool_error = true;
+                    has_errors = true;
+                    has_issues = true;
+                    files_fixed = failure.written;
+                    summary_issues_fixed = 0;
+                    restore_preflight_diagnostics(plan, failure.written, &mut batch_file_warnings, args, project_root);
+                    total_issues += 1;
+                    let display_path = crate::file_processor::resolve_discovered_display_path(
+                        &failure.path.to_string_lossy(),
+                        args.show_full_path,
+                        project_root,
+                    );
+                    if let Some((_, warnings)) = batch_file_warnings.iter_mut().find(|(path, _)| *path == display_path)
+                    {
+                        warnings.push(failure.warning());
+                    } else {
+                        batch_file_warnings.push((display_path, vec![failure.warning()]));
+                    }
+                    let message = if failure.written == 0 {
+                        "Preflight failed; no files were written by rumdl.".to_string()
+                    } else {
+                        format!(
+                            "Preflight apply failed after writing {} file(s); earlier writes were retained.",
+                            failure.written
+                        )
+                    };
+                    report_preflight_notice(args, &message);
+                }
+            }
+        }
+    }
+
     // Emit batch output for collection formats
-    if let Some(output) = output_format.format_batch(
+    if let Some(output) = output_format.format_batch_with_invocation(
         &batch_file_warnings,
         &batch_all_files,
         start_time.elapsed().as_millis() as u64,
+        invocation_error,
     ) {
         output_writer.writeln(&output).unwrap_or_else(|e| {
             eprintln!("Error writing output: {e}");
         });
+    }
+
+    if args.preflight && !output_format.is_batch() {
+        let formatter = output_format.create_formatter();
+        for (path, warnings) in &batch_file_warnings {
+            let output = formatter.format_warnings(warnings, path);
+            if !output.is_empty() {
+                output_writer
+                    .writeln(&output)
+                    .unwrap_or_else(|e| eprintln!("Error writing output: {e}"));
+            }
+        }
     }
 
     let duration = start_time.elapsed();
@@ -778,7 +1176,7 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
 
     // Print results summary if not in quiet or silent mode
     // Skip for batch formats to keep stdout as pure structured output
-    if !quiet && !args.silent && !needs_collection && !output_format.is_machine_readable() {
+    if !quiet && !args.silent && !output_format.is_batch() && !output_format.is_machine_readable() {
         formatter::print_results_from_checkargs(formatter::PrintResultsArgs {
             args,
             has_issues,
@@ -833,5 +1231,46 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> CheckRunOutcome {
         had_tool_error,
         config_warning,
         reads_editorconfig,
+    }
+}
+
+fn report_preflight_notice(args: &crate::CheckArgs, message: &str) {
+    if !args.silent {
+        if args.stderr {
+            println!("{message}");
+        } else {
+            eprintln!("{message}");
+        }
+    }
+}
+
+/// A discarded plan leaves original findings unresolved. Preserve new fatal
+/// tool/planning diagnostics, but do not report the proposed content as clean.
+fn restore_preflight_diagnostics(
+    plan: &crate::file_processor::PreflightPlan,
+    written: usize,
+    warnings: &mut Vec<(String, Vec<rumdl_lib::rule::LintWarning>)>,
+    args: &crate::CheckArgs,
+    project_root: Option<&Path>,
+) {
+    for (path, mut original) in plan.original_diagnostics(written) {
+        let display = crate::file_processor::resolve_discovered_display_path(
+            &path.to_string_lossy(),
+            args.show_full_path,
+            project_root,
+        );
+        if let Some((_, current)) = warnings.iter_mut().find(|(path, _)| path == &display) {
+            for warning in current
+                .iter()
+                .filter(|w| matches!(w.rule_name.as_deref(), Some("preflight" | "code-block-tools")))
+            {
+                if !original.contains(warning) {
+                    original.push(warning.clone());
+                }
+            }
+            *current = original;
+        } else if !original.is_empty() {
+            warnings.push((display, original));
+        }
     }
 }

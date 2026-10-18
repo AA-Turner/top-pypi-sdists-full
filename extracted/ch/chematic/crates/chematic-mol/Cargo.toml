@@ -25,20 +25,20 @@ rustdoc-args = ["--cfg", "docsrs"]
 crystal = ["dep:chematic-crystal"]
 
 [dependencies]
-chematic-core        = { path = "../chematic-core",        version = "1.1.6" }
-chematic-3d           = { path = "../chematic-3d",           version = "1.1.6" }
-chematic-rxn         = { path = "../chematic-rxn",         version = "1.1.6" }
-chematic-perception  = { path = "../chematic-perception",  version = "1.1.6" }
-chematic-smiles      = { path = "../chematic-smiles",      version = "1.1.6" }
-chematic-depict      = { path = "../chematic-depict",      version = "1.1.6" }
-chematic-chem        = { path = "../chematic-chem",        version = "1.1.6" }
-chematic-crystal     = { path = "../chematic-crystal",     version = "1.1.6", optional = true }
+chematic-core        = { path = "../chematic-core",        version = "1.1.7" }
+chematic-3d           = { path = "../chematic-3d",           version = "1.1.7" }
+chematic-rxn         = { path = "../chematic-rxn",         version = "1.1.7" }
+chematic-perception  = { path = "../chematic-perception",  version = "1.1.7" }
+chematic-smiles      = { path = "../chematic-smiles",      version = "1.1.7" }
+chematic-depict      = { path = "../chematic-depict",      version = "1.1.7" }
+chematic-chem        = { path = "../chematic-chem",        version = "1.1.7" }
+chematic-crystal     = { path = "../chematic-crystal",     version = "1.1.7", optional = true }
 serde_json           = { version = "1.0", features = ["float_roundtrip"] }
 serde                = { version = "1.0", features = ["derive"] }
 memchr               = "2.8"
+flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
 
 [dev-dependencies]
-flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
 serde_json = { version = "1.0", features = ["float_roundtrip"] }
 # Path-only (no `version`): see chematic-smiles/Cargo.toml's dev-dependencies
 # comment -- a version-pinned dev-dependency must resolve against the

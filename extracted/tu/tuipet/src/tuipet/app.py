@@ -51,7 +51,6 @@ from .arena import (  # noqa: F401  (full re-export: preserve tuipet.app.* for c
     _HIDDEN_STATUS_ICONS, _effect_overlay, _sick_mark_up,
 )
 
-import re as _re
 # navigation keys: pressing one in a sub-screen plays the scroll blip (unless the
 # screen sets its own sfx) — every list cursor-move beeps, V-Pet style
 # (page jumps joined the scrollers 2026-07-18; they blip like any cursor move)
@@ -79,10 +78,10 @@ HUD_W = 40              # message-box content width (CSS #msg: 44 - 2 border - 2
 HUD_GAP = "      "      # blank run between marquee wraps so the looped text reads cleanly
 HUD_STEP = 2            # advance the marquee every N frames (10 Hz clock -> ~0.2 s/char)
 HUD_HOLD = 8            # marquee steps to hold on the message head before scrolling (~1.6 s)
-_HUD_MARKUP = _re.compile(r"\[/?[^\]]*\]")
 def _hud_plain(t):
     """Visible text of a Rich-markup string (tags stripped) for width measurement."""
-    return _HUD_MARKUP.sub("", t)
+    from rich.text import Text
+    return Text.from_markup(t).plain
 def _hud_esc(t):
     """Escape '[' so a plain marquee window is never parsed as Rich markup."""
     return t.replace("[", "\\[")
@@ -131,6 +130,11 @@ class Stats(Static):
     """The right-hand card widget.  Every card body lives in statusbox --
     this widget only chooses home/egg/grave and writes the lines."""
 
+    def update(self, content=""):
+        if isinstance(content, str):
+            content = theme.shell_markup(content)
+        return super().update(content)
+
     def paint(self, pet: Pet):
         if pet.dead:
             return self._paint_grave(pet)
@@ -164,14 +168,15 @@ class TuiPetApp(ActionsMixin, App):
         border: round #7a7e78; padding: 0 1; width: 44; height: 3; margin-top: 1;
         color: #7d8186; content-align: left middle;
     }
-    #stats { border: round #7a7e78; padding: 0 1; width: 30; height: 18; margin-left: 1; }
+    #stats { background: #121212; border: round #7a7e78; padding: 0 1; width: 30; height: 18; margin-left: 1; }
     #keys {
         border: round #7a7e78; padding: 0 1; width: 75; height: 5; margin-top: 1; color: #7d8186;
     }
     """
     # the release-news line (title-screen msg box, first launch per build) --
     # UPDATE THIS WITH EVERY RELEASE that ships something player-visible
-    WHATS_NEW = ("FAIRER CUPS. U now shows each cup's bracket, rules, prize and price before you pay, warns before a bracket above your stage, won't let you enter without energy for all three bouts, and the daily featured cup is always one your pet can enter.")
+    WHATS_NEW = ("@ HINTS: in lobby chat, type @ and the start of a name; the rest "
+                 "shows dim, and TAB or → fills it in. Empty-lobby hint fixed.")
 
 
     BINDINGS = [
@@ -338,6 +343,8 @@ class TuiPetApp(ActionsMixin, App):
                 # pane; once CONNECTED the lobby client receives its own
                 # copy, so then (and only then) the ghost's are duplicates.
                 for nm, tx in sync.inbox:
+                    if tx is None:
+                        continue
                     st.chat.append((nm if nm == "📢" else f"✉{nm}", tx))
                 del st.chat[:-net.CHAT_CAP]
             sync.inbox.clear()
@@ -352,7 +359,11 @@ class TuiPetApp(ActionsMixin, App):
         # (Rich-brackets hard rule, remote-triggered; chat-input audit 2026-07-07).
         # The lobby chat pane is already safe (Text.append renders literally);
         # this flash is the one markup-parsed sink for remote text.
-        if nm == "📢":                       # a server announcement, not a peer's ✉
+        if tx is None:
+            name = set_cell_size(net.clean_remote(nm), 38 - len("@  mentioned you")).rstrip()
+            label = "@ " + name + " mentioned you"
+            self.flash(_hud_esc(label))
+        elif nm == "📢":                       # a server announcement, not a peer's ✉
             self.flash(f"📢 [b]{_hud_esc(tx)}[/]")
         else:
             self.flash(f"✉ [b]{_hud_esc(nm)}[/]: {_hud_esc(tx)}")
@@ -1023,9 +1034,9 @@ class TuiPetApp(ActionsMixin, App):
                 w.styles.border = ("round", theme.SHELL)
                 w.styles.border_title_color = theme.LABEL
             self.screen_w.styles.border = ("thick", theme.BEZEL)
-            self.screen_w.styles.border_subtitle_color = theme.ACCENT
+            self.screen_w.styles.border_subtitle_color = theme.MID
             self.screen_w.styles.background = theme.LCD_BG
-            self.msg_w.styles.color = theme.LABEL
+            self.msg_w.styles.color = theme.shell_feedback(theme.LCD_ON)
             self.keys_w.styles.color = theme.LABEL
             self.keys_w.update(keys_markup())   # the shortcut letters re-tint too
         except Exception:
@@ -1150,6 +1161,8 @@ class TuiPetApp(ActionsMixin, App):
 
     def _center(self, text):
         from rich.text import Text
+        if "─" * menu.W in text.plain.split("\n")[:2]:
+            return text
         n = text.plain.count("\n") + 1
         pad = max(0, (SCREEN_ROWS - n) // 2)
         if not pad:
@@ -1161,6 +1174,8 @@ class TuiPetApp(ActionsMixin, App):
     def repaint(self):
         # The panel's own strip names the active controls.
         if getattr(self, "keys_w", None) is not None:
+            # a panel owns input, or it's still an egg: the rail stays VISIBLE but dims
+            # (Joel 2026-10-17: "I dont think im digging the action bar disappearing")
             owned = self.mode is not None or self.pet.stage == "Egg"
             self.keys_w.styles.opacity = 0.4 if owned else 1.0
         if self.mode is not None:
@@ -1583,6 +1598,7 @@ class TuiPetApp(ActionsMixin, App):
         fit render as-is with their Rich markup.  Re-sending the SAME text is a
         no-op: on_tick re-asserts persistent messages every second, and resetting
         the hold each time froze the marquee on its first window (audit 2026-07)."""
+        markup = theme.shell_feedback(markup)
         if markup == getattr(self, "_hud_text", None):
             return
         self._hud_text = markup
@@ -1590,11 +1606,17 @@ class TuiPetApp(ActionsMixin, App):
             self._hud_scroll = None
             self.msg_w.update(markup)
         else:
-            self._hud_scroll = _hud_plain(markup)   # scroll plain text (overflow msgs carry no markup)
+            self._hud_scroll = _hud_plain(markup)
+            from rich.console import Console
+            from rich.text import Text
+            rich_message = Text.from_markup(markup)
+            # Plain callers keep string frames; explicit feedback keeps its role.
+            self._hud_style = rich_message.get_style_at_offset(Console(), 0) if rich_message.spans else None
             self._hud_off = 0
             self._hud_hold = HUD_HOLD
             self._hud_tick = 0
-            self.msg_w.update(_hud_esc(set_cell_size(self._hud_scroll, HUD_W)))
+            window = set_cell_size(self._hud_scroll, HUD_W)
+            self.msg_w.update(Text(window, style=self._hud_style) if self._hud_style else _hud_esc(window))
 
     def _hud_marquee(self):
         """Advance the message marquee one step.  Called from the 10 Hz frame clock;
@@ -1619,8 +1641,10 @@ class TuiPetApp(ActionsMixin, App):
             if draw:
                 self._web_hud_at = now
         if draw:
-            self.msg_w.update(_hud_esc(set_cell_size(
-                (loop + loop)[self._hud_off:self._hud_off + HUD_W], HUD_W)))
+            from rich.text import Text
+            window = set_cell_size((loop + loop)[self._hud_off:self._hud_off + HUD_W], HUD_W)
+            style = getattr(self, "_hud_style", None)
+            self.msg_w.update(Text(window, style=style) if style else _hud_esc(window))
         self._hud_off += 1
         if self._hud_off >= len(loop):
             self._hud_off = 0

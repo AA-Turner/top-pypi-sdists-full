@@ -4,11 +4,13 @@
 #define __EXT_HPP__
 
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <condition_variable>
 #include <thread>
 #include <map>
 #include <string>
+#include <stdexcept>
 
 #ifdef _MSC_VER
 #include <BaseTsd.h>
@@ -38,6 +40,13 @@ typedef struct CUfileDescr_t {
     const void *fs_ops; /* CUfileFSOps_t */
 } CUfileDescr_t;
 typedef struct CUfileError { CUfileOpError err; } CUfileError_t;
+
+// FGDS (libfgds.so) file identifier. Linux-only; resolved at runtime via
+// dlopen() in load_fgds_library(), same as cuFile/hipFile above.
+typedef struct fgds_fileid {
+    int fd;
+    int device_id;
+} fgds_fileid;
 
 // Define minimal CUDA/HIP types for both platforms to avoid compile-time dependencies
 // We load all GPU functions dynamically at runtime via dlopen()
@@ -96,6 +105,7 @@ typedef struct CUfileDrvProps {
     unsigned int max_device_cache_size;
     unsigned int per_buffer_cache_size;
     unsigned int max_pinned_memory_size;
+    unsigned int max_batch_io_size;
     unsigned int max_batch_io_timeout_msecs;
  } CUfileDrvProps_t;
 
@@ -106,6 +116,8 @@ bool get_gil_release();
 void init_gil_release_from_env();
 int init_gds();
 int close_gds();
+uint64_t gds_device_cache_size();
+bool is_hipfile_memory_budget_supported();
 std::string get_device_pci_bus(int deviceId);
 int set_numa_node(int numa_node);
 pybind11::bytes read_buffer(uintptr_t _dst, uint64_t length);
@@ -154,33 +166,15 @@ public:
 
 class nogds_file_reader {
 private:
-    int _next_thread_id;
-    std::mutex _mutex;
-    std::condition_variable _cond;
-    std::thread ** _threads; // TOFIX
-    ext_funcs_t * _fns;
-    int _device_id;
-
-    typedef struct thread_states {
-        std::mutex _result_mutex;
-        std::condition_variable _result_cond;
-        std::map<int, void *> _results;
-        void * _read_buffer;
-        const bool _use_mmap;
-        const uint64_t _bbuf_size_kb;
-        const uint64_t _max_threads;
-    } thread_states_t;
-    thread_states_t _s;
+    struct state;
+    std::unique_ptr<state> _state;
 public:
-    nogds_file_reader(const bool use_mmap, const uint64_t bbuf_size_kb, const uint64_t max_threads, bool use_cuda, int device_id):
-        _next_thread_id(1), _threads(nullptr), _fns(use_cuda?&cuda_fns:&cpu_fns), _device_id(device_id),
-        _s(thread_states_t{._read_buffer = nullptr, ._use_mmap = use_mmap,
-            ._bbuf_size_kb = (bbuf_size_kb + max_threads - 1)/max_threads, ._max_threads = max_threads})
-         {}
-
-    static void _thread(const int thread_id, ext_funcs_t *fns, const int device_id, const int fd, const gds_device_buffer& dst, const int64_t offset, const int64_t length, const uint64_t ptr_off, thread_states_t *s); // not exposed to python
-    const int submit_read(const int fd, const gds_device_buffer& dst, const int64_t offset, const int64_t length, const uint64_t ptr_off);
-    const uintptr_t wait_read(const int thread_id);
+    nogds_file_reader(bool use_mmap, uint64_t bbuf_size_kb, uint64_t max_threads,
+                      bool use_cuda, int device_id, int numa_node = -1);
+    const int submit_read(int fd, const gds_device_buffer& dst, int64_t offset,
+                          int64_t length, uint64_t ptr_off, bool track_progress = false);
+    const uint64_t wait_read_prefix(int request_id, uint64_t length);
+    const uintptr_t wait_read(int request_id);
     ~nogds_file_reader();
 };
 
@@ -209,26 +203,69 @@ public:
 
 class gds_file_reader {
 private:
-    int _next_id;
-    std::thread ** _threads; // TOFIX
-    typedef struct thread_states {
-        std::mutex _result_lock;
-        std::map<int, ssize_t> _results;
-        const int _max_threads;
-    } thread_states_t;
-    thread_states_t _s;
-    ext_funcs_t *_fns;
+    struct state;
+    std::unique_ptr<state> _state;
+public:
+    gds_file_reader(int max_threads, bool use_cuda, int device_id,
+                    uint64_t block_size = 16 * 1024 * 1024, int numa_node = -1);
+    ~gds_file_reader();
+    const int submit_read(const gds_file_handle &fh, const gds_device_buffer &dst,
+                         uint64_t offset, uint64_t length, uint64_t ptr_off,
+                         uint64_t file_length, bool track_progress = false);
+    const uint64_t wait_read_prefix(int id, uint64_t length);
+    const ssize_t wait_read(int id);
+};
+
+// FGDS (libfgds.so) support — Linux only. Symbols are resolved at runtime in
+// load_fgds_library(), which the FGDS copier path calls on demand (so other
+// copiers never load libfgds.so); is_fgds_found() reports whether they are
+// available. init_fgds()/close_fgds() manage per-device fgds_open/fgds_close
+// explicitly, mirroring the GDS init_gds()/close_gds() model.
+void load_fgds_library();
+bool is_fgds_found();
+int init_fgds(int device_id);
+int close_fgds(int device_id);
+
+class fgds_device_buffer {
+private:
+    const uintptr_t _devPtr;
+    const uint64_t _length;
+public:
+    fgds_device_buffer(const uintptr_t dev_ptr, const uint64_t length);
+    uintptr_t get_base_address() const;
+    uint64_t get_length() const;
+};
+
+class fgds_file_handle {
+private:
+    int _fd;
     int _device_id;
 public:
-    gds_file_reader(const int max_threads, bool use_cuda, int device_id): _next_id(1), _threads(nullptr), _s(thread_states_t{._max_threads = max_threads}), _fns(use_cuda?&cuda_fns:&cpu_fns), _device_id(device_id) {}
-    static void _thread(const int thread_id, ext_funcs_t *fns, const int device_id, const gds_file_handle &fh, const gds_device_buffer &dst, const uint64_t offset, const uint64_t length, const uint64_t ptr_off, const uint64_t file_length, thread_states_t *s);
-    const int submit_read(const gds_file_handle &fh, const gds_device_buffer &dst, const uint64_t offset, const uint64_t length, const uint64_t ptr_off, const uint64_t file_length);
+    fgds_file_handle(std::string filename, bool o_direct, int device_id);
+    ~fgds_file_handle();
+    int get_device_id() const;
+    int get_fd() const;
+};
+
+class fgds_file_reader {
+private:
+    int _max_threads;
+    int _device_id;
+    std::thread** _threads;
+    std::atomic<int> _next_id;
+    std::map<int, ssize_t> _results;
+    std::mutex _result_lock;
+public:
+    fgds_file_reader(const int max_threads, int device_id);
+    ~fgds_file_reader();
+    const int submit_read(const fgds_file_handle& fh, const fgds_device_buffer& dst, const uint64_t offset, const uint64_t length, const uint64_t ptr_off);
     const ssize_t wait_read(const int id);
 };
 
 typedef struct ext_funcs {
     CUfileError_t (*cuFileDriverOpen)();
     CUfileError_t (*cuFileDriverClose)();
+    CUfileError_t (*cuFileDriverGetProperties)(CUfileDrvProps_t *);
     CUfileError_t (*cuFileDriverSetMaxDirectIOSize)(size_t);
     CUfileError_t (*cuFileDriverSetMaxPinnedMemSize)(size_t);
     CUfileError_t (*cuFileBufRegister)(const void *, size_t, int);
@@ -238,6 +275,9 @@ typedef struct ext_funcs {
     ssize_t (*cuFileRead)(CUfileHandle_t, void *, size_t, off_t, off_t);
     cudaError_t (*cudaMemcpy)(void *, const void *, size_t, enum cudaMemcpyKind);
     cudaError_t (*cudaMemcpyAsync)(void *, const void *, size_t, enum cudaMemcpyKind, cudaStream_t);
+    cudaError_t (*cudaStreamCreateWithFlags)(cudaStream_t *, unsigned int);
+    cudaError_t (*cudaStreamSynchronize)(cudaStream_t);
+    cudaError_t (*cudaStreamDestroy)(cudaStream_t);
     cudaError_t (*cudaDeviceSynchronize)(void);
     cudaError_t (*cudaHostAlloc)(void **, size_t, unsigned int);
     cudaError_t (*cudaFreeHost)(void *);

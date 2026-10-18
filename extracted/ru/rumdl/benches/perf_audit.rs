@@ -19,7 +19,7 @@ use rumdl_lib::rules::md013_line_length::md013_config::ReflowMode;
 use rumdl_lib::rules::{
     AbsoluteLinksOption, MD011NoReversedLinks, MD013Config, MD013LineLength, MD018NoMissingSpaceAtx,
     MD021NoMultipleSpaceClosedAtx, MD027MultipleSpacesBlockquote, MD032BlanksAroundLists, MD033NoInlineHtml,
-    MD052ReferenceLinkImages, MD057Config, MD057ExistingRelativeLinks,
+    MD051LinkFragments, MD052ReferenceLinkImages, MD057Config, MD057ExistingRelativeLinks,
 };
 use rumdl_lib::rules::{MD014CommandsShowOutput, MD024NoDuplicateHeading, MD039NoSpaceInLinks, MD044ProperNames};
 use rumdl_lib::utils::regex_cache::{RegexCache, get_cached_regex};
@@ -203,6 +203,49 @@ fn bench_lint_context_new(c: &mut Criterion) {
     c.bench_function("lint_context_new/math_blocks", |b| {
         b.iter(|| LintContext::new(black_box(&math), MarkdownFlavor::Standard, None));
     });
+
+    let links = gen_prose_links(100, 20);
+    c.bench_function("lint_context_new/link_dense", |b| {
+        b.iter(|| LintContext::new(black_box(&links), MarkdownFlavor::Standard, None));
+    });
+
+    let code = "Paragraph with `inline code`.\n\n```md\n[code](url) **literal**\n```\n\n".repeat(1000);
+    c.bench_function("lint_context_new/code_dense", |b| {
+        b.iter(|| LintContext::new(black_box(&code), MarkdownFlavor::Standard, None));
+    });
+
+    let prose = gen_prose(400, 8);
+    c.bench_function("lint_context_new/plain_prose", |b| {
+        b.iter(|| LintContext::new(black_box(&prose), MarkdownFlavor::Standard, None));
+    });
+
+    let quoted =
+        "> - item\n>\n>   | a | b |\n>   | --- | --- |\n>   | x | y |\n>\n>   Title\n>   =====\n\n".repeat(400);
+    c.bench_function("lint_context_new/quoted_lists_and_tables", |b| {
+        b.iter(|| LintContext::new(black_box(&quoted), MarkdownFlavor::Standard, None));
+    });
+}
+
+/// Parser-only costs for the same inputs, without rumdl's extraction and line
+/// classification. Compare with context construction before replacing a parser.
+fn bench_markdown_parse(c: &mut Criterion) {
+    use rumdl_lib::utils::parser_options::rumdl_parser_options_for;
+    for (name, content) in [
+        ("mixed", gen_mixed(400)),
+        ("link_dense", gen_prose_links(100, 20)),
+        (
+            "code_dense",
+            "Paragraph with `inline code`.\n\n```md\n[code](url) **literal**\n```\n\n".repeat(1000),
+        ),
+    ] {
+        c.bench_function(&format!("markdown_parse/{name}"), |b| {
+            b.iter(|| {
+                pulldown_cmark::Parser::new_ext(black_box(&content), rumdl_parser_options_for(&content))
+                    .into_offset_iter()
+                    .count()
+            });
+        });
+    }
 }
 
 fn bench_lint_overhead(c: &mut Criterion) {
@@ -575,9 +618,77 @@ fn bench_md024_duplicate_headings(c: &mut Criterion) {
     }
 }
 
+/// The same document is checked and then indexed. Keep each context fresh so
+/// lazy analysis is charged once, as it is in a real document run.
+fn bench_link_analysis(c: &mut Criterion) {
+    let mut group = c.benchmark_group("link_analysis");
+    for sections in [50, 500] {
+        let mut content = String::new();
+        for i in 0..sections {
+            content.push_str(&format!(
+                "## Section {i}\n\n[local](#section-{i}) [external](https://example.com/{i}) \
+                 [page](/docs/page-{i}.md#part)\n\n<span id=\"target-{i}\">Text</span>\n\n"
+            ));
+        }
+        let fragments = MD051LinkFragments::new();
+        let paths = MD057ExistingRelativeLinks::from_config_struct(MD057Config {
+            absolute_links: AbsoluteLinksOption::Warn,
+            ..Default::default()
+        });
+        let run = |ctx: &LintContext<'_>| {
+            let warnings = (fragments.check(ctx).unwrap(), paths.check(ctx).unwrap());
+            let mut index = FileIndex::new();
+            fragments.contribute_to_index(ctx, &mut index);
+            paths.contribute_to_index(ctx, &mut index);
+            black_box((warnings, index));
+        };
+        group.bench_function(format!("check_and_index/{sections}"), |b| {
+            b.iter_batched(
+                || LintContext::new(&content, MarkdownFlavor::Standard, Some("/docs/source.md".into())),
+                |ctx| run(black_box(&ctx)),
+                BatchSize::SmallInput,
+            );
+        });
+        group.bench_function(format!("parse_check_and_index/{sections}"), |b| {
+            b.iter(|| {
+                let ctx = LintContext::new(
+                    black_box(&content),
+                    MarkdownFlavor::Standard,
+                    Some("/docs/source.md".into()),
+                );
+                run(&ctx);
+            });
+        });
+    }
+    group.finish();
+}
+
+fn bench_input_preparation(c: &mut Criterion) {
+    let lf = gen_mixed(1000);
+    let crlf = lf.replace('\n', "\r\n");
+    let mixed = format!("{lf}{crlf}");
+    let mut group = c.benchmark_group("input_preparation");
+    for (label, content) in [("lf", &lf), ("crlf", &crlf), ("mixed", &mixed)] {
+        group.bench_function(format!("line_endings/{label}"), |b| {
+            b.iter(|| rumdl_lib::utils::NormalizedLineEndingMap::new(black_box(content)))
+        });
+        group.bench_function(format!("conflict_scan/{label}"), |b| {
+            b.iter(|| rumdl_lib::merge_conflict::detect(black_box(content)))
+        });
+    }
+    let late_conflict = format!("{lf}<<<<<<< HEAD\n");
+    group.bench_function("conflict_scan/late", |b| {
+        b.iter(|| rumdl_lib::merge_conflict::detect(black_box(&late_conflict)))
+    });
+    group.finish();
+}
+
 criterion_group!(
     benches,
+    bench_link_analysis,
+    bench_input_preparation,
     bench_lint_context_new,
+    bench_markdown_parse,
     bench_lint_overhead,
     bench_md013_reflow,
     bench_block_scan,

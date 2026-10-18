@@ -3,11 +3,27 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from sqlbuild._native import (
+        CompiledSqlTest,
+        ConstantDeclaration,
+        EnumDeclaration,
+        Finding,
+        InferredColumn,
+        Model,
+        ProjectPath,
+        RuleOption,
+        SqlNode,
+    )
+    from sqlbuild.compiler.compile.types import (
+        CompiledAuditView,
+        CompiledFunctionView,
+        CompiledSeedView,
+        CompiledSourceView,
+    )
     from sqlbuild.rule_engine.classes.audit_facts import AuditFacts
     from sqlbuild.rule_engine.classes.column_facts import ColumnFacts
     from sqlbuild.rule_engine.classes.contract_facts import ContractFacts
@@ -16,27 +32,77 @@ if TYPE_CHECKING:
     from sqlbuild.rule_engine.classes.model_test_facts import TestFacts
     from sqlbuild.rule_engine.classes.project_facts import ProjectFacts
     from sqlbuild.rule_engine.classes.sql_facts import SqlFacts
-    from sqlbuild.rule_engine.models import (
-        Finding,
-        Model,
-        ProjectPath,
-        RuleOption,
-        SqlNode,
-    )
 
 type RuleOptionValue = bool | int | str | tuple[str, ...] | tuple[int, ...]
 type FactKey = tuple[str, ...]
-type FindingRow = tuple[bool, str, str, int, int, str, str]
 type CustomRulePlan = dict[str, frozenset[str] | None]
 
-type CustomHostPlan = dict[str, list[str] | None]
+
+class RuleFactModel(Protocol):
+    """One compiled model's facts as a custom-rule host reads them."""
+
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def relative_path(self) -> Path: ...
+
+    @property
+    def key(self) -> object: ...
+
+    @property
+    def deps(self) -> tuple[object, ...]: ...
+
+    @property
+    def authored_sql(self) -> str: ...
+
+    @property
+    def query_sql(self) -> str: ...
+
+    @property
+    def declared_columns(self) -> tuple[object, ...]: ...
+
+    @property
+    def inferred_columns(self) -> tuple[InferredColumn, ...] | None: ...
+
+    @property
+    def enum_declarations(self) -> tuple[EnumDeclaration, ...]: ...
+
+    @property
+    def constant_declarations(self) -> tuple[ConstantDeclaration, ...]: ...
+
+    def config_value(self, name: str) -> object: ...
 
 
-class RuleSubject(StrEnum):
-    """Compiler-owned unit used to invoke and cache one custom rule."""
+class RuleFactProject(Protocol):
+    """One compiled project's facts as a custom-rule host reads them."""
 
-    MODEL = "model"
-    PROJECT = "project"
+    @property
+    def models(self) -> tuple[RuleFactModel, ...]: ...
+
+    @property
+    def effective_target_name(self) -> str | None: ...
+
+    @property
+    def sources(self) -> tuple[CompiledSourceView, ...]: ...
+
+    @property
+    def seeds(self) -> tuple[CompiledSeedView, ...]: ...
+
+    @property
+    def functions(self) -> tuple[CompiledFunctionView, ...]: ...
+
+    @property
+    def audits(self) -> tuple[CompiledAuditView, ...]: ...
+
+    @property
+    def sql_tests(self) -> tuple[CompiledSqlTest, ...]: ...
+
+    @property
+    def public_enums(self) -> dict[str, EnumDeclaration]: ...
+
+    @property
+    def public_constants(self) -> dict[str, ConstantDeclaration]: ...
 
 
 class RuleContext(Protocol):

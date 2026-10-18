@@ -2,6 +2,7 @@ from collections.abc import Callable, Sequence
 
 import numpy as np
 
+from rich.progress import TaskID
 from scipy.optimize import OptimizeResult
 from scipy.optimize._basinhopping import (
     AdaptiveStepsize,
@@ -13,13 +14,40 @@ from scipy.optimize._basinhopping import (
 
 from better_optimize.basinhopping.progress import initialize_progress_bar
 from better_optimize.basinhopping.runner import AllowFailureBasinHoppingRunner
+from better_optimize.configuration import config_from_kwargs
+from better_optimize.exceptions import OptimizationInterrupted
 from better_optimize.minimize import minimize
 from better_optimize.utilities import (
     LRUCache1,
+    ToggleableProgress,
     check_f_is_fused_minimize,
-    determine_maxiter,
     validate_provided_functions_minimize,
 )
+
+
+def _result_from_storage(
+    bh: AllowFailureBasinHoppingRunner, message: list[str], nit: int
+) -> OptimizeResult:
+    res = bh.res
+    res.lowest_optimization_result = bh.storage.get_lowest()
+    res.x = np.copy(res.lowest_optimization_result.x)
+    res.fun = res.lowest_optimization_result.fun
+    res.message = message
+    res.nit = nit
+    return res
+
+
+def _interrupted_before_first_basin(inner: OptimizationInterrupted) -> OptimizationInterrupted:
+    message = "Interrupted by KeyboardInterrupt during the first local minimization."
+    result = OptimizeResult(
+        x=inner.result.x,
+        fun=inner.result.fun,
+        success=False,
+        message=[message],
+        nit=0,
+        lowest_optimization_result=inner.result,
+    )
+    return OptimizationInterrupted(result, message)
 
 
 def basinhopping(
@@ -34,11 +62,12 @@ def basinhopping(
     accept_on_minimizer_fail: bool = False,
     callback: Callable | None = None,
     interval: int = 50,
-    progressbar: bool = True,
+    progressbar: bool | ToggleableProgress = True,
     verbose: bool = False,
     niter_success: int | None = None,
     rng: int | float | np.random.Generator | None = None,
     *,
+    progress_task: TaskID | None = None,
     target_accept_rate: float = 0.5,
     stepwise_factor: float = 0.9,
 ) -> OptimizeResult:
@@ -73,14 +102,20 @@ def basinhopping(
         ignored; raise ``StopOptimization`` to stop early. Default None.
     interval: int
         Interval for how often to update the step size
-    progressbar: bool
-        Whether to display a progress bar
+    progressbar: bool or ToggleableProgress
+        If True, show a progress bar with one row for the basins and one for the local
+        minimizer. If a ``ToggleableProgress`` is passed (e.g. from ``multi_optimize`` or
+        ``sequential_optimize``), report the basins on it and run the local minimizer without a
+        bar.
     verbose: bool
         Whether to print verbose output. Ignored if progressbar is True.
     niter_success: int, optional
         Stop if the global minimum candidate remains the same for this many iterations
     rng: np.random.RandomState, optional
         Random number generator
+    progress_task: TaskID, optional
+        The task on a shared ``progressbar`` to update. A new task is added when None. Ignored
+        unless ``progressbar`` is a ``ToggleableProgress``.
     target_accept_rate: float
         Target acceptance rate for the adaptive step size
     stepwise_factor: float
@@ -116,9 +151,10 @@ def basinhopping(
     method = minimizer_kwargs.pop("method", "L-BFGS-B")
     args = minimizer_kwargs.pop("args", ())
 
-    # Use the validation helper to determine which functions to use
+    # The options stay in minimizer_kwargs for the inner minimize to resolve again.
+    config, _ = config_from_kwargs(method, minimizer_kwargs)
     use_jac, use_hess, use_hessp = validate_provided_functions_minimize(
-        method,
+        config,
         jac,
         hess,
         hessp,
@@ -134,46 +170,52 @@ def basinhopping(
     if has_fused_f_grad_hess:
         hess = f_cached.hess
 
-    progress = initialize_progress_bar(progressbar, use_jac=use_jac, use_hess=False)
+    owns_progress = isinstance(progressbar, bool)
+    shows_minimizer = owns_progress and progressbar
+    if owns_progress:
+        progress = initialize_progress_bar(progressbar, use_jac=use_jac, use_hess=False)
+    else:
+        progress = progressbar
 
     if progressbar:
         verbose = False
 
-    bh_task = progress.add_task(
-        description="Basinhopping",
-        name="Basinhopping",
-        total=niter,
-        accept_rate=np.nan,
-        step_size=stepsize,
-        f_value=0.0,
-        grad_norm=0.0,
-        hess_norm=0.0,
-    )
+    if owns_progress or progress_task is None:
+        bh_task = progress.add_task(
+            description="Basinhopping",
+            name="Basinhopping",
+            total=niter,
+            accept_rate=np.nan,
+            step_size=stepsize,
+            f_value=0.0,
+            grad_norm=0.0,
+            hess_norm=0.0,
+        )
+    else:
+        bh_task = progress_task
+        progress.update(bh_task, total=niter)
 
     n_vars = x0.size if hasattr(x0, "size") else len(x0)
-    if "options" not in minimizer_kwargs:
-        minimizer_kwargs["options"] = {}
+    minimizer_maxiter = config.evaluation_budget(n_vars)
 
-    minimizer_maxiter, minimizer_kwargs = determine_maxiter(minimizer_kwargs, method, n_vars)
-
-    # determine_maxiter pops the maxiters out of minimizer_kwargs, but we still need it in there for later, so we
-    # put it back in.
-    minimizer_kwargs["maxiter"] = minimizer_maxiter
-
-    minimize_task = progress.add_task(
-        description="Minimize",
-        name="Minimize",
-        step_size=0.0,
-        accept_rate=0.0,
-        f_value=0.0,
-        grad_norm=0.0,
-        hess_norm=0.0,
-        total=minimizer_maxiter,
-    )
+    if owns_progress:
+        minimize_task = progress.add_task(
+            description="Minimize",
+            name="Minimize",
+            step_size=0.0,
+            accept_rate=0.0,
+            f_value=0.0,
+            grad_norm=0.0,
+            hess_norm=0.0,
+            total=minimizer_maxiter,
+        )
+    else:
+        minimize_task = None
 
     def wrapped_minimize(x0_inner, *args, **kwargs):
-        # Always keep the minimizer progress bar's total fixed at the requested maxiter
-        progress.update(minimize_task, total=minimizer_maxiter)
+        if owns_progress:
+            # Always keep the minimizer progress bar's total fixed at the requested maxiter
+            progress.update(minimize_task, total=minimizer_maxiter)
         return minimize(
             method=method,
             f=f_cached.value_and_grad if has_fused_f_and_grad else f_cached.value,
@@ -182,7 +224,7 @@ def basinhopping(
             jac=None if not use_jac else (True if has_fused_f_and_grad else jac),
             hess=None if not use_hess else hess,
             hessp=None if not use_hessp else hessp,
-            progressbar=progress,
+            progressbar=progress if owns_progress else False,
             progress_task=minimize_task,
             verbose=verbose,
             **minimizer_kwargs,
@@ -229,14 +271,17 @@ def basinhopping(
     if niter_success is None:
         niter_success = niter + 2
 
-    bh = AllowFailureBasinHoppingRunner(
-        x0,
-        wrapped_minimizer,
-        take_step_wrapped,
-        accept_tests,
-        accept_on_minimizer_fail=accept_on_minimizer_fail,
-        disp=verbose,
-    )
+    try:
+        bh = AllowFailureBasinHoppingRunner(
+            x0,
+            wrapped_minimizer,
+            take_step_wrapped,
+            accept_tests,
+            accept_on_minimizer_fail=accept_on_minimizer_fail,
+            disp=verbose,
+        )
+    except OptimizationInterrupted as e:
+        raise _interrupted_before_first_basin(e) from e
 
     # The wrapped minimizer is called once during construction of
     # BasinHoppingRunner, so run the callback
@@ -255,10 +300,14 @@ def basinhopping(
     if early_stop:
         message = ["callback requested early stop"]
 
-    grad_norm_at_min = 0.0
-    if use_jac:
-        grad_val = f_cached.grad(bh.x, *args)
-        grad_norm_at_min = np.linalg.norm(grad_val)
+    def grad_norm(x) -> float:
+        if not use_jac:
+            return 0.0
+        # The cache can only split a gradient off an objective that returns one.
+        grad_val = f_cached.grad(x, *args) if f_returns_list else jac(x, *args)
+        return float(np.linalg.norm(grad_val))
+
+    grad_norm_at_min = grad_norm(bh.x)
 
     # Update the progress bar with initial values
     progress.update(
@@ -271,42 +320,54 @@ def basinhopping(
     )
 
     with progress:
-        for i in range(niter):
-            if early_stop:
-                break
-            if progressbar:
-                progress.reset(minimize_task, visible=True)
-            new_global_min = bh.one_cycle()
-            if new_global_min and progressbar:
-                grad_norm_at_min = progress.tasks[minimize_task].fields["grad_norm"]
-
-            progress.update(
-                bh_task,
-                advance=1,
-                step_size=take_step_wrapped.takestep.stepsize,
-                accept_rate=float(take_step_wrapped.naccept) / take_step_wrapped.nstep,
-                f_value=bh.storage.get_lowest().fun,
-                grad_norm=grad_norm_at_min,
-            )
-
-            if callable(callback):
-                res = OptimizeResult(x=bh.xtrial, fun=bh.energy_trial, nit=i + 1, accept=bh.accept)
-                try:
-                    callback(res)  # return ignored; raise StopOptimization to stop early
-                except StopIteration:
-                    message = ["callback requested early stop"]
+        try:
+            for i in range(niter):
+                if early_stop:
                     break
+                if shows_minimizer:
+                    progress.reset(minimize_task, visible=True)
+                new_global_min = bh.one_cycle()
+                if new_global_min and shows_minimizer:
+                    grad_norm_at_min = progress.tasks[minimize_task].fields["grad_norm"]
+                elif new_global_min and not owns_progress:
+                    grad_norm_at_min = grad_norm(bh.storage.get_lowest().x)
 
-            count += 1
-            if new_global_min:
-                count = 0
-            elif count > niter_success:
-                message = ["success condition satisfied"]
-                break
+                progress.update(
+                    bh_task,
+                    advance=1,
+                    step_size=take_step_wrapped.takestep.stepsize,
+                    accept_rate=float(take_step_wrapped.naccept) / take_step_wrapped.nstep,
+                    f_value=bh.storage.get_lowest().fun,
+                    grad_norm=grad_norm_at_min,
+                )
+
+                if callable(callback):
+                    res = OptimizeResult(
+                        x=bh.xtrial, fun=bh.energy_trial, nit=i + 1, accept=bh.accept
+                    )
+                    try:
+                        callback(res)  # return ignored; raise StopOptimization to stop early
+                    except StopIteration:
+                        message = ["callback requested early stop"]
+                        break
+
+                count += 1
+                if new_global_min:
+                    count = 0
+                elif count > niter_success:
+                    message = ["success condition satisfied"]
+                    break
+        except KeyboardInterrupt as e:
+            interrupt_message = (
+                f"Interrupted by KeyboardInterrupt after {i} basinhopping iterations."
+            )
+            result = _result_from_storage(bh, message=[interrupt_message], nit=i)
+            result.success = False
+            raise OptimizationInterrupted(result, interrupt_message) from e
 
     # Hack -- jupyter wants transient = True, or else a bunch of newlines get inserted. But when transient = True,
     # the progress disappears in the terminal. Setting False now makes both work.
-    if hasattr(progress, "live") and progress.live.transient:
+    if owns_progress and hasattr(progress, "live") and progress.live.transient:
         progress.live.transient = False
 
     with progress:
@@ -318,13 +379,7 @@ def basinhopping(
             f_value=bh.storage.get_lowest().fun,
             grad_norm=grad_norm_at_min,
         )
-    # prepare return object
-    res = bh.res
-    res.lowest_optimization_result = bh.storage.get_lowest()
-    res.x = np.copy(res.lowest_optimization_result.x)
-    res.fun = res.lowest_optimization_result.fun
-    res.message = message
-    res.nit = i + 1
+    res = _result_from_storage(bh, message=message, nit=i + 1)
     res.success = res.lowest_optimization_result.success
 
     return res

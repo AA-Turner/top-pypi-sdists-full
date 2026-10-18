@@ -1,5 +1,5 @@
 [build-system]
-requires = ["scikit-build-core", "numpy"]
+requires = ["scikit-build-core>=1.0", "numpy"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -25,6 +25,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development",
     "Topic :: Scientific/Engineering",
     "Operating System :: Microsoft :: Windows",
@@ -43,8 +44,11 @@ test = ["pytest", "scipy"]
 [project.urls]
 homepage = "https://github.com/python-control/Slycot"
 
+[[tool.dynamic-metadata]]
+field = "version"
+provider = "scikit_build_core.metadata.setuptools_scm"
+
 [tool.scikit-build]
-metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
 wheel.exclude = ["slycot/src/", "slycot/CMakeLists.txt", "slycot/slicot-source.cmake", "slycot/scipy-openblas-symbols"]
 
 [tool.pytest.ini_options]
@@ -52,7 +56,9 @@ wheel.exclude = ["slycot/src/", "slycot/CMakeLists.txt", "slycot/slicot-source.c
 addopts = "--pyargs slycot"
 
 [tool.ruff.lint]
-ignore = [ "E741" ]
+ignore = [
+ "I001", # import order & formatting
+]
 
 [tool.cibuildwheel]
 # scipy-openblas32 version specified here
@@ -60,7 +66,7 @@ before-build = "python {project}/build-tools/cibw_before_build.py 0.3.31.22.1 {p
 test-command = "pytest --pyargs slycot"
 test-extras = ['test']
 
-skip = ["cp38-*", "cp39-*", "cp3??t-*", "*-win32", "*-win_arm64"]
+skip = ["cp39-*", "cp3??t-*", "*-win32", "*-win_arm64"]
 
 [tool.cibuildwheel.linux]
 repair-wheel-command = [

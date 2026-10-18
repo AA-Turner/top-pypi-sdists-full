@@ -2,8 +2,6 @@ use crate::rule::{Fix, FixCapability, LintError, LintResult, LintWarning, Rule, 
 use crate::rule_config_serde::{FlavorOverrideNotice, option_is_explicit};
 use crate::utils::calculate_indentation_width_default;
 use crate::utils::mdg;
-use crate::utils::mkdocs_admonitions;
-use crate::utils::mkdocs_tabs;
 use crate::utils::range_utils::calculate_line_range;
 use toml;
 
@@ -17,27 +15,18 @@ static MDG_STYLE_OVERRIDE: FlavorOverrideNotice = FlavorOverrideNotice::new();
 /// Pre-computed context arrays for indented code block detection.
 struct IndentContext<'a> {
     in_list_context: &'a [bool],
-    in_tab_context: &'a [bool],
-    in_admonition_context: &'a [bool],
-    /// Lines belonging to a non-code container whose body can legitimately be
-    /// indented by 4+ spaces or contain verbatim fence markers: HTML/MDX
-    /// comments, raw HTML blocks, JSX blocks, mkdocstrings blocks, footnote
-    /// definitions, and blockquotes.
-    ///
-    /// These lines are excluded from `detect_style`'s style tally, from
-    /// `is_indented_code_block_with_context`, and from
-    /// `categorize_indented_blocks`'s fence rewriting — keeping detection in
-    /// lockstep with the warning-side skip list used in `check`.
+    /// Lines belonging to a non-code container whose body can legitimately
+    /// hold verbatim fence markers: HTML/MDX comments, raw HTML blocks, JSX
+    /// blocks, mkdocstrings blocks, footnote definitions, blockquotes and
+    /// front matter. `detect_style` leaves their fence markers out of its
+    /// tally, keeping detection in lockstep with the skip list in `check`.
     in_comment_or_html: &'a [bool],
     /// Per-line content column of the most recent list item this line
     /// belongs to (in list continuation), or None if not in list context.
     ///
-    /// CommonMark places an indented code block within a list item only when
-    /// the line's indent is at least `baseline + 4`. Without this, every
-    /// continuation line gets the conservative "skip in list context" treatment
-    /// — silently turning real list-internal code blocks into fmt no-ops.
-    /// With this, the rule recognizes them, and the fence converter can emit
-    /// fences at `baseline` spaces so the block stays attached to the bullet.
+    /// A fence inside a list item may be indented up to 3 columns past this
+    /// baseline, so fence detection, closer matching and the fenced-to-indented
+    /// conversion all measure from it.
     list_item_baseline: &'a [Option<usize>],
 }
 
@@ -45,8 +34,6 @@ struct IndentContext<'a> {
 /// invocation by [`MD046CodeBlockStyle::build_indent_context`].
 struct OwnedIndentContext {
     in_list_context: Vec<bool>,
-    in_tab_context: Vec<bool>,
-    in_admonition_context: Vec<bool>,
     in_comment_or_html: Vec<bool>,
     list_item_baseline: Vec<Option<usize>>,
 }
@@ -55,8 +42,6 @@ impl OwnedIndentContext {
     fn borrow(&self) -> IndentContext<'_> {
         IndentContext {
             in_list_context: &self.in_list_context,
-            in_tab_context: &self.in_tab_context,
-            in_admonition_context: &self.in_admonition_context,
             in_comment_or_html: &self.in_comment_or_html,
             list_item_baseline: &self.list_item_baseline,
         }
@@ -181,6 +166,20 @@ impl MD046CodeBlockStyle {
         line[consumed..].to_string()
     }
 
+    /// Move a line `columns` visual columns to the left, keeping every part of
+    /// its indentation on the same column relative to the shift. A shift by a
+    /// whole number of tab stops leaves the remaining tabs aligned; any other
+    /// shift would move a surviving tab to a different stop, so the remaining
+    /// indentation is written as spaces.
+    fn shift_left_columns(line: &str, columns: usize) -> String {
+        if columns.is_multiple_of(4) {
+            return Self::strip_indentation_columns(line, columns);
+        }
+        let text = line.trim_start_matches([' ', '\t']);
+        let width = calculate_indentation_width_default(&line[..line.len() - text.len()]);
+        format!("{}{text}", " ".repeat(width.saturating_sub(columns)))
+    }
+
     fn is_list_item(&self, line: &str) -> bool {
         let trimmed = line.trim_start();
         if trimmed.starts_with("- ") || trimmed.starts_with("* ") || trimmed.starts_with("+ ") {
@@ -262,9 +261,14 @@ impl MD046CodeBlockStyle {
     /// # Performance
     /// O(n) single forward pass, replacing O(n²) backward scanning
     ///
+    /// ## Indented code
+    /// A line the parser places inside an indented code block is literal text,
+    /// so `in_indented_code` stops it from opening a list item or footnote
+    /// definition however much it looks like one.
+    ///
     /// # Returns
     /// Boolean vector where `true` indicates the line is part of a list/footnote continuation
-    fn precompute_block_continuation_context(&self, lines: &[&str]) -> Vec<bool> {
+    fn precompute_block_continuation_context(&self, lines: &[&str], in_indented_code: &[bool]) -> Vec<bool> {
         let mut in_continuation_context = vec![false; lines.len()];
         let mut last_list_item_line: Option<usize> = None;
         let mut last_footnote_line: Option<usize> = None;
@@ -274,8 +278,10 @@ impl MD046CodeBlockStyle {
             let trimmed = line.trim_start();
             let indent_len = line.len() - trimmed.len();
 
+            let is_code = in_indented_code.get(i).copied().unwrap_or(false);
+
             // Check if this is a list item
-            if self.is_list_item(line) {
+            if !is_code && self.is_list_item(line) {
                 last_list_item_line = Some(i);
                 last_footnote_line = None; // List item ends any footnote context
                 blank_line_count = 0;
@@ -284,7 +290,7 @@ impl MD046CodeBlockStyle {
             }
 
             // Check if this is a footnote definition
-            if self.is_footnote_definition(line) {
+            if !is_code && self.is_footnote_definition(line) {
                 last_footnote_line = Some(i);
                 last_list_item_line = None; // Footnote ends any list context
                 blank_line_count = 0;
@@ -368,13 +374,25 @@ impl MD046CodeBlockStyle {
     /// `baseline + 4` — the CommonMark threshold for an indented code block
     /// inside a list item. The fix loop reuses the baseline to anchor the
     /// generated fences at the list-item content column.
+    ///
+    /// Open items are kept as a stack of content columns, innermost last. An
+    /// indented line short of the innermost column leaves every item it does
+    /// not reach, unless it is a lazy paragraph continuation. A line the parser
+    /// opens a fenced block on is never one, and no line after a blank line is.
     fn precompute_list_item_baseline(
         &self,
         ctx: &crate::lint_context::LintContext,
         lines: &[&str],
     ) -> Vec<Option<usize>> {
+        let mut opens_fence = vec![false; lines.len()];
+        for detail in ctx.code_block_details.iter().filter(|detail| detail.is_fenced) {
+            if let Some(line) = Self::code_block_start_line(ctx, detail).filter(|&line| line < lines.len()) {
+                opens_fence[line] = true;
+            }
+        }
+
         let mut baselines = vec![None; lines.len()];
-        let mut last_baseline: Option<usize> = None;
+        let mut open_items: Vec<usize> = Vec::new();
         let mut last_list_item_line: Option<usize> = None;
         let mut blank_line_count = 0usize;
         let mut last_item_quoted = false;
@@ -383,22 +401,27 @@ impl MD046CodeBlockStyle {
             let trimmed = line.trim_start();
             let indent_len = line.len() - trimmed.len();
 
-            // List item line — read the parsed content column directly.
+            // List item line — read the parsed content column directly. The
+            // item closes every open item whose content its marker does not
+            // reach.
             if let Some(info) = ctx.line_info(i + 1)
                 && let Some(item) = info.list_item.as_ref()
             {
-                last_baseline = Some(item.content_column);
+                while open_items.last().is_some_and(|&column| column > item.marker_column) {
+                    open_items.pop();
+                }
+                open_items.push(item.content_column);
                 last_list_item_line = Some(i);
                 last_item_quoted = info.blockquote.is_some();
                 blank_line_count = 0;
-                baselines[i] = last_baseline;
+                baselines[i] = Some(item.content_column);
                 continue;
             }
 
             // A blank line without a `>` closes a blockquote, and with it any
             // list inside the quote.
             if last_item_quoted && line.trim().is_empty() {
-                last_baseline = None;
+                open_items.clear();
                 last_list_item_line = None;
                 last_item_quoted = false;
                 continue;
@@ -406,9 +429,9 @@ impl MD046CodeBlockStyle {
 
             // Blank line within continuation — propagate baseline.
             if line.trim().is_empty() {
-                if last_baseline.is_some() {
+                if let Some(&column) = open_items.last() {
                     blank_line_count += 1;
-                    baselines[i] = last_baseline;
+                    baselines[i] = Some(column);
                 }
                 continue;
             }
@@ -418,105 +441,34 @@ impl MD046CodeBlockStyle {
             // `precompute_block_continuation_context`.
             if indent_len == 0 {
                 if trimmed.starts_with('#') || trimmed.starts_with("---") || trimmed.starts_with("***") {
-                    last_baseline = None;
+                    open_items.clear();
                     last_list_item_line = None;
                 } else if let Some(list_line) = last_list_item_line
                     && (i - list_line > 5 || blank_line_count > 1)
                 {
-                    last_baseline = None;
+                    open_items.clear();
                     last_list_item_line = None;
                 }
                 blank_line_count = 0;
                 continue;
             }
 
+            // Content columns grow with nesting, so the items the line reaches
+            // are a prefix of the stack.
+            if opens_fence[i] || blank_line_count > 0 {
+                let indent = calculate_indentation_width_default(line);
+                let reached = open_items.iter().take_while(|&&column| column <= indent).count();
+                open_items.truncate(reached);
+            }
+
             // Indented continuation — keep the baseline.
-            if last_baseline.is_some() {
-                baselines[i] = last_baseline;
+            if let Some(&column) = open_items.last() {
+                baselines[i] = Some(column);
                 blank_line_count = 0;
             }
         }
 
         baselines
-    }
-
-    /// Check if a line is an indented code line using pre-computed context
-    /// arrays. `prev_is_code` says whether the line above was classified as
-    /// one, which is what lets a block continue past its first line.
-    fn is_indented_code_block_with_context(
-        &self,
-        lines: &[&str],
-        i: usize,
-        is_mkdocs: bool,
-        ctx: &IndentContext,
-        prev_is_code: bool,
-    ) -> bool {
-        if i >= lines.len() {
-            return false;
-        }
-
-        let line = lines[i];
-
-        // A blank line is blank however wide its whitespace is: CommonMark
-        // never opens an indented code block on one. Whether it sits INSIDE a
-        // block is decided by `indented_block_lines`, from the code lines
-        // around it.
-        if line.trim().is_empty() {
-            return false;
-        }
-
-        // Check if indented by at least 4 columns (accounting for tab expansion)
-        let indent = calculate_indentation_width_default(line);
-        if indent < 4 {
-            return false;
-        }
-
-        // List/footnote continuation: only treat as a code block when the
-        // indent crosses the list-item content baseline + 4. Without a
-        // baseline (e.g. footnote definition continuation), keep the
-        // conservative skip — those containers don't expose a column we can
-        // anchor a fence to.
-        if ctx.in_list_context[i] {
-            let crosses_baseline = ctx
-                .list_item_baseline
-                .get(i)
-                .copied()
-                .flatten()
-                .is_some_and(|base| indent >= base + 4);
-            if !crosses_baseline {
-                return false;
-            }
-        }
-
-        // Skip if this is MkDocs tab content (pre-computed)
-        if is_mkdocs && ctx.in_tab_context[i] {
-            return false;
-        }
-
-        // Skip if this is MkDocs admonition content (pre-computed)
-        // Admonitions are supported in MkDocs and other extended Markdown processors
-        if is_mkdocs && ctx.in_admonition_context[i] {
-            return false;
-        }
-
-        // Skip if inside an HTML/MDX comment, raw HTML block, JSX block,
-        // mkdocstrings block, footnote definition, or blockquote. These
-        // containers can legitimately hold 4+ space indented text that is
-        // not a code block. Counting them would desync style detection from
-        // the warning-side skip list in `check`.
-        if ctx.in_comment_or_html.get(i).copied().unwrap_or(false) {
-            return false;
-        }
-
-        // An indented code block starts after a blank line or continues from
-        // a code line directly above. An indented line straight after a
-        // paragraph line is a lazy continuation of that paragraph, however
-        // deep its indent, and so is every indented line that follows it:
-        // the answer for the line above has to be the classified one, not its
-        // raw indent, or a run of continuation lines turns into code from its
-        // second line on.
-        let has_blank_line_before = i == 0 || lines[i - 1].trim().is_empty();
-        has_blank_line_before || prev_is_code
     }
 
     /// First line at or after `start` that `block_lines` still counts as
@@ -529,41 +481,68 @@ impl MD046CodeBlockStyle {
     /// the first line the fix actually converts, which keeps the two in step.
     fn first_code_block_line(
         ctx: &crate::lint_context::LintContext,
-        block_lines: &[bool],
+        block_lines: &[Option<usize>],
         start: usize,
         block_end: usize,
     ) -> Option<usize> {
         (start..block_lines.len())
             .take_while(|&idx| ctx.line_offsets.get(idx).is_some_and(|&offset| offset < block_end))
-            .find(|&idx| block_lines[idx])
+            .find(|&idx| block_lines[idx].is_some())
+    }
+
+    /// Every indented code block `fix` converts, as its 0-based line range
+    /// and the content column of the container it sits in.
+    ///
+    /// A block that starts on its list item's marker line (`-     code`, five
+    /// or more spaces past the marker) is reported but not converted: fences
+    /// are written on lines of their own, and the marker line cannot be split
+    /// without changing the item. The converter treats a fence that opens on a
+    /// marker line the same way.
+    fn convertible_indented_blocks<'c>(
+        ctx: &'c crate::lint_context::LintContext<'_>,
+    ) -> impl Iterator<Item = (std::ops::Range<usize>, usize)> + 'c {
+        let ambiguity_limit = crate::rules::code_fence_utils::fence_ambiguity_limit(ctx);
+        ctx.code_block_details
+            .iter()
+            .filter(move |detail| Self::indented_block_is_reported(ctx, detail, ambiguity_limit))
+            .filter_map(|detail| {
+                let first = Self::code_block_start_line(ctx, detail)?;
+                if !ctx.content[ctx.line_offsets[first]..detail.start].trim().is_empty() {
+                    return None;
+                }
+                let end = ctx.line_offsets.partition_point(|&offset| offset < detail.end);
+                Some((first..end.max(first + 1), detail.content_column?))
+            })
     }
 
     /// Per-line membership of the indented code blocks that style detection,
-    /// block categorization and the fix all operate on.
+    /// block categorization and the fix all operate on: the index of the block
+    /// a line belongs to, or `None`. Two blocks in different containers can
+    /// touch with no blank line between them, so a run of member lines is one
+    /// block only while the index stays the same.
     ///
-    /// A code line is one `is_indented_code_block_with_context` accepts. A
-    /// blank line belongs to a block only when a code line of that block
-    /// precedes it and another follows it, with nothing but blank lines in
-    /// between: CommonMark keeps interior blank lines inside an indented code
-    /// block and leaves the blank lines before and after it outside. So
-    /// `    a`, an empty line and `    b` form one block, and a whitespace-only
-    /// line on its own is no block at all.
+    /// The parser decides what an indented code block is and where it ends,
+    /// and `convertible_indented_blocks` decides, from its first line,
+    /// whether MD046 converts it. Inside a block every line is literal text,
+    /// so one that would open a list item, block quote or footnote definition
+    /// elsewhere (`- `, `> `, `[^1]: `) is still code. A blank line belongs to
+    /// a block only between two of its code lines: CommonMark keeps interior
+    /// blank lines inside an indented code block and leaves the blank lines
+    /// before and after it outside.
     ///
     /// Under MDG, Gherkin tables are dropped from the result. This is the only
     /// place that decision is made: `check`, `detect_style` and `fix` all read
     /// the array returned here, so they cannot disagree about what MD046
     /// converts.
-    fn indented_block_lines(
-        &self,
-        lines: &[&str],
-        is_mkdocs: bool,
-        ictx: &IndentContext<'_>,
-        ctx: &crate::lint_context::LintContext,
-    ) -> Vec<bool> {
-        let mut member = vec![false; lines.len()];
-        for i in 0..lines.len() {
-            let prev_is_code = i > 0 && member[i - 1];
-            member[i] = self.is_indented_code_block_with_context(lines, i, is_mkdocs, ictx, prev_is_code);
+    fn indented_block_lines(lines: &[&str], ctx: &crate::lint_context::LintContext) -> Vec<Option<usize>> {
+        let blocks: Vec<std::ops::Range<usize>> = Self::convertible_indented_blocks(ctx)
+            .map(|(range, _)| range.start.min(lines.len())..range.end.min(lines.len()))
+            .collect();
+        let mut member = vec![None; lines.len()];
+        for (id, block) in blocks.iter().enumerate() {
+            for i in block.clone() {
+                member[i] = (!lines[i].trim().is_empty()).then_some(id);
+            }
         }
 
         // Fencing a run of Gherkin table rows would delete the table from the
@@ -575,34 +554,36 @@ impl MD046CodeBlockStyle {
         if ctx.flavor == crate::config::MarkdownFlavor::MDG {
             let mut i = 0;
             while i < member.len() {
-                if !member[i] {
+                if member[i].is_none() {
                     i += 1;
                     continue;
                 }
                 let start = i;
-                while i < member.len() && member[i] {
+                while i < member.len() && member[i] == member[start] {
                     i += 1;
                 }
                 if lines[start..i].iter().all(|line| mdg::is_table_row(line)) {
-                    member[start..i].fill(false);
+                    member[start..i].fill(None);
                 }
             }
         }
 
-        let mut i = 0;
-        while i < lines.len() {
-            if !member[i] {
-                i += 1;
-                continue;
+        for (id, block) in blocks.into_iter().enumerate() {
+            let mut i = block.start;
+            while i < block.end {
+                if member[i] != Some(id) {
+                    i += 1;
+                    continue;
+                }
+                let mut next = i + 1;
+                while next < block.end && lines[next].trim().is_empty() {
+                    next += 1;
+                }
+                if next < block.end && member[next] == Some(id) {
+                    member[i + 1..next].fill(Some(id));
+                }
+                i = next;
             }
-            let mut next = i + 1;
-            while next < lines.len() && lines[next].trim().is_empty() {
-                next += 1;
-            }
-            if next < lines.len() && member[next] {
-                member[i + 1..next].fill(true);
-            }
-            i = next;
         }
 
         member
@@ -619,16 +600,8 @@ impl MD046CodeBlockStyle {
     fn precompute_comment_or_html_context(ctx: &crate::lint_context::LintContext, line_count: usize) -> Vec<bool> {
         let mut ignored: Vec<bool> = (0..line_count)
             .map(|i| {
-                ctx.line_info(i + 1).is_some_and(|info| {
-                    info.in_html_comment
-                        || info.in_mdx_comment
-                        || info.in_html_block
-                        || info.in_jsx_block
-                        || info.in_mkdocstrings
-                        || info.in_footnote_definition
-                        || info.blockquote.is_some()
-                        || info.in_front_matter
-                })
+                ctx.line_info(i + 1)
+                    .is_some_and(|info| Self::in_skipped_container(info, info.byte_offset + info.byte_len))
             })
             .collect();
         let ambiguity_limit = crate::rules::code_fence_utils::fence_ambiguity_limit(ctx);
@@ -650,132 +623,20 @@ impl MD046CodeBlockStyle {
         ignored
     }
 
-    /// Pre-compute which lines are in MkDocs tab context with a single forward pass
-    fn precompute_mkdocs_tab_context(&self, lines: &[&str]) -> Vec<bool> {
-        let mut in_tab_context = vec![false; lines.len()];
-        let mut current_tab_indent: Option<usize> = None;
-
-        for (i, line) in lines.iter().enumerate() {
-            // Check if this is a tab marker
-            if mkdocs_tabs::is_tab_marker(line) {
-                let tab_indent = mkdocs_tabs::get_tab_indent(line).unwrap_or(0);
-                current_tab_indent = Some(tab_indent);
-                in_tab_context[i] = true;
-                continue;
-            }
-
-            // If we have a current tab, check if this line is tab content
-            if let Some(tab_indent) = current_tab_indent {
-                if mkdocs_tabs::is_tab_content(line, tab_indent) {
-                    in_tab_context[i] = true;
-                } else if !line.trim().is_empty() && calculate_indentation_width_default(line) < 4 {
-                    // Non-indented, non-empty line ends tab context
-                    current_tab_indent = None;
-                } else {
-                    // Empty or indented line maintains tab context
-                    in_tab_context[i] = true;
-                }
-            }
-        }
-
-        in_tab_context
-    }
-
-    /// Pre-compute which lines are in MkDocs admonition context with a single forward pass
-    ///
-    /// MkDocs admonitions use `!!!` or `???` markers followed by a type, and their content
-    /// is indented by 4 spaces. This function marks all admonition markers and their
-    /// indented content as being in an admonition context, preventing them from being
-    /// incorrectly flagged as indented code blocks.
-    ///
-    /// Supports nested admonitions by maintaining a stack of active admonition contexts.
-    fn precompute_mkdocs_admonition_context(&self, lines: &[&str]) -> Vec<bool> {
-        let mut in_admonition_context = vec![false; lines.len()];
-        // Stack of active admonition indentation levels (supports nesting)
-        let mut admonition_stack: Vec<usize> = Vec::new();
-
-        for (i, line) in lines.iter().enumerate() {
-            let line_indent = calculate_indentation_width_default(line);
-
-            // Check if this is an admonition marker
-            if mkdocs_admonitions::is_admonition_start(line) {
-                let adm_indent = mkdocs_admonitions::get_admonition_indent(line).unwrap_or(0);
-
-                // Pop any admonitions that this one is not nested within
-                while let Some(&top_indent) = admonition_stack.last() {
-                    // New admonition must be indented more than parent to be nested
-                    if adm_indent <= top_indent {
-                        admonition_stack.pop();
-                    } else {
-                        break;
-                    }
-                }
-
-                // Push this admonition onto the stack
-                admonition_stack.push(adm_indent);
-                in_admonition_context[i] = true;
-                continue;
-            }
-
-            // Handle empty lines - they're valid within admonitions
-            if line.trim().is_empty() {
-                if !admonition_stack.is_empty() {
-                    in_admonition_context[i] = true;
-                }
-                continue;
-            }
-
-            // For non-empty lines, check if we're still in any admonition context
-            // Pop admonitions where the content indent requirement is not met
-            while let Some(&top_indent) = admonition_stack.last() {
-                // Content must be indented at least 4 spaces from the admonition marker
-                if line_indent >= top_indent + 4 {
-                    // This line is valid content for the top admonition (or one below)
-                    break;
-                } else {
-                    // Not indented enough for this admonition - pop it
-                    admonition_stack.pop();
-                }
-            }
-
-            // If we're still in any admonition context, mark this line
-            if !admonition_stack.is_empty() {
-                in_admonition_context[i] = true;
-            }
-        }
-
-        in_admonition_context
-    }
-
     /// Build the pre-computed per-line context arrays that indented code
     /// block detection consults. One call per `check`/`fix` invocation.
     ///
-    /// The list, tab, and admonition trackers here intentionally differ from
-    /// the `LineInfo` flags (`in_list_block`, `in_content_tab`,
-    /// `in_admonition`) that `LintContext` computes: the admonition tracker
-    /// supports nesting via an indent stack, and the list tracker applies a
-    /// conservative continuation heuristic (a list context survives up to 5
-    /// unindented lines or one blank) tuned to avoid rewriting list
-    /// continuations as code blocks. Only `in_comment_or_html` and the list
-    /// item baselines project straight from `LintContext`.
-    fn build_indent_context(
-        &self,
-        ctx: &crate::lint_context::LintContext,
-        lines: &[&str],
-        is_mkdocs: bool,
-    ) -> OwnedIndentContext {
+    /// The list tracker intentionally differs from `LineInfo.in_list_block`:
+    /// it applies a conservative continuation heuristic (a list context
+    /// survives up to 5 unindented lines or one blank) tuned to avoid turning
+    /// a fenced block into an indented one that would read as list prose. It
+    /// consults the parser only to keep lines of an indented code block from
+    /// opening a list item or footnote definition. `in_comment_or_html` and
+    /// the list item baselines project straight from `LintContext`.
+    fn build_indent_context(&self, ctx: &crate::lint_context::LintContext, lines: &[&str]) -> OwnedIndentContext {
         OwnedIndentContext {
-            in_list_context: self.precompute_block_continuation_context(lines),
-            in_tab_context: if is_mkdocs {
-                self.precompute_mkdocs_tab_context(lines)
-            } else {
-                vec![false; lines.len()]
-            },
-            in_admonition_context: if is_mkdocs {
-                self.precompute_mkdocs_admonition_context(lines)
-            } else {
-                vec![false; lines.len()]
-            },
+            in_list_context: self
+                .precompute_block_continuation_context(lines, &Self::parsed_indented_code_lines(ctx, lines.len())),
             in_comment_or_html: Self::precompute_comment_or_html_context(ctx, lines.len()),
             list_item_baseline: self.precompute_list_item_baseline(ctx, lines),
         }
@@ -784,57 +645,87 @@ impl MD046CodeBlockStyle {
     /// Categorize indented blocks for fix behavior
     ///
     /// Returns two vectors:
-    /// - `is_misplaced`: Lines that are part of a complete misplaced fenced block (dedent only)
+    /// - `misplaced_dedent`: for each line of a complete misplaced fenced block, the
+    ///   columns to remove from it (dedent only)
     /// - `contains_fences`: Lines that contain fence markers but aren't a complete block (skip fixing)
     ///
     /// A misplaced fenced block is a contiguous indented block that:
     /// 1. Starts with a valid fence opener (``` or ~~~)
-    /// 2. Ends with a matching fence closer
+    /// 2. Ends with its first matching fence closer
+    ///
+    /// Every line loses the columns that put the opener past its container's
+    /// content column (`block_columns`), so the opener lands on that column and
+    /// the code keeps its indentation relative to the opener. A line indented
+    /// less than the opener stops at the content column, which keeps it inside
+    /// the container. The closer goes to the content column too, since a closer
+    /// four or more columns in would not close the fence.
     ///
     /// An unsafe block contains fence markers but isn't complete - wrapping would create invalid markdown.
-    fn categorize_indented_blocks(&self, lines: &[&str], block_lines: &[bool]) -> (Vec<bool>, Vec<bool>) {
-        let mut is_misplaced = vec![false; lines.len()];
+    fn categorize_indented_blocks(
+        &self,
+        lines: &[&str],
+        block_lines: &[Option<usize>],
+        block_columns: &[usize],
+    ) -> (Vec<Option<usize>>, Vec<bool>) {
+        let mut misplaced_dedent = vec![None; lines.len()];
         let mut contains_fences = vec![false; lines.len()];
 
         // Find contiguous indented blocks and categorize them
         let mut i = 0;
         while i < lines.len() {
             // Find the start of an indented block
-            if !block_lines[i] {
+            if block_lines[i].is_none() {
                 i += 1;
                 continue;
             }
 
-            // Found start of an indented block - collect all contiguous lines
+            // Found start of an indented block - collect all its lines
             let block_start = i;
             let mut block_end = i;
 
-            while block_end < lines.len() && block_lines[block_end] {
+            while block_end < lines.len() && block_lines[block_end] == block_lines[block_start] {
                 block_end += 1;
             }
 
             // Now we have an indented block from block_start to block_end (exclusive)
             if block_end > block_start {
                 let first_line = lines[block_start].trim_start();
-                let last_line = lines[block_end - 1].trim_start();
 
                 // Check if first line is a fence opener
-                let is_backtick_fence = first_line.starts_with("```");
+                // A backtick fence's info string cannot hold a backtick.
+                let is_backtick_fence =
+                    first_line.starts_with("```") && !first_line.trim_start_matches('`').contains('`');
                 let is_tilde_fence = first_line.starts_with("~~~");
 
                 if is_backtick_fence || is_tilde_fence {
                     let fence_char = if is_backtick_fence { '`' } else { '~' };
                     let opener_len = first_line.chars().take_while(|&c| c == fence_char).count();
 
-                    // Check if last line is a matching fence closer
-                    let closer_fence_len = last_line.chars().take_while(|&c| c == fence_char).count();
-                    let after_closer = &last_line[closer_fence_len..];
+                    let column = block_columns[block_start];
+                    let excess = |j: usize| calculate_indentation_width_default(lines[j]).saturating_sub(column);
+                    let opener_excess = excess(block_start);
 
-                    if closer_fence_len >= opener_len && after_closer.trim().is_empty() {
+                    let is_closer_text = |j: usize| {
+                        let trimmed = lines[j].trim_start();
+                        let run = trimmed.chars().take_while(|&c| c == fence_char).count();
+                        run >= opener_len && trimmed[run..].trim().is_empty()
+                    };
+                    // The last line becomes the closer, which is moved to the
+                    // content column. Any earlier line that is still a closer
+                    // once dedented (within three columns of the opener) would
+                    // end the fence first and leave the rest outside it.
+                    let closes_early = (block_start + 1..block_end - 1)
+                        .any(|j| excess(j).saturating_sub(opener_excess) < 4 && is_closer_text(j));
+
+                    if block_end - block_start > 1 && is_closer_text(block_end - 1) && !closes_early {
                         // Complete misplaced fenced block - safe to dedent
-                        is_misplaced[block_start..block_end].fill(true);
+                        for (j, dedent) in misplaced_dedent[block_start..block_end - 1].iter_mut().enumerate() {
+                            *dedent = Some(opener_excess.min(excess(block_start + j)));
+                        }
+                        misplaced_dedent[block_end - 1] = Some(excess(block_end - 1));
                     } else {
-                        // Incomplete fenced block - unsafe to wrap (would create nested fences)
+                        // Unclosed, or closed before the block ends: wrapping
+                        // or dedenting would change where the fence ends
                         contains_fences[block_start..block_end].fill(true);
                     }
                 } else {
@@ -854,7 +745,7 @@ impl MD046CodeBlockStyle {
             i = block_end;
         }
 
-        (is_misplaced, contains_fences)
+        (misplaced_dedent, contains_fences)
     }
 
     fn check_unclosed_code_blocks(&self, ctx: &crate::lint_context::LintContext) -> Vec<LintWarning> {
@@ -899,7 +790,7 @@ impl MD046CodeBlockStyle {
             let fence_marker: String = line[fence_pos..].chars().take_while(|&ch| ch == fence_char).collect();
             let opening_quote = crate::utils::blockquote::parse_blockquote_prefix(line);
             let quote_level = opening_quote.map_or(0, |quote| quote.nesting_level);
-            let owned = self.build_indent_context(ctx, lines, ctx.flavor == crate::config::MarkdownFlavor::MkDocs);
+            let owned = self.build_indent_context(ctx, lines);
             let baseline = owned
                 .list_item_baseline
                 .get(opening_line_idx)
@@ -1039,16 +930,53 @@ impl MD046CodeBlockStyle {
             return false;
         };
 
-        !ctx.lines.get(line_idx).is_some_and(|info| {
-            info.in_html_comment
-                || info.in_mdx_comment
-                || info.in_html_block
-                || info.in_jsx_block
-                || info.in_mkdocstrings
-                || info.in_footnote_definition
-                || info.blockquote.is_some()
-                || info.in_front_matter
-        })
+        !ctx.lines
+            .get(line_idx)
+            .is_some_and(|info| Self::in_skipped_container(info, detail.start))
+    }
+
+    /// Whether text starting at byte `start` on the line `info` describes sits
+    /// in a container whose body MD046 leaves alone, because it can hold 4+
+    /// space indented text or fence markers that are not code: an HTML or MDX
+    /// comment, a raw HTML or JSX block, a mkdocstrings block, a footnote
+    /// definition, a blockquote, or front matter.
+    ///
+    /// The quote flag is read from the line's text, so it is also set for a
+    /// `>` that an indented code block holds as its own first character. A
+    /// quote only encloses `start` when its marker comes before it.
+    fn in_skipped_container(info: &crate::lint_context::LineInfo, start: usize) -> bool {
+        info.in_html_comment
+            || info.in_mdx_comment
+            || info.in_html_block
+            || info.in_jsx_block
+            || info.in_mkdocstrings
+            || info.in_footnote_definition
+            || info
+                .blockquote
+                .as_ref()
+                .is_some_and(|quote| info.byte_offset + quote.marker_column < start)
+            || info.in_front_matter
+    }
+
+    /// Whether `check` reports the parsed indented code block `detail` when
+    /// fenced blocks are wanted. Decided at its first line for the whole
+    /// block: a skipped container or, under MkDocs, an admonition or content
+    /// tab there keeps every line of it as it is.
+    fn indented_block_is_reported(
+        ctx: &crate::lint_context::LintContext,
+        detail: &crate::utils::code_block_utils::CodeBlockDetail,
+        ambiguity_limit: Option<usize>,
+    ) -> bool {
+        if detail.is_fenced || Self::block_is_literal(ctx, detail, ambiguity_limit) {
+            return false;
+        }
+        let is_mkdocs = ctx.flavor == crate::config::MarkdownFlavor::MkDocs;
+        Self::code_block_start_line(ctx, detail)
+            .and_then(|line_idx| ctx.lines.get(line_idx))
+            .is_some_and(|info| {
+                !Self::in_skipped_container(info, detail.start)
+                    && !(is_mkdocs && (info.in_admonition || info.in_content_tab))
+            })
     }
 
     fn code_block_start_line(
@@ -1063,6 +991,32 @@ impl MD046CodeBlockStyle {
             Ok(idx) => idx,
             Err(idx) => idx.saturating_sub(1),
         })
+    }
+
+    /// Per-line flag: the parser places the line inside an indented code block.
+    fn parsed_indented_code_lines(ctx: &crate::lint_context::LintContext, line_count: usize) -> Vec<bool> {
+        let mut in_code = vec![false; line_count];
+        for block in Self::parsed_indented_block_lines(ctx) {
+            let end = block.end.min(line_count);
+            if block.start < end {
+                in_code[block.start..end].fill(true);
+            }
+        }
+        in_code
+    }
+
+    /// The 0-based line range of every indented code block the parser found.
+    fn parsed_indented_block_lines<'c>(
+        ctx: &'c crate::lint_context::LintContext<'_>,
+    ) -> impl Iterator<Item = std::ops::Range<usize>> + 'c {
+        ctx.code_block_details
+            .iter()
+            .filter(|detail| !detail.is_fenced)
+            .filter_map(|detail| {
+                let first = Self::code_block_start_line(ctx, detail)?;
+                let end = ctx.line_offsets.partition_point(|&offset| offset < detail.end);
+                Some(first..end.max(first + 1))
+            })
     }
 
     /// Fences that must remain as separators between otherwise adjacent code
@@ -1178,14 +1132,13 @@ impl MD046CodeBlockStyle {
         &self,
         ctx: &crate::lint_context::LintContext,
         lines: &[&str],
-        is_mkdocs: bool,
         ictx: &IndentContext,
     ) -> Option<CodeBlockStyle> {
         if lines.is_empty() {
             return None;
         }
 
-        let block_lines = self.indented_block_lines(lines, is_mkdocs, ictx, ctx);
+        let block_lines = Self::indented_block_lines(lines, ctx);
 
         let mut fenced_count = 0;
         let mut indented_count = 0;
@@ -1195,12 +1148,12 @@ impl MD046CodeBlockStyle {
         // Both counts must ignore fence markers and indented text that live
         // inside a non-code container (HTML/MDX comments, raw HTML/JSX
         // blocks, mkdocstrings, footnote definitions, blockquotes) so that
-        // the detected style stays in lockstep with the warning-side skip
-        // list in `check`. Without this, a document that contains a single
+        // the detected style stays in lockstep with `in_skipped_container`,
+        // which decides the warnings in `check`. Without this, a document that contains a single
         // real code block plus a fake fence or indented paragraph nested in
         // a comment is wrongly classified and the real block gets flagged.
         let mut in_fenced = false;
-        let mut prev_was_indented = false;
+        let mut prev_block = None;
 
         for (i, line) in lines.iter().enumerate() {
             let in_container = ictx.in_comment_or_html.get(i).copied().unwrap_or(false);
@@ -1209,13 +1162,13 @@ impl MD046CodeBlockStyle {
             // Any fence markers they contain are not real block delimiters and
             // must not influence the fenced/indented style tally.
             if ctx.flavor.supports_colon_code_fences() && ctx.lines.get(i).is_some_and(|l| l.in_code_block) {
-                prev_was_indented = false;
+                prev_block = None;
                 continue;
             }
 
             // Lines inside MyST colon directives are structural containers, not code blocks.
             if ctx.flavor.supports_myst_directives() && ctx.lines.get(i).is_some_and(|l| l.in_myst_directive) {
-                prev_was_indented = false;
+                prev_block = None;
                 continue;
             }
 
@@ -1224,7 +1177,7 @@ impl MD046CodeBlockStyle {
                 if in_container {
                     // Fence marker inside a container — not a real fence,
                     // don't flip state or count it.
-                    prev_was_indented = false;
+                    prev_block = None;
                     continue;
                 }
                 if !in_fenced {
@@ -1235,15 +1188,15 @@ impl MD046CodeBlockStyle {
                     // Closing fence
                     in_fenced = false;
                 }
-                prev_was_indented = false;
-            } else if !in_fenced && block_lines[i] {
-                // Count each continuous indented block once
-                if !prev_was_indented {
+                prev_block = None;
+            } else if !in_fenced && block_lines[i].is_some() {
+                // Count each indented block once
+                if prev_block != block_lines[i] {
                     indented_count += 1;
                 }
-                prev_was_indented = true;
+                prev_block = block_lines[i];
             } else {
-                prev_was_indented = false;
+                prev_block = None;
             }
         }
 
@@ -1262,6 +1215,10 @@ impl MD046CodeBlockStyle {
 }
 
 impl Rule for MD046CodeBlockStyle {
+    fn native_format_policy(&self) -> Option<crate::format_proof::NativeFormatPolicy> {
+        (self.config == Default::default()).then_some(crate::format_proof::NativeFormatPolicy::for_rule::<Self>(46))
+    }
+
     fn name(&self) -> &'static str {
         "MD046"
     }
@@ -1271,6 +1228,68 @@ impl Rule for MD046CodeBlockStyle {
     }
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
+        self.check_and_retain_conversion(ctx, None)
+    }
+
+    fn check_with_prepared_fix(
+        &self,
+        ctx: &crate::lint_context::LintContext,
+    ) -> Result<(Vec<LintWarning>, Option<String>), LintError> {
+        let mut prepared = None;
+        let warnings = self.check_and_retain_conversion(ctx, Some(&mut prepared))?;
+        Ok((warnings, prepared))
+    }
+
+    fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
+        self.fix_native(ctx)
+    }
+
+    /// Get the category of this rule for selective processing
+    fn category(&self) -> RuleCategory {
+        RuleCategory::CodeBlock
+    }
+
+    fn fix_capability(&self) -> FixCapability {
+        // Tagged fences and conversions that would change CommonMark block
+        // structure are intentionally retained rather than fixed lossily.
+        FixCapability::ConditionallyFixable
+    }
+
+    /// Check if this rule should be skipped
+    fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
+        // Everything MD046 checks is a code block the parser found, indented
+        // ones included, however they are indented.
+        ctx.content.is_empty() || ctx.code_block_details.is_empty()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    crate::impl_rule_config_sections!(MD046Config);
+
+    fn from_config(config: &crate::config::Config) -> Box<dyn Rule>
+    where
+        Self: Sized,
+    {
+        let rule_config = crate::rule_config_serde::load_rule_config::<MD046Config>(config);
+        let style_explicit = option_is_explicit(config, "MD046", "style");
+
+        Box::new(Self {
+            config: rule_config,
+            style_explicit,
+        })
+    }
+}
+
+impl MD046CodeBlockStyle {
+    /// Checking warnings already computes a native conversion for every
+    /// actionable code-block style. Retain that exact result on request.
+    fn check_and_retain_conversion(
+        &self,
+        ctx: &crate::lint_context::LintContext,
+        prepared: Option<&mut Option<String>>,
+    ) -> LintResult {
         // Early return for empty content
         if ctx.content.is_empty() {
             return Ok(Vec::new());
@@ -1300,6 +1319,9 @@ impl Rule for MD046CodeBlockStyle {
                     Some(Fix::new(0..ctx.content.len(), fixed.clone()))
                 };
             }
+            if let Some(prepared) = prepared {
+                *prepared = Some(fixed);
+            }
             return Ok(unclosed_warnings);
         }
 
@@ -1307,12 +1329,10 @@ impl Rule for MD046CodeBlockStyle {
         let lines = ctx.raw_lines();
         let mut warnings = Vec::new();
 
-        let is_mkdocs = ctx.flavor == crate::config::MarkdownFlavor::MkDocs;
-
         // Determine the target style
         let target_style = self.effective_target_style(ctx, || {
-            let owned = self.build_indent_context(ctx, lines, is_mkdocs);
-            let detected = self.detect_style(ctx, lines, is_mkdocs, &owned.borrow());
+            let owned = self.build_indent_context(ctx, lines);
+            let detected = self.detect_style(ctx, lines, &owned.borrow());
             detected.unwrap_or(CodeBlockStyle::Fenced)
         });
 
@@ -1322,10 +1342,7 @@ impl Rule for MD046CodeBlockStyle {
         // re-deciding it here — is what keeps the two paths in agreement.
         let mdg_block_lines = (ctx.flavor == crate::config::MarkdownFlavor::MDG
             && ctx.code_block_details.iter().any(|detail| !detail.is_fenced))
-        .then(|| {
-            let owned = self.build_indent_context(ctx, lines, is_mkdocs);
-            self.indented_block_lines(lines, is_mkdocs, &owned.borrow(), ctx)
-        });
+        .then(|| Self::indented_block_lines(lines, ctx));
 
         // Iterate code_block_details directly (O(k) where k is number of blocks)
         let ambiguity_limit = crate::rules::code_fence_utils::fence_ambiguity_limit(ctx);
@@ -1348,11 +1365,12 @@ impl Rule for MD046CodeBlockStyle {
                 if target_style == CodeBlockStyle::Indented {
                     let line = lines.get(start_line_idx).unwrap_or(&"");
 
-                    if ctx
-                        .lines
-                        .get(start_line_idx)
-                        .is_some_and(|info| info.in_html_comment || info.in_mdx_comment || info.in_footnote_definition)
-                    {
+                    if ctx.lines.get(start_line_idx).is_some_and(|info| {
+                        info.in_html_comment
+                            || info.in_mdx_comment
+                            || info.in_footnote_definition
+                            || info.in_front_matter
+                    }) {
                         continue;
                     }
 
@@ -1371,6 +1389,10 @@ impl Rule for MD046CodeBlockStyle {
             } else {
                 // Indented code block
                 if target_style == CodeBlockStyle::Fenced {
+                    if !Self::indented_block_is_reported(ctx, detail, ambiguity_limit) {
+                        continue;
+                    }
+
                     // Under MDG the block may open on Gherkin table rows that
                     // are not code; the line to report is the first one the fix
                     // will fence, and a block of nothing but rows is no code
@@ -1390,30 +1412,6 @@ impl Rule for MD046CodeBlockStyle {
                     }
 
                     let line = lines.get(start_line_idx).unwrap_or(&"");
-
-                    // Skip blocks in contexts that aren't real indented code blocks
-                    if ctx.lines.get(start_line_idx).is_some_and(|info| {
-                        info.in_html_comment
-                            || info.in_mdx_comment
-                            || info.in_html_block
-                            || info.in_jsx_block
-                            || info.in_mkdocstrings
-                            || info.in_footnote_definition
-                            || info.blockquote.is_some()
-                            || info.in_front_matter
-                    }) {
-                        continue;
-                    }
-
-                    // Use pre-computed LineInfo for MkDocs container context
-                    if is_mkdocs
-                        && ctx
-                            .lines
-                            .get(start_line_idx)
-                            .is_some_and(|info| info.in_admonition || info.in_content_tab)
-                    {
-                        continue;
-                    }
 
                     reported_indented_lines.insert(start_line_idx);
 
@@ -1444,6 +1442,9 @@ impl Rule for MD046CodeBlockStyle {
                     .find(|edit| edit.lines.contains(&line_idx))
                     .map(|edit| edit.fix.clone());
             }
+            if let Some(prepared) = prepared {
+                *prepared = Some(conversion.content);
+            }
         }
 
         // Sort warnings by line number for consistent output
@@ -1452,7 +1453,7 @@ impl Rule for MD046CodeBlockStyle {
         Ok(warnings)
     }
 
-    fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
+    fn fix_native(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
         let content = ctx.content;
         if content.is_empty() {
             return Ok(String::new());
@@ -1478,43 +1479,6 @@ impl Rule for MD046CodeBlockStyle {
 
         Ok(self.convert_closed_blocks(ctx)?.content)
     }
-
-    /// Get the category of this rule for selective processing
-    fn category(&self) -> RuleCategory {
-        RuleCategory::CodeBlock
-    }
-
-    fn fix_capability(&self) -> FixCapability {
-        // Tagged fences and conversions that would change CommonMark block
-        // structure are intentionally retained rather than fixed lossily.
-        FixCapability::ConditionallyFixable
-    }
-
-    /// Check if this rule should be skipped
-    fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        // Skip if content is empty or unlikely to contain code blocks
-        // Note: indented code blocks use 4 spaces, can't optimize that easily
-        ctx.content.is_empty() || (!ctx.likely_has_code() && !ctx.has_char('~') && !ctx.content.contains("    "))
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    crate::impl_rule_config_sections!(MD046Config);
-
-    fn from_config(config: &crate::config::Config) -> Box<dyn Rule>
-    where
-        Self: Sized,
-    {
-        let rule_config = crate::rule_config_serde::load_rule_config::<MD046Config>(config);
-        let style_explicit = option_is_explicit(config, "MD046", "style");
-
-        Box::new(Self {
-            config: rule_config,
-            style_explicit,
-        })
-    }
 }
 
 impl MD046CodeBlockStyle {
@@ -1526,18 +1490,21 @@ impl MD046CodeBlockStyle {
         let ambiguity_limit = crate::rules::code_fence_utils::fence_ambiguity_limit(ctx);
         let lines = ctx.raw_lines();
 
-        // Determine target style
-        let is_mkdocs = ctx.flavor == crate::config::MarkdownFlavor::MkDocs;
-
-        let owned = self.build_indent_context(ctx, lines, is_mkdocs);
+        let owned = self.build_indent_context(ctx, lines);
         let ictx = owned.borrow();
 
         let target_style = self.effective_target_style(ctx, || {
-            self.detect_style(ctx, lines, is_mkdocs, &ictx)
-                .unwrap_or(CodeBlockStyle::Fenced)
+            self.detect_style(ctx, lines, &ictx).unwrap_or(CodeBlockStyle::Fenced)
         });
 
-        let block_lines = self.indented_block_lines(lines, is_mkdocs, &ictx, ctx);
+        let block_lines = Self::indented_block_lines(lines, ctx);
+        let mut block_columns = vec![0; lines.len()];
+        for (range, column) in Self::convertible_indented_blocks(ctx) {
+            let end = range.end.min(lines.len());
+            if range.start < end {
+                block_columns[range.start..end].fill(column);
+            }
+        }
         let fenced_separator_lines = if target_style == CodeBlockStyle::Indented {
             Self::fenced_separator_lines(ctx)
         } else {
@@ -1571,9 +1538,10 @@ impl MD046CodeBlockStyle {
             });
 
         // Categorize indented blocks:
-        // - misplaced_fence_lines: complete fenced blocks that were over-indented (safe to dedent)
+        // - misplaced_dedent: complete fenced blocks that were over-indented (safe to dedent)
         // - unsafe_fence_lines: contain fence markers but aren't complete (skip fixing to avoid broken output)
-        let (misplaced_fence_lines, unsafe_fence_lines) = self.categorize_indented_blocks(lines, &block_lines);
+        let (misplaced_dedent, unsafe_fence_lines) =
+            self.categorize_indented_blocks(lines, &block_lines, &block_columns);
 
         let mut result = String::with_capacity(content.len());
         let mut in_fenced_block = false;
@@ -1725,7 +1693,7 @@ impl MD046CodeBlockStyle {
                     result.push_str(line);
                     result.push('\n');
                 }
-            } else if block_lines[i] {
+            } else if block_lines[i].is_some() {
                 // This is an indented code block
 
                 // Respect inline disable comments
@@ -1736,27 +1704,29 @@ impl MD046CodeBlockStyle {
                 }
 
                 // Check if we need to start a new fenced block
-                let prev_line_is_indented = i > 0 && block_lines[i - 1];
+                let prev_line_is_indented = i > 0 && block_lines[i - 1] == block_lines[i];
                 if !prev_line_is_indented {
                     current_block = Some(i);
                 }
                 line_blocks[i] = current_block;
 
                 if target_style == CodeBlockStyle::Fenced {
-                    // Anchor fences at the list-item content baseline when
-                    // converting a list-internal indented block (e.g. column
-                    // 2 for `- `), so the new fenced block stays attached
-                    // to the bullet. Top-level indented blocks have no
-                    // baseline → fences sit at column 0.
-                    let baseline = ictx.list_item_baseline.get(i).copied().flatten().unwrap_or(0);
+                    // Anchor the fences at the content column of the block's
+                    // container (column 2 for code in a `- ` item, 0 at the
+                    // margin), so the fenced block stays where the indented
+                    // one was.
+                    let baseline = block_columns[i];
                     // Per CommonMark, the indented-code prefix is exactly 4
                     // spaces past the surrounding container's content
                     // column. Strip those 4 spaces (not all leading
                     // whitespace) so any internal indentation past that
-                    // point is preserved verbatim in the fenced body. An
-                    // interior blank line carries no content, so it is
-                    // emitted empty rather than as leftover whitespace.
-                    let body = if line.trim().is_empty() {
+                    // point is preserved verbatim in the fenced body. A
+                    // whitespace-only line keeps the whitespace past that
+                    // prefix, which is part of the code; one that ends
+                    // within the prefix carries no code and is emitted empty.
+                    let is_blank = line.trim().is_empty();
+                    let width = calculate_indentation_width_default(line);
+                    let body = if is_blank && width <= baseline + 4 {
                         String::new()
                     } else {
                         Self::strip_indentation_columns(line, 4)
@@ -1764,9 +1734,13 @@ impl MD046CodeBlockStyle {
 
                     // Check if this line is part of a misplaced fenced block
                     // (pre-computed block-level analysis, not per-line)
-                    if misplaced_fence_lines[i] {
-                        // Just remove the indentation - this is a complete misplaced fenced block
-                        result.push_str(line.trim_start());
+                    if let Some(dedent) = misplaced_dedent[i] {
+                        // A complete fence indented into code: move it back to
+                        // its container's content column. A whitespace-only
+                        // line keeps only what lies past that column.
+                        if !is_blank || width.saturating_sub(dedent) > baseline {
+                            result.push_str(&Self::shift_left_columns(line, dedent));
+                        }
                         result.push('\n');
                     } else if unsafe_fence_lines[i] {
                         // This block contains fence markers but isn't a complete fenced block
@@ -1789,11 +1763,11 @@ impl MD046CodeBlockStyle {
                     }
 
                     // Check if this is the end of the indented block
-                    let next_line_is_indented = i < lines.len() - 1 && block_lines[i + 1];
+                    let next_line_is_indented = block_lines.get(i + 1) == Some(&block_lines[i]);
                     // Don't close if this is an unsafe block (kept as-is)
                     if !next_line_is_indented
                         && in_indented_block
-                        && !misplaced_fence_lines[i]
+                        && misplaced_dedent[i].is_none()
                         && !unsafe_fence_lines[i]
                     {
                         result.push_str(&current_block_fence_indent);
@@ -1898,10 +1872,10 @@ impl MD046CodeBlockStyle {
                 edits,
             });
         }
-        Ok(Conversion {
-            content: crate::utils::ensure_consistent_line_endings(content, &result),
-            edits,
-        })
+
+        let content = crate::utils::line_ending::LineEndingPolicy::new(content).apply_owned(result);
+
+        Ok(Conversion { content, edits })
     }
 
     /// Split the converted output into one edit per block it changed.
@@ -1924,6 +1898,8 @@ impl MD046CodeBlockStyle {
         };
 
         let mut edits = Vec::new();
+
+        let endings = crate::utils::line_ending::LineEndingPolicy::new(content);
         let mut i = 0;
         while i < line_count {
             let Some(block) = line_blocks[i] else {
@@ -1943,12 +1919,12 @@ impl MD046CodeBlockStyle {
             if original.replace("\r\n", "\n") == replacement {
                 continue;
             }
+
+            let replacement = endings.apply_to(replacement);
+
             edits.push(BlockEdit {
                 lines: first..=last,
-                fix: Fix::new(
-                    line_start(first)..line_start(i),
-                    crate::utils::ensure_consistent_line_endings(content, replacement),
-                ),
+                fix: Fix::new(line_start(first)..line_start(i), replacement),
             });
         }
         edits
@@ -1982,17 +1958,58 @@ mod tests {
     use super::*;
     use crate::lint_context::LintContext;
 
-    /// Test helper: detect_style with automatic context computation.
-    ///
-    /// The container context (HTML/MDX comments, HTML/JSX blocks,
-    /// mkdocstrings, footnote definitions, blockquotes) is not populated by
-    /// this helper — callers that need to exercise those paths should go
-    /// through the full `rule.check(&ctx)` entry point so the real LineInfo
-    /// is computed from a `LintContext`.
-    ///
-    /// Colon fence exclusion is also not active here: tests that need Azure
-    /// DevOps colon fence skipping must use the full `check` entry point with
-    /// an `AzureDevOps` flavor `LintContext`.
+    #[test]
+    fn prepared_conversion_preserves_native_findings_and_full_fixes() {
+        let sources = [
+            "plain prose\n",
+            "    one\n    two\n",
+            "```\none\n```\n",
+            "```rust\none\n```\n",
+            "~~~\none\n~~~\n\n    two\n",
+            "```rust\nunclosed\n",
+            "- item\n\n      code\n\n  ```\n  nested\n  ```\n",
+            "> ```\n> literal\n> ```\n\n    outside\n",
+            "---\nvalue: |\n    literal\n---\n\n    code\n",
+            "<!-- rumdl-disable MD046 -->\n    first\n<!-- rumdl-enable MD046 -->\n\n    second\n",
+            "<!-- rumdl-disable MD046 -->\n```\nunclosed\n",
+            "<!-- rumdl-configure-file {\"MD046\": {\"style\": \"indented\"}} -->\n```\nx\n```\n",
+            "<!--\n```\nliteral\n-->\n\n    outside\n",
+            "    café\n\t🙂\n",
+        ];
+        let mut prepared_closed = 0;
+        let mut prepared_unclosed = 0;
+        for flavor in crate::format_proof::ALL_FLAVORS {
+            for style in [
+                CodeBlockStyle::Consistent,
+                CodeBlockStyle::Fenced,
+                CodeBlockStyle::Indented,
+            ] {
+                let rule = MD046CodeBlockStyle::new(style);
+                for source in sources {
+                    for ending in ["\n", "\r\n", "\r\n\n"] {
+                        let source = source.replace('\n', ending);
+                        let ctx = LintContext::new(&source, flavor, Some("document.md".into()));
+                        let warnings = rule.check(&ctx).unwrap();
+                        let (actual_warnings, prepared) = rule.check_with_prepared_fix(&ctx).unwrap();
+                        assert_eq!(actual_warnings, warnings, "{flavor:?}/{style:?}/{source:?}");
+                        if let Some(prepared) = prepared {
+                            assert_eq!(prepared, rule.fix(&ctx).unwrap(), "{flavor:?}/{style:?}/{source:?}");
+                            if rule.check_unclosed_code_blocks(&ctx).is_empty() {
+                                prepared_closed += 1;
+                            } else {
+                                prepared_unclosed += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(prepared_closed > 0);
+        assert!(prepared_unclosed > 0);
+    }
+
+    /// Test helper: `detect_style` over `content` parsed as Standard, or as
+    /// MkDocs when `is_mkdocs` is set, with the context `check` builds.
     fn detect_style_from_content(rule: &MD046CodeBlockStyle, content: &str, is_mkdocs: bool) -> Option<CodeBlockStyle> {
         let flavor = if is_mkdocs {
             crate::config::MarkdownFlavor::MkDocs
@@ -2000,33 +2017,8 @@ mod tests {
             crate::config::MarkdownFlavor::Standard
         };
         let ctx = LintContext::new(content, flavor, None);
-        let lines: Vec<&str> = content.lines().collect();
-        let in_list_context = rule.precompute_block_continuation_context(&lines);
-        let in_tab_context = if is_mkdocs {
-            rule.precompute_mkdocs_tab_context(&lines)
-        } else {
-            vec![false; lines.len()]
-        };
-        let in_admonition_context = if is_mkdocs {
-            rule.precompute_mkdocs_admonition_context(&lines)
-        } else {
-            vec![false; lines.len()]
-        };
-        let in_comment_or_html = vec![false; lines.len()];
-        // List baseline is None for every line: this helper preserves the
-        // pre-baseline behavior where any list-context line is conservatively
-        // skipped. Tests that need list-internal indented code blocks
-        // recognized must drive the rule through `check`/`fix` with a real
-        // `LintContext`.
-        let list_item_baseline: Vec<Option<usize>> = vec![None; lines.len()];
-        let ictx = IndentContext {
-            in_list_context: &in_list_context,
-            in_tab_context: &in_tab_context,
-            in_admonition_context: &in_admonition_context,
-            in_comment_or_html: &in_comment_or_html,
-            list_item_baseline: &list_item_baseline,
-        };
-        rule.detect_style(&ctx, &lines, is_mkdocs, &ictx)
+        let lines = ctx.raw_lines();
+        rule.detect_style(&ctx, lines, &rule.build_indent_context(&ctx, lines).borrow())
     }
 
     #[test]
@@ -3406,9 +3398,9 @@ More text."#;
     #[test]
     fn test_consistent_style_indented_blockquote() {
         // Indented content inside a blockquote (`>     foo`) must not be
-        // counted as an indented code block by `detect_style`. The check-side
-        // skip list already excludes `blockquote.is_some()` for indented
-        // warnings, so detection must match to keep `Consistent` stable.
+        // counted as an indented code block by `detect_style`. `check` skips an
+        // indented block that starts after a quote marker, so detection must
+        // match to keep `Consistent` stable.
         let rule = MD046CodeBlockStyle::new(CodeBlockStyle::Consistent);
         let content = "# Heading\n\
                        \n\
